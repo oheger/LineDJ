@@ -1,0 +1,14 @@
+RemoteMediaStore
+================
+
+This is a test project exploring various technologies including
+- Google AppEngine Java
+- GWT
+- Restful Web Services with Jersey
+- OAUTH protocol
+- JAXB
+
+The application deployed to Google AppEngie manages information about a personal
+media library. Entities managed are artists, songs, media, and more. External
+applications - e.g. an MP3 player software - can connect to the application
+and obtain data about media or update the library when new songs are played.
