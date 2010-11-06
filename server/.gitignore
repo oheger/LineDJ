@@ -1,0 +1,9 @@
+./.gwt-tmp
+./.settings
+./test-classes
+./tomcat
+./war/WEB-INF/lib
+./war/WEB-INF/classes
+./war/WEB-INF/appengine-generated
+./war/remotemediastore
+./WEB-INF

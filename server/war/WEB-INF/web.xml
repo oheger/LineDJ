@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+  <!-- Servlets -->
+  <servlet>
+    <servlet-name>mediaSearchServlet</servlet-name>
+    <servlet-class>de.oliver_heger.mediastore.server.search.MediaSearchServiceImpl</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>loginServlet</servlet-name>
+    <servlet-class>de.oliver_heger.mediastore.server.LoginServiceImpl</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>Jersey Web Application</servlet-name>
+    <servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
+      <init-param>
+        <param-name>com.sun.jersey.config.property.packages</param-name>
+        <param-value>de.oliver_heger.mediastore.server.resources</param-value>
+      </init-param>
+      <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>mediaSearchServlet</servlet-name>
+    <url-pattern>/remotemediastore/mediasearch</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>loginServlet</servlet-name>
+    <url-pattern>/remotemediastore/login</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>Jersey Web Application</servlet-name>
+    <url-pattern>/resources/*</url-pattern>
+  </servlet-mapping>
+
+  <!-- Default page to serve -->
+  <welcome-file-list>
+    <welcome-file>RemoteMediaStore.html</welcome-file>
+  </welcome-file-list>
+
+</web-app>
