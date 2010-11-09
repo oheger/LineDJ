@@ -64,7 +64,8 @@
           </execution>
         </executions>
         <configuration>
-          <generatePackage>hello</generatePackage>
+          <generatePackage>de.oliver_heger.mediastore.service</generatePackage>
+          <extension>true</extension>
         </configuration>
       </plugin>
     </plugins>
