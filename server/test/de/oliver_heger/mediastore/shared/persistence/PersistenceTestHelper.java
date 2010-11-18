@@ -5,6 +5,7 @@ package de.oliver_heger.mediastore.shared.persistence;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityTransaction;
 
+import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalServiceTestConfig;
 import com.google.appengine.tools.development.testing.LocalServiceTestHelper;
 
@@ -23,6 +24,9 @@ import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
  */
 public class PersistenceTestHelper extends RemoteMediaStoreTestHelper
 {
+    /** Constant for the authorization domain. */
+    public static final String AUTH_DOMAIN = "www.testauthdomain.com";
+
     /** A test user ID. */
     public static final String USER = "testUser";
 
@@ -56,7 +60,7 @@ public class PersistenceTestHelper extends RemoteMediaStoreTestHelper
     {
         helper.setEnvIsLoggedIn(true);
         helper.setEnvEmail(USER);
-        helper.setEnvAuthDomain("www.testauthdomain.com");
+        helper.setEnvAuthDomain(AUTH_DOMAIN);
         helper.setUp();
     }
 
@@ -162,5 +166,26 @@ public class PersistenceTestHelper extends RemoteMediaStoreTestHelper
     public void persist(Object obj)
     {
         persist(obj, true);
+    }
+
+    /**
+     * Returns the test user instance.
+     *
+     * @return the test user
+     */
+    public static User getTestUser()
+    {
+        return getUser(USER);
+    }
+
+    /**
+     * Returns a user instance with the specified user ID.
+     *
+     * @param uid the user ID
+     * @return the user instance with this ID
+     */
+    public static User getUser(String uid)
+    {
+        return new User(uid, AUTH_DOMAIN);
     }
 }

@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.shared;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -8,6 +9,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A helper class defining some utility methods for testing basic functionality
@@ -18,6 +22,9 @@ import java.io.ObjectOutputStream;
  */
 public class RemoteMediaStoreTestHelper
 {
+    /** Constant for the default range for current date checks. */
+    private static final long CURRENT_DATE_RANGE = 2000;
+
     /**
      * A helper method for checking equals() and hashCode().
      *
@@ -47,6 +54,32 @@ public class RemoteMediaStoreTestHelper
     {
         checkEquals(obj, null, false);
         checkEquals(obj, RemoteMediaStoreTestHelper.class, false);
+    }
+
+    /**
+     * Compares two dates and checks whether the difference lies in the
+     * specified range.
+     *
+     * @param expected the expected date
+     * @param actual the actual date
+     * @param range the range in milliseconds
+     */
+    public static void checkDate(Date expected, Date actual, long range)
+    {
+        long delta = Math.abs(expected.getTime() - actual.getTime());
+        assertTrue("Date difference too big: " + delta, delta <= range);
+    }
+
+    /**
+     * Tests whether the specified date lies in a certain interval around the
+     * current date. This method can be used to check whether a date was
+     * correctly set to the current date.
+     *
+     * @param dt the date to be checked
+     */
+    public static void checkCurrentDate(Date dt)
+    {
+        checkDate(new Date(), dt, CURRENT_DATE_RANGE);
     }
 
     /**
@@ -98,4 +131,26 @@ public class RemoteMediaStoreTestHelper
         assertEquals("Serialized object not equals", obj, obj2);
     }
 
+    /**
+     * Helper method for testing a typical string representation of an object.
+     * This method obtains the string representation for the object passed in.
+     * It checks whether it looks as follows:
+     * {@code <SimpleClassName>@xxxx[ <expectedAttributes> ]}.
+     *
+     * @param obj the object to be checked
+     * @param expectedAttributes a string for the expected attributes of the
+     *        object
+     */
+    public static void checkToString(Object obj, String expectedAttributes)
+    {
+        StringBuilder regex = new StringBuilder();
+        regex.append(obj.getClass().getSimpleName());
+        regex.append('@');
+        regex.append("[0-9]+");
+        regex.append(Pattern.quote("[ " + expectedAttributes + " ]"));
+        Pattern expr = Pattern.compile(regex.toString());
+        String s = obj.toString();
+        Matcher m = expr.matcher(s);
+        assertTrue("Invalid string representation: " + s, m.matches());
+    }
 }
