@@ -82,7 +82,7 @@ public abstract class AbstractSynonym implements Serializable
     public void setName(String name)
     {
         this.name = name;
-        searchName = ObjectUtils.generateSearchString(name);
+        searchName = EntityUtils.generateSearchString(name);
     }
 
     /**

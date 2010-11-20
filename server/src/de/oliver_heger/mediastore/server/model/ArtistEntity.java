@@ -369,7 +369,7 @@ public class ArtistEntity implements Serializable
                 em.createNamedQuery(queryName)
                         .setParameter(PARAM_USER, user)
                         .setParameter(PARAM_NAME,
-                                ObjectUtils.generateSearchString(name))
+                                EntityUtils.generateSearchString(name))
                         .getResultList();
         if (results.isEmpty())
         {
@@ -390,6 +390,6 @@ public class ArtistEntity implements Serializable
      */
     private void updateSearchName()
     {
-        searchName = ObjectUtils.generateSearchString(name);
+        searchName = EntityUtils.generateSearchString(name);
     }
 }
