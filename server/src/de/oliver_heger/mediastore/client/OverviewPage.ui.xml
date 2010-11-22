@@ -1,0 +1,20 @@
+<!-- 
+  UIBinder script for the overview page of the RemoteMediaStore application.
+-->
+<ui:UiBinder xmlns:ui='urn:ui:com.google.gwt.uibinder'
+  xmlns:g='urn:import:com.google.gwt.user.client.ui'
+  xmlns:rms='urn:import:de.oliver_heger.mediastore.client'>
+
+  <g:HTMLPanel>
+    <g:TabLayoutPanel ui:field="tabPanel" barHeight="20">
+      <g:tab>
+        <g:header>Artists</g:header>
+        <rms:OverviewTable ui:field="tabArtists"/>
+      </g:tab>
+      <g:tab>
+        <g:header>Songs</g:header>
+        <rms:OverviewTable ui:field="tabSongs"/>
+      </g:tab>
+    </g:TabLayoutPanel>
+  </g:HTMLPanel>
+</ui:UiBinder>
