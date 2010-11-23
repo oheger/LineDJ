@@ -67,6 +67,15 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
     }
 
     /**
+     * Initializes this component.
+     */
+    public void initialize()
+    {
+        initQueryHandlers();
+        ensureOverviewTableInitialized(tabPanel.getSelectedIndex());
+    }
+
+    /**
      * Creates the handler for artist queries. This method is called when the
      * map with the query handlers is initialized.
      * @return the query handler for artists

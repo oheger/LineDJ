@@ -8,31 +8,34 @@
   <ui:with field='images'
     type='de.oliver_heger.mediastore.client.ImageResources'/>
 
-  <g:HTMLPanel>
-    <div>
-      <table spacing="5">
-      <tr>
-        <td>Search:</td>
-        <td><g:TextBox ui:field="txtSearch"></g:TextBox></td>
-        <td><g:Button ui:field="btnSearch" text="Find"></g:Button></td>
-      </tr>
-      </table>
-    </div>
-
-    <div>
-      <g:VerticalPanel>
-        <g:HorizontalPanel ui:field="pnlSearchProgress">
-          <g:Image resource='{images.progressIndicator}'/> 
-          <g:Label>Query is being executed...</g:Label>
-        </g:HorizontalPanel>      
-        <g:FlexTable ui:field="table"/>
-        <g:Label ui:field="labResultCount"/>
-        <g:DisclosurePanel ui:field="pnlError" visible="false">
-          <g:header>Error when retrieving data!</g:header>
-          <g:Label/>
-        </g:DisclosurePanel>
-      </g:VerticalPanel>
-    </div>
-  </g:HTMLPanel>
+  <g:DockLayoutPanel unit="CM">
+    <g:north size="1.3">
+      <g:HTMLPanel>
+        <table spacing="5">
+        <tr>
+          <td>Search:</td>
+          <td><g:TextBox ui:field="txtSearch"></g:TextBox></td>
+          <td><g:Button ui:field="btnSearch" text="Find"></g:Button></td>
+        </tr>
+        </table>
+      </g:HTMLPanel>
+    </g:north>
+    <g:center>
+      <g:ScrollPanel>
+        <g:VerticalPanel>
+          <g:HorizontalPanel ui:field="pnlSearchProgress">
+            <g:Image resource='{images.progressIndicator}'/> 
+            <g:Label>Query is being executed...</g:Label>
+          </g:HorizontalPanel>      
+          <g:FlexTable ui:field="table"/>
+          <g:Label ui:field="labResultCount"/>
+          <g:DisclosurePanel ui:field="pnlError" visible="false">
+            <g:header>Error when retrieving data!</g:header>
+            <g:Label/>
+          </g:DisclosurePanel>
+        </g:VerticalPanel>
+      </g:ScrollPanel>
+    </g:center>
+  </g:DockLayoutPanel>
 
 </ui:UiBinder>

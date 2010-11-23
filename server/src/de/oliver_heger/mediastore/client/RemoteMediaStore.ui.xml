@@ -16,40 +16,23 @@
     </div>
   </g:HTMLPanel>
 
-  <g:HTMLPanel ui:field="pnlApp">
-    <table cellpadding="0" cellspacing="0" style="width: 100%;height: 100%;">
-
-      <!-- header row -->
-      <tr style="height: 25%;">
-        <td>
-        <div align="center">
-        <h1>Remote Media Store</h1>
-        </div>
-        <div align="right">
-        Welcome, <span ui:field="spanUserName"/>.
-        <g:Anchor ui:field="linkLogout">(Sign out)</g:Anchor>
-        <g:Button ui:field="btnTestData">Create test data</g:Button>
-        </div>
-        </td>
-      </tr>
-
-      <!-- The main content -->
-      <tr style="height: 75%;">
-        <td>
-        <g:TabLayoutPanel ui:field="tabPanel" barHeight="20">
-          <g:tab>
-            <g:header>Artists</g:header>
-            <rms:OverviewTable ui:field="tabArtists"/>
-          </g:tab>
-          <g:tab>
-            <g:header>Songs</g:header>
-            <rms:OverviewTable ui:field="tabSongs"/>
-          </g:tab>
-        </g:TabLayoutPanel>
-        </td>
-      </tr>
-    </table>
-  </g:HTMLPanel>
+  <g:DockLayoutPanel ui:field="pnlApp" unit="CM">
+  <g:north size="5">
+    <g:HTMLPanel ui:field="pnlHeader">
+    <div align="center">
+    <h1>Remote Media Store</h1>
+    </div>
+    <div align="right">
+    Welcome, <span ui:field="spanUserName"/>.
+    <g:Anchor ui:field="linkLogout">(Sign out)</g:Anchor>
+    <g:Button ui:field="btnTestData">Create test data</g:Button>
+    </div>
+    </g:HTMLPanel>
+  </g:north>
+  <g:center>
+        <rms:OverviewPage ui:field="overviewPage"></rms:OverviewPage>
+  </g:center>
+  </g:DockLayoutPanel>
 
 </g:HTMLPanel>
 </ui:UiBinder>
