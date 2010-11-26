@@ -27,6 +27,7 @@ public enum Pages
         public Widget createPageWidget(PageManager pm)
         {
             OverviewPage page = new OverviewPage();
+            page.initialize(pm);
             return page;
         }
     };

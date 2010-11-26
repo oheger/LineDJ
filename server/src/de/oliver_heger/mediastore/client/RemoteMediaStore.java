@@ -23,14 +23,13 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 
 /**
- * Entry point classes define <code>onModuleLoad()</code>.
+ * This is the main entry point into the <em>Remote Media Store</em>
+ * application.
  */
 public class RemoteMediaStore implements EntryPoint
 {
-    /** The specialized binder interface. */
-    interface MyUiBinder extends UiBinder<Widget, RemoteMediaStore>
-    {
-    }
+    /** Constant for the size of the header component. */
+    private final double HEADER_SIZE = 5;
 
     /** The static instance of the binder. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);
@@ -59,16 +58,12 @@ public class RemoteMediaStore implements EntryPoint
     @UiField
     SpanElement spanUserName;
 
-    /** The tab panel.
-    @UiField
-    HTMLPanel panelMainContent;*/
-
-    @UiField
-    OverviewPage overviewPage;
-
     /** The button for creating test data. */
     @UiField
     Button btnTestData;
+
+    /** The page manager. */
+    private PageManager pageManager;
 
     /**
      * This is the entry point method.
@@ -98,8 +93,10 @@ public class RemoteMediaStore implements EntryPoint
                         {
                             spanUserName.setInnerText(result.getUserName());
                             linkLogout.setHref(result.getLogoutUrl());
-                            overviewPage.initialize();
                             ui = pnlApp;
+
+                            pageManager = createPageManager();
+                            initStartPage(pageManager);
                         }
                         else
                         {
@@ -151,5 +148,33 @@ public class RemoteMediaStore implements EntryPoint
                 btnTestData.setEnabled(true);
             }
         });
+    }
+
+    /**
+     * Creates the page manager.
+     *
+     * @return the page manager
+     */
+    private PageManager createPageManager()
+    {
+        PageManager pm = new PageManager(pnlApp);
+        pm.initTemplatePart(PageManager.LayoutPart.NORTH, pnlHeader,
+                HEADER_SIZE);
+        return pm;
+    }
+
+    /**
+     * Initializes the start page of this application.
+     *
+     * @param pm the page manager
+     */
+    private void initStartPage(PageManager pm)
+    {
+        pm.showPage(Pages.OVERVIEW);
+    }
+
+    /** The specialized binder interface. */
+    interface MyUiBinder extends UiBinder<Widget, RemoteMediaStore>
+    {
     }
 }

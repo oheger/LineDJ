@@ -1,8 +1,10 @@
 package de.oliver_heger.mediastore.client;
 
+import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.logical.shared.SelectionEvent;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.user.client.ui.DockLayoutPanel;
 
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
@@ -32,6 +34,20 @@ public class TestOverviewPage extends GWTTestCase
         assertNotNull("No tab panel", page.tabPanel);
         assertNotNull("No artist table", page.tabArtists);
         assertNotNull("No songs table", page.tabSongs);
+    }
+
+    /**
+     * Tests whether initialization of the component works as expected.
+     */
+    public void testInitialize()
+    {
+        OverviewPage page = new OverviewPage();
+        PageManager pm = new PageManager(new DockLayoutPanel(Unit.CM));
+        page.initialize(pm);
+        assertSame("Page manager not set", pm, page.getPageManager());
+        AbstractOverviewQueryHandler<?> handler =
+            page.fetchQueryHandler(page.tabArtists);
+        assertNotNull("Handlers not initialized", handler);
     }
 
     /**

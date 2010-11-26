@@ -63,7 +63,8 @@ public class TestPageManager extends GWTTestCase
     {
         PageManager pm = new PageManager(new DockLayoutPanelTestImpl());
         Widget w = pm.getPage(Pages.OVERVIEW);
-        assertTrue("Wrong page: " + w, w instanceof OverviewPage);
+        OverviewPage page = (OverviewPage) w;
+        assertSame("Page manager not set", pm, page.getPageManager());
     }
 
     /**

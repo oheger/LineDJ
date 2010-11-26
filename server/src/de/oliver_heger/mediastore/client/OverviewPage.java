@@ -16,14 +16,19 @@ import com.google.gwt.user.client.ui.Widget;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
- * <p>A specialized component representing the main overview page.</p>
- * <p>This page mainly consists of a tab panel. The different tabs contain overview
- * tables for the different media types.</p>
+ * <p>
+ * A specialized component representing the main overview page.
+ * </p>
+ * <p>
+ * This page mainly consists of a tab panel. The different tabs contain overview
+ * tables for the different media types.
+ * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public class OverviewPage extends Composite implements OverviewTable.SearchListener
+public class OverviewPage extends Composite implements
+        OverviewTable.SearchListener
 {
     /** The binder used for building this component. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);
@@ -43,8 +48,10 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
     /** A map with handlers for processing search queries. */
     private Map<OverviewTable, OverviewData> overviewTables;
 
+    /** Holds a reference to the page manager.*/
+    private PageManager pageManager;
+
     /**
-     *
      * Creates a new instance of {@code OverviewPage}.
      */
     public OverviewPage()
@@ -53,9 +60,20 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
     }
 
     /**
+     * Returns a reference to the {@link PageManager}. Using this component it is
+     * possible to navigate to other pages.
+     * @return the page manager
+     */
+    public PageManager getPageManager()
+    {
+        return pageManager;
+    }
+
+    /**
      * Handles a search request. This method is called when the user enters a
-     * search text in one of the overview tables and hits the search button.
-     * It delegates to the query handler associated with the overview table.
+     * search text in one of the overview tables and hits the search button. It
+     * delegates to the query handler associated with the overview table.
+     *
      * @param source the overview table which is the source of the request
      * @param params the search parameters
      */
@@ -68,9 +86,11 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
 
     /**
      * Initializes this component.
+     * @param pm a reference to the page manager
      */
-    public void initialize()
+    public void initialize(PageManager pm)
     {
+        pageManager = pm;
         initQueryHandlers();
         ensureOverviewTableInitialized(tabPanel.getSelectedIndex());
     }
@@ -78,6 +98,7 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
     /**
      * Creates the handler for artist queries. This method is called when the
      * map with the query handlers is initialized.
+     *
      * @return the query handler for artists
      */
     protected AbstractOverviewQueryHandler<?> createArtistQueryHandler()
@@ -92,7 +113,8 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
     void initQueryHandlers()
     {
         overviewTables = new HashMap<OverviewTable, OverviewData>();
-        overviewTables.put(tabArtists, new OverviewData(createArtistQueryHandler()));
+        overviewTables.put(tabArtists, new OverviewData(
+                createArtistQueryHandler()));
         tabArtists.setSearchListener(this);
         // TODO add further handlers
     }
@@ -101,6 +123,7 @@ public class OverviewPage extends Composite implements OverviewTable.SearchListe
      * Returns the query handler for the specified overview table. The query
      * handlers are initialized when an instance is created. They are then used
      * to process search queries.
+     *
      * @param table the overview table in question
      * @return the query handler for this overview table
      */
