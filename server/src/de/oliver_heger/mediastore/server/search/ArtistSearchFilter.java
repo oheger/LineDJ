@@ -3,7 +3,7 @@ package de.oliver_heger.mediastore.server.search;
 import java.io.Serializable;
 import java.util.Locale;
 
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.server.model.ArtistEntity;
 
 /**
  * <p>
@@ -16,7 +16,7 @@ import de.oliver_heger.mediastore.shared.model.Artist;
  * @author Oliver Heger
  * @version $Id: $
  */
-class ArtistSearchFilter implements SearchFilter<Artist, Artist>
+class ArtistSearchFilter implements SearchFilter<ArtistEntity>
 {
     /** The text to be searched for. */
     private final String searchText;
@@ -48,12 +48,14 @@ class ArtistSearchFilter implements SearchFilter<Artist, Artist>
      * the case if the artist's name contains the search text.
      *
      * @param e the artist to check
-     * @return the same artist if it is a match, <b>null</b> otherwise
+     * @return a flag whether the artist matches the search criteria
      */
     @Override
-    public Artist accepts(Artist e)
+    public boolean accepts(ArtistEntity e)
     {
-        return matches(e) ? e : null;
+        return e.getName() != null
+                && e.getName().toUpperCase(Locale.ENGLISH)
+                        .indexOf(getSearchText()) >= 0;
     }
 
     /**
@@ -64,21 +66,8 @@ class ArtistSearchFilter implements SearchFilter<Artist, Artist>
      * @return the search key for this artist
      */
     @Override
-    public Serializable extractSearchKey(Artist e)
+    public Serializable extractSearchKey(ArtistEntity e)
     {
         return e.getName();
-    }
-
-    /**
-     * Tests whether the artist matches the search criteria.
-     *
-     * @param a the artist to be checked
-     * @return a flag whether this is a match
-     */
-    boolean matches(Artist a)
-    {
-        return a.getName() != null
-                && a.getName().toUpperCase(Locale.ENGLISH)
-                        .indexOf(getSearchText()) >= 0;
     }
 }

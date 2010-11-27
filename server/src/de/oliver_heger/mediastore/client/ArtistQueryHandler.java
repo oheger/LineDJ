@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -22,7 +22,7 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  * @author Oliver Heger
  * @version $Id: $
  */
-class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
+class ArtistQueryHandler extends AbstractOverviewQueryHandler<ArtistInfo>
 {
     /** An array with the columns of the artist overview table. */
     private static final String[] COLUMNS = {
@@ -46,7 +46,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
      * @return a tabular result object
      */
     @Override
-    protected ResultData createResult(SearchResult<Artist> result)
+    protected ResultData createResult(SearchResult<ArtistInfo> result)
     {
         return new ArtistResultData(result.getResults());
     }
@@ -63,7 +63,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
     @Override
     protected void callService(MediaSearchServiceAsync service,
             MediaSearchParameters searchParams, SearchIterator searchIterator,
-            AsyncCallback<SearchResult<Artist>> callback)
+            AsyncCallback<SearchResult<ArtistInfo>> callback)
     {
         service.searchArtists(searchParams, searchIterator, callback);
     }
@@ -71,7 +71,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
     /**
      * A specialized result handler for artists.
      */
-    private static class ArtistResultData extends AbstractResultData<Artist>
+    private static class ArtistResultData extends AbstractResultData<ArtistInfo>
     {
         /**
          * Standard constructor. Needed for serialization.
@@ -87,7 +87,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
          *
          * @param data the list with the result data
          */
-        public ArtistResultData(List<Artist> data)
+        public ArtistResultData(List<ArtistInfo> data)
         {
             super(COLUMNS, data);
         }
@@ -100,7 +100,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<Artist>
          * @return the corresponding property
          */
         @Override
-        protected Object getPropertyForColumn(Artist data, int col)
+        protected Object getPropertyForColumn(ArtistInfo data, int col)
         {
             return data.getName();
         }

@@ -4,8 +4,10 @@ import java.util.List;
 
 import javax.persistence.EntityManager;
 
+import com.google.appengine.api.users.User;
+
 import de.oliver_heger.mediastore.server.db.JPATemplate;
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.server.model.ArtistEntity;
 
 /**
  * A class for creating test data. This class is used temporarily to populate
@@ -35,32 +37,31 @@ class DummyDataCreator
     private static final String PARAM_NAME = "name";
 
     /** Constant for a query for searching for an artist. */
-    private static final String QUERY_ARTIST = "select a from Artist a "
-            + "where a.name = :" + PARAM_NAME + " and a.userID = :"
-            + PARAM_USER;
+    private static final String QUERY_ARTIST = "select a from ArtistEntity a "
+            + "where a.name = :" + PARAM_NAME + " and a.user = :" + PARAM_USER;
 
-    /** The ID of the current user. */
-    private final String userID;
+    /** The current user. */
+    private final User user;
 
     /**
-     * Creates a new instance of {@code DummyDataCreator} and sets the ID of the
-     * current user.
+     * Creates a new instance of {@code DummyDataCreator} and sets the current
+     * user.
      *
-     * @param uid the user ID
+     * @param usr the user
      */
-    public DummyDataCreator(String uid)
+    public DummyDataCreator(User usr)
     {
-        userID = uid;
+        user = usr;
     }
 
     /**
-     * Returns the ID of the current user.
+     * Returns the current user.
      *
-     * @return the user ID
+     * @return the user
      */
-    public String getUserID()
+    public User getUser()
     {
-        return userID;
+        return user;
     }
 
     /**
@@ -83,12 +84,12 @@ class DummyDataCreator
      * @return the corresponding Artist object or <b>null</b> if it cannot be
      *         resolved
      */
-    private Artist findArtist(EntityManager em, String name)
+    private ArtistEntity findArtist(EntityManager em, String name)
     {
         @SuppressWarnings("unchecked")
-        List<Artist> list =
+        List<ArtistEntity> list =
                 em.createQuery(QUERY_ARTIST)
-                        .setParameter(PARAM_USER, getUserID())
+                        .setParameter(PARAM_USER, getUser())
                         .setParameter(PARAM_NAME, name).getResultList();
         return list.isEmpty() ? null : list.get(0);
     }
@@ -110,9 +111,9 @@ class DummyDataCreator
                 if (findArtist(em, name) == null)
                 {
                     LOG.info("Creating Artist instance for " + name);
-                    Artist art = new Artist();
+                    ArtistEntity art = new ArtistEntity();
                     art.setName(name);
-                    art.setUserID(getUserID());
+                    art.setUser(getUser());
                     em.persist(art);
                 }
                 return null;

@@ -18,9 +18,11 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -85,17 +87,19 @@ public class TestMediaSearchServiceImpl
         Collections.shuffle(artistNames);
         for (String name : artistNames)
         {
-            Artist art = new Artist();
+            ArtistEntity art = new ArtistEntity();
             art.setName(name);
-            art.setUserID(PersistenceTestHelper.USER);
+            art.setUser(PersistenceTestHelper.getTestUser());
             helper.persist(art);
         }
         // create some artists for a different user
+        User usrOther =
+                PersistenceTestHelper.getUser(PersistenceTestHelper.OTHER_USER);
         for (int i = 0; i < TEST_OBJ_COUNT; i++)
         {
-            Artist art = new Artist();
+            ArtistEntity art = new ArtistEntity();
             art.setName("Artist_" + PersistenceTestHelper.OTHER_USER + i);
-            art.setUserID(PersistenceTestHelper.OTHER_USER);
+            art.setUser(usrOther);
             helper.persist(art);
         }
         helper.closeEM();
@@ -108,12 +112,13 @@ public class TestMediaSearchServiceImpl
      * @param start the start index
      * @param length the expected length (-1 for all)
      */
-    private void checkArtistResult(List<Artist> artists, int start, int length)
+    private void checkArtistResult(List<? extends ArtistInfo> artists,
+            int start, int length)
     {
         int size = (length < 0) ? ARTIST_NAMES.length - start : length;
         assertEquals("Wrong number of results", size, artists.size());
         int idx = start;
-        for (Artist art : artists)
+        for (ArtistInfo art : artists)
         {
             assertEquals("Wrong artist", ARTIST_NAMES[idx], art.getName());
             idx++;
@@ -127,8 +132,8 @@ public class TestMediaSearchServiceImpl
      * @param start the start index
      * @param length the expected length (-1 for all)
      */
-    private void checkArtistResult(SearchResult<Artist> result, int start,
-            int length)
+    private void checkArtistResult(SearchResult<? extends ArtistInfo> result,
+            int start, int length)
     {
         checkArtistResult(result.getResults(), start, length);
         SearchIterator sit = result.getSearchIterator();
@@ -144,12 +149,12 @@ public class TestMediaSearchServiceImpl
      * @param artists the list with the artists found
      * @param expNames the expected names
      */
-    private void checkFoundArtists(List<Artist> artists, String... expNames)
+    private void checkFoundArtists(List<ArtistInfo> artists, String... expNames)
     {
         assertEquals("Wrong number of artists: " + artists, expNames.length,
                 artists.size());
         Set<String> names = new HashSet<String>();
-        for (Artist art : artists)
+        for (ArtistInfo art : artists)
         {
             names.add(art.getName());
         }
@@ -186,7 +191,7 @@ public class TestMediaSearchServiceImpl
     {
         createArtists();
         MediaSearchParameters params = new MediaSearchParameters();
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         checkArtistResult(result, 0, -1);
         assertSame("Wrong parameters", params, result.getSearchParameters());
         SearchIterator sit = result.getSearchIterator();
@@ -206,7 +211,7 @@ public class TestMediaSearchServiceImpl
         createArtists();
         SearchIteratorImpl sit = new SearchIteratorImpl();
         sit.setSearchKey(10);
-        SearchResult<Artist> result =
+        SearchResult<ArtistInfo> result =
                 service.searchArtists(new MediaSearchParameters(), sit);
         checkArtistResult(result, 0, -1);
     }
@@ -221,7 +226,7 @@ public class TestMediaSearchServiceImpl
         createArtists();
         MediaSearchParameters params = new MediaSearchParameters();
         params.setFirstResult(startPos);
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         checkArtistResult(result, startPos, -1);
         SearchIterator sit = result.getSearchIterator();
         assertFalse("Got more results", sit.hasNext());
@@ -243,7 +248,7 @@ public class TestMediaSearchServiceImpl
         MediaSearchParameters params = new MediaSearchParameters();
         params.setFirstResult(startPos);
         params.setMaxResults(pageSize);
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         checkArtistResult(result, startPos, pageSize);
         SearchIterator sit = result.getSearchIterator();
         assertFalse("Got more results", sit.hasNext());
@@ -265,7 +270,7 @@ public class TestMediaSearchServiceImpl
     public void testSearchArtistsAllNoData()
     {
         MediaSearchParameters params = new MediaSearchParameters();
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         assertTrue("Got results", result.getResults().isEmpty());
         assertEquals("Wrong total size", 0, result.getSearchIterator()
                 .getRecordCount());
@@ -320,11 +325,11 @@ public class TestMediaSearchServiceImpl
     {
         createArtists();
         service.setChunkSize(CHUNK_SIZE);
-        List<Artist> foundArtists = new ArrayList<Artist>();
+        List<ArtistInfo> foundArtists = new ArrayList<ArtistInfo>();
         MediaSearchParameters params = new MediaSearchParameters();
         params.setSearchText("van");
         params.setClientParameter(PARAM);
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         int idx = 0;
         boolean moreResults = true;
         do
@@ -363,7 +368,7 @@ public class TestMediaSearchServiceImpl
         MediaSearchParameters params = new MediaSearchParameters();
         params.setSearchText("van");
         params.setMaxResults(limit);
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         assertTrue("No more records to search", result.getSearchIterator()
                 .hasNext());
         assertEquals("Limit not taken into account", limit, result.getResults()
@@ -383,7 +388,7 @@ public class TestMediaSearchServiceImpl
         SearchIterator it = null;
         while (it == null || it.hasNext())
         {
-            SearchResult<Artist> result = service.searchArtists(params, it);
+            SearchResult<ArtistInfo> result = service.searchArtists(params, it);
             assertTrue("Got results", result.getResults().isEmpty());
             it = result.getSearchIterator();
         }
@@ -397,7 +402,7 @@ public class TestMediaSearchServiceImpl
     {
         MediaSearchParameters params = new MediaSearchParameters();
         params.setSearchText("Van");
-        SearchResult<Artist> result = service.searchArtists(params, null);
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         assertTrue("Got results", result.getResults().isEmpty());
         assertFalse("More chunks", result.getSearchIterator().hasNext());
     }

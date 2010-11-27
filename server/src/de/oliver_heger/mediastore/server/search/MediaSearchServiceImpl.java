@@ -1,5 +1,7 @@
 package de.oliver_heger.mediastore.server.search;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,7 +15,8 @@ import com.google.appengine.api.users.UserServiceFactory;
 import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 
 import de.oliver_heger.mediastore.server.db.JPATemplate;
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -74,15 +77,15 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     private static final String SELECT_PREFIX = SELECT_ENTITY + " from ";
 
     /** Constant for the WHERE part of the query with the user ID constraint. */
-    private static final String WHERE_USER = " e where e.userID = :"
+    private static final String WHERE_USER = " e where e.user = :"
             + PARAM_USRID;
 
     /** Constant for the ORDER BY clause. */
     private static final String ORDER_BY = " order by e.";
 
     /** Constant for the prefix of the query for artists. */
-    private static final String QUERY_ARTISTS_PREFIX = SELECT_PREFIX + "Artist"
-            + WHERE_USER;
+    private static final String QUERY_ARTISTS_PREFIX = SELECT_PREFIX
+            + "ArtistEntity" + WHERE_USER;
 
     /** Constant for the order part of an artist query. */
     private static final String ARTIST_ORDER = ORDER_BY + "name";
@@ -132,18 +135,20 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
      * @param iterator the search iterator
      */
     @Override
-    public SearchResult<Artist> searchArtists(MediaSearchParameters params,
+    public SearchResult<ArtistInfo> searchArtists(MediaSearchParameters params,
             SearchIterator iterator)
     {
         if (params.getSearchText() == null)
         {
             SearchIteratorImpl sit = new SearchIteratorImpl();
-            List<Artist> artists =
-                    executeFullSearch(params, QUERY_ARTISTS_ALL, sit);
-            return new SearchResultImpl<Artist>(artists, sit, params);
+            List<ArtistEntity> artists =
+                    executeFullSearch(params, sit, QUERY_ARTISTS_ALL);
+            return new SearchResultImpl<ArtistInfo>(convertResults(artists,
+                    createArtistSearchConverter()), sit, params);
         }
         return executeChunkSearch(params, iterator,
-                createArtistSearchFilter(params), QUERY_ARTISTS_SEARCH);
+                createArtistSearchFilter(params),
+                createArtistSearchConverter(), QUERY_ARTISTS_SEARCH);
     }
 
     /**
@@ -153,7 +158,7 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     @Override
     public void createTestData()
     {
-        new DummyDataCreator(getCurrentUserID()).createTestData();
+        new DummyDataCreator(getCurrentUser()).createTestData();
     }
 
     /**
@@ -227,13 +232,23 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     }
 
     /**
-     * Returns the ID of the currently logged in user. This Id is needed as
-     * parameter for many queries.
+     * Returns a converter to be used for converting artist result objects.
      *
-     * @return the ID of the current user
+     * @return the converter for artists
+     */
+    ArtistSearchConverter createArtistSearchConverter()
+    {
+        return ArtistSearchConverter.INSTANCE;
+    }
+
+    /**
+     * Returns the currently logged in user. This is needed as parameter for
+     * many queries.
+     *
+     * @return the current user
      * @throws IllegalStateException if no user is logged in
      */
-    private String getCurrentUserID()
+    private User getCurrentUser()
     {
         UserService userService = UserServiceFactory.getUserService();
         User user = userService.getCurrentUser();
@@ -242,25 +257,7 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
             throw new IllegalStateException("No user is logged in!");
         }
 
-        return fetchUserID(user);
-    }
-
-    /**
-     * Helper method for obtaining the ID of the specified. If no ID is
-     * available, the user's mail address is returned. This is mainly needed for
-     * testing purposes where no user ID seems to be available.
-     *
-     * @param user the user
-     * @return the ID of this user to use
-     */
-    private String fetchUserID(User user)
-    {
-        String uid = user.getUserId();
-        if (uid == null)
-        {
-            uid = user.getEmail();
-        }
-        return uid;
+        return user;
     }
 
     /**
@@ -275,7 +272,7 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     private Query prepareUserQuery(EntityManager em, String queryStr)
     {
         return em.createQuery(queryStr).setParameter(PARAM_USRID,
-                getCurrentUserID());
+                getCurrentUser());
     }
 
     /**
@@ -320,13 +317,14 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
      * and one for retrieving the result objects. The latter are returned as a
      * list. The passed in search iterator is initialized correspondingly.
      *
+     * @param <D> the type of entity objects processed by this method
      * @param params the parameters object with search parameters
      * @param queryStr the query string to be executed
      * @param sit the search iterator to be initialized
      * @return the list with the results
      */
     private <D> List<D> executeFullSearch(final MediaSearchParameters params,
-            final String queryStr, final SearchIteratorImpl sit)
+            final SearchIteratorImpl sit, final String queryStr)
     {
         JPATemplate<List<D>> template = new JPATemplate<List<D>>()
         {
@@ -369,21 +367,50 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     }
 
     /**
+     * Converts the specified list with entities to a list with data object to
+     * be passed to the client. This method is called if entity objects of a
+     * certain type are not be passed to the client, but a corresponding data
+     * object type is to be used. The passed in converter object is called for
+     * each entity contained in the source collection; the resulting data object
+     * is added to the list with the results.
+     *
+     * @param <E> the type of entity objects to be processed
+     * @param <D> the type of data objects to be returned
+     * @param src the list with the source entity objects
+     * @param converter the converter which performs the conversion
+     * @return the list with the converted objects
+     */
+    private static <E, D> List<D> convertResults(Collection<? extends E> src,
+            SearchConverter<E, D> converter)
+    {
+        List<D> results = new ArrayList<D>(src.size());
+
+        for (E e : src)
+        {
+            results.add(converter.convert(e));
+        }
+
+        return results;
+    }
+
+    /**
      * Executes an iteration of a chunk search. This method loads a chunk of
-     * data and applies the filter to it.
+     * data, applies the filter to it, and performs necessary type conversion.
      *
      * @param <E> the type of entities to be loaded
      * @param <D> the data objects returned by this search
      * @param params the current search parameters
      * @param searchIterator the search iterator
      * @param filter the filter
+     * @param converter the converter for converting to the resulting data
+     *        objects
      * @param queryStr the query string
      * @return the results of the search
      */
     private <E, D> SearchResult<D> executeChunkSearch(
             final MediaSearchParameters params,
-            final SearchIterator searchIterator,
-            final SearchFilter<E, D> filter, final String queryStr)
+            final SearchIterator searchIterator, final SearchFilter<E> filter,
+            final SearchConverter<E, D> converter, final String queryStr)
     {
         JPATemplate<SearchResult<D>> templ = new JPATemplate<SearchResult<D>>()
         {
@@ -411,10 +438,9 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
                 while (it.hasNext() && resultList.size() < resultSize)
                 {
                     lastEntity = it.next();
-                    D data = filter.accepts(lastEntity);
-                    if (data != null)
+                    if (filter.accepts(lastEntity))
                     {
-                        resultList.add(data);
+                        resultList.add(converter.convert(lastEntity));
                     }
                 }
 

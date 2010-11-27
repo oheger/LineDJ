@@ -13,7 +13,7 @@ import org.junit.Test;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -59,10 +59,10 @@ public class TestArtistQueryHandler
      *
      * @return the mock
      */
-    private static SearchResult<Artist> createResultMock()
+    private static SearchResult<ArtistInfo> createResultMock()
     {
         @SuppressWarnings("unchecked")
-        SearchResult<Artist> result = EasyMock.createMock(SearchResult.class);
+        SearchResult<ArtistInfo> result = EasyMock.createMock(SearchResult.class);
         return result;
     }
 
@@ -87,12 +87,12 @@ public class TestArtistQueryHandler
      * @param artistName
      * @return
      */
-    private List<Artist> createArtistList(int artistCount)
+    private List<ArtistInfo> createArtistList(int artistCount)
     {
-        List<Artist> artists = new ArrayList<Artist>(artistCount);
+        List<ArtistInfo> artists = new ArrayList<ArtistInfo>(artistCount);
         for (int i = 0; i < artistCount; i++)
         {
-            Artist a = new Artist();
+            ArtistInfo a = new ArtistInfo();
             a.setName(ARTIST_NAME + i);
             artists.add(a);
         }
@@ -114,9 +114,9 @@ public class TestArtistQueryHandler
     @Test
     public void testCreateResultData()
     {
-        SearchResult<Artist> res = createResultMock();
+        SearchResult<ArtistInfo> res = createResultMock();
         final int artistCount = 16;
-        List<Artist> artists = createArtistList(artistCount);
+        List<ArtistInfo> artists = createArtistList(artistCount);
         EasyMock.expect(res.getResults()).andReturn(artists);
         EasyMock.replay(res);
         ResultData data = handler.createResult(res);
@@ -137,7 +137,7 @@ public class TestArtistQueryHandler
     public void testHandleQuery()
     {
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.initCallbackMock();
         MediaSearchParameters params = createSearchParams();
         searchService.searchArtists(params, sit, callback);
@@ -157,7 +157,7 @@ public class TestArtistQueryHandler
     private void checkQueryCallbackOnSuccessPaged(Integer currentPage,
             Integer pageCount, boolean morePages)
     {
-        SearchResult<Artist> result = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         ResultData data = handler.initResultDataMock(result);
         MediaSearchParameters params = new MediaSearchParameters();
@@ -170,7 +170,7 @@ public class TestArtistQueryHandler
         view.addSearchResults(data, CLIENT_PARAM);
         view.searchComplete(sit, CLIENT_PARAM, morePages);
         EasyMock.replay(result, sit, data, view, searchService);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.createQueryCallback(params);
         callback.onSuccess(result);
         EasyMock.verify(result, sit, data, view, searchService);
@@ -203,7 +203,7 @@ public class TestArtistQueryHandler
     @Test
     public void testQueryCallbackOnSuccessChunkNoMoreData()
     {
-        SearchResult<Artist> result = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         ResultData data = handler.initResultDataMock(result);
         MediaSearchParameters params = new MediaSearchParameters();
@@ -215,7 +215,7 @@ public class TestArtistQueryHandler
         view.addSearchResults(data, CLIENT_PARAM);
         view.searchComplete(sit, CLIENT_PARAM, false);
         EasyMock.replay(result, sit, data, view, searchService);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.createQueryCallback(params);
         callback.onSuccess(result);
         EasyMock.verify(result, sit, data, view, searchService);
@@ -234,7 +234,7 @@ public class TestArtistQueryHandler
     private void checkQueryCallbackOnSuccessChunkMoreData(int maxResults,
             int nextMaxResults, int artistCount)
     {
-        SearchResult<Artist> result = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         ResultData data = handler.initResultDataMock(result);
         MediaSearchParameters params = new MediaSearchParameters();
@@ -243,13 +243,13 @@ public class TestArtistQueryHandler
         MediaSearchParameters params2 = new MediaSearchParameters();
         params2.setClientParameter(CLIENT_PARAM);
         params2.setMaxResults(nextMaxResults);
-        List<Artist> artists = createArtistList(artistCount);
+        List<ArtistInfo> artists = createArtistList(artistCount);
         EasyMock.expect(result.getSearchParameters()).andReturn(params);
         EasyMock.expect(result.getSearchIterator()).andReturn(sit);
         EasyMock.expect(result.getResults()).andReturn(artists);
         EasyMock.expect(sit.hasNext()).andReturn(Boolean.TRUE);
         view.addSearchResults(data, CLIENT_PARAM);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.createQueryCallback(params);
         searchService.searchArtists(params2, sit, callback);
         EasyMock.replay(result, sit, data, view, searchService);
@@ -287,7 +287,7 @@ public class TestArtistQueryHandler
     @Test
     public void testQueryCallbackOnSuccessChunkMoreDataLimitReached()
     {
-        SearchResult<Artist> result = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         ResultData data = handler.initResultDataMock(result);
         final String searchText = "TestSearchText";
@@ -299,10 +299,10 @@ public class TestArtistQueryHandler
         params2.setMaxResults(1);
         params2.setClientParameter(CLIENT_PARAM);
         params2.setSearchText(searchText);
-        List<Artist> artists = createArtistList(LIMIT);
-        AsyncCallback<SearchResult<Artist>> callback =
+        List<ArtistInfo> artists = createArtistList(LIMIT);
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.createQueryCallback(params);
-        AsyncCallback<SearchResult<Artist>> moreResultsCb =
+        AsyncCallback<SearchResult<ArtistInfo>> moreResultsCb =
                 handler.initCallbackMock();
         EasyMock.expect(result.getSearchParameters()).andReturn(params)
                 .anyTimes();
@@ -323,11 +323,11 @@ public class TestArtistQueryHandler
      * @param result the search result object
      * @return the callback
      */
-    private AsyncCallback<SearchResult<Artist>> createMoreResultsCb(
-            MediaSearchParameters params, SearchResult<Artist> result)
+    private AsyncCallback<SearchResult<ArtistInfo>> createMoreResultsCb(
+            MediaSearchParameters params, SearchResult<ArtistInfo> result)
     {
-        AbstractOverviewQueryHandler<Artist>.QueryCallback cb =
-                (AbstractOverviewQueryHandler<Artist>.QueryCallback) handler
+        AbstractOverviewQueryHandler<ArtistInfo>.QueryCallback cb =
+                (AbstractOverviewQueryHandler<ArtistInfo>.QueryCallback) handler
                         .createQueryCallback(params);
         return handler.createMoreResultsCallback(cb, result);
     }
@@ -339,8 +339,8 @@ public class TestArtistQueryHandler
     @Test
     public void testMoreResultsCallbackOnSuccessNoMoreData()
     {
-        SearchResult<Artist> result = createResultMock();
-        SearchResult<Artist> result2 = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
+        SearchResult<ArtistInfo> result2 = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         SearchIterator sit2 = EasyMock.createMock(SearchIterator.class);
         MediaSearchParameters params = new MediaSearchParameters();
@@ -348,7 +348,7 @@ public class TestArtistQueryHandler
         EasyMock.expect(result.getSearchIterator()).andReturn(sit);
         EasyMock.expect(result.getSearchParameters()).andReturn(params);
         EasyMock.expect(result2.getResults())
-                .andReturn(new ArrayList<Artist>());
+                .andReturn(new ArrayList<ArtistInfo>());
         EasyMock.expect(result2.getSearchIterator()).andReturn(sit2);
         EasyMock.expect(sit2.hasNext()).andReturn(Boolean.FALSE);
         view.searchComplete(sit, CLIENT_PARAM, false);
@@ -364,17 +364,17 @@ public class TestArtistQueryHandler
     @Test
     public void testMoreResultsCallbackOnSuccessMoreData()
     {
-        SearchResult<Artist> result = createResultMock();
-        SearchResult<Artist> result2 = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
+        SearchResult<ArtistInfo> result2 = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setClientParameter(CLIENT_PARAM);
         EasyMock.expect(result2.getResults())
-                .andReturn(new ArrayList<Artist>());
+                .andReturn(new ArrayList<ArtistInfo>());
         EasyMock.expect(result2.getSearchIterator()).andReturn(sit);
         EasyMock.expect(result2.getSearchParameters()).andReturn(params);
         EasyMock.expect(sit.hasNext()).andReturn(Boolean.TRUE);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 createMoreResultsCb(params, result);
         searchService.searchArtists(params, sit, callback);
         EasyMock.replay(result, result2, sit, view, searchService);
@@ -389,8 +389,8 @@ public class TestArtistQueryHandler
     @Test
     public void testMoreResultsCallbackOnSuccessGotResult()
     {
-        SearchResult<Artist> result = createResultMock();
-        SearchResult<Artist> result2 = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
+        SearchResult<ArtistInfo> result2 = createResultMock();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setClientParameter(CLIENT_PARAM);
@@ -414,7 +414,7 @@ public class TestArtistQueryHandler
         EasyMock.replay(view, searchService);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setClientParameter(CLIENT_PARAM);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 handler.createQueryCallback(params);
         callback.onFailure(err);
         EasyMock.verify(view, searchService);
@@ -426,13 +426,13 @@ public class TestArtistQueryHandler
     @Test
     public void testMoreResultsCallbackInFailure()
     {
-        SearchResult<Artist> result = createResultMock();
+        SearchResult<ArtistInfo> result = createResultMock();
         Throwable err = new RuntimeException();
         view.onFailure(err, CLIENT_PARAM);
         EasyMock.replay(result, view, searchService);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setClientParameter(CLIENT_PARAM);
-        AsyncCallback<SearchResult<Artist>> callback =
+        AsyncCallback<SearchResult<ArtistInfo>> callback =
                 createMoreResultsCb(params, result);
         callback.onFailure(err);
         EasyMock.verify(result, view, searchService);
@@ -448,13 +448,13 @@ public class TestArtistQueryHandler
         private final MediaSearchServiceAsync mockSearchService;
 
         /** A mock callback object. */
-        private AsyncCallback<SearchResult<Artist>> mockCallback;
+        private AsyncCallback<SearchResult<ArtistInfo>> mockCallback;
 
         /** A mock ResultData object. */
         private ResultData mockResultData;
 
         /** The expected SearchResult object. */
-        private SearchResult<Artist> expectedSearchResult;
+        private SearchResult<ArtistInfo> expectedSearchResult;
 
         public ArtistQueryHandlerTestImpl(SearchResultView view,
                 MediaSearchServiceAsync svc)
@@ -469,7 +469,7 @@ public class TestArtistQueryHandler
          * @return the mock object
          */
         @SuppressWarnings("unchecked")
-        public AsyncCallback<SearchResult<Artist>> initCallbackMock()
+        public AsyncCallback<SearchResult<ArtistInfo>> initCallbackMock()
         {
             mockCallback = EasyMock.createMock(AsyncCallback.class);
             return mockCallback;
@@ -481,7 +481,7 @@ public class TestArtistQueryHandler
          * @param expSR the expected search result object
          * @return the mock result data object
          */
-        public ResultData initResultDataMock(SearchResult<Artist> expSR)
+        public ResultData initResultDataMock(SearchResult<ArtistInfo> expSR)
         {
             mockResultData = EasyMock.createMock(ResultData.class);
             expectedSearchResult = expSR;
@@ -502,7 +502,7 @@ public class TestArtistQueryHandler
          * Either returns the mock result data object or calls the super method.
          */
         @Override
-        protected ResultData createResult(SearchResult<Artist> result)
+        protected ResultData createResult(SearchResult<ArtistInfo> result)
         {
             if (mockResultData != null)
             {
@@ -516,7 +516,7 @@ public class TestArtistQueryHandler
          * Either returns the mock callback or calls the super method.
          */
         @Override
-        protected AsyncCallback<SearchResult<Artist>> createQueryCallback(
+        protected AsyncCallback<SearchResult<ArtistInfo>> createQueryCallback(
                 MediaSearchParameters params)
         {
             return (mockCallback != null) ? mockCallback : super
@@ -527,8 +527,8 @@ public class TestArtistQueryHandler
          * Either returns the mock callback or calls the super method.
          */
         @Override
-        AsyncCallback<SearchResult<Artist>> createMoreResultsCallback(
-                QueryCallback parent, SearchResult<Artist> result)
+        AsyncCallback<SearchResult<ArtistInfo>> createMoreResultsCallback(
+                QueryCallback parent, SearchResult<ArtistInfo> result)
         {
             return (mockCallback != null) ? mockCallback : super
                     .createMoreResultsCallback(parent, result);

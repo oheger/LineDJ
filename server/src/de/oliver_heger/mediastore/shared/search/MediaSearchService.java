@@ -3,7 +3,7 @@ package de.oliver_heger.mediastore.shared.search;
 import com.google.gwt.user.client.rpc.RemoteService;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
 
-import de.oliver_heger.mediastore.shared.model.Artist;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 
 /**
  * <p>
@@ -34,7 +34,7 @@ public interface MediaSearchService extends RemoteService
      *        search; when starting a new search <b>null</b> has to be passed in
      * @return partial search results
      */
-    SearchResult<Artist> searchArtists(MediaSearchParameters params,
+    SearchResult<ArtistInfo> searchArtists(MediaSearchParameters params,
             SearchIterator iterator);
 
     /**
