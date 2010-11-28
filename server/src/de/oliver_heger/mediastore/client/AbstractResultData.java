@@ -104,8 +104,34 @@ abstract class AbstractResultData<T> implements ResultData
             throw new IndexOutOfBoundsException("Invalid column index: " + col);
         }
 
-        T data = dataList.get(row);
+        T data = getDataAt(row);
         return convertToString(getPropertyForColumn(data, col));
+    }
+
+    /**
+     * Returns the ID of the object in the specified row. This implementation
+     * obtains the data object at the given row and delegates to
+     * {@link #getIDOfObject(Object)} to extract the actual ID value.
+     *
+     * @param row the row index
+     * @return the ID of the object in this row
+     */
+    @Override
+    public Object getID(int row)
+    {
+        return getIDOfObject(getDataAt(row));
+    }
+
+    /**
+     * Returns the data object at the specified row.
+     *
+     * @param row the row
+     * @return the data object at this row
+     */
+    protected T getDataAt(int row)
+    {
+        T data = dataList.get(row);
+        return data;
     }
 
     /**
@@ -134,4 +160,14 @@ abstract class AbstractResultData<T> implements ResultData
      * @return the value of this property
      */
     protected abstract Object getPropertyForColumn(T data, int col);
+
+    /**
+     * Returns the ID of the specified data object. This method is called by the
+     * implementation of {@link #getID(int)}. A concrete implementation has to
+     * extract the correct ID value from the data object passed in.
+     *
+     * @param data the data object
+     * @return the ID of this data object
+     */
+    protected abstract Object getIDOfObject(T data);
 }

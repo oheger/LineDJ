@@ -28,6 +28,9 @@ public class TestAbstractResultData
      */
     private static final String SEPARATOR = "/";
 
+    /** Constant for the prefix for generated ID values. */
+    private static final String ID_PREFIX = "ID: ";
+
     /** Constant for the number of rows of test data. */
     private static final int DATA_SIZE = 16;
 
@@ -143,6 +146,28 @@ public class TestAbstractResultData
     }
 
     /**
+     * Tests whether the IDs of the rows can be obtained.
+     */
+    @Test
+    public void testGetID()
+    {
+        for (int i = 0; i < DATA_SIZE; i++)
+        {
+            String exp = ID_PREFIX + i;
+            assertEquals("Wrong ID at " + i, exp, resultData.getID(i));
+        }
+    }
+
+    /**
+     * Tests getID() if an invalid row index is passed in.
+     */
+    @Test(expected = IndexOutOfBoundsException.class)
+    public void testGetIDInvalidRow()
+    {
+        resultData.getID(-1);
+    }
+
+    /**
      * A concrete test implementation of AbstractResultData.
      */
     private static class AbstractResultDataTestImpl extends
@@ -161,6 +186,16 @@ public class TestAbstractResultData
         protected Object getPropertyForColumn(Object data, int col)
         {
             return data + SEPARATOR + col;
+        }
+
+        /**
+         * {@inheritDoc} Returns a string consisting of the ID prefix and the
+         * data object passed in.
+         */
+        @Override
+        protected Object getIDOfObject(Object data)
+        {
+            return ID_PREFIX + data;
         }
     }
 }

@@ -5,6 +5,7 @@ import static org.junit.Assert.assertSame;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.easymock.EasyMock;
@@ -28,11 +29,20 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class TestArtistQueryHandler
 {
+    /** Constant for the number of test artists. */
+    private static final int ARTIST_COUNT = 16;
+
     /** Constant for the name of a test artist. */
     private static final String ARTIST_NAME = "TestArtist_";
 
     /** Constant for a client parameter object. */
     private static final Serializable CLIENT_PARAM = Integer.valueOf(111);
+
+    /** Constant for an offset for generated ID values. */
+    private static final long ID_OFFSET = 20101128185507L;
+
+    /** Constant for an offset for generated date values. */
+    private static final long DATE_OFFSET = 20101128185704L;
 
     /** Constant for the limit of search results. */
     private static final int LIMIT = 10;
@@ -93,7 +103,9 @@ public class TestArtistQueryHandler
         for (int i = 0; i < artistCount; i++)
         {
             ArtistInfo a = new ArtistInfo();
+            a.setArtistID(Long.valueOf(ID_OFFSET + i));
             a.setName(ARTIST_NAME + i);
+            a.setCreationDate(new Date(DATE_OFFSET + i));
             artists.add(a);
         }
         return artists;
@@ -109,24 +121,59 @@ public class TestArtistQueryHandler
     }
 
     /**
-     * Tests whether a correct result data object is created.
+     * Lets the handler create a result data object based on test data.
+     *
+     * @return the result data object
      */
-    @Test
-    public void testCreateResultData()
+    private ResultData fetchResultData()
     {
         SearchResult<ArtistInfo> res = createResultMock();
-        final int artistCount = 16;
-        List<ArtistInfo> artists = createArtistList(artistCount);
+        List<ArtistInfo> artists = createArtistList(ARTIST_COUNT);
         EasyMock.expect(res.getResults()).andReturn(artists);
         EasyMock.replay(res);
         ResultData data = handler.createResult(res);
+        EasyMock.verify(res);
+        return data;
+    }
+
+    /**
+     * Tests whether the result data object created by the handler has the
+     * expected rows and columns.
+     */
+    @Test
+    public void testCreateResultDataSizes()
+    {
+        ResultData data = fetchResultData();
         assertEquals("Wrong number of columns", 1, data.getColumnCount());
         assertEquals("Wrong column name (1)", "Name", data.getColumnName(0));
-        assertEquals("Wrong row count", artistCount, data.getRowCount());
-        for (int i = 0; i < artistCount; i++)
+        assertEquals("Wrong row count", ARTIST_COUNT, data.getRowCount());
+    }
+
+    /**
+     * Tests whether the result data object has the expected content.
+     */
+    @Test
+    public void testCreateResultDataContent()
+    {
+        ResultData data = fetchResultData();
+        for (int i = 0; i < ARTIST_COUNT; i++)
         {
             assertEquals("Wrong name at " + i, ARTIST_NAME + i,
                     data.getValueAt(i, 0));
+        }
+    }
+
+    /**
+     * Tests whether the result data object returns the expected IDs.
+     */
+    @Test
+    public void testCreateResultDataIDs()
+    {
+        ResultData data = fetchResultData();
+        for (int i = 0; i < ARTIST_COUNT; i++)
+        {
+            assertEquals("Wrong ID at " + i, Long.valueOf(ID_OFFSET + i),
+                    data.getID(i));
         }
     }
 

@@ -46,4 +46,13 @@ public interface ResultData
      * @return the value of the specified cell
      */
     String getValueAt(int row, int col);
+
+    /**
+     * Returns the ID for the object in the specified row. This ID is needed to
+     * address the object on the server, e.g. when a server call is made.
+     *
+     * @param row the row index (0-based)
+     * @return the ID of the object in this row
+     */
+    Object getID(int row);
 }

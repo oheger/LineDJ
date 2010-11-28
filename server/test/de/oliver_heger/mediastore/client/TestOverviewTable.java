@@ -317,6 +317,17 @@ public class TestOverviewTable extends GWTTestCase
         }
 
         /**
+         * Returns a generated ID. The ID is simply the row index as Long
+         * object.
+         */
+        @Override
+        public Object getID(int row)
+        {
+            checkRowIndex(row);
+            return Long.valueOf(row);
+        }
+
+        /**
          * Tests whether a valid column index was provided.
          *
          * @param idx the index to check

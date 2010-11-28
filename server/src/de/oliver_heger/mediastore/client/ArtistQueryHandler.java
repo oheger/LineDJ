@@ -104,5 +104,17 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<ArtistInfo>
         {
             return data.getName();
         }
+
+        /**
+         * Returns the ID of the specified artist info object.
+         *
+         * @param data the data object
+         * @return the ID of this object
+         */
+        @Override
+        protected Object getIDOfObject(ArtistInfo data)
+        {
+            return data.getArtistID();
+        }
     }
 }
