@@ -26,7 +26,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<ArtistInfo>
 {
     /** An array with the columns of the artist overview table. */
     private static final String[] COLUMNS = {
-        "Name"
+        "Name", "Created at"
     };
 
     /**
@@ -71,7 +71,7 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<ArtistInfo>
     /**
      * A specialized result handler for artists.
      */
-    private static class ArtistResultData extends AbstractResultData<ArtistInfo>
+    private class ArtistResultData extends AbstractResultData<ArtistInfo>
     {
         /**
          * Standard constructor. Needed for serialization.
@@ -102,7 +102,16 @@ class ArtistQueryHandler extends AbstractOverviewQueryHandler<ArtistInfo>
         @Override
         protected Object getPropertyForColumn(ArtistInfo data, int col)
         {
-            return data.getName();
+            switch (col)
+            {
+            case 0:
+                return data.getName();
+            case 1:
+                return getFormatter().formatDate(data.getCreationDate());
+            default:
+                throw new IllegalArgumentException("Invalid column index: "
+                        + col);
+            }
         }
 
         /**

@@ -37,6 +37,9 @@ abstract class AbstractOverviewQueryHandler<T>
     /** Stores a reference to the associated view component. */
     private final SearchResultView view;
 
+    /** The default formatter object. */
+    private final I18NFormatter formatter;
+
     /** Stores the search service. */
     private MediaSearchServiceAsync searchService;
 
@@ -49,6 +52,7 @@ abstract class AbstractOverviewQueryHandler<T>
     protected AbstractOverviewQueryHandler(SearchResultView v)
     {
         view = v;
+        formatter = new I18NFormatter();
     }
 
     /**
@@ -106,6 +110,18 @@ abstract class AbstractOverviewQueryHandler<T>
             MediaSearchParameters params)
     {
         return new QueryCallback(params.getClientParameter());
+    }
+
+    /**
+     * Returns a formatter object which can be used in custom implementations of
+     * the {@link ResultData} interface to format data based on the current
+     * user's locale.
+     *
+     * @return the formatter object
+     */
+    protected I18NFormatter getFormatter()
+    {
+        return formatter;
     }
 
     /**

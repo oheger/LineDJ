@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.client;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 
 import java.io.Serializable;
@@ -97,7 +98,7 @@ public class TestArtistQueryHandler
      * @param artistName
      * @return
      */
-    private List<ArtistInfo> createArtistList(int artistCount)
+    private static List<ArtistInfo> createArtistList(int artistCount)
     {
         List<ArtistInfo> artists = new ArrayList<ArtistInfo>(artistCount);
         for (int i = 0; i < artistCount; i++)
@@ -105,10 +106,21 @@ public class TestArtistQueryHandler
             ArtistInfo a = new ArtistInfo();
             a.setArtistID(Long.valueOf(ID_OFFSET + i));
             a.setName(ARTIST_NAME + i);
-            a.setCreationDate(new Date(DATE_OFFSET + i));
+            a.setCreationDate(createTestDate(i));
             artists.add(a);
         }
         return artists;
+    }
+
+    /**
+     * Creates a date for the test artist with the given index.
+     *
+     * @param i the index
+     * @return the created at date for this artist
+     */
+    private static Date createTestDate(int i)
+    {
+        return new Date(DATE_OFFSET + i);
     }
 
     /**
@@ -118,6 +130,15 @@ public class TestArtistQueryHandler
     public void testGetView()
     {
         assertSame("Wrong view", view, handler.getView());
+    }
+
+    /**
+     * Tests whether a formatter object is available.
+     */
+    @Test
+    public void testGetFormatter()
+    {
+        assertNotNull("No formatter", handler.getFormatter());
     }
 
     /**
@@ -144,8 +165,9 @@ public class TestArtistQueryHandler
     public void testCreateResultDataSizes()
     {
         ResultData data = fetchResultData();
-        assertEquals("Wrong number of columns", 1, data.getColumnCount());
+        assertEquals("Wrong number of columns", 2, data.getColumnCount());
         assertEquals("Wrong column name (1)", "Name", data.getColumnName(0));
+        assertEquals("Wrong column name (2)", "Created at", data.getColumnName(1));
         assertEquals("Wrong row count", ARTIST_COUNT, data.getRowCount());
     }
 
@@ -155,12 +177,36 @@ public class TestArtistQueryHandler
     @Test
     public void testCreateResultDataContent()
     {
+        final String fmtPrefix = "<formattedDate>";
+        I18NFormatter fmt = new I18NFormatter()
+        {
+            @Override
+            public String formatDate(Date date)
+            {
+                return fmtPrefix + date;
+            }
+        };
+        handler.installMockFormatter(fmt);
         ResultData data = fetchResultData();
         for (int i = 0; i < ARTIST_COUNT; i++)
         {
             assertEquals("Wrong name at " + i, ARTIST_NAME + i,
                     data.getValueAt(i, 0));
+            assertEquals("Wrong date at " + i, fmtPrefix + createTestDate(i),
+                    data.getValueAt(i, 1));
         }
+    }
+
+    /**
+     * Tries to access an invalid property from the result data object.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testCreateResultDataInvalidProperty()
+    {
+        @SuppressWarnings("unchecked")
+        AbstractResultData<ArtistInfo> data =
+                (AbstractResultData<ArtistInfo>) fetchResultData();
+        data.getPropertyForColumn(data.getDataAt(0), Integer.MAX_VALUE);
     }
 
     /**
@@ -503,6 +549,9 @@ public class TestArtistQueryHandler
         /** The expected SearchResult object. */
         private SearchResult<ArtistInfo> expectedSearchResult;
 
+        /** A mock formatter object. */
+        private I18NFormatter mockFormat;
+
         public ArtistQueryHandlerTestImpl(SearchResultView view,
                 MediaSearchServiceAsync svc)
         {
@@ -533,6 +582,16 @@ public class TestArtistQueryHandler
             mockResultData = EasyMock.createMock(ResultData.class);
             expectedSearchResult = expSR;
             return mockResultData;
+        }
+
+        /**
+         * Sets a mock formatter to be returned by getFormatter().
+         *
+         * @param fmt the mock formatter
+         */
+        public void installMockFormatter(I18NFormatter fmt)
+        {
+            mockFormat = fmt;
         }
 
         /**
@@ -568,6 +627,15 @@ public class TestArtistQueryHandler
         {
             return (mockCallback != null) ? mockCallback : super
                     .createQueryCallback(params);
+        }
+
+        /**
+         * Either returns the mock formatter or calls the super method.
+         */
+        @Override
+        protected I18NFormatter getFormatter()
+        {
+            return (mockFormat != null) ? mockFormat : super.getFormatter();
         }
 
         /**
