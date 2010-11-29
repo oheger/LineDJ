@@ -29,7 +29,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  * @version $Id: $
  */
 public class OverviewPage extends Composite implements
-        OverviewTable.SearchListener
+        SearchListener
 {
     /** The binder used for building this component. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);

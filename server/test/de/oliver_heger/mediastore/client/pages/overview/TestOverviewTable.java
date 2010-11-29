@@ -214,7 +214,7 @@ public class TestOverviewTable extends GWTTestCase
      * expected search events are received.
      */
     private static class SearchListenerTestImpl implements
-            OverviewTable.SearchListener
+            SearchListener
     {
         /** Stores the received search parameters. */
         private final List<MediaSearchParameters> searchParameters;

@@ -259,22 +259,6 @@ public class OverviewTable extends Composite implements SearchResultView
     }
 
     /**
-     * Definition of an interface for search listeners. A listener of this type
-     * can be set at this component. It is notified whenever the user presses
-     * the search button.
-     */
-    public static interface SearchListener
-    {
-        /**
-         * Notifies this listener that a new search request has to be handled.
-         *
-         * @param source the table which triggers this search request
-         * @param params the parameters for the search
-         */
-        void searchRequest(OverviewTable source, MediaSearchParameters params);
-    }
-
-    /**
      * Our specific binder interface.
      */
     interface MyUiBinder extends UiBinder<Widget, OverviewTable>
