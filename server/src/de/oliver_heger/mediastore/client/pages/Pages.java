@@ -1,6 +1,8 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages;
 
 import com.google.gwt.user.client.ui.Widget;
+
+import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
  * <p>

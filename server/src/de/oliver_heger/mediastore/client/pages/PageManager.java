@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages;
 
 import java.util.ArrayList;
 import java.util.EnumMap;

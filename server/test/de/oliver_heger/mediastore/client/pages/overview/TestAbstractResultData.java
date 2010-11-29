@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages.overview;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -8,6 +8,8 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+
+import de.oliver_heger.mediastore.client.pages.overview.AbstractResultData;
 
 /**
  * Test class for {@code AbstractResultData}.

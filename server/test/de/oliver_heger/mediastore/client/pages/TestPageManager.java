@@ -1,10 +1,14 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages;
 
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Widget;
+
+import de.oliver_heger.mediastore.client.pages.PageManager;
+import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
  * Test class for {@code PageManager}. The enumeration constants for the

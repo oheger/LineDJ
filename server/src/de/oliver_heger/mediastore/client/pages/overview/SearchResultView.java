@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages.overview;
 
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
 

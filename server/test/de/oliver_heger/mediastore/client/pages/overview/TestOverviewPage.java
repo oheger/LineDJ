@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages.overview;
 
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.logical.shared.SelectionEvent;
@@ -6,6 +6,13 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 
+import de.oliver_heger.mediastore.client.pages.PageManager;
+import de.oliver_heger.mediastore.client.pages.overview.AbstractOverviewQueryHandler;
+import de.oliver_heger.mediastore.client.pages.overview.ArtistQueryHandler;
+import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
+import de.oliver_heger.mediastore.client.pages.overview.OverviewTable;
+import de.oliver_heger.mediastore.client.pages.overview.ResultData;
+import de.oliver_heger.mediastore.client.pages.overview.SearchResultView;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;

@@ -16,6 +16,8 @@ import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.RootLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.pages.PageManager;
+import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.LoginInfo;
 import de.oliver_heger.mediastore.shared.LoginService;
 import de.oliver_heger.mediastore.shared.LoginServiceAsync;

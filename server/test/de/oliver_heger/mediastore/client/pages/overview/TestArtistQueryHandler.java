@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages.overview;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -15,6 +15,12 @@ import org.junit.Test;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
+import de.oliver_heger.mediastore.client.I18NFormatter;
+import de.oliver_heger.mediastore.client.pages.overview.AbstractOverviewQueryHandler;
+import de.oliver_heger.mediastore.client.pages.overview.AbstractResultData;
+import de.oliver_heger.mediastore.client.pages.overview.ArtistQueryHandler;
+import de.oliver_heger.mediastore.client.pages.overview.ResultData;
+import de.oliver_heger.mediastore.client.pages.overview.SearchResultView;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;

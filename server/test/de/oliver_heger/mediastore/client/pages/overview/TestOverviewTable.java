@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client;
+package de.oliver_heger.mediastore.client.pages.overview;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -7,6 +7,8 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.Label;
 
+import de.oliver_heger.mediastore.client.pages.overview.OverviewTable;
+import de.oliver_heger.mediastore.client.pages.overview.ResultData;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
