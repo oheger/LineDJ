@@ -1,7 +1,13 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
@@ -9,8 +15,11 @@ import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.FlexTable;
+import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Panel;
+import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
 
@@ -69,12 +78,20 @@ public class OverviewTable extends Composite implements SearchResultView
     /** Stores the search listener. */
     private SearchListener searchListener;
 
+    /** A list with the images for single element handlers. */
+    private final List<Image> singleHandlerImages;
+
+    /** A list with the single element handlers registered at this table. */
+    private final List<SingleElementHandler> singleHandlers;
+
     /**
      * Creates a new instance of {@code OverviewTable} and initializes the UI of
      * the component.
      */
     public OverviewTable()
     {
+        singleHandlerImages = new ArrayList<Image>();
+        singleHandlers = new ArrayList<SingleElementHandler>();
         initWidget(binder.createAndBindUi(this));
     }
 
@@ -97,6 +114,21 @@ public class OverviewTable extends Composite implements SearchResultView
     public void setSearchListener(SearchListener searchListener)
     {
         this.searchListener = searchListener;
+    }
+
+    /**
+     * Adds a single element handler to this table. The image for the handler
+     * will be displayed in each row of the table. By clicking the image the
+     * handler is invoked with the ID of the associated element.
+     *
+     * @param imgres the image resource for the handler's image
+     * @param handler the handler
+     */
+    public void addSingleElementHandler(ImageResource imgres,
+            SingleElementHandler handler)
+    {
+        singleHandlerImages.add(new Image(imgres));
+        singleHandlers.add(handler);
     }
 
     /**
@@ -221,6 +253,8 @@ public class OverviewTable extends Composite implements SearchResultView
             {
                 table.setText(row + rowOffset, col, data.getValueAt(row, col));
             }
+            installSingleElementHandlers(data.getID(row), row + rowOffset,
+                    data.getColumnCount());
         }
     }
 
@@ -256,6 +290,41 @@ public class OverviewTable extends Composite implements SearchResultView
     {
         table.addStyleName(STYLE_TABLE);
         table.getRowFormatter().addStyleName(0, STYLE_TABLE_HEADER);
+    }
+
+    /**
+     * Creates buttons for the {@link SingleElementHandler} objects registered
+     * at this table. This method is called for each data row added to the data
+     * table. It adds a new column with a horizontal panel. For each handler a
+     * button is added to this panel with a click handler that invokes the
+     * {@link SingleElementHandler}.
+     *
+     * @param elemID the ID of the element of the current row
+     * @param row the row index
+     * @param col the column where to add the panel with the buttons
+     */
+    private void installSingleElementHandlers(final Object elemID, int row,
+            int col)
+    {
+        if (!singleHandlers.isEmpty())
+        {
+            HorizontalPanel panel = new HorizontalPanel();
+
+            Iterator<Image> images = singleHandlerImages.iterator();
+            for (final SingleElementHandler h : singleHandlers)
+            {
+                panel.add(new PushButton(images.next(), new ClickHandler()
+                {
+                    @Override
+                    public void onClick(ClickEvent event)
+                    {
+                        h.handleElement(elemID);
+                    }
+                }));
+            }
+
+            table.setWidget(row, col, panel);
+        }
     }
 
     /**

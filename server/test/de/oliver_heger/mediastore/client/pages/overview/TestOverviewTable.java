@@ -1,14 +1,22 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.google.gwt.core.client.GWT;
+import com.google.gwt.dom.client.Document;
+import com.google.gwt.dom.client.NativeEvent;
+import com.google.gwt.event.dom.client.DomEvent;
+import com.google.gwt.event.shared.HasHandlers;
 import com.google.gwt.junit.client.GWTTestCase;
+import com.google.gwt.user.client.ui.CustomButton;
 import com.google.gwt.user.client.ui.FlexTable;
+import com.google.gwt.user.client.ui.HasWidgets;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.pages.overview.OverviewTable;
-import de.oliver_heger.mediastore.client.pages.overview.ResultData;
+import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
@@ -210,11 +218,86 @@ public class TestOverviewTable extends GWTTestCase
     }
 
     /**
+     * Helper method for firing a click event on a widget.
+     *
+     * @param btn the widget
+     */
+    private static void fireClickEvent(HasHandlers btn)
+    {
+        NativeEvent clickEvent =
+                Document.get().createClickEvent(0, 0, 0, 0, 0, false, false,
+                        false, false);
+        DomEvent.fireNativeEvent(clickEvent, btn);
+    }
+
+    /**
+     * Tests whether a single element handler can be added and is served
+     * correctly.
+     */
+    public void testAddSingleElementHandler()
+    {
+        OverviewTable table = new OverviewTable();
+        ImageResources res = GWT.create(ImageResources.class);
+        SingleElementHandlerTestImpl h = new SingleElementHandlerTestImpl();
+        table.addSingleElementHandler(res.viewDetails(), h);
+        ResultDataTestImpl data = new ResultDataTestImpl(1, 0);
+        table.addSearchResults(data, null);
+        FlexTable ft = table.table;
+        assertEquals("Wrong number of columns", COL_COUNT + 1,
+                ft.getCellCount(1));
+        HasWidgets widgets = (HasWidgets) ft.getWidget(1, COL_COUNT);
+        Iterator<Widget> widgetIt = widgets.iterator();
+        CustomButton btn = (CustomButton) widgetIt.next();
+        assertFalse("Too many widgets", widgetIt.hasNext());
+        fireClickEvent(btn);
+        assertEquals("Wrong ID passed to handler", Long.valueOf(0),
+                h.getElementID());
+    }
+
+    /**
+     * Tests whether multiple single element handlers can be added and whether
+     * they are stored in the expected order.
+     */
+    public void testAddSingleElementHandlerMultiple()
+    {
+        OverviewTable table = new OverviewTable();
+        ImageResources res = GWT.create(ImageResources.class);
+        final int handlerCount = 4;
+        SingleElementHandlerTestImpl[] handlers =
+                new SingleElementHandlerTestImpl[handlerCount];
+        for (int i = 0; i < handlerCount; i++)
+        {
+            handlers[i] = new SingleElementHandlerTestImpl();
+            table.addSingleElementHandler(res.viewDetails(), handlers[i]);
+        }
+        ResultDataTestImpl data = new ResultDataTestImpl(handlerCount + 1, 0);
+        table.addSearchResults(data, null);
+        FlexTable ft = table.table;
+        assertEquals("Wrong number of columns", COL_COUNT + 1,
+                ft.getCellCount(1));
+        for (int i = 0; i < handlerCount; i++)
+        {
+            HasWidgets widgets = (HasWidgets) ft.getWidget(i + 1, COL_COUNT);
+            Iterator<Widget> widgetIt = widgets.iterator();
+            for (int j = 0; j < i; j++)
+            {
+                widgetIt.next();
+            }
+            CustomButton btn = (CustomButton) widgetIt.next();
+            fireClickEvent(btn);
+        }
+        for (int i = 0; i < handlerCount; i++)
+        {
+            assertEquals("Wrong ID passed to handler", Long.valueOf(i),
+                    handlers[i].getElementID());
+        }
+    }
+
+    /**
      * A test implementation of a search listener for testing whether the
      * expected search events are received.
      */
-    private static class SearchListenerTestImpl implements
-            SearchListener
+    private static class SearchListenerTestImpl implements SearchListener
     {
         /** Stores the received search parameters. */
         private final List<MediaSearchParameters> searchParameters;
@@ -349,6 +432,36 @@ public class TestOverviewTable extends GWTTestCase
         {
             assertTrue("Invalid row index: " + idx, idx >= 0
                     && idx < getRowCount());
+        }
+    }
+
+    /**
+     * A test implementation of a single element handler for testing whether the
+     * handler is called with the expected ID.
+     */
+    private static class SingleElementHandlerTestImpl implements
+            SingleElementHandler
+    {
+        /** Stores the ID passed to the handler. */
+        private Object elementID;
+
+        /**
+         * Returns the element ID passed to this object.
+         *
+         * @return the element ID
+         */
+        public Object getElementID()
+        {
+            return elementID;
+        }
+
+        /**
+         * Records this invocation and stores the ID.
+         */
+        @Override
+        public void handleElement(Object elemID)
+        {
+            elementID = elemID;
         }
     }
 }
