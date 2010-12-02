@@ -9,11 +9,7 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
 
-import com.google.appengine.api.users.User;
-import com.google.appengine.api.users.UserService;
-import com.google.appengine.api.users.UserServiceFactory;
-import com.google.gwt.user.server.rpc.RemoteServiceServlet;
-
+import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
@@ -53,7 +49,7 @@ import de.oliver_heger.mediastore.shared.search.SearchResultImpl;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class MediaSearchServiceImpl extends RemoteServiceServlet implements
+public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         MediaSearchService
 {
     /**
@@ -158,7 +154,7 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     @Override
     public void createTestData()
     {
-        new DummyDataCreator(getCurrentUser()).createTestData();
+        new DummyDataCreator(getCurrentUser(true)).createTestData();
     }
 
     /**
@@ -242,25 +238,6 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     }
 
     /**
-     * Returns the currently logged in user. This is needed as parameter for
-     * many queries.
-     *
-     * @return the current user
-     * @throws IllegalStateException if no user is logged in
-     */
-    private User getCurrentUser()
-    {
-        UserService userService = UserServiceFactory.getUserService();
-        User user = userService.getCurrentUser();
-        if (user == null)
-        {
-            throw new IllegalStateException("No user is logged in!");
-        }
-
-        return user;
-    }
-
-    /**
      * Helper method for creating a query which has the current user as
      * parameter. This method creates a query for the specified query string and
      * sets the parameter for the user ID.
@@ -272,7 +249,7 @@ public class MediaSearchServiceImpl extends RemoteServiceServlet implements
     private Query prepareUserQuery(EntityManager em, String queryStr)
     {
         return em.createQuery(queryStr).setParameter(PARAM_USRID,
-                getCurrentUser());
+                getCurrentUser(true));
     }
 
     /**

@@ -2,8 +2,6 @@ package de.oliver_heger.mediastore.server;
 
 import com.google.appengine.api.users.User;
 import com.google.appengine.api.users.UserService;
-import com.google.appengine.api.users.UserServiceFactory;
-import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 
 import de.oliver_heger.mediastore.shared.LoginInfo;
 import de.oliver_heger.mediastore.shared.LoginService;
@@ -20,7 +18,7 @@ import de.oliver_heger.mediastore.shared.LoginService;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class LoginServiceImpl extends RemoteServiceServlet implements
+public class LoginServiceImpl extends RemoteMediaServiceServlet implements
         LoginService
 {
     /**
@@ -37,7 +35,7 @@ public class LoginServiceImpl extends RemoteServiceServlet implements
     public LoginInfo getLoginInfo(String requestUrl)
     {
         UserService userService = getUserService();
-        User user = userService.getCurrentUser();
+        User user = getCurrentUser();
         LoginInfo info = new LoginInfo();
 
         if (user == null)
@@ -52,15 +50,5 @@ public class LoginServiceImpl extends RemoteServiceServlet implements
         }
 
         return info;
-    }
-
-    /**
-     * Returns the user service.
-     *
-     * @return the user service
-     */
-    UserService getUserService()
-    {
-        return UserServiceFactory.getUserService();
     }
 }

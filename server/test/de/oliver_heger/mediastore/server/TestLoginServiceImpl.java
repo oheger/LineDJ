@@ -47,7 +47,8 @@ public class TestLoginServiceImpl
         final String logoutURL = REQUEST_URL + "/logout";
         User user = new User("harry@hirsch.de", "www.test.biz", "hhirsch");
         EasyMock.expect(userService.getCurrentUser()).andReturn(user);
-        EasyMock.expect(userService.createLogoutURL(REQUEST_URL)).andReturn(logoutURL);
+        EasyMock.expect(userService.createLogoutURL(REQUEST_URL)).andReturn(
+                logoutURL);
         EasyMock.replay(userService);
         LoginInfo info = service.getLoginInfo(REQUEST_URL);
         assertTrue("Not logged in", info.isLoggedIn());
@@ -87,7 +88,7 @@ public class TestLoginServiceImpl
          * {@inheritDoc} Returns the mock user service.
          */
         @Override
-        UserService getUserService()
+        protected UserService getUserService()
         {
             return userService;
         }
