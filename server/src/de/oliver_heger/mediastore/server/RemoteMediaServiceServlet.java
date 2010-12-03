@@ -81,7 +81,7 @@ public abstract class RemoteMediaServiceServlet extends RemoteServiceServlet
      *
      * @param expected the expected user
      * @throws IllegalStateException if the current user is not the expected
-     *         user or user is logged in
+     *         user or no user is logged in
      */
     protected void checkUser(User expected)
     {
