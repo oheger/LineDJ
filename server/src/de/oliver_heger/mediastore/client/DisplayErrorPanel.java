@@ -9,7 +9,6 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.HasText;
-import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Widget;
 
 /**
@@ -37,12 +36,14 @@ public class DisplayErrorPanel extends Composite implements HasText
     DisclosurePanel panel;
 
     /** The label for the error message to be displayed. */
-    @UiField
-    Label labHeader;
+    HasText labHeader;
 
     /** The field showing details of the exception. */
     @UiField
     HTML labContent;
+
+    /** Stores the current error. */
+    private Throwable error;
 
     /**
      * Creates a new instance of {@code DisplayErrorPanel}.
@@ -50,6 +51,7 @@ public class DisplayErrorPanel extends Composite implements HasText
     public DisplayErrorPanel()
     {
         initWidget(uiBinder.createAndBindUi(this));
+        labHeader = panel.getHeaderTextAccessor();
     }
 
     /**
@@ -82,6 +84,7 @@ public class DisplayErrorPanel extends Composite implements HasText
      */
     public void displayError(Throwable ex)
     {
+        error = ex;
         labContent.setHTML(generateStackTrace(ex));
         panel.setVisible(true);
     }
@@ -93,7 +96,29 @@ public class DisplayErrorPanel extends Composite implements HasText
     public void clearError()
     {
         panel.setVisible(false);
+        error = null;
         labContent.setText(null);
+    }
+
+    /**
+     * Returns a flag whether an error is currently displayed.
+     *
+     * @return the error state flag
+     */
+    public boolean isInErrorState()
+    {
+        return getError() != null;
+    }
+
+    /**
+     * Returns the error which is currently displayed. If the panel is not in
+     * error state, this method returns <b>null</b>.
+     *
+     * @return the currently displayed error or <b>null</b>
+     */
+    public Throwable getError()
+    {
+        return error;
     }
 
     /**

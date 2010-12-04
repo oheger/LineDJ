@@ -8,11 +8,7 @@
   </ui:style>
   <g:DisclosurePanel ui:field="panel"
     visible="false">
-    <g:customHeader>
-      <g:Label ui:field="labHeader" styleName="{style.important}">
-      Error when retrieving data!
-      </g:Label>
-    </g:customHeader>
+    <g:header>Error when retrieving data!</g:header>
     <g:HTML ui:field="labContent"/>
   </g:DisclosurePanel>
 </ui:UiBinder>

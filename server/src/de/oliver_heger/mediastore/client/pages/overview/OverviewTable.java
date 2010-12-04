@@ -13,7 +13,6 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
-import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Image;
@@ -23,6 +22,7 @@ import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.DisplayErrorPanel;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
 
@@ -73,7 +73,7 @@ public class OverviewTable extends Composite implements SearchResultView
 
     /** The panel showing an error message. */
     @UiField
-    DisclosurePanel pnlError;
+    DisplayErrorPanel pnlError;
 
     /** Stores the search listener. */
     private SearchListener searchListener;
@@ -173,7 +173,7 @@ public class OverviewTable extends Composite implements SearchResultView
     public void searchComplete(SearchIterator searchIterator,
             Object clientParam, boolean moreResults)
     {
-        pnlError.setVisible(false);
+        pnlError.clearError();
         pnlSearchProgress.setVisible(false);
     }
 
@@ -189,9 +189,7 @@ public class OverviewTable extends Composite implements SearchResultView
     {
         pnlSearchProgress.setVisible(false);
         table.setVisible(false);
-        pnlError.setVisible(true);
-        Label labErr = (Label) pnlError.getContent();
-        labErr.setText(err.toString());
+        pnlError.displayError(err);
     }
 
     /**
@@ -227,7 +225,7 @@ public class OverviewTable extends Composite implements SearchResultView
         table.removeAllRows();
         table.setVisible(true);
         labResultCount.setVisible(false);
-        pnlError.setVisible(false);
+        pnlError.clearError();
         pnlSearchProgress.setVisible(true);
 
         SearchListener l = getSearchListener();

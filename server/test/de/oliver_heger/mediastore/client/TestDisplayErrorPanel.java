@@ -26,6 +26,8 @@ public class TestDisplayErrorPanel extends GWTTestCase
         assertEquals("Wrong default text", "Error when retrieving data!",
                 panel.getText());
         assertEquals("Wrong initial content", "", panel.labContent.getText());
+        assertFalse("In error state", panel.isInErrorState());
+        assertNull("Got an error", panel.getError());
     }
 
     /**
@@ -50,6 +52,8 @@ public class TestDisplayErrorPanel extends GWTTestCase
         assertTrue("Not visible", panel.panel.isVisible());
         assertTrue("No content",
                 panel.labContent.getHTML().contains(ex.getMessage()));
+        assertTrue("Not in error state", panel.isInErrorState());
+        assertEquals("Wrong error", ex, panel.getError());
     }
 
     /**
@@ -62,5 +66,7 @@ public class TestDisplayErrorPanel extends GWTTestCase
         panel.clearError();
         assertFalse("Visible", panel.panel.isVisible());
         assertEquals("Wrong content", "", panel.labContent.getText());
+        assertFalse("In error state", panel.isInErrorState());
+        assertNull("Got an error", panel.getError());
     }
 }

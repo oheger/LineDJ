@@ -13,7 +13,6 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.ui.CustomButton;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.HasWidgets;
-import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Widget;
 
 import de.oliver_heger.mediastore.client.ImageResources;
@@ -84,14 +83,14 @@ public class TestOverviewTable extends GWTTestCase
         table.table.setVisible(false);
         table.pnlSearchProgress.setVisible(false);
         table.labResultCount.setVisible(true);
-        table.pnlError.setVisible(true);
+        table.pnlError.displayError(new RuntimeException());
         table.handleSearchClick(null);
         assertTrue("Table not visible", table.table.isVisible());
         assertEquals("Table not flushed", 0, table.table.getRowCount());
         assertFalse("Result label visible", table.labResultCount.isVisible());
         assertTrue("Progress panel not visible",
                 table.pnlSearchProgress.isVisible());
-        assertFalse("Error panel visible", table.pnlError.isVisible());
+        assertFalse("In error state", table.pnlError.isInErrorState());
     }
 
     /**
@@ -198,8 +197,8 @@ public class TestOverviewTable extends GWTTestCase
         assertFalse("Progress panel still visible",
                 table.pnlSearchProgress.isVisible());
         assertFalse("Table still visible", table.table.isVisible());
-        Label lab = (Label) table.pnlError.getContent();
-        assertTrue("No context message", lab.getText().length() > 0);
+        assertTrue("Not in error state", table.pnlError.isInErrorState());
+        assertEquals("Wrong error", t, table.pnlError.getError());
     }
 
     /**
@@ -209,10 +208,10 @@ public class TestOverviewTable extends GWTTestCase
     {
         // TODO test paging
         OverviewTable table = new OverviewTable();
-        table.pnlError.setVisible(true);
+        table.pnlError.displayError(new RuntimeException());
         table.pnlSearchProgress.setVisible(true);
         table.searchComplete(null, null, false);
-        assertFalse("Error panel visible", table.pnlError.isVisible());
+        assertFalse("In error state", table.pnlError.isInErrorState());
         assertFalse("Progress panel visible",
                 table.pnlSearchProgress.isVisible());
     }
