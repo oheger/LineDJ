@@ -1,0 +1,18 @@
+<!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+  xmlns:g="urn:import:com.google.gwt.user.client.ui">
+  <ui:style>
+    .important {
+    	font-weight: bold;
+    }
+  </ui:style>
+  <g:DisclosurePanel ui:field="panel"
+    visible="false">
+    <g:customHeader>
+      <g:Label ui:field="labHeader" styleName="{style.important}">
+      Error when retrieving data!
+      </g:Label>
+    </g:customHeader>
+    <g:HTML ui:field="labContent"/>
+  </g:DisclosurePanel>
+</ui:UiBinder>
