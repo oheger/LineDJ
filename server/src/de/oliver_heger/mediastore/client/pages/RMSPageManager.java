@@ -28,7 +28,7 @@ import com.google.gwt.user.client.ui.Widget;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class PageManager
+public class RMSPageManager
 {
     /** The main layout panel. */
     private final DockLayoutPanel mainPanel;
@@ -45,7 +45,7 @@ public class PageManager
      *
      * @param pnl the main layout panel
      */
-    public PageManager(DockLayoutPanel pnl)
+    public RMSPageManager(DockLayoutPanel pnl)
     {
         mainPanel = pnl;
         templates = new ArrayList<TemplateData>(LayoutPart.values().length);

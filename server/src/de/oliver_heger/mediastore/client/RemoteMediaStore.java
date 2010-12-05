@@ -16,7 +16,7 @@ import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.RootLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.pages.PageManager;
+import de.oliver_heger.mediastore.client.pages.RMSPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.LoginInfo;
 import de.oliver_heger.mediastore.shared.LoginService;
@@ -65,7 +65,7 @@ public class RemoteMediaStore implements EntryPoint
     Button btnTestData;
 
     /** The page manager. */
-    private PageManager pageManager;
+    private RMSPageManager pageManager;
 
     /**
      * This is the entry point method.
@@ -157,10 +157,10 @@ public class RemoteMediaStore implements EntryPoint
      *
      * @return the page manager
      */
-    private PageManager createPageManager()
+    private RMSPageManager createPageManager()
     {
-        PageManager pm = new PageManager(pnlApp);
-        pm.initTemplatePart(PageManager.LayoutPart.NORTH, pnlHeader,
+        RMSPageManager pm = new RMSPageManager(pnlApp);
+        pm.initTemplatePart(RMSPageManager.LayoutPart.NORTH, pnlHeader,
                 HEADER_SIZE);
         return pm;
     }
@@ -170,7 +170,7 @@ public class RemoteMediaStore implements EntryPoint
      *
      * @param pm the page manager
      */
-    private void initStartPage(PageManager pm)
+    private void initStartPage(RMSPageManager pm)
     {
         pm.showPage(Pages.OVERVIEW);
     }

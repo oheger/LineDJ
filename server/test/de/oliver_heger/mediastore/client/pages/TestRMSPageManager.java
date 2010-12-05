@@ -6,18 +6,16 @@ import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.pages.PageManager;
-import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
- * Test class for {@code PageManager}. The enumeration constants for the
+ * Test class for {@code RMSPageManager}. The enumeration constants for the
  * standard pages are tested, too.
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestPageManager extends GWTTestCase
+public class TestRMSPageManager extends GWTTestCase
 {
     @Override
     public String getModuleName()
@@ -31,7 +29,7 @@ public class TestPageManager extends GWTTestCase
     public void testGetMainPanel()
     {
         DockLayoutPanel pnl = new DockLayoutPanelTestImpl();
-        PageManager pm = new PageManager(pnl);
+        RMSPageManager pm = new RMSPageManager(pnl);
         assertSame("Wrong panel", pnl, pm.getMainPanel());
     }
 
@@ -41,16 +39,16 @@ public class TestPageManager extends GWTTestCase
     public void testShowPage()
     {
         DockLayoutPanelTestImpl pnl = new DockLayoutPanelTestImpl();
-        PageManager pm = new PageManager(pnl);
+        RMSPageManager pm = new RMSPageManager(pnl);
         Label labNorth = new Label("North");
         Label labWest = new Label("West");
         Label labSouth = new Label("South");
         Label labEast = new Label("LabEast");
         Label labCenter = new Label("Center");
-        pm.initTemplatePart(PageManager.LayoutPart.NORTH, labNorth, 1);
-        pm.initTemplatePart(PageManager.LayoutPart.WEST, labWest, 2);
-        pm.initTemplatePart(PageManager.LayoutPart.SOUTH, labSouth, 3);
-        pm.initTemplatePart(PageManager.LayoutPart.EAST, labEast, 4);
+        pm.initTemplatePart(RMSPageManager.LayoutPart.NORTH, labNorth, 1);
+        pm.initTemplatePart(RMSPageManager.LayoutPart.WEST, labWest, 2);
+        pm.initTemplatePart(RMSPageManager.LayoutPart.SOUTH, labSouth, 3);
+        pm.initTemplatePart(RMSPageManager.LayoutPart.EAST, labEast, 4);
         pm.showPage(labCenter);
         pnl.checkClear();
         pnl.checkNorth(labNorth, 1);
@@ -65,7 +63,7 @@ public class TestPageManager extends GWTTestCase
      */
     public void testGetPageOverview()
     {
-        PageManager pm = new PageManager(new DockLayoutPanelTestImpl());
+        RMSPageManager pm = new RMSPageManager(new DockLayoutPanelTestImpl());
         Widget w = pm.getPage(Pages.OVERVIEW);
         OverviewPage page = (OverviewPage) w;
         assertSame("Page manager not set", pm, page.getPageManager());
@@ -76,7 +74,7 @@ public class TestPageManager extends GWTTestCase
      */
     public void testGetPageSingleton()
     {
-        PageManager pm = new PageManager(new DockLayoutPanelTestImpl());
+        RMSPageManager pm = new RMSPageManager(new DockLayoutPanelTestImpl());
         Widget w = pm.getPage(Pages.OVERVIEW);
         assertSame("Multiple instances", w, pm.getPage(Pages.OVERVIEW));
     }
@@ -87,7 +85,7 @@ public class TestPageManager extends GWTTestCase
     public void testShowPageStandard()
     {
         DockLayoutPanelTestImpl pnl = new DockLayoutPanelTestImpl();
-        PageManager pm = new PageManager(pnl);
+        RMSPageManager pm = new RMSPageManager(pnl);
         pm.showPage(Pages.OVERVIEW);
         pnl.checkCenter(pm.getPage(Pages.OVERVIEW));
     }

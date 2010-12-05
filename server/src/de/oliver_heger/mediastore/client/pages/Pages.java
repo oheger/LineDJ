@@ -9,7 +9,7 @@ import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
  * An enumeration class with the predefined pages supported by this application.
  * </p>
  * <p>
- * This enumeration class is used together with {@link PageManager}. By passing
+ * This enumeration class is used together with {@link RMSPageManager}. By passing
  * a constant of this class to the manager the single instance of the
  * corresponding page can be obtained and selected.
  * </p>
@@ -26,7 +26,7 @@ public enum Pages
     OVERVIEW
     {
         @Override
-        public Widget createPageWidget(PageManager pm)
+        public Widget createPageWidget(RMSPageManager pm)
         {
             OverviewPage page = new OverviewPage();
             page.initialize(pm);
@@ -43,5 +43,5 @@ public enum Pages
      * @param pm the page manager
      * @return the widget implementing this page
      */
-    public abstract Widget createPageWidget(PageManager pm);
+    public abstract Widget createPageWidget(RMSPageManager pm);
 }

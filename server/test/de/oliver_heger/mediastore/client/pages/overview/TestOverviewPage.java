@@ -6,7 +6,7 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 
-import de.oliver_heger.mediastore.client.pages.PageManager;
+import de.oliver_heger.mediastore.client.pages.RMSPageManager;
 import de.oliver_heger.mediastore.client.pages.overview.AbstractOverviewQueryHandler;
 import de.oliver_heger.mediastore.client.pages.overview.ArtistQueryHandler;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
@@ -49,7 +49,7 @@ public class TestOverviewPage extends GWTTestCase
     public void testInitialize()
     {
         OverviewPage page = new OverviewPage();
-        PageManager pm = new PageManager(new DockLayoutPanel(Unit.CM));
+        RMSPageManager pm = new RMSPageManager(new DockLayoutPanel(Unit.CM));
         page.initialize(pm);
         assertSame("Page manager not set", pm, page.getPageManager());
         AbstractOverviewQueryHandler<?> handler =
