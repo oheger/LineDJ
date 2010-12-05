@@ -445,6 +445,12 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      */
     private static String createCountQuery(String query)
     {
-        return query.replace(SELECT_ENTITY, SELECT_COUNT);
+        String countQuery = query.replace(SELECT_ENTITY, SELECT_COUNT);
+        int pos = countQuery.indexOf(ORDER_BY);
+        if (pos > 0)
+        {
+            countQuery = countQuery.substring(0, pos);
+        }
+        return countQuery;
     }
 }
