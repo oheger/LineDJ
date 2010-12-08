@@ -124,6 +124,18 @@ public class TestPageSpecificationImpl
     }
 
     /**
+     * Tests whether reserved characters in parameter values are encoded.
+     */
+    @Test
+    public void testToTokenEncodeParameterValues()
+    {
+        spec.withParameter("c# = a + b").withParameter(PARAM, "a;b;c;");
+        String expected =
+                PAGE_NAME + ";default=c#x #e a + b;" + PARAM_ENC + "=a#sb#sc#s";
+        assertEquals("Wrong token", expected, spec.toToken());
+    }
+
+    /**
      * Tests the open() method.
      */
     @Test

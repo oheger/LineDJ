@@ -37,6 +37,20 @@ class ParametersHelper
      */
     public static final char VALUE_SEPARATOR = '=';
 
+    /** A string with reserved characters which need to be encoded. */
+    private static final String SPECIAL_CHARS = ";=#";
+
+    /** An array with the replacements for the special characters. */
+    private static final String[] REPLACEMENTS = {
+        "#s", "#e", "#x"
+    };
+
+    /** Constant for the escaping character. */
+    private static final char ESCAPE = '#';
+
+    /** Constant for a length offset for the creation of a string buffer. */
+    private static final int BUF_SIZE_OFS = 16;
+
     /**
      * Normalizes the specified parameter. If the parameter is the default
      * parameter or already starts with the standard prefix, it is returned
@@ -85,5 +99,96 @@ class ParametersHelper
             return param.substring(PARAM_PREFIX.length());
         }
         return null;
+    }
+
+    /**
+     * Encodes a string parameter value. When parsing a page token some
+     * characters are used for splitting parameters and their values. If a
+     * parameter value contained some of these characters, the parsing process
+     * would be confused, so they need to be encoded. This is done by this
+     * method. It uses an easy proprietary encoding algorithm for eliminating
+     * reserved characters.
+     *
+     * @param value the value to be encoded
+     * @return the encoded value
+     */
+    public static String encodeValue(String value)
+    {
+        for (int i = 0; i < value.length(); i++)
+        {
+            if (SPECIAL_CHARS.indexOf(value.charAt(i)) >= 0)
+            {
+                return doEncodeValue(value, i);
+            }
+        }
+
+        // no special character found => return string unchanged
+        return value;
+    }
+
+    /**
+     * Decodes a string parameter value. This method performs the inverse
+     * transformation on a string parameter value as
+     * {@link #encodeValue(String)}. It ensures a parameter value that has been
+     * encoded is restored to its original form.
+     *
+     * @param value the value to be decoded
+     * @return the decoded value
+     */
+    public static String decodeValue(String value)
+    {
+        return (value.indexOf(ESCAPE) >= 0) ? doDecodeValue(value) : value;
+    }
+
+    /**
+     * Helper method for encoding reserved characters in the value of a
+     * parameter.
+     *
+     * @param value the string to be encoded
+     * @param startIdx the start index where the first reserved character was
+     *        found
+     * @return the encoded value
+     */
+    private static String doEncodeValue(String value, int startIdx)
+    {
+        StringBuilder buf = new StringBuilder(value.length() + BUF_SIZE_OFS);
+        buf.append(value.substring(0, startIdx));
+
+        for (int i = startIdx; i < value.length(); i++)
+        {
+            char c = value.charAt(i);
+            int pos = SPECIAL_CHARS.indexOf(c);
+            if (pos >= 0)
+            {
+                buf.append(REPLACEMENTS[pos]);
+            }
+            else
+            {
+                buf.append(c);
+            }
+        }
+
+        return buf.toString();
+    }
+
+    /**
+     * Helper method for decoding a parameter value. This method simply replaces
+     * all escape sequences by their original values.
+     *
+     * @param value the value to be decoded
+     * @return the decoded value
+     */
+    private static String doDecodeValue(String value)
+    {
+        String repl = value;
+
+        for (int i = 0; i < SPECIAL_CHARS.length(); i++)
+        {
+            repl =
+                    repl.replace(REPLACEMENTS[i],
+                            String.valueOf(SPECIAL_CHARS.charAt(i)));
+        }
+
+        return repl;
     }
 }

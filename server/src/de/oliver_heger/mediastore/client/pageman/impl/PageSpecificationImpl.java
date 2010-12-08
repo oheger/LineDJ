@@ -131,7 +131,6 @@ class PageSpecificationImpl implements PageSpecification
                     "Parameter value must not be null or empty!");
         }
 
-        // TODO encoding
-        return sValue;
+        return ParametersHelper.encodeValue(sValue);
     }
 }

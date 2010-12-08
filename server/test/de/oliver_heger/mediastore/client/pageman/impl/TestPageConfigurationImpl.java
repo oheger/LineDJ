@@ -258,4 +258,21 @@ public class TestPageConfigurationImpl
     {
         PageConfigurationImpl.parse(PAGE_NAME + ";test");
     }
+
+    /**
+     * Tests whether encoded parameter values can be parsed correctly.
+     */
+    @Test
+    public void testParseEncodedParameters()
+    {
+        StringBuilder buf = new StringBuilder();
+        buf.append(PAGE_NAME);
+        appendParameter(buf, "default", "c#x #e a + b");
+        appendParameter(buf, PARAM_ENC_PREFIX, "a#sb#sc#s");
+        PageConfiguration config = PageConfigurationImpl.parse(buf.toString());
+        assertEquals("Wrong default parameter", "c# = a + b",
+                config.getStringParameter());
+        assertEquals("Wrong named parameter", "a;b;c;",
+                config.getStringParameter(PARAM_PREFIX));
+    }
 }

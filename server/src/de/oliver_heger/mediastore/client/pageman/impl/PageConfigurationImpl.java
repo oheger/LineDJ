@@ -200,7 +200,8 @@ class PageConfigurationImpl implements PageConfiguration
 
         for (int i = 0; i < parts.length; i += 2)
         {
-            map.put(ParametersHelper.normalize(parts[i]), parts[i + 1]);
+            map.put(ParametersHelper.normalize(parts[i]),
+                    ParametersHelper.decodeValue(parts[i + 1]));
         }
     }
 }
