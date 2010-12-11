@@ -16,7 +16,9 @@ import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.RootLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.pages.RMSPageManager;
+import de.oliver_heger.mediastore.client.pageman.PageManager;
+import de.oliver_heger.mediastore.client.pageman.impl.DockLayoutPageView;
+import de.oliver_heger.mediastore.client.pageman.impl.PageManagerImpl;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.LoginInfo;
 import de.oliver_heger.mediastore.shared.LoginService;
@@ -64,9 +66,6 @@ public class RemoteMediaStore implements EntryPoint
     @UiField
     Button btnTestData;
 
-    /** The page manager. */
-    private RMSPageManager pageManager;
-
     /**
      * This is the entry point method.
      */
@@ -97,8 +96,7 @@ public class RemoteMediaStore implements EntryPoint
                             linkLogout.setHref(result.getLogoutUrl());
                             ui = pnlApp;
 
-                            pageManager = createPageManager();
-                            initStartPage(pageManager);
+                            createPageManager();
                         }
                         else
                         {
@@ -157,22 +155,15 @@ public class RemoteMediaStore implements EntryPoint
      *
      * @return the page manager
      */
-    private RMSPageManager createPageManager()
+    private PageManager createPageManager()
     {
-        RMSPageManager pm = new RMSPageManager(pnlApp);
-        pm.initTemplatePart(RMSPageManager.LayoutPart.NORTH, pnlHeader,
+        DockLayoutPageView view = new DockLayoutPageView(pnlApp);
+        view.initTemplatePart(DockLayoutPageView.LayoutPart.NORTH, pnlHeader,
                 HEADER_SIZE);
+        PageManagerImpl pm = new PageManagerImpl(view);
+        pm.registerPages(Pages.values(), true);
+        pm.initialize(Pages.OVERVIEW.name());
         return pm;
-    }
-
-    /**
-     * Initializes the start page of this application.
-     *
-     * @param pm the page manager
-     */
-    private void initStartPage(RMSPageManager pm)
-    {
-        pm.showPage(Pages.OVERVIEW);
     }
 
     /** The specialized binder interface. */

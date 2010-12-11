@@ -6,13 +6,9 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 
-import de.oliver_heger.mediastore.client.pages.RMSPageManager;
-import de.oliver_heger.mediastore.client.pages.overview.AbstractOverviewQueryHandler;
-import de.oliver_heger.mediastore.client.pages.overview.ArtistQueryHandler;
-import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
-import de.oliver_heger.mediastore.client.pages.overview.OverviewTable;
-import de.oliver_heger.mediastore.client.pages.overview.ResultData;
-import de.oliver_heger.mediastore.client.pages.overview.SearchResultView;
+import de.oliver_heger.mediastore.client.pageman.PageManager;
+import de.oliver_heger.mediastore.client.pageman.impl.DockLayoutPageView;
+import de.oliver_heger.mediastore.client.pageman.impl.PageManagerImpl;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -49,11 +45,13 @@ public class TestOverviewPage extends GWTTestCase
     public void testInitialize()
     {
         OverviewPage page = new OverviewPage();
-        RMSPageManager pm = new RMSPageManager(new DockLayoutPanel(Unit.CM));
+        PageManager pm =
+                new PageManagerImpl(new DockLayoutPageView(new DockLayoutPanel(
+                        Unit.CM)));
         page.initialize(pm);
         assertSame("Page manager not set", pm, page.getPageManager());
         AbstractOverviewQueryHandler<?> handler =
-            page.fetchQueryHandler(page.tabArtists);
+                page.fetchQueryHandler(page.tabArtists);
         assertNotNull("Handlers not initialized", handler);
     }
 

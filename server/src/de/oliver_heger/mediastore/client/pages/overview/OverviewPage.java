@@ -13,7 +13,7 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.pages.RMSPageManager;
+import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
@@ -50,7 +50,7 @@ public class OverviewPage extends Composite implements
     private Map<OverviewTable, OverviewData> overviewTables;
 
     /** Holds a reference to the page manager.*/
-    private RMSPageManager pageManager;
+    private PageManager pageManager;
 
     /**
      * Creates a new instance of {@code OverviewPage}.
@@ -61,11 +61,12 @@ public class OverviewPage extends Composite implements
     }
 
     /**
-     * Returns a reference to the {@link RMSPageManager}. Using this component it is
-     * possible to navigate to other pages.
+     * Returns a reference to the {@link RMSPageManager}. Using this component
+     * it is possible to navigate to other pages.
+     *
      * @return the page manager
      */
-    public RMSPageManager getPageManager()
+    public PageManager getPageManager()
     {
         return pageManager;
     }
@@ -89,7 +90,7 @@ public class OverviewPage extends Composite implements
      * Initializes this component.
      * @param pm a reference to the page manager
      */
-    public void initialize(RMSPageManager pm)
+    public void initialize(PageManager pm)
     {
         pageManager = pm;
         initQueryHandlers();

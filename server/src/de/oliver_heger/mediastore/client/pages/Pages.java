@@ -2,6 +2,8 @@ package de.oliver_heger.mediastore.client.pages;
 
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.pageman.PageFactory;
+import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
@@ -9,39 +11,24 @@ import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
  * An enumeration class with the predefined pages supported by this application.
  * </p>
  * <p>
- * This enumeration class is used together with {@link RMSPageManager}. By passing
- * a constant of this class to the manager the single instance of the
- * corresponding page can be obtained and selected.
- * </p>
- * <p>
- * When a page is shown for the first time it is created. For this purpose this
- * class defines a generic method for the creation of the page component.
+ * This enumeration class implements the {@link PageFactory} interface. Therefore
+ * it can be used together with {@link PageManager} to navigate to different
+ * pages of this application.
  * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public enum Pages
+public enum Pages implements PageFactory
 {
     OVERVIEW
     {
         @Override
-        public Widget createPageWidget(RMSPageManager pm)
+        public Widget getPageWidget(PageManager pageManager)
         {
             OverviewPage page = new OverviewPage();
-            page.initialize(pm);
+            page.initialize(pageManager);
             return page;
         }
     };
-
-    /**
-     * Creates the widget representing this page. This method is called by the
-     * page manager when a page is to be displayed for the first time. The page
-     * manager instance is passed, so that it can be stored by the page widget;
-     * this may be needed if this page has to navigate to other pages.
-     *
-     * @param pm the page manager
-     * @return the widget implementing this page
-     */
-    public abstract Widget createPageWidget(RMSPageManager pm);
 }
