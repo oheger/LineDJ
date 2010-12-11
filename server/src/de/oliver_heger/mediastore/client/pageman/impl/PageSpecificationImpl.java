@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pageman.impl;
 
+import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pageman.PageSpecification;
 
 /**
@@ -30,7 +31,7 @@ class PageSpecificationImpl implements PageSpecification
     private static final String EMPTY = "";
 
     /** Stores a reference to the page manager that created this instance. */
-    private final PageManagerImpl pageManager;
+    private final PageManager pageManager;
 
     /** A buffer for building up the token. */
     private final StringBuilder bufToken;
@@ -42,7 +43,7 @@ class PageSpecificationImpl implements PageSpecification
      * @param pm the owning {@link PageManagerImpl} object
      * @param pageName the name of the target page
      */
-    public PageSpecificationImpl(PageManagerImpl pm, String pageName)
+    public PageSpecificationImpl(PageManager pm, String pageName)
     {
         pageManager = pm;
         bufToken = new StringBuilder(BUF_SIZE);
@@ -50,12 +51,12 @@ class PageSpecificationImpl implements PageSpecification
     }
 
     /**
-     * Returns a reference to the {@link PageManagerImpl} associated with this
+     * Returns a reference to the {@link PageManager} associated with this
      * object.
      *
      * @return the associated page manager
      */
-    public PageManagerImpl getPageManager()
+    public PageManager getPageManager()
     {
         return pageManager;
     }

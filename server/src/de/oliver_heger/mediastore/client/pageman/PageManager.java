@@ -2,6 +2,8 @@ package de.oliver_heger.mediastore.client.pageman;
 
 import java.util.Set;
 
+import com.google.gwt.user.client.ui.Widget;
+
 /**
  * <p>
  * The main interface of the page manager framework.
@@ -68,15 +70,28 @@ public interface PageManager
     void registerPage(String name, PageFactory factory);
 
     /**
-     * Registers a set of pages defined by an enumeration type. In order to
-     * define constants for page names in a safe way, it makes sense to create a
-     * corresponding enumeration class. If the enumeration class also implements
-     * the {@link PageFactory} interface, there is a direct association between
-     * page names and factories. Also, the constants of the class can be used
-     * every time access to a page is needed. This method supports such a
-     * design. It expects a number of constants from an enumeration class which
-     * also implements the {@link PageFactory} interface. Each constant is
-     * registered under its name.
+     * Registers a set of pages defined by an enumeration type and allows
+     * setting the <em>singleton</em> flag. In order to define constants for
+     * page names in a safe way, it makes sense to create a corresponding
+     * enumeration class. If the enumeration class also implements the
+     * {@link PageFactory} interface, there is a direct association between page
+     * names and factories. Also, the constants of the class can be used every
+     * time access to a page is needed. This method supports such a design. It
+     * expects a number of constants from an enumeration class which also
+     * implements the {@link PageFactory} interface. Each constant is registered
+     * under its name.
+     *
+     * @param <E> the type of the enumeration class
+     * @param pages an array with enumeration constants defining pages to be
+     *        registered
+     * @param singleton the <em>singleton</em> flag
+     */
+    <E extends Enum<E>> void registerPages(E[] pages, boolean singleton);
+
+    /**
+     * Registers a set of pages defined by an enumeration type. Works like the
+     * method with the same name, but always sets the <em>singleton</em> flag to
+     * <b>false</b>.
      *
      * @param <E> the type of the enumeration class
      * @param pages an array with enumeration constants defining pages to be
@@ -121,4 +136,40 @@ public interface PageManager
      * @return a set with the names of the pages that have been registered
      */
     Set<String> getPageNames();
+
+    /**
+     * Returns the widget representing the page with the given name. This method
+     * can be used when a page widget needs to be accessed directly.
+     *
+     * @param name the name of the page
+     * @return the corresponding widget
+     * @throws IllegalArgumentException if the page is not registered
+     */
+    Widget getPageWidget(String name);
+
+    /**
+     * Returns the widget representing the page specified by the given
+     * enumeration constant. This method works like the overloaded variant, but
+     * the name of the page is extracted from the enumeration constant.
+     *
+     * @param <E> the type of the enumeration class
+     * @param page the constant defining the page in question (must not be
+     *        <b>null</b>)
+     * @return the corresponding widget
+     * @throws IllegalArgumentException if the page is not registered
+     * @throws NullPointerException if the page constant is <b>null</b>
+     */
+    <E extends Enum<E>> Widget getPageWidget(E page);
+
+    /**
+     * Opens the page described by the given token. This method is a very direct
+     * variant for opening a page. It expects a correct token to be passed in.
+     * The recommended way of opening a page is to obtain a
+     * {@link PageSpecification} object and calling {@code open()} on this
+     * object.
+     *
+     * @param token the token describing the page to be opened
+     * @throws NullPointerException if the token is <b>null</b>
+     */
+    void openPage(String token);
 }

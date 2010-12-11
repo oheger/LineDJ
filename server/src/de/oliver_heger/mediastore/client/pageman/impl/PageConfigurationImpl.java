@@ -1,11 +1,10 @@
 package de.oliver_heger.mediastore.client.pageman.impl;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import com.google.gwt.dev.util.collect.HashMap;
 
 import de.oliver_heger.mediastore.client.pageman.PageConfiguration;
 

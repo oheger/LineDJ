@@ -3,8 +3,11 @@ package de.oliver_heger.mediastore.client.pageman.impl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
+import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
+
+import de.oliver_heger.mediastore.client.pageman.PageManager;
 
 /**
  * Test class for {@code PageSpecificationImpl}.
@@ -27,7 +30,7 @@ public class TestPageSpecificationImpl
     private static final String VALUE = "paramValue";
 
     /** The page manager. */
-    private PageManagerTestImpl pageMan;
+    private PageManager pageMan;
 
     /** The specification to be tested. */
     private PageSpecificationImpl spec;
@@ -35,7 +38,7 @@ public class TestPageSpecificationImpl
     @Before
     public void setUp() throws Exception
     {
-        pageMan = new PageManagerTestImpl();
+        pageMan = EasyMock.createMock(PageManager.class);
         spec = new PageSpecificationImpl(pageMan, PAGE_NAME);
     }
 
@@ -141,33 +144,11 @@ public class TestPageSpecificationImpl
     @Test
     public void testOpen()
     {
-        spec.withParameter("defaultValue").withParameter(PARAM, VALUE).open();
-        assertEquals("Wrong token passed to page manager", spec.toToken(),
-                pageMan.getToken());
-    }
-
-    /**
-     * A test implementation of the page manager which allows mocking the method
-     * for opening a page. In the tests we need to intercept this method to
-     * verify that the expected page token is generated.
-     */
-    private static class PageManagerTestImpl extends PageManagerImpl
-    {
-        /** The token passed to this object. */
-        private String token;
-
-        public String getToken()
-        {
-            return token;
-        }
-
-        /**
-         * Just stores the token passed to this method.
-         */
-        @Override
-        void openPage(String token)
-        {
-            this.token = token;
-        }
+        spec.withParameter("defaultValue").withParameter(PARAM, VALUE);
+        String token = spec.toToken();
+        pageMan.openPage(token);
+        EasyMock.replay(pageMan);
+        spec.open();
+        EasyMock.verify(pageMan);
     }
 }
