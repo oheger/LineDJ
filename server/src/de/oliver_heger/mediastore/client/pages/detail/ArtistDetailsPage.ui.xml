@@ -1,0 +1,31 @@
+<!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+  xmlns:g="urn:import:com.google.gwt.user.client.ui"
+  xmlns:rms="urn:import:de.oliver_heger.mediastore.client">
+
+  <g:ScrollPanel>
+    <g:VerticalPanel>
+
+      <!-- A panel with the direct attributes of the artist -->
+      <g:HTMLPanel>
+        <table spacing="1">
+        <tr>
+          <td valign="top" halign="right">Name:</td>
+          <td colspan="2"><span ui:field="spanArtistName"/></td>
+        </tr>
+        <tr>
+          <td valign="top" halign="right">Created at:</td>
+          <td colspan="2"><span ui:field="spanCreationDate"/></td>
+        </tr>
+        <tr>
+          <td valign="top" halign="right">Synonyms:</td>
+          <td><span ui:field="spanSynonyms"/></td>
+          <td>
+            <g:Button ui:field="btnEditSynonyms">Edit</g:Button>
+          </td>
+        </tr>
+        </table>
+      </g:HTMLPanel>
+    </g:VerticalPanel>
+  </g:ScrollPanel>
+</ui:UiBinder>
