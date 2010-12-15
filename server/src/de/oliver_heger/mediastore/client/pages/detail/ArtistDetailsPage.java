@@ -11,6 +11,8 @@ import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.pageman.PageManager;
+
 /**
  * <p>
  * A widget implementing the details page of an artist.
@@ -47,12 +49,37 @@ public class ArtistDetailsPage extends Composite
     @UiField
     Button btnEditSynonyms;
 
+    /** The current page manager. */
+    private PageManager pageManager;
+
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
      */
     public ArtistDetailsPage()
     {
         initWidget(uiBinder.createAndBindUi(this));
+    }
+
+    /**
+     * Initializes this page and passes a reference to the current
+     * {@link PageManager}. This method is called directly after this object was
+     * created.
+     *
+     * @param pm the {@link PageManager} reference
+     */
+    public void initialize(PageManager pm)
+    {
+        pageManager = pm;
+    }
+
+    /**
+     * Returns the current {@link PageManager}.
+     *
+     * @return the {@link PageManager}
+     */
+    public PageManager getPageManager()
+    {
+        return pageManager;
     }
 
     @UiHandler("btnEditSynonyms")

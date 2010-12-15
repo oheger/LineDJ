@@ -13,7 +13,9 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
+import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
@@ -28,8 +30,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class OverviewPage extends Composite implements
-        SearchListener
+public class OverviewPage extends Composite implements SearchListener
 {
     /** The binder used for building this component. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);
@@ -49,8 +50,11 @@ public class OverviewPage extends Composite implements
     /** A map with handlers for processing search queries. */
     private Map<OverviewTable, OverviewData> overviewTables;
 
-    /** Holds a reference to the page manager.*/
+    /** Holds a reference to the page manager. */
     private PageManager pageManager;
+
+    /** The image resources. */
+    private ImageResources imageResources;
 
     /**
      * Creates a new instance of {@code OverviewPage}.
@@ -72,6 +76,16 @@ public class OverviewPage extends Composite implements
     }
 
     /**
+     * Returns the object for accessing image resources.
+     *
+     * @return the object with image resources
+     */
+    public ImageResources getImageResources()
+    {
+        return imageResources;
+    }
+
+    /**
      * Handles a search request. This method is called when the user enters a
      * search text in one of the overview tables and hits the search button. It
      * delegates to the query handler associated with the overview table.
@@ -88,12 +102,16 @@ public class OverviewPage extends Composite implements
 
     /**
      * Initializes this component.
+     *
      * @param pm a reference to the page manager
      */
     public void initialize(PageManager pm)
     {
         pageManager = pm;
+        imageResources = GWT.create(ImageResources.class);
+
         initQueryHandlers();
+        initSingleElementHandlers();
         ensureOverviewTableInitialized(tabPanel.getSelectedIndex());
     }
 
@@ -119,6 +137,16 @@ public class OverviewPage extends Composite implements
                 createArtistQueryHandler()));
         tabArtists.setSearchListener(this);
         // TODO add further handlers
+    }
+
+    /**
+     * Initializes the single element handlers for the overview tables.
+     */
+    void initSingleElementHandlers()
+    {
+        tabArtists.addSingleElementHandler(getImageResources().viewDetails(),
+                new OpenPageSingleElementHandler(getPageManager(),
+                        Pages.ARTISTDETAILS));
     }
 
     /**

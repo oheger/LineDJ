@@ -40,6 +40,26 @@ public class OpenPageSingleElementHandler implements SingleElementHandler
     }
 
     /**
+     * Returns a reference to the {@link PageManager}.
+     *
+     * @return the {@link PageManager}
+     */
+    public PageManager getPageManager()
+    {
+        return pageManager;
+    }
+
+    /**
+     * Returns the page that is opened by this handler.
+     *
+     * @return the page to be opened
+     */
+    public Pages getPage()
+    {
+        return page;
+    }
+
+    /**
      * An element was selected. This implementation opens a page and passes the
      * ID of the element in question as default parameter.
      *

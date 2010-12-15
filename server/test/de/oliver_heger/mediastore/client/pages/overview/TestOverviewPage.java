@@ -1,14 +1,12 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
-import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.logical.shared.SelectionEvent;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
-import com.google.gwt.user.client.ui.DockLayoutPanel;
 
 import de.oliver_heger.mediastore.client.pageman.PageManager;
-import de.oliver_heger.mediastore.client.pageman.impl.DockLayoutPageView;
-import de.oliver_heger.mediastore.client.pageman.impl.PageManagerImpl;
+import de.oliver_heger.mediastore.client.pages.MockPageManager;
+import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -29,6 +27,16 @@ public class TestOverviewPage extends GWTTestCase
     }
 
     /**
+     * Creates a page manager instance.
+     *
+     * @return the page manager
+     */
+    private static MockPageManager createPageManager()
+    {
+        return new MockPageManager();
+    }
+
+    /**
      * Tests whether all fields are properly set by the UI binder.
      */
     public void testInit()
@@ -45,14 +53,53 @@ public class TestOverviewPage extends GWTTestCase
     public void testInitialize()
     {
         OverviewPage page = new OverviewPage();
-        PageManager pm =
-                new PageManagerImpl(new DockLayoutPageView(new DockLayoutPanel(
-                        Unit.CM)));
+        PageManager pm = createPageManager();
         page.initialize(pm);
         assertSame("Page manager not set", pm, page.getPageManager());
         AbstractOverviewQueryHandler<?> handler =
                 page.fetchQueryHandler(page.tabArtists);
         assertNotNull("Handlers not initialized", handler);
+        assertNotNull("No image resources", page.getImageResources());
+    }
+
+    /**
+     * Helper method for testing whether a specific open page handler has been
+     * registered at an overview table.
+     *
+     * @param overview the overview page
+     * @param tab the overview table
+     * @param page the target page
+     */
+    private void checkPageHandler(OverviewPage overview, OverviewTable tab,
+            Pages page)
+    {
+        PageManager pm = createPageManager();
+        overview.initialize(pm);
+        boolean found = false;
+        for (SingleElementHandler h : tab.getSingleElementHandlers())
+        {
+            if (h instanceof OpenPageSingleElementHandler)
+            {
+                OpenPageSingleElementHandler oph =
+                        (OpenPageSingleElementHandler) h;
+                assertSame("Wrong page manager", pm, oph.getPageManager());
+                if (oph.getPage() == page)
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        assertTrue("No handler found for page", found);
+    }
+
+    /**
+     * Tests whether a handler for the details of an artist has been installed.
+     */
+    public void testArtistDetailsHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        checkPageHandler(page, page.tabArtists, Pages.ARTISTDETAILS);
     }
 
     /**

@@ -7,6 +7,7 @@ import com.google.gwt.user.client.ui.DockLayoutPanel;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pageman.impl.DockLayoutPageView;
 import de.oliver_heger.mediastore.client.pageman.impl.PageManagerImpl;
+import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsPage;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
@@ -42,6 +43,17 @@ public class TestPages extends GWTTestCase
     {
         PageManager pm = createPageManager();
         OverviewPage page = (OverviewPage) Pages.OVERVIEW.getPageWidget(pm);
+        assertSame("Wrong page manager", pm, page.getPageManager());
+    }
+
+    /**
+     * Tests the creation of the artist details page.
+     */
+    public void testPageArtistDetails()
+    {
+        PageManager pm = createPageManager();
+        ArtistDetailsPage page =
+                (ArtistDetailsPage) Pages.ARTISTDETAILS.getPageWidget(pm);
         assertSame("Wrong page manager", pm, page.getPageManager());
     }
 }

@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,6 +38,9 @@ public class TestOverviewTable extends GWTTestCase
 
     /** Constant for the cell data prefix. */
     private static final String CELL_DATA = "cell_data_";
+
+    /** Constant for the number of element handlers. */
+    private static final int HANDLER_COUNT = 4;
 
     @Override
     public String getModuleName()
@@ -254,27 +258,39 @@ public class TestOverviewTable extends GWTTestCase
     }
 
     /**
+     * Helper method for adding some single element handlers to the table.
+     * @param table the test table
+     * @return an array with the handlers that have been added
+     */
+    private SingleElementHandlerTestImpl[] addSingleElementHandlers(
+            OverviewTable table)
+    {
+        ImageResources res = GWT.create(ImageResources.class);
+        SingleElementHandlerTestImpl[] handlers =
+                new SingleElementHandlerTestImpl[HANDLER_COUNT];
+        for (int i = 0; i < HANDLER_COUNT; i++)
+        {
+            handlers[i] = new SingleElementHandlerTestImpl();
+            table.addSingleElementHandler(res.viewDetails(), handlers[i]);
+        }
+        return handlers;
+    }
+
+    /**
      * Tests whether multiple single element handlers can be added and whether
      * they are stored in the expected order.
      */
     public void testAddSingleElementHandlerMultiple()
     {
         OverviewTable table = new OverviewTable();
-        ImageResources res = GWT.create(ImageResources.class);
-        final int handlerCount = 4;
         SingleElementHandlerTestImpl[] handlers =
-                new SingleElementHandlerTestImpl[handlerCount];
-        for (int i = 0; i < handlerCount; i++)
-        {
-            handlers[i] = new SingleElementHandlerTestImpl();
-            table.addSingleElementHandler(res.viewDetails(), handlers[i]);
-        }
-        ResultDataTestImpl data = new ResultDataTestImpl(handlerCount + 1, 0);
+                addSingleElementHandlers(table);
+        ResultDataTestImpl data = new ResultDataTestImpl(HANDLER_COUNT + 1, 0);
         table.addSearchResults(data, null);
         FlexTable ft = table.table;
         assertEquals("Wrong number of columns", COL_COUNT + 1,
                 ft.getCellCount(1));
-        for (int i = 0; i < handlerCount; i++)
+        for (int i = 0; i < HANDLER_COUNT; i++)
         {
             HasWidgets widgets = (HasWidgets) ft.getWidget(i + 1, COL_COUNT);
             Iterator<Widget> widgetIt = widgets.iterator();
@@ -285,11 +301,33 @@ public class TestOverviewTable extends GWTTestCase
             CustomButton btn = (CustomButton) widgetIt.next();
             fireClickEvent(btn);
         }
-        for (int i = 0; i < handlerCount; i++)
+        for (int i = 0; i < HANDLER_COUNT; i++)
         {
             assertEquals("Wrong ID passed to handler", Long.valueOf(i),
                     handlers[i].getElementID());
         }
+    }
+
+    /**
+     * Tests whether single element handlers can be queried.
+     */
+    public void testGetSingleElementHandlers()
+    {
+        OverviewTable table = new OverviewTable();
+        SingleElementHandlerTestImpl[] handlers =
+                addSingleElementHandlers(table);
+        SingleElementHandler[] regHandlers = table.getSingleElementHandlers();
+        assertTrue("Wrong handlers", Arrays.equals(handlers, regHandlers));
+    }
+
+    /**
+     * Tests whether single element handlers can be queried if there are none.
+     */
+    public void testGetSingleElementHandlersEmpty()
+    {
+        OverviewTable table = new OverviewTable();
+        SingleElementHandler[] regHandlers = table.getSingleElementHandlers();
+        assertEquals("Got handlers", 0, regHandlers.length);
     }
 
     /**

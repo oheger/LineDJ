@@ -51,6 +51,10 @@ public class OverviewTable extends Composite implements SearchResultView
     /** Constant for the style sheet of the table's header row. */
     private static final String STYLE_TABLE_HEADER = "overviewTableHeader";
 
+    /** Constant for an empty array of handlers. */
+    private static final SingleElementHandler[] EMPTY_SINGLE_HANDLERS =
+            new SingleElementHandler[0];
+
     /** The text component with the search text. */
     @UiField
     TextBox txtSearch;
@@ -79,7 +83,7 @@ public class OverviewTable extends Composite implements SearchResultView
     private SearchListener searchListener;
 
     /** A list with the images for single element handlers. */
-    private final List<Image> singleHandlerImages;
+    private final List<ImageResource> singleHandlerImages;
 
     /** A list with the single element handlers registered at this table. */
     private final List<SingleElementHandler> singleHandlers;
@@ -90,7 +94,7 @@ public class OverviewTable extends Composite implements SearchResultView
      */
     public OverviewTable()
     {
-        singleHandlerImages = new ArrayList<Image>();
+        singleHandlerImages = new ArrayList<ImageResource>();
         singleHandlers = new ArrayList<SingleElementHandler>();
         initWidget(binder.createAndBindUi(this));
     }
@@ -127,8 +131,19 @@ public class OverviewTable extends Composite implements SearchResultView
     public void addSingleElementHandler(ImageResource imgres,
             SingleElementHandler handler)
     {
-        singleHandlerImages.add(new Image(imgres));
+        singleHandlerImages.add(imgres);
         singleHandlers.add(handler);
+    }
+
+    /**
+     * Returns an array with the single element handlers registered at this
+     * table.
+     *
+     * @return an array with all single element handlers
+     */
+    public SingleElementHandler[] getSingleElementHandlers()
+    {
+        return singleHandlers.toArray(EMPTY_SINGLE_HANDLERS);
     }
 
     /**
@@ -308,10 +323,10 @@ public class OverviewTable extends Composite implements SearchResultView
         {
             HorizontalPanel panel = new HorizontalPanel();
 
-            Iterator<Image> images = singleHandlerImages.iterator();
+            Iterator<ImageResource> images = singleHandlerImages.iterator();
             for (final SingleElementHandler h : singleHandlers)
             {
-                panel.add(new PushButton(images.next(), new ClickHandler()
+                panel.add(new PushButton(new Image(images.next()), new ClickHandler()
                 {
                     @Override
                     public void onClick(ClickEvent event)
