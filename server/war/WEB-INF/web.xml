@@ -17,6 +17,11 @@
   </servlet>
 
   <servlet>
+    <servlet-name>mediaServlet</servlet-name>
+    <servlet-class>de.oliver_heger.mediastore.server.BasicMediaServiceImpl</servlet-class>
+  </servlet>
+
+  <servlet>
     <servlet-name>Jersey Web Application</servlet-name>
     <servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
       <init-param>
@@ -34,6 +39,11 @@
   <servlet-mapping>
     <servlet-name>loginServlet</servlet-name>
     <url-pattern>/remotemediastore/login</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>mediaServlet</servlet-name>
+    <url-pattern>/remotemediastore/media</url-pattern>
   </servlet-mapping>
 
   <servlet-mapping>
