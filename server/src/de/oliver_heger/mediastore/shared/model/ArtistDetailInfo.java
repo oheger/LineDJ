@@ -15,7 +15,7 @@ import java.util.Set;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class ArtistDetailInfo extends ArtistInfo
+public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
 {
     /**
      * The serial version UID.
