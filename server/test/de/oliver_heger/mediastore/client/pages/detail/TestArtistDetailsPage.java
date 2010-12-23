@@ -1,11 +1,13 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -17,6 +19,7 @@ import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 
 /**
  * Test class for {@code ArtistDetailsPage}. This class also tests functionality
@@ -83,6 +86,7 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertNotNull("No progress indicator", page.progressIndicator);
         assertNotNull("No error panel", page.pnlError);
         assertNotNull("No overview link", page.lnkOverview);
+        assertNotNull("No edit synonyms button", page.btnEditSynonyms);
     }
 
     /**
@@ -134,8 +138,10 @@ public class TestArtistDetailsPage extends GWTTestCase
         ArtistDetailsPage page = new ArtistDetailsPage();
         page.pnlError.displayError(new Exception());
         page.progressIndicator.setVisible(true);
+        page.btnEditSynonyms.setEnabled(false);
         AsyncCallback<ArtistDetailInfo> callback = page.getCallback();
-        callback.onSuccess(createArtistInfo());
+        ArtistDetailInfo info = createArtistInfo();
+        callback.onSuccess(info);
         assertFalse("Got a progress indicator",
                 page.progressIndicator.isVisible());
         assertEquals("Wrong artist name", NAME,
@@ -146,6 +152,9 @@ public class TestArtistDetailsPage extends GWTTestCase
         {
             assertTrue("Synonym not found: " + s, s.contains(syn));
         }
+        assertSame("Wrong current object", info, page.getCurrentEntity());
+        assertTrue("Edit synonyms button not enabled",
+                page.btnEditSynonyms.isEnabled());
     }
 
     /**
@@ -165,6 +174,8 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertEmpty("Got artist name", page.spanArtistName.getInnerText());
         assertEmpty("Got creation date", page.spanCreationDate.getInnerText());
         assertEmpty("Got synonyms", page.spanSynonyms.getInnerText());
+        assertFalse("Edit synonyms button not disabled",
+                page.btnEditSynonyms.isEnabled());
     }
 
     /**
@@ -232,5 +243,28 @@ public class TestArtistDetailsPage extends GWTTestCase
         page.initialize(pm);
         page.onClickOverview(null);
         pm.verify();
+    }
+
+    /**
+     * Tests whether the synonym editor can be invoked.
+     */
+    public void testOnClickEditSynonyms()
+    {
+        ArtistDetailInfo info = createArtistInfo();
+        final List<Object> editedObjects = new ArrayList<Object>(1);
+        SynonymEditor editor = new SynonymEditor()
+        {
+            @Override
+            public void edit(HasSynonyms entity)
+            {
+                editedObjects.add(entity);
+            }
+        };
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        page.synEditor = editor;
+        page.setCurrentEntity(info);
+        page.onClickEditSynonyms(null);
+        assertEquals("Wrong number of edit calls", 1, editedObjects.size());
+        assertSame("Wrong edited object", info, editedObjects.get(0));
     }
 }

@@ -40,8 +40,10 @@ public interface SynonymSearchResultView
      * IDs of the detected elements as keys and their names as values.
      *
      * @param synResults a map with the results to be added
+     * @param moreResults a flag whether more results may be available; a value
+     *        of <b>false</b> means that the search is complete
      */
-    void addResults(Map<Object, String> synResults);
+    void addResults(Map<Object, String> synResults, boolean moreResults);
 
     /**
      * An error was returned by a server call. A concrete implementation can

@@ -8,6 +8,7 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Anchor;
+import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.Image;
 
@@ -19,6 +20,7 @@ import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
+import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 
 /**
  * <p>
@@ -40,8 +42,8 @@ import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
  * @version $Id: $
  * @param <T> the type of data objects this page is about
  */
-public abstract class AbstractDetailsPage<T> extends Composite implements
-        PageConfigurationSupport
+public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
+        Composite implements PageConfigurationSupport
 {
     /** Constant for the synonym separator. */
     private static final String SYN_SEPARATOR = ", ";
@@ -58,6 +60,14 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
     @UiField
     Anchor lnkOverview;
 
+    /** The button which invokes the synonym editor. */
+    @UiField
+    Button btnEditSynonyms;
+
+    /** The component for editing synonyms. */
+    @UiField
+    SynonymEditor synEditor;
+
     /** The callback used for server calls. */
     private final FetchDetailsCallback callback;
 
@@ -66,6 +76,9 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
 
     /** The current page manager. */
     private PageManager pageManager;
+
+    /** The current object displayed by this page. */
+    private T currentEntity;
 
     /**
      * Creates a new instance of {@code AbstractDetailsPage}.
@@ -115,6 +128,16 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
 
         BasicMediaServiceAsync service = getMediaService();
         getDetailsQueryHandler().fetchDetails(service, elemID, getCallback());
+    }
+
+    /**
+     * Returns the entity object that is currently displayed by this page.
+     *
+     * @return the current entity
+     */
+    public T getCurrentEntity()
+    {
+        return currentEntity;
     }
 
     /**
@@ -206,6 +229,16 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
     protected abstract void clearPage();
 
     /**
+     * Sets the current entity.
+     *
+     * @param currentEntity the entity
+     */
+    void setCurrentEntity(T currentEntity)
+    {
+        this.currentEntity = currentEntity;
+    }
+
+    /**
      * The link for navigating to the overview page was clicked. The
      * corresponding page is opened.
      *
@@ -215,6 +248,18 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
     void onClickOverview(ClickEvent e)
     {
         getPageManager().createPageSpecification(Pages.OVERVIEW).open();
+    }
+
+    /**
+     * The button for editing synonyms has been clicked. This handler method
+     * opens the synonym editor.
+     *
+     * @param e the click event
+     */
+    @UiHandler("btnEditSynonyms")
+    void onClickEditSynonyms(ClickEvent e)
+    {
+        synEditor.edit(getCurrentEntity());
     }
 
     /**
@@ -234,7 +279,7 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
         {
             pnlError.displayError(caught);
             clearPage();
-            endOfServerCall();
+            endOfServerCall(null);
         }
 
         /**
@@ -245,15 +290,19 @@ public abstract class AbstractDetailsPage<T> extends Composite implements
         public void onSuccess(T result)
         {
             fillPage(result);
-            endOfServerCall();
+            endOfServerCall(result);
         }
 
         /**
          * The server call is complete. This method disables the progress
-         * indicator.
+         * indicator and updates the current state of this object.
+         *
+         * @param current the new current object of this page
          */
-        private void endOfServerCall()
+        private void endOfServerCall(T current)
         {
+            btnEditSynonyms.setEnabled(current != null);
+            setCurrentEntity(current);
             progressIndicator.setVisible(false);
         }
     }

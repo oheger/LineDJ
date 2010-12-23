@@ -1,7 +1,8 @@
 <!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
 <ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
   xmlns:g="urn:import:com.google.gwt.user.client.ui"
-  xmlns:rms="urn:import:de.oliver_heger.mediastore.client">
+  xmlns:rms="urn:import:de.oliver_heger.mediastore.client"
+  xmlns:rmsdet="urn:import:de.oliver_heger.mediastore.client.pages.detail">
   <ui:style>
     .attribute {
         font-weight: bold;
@@ -18,14 +19,17 @@
     <g:west size="3">
       <g:HTMLPanel>
       &nbsp;
+      <rmsdet:SynonymEditor ui:field="synEditor"/>
       </g:HTMLPanel>
     </g:west>
     <g:east size="7">
       <g:Anchor ui:field="lnkOverview">Overview page</g:Anchor>
     </g:east>
+
     <g:center>
     <g:ScrollPanel>
       <g:VerticalPanel>
+
         <!-- The header of the page with the headline, a progress indicator,
              and an error panel.
          -->
