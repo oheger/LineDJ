@@ -21,6 +21,8 @@ import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
+import de.oliver_heger.mediastore.shared.search.MediaSearchService;
+import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 
 /**
  * <p>
@@ -99,6 +101,9 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     public void initialize(PageManager pm)
     {
         pageManager = pm;
+
+        synEditor
+                .setSynonymQueryHandler(getSynonymQueryHandler(getSearchService()));
     }
 
     /**
@@ -174,6 +179,16 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
+     * Returns a reference to the media search service.
+     *
+     * @return the search service
+     */
+    protected MediaSearchServiceAsync getSearchService()
+    {
+        return GWT.create(MediaSearchService.class);
+    }
+
+    /**
      * Formats the synonyms of a data object. This implementation creates a
      * comma separated string with all synonym names.
      *
@@ -227,6 +242,16 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
      * does not display any stale data, so all fields have to be cleared.
      */
     protected abstract void clearPage();
+
+    /**
+     * Returns the {@link SynonymQueryHandler} object to be used for this page.
+     * This object is used by the synonym editor for search operations.
+     *
+     * @param searchService the search service
+     * @return the synonym query handler
+     */
+    protected abstract SynonymQueryHandler getSynonymQueryHandler(
+            MediaSearchServiceAsync searchService);
 
     /**
      * Sets the current entity.

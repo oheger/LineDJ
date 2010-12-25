@@ -7,6 +7,7 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.Widget;
 
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 
 /**
  * <p>
@@ -86,6 +87,20 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     protected void clearPage()
     {
         fillPage(new ArtistDetailInfo());
+    }
+
+    /**
+     * Returns the handler for synonym searches. This implementation returns an
+     * {@link ArtistSynonymQueryHandler} object.
+     *
+     * @param searchService the search service
+     * @return the synonym query handler
+     */
+    @Override
+    protected SynonymQueryHandler getSynonymQueryHandler(
+            MediaSearchServiceAsync searchService)
+    {
+        return new ArtistSynonymQueryHandler(searchService);
     }
 
     /**

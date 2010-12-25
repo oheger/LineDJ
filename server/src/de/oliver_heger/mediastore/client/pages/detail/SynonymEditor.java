@@ -209,6 +209,7 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
         btnAddSearchSyn.setEnabled(false);
         btnRemoveExisting.setEnabled(false);
         btnRemoveSearchSyn.setEnabled(false);
+        txtSearch.setText(null);
 
         editDlg.center();
     }
@@ -347,6 +348,7 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     void onBtnRemoveExistingClick(ClickEvent event)
     {
         transferItems(lstExistingSyns, lstRemovedSyns, null);
+        listExistingSynonymsSelectionChanged(null);
     }
 
     /**
@@ -359,6 +361,7 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     void onBtnAddExistingClick(ClickEvent event)
     {
         transferItems(lstRemovedSyns, lstExistingSyns, null);
+        listRemovedSynonymsSelectionChanged(null);
     }
 
     /**
@@ -371,6 +374,7 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     {
         Set<String> removedItems = new HashSet<String>();
         transferItems(lstNewSyns, null, removedItems);
+        listNewSynsSelectionChanged(null);
 
         // also remove elements from the map with new synonyms
         newSynIDs.keySet().removeAll(removedItems);
@@ -402,6 +406,8 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
                 }
             }
         }
+
+        listSearchSynsSelectionChanged(null);
     }
 
     /**

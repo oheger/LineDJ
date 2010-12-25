@@ -90,6 +90,20 @@ public class TestArtistDetailsPage extends GWTTestCase
     }
 
     /**
+     * Tests whether the synonym editor has been correctly initialized.
+     */
+    public void testInitSynonymEditor()
+    {
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        page.initialize(new MockPageManager());
+        assertNotNull("No synonym editor", page.synEditor);
+        ArtistSynonymQueryHandler handler =
+                (ArtistSynonymQueryHandler) page.synEditor
+                        .getSynonymQueryHandler();
+        assertNotNull("No search service set", handler.getSearchService());
+    }
+
+    /**
      * Tests the setPageConfiguration() method. This method should initiate a
      * server request.
      */

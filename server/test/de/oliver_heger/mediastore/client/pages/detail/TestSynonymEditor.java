@@ -241,6 +241,7 @@ public class TestSynonymEditor extends GWTTestCase
         editor.lstNewSyns.addItem(SYN);
         editor.lstRemovedSyns.addItem(SYN);
         editor.lstSearchSyns.addItem(SYN);
+        editor.txtSearch.setText(SYN);
         editor.edit(info);
         assertTrue("Dialog not visible", editor.editDlg.isVisible());
         assertEquals("Wrong number of existing items", SYN_COUNT,
@@ -258,6 +259,7 @@ public class TestSynonymEditor extends GWTTestCase
                 editor.btnAddSearchSyn.isEnabled());
         assertFalse("Btn remove search enabled",
                 editor.btnRemoveSearchSyn.isEnabled());
+        assertEquals("Text in search field", "", editor.txtSearch.getText());
     }
 
     /**
