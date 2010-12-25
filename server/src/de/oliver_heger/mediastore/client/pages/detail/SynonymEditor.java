@@ -11,9 +11,12 @@ import java.util.logging.Logger;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ChangeEvent;
 import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.event.dom.client.KeyCodes;
+import com.google.gwt.event.dom.client.KeyUpEvent;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
+import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.DialogBox;
@@ -41,6 +44,9 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  */
 public class SynonymEditor extends Composite implements SynonymSearchResultView
 {
+    /** Constant for the delay for triggering a synonym search. */
+    static final int SYNONYM_SEARCH_DELAY = 400;
+
     /** The UI binder. */
     private static SynonymEditorUiBinder uiBinder = GWT
             .create(SynonymEditorUiBinder.class);
@@ -96,6 +102,16 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     /** The progress indicator image. */
     @UiField
     Image progressIndicator;
+
+    /** The timer which triggers the start of the synonym search. */
+    private final Timer timer = new Timer()
+    {
+        @Override
+        public void run()
+        {
+            startSynonymSearch();
+        }
+    };
 
     /**
      * A map for maintaining IDs of synonyms obtained through a search
@@ -269,6 +285,16 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     }
 
     /**
+     * Returns the timer that triggers the start of the synonym search.
+     *
+     * @return the timer
+     */
+    Timer getTimer()
+    {
+        return timer;
+    }
+
+    /**
      * The list box with existing synonyms has been changed.
      *
      * @param event the change event
@@ -403,9 +429,32 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
      *
      * @param event the click event
      */
+    @UiHandler("btnCancel")
     void onBtnCancelClick(ClickEvent event)
     {
         closeDialog();
+    }
+
+    /**
+     * A key was pressed in the search text field. This method starts a timer
+     * that will trigger a search after a specific delay. If enter was pressed,
+     * the search starts immediately.
+     *
+     * @param event the key event
+     */
+    @UiHandler("txtSearch")
+    void onTxtSearchKeyUp(KeyUpEvent event)
+    {
+        getTimer().cancel();
+
+        if (event.getNativeKeyCode() == KeyCodes.KEY_ENTER)
+        {
+            startSynonymSearch();
+        }
+        else
+        {
+            getTimer().schedule(SYNONYM_SEARCH_DELAY);
+        }
     }
 
     /**

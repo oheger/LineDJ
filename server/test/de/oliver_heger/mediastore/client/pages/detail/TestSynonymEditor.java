@@ -9,7 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.gwt.dom.client.Document;
+import com.google.gwt.dom.client.NativeEvent;
+import com.google.gwt.event.dom.client.DomEvent;
+import com.google.gwt.event.dom.client.KeyCodes;
 import com.google.gwt.junit.client.GWTTestCase;
+import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.ListBox;
 
@@ -648,6 +653,90 @@ public class TestSynonymEditor extends GWTTestCase
     }
 
     /**
+     * Tests whether the timer for starting the synonym search works as
+     * expected.
+     */
+    public void testGetTimer()
+    {
+        SynonymEditor editor = new SynonymEditor();
+        SynonymQueryHandlerTestImpl handler =
+                new SynonymQueryHandlerTestImpl(editor);
+        editor.setSynonymQueryHandler(handler);
+        editor.txtSearch.setText(SYN);
+        Timer timer = editor.getTimer();
+        timer.run();
+        assertEquals("Query handler not called", SYN, handler.getSearchText());
+    }
+
+    /**
+     * Tests that only a single timer instance exists.
+     */
+    public void testGetTimerSingleInstance()
+    {
+        SynonymEditor editor = new SynonymEditor();
+        Timer timer = editor.getTimer();
+        assertSame("Another timer instance", timer, editor.getTimer());
+    }
+
+    /**
+     * Helper method for simulating a key event in the synonym search text
+     * field.
+     *
+     * @param editor the editor
+     * @param keyCode the key code to fire
+     */
+    private static void fireTxtSearchKeyEvent(SynonymEditor editor, int keyCode)
+    {
+        NativeEvent keyEvent =
+                Document.get().createKeyUpEvent(false, false, false, false,
+                        keyCode);
+        DomEvent.fireNativeEvent(keyEvent, editor.txtSearch);
+    }
+
+    /**
+     * Tests whether a key event in the synonym search text field is handled
+     * correctly.
+     */
+    public void testOnTxtSearchKeyUpOtherKey()
+    {
+        final TimerTestImpl timer = new TimerTestImpl();
+        SynonymEditor editor = new SynonymEditor()
+        {
+            @Override
+            Timer getTimer()
+            {
+                return timer;
+            }
+        };
+        fireTxtSearchKeyEvent(editor, KeyCodes.KEY_BACKSPACE);
+        assertEquals("Wrong timer delay", SynonymEditor.SYNONYM_SEARCH_DELAY,
+                timer.getDelay());
+    }
+
+    /**
+     * Tests whether an ENTER key in the synonym search text field is handled
+     * correctly.
+     */
+    public void testOnTxtSearchKeyUpEnter()
+    {
+        final TimerTestImpl timer = new TimerTestImpl();
+        SynonymEditor editor = new SynonymEditor()
+        {
+            @Override
+            Timer getTimer()
+            {
+                return timer;
+            }
+        };
+        SynonymQueryHandlerTestImpl handler =
+                new SynonymQueryHandlerTestImpl(editor);
+        editor.setSynonymQueryHandler(handler);
+        editor.txtSearch.setText(SYN);
+        fireTxtSearchKeyEvent(editor, KeyCodes.KEY_ENTER);
+        assertEquals("Query handler not called", SYN, handler.getSearchText());
+    }
+
+    /**
      * A test synonym query handler implementation for testing whether the
      * handler is correctly invoked when a search begins.
      */
@@ -777,6 +866,64 @@ public class TestSynonymEditor extends GWTTestCase
         public void hide()
         {
             hideCount++;
+        }
+    }
+
+    /**
+     * A specialized timer implementation for testing the handling of key events
+     * in the synonym search text field.
+     */
+    private static class TimerTestImpl extends Timer
+    {
+        /** A flag whether cancel was called. */
+        private boolean canceled;
+
+        /** The delay passed to schedule(). */
+        private int delay;
+
+        /**
+         * Returns a flag whether the timer was canceled.
+         *
+         * @return the cancel flag
+         */
+        public boolean isCanceled()
+        {
+            return canceled;
+        }
+
+        /**
+         * Returns the delay passed to schedule().
+         *
+         * @return the delay
+         */
+        public int getDelay()
+        {
+            return delay;
+        }
+
+        /**
+         * Records this invocation.
+         */
+        @Override
+        public void cancel()
+        {
+            canceled = true;
+        }
+
+        /**
+         * Records this invocation.
+         */
+        @Override
+        public void schedule(int delayMillis)
+        {
+            assertTrue("Not canceled", isCanceled());
+            delay = delayMillis;
+        }
+
+        @Override
+        public void run()
+        {
+            throw new UnsupportedOperationException("Unexpected method call!");
         }
     }
 }
