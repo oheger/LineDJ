@@ -18,6 +18,7 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.ListBox;
 
+import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
@@ -834,11 +835,10 @@ public class TestSynonymEditor extends GWTTestCase
          * Records this invocation.
          */
         @Override
-        public void synonymsChanged(Set<String> removedSyns,
-                Set<Object> newSynIDs)
+        public void synonymsChanged(SynonymUpdateData data)
         {
-            removedSynonyms = removedSyns;
-            addedSynonyms = newSynIDs;
+            removedSynonyms = data.getRemoveSynonyms();
+            addedSynonyms = data.getNewSynonymIDs();
         }
     }
 

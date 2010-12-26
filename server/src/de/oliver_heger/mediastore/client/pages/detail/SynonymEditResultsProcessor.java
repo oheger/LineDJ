@@ -1,6 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
-import java.util.Set;
+import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 
 /**
  * <p>
@@ -10,9 +10,9 @@ import java.util.Set;
  * <p>
  * An object implementing this interface can be registered at a synonym editor.
  * It is invoked when the user clicks the OK button and something has changed.
- * The results processor is notified about the synonyms that have been removed
- * and the entities that have been added as new synonyms. It is then responsible
- * for passing this information to the server so that the updates are committed.
+ * The results processor is notified about all changes performed at the synonyms
+ * of the current entity. It is then responsible for passing this information to
+ * the server so that the updates are committed.
  * </p>
  *
  * @author Oliver Heger
@@ -22,14 +22,11 @@ public interface SynonymEditResultsProcessor
 {
     /**
      * Notifies this object that the synonyms of an object have been changed.
-     * The first set passed to this method contains the names of the synonyms
-     * that have been removed. The second set contains primary keys of entities
-     * to be associated as new synonyms. At least one of these sets is not
-     * empty; if no changes have been made at the synonyms, this method is not
-     * called.
+     * The data object passed to this method describes all changes the user made
+     * on the synonyms. Note that this method is called only if there are
+     * actually changes.
      *
-     * @param removedSyns the names of the synonyms that have been removed
-     * @param newSynIDs the IDs of entities becoming new synonyms
+     * @param updateData the data object describing the changes on the synonyms
      */
-    void synonymsChanged(Set<String> removedSyns, Set<Object> newSynIDs);
+    void synonymsChanged(SynonymUpdateData updateData);
 }

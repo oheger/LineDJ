@@ -25,6 +25,7 @@ import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
@@ -424,7 +425,9 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
         {
             Set<String> removedSyns = fetchRemovedSynonyms();
             Set<Object> newSyns = fetchNewSynonyms();
-            getResultsProcessor().synonymsChanged(removedSyns, newSyns);
+            SynonymUpdateData upData =
+                    new SynonymUpdateData(removedSyns, newSyns);
+            getResultsProcessor().synonymsChanged(upData);
         }
 
         closeDialog();
