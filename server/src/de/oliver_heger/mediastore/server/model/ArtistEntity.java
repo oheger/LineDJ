@@ -196,18 +196,46 @@ public class ArtistEntity implements Serializable
      * Adds the specified synonym to this artist.
      *
      * @param syn the synonym to be added (must not be <b>null</b>)
-     * @throws NullPointerException if the synonym is <b>null</b>
+     * @return a flag whether the synonym could be added; a value of
+     *         <b>false</b> means that a synonym with this name already exists
+     * @throws NullPointerException if the synonym is <b>null</b> or does not
+     *         have a name
      */
-    public void addSynonym(ArtistSynonym syn)
+    public boolean addSynonym(ArtistSynonym syn)
     {
-        if (syn == null)
+        if (syn == null || syn.getName() == null)
         {
             throw new NullPointerException("Synonym must not be null!");
         }
 
         syn.setArtist(this);
         syn.setUser(getUser());
-        synonyms.add(syn);
+
+        if (synonyms.add(syn))
+        {
+            return true;
+        }
+        else
+        {
+            // do not assign duplicate synonym to this artist
+            syn.setArtist(null);
+            return false;
+        }
+    }
+
+    /**
+     * Adds the specified name as synonym to this artist. This is a convenience
+     * method which creates the correct synonym entity.
+     *
+     * @param syn the synonym name (must not be <b>null</b>)
+     * @return a flag whether the synonym could be added; a value of
+     *         <b>false</b> means that a synonym with this name already exists
+     */
+    public boolean addSynonymName(String syn)
+    {
+        ArtistSynonym as = new ArtistSynonym();
+        as.setName(syn);
+        return addSynonym(as);
     }
 
     /**
@@ -225,6 +253,27 @@ public class ArtistEntity implements Serializable
 
         syn.setArtist(null);
         return synonyms.remove(syn);
+    }
+
+    /**
+     * Finds the synonym with the passed in synonym name. If it exists, the
+     * corresponding {@link ArtistSynonym} is returned. Otherwise, result is
+     * <b>null</b>.
+     *
+     * @param syn the synonym name to be searched
+     * @return the {@link ArtistSynonym} with this name or <b>null</b>
+     */
+    public ArtistSynonym findSynonym(String syn)
+    {
+        for (ArtistSynonym as : getSynonyms())
+        {
+            if (as.getName().equals(syn))
+            {
+                return as;
+            }
+        }
+
+        return null;
     }
 
     /**

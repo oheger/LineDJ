@@ -208,7 +208,7 @@ public class TestArtistEntity
             ArtistSynonym syn = new ArtistSynonym();
             syn.setName(SYN_PREFIX + i);
             synonyms.add(syn.getName());
-            a.addSynonym(syn);
+            assertTrue("Could not add synonym: " + syn, a.addSynonym(syn));
         }
         helper.persist(a);
         helper.closeEM();
@@ -251,6 +251,83 @@ public class TestArtistEntity
         a.addSynonym(syn);
         syn.setArtist(new ArtistEntity());
         assertFalse("Wrong result", a.removeSynonym(syn));
+    }
+
+    /**
+     * Tests whether synonym names can be added.
+     */
+    @Test
+    public void testAddSynonymName()
+    {
+        ArtistEntity a = new ArtistEntity();
+        Set<String> synNames = new HashSet<String>();
+        for (int i = 0; i < SYN_COUNT; i++)
+        {
+            String syn = SYN_PREFIX + i;
+            assertTrue("Wrong result for " + syn, a.addSynonymName(syn));
+            synNames.add(syn);
+        }
+        assertEquals("Wrong number of synonyms", synNames.size(), a
+                .getSynonyms().size());
+        for (ArtistSynonym as : a.getSynonyms())
+        {
+            assertTrue("Synonym not found: " + as,
+                    synNames.contains(as.getName()));
+        }
+    }
+
+    /**
+     * Tries to add a null synonym name.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testAddSynonymNameNull()
+    {
+        new ArtistEntity().addSynonymName(null);
+    }
+
+    /**
+     * Tests whether duplicate synonyms are rejected.
+     */
+    @Test
+    public void testAddSynonymDuplicate()
+    {
+        ArtistEntity a = new ArtistEntity();
+        assertTrue("Could not add synonym", a.addSynonymName(SYN_PREFIX));
+        assertFalse("Could add duplicate synonym", a.addSynonymName(SYN_PREFIX));
+        ArtistSynonym as = new ArtistSynonym();
+        as.setName(SYN_PREFIX);
+        assertFalse("Could add duplicate entity", a.addSynonym(as));
+        assertNull("Artist was set", as.getArtist());
+    }
+
+    /**
+     * Tests findSynonym() for an existing synonym.
+     */
+    @Test
+    public void testFindSynonymExisting()
+    {
+        ArtistEntity a = new ArtistEntity();
+        for (int i = 0; i < SYN_COUNT; i++)
+        {
+            a.addSynonymName(SYN_PREFIX + i);
+        }
+        String synName = SYN_PREFIX + "0";
+        ArtistSynonym as = a.findSynonym(synName);
+        assertEquals("Wrong artist synonym", synName, as.getName());
+    }
+
+    /**
+     * Tests findSynonym() for a non existing synonym.
+     */
+    @Test
+    public void testFindSynonymsNonExisting()
+    {
+        ArtistEntity a = new ArtistEntity();
+        for (int i = 0; i < SYN_COUNT; i++)
+        {
+            a.addSynonymName(SYN_PREFIX + i);
+        }
+        assertNull("Got a synonym", a.findSynonym(SYN_PREFIX));
     }
 
     /**
