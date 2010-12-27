@@ -79,12 +79,12 @@ public class TestSynonymUpdateData
     }
 
     /**
-     * Tests whether null sets can be handled when creating an instance.
+     * Tests whether the default constructor works and null sets can be handled.
      */
     @Test
-    public void testInitNull()
+    public void testInitDefault()
     {
-        SynonymUpdateData data = new SynonymUpdateData(null, null);
+        SynonymUpdateData data = new SynonymUpdateData();
         assertTrue("Got remove synonyms", data.getRemoveSynonyms().isEmpty());
         assertTrue("Got new synonyms", data.getNewSynonymIDs().isEmpty());
     }

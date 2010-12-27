@@ -38,10 +38,10 @@ public class SynonymUpdateData implements Serializable
     private static final long serialVersionUID = 20101226L;
 
     /** A set with the names of the synonyms to be removed. */
-    private final Set<String> removeSynonyms;
+    private Set<String> removeSynonyms;
 
     /** A set with the primary keys of the entities to become new synonyms. */
-    private final Set<Object> newSynonymIDs;
+    private Set<Object> newSynonymIDs;
 
     /**
      * Creates a new instance of {@code SynonymUpdateData} and initializes it
@@ -54,6 +54,16 @@ public class SynonymUpdateData implements Serializable
     {
         removeSynonyms = immutableSet(removeSyns);
         newSynonymIDs = immutableSet(newSynIDs);
+    }
+
+    /**
+     * Creates a new instance of {@code SynonymUpdateData} and initializes it
+     * with empty sets. This constructor is only used for serialization; from a
+     * logic point of view it does not make sense.
+     */
+    public SynonymUpdateData()
+    {
+        this(null, null);
     }
 
     /**
