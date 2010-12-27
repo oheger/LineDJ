@@ -8,7 +8,7 @@
         <provider>org.datanucleus.store.appengine.jpa.DatastorePersistenceProvider</provider>
         <properties>
             <property name="datanucleus.NontransactionalRead" value="true"/>
-            <property name="datanucleus.NontransactionalWrite" value="false"/>
+            <property name="datanucleus.NontransactionalWrite" value="true"/>
             <property name="datanucleus.ConnectionURL" value="appengine"/>
         </properties>
     </persistence-unit>

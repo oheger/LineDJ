@@ -14,4 +14,7 @@ public interface BasicMediaServiceAsync
 {
     void fetchArtistDetails(long artistID,
             AsyncCallback<ArtistDetailInfo> callback);
+
+    void updateArtistSynonyms(long artistID, SynonymUpdateData updateData,
+            AsyncCallback<Void> callback);
 }
