@@ -41,8 +41,8 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     @UiField
     SpanElement spanSynonyms;
 
-    /** The query handler for fetching artist details. */
-    private final DetailsQueryHandler<ArtistDetailInfo> queryHandler;
+    /** The entity handler for fetching artist details. */
+    private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -50,20 +50,20 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     public ArtistDetailsPage()
     {
         initWidget(uiBinder.createAndBindUi(this));
-        queryHandler = new ArtistDetailsQueryHandler();
+        entityHandler = new ArtistDetailsEntityHandler();
     }
 
     /**
      * Returns the handler for performing a details query for the current
-     * artist. This implementation returns an {@link ArtistDetailsQueryHandler}
+     * artist. This implementation returns an {@link ArtistDetailsEntityHandler}
      * object.
      *
      * @return the details query handler
      */
     @Override
-    protected DetailsQueryHandler<ArtistDetailInfo> getDetailsQueryHandler()
+    protected DetailsEntityHandler<ArtistDetailInfo> getDetailsEntityHandler()
     {
-        return queryHandler;
+        return entityHandler;
     }
 
     /**

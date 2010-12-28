@@ -18,6 +18,7 @@ import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
+import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 
@@ -113,12 +114,12 @@ public class TestArtistDetailsPage extends GWTTestCase
         ArtistDetailsPage page = new ArtistDetailsPage()
         {
             @Override
-            protected DetailsQueryHandler<ArtistDetailInfo> getDetailsQueryHandler()
+            protected DetailsEntityHandler<ArtistDetailInfo> getDetailsEntityHandler()
             {
                 assertTrue("No progress indicator",
                         progressIndicator.isVisible());
                 assertFalse("Error panel visible", pnlError.isInErrorState());
-                return new DetailsQueryHandler<ArtistDetailInfo>()
+                return new DetailsEntityHandler<ArtistDetailInfo>()
                 {
                     @Override
                     public void fetchDetails(
@@ -129,6 +130,15 @@ public class TestArtistDetailsPage extends GWTTestCase
                         assertEquals("Wrong ID", ARTIST_ID.toString(), elemID);
                         assertNotNull("No media service", mediaService);
                         params.put(NAME, Boolean.TRUE);
+                    }
+
+                    @Override
+                    public void updateSynonyms(
+                            BasicMediaServiceAsync mediaService, String elemID,
+                            SynonymUpdateData upData,
+                            AsyncCallback<Void> callback)
+                    {
+                        throw new UnsupportedOperationException("Unexpected call!");
                     }
                 };
             }
@@ -232,7 +242,7 @@ public class TestArtistDetailsPage extends GWTTestCase
         ArtistDetailsPage page = new ArtistDetailsPage();
         assertTrue(
                 "Wrong query handler",
-                page.getDetailsQueryHandler() instanceof ArtistDetailsQueryHandler);
+                page.getDetailsEntityHandler() instanceof ArtistDetailsEntityHandler);
     }
 
     /**
@@ -241,9 +251,9 @@ public class TestArtistDetailsPage extends GWTTestCase
     public void testGetDetailsQueryHandlerCached()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
-        DetailsQueryHandler<ArtistDetailInfo> handler =
-                page.getDetailsQueryHandler();
-        assertSame("Multiple handlers", handler, page.getDetailsQueryHandler());
+        DetailsEntityHandler<ArtistDetailInfo> handler =
+                page.getDetailsEntityHandler();
+        assertSame("Multiple handlers", handler, page.getDetailsEntityHandler());
     }
 
     /**

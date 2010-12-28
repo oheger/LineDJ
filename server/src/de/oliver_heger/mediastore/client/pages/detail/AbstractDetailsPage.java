@@ -132,7 +132,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
         pnlError.clearError();
 
         BasicMediaServiceAsync service = getMediaService();
-        getDetailsQueryHandler().fetchDetails(service, elemID, getCallback());
+        getDetailsEntityHandler().fetchDetails(service, elemID, getCallback());
     }
 
     /**
@@ -220,11 +220,11 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
-     * Returns the {@link DetailsQueryHandler} object to be used for this page.
+     * Returns the {@link DetailsEntityHandler} object to be used for this page.
      *
-     * @return the query handler
+     * @return the details entity handler
      */
-    protected abstract DetailsQueryHandler<T> getDetailsQueryHandler();
+    protected abstract DetailsEntityHandler<T> getDetailsEntityHandler();
 
     /**
      * Updates the fields of this page with the details of the specified data
