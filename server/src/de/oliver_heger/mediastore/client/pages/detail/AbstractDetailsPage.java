@@ -20,6 +20,7 @@ import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
+import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
@@ -45,7 +46,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @param <T> the type of data objects this page is about
  */
 public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
-        Composite implements PageConfigurationSupport
+        Composite implements PageConfigurationSupport, SynonymEditResultsProcessor
 {
     /** Constant for the synonym separator. */
     private static final String SYN_SEPARATOR = ", ";
@@ -70,8 +71,11 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     @UiField
     SynonymEditor synEditor;
 
-    /** The callback used for server calls. */
-    private final FetchDetailsCallback callback;
+    /** The callback used for fetch details server calls. */
+    private final FetchDetailsCallback fetchDetailsCallback;
+
+    /** The callback for updating synonyms. */
+    private final UpdateSynonymsCallback updateSynonymsCallback;
 
     /** The formatter. */
     private final I18NFormatter formatter;
@@ -82,12 +86,16 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     /** The current object displayed by this page. */
     private T currentEntity;
 
+    /** The ID of the current entity as passed as page parameter. */
+    private String currentEntityID;
+
     /**
      * Creates a new instance of {@code AbstractDetailsPage}.
      */
     protected AbstractDetailsPage()
     {
-        callback = new FetchDetailsCallback();
+        fetchDetailsCallback = new FetchDetailsCallback();
+        updateSynonymsCallback = new UpdateSynonymsCallback();
         formatter = new I18NFormatter();
     }
 
@@ -101,9 +109,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     public void initialize(PageManager pm)
     {
         pageManager = pm;
-
-        synEditor
-                .setSynonymQueryHandler(getSynonymQueryHandler(getSearchService()));
+        initSynonymEditor();
     }
 
     /**
@@ -117,6 +123,17 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
+     * Returns the ID (as a string) of the entity currently displayed on this
+     * page. This ID is set when the page is opened.
+     *
+     * @return the ID of the current entity
+     */
+    public String getCurrentEntityID()
+    {
+        return currentEntityID;
+    }
+
+    /**
      * Notifies this page that it was opened with a new page configuration. This
      * implementation extracts the ID of the element to display from the page
      * configuration. It then initiates a server call in order to fetch the
@@ -127,12 +144,23 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     @Override
     public void setPageConfiguration(PageConfiguration config)
     {
-        String elemID = config.getStringParameter();
-        progressIndicator.setVisible(true);
-        pnlError.clearError();
+        currentEntityID = config.getStringParameter();
+        refresh();
+    }
 
-        BasicMediaServiceAsync service = getMediaService();
-        getDetailsEntityHandler().fetchDetails(service, elemID, getCallback());
+    /**
+     * The synonyms of the current entity have been changed. This method
+     * delegates to the {@link DetailsEntityHandler} to perform the update. Then
+     * it refreshes this page.
+     *
+     * @param updateData the object describing the synonym changes
+     */
+    @Override
+    public void synonymsChanged(SynonymUpdateData updateData)
+    {
+        progressIndicator.setVisible(true);
+        getDetailsEntityHandler().updateSynonyms(getMediaService(),
+                getCurrentEntityID(), updateData, getUpdateSynonymsCallback());
     }
 
     /**
@@ -156,16 +184,28 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
-     * Returns the callback object required for the server call. This
-     * implementation returns an object which delegates to
-     * {@link #fillPage(Object)} when the results from the server become
-     * available. If an error occurs, the error panel is initialized.
+     * Returns the callback object required for the server call for fetching
+     * details information. This implementation returns an object which
+     * delegates to {@link #fillPage(Object)} when the results from the server
+     * become available. If an error occurs, the error panel is initialized.
      *
      * @return the callback object
      */
-    protected AsyncCallback<T> getCallback()
+    protected AsyncCallback<T> getFetchDetailsCallback()
     {
-        return callback;
+        return fetchDetailsCallback;
+    }
+
+    /**
+     * Returns the callback object required for the server call for updating
+     * synonyms. The callback returned here refreshes the page when the synonyms
+     * have been updated successfully.
+     *
+     * @return the callback object
+     */
+    protected AsyncCallback<Void> getUpdateSynonymsCallback()
+    {
+        return updateSynonymsCallback;
     }
 
     /**
@@ -264,6 +304,20 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
+     * Refreshes the data of this page. Loads the entity again and updates all
+     * fields.
+     */
+    void refresh()
+    {
+        progressIndicator.setVisible(true);
+        pnlError.clearError();
+
+        BasicMediaServiceAsync service = getMediaService();
+        getDetailsEntityHandler().fetchDetails(service, currentEntityID,
+                getFetchDetailsCallback());
+    }
+
+    /**
      * The link for navigating to the overview page was clicked. The
      * corresponding page is opened.
      *
@@ -288,10 +342,23 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
-     * A callback implementation for making the server call to fetch the details
-     * of the current element.
+     * Initializes the synonym editor.
      */
-    private class FetchDetailsCallback implements AsyncCallback<T>
+    private void initSynonymEditor()
+    {
+        synEditor
+                .setSynonymQueryHandler(getSynonymQueryHandler(getSearchService()));
+        synEditor.setResultsProcessor(this);
+    }
+
+    /**
+     * An abstract base class for service callback implementations. This base
+     * class already implements error handling by activating the error panel.
+     *
+     * @param <R> the result type of the callback
+     */
+    private abstract class AbstractDetailsCallback<R> implements
+            AsyncCallback<R>
     {
         /**
          * An error occurred while calling the server. This implementation
@@ -308,6 +375,26 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
         }
 
         /**
+         * The server call is complete. This method disables the progress
+         * indicator and updates the current state of this object.
+         *
+         * @param current the new current object of this page
+         */
+        protected void endOfServerCall(T current)
+        {
+            btnEditSynonyms.setEnabled(current != null);
+            setCurrentEntity(current);
+            progressIndicator.setVisible(false);
+        }
+    }
+
+    /**
+     * A callback implementation for making the server call to fetch the details
+     * of the current element.
+     */
+    private class FetchDetailsCallback extends AbstractDetailsCallback<T>
+    {
+        /**
          * Data could be fetched successfully from the server. This method takes
          * care that this data is displayed.
          */
@@ -317,18 +404,19 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
             fillPage(result);
             endOfServerCall(result);
         }
+    }
 
-        /**
-         * The server call is complete. This method disables the progress
-         * indicator and updates the current state of this object.
-         *
-         * @param current the new current object of this page
-         */
-        private void endOfServerCall(T current)
+    /**
+     * A callback implementation for controlling the server calls for updating
+     * synonyms. This implementation just triggers a refresh after the synonyms
+     * have been updated successfully.
+     */
+    private class UpdateSynonymsCallback extends AbstractDetailsCallback<Void>
+    {
+        @Override
+        public void onSuccess(Void result)
         {
-            btnEditSynonyms.setEnabled(current != null);
-            setCurrentEntity(current);
-            progressIndicator.setVisible(false);
+            refresh();
         }
     }
 }

@@ -27,7 +27,8 @@ class DummyDataCreator
             "Lisa Standsfield", "Marillion", "Mike Oldfield", "Nightwish",
             "OMD", "Pearl Jam", "Queen", "REO Speedwagon", "Supertramp",
             "The Sisters of Mercy", "U2", "Van Canto", "Van Halen", "Vangelis",
-            "Within Temptation", "Yellow", "ZZ Top"
+            "Within Temptation", "Yellow", "ZZ Top", "Elvis", "Elviz",
+            "Elvis Presley", "The King"
     };
 
     /** Constant for the user parameter. */

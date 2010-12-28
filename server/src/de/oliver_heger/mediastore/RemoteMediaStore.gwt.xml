@@ -22,4 +22,6 @@
   <source path='client'/>
   <source path='shared'/>
 
+  <!-- Configure logging -->
+  <set-property name="gwt.logging.popupHandler" value="DISABLED"/>
 </module>

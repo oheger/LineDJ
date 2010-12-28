@@ -102,6 +102,8 @@ public class TestArtistDetailsPage extends GWTTestCase
                 (ArtistSynonymQueryHandler) page.synEditor
                         .getSynonymQueryHandler();
         assertNotNull("No search service set", handler.getSearchService());
+        assertSame("No results processor set", page,
+                page.synEditor.getResultsProcessor());
     }
 
     /**
@@ -126,7 +128,8 @@ public class TestArtistDetailsPage extends GWTTestCase
                             BasicMediaServiceAsync mediaService, String elemID,
                             AsyncCallback<ArtistDetailInfo> callback)
                     {
-                        assertEquals("Wrong callback", getCallback(), callback);
+                        assertEquals("Wrong callback",
+                                getFetchDetailsCallback(), callback);
                         assertEquals("Wrong ID", ARTIST_ID.toString(), elemID);
                         assertNotNull("No media service", mediaService);
                         params.put(NAME, Boolean.TRUE);
@@ -138,7 +141,8 @@ public class TestArtistDetailsPage extends GWTTestCase
                             SynonymUpdateData upData,
                             AsyncCallback<Void> callback)
                     {
-                        throw new UnsupportedOperationException("Unexpected call!");
+                        throw new UnsupportedOperationException(
+                                "Unexpected call!");
                     }
                 };
             }
@@ -151,19 +155,21 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertTrue("Handler not called", params.containsKey(NAME));
         assertFalse("In error state", page.pnlError.isInErrorState());
         assertTrue("No progress indicator", page.progressIndicator.isVisible());
+        assertEquals("Wrong current ID", String.valueOf(ARTIST_ID),
+                page.getCurrentEntityID());
     }
 
     /**
      * Tests whether the callback works correctly if the server call was
      * successful.
      */
-    public void testCallbackSuccess()
+    public void testFetchDetailsCallbackSuccess()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
         page.pnlError.displayError(new Exception());
         page.progressIndicator.setVisible(true);
         page.btnEditSynonyms.setEnabled(false);
-        AsyncCallback<ArtistDetailInfo> callback = page.getCallback();
+        AsyncCallback<ArtistDetailInfo> callback = page.getFetchDetailsCallback();
         ArtistDetailInfo info = createArtistInfo();
         callback.onSuccess(info);
         assertFalse("Got a progress indicator",
@@ -184,12 +190,12 @@ public class TestArtistDetailsPage extends GWTTestCase
     /**
      * Tests whether exceptions are correctly processed by the callback.
      */
-    public void testCallbackError()
+    public void testFetchDetailsCallbackError()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
         Throwable ex = new Exception("Test exception");
         page.progressIndicator.setVisible(true);
-        AsyncCallback<ArtistDetailInfo> callback = page.getCallback();
+        AsyncCallback<ArtistDetailInfo> callback = page.getFetchDetailsCallback();
         callback.onFailure(ex);
         assertTrue("Not in error state", page.pnlError.isInErrorState());
         assertEquals("Wrong exception", ex, page.pnlError.getError());
@@ -290,5 +296,76 @@ public class TestArtistDetailsPage extends GWTTestCase
         page.onClickEditSynonyms(null);
         assertEquals("Wrong number of edit calls", 1, editedObjects.size());
         assertSame("Wrong edited object", info, editedObjects.get(0));
+    }
+
+    /**
+     * Tests whether the notification of the synonym editor about changed
+     * synonyms is correctly processed.
+     */
+    public void testSynonymsChanged()
+    {
+        final SynonymUpdateData updateData = new SynonymUpdateData();
+        final List<Object> callList = new ArrayList<Object>();
+        ArtistDetailsPage page = new ArtistDetailsPage()
+        {
+            @Override
+            public String getCurrentEntityID()
+            {
+                return String.valueOf(ARTIST_ID);
+            }
+
+            @Override
+            protected DetailsEntityHandler<ArtistDetailInfo> getDetailsEntityHandler()
+            {
+                return new DetailsEntityHandler<ArtistDetailInfo>()
+                {
+                    @Override
+                    public void updateSynonyms(
+                            BasicMediaServiceAsync mediaService, String elemID,
+                            SynonymUpdateData upData,
+                            AsyncCallback<Void> callback)
+                    {
+                        assertEquals("Wrong element ID",
+                                String.valueOf(ARTIST_ID), elemID);
+                        assertEquals("Wrong callback",
+                                getUpdateSynonymsCallback(), callback);
+                        assertSame("Wrong update data", updateData, upData);
+                        callList.add(Boolean.TRUE);
+                    }
+
+                    @Override
+                    public void fetchDetails(
+                            BasicMediaServiceAsync mediaService, String elemID,
+                            AsyncCallback<ArtistDetailInfo> callback)
+                    {
+                        throw new UnsupportedOperationException(
+                                "Unexpected call!");
+                    }
+                };
+            }
+        };
+        page.synonymsChanged(updateData);
+        assertEquals("Handler not called", 1, callList.size());
+        assertTrue("Progress indicator not enabled",
+                page.progressIndicator.isVisible());
+    }
+
+    /**
+     * Tests the synonym update callback.
+     */
+    public void testUpdateSynonymCallbackSuccess()
+    {
+        final List<Object> callList = new ArrayList<Object>();
+        ArtistDetailsPage page = new ArtistDetailsPage()
+        {
+            @Override
+            void refresh()
+            {
+                callList.add(Boolean.TRUE);
+            }
+        };
+        AsyncCallback<Void> callback = page.getUpdateSynonymsCallback();
+        callback.onSuccess(null);
+        assertEquals("Refresh not called", 1, callList.size());
     }
 }
