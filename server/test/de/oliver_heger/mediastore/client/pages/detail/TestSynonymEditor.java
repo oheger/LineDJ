@@ -587,7 +587,7 @@ public class TestSynonymEditor extends GWTTestCase
         editor.onBtnSaveClick(null);
         assertEquals("Wrong number of hide() calls", 1, dlg.getHideCount());
         assertTrue("Got removed synonyms", proc.getRemovedSynonyms().isEmpty());
-        checkSet(proc.getAddedSynonyms(), 0, 1);
+        checkSet(proc.getAddedSynonyms(), "0", "1");
     }
 
     /**
@@ -809,7 +809,7 @@ public class TestSynonymEditor extends GWTTestCase
         private Set<String> removedSynonyms;
 
         /** Stores the IDs of the newly added synonyms. */
-        private Set<Object> addedSynonyms;
+        private Set<String> addedSynonyms;
 
         /**
          * Returns the set with the removed synonyms.
@@ -826,7 +826,7 @@ public class TestSynonymEditor extends GWTTestCase
          *
          * @return the added synonyms
          */
-        public Set<Object> getAddedSynonyms()
+        public Set<String> getAddedSynonyms()
         {
             return addedSynonyms;
         }

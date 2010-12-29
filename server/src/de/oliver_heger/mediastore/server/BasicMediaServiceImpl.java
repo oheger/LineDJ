@@ -81,7 +81,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             {
                 ArtistEntity e = findAndCheckArtist(em, artistID);
                 removeArtistSynonyms(em, e, updateData.getRemoveSynonyms());
-                addArtistSynonyms(em, e, updateData.getNewSynonymIDs());
+                addArtistSynonyms(em, e, updateData.getNewSynonymIDsAsLongs());
                 return null;
             }
         };
@@ -166,7 +166,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      * @param newSynIDs a set with the IDs of the new synonym entities
      */
     private void addArtistSynonyms(EntityManager em, ArtistEntity e,
-            Set<Object> newSynIDs)
+            Set<Long> newSynIDs)
     {
         for (Object id : newSynIDs)
         {

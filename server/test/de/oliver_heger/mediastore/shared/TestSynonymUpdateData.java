@@ -61,7 +61,7 @@ public class TestSynonymUpdateData
         Set<Object> result = new HashSet<Object>();
         for (int i = 0; i < COUNT; i++)
         {
-            result.add(Integer.valueOf(i));
+            result.add(Long.valueOf(i));
         }
         return result;
     }
@@ -73,7 +73,7 @@ public class TestSynonymUpdateData
      */
     private static void checkNewSynonymIDs(SynonymUpdateData data)
     {
-        Set<Object> syns = data.getNewSynonymIDs();
+        Set<Long> syns = data.getNewSynonymIDsAsLongs();
         assertEquals("Wrong number", COUNT, syns.size());
         assertTrue("Invalid IDs: " + syns, syns.containsAll(createSynonymIDs()));
     }
@@ -128,6 +128,23 @@ public class TestSynonymUpdateData
      */
     @Test
     public void testGetNewSynonymIDs()
+    {
+        SynonymUpdateData data =
+                new SynonymUpdateData(null, createSynonymIDs());
+        Set<String> synIDs = data.getNewSynonymIDs();
+        for (int i = 0; i < COUNT; i++)
+        {
+            assertTrue("Synonym ID not found: " + i,
+                    synIDs.contains(String.valueOf(i)));
+        }
+        assertEquals("Wrong number of synonym IDs", COUNT, synIDs.size());
+    }
+
+    /**
+     * Tests whether the correct new synonym IDs can be returned as longs.
+     */
+    @Test
+    public void testGetNewSynonymIDsAsLongs()
     {
         SynonymUpdateData data =
                 new SynonymUpdateData(null, createSynonymIDs());

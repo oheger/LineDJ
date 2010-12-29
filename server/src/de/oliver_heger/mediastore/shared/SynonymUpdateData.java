@@ -26,6 +26,12 @@ import java.util.Set;
  * assigned to the currently manipulated entity.</li>
  * </ul>
  * </p>
+ * <p>
+ * Note that because of the GWT serialization mechanism there are some
+ * limitations for the design of this class. We have to pass IDs as strings
+ * because the generic type Object cannot be handled. Also, making the class
+ * immutable does not work.
+ * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
@@ -41,7 +47,7 @@ public class SynonymUpdateData implements Serializable
     private Set<String> removeSynonyms;
 
     /** A set with the primary keys of the entities to become new synonyms. */
-    private Set<Object> newSynonymIDs;
+    private Set<String> newSynonymIDs;
 
     /**
      * Creates a new instance of {@code SynonymUpdateData} and initializes it
@@ -50,10 +56,10 @@ public class SynonymUpdateData implements Serializable
      * @param removeSyns the set with the synonym names to be removed
      * @param newSynIDs the IDs of the entities to become new synonyms
      */
-    public SynonymUpdateData(Set<String> removeSyns, Set<Object> newSynIDs)
+    public SynonymUpdateData(Set<String> removeSyns, Set<?> newSynIDs)
     {
-        removeSynonyms = immutableSet(removeSyns);
-        newSynonymIDs = immutableSet(newSynIDs);
+        removeSynonyms = transformSet(removeSyns);
+        newSynonymIDs = transformSet(newSynIDs);
     }
 
     /**
@@ -73,7 +79,7 @@ public class SynonymUpdateData implements Serializable
      */
     public Set<String> getRemoveSynonyms()
     {
-        return removeSynonyms;
+        return Collections.unmodifiableSet(removeSynonyms);
     }
 
     /**
@@ -81,20 +87,39 @@ public class SynonymUpdateData implements Serializable
      *
      * @return the primary keys of new synonym entities
      */
-    public Set<Object> getNewSynonymIDs()
+    public Set<String> getNewSynonymIDs()
     {
-        return newSynonymIDs;
+        return Collections.unmodifiableSet(newSynonymIDs);
     }
 
     /**
-     * Helper method for transforming a passed in collection to an immutable.
+     * Transforms the set with the IDs of entities becoming new synonyms to a
+     * set of Long values. Due to limitations of the serialization mechanism IDs
+     * are stored internally as strings. For entity classes using numeric IDs
+     * this method can be used. It tries to convert the string IDs back to long
+     * values.
+     *
+     * @return a set with the numeric IDs of the new synonym entities
+     * @throws NumberFormatException if a string cannot be parsed to a long
+     */
+    public Set<Long> getNewSynonymIDsAsLongs()
+    {
+        Set<Long> result = new HashSet<Long>();
+        for (String sid : newSynonymIDs)
+        {
+            result.add(Long.valueOf(sid));
+        }
+        return result;
+    }
+
+    /**
+     * Helper method for transforming a passed in collection to a string set.
      * Performs a defensive copy and also handles null input gracefully.
      *
-     * @param <T> the type of the collection to be processed
      * @param src the source collection
      * @return the resulting immutable set
      */
-    private static <T> Set<T> immutableSet(Collection<? extends T> src)
+    private static Set<String> transformSet(Collection<?> src)
     {
         if (src == null)
         {
@@ -102,7 +127,12 @@ public class SynonymUpdateData implements Serializable
         }
         else
         {
-            return Collections.unmodifiableSet(new HashSet<T>(src));
+            Set<String> result = new HashSet<String>();
+            for (Object o : src)
+            {
+                result.add(String.valueOf(o));
+            }
+            return result;
         }
     }
 }
