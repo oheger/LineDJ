@@ -27,6 +27,9 @@ import com.google.gwt.user.client.ui.Widget;
  */
 public class DisplayErrorPanel extends Composite implements HasText
 {
+    /** Constant for an HTML line break. */
+    private static final String BR = "<br/>";
+
     /** Our binder. */
     private static DisplayErrorPanelUiBinder uiBinder = GWT
             .create(DisplayErrorPanelUiBinder.class);
@@ -133,12 +136,13 @@ public class DisplayErrorPanel extends Composite implements HasText
         SafeHtmlBuilder builder = new SafeHtmlBuilder();
         if (ex.getMessage() != null)
         {
-            builder.appendEscaped(ex.getMessage()).appendHtmlConstant("<br/>");
+            builder.appendEscaped(ex.getMessage()).appendHtmlConstant(BR);
         }
 
         for (StackTraceElement ste : ex.getStackTrace())
         {
             builder.appendEscapedLines(ste.toString());
+            builder.appendHtmlConstant(BR);
         }
 
         return builder.toSafeHtml();

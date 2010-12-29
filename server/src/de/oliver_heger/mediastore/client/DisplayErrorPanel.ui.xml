@@ -2,11 +2,11 @@
 <ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
   xmlns:g="urn:import:com.google.gwt.user.client.ui">
   <ui:style>
-    .important {
+    .errpnl {
     	font-weight: bold;
     }
   </ui:style>
-  <g:DisclosurePanel ui:field="panel"
+  <g:DisclosurePanel ui:field="panel" addStyleNames="{style.errpnl}"
     visible="false">
     <g:header>Error when retrieving data!</g:header>
     <g:HTML ui:field="labContent"/>
