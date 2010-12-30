@@ -17,6 +17,13 @@ import java.util.Set;
 public interface HasSynonyms
 {
     /**
+     * Returns the name of this entity.
+     *
+     * @return the name
+     */
+    String getName();
+
+    /**
      * Returns a set with the synonyms of this object.
      *
      * @return a set with all synonyms

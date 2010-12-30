@@ -129,6 +129,9 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     /** The object to be notified when editing is complete. */
     private SynonymEditResultsProcessor resultsProcessor;
 
+    /** Stores the entity whose synonyms are edited. */
+    private HasSynonyms currentEntity;
+
     /** A counter for generating values for client search parameters. */
     private long searchParameterCounter;
 
@@ -188,6 +191,16 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     }
 
     /**
+     * Returns the entity which is currently edited.
+     *
+     * @return the current entity
+     */
+    public HasSynonyms getCurrentEntity()
+    {
+        return currentEntity;
+    }
+
+    /**
      * Starts the synonym editor on the specified entity. This method is the
      * main entry point in the editor.
      *
@@ -195,6 +208,8 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
      */
     public void edit(HasSynonyms entity)
     {
+        currentEntity = entity;
+
         lstExistingSyns.clear();
         for (String syn : entity.getSynonyms())
         {
@@ -241,8 +256,11 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
         for (Map.Entry<Object, String> e : synResults.entrySet())
         {
             String value = String.valueOf(e.getKey());
-            lstSearchSyns.addItem(e.getValue(), value);
-            searchSynIDs.put(value, e.getKey());
+            if (!hasNewSynonym(value, e.getValue()))
+            {
+                lstSearchSyns.addItem(e.getValue(), value);
+                searchSynIDs.put(value, e.getKey());
+            }
         }
 
         if (!moreResults)
@@ -562,6 +580,22 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
             removedSyns.add(lstRemovedSyns.getItemText(i));
         }
         return removedSyns;
+    }
+
+    /**
+     * Tests whether the specified synonym has already been added. This method
+     * is called for synonyms retrieved by a synonym search. It filters out the
+     * synonyms that are already in the new synonyms list.
+     *
+     * @param synID the ID of the new synonym
+     * @param synName the name of the new synonym
+     * @return a flag whether this synonym has already been added
+     */
+    private boolean hasNewSynonym(String synID, String synName)
+    {
+        return newSynIDs.containsKey(synID)
+                || (getCurrentEntity() != null && getCurrentEntity().getName()
+                        .equals(synName));
     }
 
     /**

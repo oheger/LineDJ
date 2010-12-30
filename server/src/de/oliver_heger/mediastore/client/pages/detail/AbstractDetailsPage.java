@@ -158,7 +158,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     @Override
     public void synonymsChanged(SynonymUpdateData updateData)
     {
-        progressIndicator.setVisible(true);
+        beginServerCall();
         getDetailsEntityHandler().updateSynonyms(getMediaService(),
                 getCurrentEntityID(), updateData, getUpdateSynonymsCallback());
     }
@@ -309,9 +309,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
      */
     void refresh()
     {
-        progressIndicator.setVisible(true);
-        pnlError.clearError();
-
+        beginServerCall();
         BasicMediaServiceAsync service = getMediaService();
         getDetailsEntityHandler().fetchDetails(service, currentEntityID,
                 getFetchDetailsCallback());
@@ -339,6 +337,30 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     void onClickEditSynonyms(ClickEvent e)
     {
         synEditor.edit(getCurrentEntity());
+    }
+
+    /**
+     * Prepares the UI for a server call. Some controls have to be disabled, the
+     * progress indicator is displayed.
+     */
+    void beginServerCall()
+    {
+        progressIndicator.setVisible(true);
+        pnlError.clearError();
+        btnEditSynonyms.setEnabled(false);
+    }
+
+    /**
+     * The server call is complete. This method disables the progress
+     * indicator and updates the current state of this object.
+     *
+     * @param current the new current object of this page
+     */
+    void endOfServerCall(T current)
+    {
+        btnEditSynonyms.setEnabled(current != null);
+        setCurrentEntity(current);
+        progressIndicator.setVisible(false);
     }
 
     /**
@@ -372,19 +394,6 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
             pnlError.displayError(caught);
             clearPage();
             endOfServerCall(null);
-        }
-
-        /**
-         * The server call is complete. This method disables the progress
-         * indicator and updates the current state of this object.
-         *
-         * @param current the new current object of this page
-         */
-        protected void endOfServerCall(T current)
-        {
-            btnEditSynonyms.setEnabled(current != null);
-            setCurrentEntity(current);
-            progressIndicator.setVisible(false);
         }
     }
 

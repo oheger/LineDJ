@@ -155,6 +155,8 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertTrue("Handler not called", params.containsKey(NAME));
         assertFalse("In error state", page.pnlError.isInErrorState());
         assertTrue("No progress indicator", page.progressIndicator.isVisible());
+        assertFalse("Edit synonyms button enabled",
+                page.btnEditSynonyms.isEnabled());
         assertEquals("Wrong current ID", String.valueOf(ARTIST_ID),
                 page.getCurrentEntityID());
     }
@@ -348,6 +350,8 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertEquals("Handler not called", 1, callList.size());
         assertTrue("Progress indicator not enabled",
                 page.progressIndicator.isVisible());
+        assertFalse("Button edit synonyms enabled",
+                page.btnEditSynonyms.isEnabled());
     }
 
     /**

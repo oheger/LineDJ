@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -261,6 +262,7 @@ public class TestSynonymEditor extends GWTTestCase
         assertFalse("Btn remove search enabled",
                 editor.btnRemoveSearchSyn.isEnabled());
         assertEquals("Text in search field", "", editor.txtSearch.getText());
+        assertSame("Wrong current entity", info, editor.getCurrentEntity());
     }
 
     /**
@@ -524,6 +526,42 @@ public class TestSynonymEditor extends GWTTestCase
         checkList(editor.lstSearchSyns, true, syns.toArray(new String[0]));
         assertFalse("Progress indicator still visible",
                 editor.progressIndicator.isVisible());
+    }
+
+    /**
+     * Tests whether search results that have already been added as new synonyms
+     * are suppressed.
+     */
+    public void testAddResultsAlreadyExisting()
+    {
+        SynonymEditor editor = new SynonymEditor();
+        List<String> syns = createSynList(SYN_COUNT);
+        editor.addResults(createSearchResultsMap(syns), false);
+        select(editor.lstSearchSyns, true);
+        editor.onBtnAddSearchSynClick(null);
+        assertEquals("Got entires in search list (1)", 0,
+                editor.lstSearchSyns.getItemCount());
+        editor.addResults(createSearchResultsMap(createSynList(1)), false);
+        assertEquals("Got entires in search list (2)", 0,
+                editor.lstSearchSyns.getItemCount());
+    }
+
+    /**
+     * Tests whether the name of the current entity is suppressed when new
+     * search results are added.
+     */
+    public void testAddResultsCurrentName()
+    {
+        ArtistDetailInfo info = new ArtistDetailInfo();
+        info.setName(SYN);
+        info.setSynonyms(new HashSet<String>());
+        SynonymEditor editor = new SynonymEditor();
+        editor.edit(info);
+        Map<Object, String> map = new HashMap<Object, String>();
+        map.put(1, SYN);
+        editor.addResults(map, false);
+        assertEquals("Got search results", 0,
+                editor.lstSearchSyns.getItemCount());
     }
 
     /**
