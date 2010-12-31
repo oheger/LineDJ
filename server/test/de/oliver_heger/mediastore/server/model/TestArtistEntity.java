@@ -331,6 +331,32 @@ public class TestArtistEntity
     }
 
     /**
+     * Tests whether an existing synonym name can be removed.
+     */
+    @Test
+    public void testRemoveSynonymNameTrue()
+    {
+        ArtistEntity a = new ArtistEntity();
+        a.setUser(PersistenceTestHelper.getTestUser());
+        a.addSynonymName(SYN_PREFIX);
+        assertTrue("Wrong result", a.removeSynonymName(SYN_PREFIX));
+        assertTrue("Still got synonyms", a.getSynonyms().isEmpty());
+    }
+
+    /**
+     * Tries to remove a non existing synonym name.
+     */
+    @Test
+    public void testRemoveSynonymNameFalse()
+    {
+        ArtistEntity a = new ArtistEntity();
+        a.setUser(PersistenceTestHelper.getTestUser());
+        a.addSynonymName(SYN_PREFIX);
+        assertFalse("Wrong result", a.removeSynonymName(SYN_PREFIX + "_other"));
+        assertEquals("Wrong number of synonyms", 1, a.getSynonyms().size());
+    }
+
+    /**
      * Loads all synonym entities from the database.
      *
      * @return the list with all synonyms found in the DB

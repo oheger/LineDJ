@@ -203,11 +203,7 @@ public class ArtistEntity implements Serializable
      */
     public boolean addSynonym(ArtistSynonym syn)
     {
-        if (syn == null || syn.getName() == null)
-        {
-            throw new NullPointerException("Synonym must not be null!");
-        }
-
+        AbstractSynonym.checkSynonym(syn);
         syn.setArtist(this);
         syn.setUser(getUser());
 
@@ -256,6 +252,18 @@ public class ArtistEntity implements Serializable
     }
 
     /**
+     * Removes the specified synonym name from this entity. If the synonym is
+     * not found, this method has no effect.
+     *
+     * @param syn the synonym name to be removed
+     * @return a flag whether the synonym was found and removed
+     */
+    public boolean removeSynonymName(String syn)
+    {
+        return removeSynonym(findSynonym(syn));
+    }
+
+    /**
      * Finds the synonym with the passed in synonym name. If it exists, the
      * corresponding {@link ArtistSynonym} is returned. Otherwise, result is
      * <b>null</b>.
@@ -265,15 +273,7 @@ public class ArtistEntity implements Serializable
      */
     public ArtistSynonym findSynonym(String syn)
     {
-        for (ArtistSynonym as : getSynonyms())
-        {
-            if (as.getName().equals(syn))
-            {
-                return as;
-            }
-        }
-
-        return null;
+        return AbstractSynonym.findSynonym(getSynonyms(), syn);
     }
 
     /**

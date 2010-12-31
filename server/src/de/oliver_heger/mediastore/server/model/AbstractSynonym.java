@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.server.model;
 
 import java.io.Serializable;
+import java.util.Set;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -25,9 +26,17 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
  * synonyms and also provides some helper methods. Concrete sub classes mainly
  * have to deal with the reference to the owning entity.
  * </p>
- * <p>Note that due to limitations of the queries supported by the AppEngine
- * data store, it is required to store the user redundantly. It is also stored
- * for the owning entities. But join queries are not allowed.</p>
+ * <p>
+ * In addition to the persistent fields required for concrete synonym
+ * subclasses, this base class defines some helper methods which can be used by
+ * entity classes supporting synonyms. With these helper methods sets of
+ * synonyms can easier be manipulated.
+ * </p>
+ * <p>
+ * Note that due to limitations of the queries supported by the AppEngine data
+ * store, it is required to store the user redundantly. It is also stored for
+ * the owning entities. But join queries are not allowed.
+ * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
@@ -41,7 +50,7 @@ public abstract class AbstractSynonym implements Serializable
      */
     private static final long serialVersionUID = 20101115L;
 
-    /** Stores the primary key of this synonym entity.*/
+    /** Stores the primary key of this synonym entity. */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Key id;
@@ -49,14 +58,15 @@ public abstract class AbstractSynonym implements Serializable
     /** The name of this synonym. */
     private String name;
 
-    /** The search name of this synonym.*/
+    /** The search name of this synonym. */
     private String searchName;
 
-    /** The user this synonym belongs to.*/
+    /** The user this synonym belongs to. */
     private User user;
 
     /**
      * Returns the key of this synonym.
+     *
      * @return the key
      */
     public Key getId()
@@ -87,6 +97,7 @@ public abstract class AbstractSynonym implements Serializable
 
     /**
      * Returns the user this entity belongs to.
+     *
      * @return the associated user
      */
     public User getUser()
@@ -96,6 +107,7 @@ public abstract class AbstractSynonym implements Serializable
 
     /**
      * Sets the user this entity belongs to.
+     *
      * @param user the associated user
      */
     public void setUser(User user)
@@ -131,6 +143,47 @@ public abstract class AbstractSynonym implements Serializable
     }
 
     /**
+     * Tests whether the specified synonym is valid. This method is called when
+     * a new synonym is added to an entity. It checks whether the synonym is not
+     * <b>null</b> and has a name.
+     *
+     * @param syn the synonym object to be checked
+     * @throws NullPointerException if the synonym is <b>null</b> or does not
+     *         have a name
+     */
+    public static void checkSynonym(AbstractSynonym syn)
+    {
+        if (syn == null || syn.getName() == null)
+        {
+            throw new NullPointerException("Synonym must not be null!");
+        }
+    }
+
+    /**
+     * Finds the synonym with the passed in synonym name in the given set. If it
+     * exists, the corresponding synonym object is returned. Otherwise, result
+     * is <b>null</b>.
+     *
+     * @param <T> the type of the synonyms processed by this method
+     * @param synonyms the set with the synonyms to be searched
+     * @param syn the synonym name to be searched
+     * @return the synonym object with this name or <b>null</b>
+     */
+    public static <T extends AbstractSynonym> T findSynonym(Set<T> synonyms,
+            String syn)
+    {
+        for (T as : synonyms)
+        {
+            if (as.getName().equals(syn))
+            {
+                return as;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Helper method for implementing a concrete equals() method. This
      * implementation already checks whether the passed in object has the same
      * class as this object and whether the names are equal (ignoring case).
@@ -157,10 +210,12 @@ public abstract class AbstractSynonym implements Serializable
     }
 
     /**
-     * Returns the search name of this synonym. This name is automatically updated
-     * whenever the synonym name is changed. It stores the name in upper case to
-     * support case independent queries. This is a workaround for the AppEngine
-     * query engine which does not support the {@code upper()} function.
+     * Returns the search name of this synonym. This name is automatically
+     * updated whenever the synonym name is changed. It stores the name in upper
+     * case to support case independent queries. This is a workaround for the
+     * AppEngine query engine which does not support the {@code upper()}
+     * function.
+     *
      * @return the search name of this synonym
      */
     String getSearchName()
