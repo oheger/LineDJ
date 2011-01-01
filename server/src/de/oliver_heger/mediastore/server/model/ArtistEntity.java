@@ -13,7 +13,6 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
-import javax.persistence.NonUniqueResultException;
 import javax.persistence.OneToMany;
 
 import com.google.appengine.api.users.User;
@@ -35,12 +34,6 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
 })
 public class ArtistEntity implements Serializable
 {
-    /** Constant for the user parameter. */
-    static final String PARAM_USER = "user";
-
-    /** Constant for the name parameter. */
-    static final String PARAM_NAME = "name";
-
     /** Constant for the prefix for artist queries. */
     static final String ARTIST_QUERY_PREFIX =
             "de.oliver_heger.mediastore.server.model.ArtistEntity.";
@@ -51,8 +44,9 @@ public class ArtistEntity implements Serializable
 
     /** Constant for the definition of the query for finding an artist by name. */
     static final String QUERY_FIND_BY_NAME_DEF =
-            "select a from ArtistEntity a " + "where a.user = :" + PARAM_USER
-                    + " and a.searchName = :" + PARAM_NAME;
+            "select a from ArtistEntity a " + "where a.user = :"
+                    + Finders.PARAM_USER + " and a.searchName = :"
+                    + Finders.PARAM_NAME;
 
     /** Constant for the name of the query for finding an artist by synonym. */
     static final String QUERY_FIND_BY_SYNONYM = ARTIST_QUERY_PREFIX
@@ -63,8 +57,9 @@ public class ArtistEntity implements Serializable
      * synonym.
      */
     static final String QUERY_FIND_BY_SYNONYM_DEF = "select syn.artist "
-            + "from ArtistSynonym syn " + "where syn.user = :" + PARAM_USER
-            + " and syn.searchName = :" + PARAM_NAME;
+            + "from ArtistSynonym syn " + "where syn.user = :"
+            + Finders.PARAM_USER + " and syn.searchName = :"
+            + Finders.PARAM_NAME;
 
     /**
      * The serial version UID.
@@ -331,15 +326,14 @@ public class ArtistEntity implements Serializable
      * Searches for an artist with the specified name. This method performs a
      * case-independent search for an artist's name for a given user. If a
      * matching artist is found, it is returned. Otherwise, result is
-     * <b>null</b>. Because the workflow of the remote media store application
-     * should not allow the creation of duplicate artist names, an exception is
-     * thrown if multiple artists are found.
+     * <b>null</b>. This method expects that only a single match can be found;
+     * this is due to the way this application works. If multiple results are
+     * found, only a single hit is returned.
      *
      * @param em the entity manager
      * @param user the user the artist belongs to
      * @param name the name to be searched for
      * @return the single matching artist or <b>null</b> if there is no match
-     * @throws NonUniqueResultException if multiple matching artists are found
      */
     public static ArtistEntity findByName(EntityManager em, User user,
             String name)
@@ -356,7 +350,6 @@ public class ArtistEntity implements Serializable
      * @param user the user the artist belongs to
      * @param name the name to be searched for
      * @return the single matching artist or <b>null</b> if there is no match
-     * @throws NonUniqueResultException if multiple matching artists are found
      */
     public static ArtistEntity findBySynonym(EntityManager em, User user,
             String name)
@@ -373,7 +366,6 @@ public class ArtistEntity implements Serializable
      * @param user the user the artist belongs to
      * @param name the name to be searched for
      * @return the single matching artist or <b>null</b> if there is no match
-     * @throws NonUniqueResultException if multiple matching artists are found
      */
     public static ArtistEntity findByNameOrSynonym(EntityManager em, User user,
             String name)

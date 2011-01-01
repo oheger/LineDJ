@@ -7,9 +7,12 @@ import java.util.Set;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
+import javax.persistence.EntityManager;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 
 import com.google.appengine.api.datastore.Key;
@@ -34,8 +37,37 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
  * @version $Id: $
  */
 @Entity
+@NamedQueries({
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_NAME, query = SongEntity.QUERY_FIND_BY_NAME_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF)
+})
 public class SongEntity implements Serializable
 {
+    /** Constant for the prefix for song queries. */
+    static final String SONG_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.server.model.SongEntity.";
+
+    /** Constant for the name of the query for finding a song by name. */
+    static final String QUERY_FIND_BY_NAME = SONG_QUERY_PREFIX
+            + "QUERY_FIND_BY_NAME";
+
+    /** Constant for the definition of the query for finding a song by name. */
+    static final String QUERY_FIND_BY_NAME_DEF = "select s from SongEntity s "
+            + "where s.user = :" + Finders.PARAM_USER + " and s.searchName = :"
+            + Finders.PARAM_NAME;
+
+    /** Constant for the name of the query for finding a song by synonym. */
+    static final String QUERY_FIND_BY_SYNONYM = SONG_QUERY_PREFIX
+            + "QUERY_FIND_BY_SYNONYM";
+
+    /**
+     * Constant for the definition of the query for finding a song by synonym.
+     */
+    static final String QUERY_FIND_BY_SYNONYM_DEF = "select song "
+            + "from SongSynonym syn " + "where syn.user = :"
+            + Finders.PARAM_USER + " and syn.searchName = :"
+            + Finders.PARAM_NAME;
+
     /**
      * The serial version UID.
      */
@@ -422,6 +454,61 @@ public class SongEntity implements Serializable
     }
 
     /**
+     * Searches for an entity with the specified name. This method expects that
+     * song names are unique for a given user. If a song with the specified name
+     * (ignoring case) is found, it is returned. Otherwise, result is
+     * <b>null</b>.
+     *
+     * @param em the entity manager
+     * @param user the user
+     * @param name the name of the song
+     * @return the found entity or <b>null</b>
+     */
+    public static SongEntity findByName(EntityManager em, User user, String name)
+    {
+        return querySong(em, QUERY_FIND_BY_NAME, user, name);
+    }
+
+    /**
+     * Searches for an entity with the specified synonym name. Works like
+     * {@link #findByName(EntityManager, User, String)}, but a case-independent
+     * search is performed in the synonym names.
+     *
+     * @param em the entity manager
+     * @param user the user
+     * @param name the synonym name of the song
+     * @return the found entity or <b>null</b>
+     */
+    public static SongEntity findBySynonym(EntityManager em, User user,
+            String name)
+    {
+        return querySong(em, QUERY_FIND_BY_SYNONYM, user, name);
+    }
+
+    /**
+     * Searches for a song either directly by name or by the associated
+     * synonyms. This method combines the methods
+     * {@link #findByName(EntityManager, User, String)} and
+     * {@link #findBySynonym(EntityManager, User, String)}.
+     *
+     * @param em the entity manager
+     * @param user the user
+     * @param name the name of the song to be searched for
+     * @return the found entity or <b>null</b>
+     */
+    public static SongEntity findByNameOrSynonym(EntityManager em, User user,
+            String name)
+    {
+        SongEntity result = findByName(em, user, name);
+        if (result == null)
+        {
+            result = findBySynonym(em, user, name);
+        }
+
+        return result;
+    }
+
+    /**
      * Returns the search name of this song entity. The search name is used by
      * database queries. It is updated automatically whenever the regular name
      * is changed.
@@ -431,5 +518,20 @@ public class SongEntity implements Serializable
     String getSearchName()
     {
         return searchName;
+    }
+
+    /**
+     * Helper method for performing a query for a single song entity.
+     *
+     * @param em the entity manager
+     * @param queryName the name of the query to be issued
+     * @param user the user
+     * @param name the name of the song
+     * @return the entity found
+     */
+    private static SongEntity querySong(EntityManager em, String queryName,
+            User user, String name)
+    {
+        return (SongEntity) Finders.queryNamedEntity(em, queryName, user, name);
     }
 }

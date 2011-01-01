@@ -434,4 +434,85 @@ public class TestSongEntity
         helper.commit();
         assertTrue("Got synoym entities", fetchSongSynonyms().isEmpty());
     }
+
+    /**
+     * Creates some test songs with synonyms.
+     */
+    private void createSongsAndSynonyms()
+    {
+        SongEntity song1 = createSong();
+        song1.addSynonymName(SYN_PREFIX);
+        helper.persist(song1);
+        SongEntity song2 = createSong();
+        song2.setName(SONG_NAME + "_other");
+        helper.persist(song2);
+        SongEntity song3 = createSong();
+        song3.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        song3.setName("another song");
+        song3.addSynonymName(SONG_NAME);
+        helper.persist(song3);
+    }
+
+    /**
+     * Tests whether a song can be found by name.
+     */
+    @Test
+    public void testFindByName()
+    {
+        createSongsAndSynonyms();
+        SongEntity song =
+                SongEntity.findByName(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(),
+                        SONG_NAME.toLowerCase(Locale.ENGLISH));
+        assertEquals("Wrong song name", SONG_NAME, song.getName());
+        assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
+                song.getUser());
+    }
+
+    /**
+     * Tests whether a song can be found by a synonym.
+     */
+    @Test
+    public void testFindBySynonym()
+    {
+        createSongsAndSynonyms();
+        SongEntity song =
+                SongEntity.findBySynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(),
+                        SYN_PREFIX.toLowerCase(Locale.ENGLISH));
+        assertEquals("Wrong song name", SONG_NAME, song.getName());
+        assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
+                song.getUser());
+    }
+
+    /**
+     * Tests searching for both song names and synonyms.
+     */
+    @Test
+    public void testFindByNameOrSynonym()
+    {
+        createSongsAndSynonyms();
+        SongEntity song =
+                SongEntity.findByNameOrSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SONG_NAME);
+        assertEquals("Wrong song name", SONG_NAME, song.getName());
+        assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
+                song.getUser());
+        assertEquals("Wrong synonym result", song,
+                SongEntity.findByNameOrSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SYN_PREFIX));
+    }
+
+    /**
+     * Tests a search for a non existing song.
+     */
+    @Test
+    public void testFindByNameOrSynonymNotFound()
+    {
+        createSongsAndSynonyms();
+        assertNull("Got a result", SongEntity.findByNameOrSynonym(
+                helper.getEM(), PersistenceTestHelper.getTestUser(),
+                "non existing song!"));
+    }
 }

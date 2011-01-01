@@ -29,17 +29,17 @@ import de.oliver_heger.mediastore.shared.model.Song;
  */
 public final class Finders
 {
+    /** Constant for the user parameter. */
+    static final String PARAM_USER = "user";
+
+    /** Constant for the name parameter. */
+    static final String PARAM_NAME = "name";
+
     /** The parameter for the artist ID. */
     private static final String PARAM_ARTIST = "artID";
 
     /** The parameter for the album ID. */
     private static final String PARAM_ALBUM = "albumID";
-
-    /** Constant for the user parameter. */
-    private static final String PARAM_USER = "user";
-
-    /** Constant for the name parameter. */
-    private static final String PARAM_NAME = "name";
 
     /** The part of a query for retrieving songs by an artist ID. */
     private static final String ARTIST_QUERY_SUFFIX = " from Song s "
