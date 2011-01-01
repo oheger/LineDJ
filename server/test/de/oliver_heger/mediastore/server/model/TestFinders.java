@@ -1,18 +1,25 @@
 package de.oliver_heger.mediastore.server.model;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 
 import org.easymock.EasyMock;
 import org.junit.Test;
 
-import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.shared.model.Album;
 import de.oliver_heger.mediastore.shared.model.Artist;
 import de.oliver_heger.mediastore.shared.model.Song;
+import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
  * Test class for {@code Finders}. This class mainly tests exceptional
@@ -24,6 +31,12 @@ import de.oliver_heger.mediastore.shared.model.Song;
  */
 public class TestFinders
 {
+    /** Constant for a named query. */
+    private static final String QUERY_NAME = "testNamedQuery";
+
+    /** Constant for the name of an entity. */
+    private static final String ENTITY_NAME = "TestEntity";
+
     /**
      * Tries to search for the songs of an artist without an entity manager.
      */
@@ -162,5 +175,90 @@ public class TestFinders
         {
             EasyMock.verify(em);
         }
+    }
+
+    /**
+     * Helper method for setting up a query mock to be used for a test for a
+     * named entity query.
+     *
+     * @param resultList the result of the query
+     * @return the query mock
+     */
+    private Query initQueryMockForNamedEntityQuery(List<?> resultList)
+    {
+        Query query = EasyMock.createMock(Query.class);
+        EasyMock.expect(
+                query.setParameter("user", PersistenceTestHelper.getTestUser()))
+                .andReturn(query);
+        EasyMock.expect(
+                query.setParameter("name",
+                        ENTITY_NAME.toUpperCase(Locale.ENGLISH))).andReturn(
+                query);
+        EasyMock.expect(query.getResultList()).andReturn(resultList);
+        return query;
+    }
+
+    /**
+     * Tests whether an entity can be queried by name if there is a single
+     * match.
+     */
+    @Test
+    public void testQueryNamedEntitySingle()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        final Object entity = new Object();
+        Query query =
+                initQueryMockForNamedEntityQuery(Collections
+                        .singletonList(entity));
+        EasyMock.expect(em.createNamedQuery(QUERY_NAME)).andReturn(query);
+        EasyMock.replay(em, query);
+        assertSame(
+                "Wrong result",
+                entity,
+                Finders.queryNamedEntity(em, QUERY_NAME,
+                        PersistenceTestHelper.getTestUser(), ENTITY_NAME));
+        EasyMock.verify(query, em);
+    }
+
+    /**
+     * Tests whether an entity can be queried by name if there are multiple
+     * matches.
+     */
+    @Test
+    public void testQueryNamedEntityMultiple()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        final int matchCount = 4;
+        List<Integer> results = new ArrayList<Integer>(matchCount);
+        for (int i = 0; i < matchCount; i++)
+        {
+            results.add(i);
+        }
+        Query query = initQueryMockForNamedEntityQuery(results);
+        EasyMock.expect(em.createNamedQuery(QUERY_NAME)).andReturn(query);
+        EasyMock.replay(em, query);
+        assertSame(
+                "Wrong result",
+                results.get(0),
+                Finders.queryNamedEntity(em, QUERY_NAME,
+                        PersistenceTestHelper.getTestUser(), ENTITY_NAME));
+        EasyMock.verify(em, query);
+    }
+
+    /**
+     * Tests queryNamedEntity() if there is no match.
+     */
+    @Test
+    public void testQueryNamedEntityNoMatch()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        Query query = initQueryMockForNamedEntityQuery(new ArrayList<Object>());
+        EasyMock.expect(em.createNamedQuery(QUERY_NAME)).andReturn(query);
+        EasyMock.replay(em, query);
+        assertNull(
+                "Got a result",
+                Finders.queryNamedEntity(em, QUERY_NAME,
+                        PersistenceTestHelper.getTestUser(), ENTITY_NAME));
+        EasyMock.verify(em, query);
     }
 }

@@ -3,7 +3,6 @@ package de.oliver_heger.mediastore.server.model;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import javax.persistence.CascadeType;
@@ -401,36 +400,19 @@ public class ArtistEntity implements Serializable
     }
 
     /**
-     * Helper method for executing an artist query. This method executes a named
-     * query and handles the various numbers of results correctly
+     * Helper method for executing an artist query.
      *
      * @param em the entity manager
      * @param queryName the name of the query to be executed
      * @param user the user
      * @param name the name to be searched for
      * @return the single matching artist or <b>null</b> if there is no match
-     * @throws NonUniqueResultException if multiple matching artists are found
      */
     private static ArtistEntity queryArtist(EntityManager em, String queryName,
             User user, String name)
     {
-        List<?> results =
-                em.createNamedQuery(queryName)
-                        .setParameter(PARAM_USER, user)
-                        .setParameter(PARAM_NAME,
-                                EntityUtils.generateSearchString(name))
-                        .getResultList();
-        if (results.isEmpty())
-        {
-            return null;
-        }
-        else if (results.size() == 1)
-        {
-            return (ArtistEntity) results.get(0);
-        }
-
-        throw new NonUniqueResultException("Found multiple artists with name "
-                + name + " for user " + user);
+        return (ArtistEntity) Finders.queryNamedEntity(em, queryName, user,
+                name);
     }
 
     /**

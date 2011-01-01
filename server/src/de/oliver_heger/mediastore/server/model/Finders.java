@@ -4,8 +4,12 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.persistence.EntityManager;
+
+import com.google.appengine.api.users.User;
 
 import de.oliver_heger.mediastore.shared.model.Album;
 import de.oliver_heger.mediastore.shared.model.Artist;
@@ -30,6 +34,12 @@ public final class Finders
 
     /** The parameter for the album ID. */
     private static final String PARAM_ALBUM = "albumID";
+
+    /** Constant for the user parameter. */
+    private static final String PARAM_USER = "user";
+
+    /** Constant for the name parameter. */
+    private static final String PARAM_NAME = "name";
 
     /** The part of a query for retrieving songs by an artist ID. */
     private static final String ARTIST_QUERY_SUFFIX = " from Song s "
@@ -184,6 +194,50 @@ public final class Finders
                 em.createQuery(QUERY_FIND_IDS_BY_ALBUM_DEF)
                         .setParameter(PARAM_ALBUM, albumID).getResultList();
         return findArtistsByIDs(em, new HashSet<Long>(artistIDs));
+    }
+
+    /**
+     * Executes a query for an entity which is searched by its name. This method
+     * executes a named query, fills in the parameters for the name and the
+     * user, and handles the numbers of results correctly. It is expected that a
+     * single result is retrieved as names should be unique. If no match is
+     * found, result is <b>null</b>. If there are multiple results, a warning is
+     * logged, and an arbitrary object from the result set is returned. (It can
+     * happen that there are multiple results if there was a problem during a
+     * merge operation.)
+     *
+     * @param em the entity manager
+     * @param queryName the name of the query to be executed
+     * @param user the user
+     * @param name the name to be searched for
+     * @return the single matching artist or <b>null</b> if there is no match
+     */
+    public static Object queryNamedEntity(EntityManager em, String queryName,
+            User user, String name)
+    {
+        List<?> results =
+                em.createNamedQuery(queryName)
+                        .setParameter(PARAM_USER, user)
+                        .setParameter(PARAM_NAME,
+                                EntityUtils.generateSearchString(name))
+                        .getResultList();
+        if (results.isEmpty())
+        {
+            return null;
+        }
+        else
+        {
+            if (results.size() > 1)
+            {
+                Logger log = Logger.getLogger(Finders.class.getName());
+                log.log(Level.WARNING, String.format(
+                        "Got multiple results for query "
+                                + "%s, name = %s, user = %s!", queryName, name,
+                        String.valueOf(user)));
+            }
+
+            return results.get(0);
+        }
     }
 
     /**

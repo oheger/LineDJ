@@ -7,15 +7,12 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-
-import javax.persistence.NonUniqueResultException;
 
 import org.junit.After;
 import org.junit.Before;
@@ -500,33 +497,6 @@ public class TestArtistEntity
     }
 
     /**
-     * Tests findByName() if there are multiple matches.
-     */
-    @Test
-    public void testFindByNameMultipleMatches()
-    {
-        ArtistEntity e = new ArtistEntity();
-        e.setName(TEST_NAME);
-        e.setUser(PersistenceTestHelper.getTestUser());
-        helper.persist(e);
-        e = new ArtistEntity();
-        e.setName(TEST_NAME.toUpperCase(Locale.ENGLISH));
-        e.setUser(PersistenceTestHelper.getTestUser());
-        helper.persist(e);
-        helper.closeEM();
-        try
-        {
-            ArtistEntity.findByName(helper.getEM(),
-                    PersistenceTestHelper.getTestUser(), TEST_NAME);
-            fail("Multiple results not detected!");
-        }
-        catch (NonUniqueResultException nurex)
-        {
-            // ok
-        }
-    }
-
-    /**
      * Tests findBySynonym() if there is a single match.
      */
     @Test
@@ -577,39 +547,6 @@ public class TestArtistEntity
         helper.persist(a);
         assertNull("Got results", ArtistEntity.findBySynonym(helper.getEM(),
                 PersistenceTestHelper.getTestUser(), SYN_PREFIX + 0));
-    }
-
-    /**
-     * Tests findBySynonym() if multiple matches are found.
-     */
-    @Test
-    public void testFindBySynonymMultipleMatches()
-    {
-        ArtistEntity a1 = new ArtistEntity();
-        a1.setName(TEST_NAME);
-        a1.setUser(PersistenceTestHelper.getTestUser());
-        ArtistSynonym s1 = new ArtistSynonym();
-        s1.setName(SYN_PREFIX);
-        a1.addSynonym(s1);
-        ArtistEntity a2 = new ArtistEntity();
-        a2.setName(TEST_NAME + 2);
-        a2.setUser(PersistenceTestHelper.getTestUser());
-        ArtistSynonym s2 = new ArtistSynonym();
-        s2.setName(SYN_PREFIX.toLowerCase(Locale.ENGLISH));
-        a2.addSynonym(s2);
-        helper.persist(a1);
-        helper.persist(a2);
-        helper.closeEM();
-        try
-        {
-            ArtistEntity.findBySynonym(helper.getEM(),
-                    PersistenceTestHelper.getTestUser(), SYN_PREFIX);
-            fail("Multiple results not detected!");
-        }
-        catch (NonUniqueResultException nuex)
-        {
-            // ok
-        }
     }
 
     /**
