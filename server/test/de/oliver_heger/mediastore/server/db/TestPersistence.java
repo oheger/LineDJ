@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -331,6 +332,25 @@ public class TestPersistence
         assertEquals("Wrong number of artists", newArtists.size(),
                 artists.size());
         assertTrue("Wrong artists: " + artists, artists.containsAll(newArtists));
+    }
+
+    /**
+     * Tests executing a query with an in condition.
+     */
+    @Test
+    public void testInCondition()
+    {
+        MediaTestData data = prepareMediaTest();
+        List<Long> params =
+                Arrays.asList(data.getArtist1().getId(), data.getArtist2()
+                        .getId());
+        List<?> artists =
+                helper.getEM()
+                        .createQuery(
+                                "select a from Artist a "
+                                        + "where a.id in (:ids)")
+                        .setParameter("ids", params).getResultList();
+        assertEquals("Wrong number of results", 2, artists.size());
     }
 
     /**

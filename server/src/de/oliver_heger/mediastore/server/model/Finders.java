@@ -1,13 +1,17 @@
 package de.oliver_heger.mediastore.server.model;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 
 import com.google.appengine.api.users.User;
 
@@ -72,6 +76,12 @@ public final class Finders
     /** The query string of the query for retrieving a set of albums. */
     private static final String QUERY_FIND_ALBUMS_DEF =
             "select a from Album a " + "where a.id in (:" + PARAM_ALBUM + ")";
+
+    /**
+     * Constant for the threshold for in conditions. If an in condition contains
+     * more elements than this number, the query is split.
+     */
+    private static final int IN_THRESHOLD = 100;
 
     /**
      * Private constructor so that no instances can be created.
@@ -237,6 +247,62 @@ public final class Finders
             }
 
             return results.get(0);
+        }
+    }
+
+    /**
+     * Executes a named query which contains an in condition. The problem with
+     * in conditions is that the condition can become arbitrary complex; if the
+     * elements in the parameter list of the condition exceed a certain number,
+     * a database error is thrown. This method implements a safe way of
+     * executing such queries: It checks the number of elements in the in
+     * condition. If it is below a threshold, the query can be executed
+     * directly. Otherwise, the query is executed multiple times with chunks of
+     * the in condition. The results of the single queries are then combined.
+     *
+     * @param em the entity manager
+     * @param queryName the name of the query to be executed
+     * @param params a map with the query parameters
+     * @param paramIn the name of the parameter for the in condition; the value
+     *        must be a list
+     * @return the result of the query
+     */
+    @SuppressWarnings("unchecked")
+    // we don't have any type info at all
+    public static List<?> queryInCondition(EntityManager em, String queryName,
+            Map<String, Object> params, String paramIn)
+    {
+        List<?> inList = (List<?>) params.get(paramIn);
+        if (inList.size() <= IN_THRESHOLD)
+        {
+            Query query = em.createNamedQuery(queryName);
+            initParameters(query, params);
+            return query.getResultList();
+        }
+
+        Map<String, Object> paramsCopy = new HashMap<String, Object>(params);
+        paramsCopy.put(paramIn, inList.subList(0, IN_THRESHOLD));
+        List<?> result1 = queryInCondition(em, queryName, paramsCopy, paramIn);
+        paramsCopy.put(paramIn, inList.subList(IN_THRESHOLD, inList.size()));
+        List<?> result2 = queryInCondition(em, queryName, paramsCopy, paramIn);
+        @SuppressWarnings("rawtypes")
+        List result = new ArrayList(result1.size() + result2.size());
+        result.addAll(result1);
+        result.addAll(result2);
+        return result;
+    }
+
+    /**
+     * Helper method for setting query parameters.
+     *
+     * @param query the query
+     * @param params the map with the parameters
+     */
+    private static void initParameters(Query query, Map<String, Object> params)
+    {
+        for (Map.Entry<String, Object> e : params.entrySet())
+        {
+            query.setParameter(e.getKey(), e.getValue());
         }
     }
 

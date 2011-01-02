@@ -1,14 +1,19 @@
 package de.oliver_heger.mediastore.server.model;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
@@ -36,6 +41,9 @@ public class TestFinders
 
     /** Constant for the name of an entity. */
     private static final String ENTITY_NAME = "TestEntity";
+
+    /** Constant for a parameter name. */
+    private static final String PARAM = "testParam";
 
     /**
      * Tries to search for the songs of an artist without an entity manager.
@@ -259,6 +267,114 @@ public class TestFinders
                 "Got a result",
                 Finders.queryNamedEntity(em, QUERY_NAME,
                         PersistenceTestHelper.getTestUser(), ENTITY_NAME));
+        EasyMock.verify(em, query);
+    }
+
+    /**
+     * Generates a list with the values in the given range.
+     *
+     * @param from the start value
+     * @param to the end value (excluding)
+     * @return the list with all these values
+     */
+    private static List<Long> range(long from, long to)
+    {
+        List<Long> result = new ArrayList<Long>((int) (to - from + 1));
+        for (long l = from; l < to; l++)
+        {
+            result.add(l);
+        }
+        return result;
+    }
+
+    /**
+     * Creates a map with the given number of test query parameters.
+     *
+     * @param count the number of parameters
+     * @return the parameters map
+     */
+    private static Map<String, Object> createParametersMap(int count)
+    {
+        Map<String, Object> map = new HashMap<String, Object>();
+        for (int i = 0; i < count; i++)
+        {
+            map.put(PARAM + i, i);
+        }
+        return map;
+    }
+
+    /**
+     * Prepares the specified query mock to expect the given number of test
+     * parameters.
+     *
+     * @param query the query mock
+     * @param count the number of parameters
+     */
+    private static void expectParameters(Query query, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            EasyMock.expect(query.setParameter(PARAM + i, i)).andReturn(query);
+        }
+    }
+
+    /**
+     * Tests queryInCondition() if there is no need to split the query.
+     */
+    @Test
+    public void testQueryInConditionBelowThreshold()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        Query query = EasyMock.createMock(Query.class);
+        final int paramCount = 4;
+        expectParameters(query, paramCount);
+        List<Long> ids = range(0, 10);
+        EasyMock.expect(query.setParameter(PARAM, ids)).andReturn(query);
+        EasyMock.expect(query.getResultList()).andReturn(ids);
+        EasyMock.expect(em.createNamedQuery(QUERY_NAME)).andReturn(query);
+        EasyMock.replay(em, query);
+        Map<String, Object> params = createParametersMap(paramCount);
+        params.put(PARAM, ids);
+        List<Long> expectedResult = new ArrayList<Long>(ids);
+        assertEquals("Wrong result", expectedResult,
+                Finders.queryInCondition(em, QUERY_NAME, params, PARAM));
+        EasyMock.verify(em, query);
+    }
+
+    /**
+     * Tests queryInCondition() if the query has to be executed multiple times.
+     */
+    @Test
+    public void testQueryInConditionAboveThreshold()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        Query query = EasyMock.createMock(Query.class);
+        EasyMock.expect(em.createNamedQuery(QUERY_NAME)).andReturn(query)
+                .times(3);
+        final int paramCount = 2;
+        Map<String, Object> params = createParametersMap(paramCount);
+        params.put(PARAM, range(0, 250));
+        expectParameters(query, paramCount);
+        List<Long> ids = range(0, 100);
+        EasyMock.expect(query.setParameter(PARAM, ids)).andReturn(query);
+        EasyMock.expect(query.getResultList()).andReturn(ids);
+        expectParameters(query, paramCount);
+        ids = range(100, 200);
+        EasyMock.expect(query.setParameter(PARAM, ids)).andReturn(query);
+        EasyMock.expect(query.getResultList()).andReturn(ids);
+        expectParameters(query, paramCount);
+        ids = range(200, 250);
+        EasyMock.expect(query.setParameter(PARAM, ids)).andReturn(query);
+        EasyMock.expect(query.getResultList()).andReturn(ids);
+        EasyMock.replay(em, query);
+        Set<Object> results =
+                new HashSet<Object>(Finders.queryInCondition(em, QUERY_NAME,
+                        params, PARAM));
+        assertEquals("Wrong number of results", 250, results.size());
+        for (Long id : range(0, 250))
+        {
+            assertTrue("Value not found: " + id, results.contains(id));
+        }
         EasyMock.verify(em, query);
     }
 }
