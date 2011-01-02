@@ -141,6 +141,23 @@ public abstract class JPATemplate<T>
     }
 
     /**
+     * Injects the given {@code EntityManager} into the given object. This
+     * method checks whether the target object implements the
+     * {@link EntityManagerSupport} interface. If this is the case, the entity
+     * manager is passed to this object. Otherwise, the method has no effect.
+     *
+     * @param em the {@code EntityManager}
+     * @param target the target object
+     */
+    public static void inject(EntityManager em, Object target)
+    {
+        if (target instanceof EntityManagerSupport)
+        {
+            ((EntityManagerSupport) target).setEntityManager(em);
+        }
+    }
+
+    /**
      * Performs the actual JPA operation. This method is invoked with a properly
      * initialized {@code EntityManager}.
      *

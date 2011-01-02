@@ -184,6 +184,55 @@ public class TestJPATemplate
     }
 
     /**
+     * Helper method for testing the inject() method if the target object does
+     * not implement the support interface.
+     *
+     * @param target the target object
+     */
+    private void checkInjectNotSupported(Object target)
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EasyMock.replay(em);
+        JPATemplate.inject(em, target);
+        EasyMock.verify(em);
+    }
+
+    /**
+     * Tests the inject() method if the target object does not implement the
+     * support interface.
+     */
+    @Test
+    public void testInjectNotSupported()
+    {
+        checkInjectNotSupported(this);
+    }
+
+    /**
+     * Tests inject() if the target object is null.
+     */
+    @Test
+    public void testInjectNull()
+    {
+        checkInjectNotSupported(null);
+    }
+
+    /**
+     * Tests the inject() method if the target object implements the support
+     * interface.
+     */
+    @Test
+    public void testInjectSupported()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EntityManagerSupport target =
+                EasyMock.createMock(EntityManagerSupport.class);
+        target.setEntityManager(em);
+        EasyMock.replay(em, target);
+        JPATemplate.inject(em, target);
+        EasyMock.verify(em, target);
+    }
+
+    /**
      * A test implementation of the template to test whether the abstract method
      * is correctly invoked.
      */
