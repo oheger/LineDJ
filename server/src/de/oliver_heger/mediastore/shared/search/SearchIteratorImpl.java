@@ -38,9 +38,6 @@ public class SearchIteratorImpl implements SearchIterator, Serializable
     /** Stores the total number of pages in the result set. */
     private Integer pageCount;
 
-    /** Stores the search key of the last record processed. */
-    private Serializable searchKey;
-
     /** A flag whether more results might be available. */
     private boolean hasNext;
 
@@ -78,31 +75,6 @@ public class SearchIteratorImpl implements SearchIterator, Serializable
     public long getRecordCount()
     {
         return recordCount;
-    }
-
-    /**
-     * Returns the search key of the last object processed by the previous
-     * search.
-     *
-     * @return the last search key processed
-     * @see #setSearchKey(Object)
-     */
-    public Serializable getSearchKey()
-    {
-        return searchKey;
-    }
-
-    /**
-     * Sets the search of the last object processed by the current search
-     * operation. This key is used for the next search step to construct a query
-     * that starts immediately after the records already processed.
-     *
-     * @param searchKey the search key of the last object processed in the
-     *        current search
-     */
-    public void setSearchKey(Serializable searchKey)
-    {
-        this.searchKey = searchKey;
     }
 
     /**
@@ -198,7 +170,6 @@ public class SearchIteratorImpl implements SearchIterator, Serializable
                         * ObjectUtils.HASH_FACTOR
                         + (int) ((getRecordCount() ^ (getRecordCount() >>> 32)));
         result = result * ObjectUtils.HASH_FACTOR + (hasNext() ? 1 : 0);
-        result = ObjectUtils.hash(getSearchKey(), result);
         // paging information skipped
         return result;
     }
@@ -226,7 +197,6 @@ public class SearchIteratorImpl implements SearchIterator, Serializable
         return getCurrentPosition() == c.getCurrentPosition()
                 && getRecordCount() == c.getRecordCount()
                 && hasNext == c.hasNext()
-                && ObjectUtils.equals(getSearchKey(), c.getSearchKey())
                 && ObjectUtils.equals(getCurrentPage(), c.getCurrentPage())
                 && ObjectUtils.equals(getPageCount(), c.getPageCount());
     }

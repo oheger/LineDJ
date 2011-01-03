@@ -35,9 +35,6 @@ public class TestSearchIteratorImpl
     /** Constant for the page count. */
     private static final Integer PAGE_COUNT = (int) (REC_COUNT / PAGE_SIZE) + 1;
 
-    /** Constant for a search key. */
-    private static final String KEY = "LastSearchKey";
-
     /** The object to be tested. */
     private SearchIteratorImpl iterator;
 
@@ -57,7 +54,6 @@ public class TestSearchIteratorImpl
         it.setCurrentPosition(POSITION);
         it.setHasNext(true);
         it.setRecordCount(REC_COUNT);
-        it.setSearchKey(KEY);
         it.initializePaging(PAGE, PAGE_COUNT);
     }
 
@@ -69,7 +65,6 @@ public class TestSearchIteratorImpl
     {
         assertEquals("Wrong current position", 0, iterator.getCurrentPosition());
         assertEquals("Wrong record count", 0, iterator.getRecordCount());
-        assertNull("Got a search key", iterator.getSearchKey());
         assertFalse("Has next", iterator.hasNext());
         assertNull("Got a current page", iterator.getCurrentPage());
         assertNull("Got page count", iterator.getPageCount());
@@ -150,11 +145,6 @@ public class TestSearchIteratorImpl
         iterator.setHasNext(true);
         RemoteMediaStoreTestHelper.checkEquals(iterator, it2, false);
         it2.setHasNext(true);
-        iterator.setSearchKey(KEY);
-        RemoteMediaStoreTestHelper.checkEquals(iterator, it2, false);
-        it2.setSearchKey("other");
-        RemoteMediaStoreTestHelper.checkEquals(iterator, it2, false);
-        it2.setSearchKey(KEY);
         iterator.initializePaging(PAGE, PAGE_COUNT);
         RemoteMediaStoreTestHelper.checkEquals(iterator, it2, false);
         it2.initializePaging(PAGE, PAGE_COUNT + 1);

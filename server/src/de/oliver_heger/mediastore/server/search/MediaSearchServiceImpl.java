@@ -13,6 +13,7 @@ import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
+import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -60,9 +61,6 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     /** Constant for the user ID parameter. */
     private static final String PARAM_USRID = "userID";
 
-    /** Constant for the search text parameter. */
-    private static final String PARAM_SEARCHTEXT = "searchText";
-
     /** Constant for the select clause which selects an entity. */
     private static final String SELECT_ENTITY = "select e";
 
@@ -87,12 +85,8 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     private static final String ARTIST_ORDER = ORDER_BY + "name";
 
     /** Constant for the query for artists without a search text constraint. */
-    private static final String QUERY_ARTISTS_ALL = QUERY_ARTISTS_PREFIX
+    private static final String QUERY_ARTISTS = QUERY_ARTISTS_PREFIX
             + ARTIST_ORDER;
-
-    /** Constant for the query for artists with a search condition. */
-    private static final String QUERY_ARTISTS_SEARCH = QUERY_ARTISTS_PREFIX
-            + " and e.name > :" + PARAM_SEARCHTEXT + ARTIST_ORDER;
 
     /** Constant for the default chunk size for search operations. */
     private static final int DEFAULT_CHUNK_SIZE = 50;
@@ -138,13 +132,21 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         {
             SearchIteratorImpl sit = new SearchIteratorImpl();
             List<ArtistEntity> artists =
-                    executeFullSearch(params, sit, QUERY_ARTISTS_ALL);
+                    executeFullSearch(params, sit, QUERY_ARTISTS);
             return new SearchResultImpl<ArtistInfo>(convertResults(artists,
                     createArtistSearchConverter()), sit, params);
         }
         return executeChunkSearch(params, iterator,
                 createArtistSearchFilter(params),
-                createArtistSearchConverter(), QUERY_ARTISTS_SEARCH);
+                createArtistSearchConverter(), QUERY_ARTISTS);
+    }
+
+    @Override
+    public SearchResult<SongInfo> searchSongs(MediaSearchParameters params,
+            SearchIterator iterator)
+    {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     /**
@@ -181,7 +183,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                     + it);
         }
 
-        return ((SearchIteratorImpl) it).getSearchKey() == null;
+        return it.getCurrentPosition() == 0;
     }
 
     /**
@@ -210,7 +212,6 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         else
         {
             SearchIteratorImpl sit = (SearchIteratorImpl) it;
-            sit.setCurrentPosition(sit.getCurrentPosition() + getChunkSize());
             return sit;
         }
     }
@@ -238,57 +239,6 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
-     * Helper method for creating a query which has the current user as
-     * parameter. This method creates a query for the specified query string and
-     * sets the parameter for the user ID.
-     *
-     * @param em the entity manager
-     * @param queryStr the query string
-     * @return the query object
-     */
-    private Query prepareUserQuery(EntityManager em, String queryStr)
-    {
-        return em.createQuery(queryStr).setParameter(PARAM_USRID,
-                getCurrentUser(true));
-    }
-
-    /**
-     * Prepares a search query. The query is initialized with the parameter for
-     * the current user and the search parameter.
-     *
-     * @param em the entity manager
-     * @param queryStr the query string
-     * @param searchParam the search parameter
-     * @return the query object
-     */
-    private Query prepareSearchQuery(EntityManager em, String queryStr,
-            Object searchParam)
-    {
-        Query query = prepareUserQuery(em, queryStr);
-        query.setParameter(PARAM_SEARCHTEXT, searchParam);
-        return query;
-    }
-
-    /**
-     * Initializes a search iterator for a new search. The total record count is
-     * already determined.
-     *
-     * @param em the entity manager
-     * @param query the current query string
-     * @return the new search iterator
-     */
-    private SearchIteratorImpl newSearchIterator(EntityManager em, String query)
-    {
-        SearchIteratorImpl sit = new SearchIteratorImpl();
-        String countQuery = createCountQuery(query);
-        Number count =
-                (Number) prepareSearchQuery(em, countQuery, sit.getSearchKey())
-                        .getSingleResult();
-        sit.setRecordCount(count.longValue());
-        return sit;
-    }
-
-    /**
      * Executes a search query over all elements of a given type. This method
      * actually executes two queries: one for determining the total record count
      * and one for retrieving the result objects. The latter are returned as a
@@ -300,7 +250,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      * @param sit the search iterator to be initialized
      * @return the list with the results
      */
-    private <D> List<D> executeFullSearch(final MediaSearchParameters params,
+    <D> List<D> executeFullSearch(final MediaSearchParameters params,
             final SearchIteratorImpl sit, final String queryStr)
     {
         JPATemplate<List<D>> template = new JPATemplate<List<D>>()
@@ -344,6 +294,121 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * Executes an iteration of a chunk search. This method loads a chunk of
+     * data, applies the filter to it, and performs necessary type conversion.
+     *
+     * @param <E> the type of entities to be loaded
+     * @param <D> the data objects returned by this search
+     * @param params the current search parameters
+     * @param searchIterator the search iterator
+     * @param filter the filter
+     * @param converter the converter for converting to the resulting data
+     *        objects
+     * @param queryStr the query string
+     * @return the results of the search
+     */
+    <E, D> SearchResult<D> executeChunkSearch(
+            final MediaSearchParameters params,
+            final SearchIterator searchIterator, final SearchFilter<E> filter,
+            final SearchConverter<E, D> converter, final String queryStr)
+    {
+        JPATemplate<SearchResult<D>> templ = new JPATemplate<SearchResult<D>>()
+        {
+            @Override
+            protected SearchResult<D> performOperation(EntityManager em)
+            {
+                int resultSize = params.getMaxResults();
+                if (resultSize <= 0)
+                {
+                    resultSize = Integer.MAX_VALUE;
+                }
+                int idx = 0;
+                List<D> resultList = new LinkedList<D>();
+
+                SearchIteratorImpl sit =
+                        initializeSearchIterator(em, queryStr, searchIterator);
+                Query query =
+                        prepareSearchQuery(em, queryStr, sit.getCurrentPosition());
+                // the query string should result objects of the correct type
+                @SuppressWarnings("unchecked")
+                List<E> resultSet =
+                        query.setMaxResults(getChunkSize()).getResultList();
+                E lastEntity = null;
+                Iterator<E> it = resultSet.iterator();
+
+                while (it.hasNext() && resultList.size() < resultSize)
+                {
+                    lastEntity = it.next();
+                    if (filter.accepts(lastEntity))
+                    {
+                        resultList.add(converter.convert(lastEntity));
+                    }
+                    idx++;
+                }
+
+                sit.setHasNext(it.hasNext()
+                        || resultSet.size() >= getChunkSize());
+                sit.setCurrentPosition(sit.getCurrentPosition() + idx);
+
+                return new SearchResultImpl<D>(resultList, sit, params);
+            }
+        };
+
+        return templ.execute();
+    }
+
+    /**
+     * Helper method for creating a query which has the current user as
+     * parameter. This method creates a query for the specified query string and
+     * sets the parameter for the user ID.
+     *
+     * @param em the entity manager
+     * @param queryStr the query string
+     * @return the query object
+     */
+    private Query prepareUserQuery(EntityManager em, String queryStr)
+    {
+        return em.createQuery(queryStr).setParameter(PARAM_USRID,
+                getCurrentUser(true));
+    }
+
+    /**
+     * Prepares a search query. The query is initialized with the parameter for
+     * the current user and the search parameter.
+     *
+     * @param em the entity manager
+     * @param queryStr the query string
+     * @param position the start position
+     * @return the query object
+     */
+    private Query prepareSearchQuery(EntityManager em, String queryStr,
+            long position)
+    {
+        Query query = prepareUserQuery(em, queryStr);
+        query.setFirstResult((int) position);
+        return query;
+    }
+
+    /**
+     * Initializes a search iterator for a new search. The total record count is
+     * already determined.
+     *
+     * @param em the entity manager
+     * @param query the current query string
+     * @return the new search iterator
+     */
+    private SearchIteratorImpl newSearchIterator(EntityManager em, String query)
+    {
+        SearchIteratorImpl sit = new SearchIteratorImpl();
+        String countQuery = createCountQuery(query);
+        Number count =
+                (Number) prepareSearchQuery(em, countQuery, 0)
+                        .getSingleResult();
+        sit.setRecordCount(count.longValue());
+        return sit;
+    }
+
+    /**
      * Converts the specified list with entities to a list with data object to
      * be passed to the client. This method is called if entity objects of a
      * certain type are not be passed to the client, but a corresponding data
@@ -368,71 +433,6 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         }
 
         return results;
-    }
-
-    /**
-     * Executes an iteration of a chunk search. This method loads a chunk of
-     * data, applies the filter to it, and performs necessary type conversion.
-     *
-     * @param <E> the type of entities to be loaded
-     * @param <D> the data objects returned by this search
-     * @param params the current search parameters
-     * @param searchIterator the search iterator
-     * @param filter the filter
-     * @param converter the converter for converting to the resulting data
-     *        objects
-     * @param queryStr the query string
-     * @return the results of the search
-     */
-    private <E, D> SearchResult<D> executeChunkSearch(
-            final MediaSearchParameters params,
-            final SearchIterator searchIterator, final SearchFilter<E> filter,
-            final SearchConverter<E, D> converter, final String queryStr)
-    {
-        JPATemplate<SearchResult<D>> templ = new JPATemplate<SearchResult<D>>()
-        {
-            @Override
-            protected SearchResult<D> performOperation(EntityManager em)
-            {
-                int resultSize = params.getMaxResults();
-                if (resultSize <= 0)
-                {
-                    resultSize = Integer.MAX_VALUE;
-                }
-                List<D> resultList = new LinkedList<D>();
-
-                SearchIteratorImpl sit =
-                        initializeSearchIterator(em, queryStr, searchIterator);
-                Query query =
-                        prepareSearchQuery(em, queryStr, sit.getSearchKey());
-                // the query string should result objects of the correct type
-                @SuppressWarnings("unchecked")
-                List<E> resultSet =
-                        query.setMaxResults(getChunkSize()).getResultList();
-                E lastEntity = null;
-                Iterator<E> it = resultSet.iterator();
-
-                while (it.hasNext() && resultList.size() < resultSize)
-                {
-                    lastEntity = it.next();
-                    if (filter.accepts(lastEntity))
-                    {
-                        resultList.add(converter.convert(lastEntity));
-                    }
-                }
-
-                sit.setHasNext(it.hasNext()
-                        || resultSet.size() >= getChunkSize());
-                if (lastEntity != null)
-                {
-                    sit.setSearchKey(filter.extractSearchKey(lastEntity));
-                }
-
-                return new SearchResultImpl<D>(resultList, sit, params);
-            }
-        };
-
-        return templ.execute();
     }
 
     /**

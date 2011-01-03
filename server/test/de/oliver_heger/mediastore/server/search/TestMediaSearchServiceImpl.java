@@ -9,8 +9,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.easymock.EasyMock;
@@ -62,13 +64,13 @@ public class TestMediaSearchServiceImpl
             new LocalDatastoreServiceTestConfig());
 
     /** The service to be tested. */
-    private MediaSearchServiceImpl service;
+    private MediaSearchServiceTestImpl service;
 
     @Before
     public void setUp() throws Exception
     {
         helper.setUp();
-        service = new MediaSearchServiceImpl();
+        service = new MediaSearchServiceTestImpl();
     }
 
     @After
@@ -79,9 +81,13 @@ public class TestMediaSearchServiceImpl
 
     /**
      * Creates a number of test artists.
+     *
+     * @return a map with the entities created by this method and their ID
+     *         values
      */
-    private void createArtists()
+    private Map<Long, ArtistEntity> createArtists()
     {
+        Map<Long, ArtistEntity> result = new HashMap<Long, ArtistEntity>();
         List<String> artistNames =
                 new ArrayList<String>(Arrays.asList(ARTIST_NAMES));
         Collections.shuffle(artistNames);
@@ -91,6 +97,7 @@ public class TestMediaSearchServiceImpl
             art.setName(name);
             art.setUser(PersistenceTestHelper.getTestUser());
             helper.persist(art);
+            result.put(art.getId(), art);
         }
         // create some artists for a different user
         User usrOther =
@@ -103,6 +110,7 @@ public class TestMediaSearchServiceImpl
             helper.persist(art);
         }
         helper.closeEM();
+        return result;
     }
 
     /**
@@ -210,7 +218,7 @@ public class TestMediaSearchServiceImpl
     {
         createArtists();
         SearchIteratorImpl sit = new SearchIteratorImpl();
-        sit.setSearchKey(10);
+        sit.setCurrentPosition(100);
         SearchResult<ArtistInfo> result =
                 service.searchArtists(new MediaSearchParameters(), sit);
         checkArtistResult(result, 0, -1);
@@ -307,11 +315,11 @@ public class TestMediaSearchServiceImpl
     }
 
     /**
-     * Tests whether a search iterator object without a search key is treated
-     * correctly.
+     * Tests whether a search iterator object with a current position of 0 is
+     * treated correctly.
      */
     @Test
-    public void testIsNewSearchNoSearchKey()
+    public void testIsNewSearchPos0()
     {
         SearchIteratorImpl it = new SearchIteratorImpl();
         assertTrue("Not a new search", service.isNewSearch(it));
@@ -337,7 +345,8 @@ public class TestMediaSearchServiceImpl
             SearchIterator it = result.getSearchIterator();
             assertEquals("Wrong total count", ARTIST_NAMES.length,
                     it.getRecordCount());
-            assertEquals("Wrong position", idx * CHUNK_SIZE,
+            assertEquals("Wrong position",
+                    Math.min((idx + 1) * CHUNK_SIZE, ARTIST_NAMES.length),
                     it.getCurrentPosition());
             assertEquals("Wrong parameter", params,
                     result.getSearchParameters());
@@ -373,6 +382,9 @@ public class TestMediaSearchServiceImpl
                 .hasNext());
         assertEquals("Limit not taken into account", limit, result.getResults()
                 .size());
+        assertTrue("Wrong position: "
+                + result.getSearchIterator().getCurrentPosition(), result
+                .getSearchIterator().getCurrentPosition() < ARTIST_NAMES.length);
     }
 
     /**
@@ -405,5 +417,167 @@ public class TestMediaSearchServiceImpl
         SearchResult<ArtistInfo> result = service.searchArtists(params, null);
         assertTrue("Got results", result.getResults().isEmpty());
         assertFalse("More chunks", result.getSearchIterator().hasNext());
+    }
+
+    /**
+     * Tests whether a chunk search for artists really retrieves all entities.
+     */
+    @Test
+    public void testSearchArtistsInChunkAll()
+    {
+        createArtists();
+        service.setChunkSize(CHUNK_SIZE);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("test");
+        service.mockArtistFilter(params);
+        List<ArtistInfo> foundArtists = new ArrayList<ArtistInfo>();
+        SearchResult<ArtistInfo> result = service.searchArtists(params, null);
+        boolean hasMore;
+        do
+        {
+            foundArtists.addAll(result.getResults());
+            hasMore = result.getSearchIterator().hasNext();
+            if (hasMore)
+            {
+                result =
+                        service.searchArtists(params,
+                                result.getSearchIterator());
+            }
+        } while (hasMore);
+        assertEquals("Wrong number of found artists", ARTIST_NAMES.length,
+                foundArtists.size());
+    }
+
+    /**
+     * A test implementation of the service which allows mocking some methods.
+     */
+    private static class MediaSearchServiceTestImpl extends
+            MediaSearchServiceImpl
+    {
+        /**
+         * The serial version UID.
+         */
+        private static final long serialVersionUID = 20110102L;
+
+        /** A mock search filter. */
+        private SearchFilter<?> mockFilter;
+
+        /** A mock search converter. */
+        private SearchConverter<?, ?> mockConverter;
+
+        /** A mock search result. */
+        @SuppressWarnings("rawtypes")
+        private SearchResult mockSearchResult;
+
+        /** A mock list with search results. */
+        @SuppressWarnings("rawtypes")
+        private List mockResultList;
+
+        /** Expected search parameters. */
+        private MediaSearchParameters expParameters;
+
+        /** Expected search iterator. */
+        private SearchIterator expIterator;
+
+        /**
+         * Prepares this object to expect a chunk search.
+         *
+         * @param params the search parameters
+         * @param sit the search iterator
+         * @return the mock result object
+         */
+        public SearchResult<?> expectChunkSearch(MediaSearchParameters params,
+                SearchIterator sit)
+        {
+            mockFilter = EasyMock.createMock(SearchFilter.class);
+            mockConverter = EasyMock.createMock(SearchConverter.class);
+            expIterator = sit;
+            expParameters = params;
+            mockSearchResult = EasyMock.createMock(SearchResult.class);
+            return mockSearchResult;
+        }
+
+        /**
+         * Prepares this object to expect a full search.
+         *
+         * @param params the search parameters
+         * @param results the results to return
+         */
+        public void expectFullSearch(MediaSearchParameters params,
+                List<?> results)
+        {
+            expParameters = params;
+            mockResultList = results;
+        }
+
+        /**
+         * Prepares this object to mock a search for artists by using a filter
+         * which accepts all objects.
+         *
+         * @param params the expected parameters
+         */
+        public void mockArtistFilter(MediaSearchParameters params)
+        {
+            mockFilter = new ArtistSearchFilter("test")
+            {
+                @Override
+                public boolean accepts(ArtistEntity e)
+                {
+                    return true;
+                }
+            };
+            expParameters = params;
+        }
+
+        /**
+         * Either returns the mock artist filter or calls the super method.
+         */
+        @Override
+        ArtistSearchFilter createArtistSearchFilter(MediaSearchParameters params)
+        {
+            if (mockFilter != null)
+            {
+                assertEquals("Wrong parameters", expParameters, params);
+                return (ArtistSearchFilter) mockFilter;
+            }
+            return super.createArtistSearchFilter(params);
+        }
+
+        /**
+         * Either returns the mock result or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        <E, D> SearchResult<D> executeChunkSearch(MediaSearchParameters params,
+                SearchIterator searchIterator, SearchFilter<E> filter,
+                SearchConverter<E, D> converter, String queryStr)
+        {
+            if (mockSearchResult != null)
+            {
+                assertEquals("Wrong parameters", expParameters, params);
+                assertSame("Wrong iterator", expIterator, searchIterator);
+                assertSame("Wrong filter", mockFilter, filter);
+                assertSame("Wrong converter", mockConverter, converter);
+                return mockSearchResult;
+            }
+            return super.executeChunkSearch(params, searchIterator, filter,
+                    converter, queryStr);
+        }
+
+        /**
+         * Either returns the mock result or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        <D> List<D> executeFullSearch(MediaSearchParameters params,
+                SearchIteratorImpl sit, String queryStr)
+        {
+            if (mockResultList != null)
+            {
+                assertEquals("Wrong parameters", expParameters, params);
+                return mockResultList;
+            }
+            return super.executeFullSearch(params, sit, queryStr);
+        }
     }
 }
