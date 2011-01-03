@@ -1,6 +1,5 @@
 package de.oliver_heger.mediastore.server.search;
 
-import java.io.Serializable;
 import java.util.Locale;
 
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
@@ -56,18 +55,5 @@ class ArtistSearchFilter implements SearchFilter<ArtistEntity>
         return e.getName() != null
                 && e.getName().toUpperCase(Locale.ENGLISH)
                         .indexOf(getSearchText()) >= 0;
-    }
-
-    /**
-     * Extracts the search key for the specified artist. This implementation
-     * returns the artist's name.
-     *
-     * @param e the artist
-     * @return the search key for this artist
-     */
-    @Override
-    public Serializable extractSearchKey(ArtistEntity e)
-    {
-        return e.getName();
     }
 }
