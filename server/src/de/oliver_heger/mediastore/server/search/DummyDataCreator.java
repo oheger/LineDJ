@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.server.search;
 
 import java.util.List;
+import java.util.Random;
 
 import javax.persistence.EntityManager;
 
@@ -8,6 +9,7 @@ import com.google.appengine.api.users.User;
 
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 
 /**
  * A class for creating test data. This class is used temporarily to populate
@@ -31,6 +33,27 @@ class DummyDataCreator
             "Elvis Presley", "The King"
     };
 
+    /** An array with the data about test songs. */
+    private static final String[] SONG_DATA = {
+            "Thunderstrike|0", "TNT|0", "Highway to Hell|0", "Run to You|2",
+            "Summer of 69|2", "Do you really want to heart me?|3",
+            "War Song|3", "Thank You|4", "All that you want|4",
+            "Electric Avenue|5", "Gimme hope, Johanna|5", "Come to live|6",
+            "What's going on?|7", "American idiot|8",
+            "21st Century Breakdown|8", "Entre dos tierros|9",
+            "Kids in America|12", "Go for the second time|12", "Fugazzi|14",
+            "A script for a Jester's tear|14", "Grendel|14",
+            "Tubular Bells|15", "Moonlight Shaddow|15", "To France|15",
+            "Wishmaster|16", "Over the hills and far away|16",
+            "Pandorras Box|17", "Inuendo|19", "Bohemien Rapsody|19",
+            "Princes of the Universe|19", "Roll with the changes|20",
+            "Rocking all over the world|21", "More|22", "Temple of Love|22",
+            "Pride|23", "With or without you|23", "Jump|25",
+            "Conquest of Paradise|26", "Mother Earth|27", "The Race|28",
+            "Gimme all your loving|29", "LeGrange|29", "Return to sender|30",
+            "Heartbreak Hotel|31", "Love me tender|31"
+    };
+
     /** Constant for the user parameter. */
     private static final String PARAM_USER = "user";
 
@@ -41,8 +64,15 @@ class DummyDataCreator
     private static final String QUERY_ARTIST = "select a from ArtistEntity a "
             + "where a.name = :" + PARAM_NAME + " and a.user = :" + PARAM_USER;
 
+    /** Constant for a query for searching for a song. */
+    private static final String QUERY_SONG = "select s from SongEntity s "
+            + "where s.name = :" + PARAM_NAME + " and s.user = :" + PARAM_USER;
+
     /** The current user. */
     private final User user;
+
+    /** A random object. */
+    private final Random random;
 
     /**
      * Creates a new instance of {@code DummyDataCreator} and sets the current
@@ -53,6 +83,7 @@ class DummyDataCreator
     public DummyDataCreator(User usr)
     {
         user = usr;
+        random = new Random();
     }
 
     /**
@@ -74,6 +105,27 @@ class DummyDataCreator
         {
             createArtist(n);
         }
+
+        for (String d : SONG_DATA)
+        {
+            createSong(d);
+        }
+    }
+
+    /**
+     * Helper method for searching an entity by its name.
+     *
+     * @param em the entity manager
+     * @param query the query to be executed
+     * @param name the name of the entity
+     * @return the found entity or <b>null</b> if the name cannot be resolved
+     */
+    private Object findEntityByName(EntityManager em, String query, String name)
+    {
+        List<?> list =
+                em.createQuery(query).setParameter(PARAM_USER, getUser())
+                        .setParameter(PARAM_NAME, name).getResultList();
+        return list.isEmpty() ? null : list.get(0);
     }
 
     /**
@@ -87,12 +139,7 @@ class DummyDataCreator
      */
     private ArtistEntity findArtist(EntityManager em, String name)
     {
-        @SuppressWarnings("unchecked")
-        List<ArtistEntity> list =
-                em.createQuery(QUERY_ARTIST)
-                        .setParameter(PARAM_USER, getUser())
-                        .setParameter(PARAM_NAME, name).getResultList();
-        return list.isEmpty() ? null : list.get(0);
+        return (ArtistEntity) findEntityByName(em, QUERY_ARTIST, name);
     }
 
     /**
@@ -116,6 +163,43 @@ class DummyDataCreator
                     art.setName(name);
                     art.setUser(getUser());
                     em.persist(art);
+                }
+                return null;
+            }
+        };
+        templ.execute();
+    }
+
+    /**
+     * Creates a song entity.
+     *
+     * @param data the data for the song
+     */
+    private void createSong(String data)
+    {
+        int pos = data.indexOf('|');
+        final String name = data.substring(0, pos);
+        final String artistName =
+                ARTIST_NAMES[Integer.parseInt(data.substring(pos + 1))];
+        JPATemplate<Void> templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                if (findEntityByName(em, QUERY_SONG, name) == null)
+                {
+                    LOG.info("Creating Song instance for " + name);
+                    SongEntity song = new SongEntity();
+                    song.setName(name);
+                    song.setDuration(Long.valueOf(random.nextInt(600000) + 30000));
+                    song.setInceptionYear(1970 + random.nextInt(40));
+                    song.setUser(getUser());
+                    ArtistEntity artist = findArtist(em, artistName);
+                    if (artist != null)
+                    {
+                        song.setArtistID(artist.getId());
+                    }
+                    em.persist(song);
                 }
                 return null;
             }
