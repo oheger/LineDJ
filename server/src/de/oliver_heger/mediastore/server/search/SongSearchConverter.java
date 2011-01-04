@@ -6,6 +6,8 @@ import java.util.Map;
 
 import javax.persistence.EntityManager;
 
+import com.google.appengine.api.datastore.KeyFactory;
+
 import de.oliver_heger.mediastore.server.db.EntityManagerSupport;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
@@ -82,6 +84,11 @@ public class SongSearchConverter implements
     {
         SongInfo info = new SongInfo();
         DTOTransformer.transform(e, info);
+
+        if (e.getId() != null)
+        {
+            info.setSongID(KeyFactory.keyToString(e.getId()));
+        }
 
         ArtistEntity ae = resolveArtist(e);
         if (ae == null)

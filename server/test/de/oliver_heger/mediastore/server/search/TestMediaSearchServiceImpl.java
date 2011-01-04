@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,7 +25,9 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
+import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
@@ -48,6 +51,13 @@ public class TestMediaSearchServiceImpl
             "OMD", "Pearl Jam", "Queen", "REO Speedwagon", "Supertramp",
             "The Sisters of Mercy", "U2", "Van Canto", "Van Halen", "Vangelis",
             "Within Temptation", "Yellow", "ZZ Top"
+    };
+
+    /** An array with some test songs. */
+    private static final String[] SONG_NAMES = {
+            "Thunderstrike", "House of the rising sun", "Run to you",
+            "Do you really want to heart me?", "Thank you", "Electric Avenue",
+            "Come to live", "What's going on?", "American idiot"
     };
 
     /** Constant for a test client parameter. */
@@ -82,12 +92,12 @@ public class TestMediaSearchServiceImpl
     /**
      * Creates a number of test artists.
      *
-     * @return a map with the entities created by this method and their ID
-     *         values
+     * @return a map with the names of the entities created by this method and
+     *         their ID values
      */
-    private Map<Long, ArtistEntity> createArtists()
+    private Map<String, Long> createArtists()
     {
-        Map<Long, ArtistEntity> result = new HashMap<Long, ArtistEntity>();
+        Map<String, Long> result = new HashMap<String, Long>();
         List<String> artistNames =
                 new ArrayList<String>(Arrays.asList(ARTIST_NAMES));
         Collections.shuffle(artistNames);
@@ -97,7 +107,7 @@ public class TestMediaSearchServiceImpl
             art.setName(name);
             art.setUser(PersistenceTestHelper.getTestUser());
             helper.persist(art);
-            result.put(art.getId(), art);
+            result.put(name, art.getId());
         }
         // create some artists for a different user
         User usrOther =
@@ -111,6 +121,33 @@ public class TestMediaSearchServiceImpl
         }
         helper.closeEM();
         return result;
+    }
+
+    /**
+     * Creates a number of test songs.
+     *
+     * @param persist a flag whether the entities should be persisted
+     * @return the entities created by this method
+     */
+    private List<SongEntity> createSongs(boolean persist)
+    {
+        Map<String, Long> artists = createArtists();
+        List<SongEntity> songs = new ArrayList<SongEntity>(SONG_NAMES.length);
+        for (int i = 0; i < SONG_NAMES.length; i++)
+        {
+            SongEntity song = new SongEntity();
+            song.setName(SONG_NAMES[i]);
+            song.setPlayCount(i);
+            song.setInceptionYear(1970 + i);
+            song.setArtistID(artists.get(ARTIST_NAMES[i]));
+            song.setUser(PersistenceTestHelper.getTestUser());
+            songs.add(song);
+            if (persist)
+            {
+                helper.persist(song);
+            }
+        }
+        return songs;
     }
 
     /**
@@ -449,6 +486,79 @@ public class TestMediaSearchServiceImpl
     }
 
     /**
+     * Tests a chunk-based search for songs.
+     */
+    @Test
+    public void testSearchSongsChunk()
+    {
+        SearchIterator sit = EasyMock.createMock(SearchIterator.class);
+        EasyMock.replay(sit);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("testSong");
+        SearchResult<?> result = service.expectChunkSearch(params, sit);
+        assertSame("Wrong result", result, service.searchSongs(params, sit));
+        EasyMock.verify(sit);
+    }
+
+    /**
+     * Tests a search for all songs.
+     */
+    @Test
+    public void testSearchSongsAll()
+    {
+        List<SongEntity> songs = createSongs(false);
+        MediaSearchParameters params = new MediaSearchParameters();
+        service.expectFullSearch(params, songs);
+        SearchResult<SongInfo> result = service.searchSongs(params, null);
+        List<SongInfo> results = result.getResults();
+        assertEquals("Wrong number of results", SONG_NAMES.length,
+                results.size());
+        int idx = 0;
+        for (SongInfo info : results)
+        {
+            assertEquals("Wrong song name", SONG_NAMES[idx], info.getName());
+            assertEquals("Wrong play count", idx, info.getPlayCount());
+            assertEquals("Wrong year", Integer.valueOf(1970 + idx),
+                    info.getInceptionYear());
+            assertEquals("Wrong artist name", ARTIST_NAMES[idx],
+                    info.getArtistName());
+            idx++;
+        }
+    }
+
+    /**
+     * Tests a chunk search for songs which actually hits the database.
+     */
+    @Test
+    public void testSearchSongsChunkQuery()
+    {
+        createSongs(true);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("a");
+        service.setChunkSize(2 * SONG_NAMES.length);
+        SearchResult<SongInfo> result = service.searchSongs(params, null);
+        for (SongInfo si : result.getResults())
+        {
+            assertTrue("Unexpected result: " + si,
+                    si.getName().toUpperCase(Locale.ENGLISH).indexOf('A') >= 0);
+        }
+        assertFalse("No results", result.getResults().isEmpty());
+    }
+
+    /**
+     * Tests a search for all songs which actually hits the database.
+     */
+    @Test
+    public void testSearchSongsAllQuery()
+    {
+        createSongs(true);
+        SearchResult<SongInfo> result =
+                service.searchSongs(new MediaSearchParameters(), null);
+        assertEquals("Wrong number of results", SONG_NAMES.length, result
+                .getResults().size());
+    }
+
+    /**
      * A test implementation of the service which allows mocking some methods.
      */
     private static class MediaSearchServiceTestImpl extends
@@ -541,6 +651,33 @@ public class TestMediaSearchServiceImpl
                 return (ArtistSearchFilter) mockFilter;
             }
             return super.createArtistSearchFilter(params);
+        }
+
+        /**
+         * Either returns the mock song filter or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        SearchFilter<SongEntity> createSongSearchFilter(
+                MediaSearchParameters params)
+        {
+            if (mockFilter != null)
+            {
+                assertEquals("Wrong parameters", expParameters, params);
+                return (SearchFilter<SongEntity>) mockFilter;
+            }
+            return super.createSongSearchFilter(params);
+        }
+
+        /**
+         * Either returns the mock song converter or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        SearchConverter<SongEntity, SongInfo> createSongSearchConverter()
+        {
+            return (SearchConverter<SongEntity, SongInfo>) ((mockConverter != null) ? mockConverter
+                    : super.createSongSearchConverter());
         }
 
         /**

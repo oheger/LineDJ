@@ -10,8 +10,13 @@ import java.util.Date;
 import javax.persistence.EntityManager;
 
 import org.easymock.EasyMock;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.KeyFactory;
+import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
@@ -29,13 +34,28 @@ public class TestSongSearchConverter
     /** Constant for an ID of a referenced entity. */
     private static final Long REF_ID = 20110103204622L;
 
+    /** The persistence test helper. */
+    private final PersistenceTestHelper helper = new PersistenceTestHelper(
+            new LocalDatastoreServiceTestConfig());
+
+    /** The key of the song entity. */
+    private Key key;
+
     /** The test converter. */
     private SongSearchConverter converter;
 
     @Before
     public void setUp() throws Exception
     {
+        helper.setUp();
+        key = KeyFactory.createKey("testKey", 20110104103228L);
         converter = new SongSearchConverter();
+    }
+
+    @After
+    public void tearDown() throws Exception
+    {
+        helper.tearDown();
     }
 
     /**
@@ -73,6 +93,7 @@ public class TestSongSearchConverter
         entity.setTrackNo(3);
         entity.setUser(PersistenceTestHelper.getTestUser());
         SongInfo info = converter.convert(entity);
+        assertNull("Got a song ID", info.getSongID());
         assertEquals("Wrong creation date", entity.getCreationDate(),
                 info.getCreationDate());
         assertEquals("Wrong duration", entity.getDuration(), info.getDuration());
@@ -84,6 +105,26 @@ public class TestSongSearchConverter
         assertEquals("Wrong track", entity.getTrackNo(), info.getTrackNo());
         assertNull("Got an artist ID", info.getArtistID());
         assertNull("Got an artist name", info.getArtistName());
+    }
+
+    /**
+     * Tests whether the key of the entity is converted correctly.
+     */
+    @Test
+    public void testConvertKey()
+    {
+        SongEntity entity = new SongEntity()
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Key getId()
+            {
+                return key;
+            }
+        };
+        SongInfo info = converter.convert(entity);
+        assertEquals("Wrong ID", KeyFactory.keyToString(key), info.getSongID());
     }
 
     /**

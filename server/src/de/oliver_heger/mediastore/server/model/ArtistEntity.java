@@ -30,13 +30,18 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
 @Entity
 @NamedQueries({
         @NamedQuery(name = ArtistEntity.QUERY_FIND_BY_NAME, query = ArtistEntity.QUERY_FIND_BY_NAME_DEF),
-        @NamedQuery(name = ArtistEntity.QUERY_FIND_BY_SYNONYM, query = ArtistEntity.QUERY_FIND_BY_SYNONYM_DEF)
+        @NamedQuery(name = ArtistEntity.QUERY_FIND_BY_SYNONYM, query = ArtistEntity.QUERY_FIND_BY_SYNONYM_DEF),
+        @NamedQuery(name = ArtistEntity.QUERY_FIND_BY_IDS, query = ArtistEntity.QUERY_FIND_BY_IDS_DEF)
 })
 public class ArtistEntity implements Serializable
 {
     /** Constant for the prefix for artist queries. */
-    static final String ARTIST_QUERY_PREFIX =
+    public static final String ARTIST_QUERY_PREFIX =
             "de.oliver_heger.mediastore.server.model.ArtistEntity.";
+
+    /** Constant for the query for retrieving artists by IDs. */
+    public static final String QUERY_FIND_BY_IDS = ARTIST_QUERY_PREFIX
+            + "QUERY_FIND_BY_IDS";
 
     /** Constant for the name of the query for finding an artist by name. */
     static final String QUERY_FIND_BY_NAME = ARTIST_QUERY_PREFIX
@@ -60,6 +65,13 @@ public class ArtistEntity implements Serializable
             + "from ArtistSynonym syn " + "where syn.user = :"
             + Finders.PARAM_USER + " and syn.searchName = :"
             + Finders.PARAM_NAME;
+
+    /**
+     * Constant for the definition of the query for retrieving artists by a set
+     * of ID values.
+     */
+    static final String QUERY_FIND_BY_IDS_DEF = "select a from ArtistEntity a"
+            + " where a.id in (:" + Finders.PARAM_ID + ")";
 
     /**
      * The serial version UID.

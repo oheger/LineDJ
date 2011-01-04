@@ -33,6 +33,9 @@ import de.oliver_heger.mediastore.shared.model.Song;
  */
 public final class Finders
 {
+    /** Constant for the ID parameter. */
+    public static final String PARAM_ID = "id";
+
     /** Constant for the user parameter. */
     static final String PARAM_USER = "user";
 

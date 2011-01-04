@@ -2,9 +2,13 @@ package de.oliver_heger.mediastore.server.search;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
@@ -12,6 +16,8 @@ import javax.persistence.Query;
 import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.Finders;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
@@ -84,9 +90,13 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     /** Constant for the order part of an artist query. */
     private static final String ARTIST_ORDER = ORDER_BY + "name";
 
-    /** Constant for the query for artists without a search text constraint. */
+    /** Constant for the query for artists. */
     private static final String QUERY_ARTISTS = QUERY_ARTISTS_PREFIX
             + ARTIST_ORDER;
+
+    /** Constant for the query string for songs. */
+    private static final String QUERY_SONGS = SELECT_PREFIX + "SongEntity"
+            + WHERE_USER + ORDER_BY + "name";
 
     /** Constant for the default chunk size for search operations. */
     private static final int DEFAULT_CHUNK_SIZE = 50;
@@ -123,6 +133,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      *
      * @param params search parameters
      * @param iterator the search iterator
+     * @return the search results
      */
     @Override
     public SearchResult<ArtistInfo> searchArtists(MediaSearchParameters params,
@@ -141,12 +152,32 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                 createArtistSearchConverter(), QUERY_ARTISTS);
     }
 
+    /**
+     * Performs a search for songs. Based on the parameters object this method
+     * either performs a full search or a chunk search.
+     *
+     * @param params search parameters
+     * @param iterator the search iterator
+     * @return the search results
+     */
     @Override
     public SearchResult<SongInfo> searchSongs(MediaSearchParameters params,
             SearchIterator iterator)
     {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
+        if (params.getSearchText() == null)
+        {
+            SearchIteratorImpl sit = new SearchIteratorImpl();
+            List<SongEntity> songs =
+                    executeFullSearch(params, sit, QUERY_SONGS);
+            SongSearchConverter conv =
+                    createAndInitializeSongSearchConverter(songs);
+            return new SearchResultImpl<SongInfo>(convertResults(songs, conv),
+                    sit, params);
+        }
+
+        return executeChunkSearch(params, iterator,
+                createSongSearchFilter(params), createSongSearchConverter(),
+                QUERY_SONGS);
     }
 
     /**
@@ -239,6 +270,27 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * Creates a filter object for a song search.
+     *
+     * @param params the search parameters
+     * @return the filter for songs
+     */
+    SearchFilter<SongEntity> createSongSearchFilter(MediaSearchParameters params)
+    {
+        return new SongSearchFilter(params.getSearchText());
+    }
+
+    /**
+     * Creates a converter object for converting song result objects.
+     *
+     * @return the converter for songs
+     */
+    SearchConverter<SongEntity, SongInfo> createSongSearchConverter()
+    {
+        return new SongSearchConverter();
+    }
+
+    /**
      * Executes a search query over all elements of a given type. This method
      * actually executes two queries: one for determining the total record count
      * and one for retrieving the result objects. The latter are returned as a
@@ -312,49 +364,116 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             final SearchIterator searchIterator, final SearchFilter<E> filter,
             final SearchConverter<E, D> converter, final String queryStr)
     {
-        JPATemplate<SearchResult<D>> templ = new JPATemplate<SearchResult<D>>()
-        {
-            @Override
-            protected SearchResult<D> performOperation(EntityManager em)
-            {
-                int resultSize = params.getMaxResults();
-                if (resultSize <= 0)
+        JPATemplate<SearchResult<D>> templ =
+                new JPATemplate<SearchResult<D>>(false)
                 {
-                    resultSize = Integer.MAX_VALUE;
-                }
-                int idx = 0;
-                List<D> resultList = new LinkedList<D>();
-
-                SearchIteratorImpl sit =
-                        initializeSearchIterator(em, queryStr, searchIterator);
-                Query query =
-                        prepareSearchQuery(em, queryStr, sit.getCurrentPosition());
-                // the query string should result objects of the correct type
-                @SuppressWarnings("unchecked")
-                List<E> resultSet =
-                        query.setMaxResults(getChunkSize()).getResultList();
-                E lastEntity = null;
-                Iterator<E> it = resultSet.iterator();
-
-                while (it.hasNext() && resultList.size() < resultSize)
-                {
-                    lastEntity = it.next();
-                    if (filter.accepts(lastEntity))
+                    @Override
+                    protected SearchResult<D> performOperation(EntityManager em)
                     {
-                        resultList.add(converter.convert(lastEntity));
+                        int resultSize = params.getMaxResults();
+                        if (resultSize <= 0)
+                        {
+                            resultSize = Integer.MAX_VALUE;
+                        }
+                        int idx = 0;
+                        List<D> resultList = new LinkedList<D>();
+
+                        SearchIteratorImpl sit =
+                                initializeSearchIterator(em, queryStr,
+                                        searchIterator);
+                        Query query =
+                                prepareSearchQuery(em, queryStr,
+                                        sit.getCurrentPosition());
+                        // the query string should result objects of the correct
+                        // type
+                        @SuppressWarnings("unchecked")
+                        List<E> resultSet =
+                                query.setMaxResults(getChunkSize())
+                                        .getResultList();
+                        E lastEntity = null;
+                        Iterator<E> it = resultSet.iterator();
+                        JPATemplate.inject(em, converter);
+
+                        while (it.hasNext() && resultList.size() < resultSize)
+                        {
+                            lastEntity = it.next();
+                            if (filter.accepts(lastEntity))
+                            {
+                                resultList.add(converter.convert(lastEntity));
+                            }
+                            idx++;
+                        }
+
+                        sit.setHasNext(it.hasNext()
+                                || resultSet.size() >= getChunkSize());
+                        sit.setCurrentPosition(sit.getCurrentPosition() + idx);
+
+                        return new SearchResultImpl<D>(resultList, sit, params);
                     }
-                    idx++;
-                }
-
-                sit.setHasNext(it.hasNext()
-                        || resultSet.size() >= getChunkSize());
-                sit.setCurrentPosition(sit.getCurrentPosition() + idx);
-
-                return new SearchResultImpl<D>(resultList, sit, params);
-            }
-        };
+                };
 
         return templ.execute();
+    }
+
+    /**
+     * Retrieves all artist entities which are referenced by the given song
+     * entities. This method is used to populate the artist name property in the
+     * song info objects returned for song searches.
+     *
+     * @param songs the song entities to be converted
+     * @return a list with referenced artist entities
+     */
+    List<ArtistEntity> fetchReferencedArtists(
+            Collection<? extends SongEntity> songs)
+    {
+        final Set<Long> artistIDs = new HashSet<Long>();
+        for (SongEntity song : songs)
+        {
+            if (song.getArtistID() != null)
+            {
+                artistIDs.add(song.getArtistID());
+            }
+        }
+
+        JPATemplate<List<ArtistEntity>> templ =
+                new JPATemplate<List<ArtistEntity>>(false)
+                {
+                    @Override
+                    protected List<ArtistEntity> performOperation(
+                            EntityManager em)
+                    {
+                        Map<String, Object> params =
+                                Collections
+                                        .singletonMap(Finders.PARAM_ID,
+                                                (Object) new ArrayList<Long>(
+                                                        artistIDs));
+                        @SuppressWarnings("unchecked")
+                        List<ArtistEntity> result =
+                                (List<ArtistEntity>) Finders.queryInCondition(
+                                        em, ArtistEntity.QUERY_FIND_BY_IDS,
+                                        params, Finders.PARAM_ID);
+                        result.size(); // ensure that the entities are loaded
+                        return result;
+                    }
+                };
+
+        return templ.execute();
+    }
+
+    /**
+     * Returns a converter for songs which is already initialized with entities
+     * that are referenced by the song objects.
+     *
+     * @param songs the list with the songs to be converted
+     * @return an initialized converter for song entities
+     */
+    private SongSearchConverter createAndInitializeSongSearchConverter(
+            Collection<? extends SongEntity> songs)
+    {
+        SongSearchConverter conv =
+                (SongSearchConverter) createSongSearchConverter();
+        conv.initResolvedArtists(fetchReferencedArtists(songs));
+        return conv;
     }
 
     /**
