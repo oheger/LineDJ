@@ -3,6 +3,7 @@ package de.oliver_heger.mediastore.shared;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 
 /**
  * Asynchronous service interface for the basic media service service.
@@ -17,4 +18,6 @@ public interface BasicMediaServiceAsync
 
     void updateArtistSynonyms(long artistID, SynonymUpdateData updateData,
             AsyncCallback<Void> callback);
+
+    void fetchSongDetails(String songID, AsyncCallback<SongDetailInfo> callback);
 }

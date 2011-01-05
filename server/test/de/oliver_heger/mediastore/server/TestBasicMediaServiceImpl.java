@@ -16,11 +16,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
@@ -37,6 +40,14 @@ public class TestBasicMediaServiceImpl
     /** An array with synonyms of the test artist. */
     private static final String[] ARTIST_SYNONYMS = {
             "The King", "Elvis Preslay", "Elvis Pressluft"
+    };
+
+    /** Constant for a test song name. */
+    private static final String TEST_SONG = "Love me tender";
+
+    /** An array with synonyms of the test song. */
+    private static final String[] SONG_SYNONYMS = {
+            "Love me tender!", "Love me tenderly"
     };
 
     /** The persistence test helper. */
@@ -83,6 +94,29 @@ public class TestBasicMediaServiceImpl
         {
             e.addSynonymName(s);
         }
+    }
+
+    /**
+     * Creates a song object which can be used for tests.
+     *
+     * @param withSyns a flag whether synonyms are to be added
+     * @return the test song entity
+     */
+    private SongEntity createTestSong(boolean withSyns)
+    {
+        SongEntity e = new SongEntity();
+        e.setUser(PersistenceTestHelper.getTestUser());
+        e.setDuration(3 * 60 * 1000L);
+        e.setName(TEST_SONG);
+        e.setInceptionYear(1957);
+        if (withSyns)
+        {
+            for (String syn : SONG_SYNONYMS)
+            {
+                e.addSynonymName(syn);
+            }
+        }
+        return e;
     }
 
     /**
@@ -253,5 +287,81 @@ public class TestBasicMediaServiceImpl
         ArtistEntity e = createBasicArtist();
         helper.persist(e);
         service.updateArtistSynonyms(e.getId(), null);
+    }
+
+    /**
+     * Tests whether details of a song can be fetched if there are no dependent
+     * objects.
+     */
+    @Test
+    public void testFetchSongDetailsSimple()
+    {
+        SongEntity e = createTestSong(false);
+        helper.persist(e);
+        String key = KeyFactory.keyToString(e.getId());
+        SongDetailInfo info = service.fetchSongDetails(key);
+        assertEquals("Wrong ID", key, info.getSongID());
+        assertEquals("Wrong name", TEST_SONG, info.getName());
+        assertEquals("Wrong year", e.getInceptionYear(),
+                info.getInceptionYear());
+        assertEquals("Wrong duration", e.getDuration(), info.getDuration());
+        assertNull("Got an artist ID", info.getArtistID());
+        assertNull("Got an artist name", info.getArtistName());
+        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+    }
+
+    /**
+     * Tests whether details of a song can be fetched if there are references to
+     * other objects.
+     */
+    @Test
+    public void testFetchSongDetailsComplex()
+    {
+        ArtistEntity art = createBasicArtist();
+        helper.persist(art);
+        SongEntity e = createTestSong(true);
+        e.setArtistID(art.getId());
+        helper.persist(e);
+        String key = KeyFactory.keyToString(e.getId());
+        SongDetailInfo info = service.fetchSongDetails(key);
+        assertEquals("Wrong ID", key, info.getSongID());
+        assertEquals("Wrong number of synonyms", SONG_SYNONYMS.length, info
+                .getSynonyms().size());
+        for (String syn : SONG_SYNONYMS)
+        {
+            assertTrue("Synonym not found: " + syn, info.getSynonyms()
+                    .contains(syn));
+        }
+        assertEquals("Wrong artist ID", art.getId(), info.getArtistID());
+        assertEquals("Wrong artist name", art.getName(), info.getArtistName());
+    }
+
+    /**
+     * Tests fetchSongDetails() if references to other entities cannot be
+     * resolved.
+     */
+    @Test
+    public void testFetchSongDetailsUnknownReferences()
+    {
+        SongEntity e = createTestSong(false);
+        e.setArtistID(20110105115008L);
+        helper.persist(e);
+        SongDetailInfo info =
+                service.fetchSongDetails(KeyFactory.keyToString(e.getId()));
+        assertNull("Got an artist ID", info.getArtistID());
+        assertNull("Got an artist name", info.getArtistName());
+    }
+
+    /**
+     * Tests whether the user is checked when retrieving details of a song.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testFetchSongDetailsWrongUser()
+    {
+        SongEntity song = createTestSong(true);
+        song.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(song);
+        service.fetchSongDetails(KeyFactory.keyToString(song.getId()));
     }
 }

@@ -7,14 +7,18 @@ import java.util.TreeSet;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityNotFoundException;
 
+import com.google.appengine.api.datastore.KeyFactory;
+
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 
 /**
  * <p>
@@ -57,8 +61,31 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                     protected ArtistDetailInfo performOperation(EntityManager em)
                     {
                         ArtistEntity e = findAndCheckArtist(em, artistID);
-                        checkUser(e.getUser());
                         return createArtistDetailInfo(e);
+                    }
+                };
+        return templ.execute();
+    }
+
+    /**
+     * Returns details for the specified song.
+     *
+     * @param songID the ID of the song
+     * @throws EntityNotFoundException if the song cannot be resolved
+     * @throws IllegalStateException if the song does not belong to the logged
+     *         in user
+     */
+    @Override
+    public SongDetailInfo fetchSongDetails(final String songID)
+    {
+        JPATemplate<SongDetailInfo> templ =
+                new JPATemplate<SongDetailInfo>(false)
+                {
+                    @Override
+                    protected SongDetailInfo performOperation(EntityManager em)
+                    {
+                        SongEntity song = findAndCheckSong(em, songID);
+                        return createSongDetailInfo(em, song);
                     }
                 };
         return templ.execute();
@@ -192,6 +219,55 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         ArtistEntity e = find(em, ArtistEntity.class, artistID);
         checkUser(e.getUser());
         return e;
+    }
+
+    /**
+     * Helper method for retrieving a song entity. This method also checks
+     * whether the song belongs to the current user.
+     *
+     * @param em the entity manager
+     * @param songID the ID of the song to be retrieved
+     * @return the song entity with this ID
+     * @throws EntityNotFoundException if the entity cannot be resolved
+     * @throws IllegalStateException if the entity does not belong to the
+     *         current user
+     */
+    private SongEntity findAndCheckSong(EntityManager em, String songID)
+    {
+        SongEntity song =
+                find(em, SongEntity.class, KeyFactory.stringToKey(songID));
+        checkUser(song.getUser());
+        return song;
+    }
+
+    /**
+     * Creates an object with detail information for the specified song entity.
+     *
+     * @param em the entity manager
+     * @param song the song entity
+     * @return the object with details information
+     */
+    private SongDetailInfo createSongDetailInfo(EntityManager em,
+            SongEntity song)
+    {
+        SongDetailInfo info = new SongDetailInfo();
+        info.setSongID(KeyFactory.keyToString(song.getId()));
+        DTOTransformer.transform(song, info);
+        info.setSynonyms(transformSynonyms(song.getSynonyms()));
+        info.setArtistID(null);
+
+        if (song.getArtistID() != null)
+        {
+            ArtistEntity artist =
+                    em.find(ArtistEntity.class, song.getArtistID());
+            if (artist != null)
+            {
+                info.setArtistName(artist.getName());
+                info.setArtistID(song.getArtistID());
+            }
+        }
+
+        return info;
     }
 
     /**

@@ -4,6 +4,7 @@ import com.google.gwt.user.client.rpc.RemoteService;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
 
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 
 /**
  * <p>
@@ -50,4 +51,18 @@ public interface BasicMediaService extends RemoteService
      * @throws NullPointerException if the update data object is <b>null</b>
      */
     void updateArtistSynonyms(long artistID, SynonymUpdateData updateData);
+
+    /**
+     * Returns a data object with detail information for the specified song.
+     * This object contains all information available about this song. It can be
+     * used for instance to populate a details page.
+     *
+     * @param songID the ID of the song in question
+     * @return a data object with details about this song
+     * @throws javax.persistence.EntityNotFoundException if the song cannot be
+     *         resolved
+     * @throws IllegalStateException if the song does not belong to the current
+     *         user
+     */
+    SongDetailInfo fetchSongDetails(String songID);
 }
