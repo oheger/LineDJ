@@ -112,6 +112,22 @@ public class TestOverviewPage extends GWTTestCase
         AbstractOverviewQueryHandler<?> handler =
                 page.fetchQueryHandler(page.tabArtists);
         assertTrue("Wrong query handler", handler instanceof ArtistQueryHandler);
+        assertSame("Wrong search listener", page,
+                page.tabArtists.getSearchListener());
+    }
+
+    /**
+     * Tests whether a query handler for songs can be obtained.
+     */
+    public void testFetchSongQueryHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        page.initQueryHandlers();
+        AbstractOverviewQueryHandler<?> handler =
+                page.fetchQueryHandler(page.tabSongs);
+        assertTrue("Wrong query handler", handler instanceof SongQueryHandler);
+        assertSame("Wrong search listener", page,
+                page.tabSongs.getSearchListener());
     }
 
     /**

@@ -127,6 +127,17 @@ public class OverviewPage extends Composite implements SearchListener
     }
 
     /**
+     * Creates the handler for song queries. This method is called when a query
+     * for songs is initiated.
+     *
+     * @return the query handler for songs
+     */
+    protected AbstractOverviewQueryHandler<?> createSongQueryHandler()
+    {
+        return new SongQueryHandler(tabSongs);
+    }
+
+    /**
      * Initializes the map with query handlers. This method also registers this
      * object as search listener at all overview tables.
      */
@@ -136,6 +147,9 @@ public class OverviewPage extends Composite implements SearchListener
         overviewTables.put(tabArtists, new OverviewData(
                 createArtistQueryHandler()));
         tabArtists.setSearchListener(this);
+        overviewTables
+                .put(tabSongs, new OverviewData(createSongQueryHandler()));
+        tabSongs.setSearchListener(this);
         // TODO add further handlers
     }
 
