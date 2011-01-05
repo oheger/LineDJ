@@ -14,6 +14,7 @@ import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 import de.oliver_heger.mediastore.server.model.SongEntity;
+import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
@@ -116,6 +117,29 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * {@inheritDoc} This implementation modifies the song with the given ID
+     * according to the changes described in the {@link SynonymUpdateData}
+     * object.
+     */
+    @Override
+    public void updateSongSynonyms(final String songID,
+            final SynonymUpdateData updateData)
+    {
+        JPATemplate<Void> templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                SongEntity song = findAndCheckSong(em, songID);
+                removeSongSynonyms(em, song, updateData.getRemoveSynonyms());
+                addSongSynonyms(em, song, updateData.getNewSynonymIDs());
+                return null;
+            }
+        };
+        templ.execute();
+    }
+
+    /**
      * Creates a detail info object for an artist entity.
      *
      * @param e the artist entity
@@ -143,17 +167,17 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             ArtistEntity src)
     {
         // TODO handle case dest == null
-        moveArtistSynonyms(dest, src);
+        copyArtistSynonyms(dest, src);
         // TODO transfer further data
     }
 
     /**
-     * Moves all synonyms from one artist to another one.
+     * Copies all synonyms from one artist to another one.
      *
      * @param dest the destination artist
      * @param src the source artist
      */
-    private void moveArtistSynonyms(ArtistEntity dest, ArtistEntity src)
+    private void copyArtistSynonyms(ArtistEntity dest, ArtistEntity src)
     {
         for (ArtistSynonym as : src.getSynonyms())
         {
@@ -268,6 +292,81 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         }
 
         return info;
+    }
+
+    /**
+     * Removes synonyms from the specified song entity.
+     *
+     * @param em the entity manager
+     * @param song the song entity
+     * @param removeSyns the synonym names to be removed
+     */
+    private void removeSongSynonyms(EntityManager em, SongEntity song,
+            Set<String> removeSyns)
+    {
+        for (String syn : removeSyns)
+        {
+            SongSynonym ssyn = song.findSynonym(syn);
+
+            if (ssyn != null)
+            {
+                song.removeSynonym(ssyn);
+                em.remove(ssyn);
+            }
+        }
+    }
+
+    /**
+     * Copies the synonyms from the given source song entity to the destination
+     * song entity.
+     *
+     * @param dest the destination song
+     * @param src the source song
+     */
+    private void copySongSynonyms(SongEntity dest, SongEntity src)
+    {
+        for (SongSynonym syn : src.getSynonyms())
+        {
+            dest.addSynonymName(syn.getName());
+        }
+        dest.addSynonymName(src.getName());
+    }
+
+    /**
+     * Transfers data from one song to another one. This method is called when a
+     * song entity is to be merged with another one. It is also used for
+     * deleting a song entity - in this case the destination entity is
+     * <b>null</b>.
+     *
+     * @param em the entity manager
+     * @param dest the destination entity
+     * @param src the source entity
+     */
+    private void transferSongData(EntityManager em, SongEntity dest,
+            SongEntity src)
+    {
+        // TODO handle null destination
+        copySongSynonyms(dest, src);
+    }
+
+    /**
+     * Adds song entities as synonyms to the specified song entity. With this
+     * method the entities declared as synonyms are merged with the current
+     * song. After that they are removed.
+     *
+     * @param em the entity manager
+     * @param song the current song
+     * @param synonymIDs the IDs of the songs to become synonyms
+     */
+    private void addSongSynonyms(EntityManager em, SongEntity song,
+            Set<String> synonymIDs)
+    {
+        for (String songID : synonymIDs)
+        {
+            SongEntity synSong = findAndCheckSong(em, songID);
+            transferSongData(em, song, synSong);
+            em.remove(synSong);
+        }
     }
 
     /**

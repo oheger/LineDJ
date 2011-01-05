@@ -20,4 +20,7 @@ public interface BasicMediaServiceAsync
             AsyncCallback<Void> callback);
 
     void fetchSongDetails(String songID, AsyncCallback<SongDetailInfo> callback);
+
+    void updateSongSynonyms(String songID, SynonymUpdateData updateData,
+            AsyncCallback<Void> callback);
 }

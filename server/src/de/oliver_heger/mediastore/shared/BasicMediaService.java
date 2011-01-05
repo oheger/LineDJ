@@ -65,4 +65,20 @@ public interface BasicMediaService extends RemoteService
      *         user
      */
     SongDetailInfo fetchSongDetails(String songID);
+
+    /**
+     * Updates the synonyms of the specified song. The passed in data object
+     * contains information about the changes to be performed on the song's
+     * synonyms.
+     *
+     * @param songID the ID of the song in question
+     * @param updateData an object with information about updates to be
+     *        performed
+     * @throws javax.persistence.EntityNotFoundException if the song cannot be
+     *         resolved
+     * @throws IllegalStateException if the song does not belong to the current
+     *         user
+     * @throws NullPointerException if the update data object is <b>null</b>
+     */
+    void updateSongSynonyms(String songID, SynonymUpdateData updateData);
 }

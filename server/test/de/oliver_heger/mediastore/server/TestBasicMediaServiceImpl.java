@@ -5,6 +5,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -363,5 +365,107 @@ public class TestBasicMediaServiceImpl
                 .getUser(PersistenceTestHelper.OTHER_USER));
         helper.persist(song);
         service.fetchSongDetails(KeyFactory.keyToString(song.getId()));
+    }
+
+    /**
+     * Checks whether the song entity contains the specified synonyms
+     *
+     * @param oldSong the old song entity (it will be refreshed)
+     * @param expSyns the synonyms
+     */
+    private void checkSongSynonyms(SongEntity oldSong,
+            Collection<String> expSyns)
+    {
+        helper.closeEM();
+        helper.begin();
+        SongEntity song =
+                helper.getEM().find(SongEntity.class, oldSong.getId());
+        assertEquals("Wrong number of synonyms", expSyns.size(), song
+                .getSynonyms().size());
+        for (String syn : expSyns)
+        {
+            assertNotNull("Synonym not found: " + syn, song.findSynonym(syn));
+        }
+        helper.commit();
+    }
+
+    /**
+     * Tests whether synonyms can be removed from a song.
+     */
+    @Test
+    public void testUpdateSongSynonymsRemoveSyns()
+    {
+        SongEntity song = createTestSong(true);
+        helper.persist(song);
+        String key = KeyFactory.keyToString(song.getId());
+        SynonymUpdateData upData =
+                new SynonymUpdateData(Collections.singleton(SONG_SYNONYMS[0]),
+                        null);
+        service.updateSongSynonyms(key, upData);
+        checkSongSynonyms(song,
+                Arrays.asList(SONG_SYNONYMS).subList(1, SONG_SYNONYMS.length));
+    }
+
+    /**
+     * Tests that it does not cause a problem to remove a non existing synonym.
+     */
+    @Test
+    public void testUpdateSongSynonymsRemoveSynsUnknown()
+    {
+        SongEntity song = createTestSong(true);
+        helper.persist(song);
+        String key = KeyFactory.keyToString(song.getId());
+        SynonymUpdateData upData =
+                new SynonymUpdateData(
+                        Collections.singleton("non existing synonym!"), null);
+        service.updateSongSynonyms(key, upData);
+        checkSongSynonyms(song, Arrays.asList(SONG_SYNONYMS));
+    }
+
+    /**
+     * Tests whether new synonyms can be added to a song.
+     */
+    @Test
+    public void testUpdateSongSynonymsNewSyns()
+    {
+        final String synonymPrefix = "songSynonym";
+        final int synCount = 4;
+        Set<String> expSyns = new HashSet<String>();
+        SongEntity song = createTestSong(true);
+        SongEntity synSong = createTestSong(false);
+        synSong.setName(synonymPrefix);
+        expSyns.add(synonymPrefix);
+        for (int i = 0; i < synCount; i++)
+        {
+            String syn = synonymPrefix + i;
+            synSong.addSynonymName(syn);
+            expSyns.add(syn);
+        }
+        expSyns.addAll(Arrays.asList(SONG_SYNONYMS));
+        helper.persist(song);
+        helper.persist(synSong);
+        SynonymUpdateData upData =
+                new SynonymUpdateData(null, Collections.singleton(KeyFactory
+                        .keyToString(synSong.getId())));
+        service.updateSongSynonyms(KeyFactory.keyToString(song.getId()), upData);
+        checkSongSynonyms(song, expSyns);
+        assertNull("Synonym song still exists",
+                helper.getEM().find(SongEntity.class, synSong.getId()));
+        List<?> allSynonyms =
+                helper.getEM().createQuery("select syn from SongSynonym syn")
+                        .getResultList();
+        assertEquals("Wrong number of all synonyms", SONG_SYNONYMS.length
+                + synCount + 1, allSynonyms.size());
+    }
+
+    /**
+     * Tries to pass a null object to updateSongSynonyms().
+     */
+    @Test(expected = NullPointerException.class)
+    public void testUpdateSongSynonymsNoUpdateData()
+    {
+        SongEntity song = createTestSong(false);
+        helper.persist(song);
+        service.updateSongSynonyms(KeyFactory.keyToString(song.getId()), null);
     }
 }
