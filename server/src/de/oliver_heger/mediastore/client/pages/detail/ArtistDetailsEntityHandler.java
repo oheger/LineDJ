@@ -19,7 +19,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class ArtistDetailsEntityHandler implements
+class ArtistDetailsEntityHandler implements
         DetailsEntityHandler<ArtistDetailInfo>
 {
     /**
