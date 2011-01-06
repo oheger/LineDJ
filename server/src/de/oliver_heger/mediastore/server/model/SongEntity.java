@@ -3,6 +3,7 @@ package de.oliver_heger.mediastore.server.model;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.persistence.CascadeType;
@@ -39,10 +40,14 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
 @Entity
 @NamedQueries({
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_NAME, query = SongEntity.QUERY_FIND_BY_NAME_DEF),
-        @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF)
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ARTIST, query = SongEntity.QUERY_FIND_BY_ARTIST_DEF)
 })
 public class SongEntity implements Serializable
 {
+    /** Constant for the source artist parameter. */
+    static final String PARAM_ARTIST = "artist";
+
     /** Constant for the prefix for song queries. */
     static final String SONG_QUERY_PREFIX =
             "de.oliver_heger.mediastore.server.model.SongEntity.";
@@ -67,6 +72,20 @@ public class SongEntity implements Serializable
             + "from SongSynonym syn " + "where syn.user = :"
             + Finders.PARAM_USER + " and syn.searchName = :"
             + Finders.PARAM_NAME;
+
+    /**
+     * Constant for the name of the query which searches for the songs of an
+     * artist.
+     */
+    static final String QUERY_FIND_BY_ARTIST = SONG_QUERY_PREFIX
+            + "QUERY_UPDATE_ARTIST";
+
+    /**
+     * Constant for the definition of the query which searches for the songs of
+     * an artist.
+     */
+    static final String QUERY_FIND_BY_ARTIST_DEF = "select e from SongEntity e"
+            + " where e.artistID = :" + PARAM_ARTIST;
 
     /**
      * The serial version UID.
@@ -506,6 +525,72 @@ public class SongEntity implements Serializable
         }
 
         return result;
+    }
+
+    /**
+     * Retrieves all songs which belong to the specified artist.
+     *
+     * @param em the entity manager
+     * @param artist the artist in question
+     * @return the songs assigned to this artist
+     * @throws NullPointerException if the artist is <b>null</b>
+     */
+    public static List<SongEntity> findByArtist(EntityManager em,
+            ArtistEntity artist)
+    {
+        return findByArtist(em, artist.getId());
+    }
+
+    /**
+     * Retrieves all songs which are associated with the specified artist ID.
+     *
+     * @param em the entity manager
+     * @param artistID the ID of the artist in question
+     * @return the songs assigned to this artist
+     */
+    public static List<SongEntity> findByArtist(EntityManager em, Long artistID)
+    {
+        @SuppressWarnings("unchecked")
+        List<SongEntity> songs =
+                em.createNamedQuery(QUERY_FIND_BY_ARTIST)
+                        .setParameter(PARAM_ARTIST, artistID).getResultList();
+        return songs;
+    }
+
+    /**
+     * Updates artist IDs of songs. All songs which belong to the given source
+     * artist are assigned to the new destination artist. The destination artist
+     * can be <b>null</b>; in this case the songs do not belong to any artist
+     * after this operation.
+     *
+     * @param em the entity manager
+     * @param dest the destination artist (can be <b>null</b>)
+     * @param src the source artist
+     * @throws NullPointerException if the source artist is <b>null</b>
+     */
+    public static void updateArtistID(EntityManager em, ArtistEntity dest,
+            ArtistEntity src)
+    {
+        updateArtistID(em, (dest != null) ? dest.getId() : null, src.getId());
+    }
+
+    /**
+     * Updates artist IDs of songs for the given artist IDs. This method works
+     * like the method with the same name, but the IDs of the artists affected
+     * are directly passed in.
+     *
+     * @param em the entity manager
+     * @param destID the ID of the destination artist
+     * @param srcID the ID of the source artist
+     */
+    public static void updateArtistID(EntityManager em, Long destID, Long srcID)
+    {
+        List<SongEntity> songs = findByArtist(em, srcID);
+
+        for (SongEntity song : songs)
+        {
+            song.setArtistID(destID);
+        }
     }
 
     /**

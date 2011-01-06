@@ -244,9 +244,9 @@ public class TestBasicMediaServiceImpl
         }
         helper.persist(e);
         helper.persist(eSyn);
+        helper.closeEM();
         SynonymUpdateData ud =
-                new SynonymUpdateData(null, Collections.singleton((Object) eSyn
-                        .getId()));
+                new SynonymUpdateData(null, Collections.singleton(eSyn.getId()));
         service.updateArtistSynonyms(e.getId(), ud);
         ArtistDetailInfo info = service.fetchArtistDetails(e.getId());
         assertEquals("Wrong number of synonyms", ARTIST_SYNONYMS.length, info
@@ -263,6 +263,45 @@ public class TestBasicMediaServiceImpl
                         .getResultList();
         assertEquals("Wrong number of all synonyms", ARTIST_SYNONYMS.length,
                 allSynonyms.size());
+    }
+
+    /**
+     * Tests whether songs are copied when an artist becomes a synonym of
+     * another one.
+     */
+    @Test
+    public void testUpdateArtistSynonymsNewSynsWithSongs()
+    {
+        ArtistEntity e = createBasicArtist();
+        e.addSynonymName("A test synonym");
+        helper.persist(e);
+        ArtistEntity eSyn = createBasicArtist();
+        eSyn.setName(ARTIST_SYNONYMS[0]);
+        eSyn.addSynonymName(ARTIST_SYNONYMS[1]);
+        helper.persist(eSyn);
+        SongEntity song = createTestSong(true);
+        song.setArtistID(eSyn.getId());
+        helper.persist(song);
+        SongEntity song2 = createTestSong(false);
+        song2.setName("Another Song");
+        song2.setArtistID(eSyn.getId());
+        helper.persist(song2);
+        helper.closeEM();
+        SynonymUpdateData ud =
+                new SynonymUpdateData(null, Collections.singleton(eSyn.getId()));
+        service.updateArtistSynonyms(e.getId(), ud);
+        helper.closeEM();
+        List<SongEntity> songs = SongEntity.findByArtist(helper.getEM(), e);
+        assertEquals("Wrong number of songs", 2, songs.size());
+        Set<String> songNames = new HashSet<String>();
+        for (SongEntity se : songs)
+        {
+            songNames.add(se.getName());
+        }
+        assertTrue("Song 1 not found", songNames.contains(song.getName()));
+        assertTrue("Song 2 not found", songNames.contains(song2.getName()));
+        assertTrue("Got songs for synonym",
+                SongEntity.findByArtist(helper.getEM(), eSyn).isEmpty());
     }
 
     /**

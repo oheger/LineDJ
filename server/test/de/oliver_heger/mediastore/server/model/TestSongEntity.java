@@ -515,4 +515,95 @@ public class TestSongEntity
                 helper.getEM(), PersistenceTestHelper.getTestUser(),
                 "non existing song!"));
     }
+
+    /**
+     * Tests findByArtist() for an artist which does not have any songs.
+     */
+    @Test
+    public void testFindByArtistNoSongs()
+    {
+        ArtistEntity artist = createArtist();
+        helper.persist(artist);
+        assertTrue("Got songs", SongEntity.findByArtist(helper.getEM(), artist)
+                .isEmpty());
+    }
+
+    /**
+     * Helper method for testing whether artist IDs of songs can be updated.
+     *
+     * @param artDest the destination artist
+     */
+    private void checkUpdateArtistID(ArtistEntity artDest)
+    {
+        ArtistEntity artSrc = createArtist();
+        artSrc.setName("Source artist");
+        helper.persist(artSrc);
+        final int songCount = 12;
+        for (int i = 0; i < songCount; i++)
+        {
+            SongEntity song = createSong();
+            song.setName(SONG_NAME + i);
+            song.setArtistID(artSrc.getId());
+            helper.persist(song);
+        }
+        helper.closeEM();
+        SongEntity.updateArtistID(helper.getEM(), artDest, artSrc);
+        helper.closeEM();
+        @SuppressWarnings("unchecked")
+        List<SongEntity> songs =
+                helper.getEM().createQuery("select s from SongEntity s")
+                        .getResultList();
+        assertEquals("Wrong number of songs", songCount, songs.size());
+        Long expArtID = (artDest != null) ? artDest.getId() : null;
+        for (SongEntity e : songs)
+        {
+            assertEquals("Wrong artist ID", expArtID, e.getArtistID());
+        }
+    }
+
+    /**
+     * Tests whether the artist IDs of songs can be updated.
+     */
+    @Test
+    public void testUpdateArtistID()
+    {
+        ArtistEntity art = createArtist();
+        helper.persist(art);
+        checkUpdateArtistID(art);
+    }
+
+    /**
+     * Tests whether the artist IDs of songs can be set to null.
+     */
+    @Test
+    public void testUpdateArtistIDNullDest()
+    {
+        checkUpdateArtistID(null);
+    }
+
+    /**
+     * Tries to update artist IDs with a null source artist.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testUpdateArtistIDNullSource()
+    {
+        ArtistEntity art = createArtist();
+        helper.persist(art);
+        SongEntity.updateArtistID(helper.getEM(), art, null);
+    }
+
+    /**
+     * Tests updateArtistIDs() if no songs can be found. Obviously, this case is
+     * problematic for the AppEngine data store.
+     */
+    @Test
+    public void testUpdateArtistIDNoSongs()
+    {
+        ArtistEntity art1 = createArtist();
+        helper.persist(art1);
+        ArtistEntity art2 = createArtist();
+        art2.setName("Other Artist");
+        helper.persist(art2);
+        SongEntity.updateArtistID(helper.getEM(), art1.getId(), art2.getId());
+    }
 }

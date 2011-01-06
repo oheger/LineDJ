@@ -102,6 +102,8 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     public void updateArtistSynonyms(final long artistID,
             final SynonymUpdateData updateData)
     {
+        moveArtistSongs(artistID, updateData.getNewSynonymIDsAsLongs());
+
         JPATemplate<Void> templ = new JPATemplate<Void>(false)
         {
             @Override
@@ -155,23 +157,6 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
-     * Transforms all dependent data from one artist to another one. This method
-     * can be called to merge artists (e.g. if one is a synonym of another one).
-     * It also supports removing of an artist. In this case the destination
-     * artist has to be set to <b>null</b>.
-     *
-     * @param dest the destination artist
-     * @param src the source artist
-     */
-    private void transferArtistData(EntityManager em, ArtistEntity dest,
-            ArtistEntity src)
-    {
-        // TODO handle case dest == null
-        copyArtistSynonyms(dest, src);
-        // TODO transfer further data
-    }
-
-    /**
      * Copies all synonyms from one artist to another one.
      *
      * @param dest the destination artist
@@ -222,9 +207,37 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         for (Object id : newSynIDs)
         {
             ArtistEntity synArt = findAndCheckArtist(em, id);
-            transferArtistData(em, e, synArt);
+            copyArtistSynonyms(e, synArt);
             em.remove(synArt);
         }
+    }
+
+    /**
+     * Moves songs associated with one of a given set of artists to another
+     * artist. This method can be used for merging or removing artists.
+     * Implementation note: Obviously this operation has to be performed in a
+     * separate step; otherwise there were strange data nucleus exceptions.
+     *
+     * @param artistID the ID of the new destination artist (can be <b>null</b>
+     *        if artists are to be removed)
+     * @param srcIDs a collection with the IDs of the source artists
+     */
+    private void moveArtistSongs(final long artistID,
+            final Collection<Long> srcIDs)
+    {
+        JPATemplate<Void> templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                for (Long synArtID : srcIDs)
+                {
+                    SongEntity.updateArtistID(em, artistID, synArtID);
+                }
+                return null;
+            }
+        };
+        templ.execute();
     }
 
     /**
