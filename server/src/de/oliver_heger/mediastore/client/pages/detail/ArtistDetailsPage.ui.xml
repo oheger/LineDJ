@@ -23,7 +23,7 @@
       </g:HTMLPanel>
     </g:west>
     <g:east size="7">
-      <g:Anchor ui:field="lnkOverview">Overview page</g:Anchor>
+      <g:Hyperlink ui:field="lnkOverview">Overview page</g:Hyperlink>
     </g:east>
 
     <g:center>

@@ -65,6 +65,35 @@ public class MockPageManager implements PageManager
     }
 
     /**
+     * Generates a default token for the page with the given name. This token
+     * name is returned by a mock page specification if
+     * {@code expectCreatePageSpecification()} is called with a <b>null</b>
+     * token name.
+     *
+     * @param pageName the name of the page
+     * @return the default token used for this page name
+     */
+    public static String defaultToken(String pageName)
+    {
+        return TOKEN_PREFIX + pageName;
+    }
+
+    /**
+     * Generates a default token for the specified page. This token name is
+     * returned by a mock page specification if
+     * {@code expectCreatePageSpecification()} is called with a <b>null</b>
+     * token name.
+     *
+     * @param <E> the type of the page specification
+     * @param page the enumeration constant defining the page
+     * @return the default token used for this page name
+     */
+    public static <E extends Enum<E>> String defaultToken(E page)
+    {
+        return defaultToken(page.name());
+    }
+
+    /**
      * Initializes this object to expect a request for a page specification for
      * the named page. Returns a mock specification object which can be
      * initialized with the expected parameters.
@@ -78,7 +107,7 @@ public class MockPageManager implements PageManager
     public PageSpecification expectCreatePageSpecification(String name,
             String token)
     {
-        String tokenStr = (token != null) ? token : TOKEN_PREFIX + name;
+        String tokenStr = (token != null) ? token : defaultToken(name);
         return processExpectedPageSpecification(name, tokenStr);
     }
 
@@ -88,6 +117,7 @@ public class MockPageManager implements PageManager
      * specification object which can be initialized with the expected
      * parameters.
      *
+     * @param <E> the type of the page specification
      * @param name the name of the page
      * @param token the token to be returned by the {@code toToken()} method;
      *        can be <b>null</b>, then a default token is returned starting with
@@ -97,7 +127,7 @@ public class MockPageManager implements PageManager
     public <E extends Enum<E>> PageSpecification expectCreatePageSpecification(
             E page, String token)
     {
-        String tokenStr = (token != null) ? token : TOKEN_PREFIX + page.name();
+        String tokenStr = (token != null) ? token : defaultToken(page);
         return processExpectedPageSpecification(page, tokenStr);
     }
 

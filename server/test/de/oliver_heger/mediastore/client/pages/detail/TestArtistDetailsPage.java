@@ -91,12 +91,27 @@ public class TestArtistDetailsPage extends GWTTestCase
     }
 
     /**
+     * Prepares a call to the initialize() method. This method prepares the mock
+     * page manager correspondingly.
+     *
+     * @param page the page
+     * @return the mock page manager
+     */
+    private MockPageManager initializePage(ArtistDetailsPage page)
+    {
+        MockPageManager pm = new MockPageManager();
+        pm.expectCreatePageSpecification(Pages.OVERVIEW, null).toToken();
+        page.initialize(pm);
+        return pm;
+    }
+
+    /**
      * Tests whether the synonym editor has been correctly initialized.
      */
     public void testInitSynonymEditor()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
-        page.initialize(new MockPageManager());
+        initializePage(page);
         assertNotNull("No synonym editor", page.synEditor);
         ArtistSynonymQueryHandler handler =
                 (ArtistSynonymQueryHandler) page.synEditor
@@ -265,15 +280,16 @@ public class TestArtistDetailsPage extends GWTTestCase
     }
 
     /**
-     * Tests whether the link back to the overview page works.
+     * Tests whether the link back to the overview page is correctly
+     * initialized.
      */
-    public void testOnClickOverview()
+    public void testInitOverviewLink()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
-        MockPageManager pm = new MockPageManager();
-        pm.expectCreatePageSpecification(Pages.OVERVIEW, null).open();
-        page.initialize(pm);
-        page.onClickOverview(null);
+        MockPageManager pm = initializePage(page);
+        assertEquals("Wrong token",
+                MockPageManager.defaultToken(Pages.OVERVIEW),
+                page.lnkOverview.getTargetHistoryToken());
         pm.verify();
     }
 

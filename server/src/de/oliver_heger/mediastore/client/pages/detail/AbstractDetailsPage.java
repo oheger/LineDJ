@@ -7,9 +7,9 @@ import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.rpc.AsyncCallback;
-import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
+import com.google.gwt.user.client.ui.Hyperlink;
 import com.google.gwt.user.client.ui.Image;
 
 import de.oliver_heger.mediastore.client.DisplayErrorPanel;
@@ -61,7 +61,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
 
     /** The link to the overview page. */
     @UiField
-    Anchor lnkOverview;
+    Hyperlink lnkOverview;
 
     /** The button which invokes the synonym editor. */
     @UiField
@@ -110,6 +110,7 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     {
         pageManager = pm;
         initSynonymEditor();
+        initOverviewLink();
     }
 
     /**
@@ -371,6 +372,17 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
         synEditor
                 .setSynonymQueryHandler(getSynonymQueryHandler(getSearchService()));
         synEditor.setResultsProcessor(this);
+    }
+
+    /**
+     * Initializes the link back to the overview page.
+     */
+    private void initOverviewLink()
+    {
+        String token =
+                getPageManager().createPageSpecification(Pages.OVERVIEW)
+                        .toToken();
+        lnkOverview.setTargetHistoryToken(token);
     }
 
     /**
