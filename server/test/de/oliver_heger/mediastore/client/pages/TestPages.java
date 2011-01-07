@@ -4,6 +4,7 @@ import com.google.gwt.junit.client.GWTTestCase;
 
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsPage;
+import de.oliver_heger.mediastore.client.pages.detail.SongDetailsPage;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
@@ -54,6 +55,17 @@ public class TestPages extends GWTTestCase
         PageManager pm = createPMForDetailPage();
         ArtistDetailsPage page =
                 (ArtistDetailsPage) Pages.ARTISTDETAILS.getPageWidget(pm);
+        assertSame("Wrong page manager", pm, page.getPageManager());
+    }
+
+    /**
+     * Tests the creation of the song details page.
+     */
+    public void testPageSongDetails()
+    {
+        PageManager pm = createPMForDetailPage();
+        SongDetailsPage page =
+                (SongDetailsPage) Pages.SONGDETAILS.getPageWidget(pm);
         assertSame("Wrong page manager", pm, page.getPageManager());
     }
 }

@@ -161,6 +161,9 @@ public class OverviewPage extends Composite implements SearchListener
         tabArtists.addSingleElementHandler(getImageResources().viewDetails(),
                 new OpenPageSingleElementHandler(getPageManager(),
                         Pages.ARTISTDETAILS));
+        tabSongs.addSingleElementHandler(getImageResources().viewDetails(),
+                new OpenPageSingleElementHandler(getPageManager(),
+                        Pages.SONGDETAILS));
     }
 
     /**

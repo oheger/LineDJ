@@ -5,6 +5,7 @@ import com.google.gwt.user.client.ui.Widget;
 import de.oliver_heger.mediastore.client.pageman.PageFactory;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsPage;
+import de.oliver_heger.mediastore.client.pages.detail.SongDetailsPage;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
 
 /**
@@ -45,6 +46,20 @@ public enum Pages implements PageFactory
         public Widget getPageWidget(PageManager pageManager)
         {
             ArtistDetailsPage page = new ArtistDetailsPage();
+            page.initialize(pageManager);
+            return page;
+        }
+    },
+
+    /**
+     * The page with details of a song.
+     */
+    SONGDETAILS
+    {
+        @Override
+        public Widget getPageWidget(PageManager pageManager)
+        {
+            SongDetailsPage page = new SongDetailsPage();
             page.initialize(pageManager);
             return page;
         }
