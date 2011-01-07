@@ -261,6 +261,18 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
+     * Formats an object to a string. This method can be used to populate data
+     * fields. If the object is <b>null</b>, result is <b>null</b>.
+     *
+     * @param value the object to be formatted
+     * @return the formatted value
+     */
+    protected String formatObject(Object value)
+    {
+        return (value == null) ? null : value.toString();
+    }
+
+    /**
      * Returns the {@link DetailsEntityHandler} object to be used for this page.
      *
      * @return the details entity handler

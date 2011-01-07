@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
@@ -29,7 +28,7 @@ import de.oliver_heger.mediastore.shared.model.HasSynonyms;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestArtistDetailsPage extends GWTTestCase
+public class TestArtistDetailsPage extends AbstractTestDetailsPage
 {
     /** Constant for the ID of the test artist. */
     private static final Long ARTIST_ID = 20101216075421L;
@@ -41,24 +40,6 @@ public class TestArtistDetailsPage extends GWTTestCase
     private static final String[] SYNONYMS = {
             "The King", "Elvis Presley"
     };
-
-    @Override
-    public String getModuleName()
-    {
-        return "de.oliver_heger.mediastore.RemoteMediaStore";
-    }
-
-    /**
-     * Tests whether the passed in string is empty. This means that the string
-     * is either null or has length 0.
-     *
-     * @param msg the error message
-     * @param s the string to check
-     */
-    private static void assertEmpty(String msg, String s)
-    {
-        assertTrue(msg, s == null || s.length() < 1);
-    }
 
     /**
      * Creates a details info object for an artist with test data.
@@ -84,25 +65,7 @@ public class TestArtistDetailsPage extends GWTTestCase
         assertNotNull("No name span", page.spanArtistName);
         assertNotNull("No creation date span", page.spanCreationDate);
         assertNotNull("No synonyms span", page.spanSynonyms);
-        assertNotNull("No progress indicator", page.progressIndicator);
-        assertNotNull("No error panel", page.pnlError);
-        assertNotNull("No overview link", page.lnkOverview);
-        assertNotNull("No edit synonyms button", page.btnEditSynonyms);
-    }
-
-    /**
-     * Prepares a call to the initialize() method. This method prepares the mock
-     * page manager correspondingly.
-     *
-     * @param page the page
-     * @return the mock page manager
-     */
-    private MockPageManager initializePage(ArtistDetailsPage page)
-    {
-        MockPageManager pm = new MockPageManager();
-        pm.expectCreatePageSpecification(Pages.OVERVIEW, null).toToken();
-        page.initialize(pm);
-        return pm;
+        checkBaseFields(page);
     }
 
     /**
