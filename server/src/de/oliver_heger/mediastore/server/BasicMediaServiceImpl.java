@@ -9,13 +9,14 @@ import javax.persistence.EntityNotFoundException;
 
 import com.google.appengine.api.datastore.KeyFactory;
 
+import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
+import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.server.model.SongSynonym;
-import de.oliver_heger.mediastore.service.utils.DTOTransformer;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
@@ -150,8 +151,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     private ArtistDetailInfo createArtistDetailInfo(ArtistEntity e)
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
-        info.setArtistID(e.getId());
-        DTOTransformer.transform(e, info);
+        ArtistEntityConverter.INSTANCE.convert(e, info);
         info.setSynonyms(transformSynonyms(e.getSynonyms()));
         return info;
     }
@@ -287,22 +287,12 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     private SongDetailInfo createSongDetailInfo(EntityManager em,
             SongEntity song)
     {
-        SongDetailInfo info = new SongDetailInfo();
-        info.setSongID(KeyFactory.keyToString(song.getId()));
-        DTOTransformer.transform(song, info);
-        info.setSynonyms(transformSynonyms(song.getSynonyms()));
-        info.setArtistID(null);
+        SongEntityConverter converter = new SongEntityConverter();
+        converter.setEntityManager(em);
 
-        if (song.getArtistID() != null)
-        {
-            ArtistEntity artist =
-                    em.find(ArtistEntity.class, song.getArtistID());
-            if (artist != null)
-            {
-                info.setArtistName(artist.getName());
-                info.setArtistID(song.getArtistID());
-            }
-        }
+        SongDetailInfo info = new SongDetailInfo();
+        converter.convert(song, info);
+        info.setSynonyms(transformSynonyms(song.getSynonyms()));
 
         return info;
     }

@@ -18,7 +18,6 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
-import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -199,5 +198,37 @@ public class TestSongEntityConverter
         assertNull("Got an artist ID", info.getArtistID());
         assertNull("Got an artist name", info.getArtistName());
         EasyMock.verify(em);
+    }
+
+    /**
+     * Tests resolveArtist() if neither an entity manager nor a list of artists
+     * has been provided.
+     */
+    @Test
+    public void testResolveArtistNoEM()
+    {
+        SongEntity song = new SongEntity();
+        song.setArtistID(REF_ID);
+        SongInfo info = converter.convert(song);
+        assertNull("Got an artist ID", info.getArtistID());
+        assertNull("Got an artist name", info.getArtistName());
+    }
+
+    /**
+     * Tries to call convert() with a null entity.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testConvertNullEntity()
+    {
+        converter.convert(null, new SongInfo());
+    }
+
+    /**
+     * Tries to call convert() with a null info object.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testConvertNullInfo()
+    {
+        converter.convert(new SongEntity(), null);
     }
 }

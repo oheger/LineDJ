@@ -37,9 +37,23 @@ public enum ArtistEntityConverter implements
     public ArtistInfo convert(ArtistEntity e)
     {
         ArtistInfo info = new ArtistInfo();
-        DTOTransformer.transform(e, info);
-        info.setArtistID(e.getId());
+        convert(e, info);
 
         return info;
+    }
+
+    /**
+     * Converts the specified artist entity object to the specified artist info
+     * object. The properties of the entity are extracted and copied into the
+     * corresponding fields of the info object.
+     *
+     * @param e the artist entity object
+     * @param info the target info object
+     * @throws IllegalArgumentException if one of the objects is <b>null</b>
+     */
+    public void convert(ArtistEntity e, ArtistInfo info)
+    {
+        DTOTransformer.transform(e, info);
+        info.setArtistID(e.getId());
     }
 }

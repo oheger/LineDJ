@@ -83,6 +83,23 @@ public class SongEntityConverter implements
     public SongInfo convert(SongEntity e)
     {
         SongInfo info = new SongInfo();
+        convert(e, info);
+
+        return info;
+    }
+
+    /**
+     * Converts the given song entity object to the specified song info object.
+     * The properties of the entity are extracted and written into the given
+     * info object.
+     *
+     * @param e the song entity
+     * @param info the target info object
+     * @throws IllegalArgumentException if one of the passed in objects is
+     *         <b>null</b>
+     */
+    public void convert(SongEntity e, SongInfo info)
+    {
         DTOTransformer.transform(e, info);
 
         if (e.getId() != null)
@@ -99,8 +116,6 @@ public class SongEntityConverter implements
         {
             info.setArtistName(ae.getName());
         }
-
-        return info;
     }
 
     /**
@@ -114,19 +129,22 @@ public class SongEntityConverter implements
      */
     ArtistEntity resolveArtist(SongEntity song)
     {
-        if (song.getArtistID() == null)
+        if (song.getArtistID() != null)
         {
-            return null;
+            if (artistEntities != null)
+            {
+                return artistEntities.get(song.getArtistID());
+            }
+            else
+            {
+                if (getEntityManager() != null)
+                {
+                    return getEntityManager().find(ArtistEntity.class,
+                            song.getArtistID());
+                }
+            }
         }
 
-        if (artistEntities != null)
-        {
-            return artistEntities.get(song.getArtistID());
-        }
-        else
-        {
-            return getEntityManager().find(ArtistEntity.class,
-                    song.getArtistID());
-        }
+        return null;
     }
 }
