@@ -15,6 +15,7 @@ import javax.persistence.Query;
 
 import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
 import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
+import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.EntityConverter;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
@@ -147,8 +148,9 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             SearchIteratorImpl sit = new SearchIteratorImpl();
             List<ArtistEntity> artists =
                     executeFullSearch(params, sit, QUERY_ARTISTS);
-            return new SearchResultImpl<ArtistInfo>(convertResults(artists,
-                    createArtistSearchConverter()), sit, params);
+            return new SearchResultImpl<ArtistInfo>(
+                    ConvertUtils.convertEntities(artists,
+                            createArtistSearchConverter()), sit, params);
         }
         return executeChunkSearch(params, iterator,
                 createArtistSearchFilter(params),
@@ -174,8 +176,8 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                     executeFullSearch(params, sit, QUERY_SONGS);
             SongEntityConverter conv =
                     createAndInitializeSongSearchConverter(songs);
-            return new SearchResultImpl<SongInfo>(convertResults(songs, conv),
-                    sit, params);
+            return new SearchResultImpl<SongInfo>(ConvertUtils.convertEntities(
+                    songs, conv), sit, params);
         }
 
         return executeChunkSearch(params, iterator,
@@ -528,33 +530,6 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                         .getSingleResult();
         sit.setRecordCount(count.longValue());
         return sit;
-    }
-
-    /**
-     * Converts the specified list with entities to a list with data object to
-     * be passed to the client. This method is called if entity objects of a
-     * certain type are not be passed to the client, but a corresponding data
-     * object type is to be used. The passed in converter object is called for
-     * each entity contained in the source collection; the resulting data object
-     * is added to the list with the results.
-     *
-     * @param <E> the type of entity objects to be processed
-     * @param <D> the type of data objects to be returned
-     * @param src the list with the source entity objects
-     * @param converter the converter which performs the conversion
-     * @return the list with the converted objects
-     */
-    private static <E, D> List<D> convertResults(Collection<? extends E> src,
-            EntityConverter<E, D> converter)
-    {
-        List<D> results = new ArrayList<D>(src.size());
-
-        for (E e : src)
-        {
-            results.add(converter.convert(e));
-        }
-
-        return results;
     }
 
     /**

@@ -2,7 +2,6 @@ package de.oliver_heger.mediastore.server;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.TreeSet;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityNotFoundException;
@@ -10,6 +9,7 @@ import javax.persistence.EntityNotFoundException;
 import com.google.appengine.api.datastore.KeyFactory;
 
 import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
+import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.AbstractSynonym;
@@ -152,7 +152,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
         ArtistEntityConverter.INSTANCE.convert(e, info);
-        info.setSynonyms(transformSynonyms(e.getSynonyms()));
+        info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
         return info;
     }
 
@@ -292,7 +292,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
 
         SongDetailInfo info = new SongDetailInfo();
         converter.convert(song, info);
-        info.setSynonyms(transformSynonyms(song.getSynonyms()));
+        info.setSynonyms(ConvertUtils.extractSynonymNames(song.getSynonyms()));
 
         return info;
     }
@@ -393,25 +393,5 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         }
 
         return entity;
-    }
-
-    /**
-     * Helper method for transforming a set with synonym entities to a set of
-     * strings (with the synonym names).
-     *
-     * @param syns the set with entities to be transformed
-     * @return the resulting set with strings
-     */
-    private static Set<String> transformSynonyms(
-            Collection<? extends AbstractSynonym> syns)
-    {
-        Set<String> result = new TreeSet<String>();
-
-        for (AbstractSynonym as : syns)
-        {
-            result.add(as.getName());
-        }
-
-        return result;
     }
 }
