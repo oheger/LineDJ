@@ -56,10 +56,6 @@ public final class Finders
     private static final String ALBUM_QUERY_SUFFIX = " from Song s "
             + "where s.albumID = :" + PARAM_ALBUM;
 
-    /** The query string of the query for finding the songs of an artist. */
-    private static final String QUERY_FIND_BY_ARTIST_DEF = "select s"
-            + ARTIST_QUERY_SUFFIX;
-
     /** The query string of the query for finding the songs of an album. */
     private static final String QUERY_FIND_BY_ALBUM_DEF = "select s"
             + ALBUM_QUERY_SUFFIX;
@@ -101,14 +97,10 @@ public final class Finders
      * @return a list with the songs of this artist
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Song> findSongsByArtist(EntityManager em, Artist art)
+    public static List<SongEntity> findSongsByArtist(EntityManager em,
+            ArtistEntity art)
     {
-        Long artID = art.getId();
-        @SuppressWarnings("unchecked")
-        List<Song> songs =
-                em.createQuery(QUERY_FIND_BY_ARTIST_DEF)
-                        .setParameter(PARAM_ARTIST, artID).getResultList();
-        return songs;
+        return SongEntity.findByArtist(em, art);
     }
 
     /**

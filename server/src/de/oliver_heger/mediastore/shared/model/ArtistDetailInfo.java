@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -25,6 +26,9 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
     /** A collection with the synonyms defined for this artist. */
     private Set<String> synonyms;
 
+    /** A list with info objects for the songs associated with this artist. */
+    private List<SongInfo> songs;
+
     /**
      * Returns a collection with the synonyms of this artist.
      *
@@ -43,5 +47,27 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
     public void setSynonyms(Set<String> synonyms)
     {
         this.synonyms = synonyms;
+    }
+
+    /**
+     * Returns a list with {@link SongInfo} objects for the songs associated
+     * with this artist.
+     *
+     * @return a list with associated song info objects
+     */
+    public List<SongInfo> getSongs()
+    {
+        return songs;
+    }
+
+    /**
+     * Sets a list with {@link SongInfo} objects for the songs associated with
+     * this artist.
+     *
+     * @param songs the list with associated song info objects
+     */
+    public void setSongs(List<SongInfo> songs)
+    {
+        this.songs = songs;
     }
 }

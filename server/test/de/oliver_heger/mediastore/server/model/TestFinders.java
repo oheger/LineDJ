@@ -49,16 +49,16 @@ public class TestFinders
      * Tries to search for the songs of an artist without an entity manager.
      */
     @Test(expected = NullPointerException.class)
-    public void testFindByArtistNoEM()
+    public void testFindSongsByArtistNoEM()
     {
-        Finders.findSongsByArtist(null, new Artist());
+        Finders.findSongsByArtist(null, new ArtistEntity());
     }
 
     /**
      * Tries to search for the songs of an artist without providing the artist.
      */
     @Test
-    public void testFindByArtistNoArtist()
+    public void testFindSongsByArtistNoArtist()
     {
         EntityManager em = EasyMock.createMock(EntityManager.class);
         EasyMock.replay(em);

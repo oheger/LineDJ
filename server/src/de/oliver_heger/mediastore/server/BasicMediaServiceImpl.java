@@ -1,6 +1,8 @@
 package de.oliver_heger.mediastore.server;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import javax.persistence.EntityManager;
@@ -12,15 +14,16 @@ import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
-import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
+import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
+import de.oliver_heger.mediastore.shared.model.SongInfo;
 
 /**
  * <p>
@@ -63,7 +66,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                     protected ArtistDetailInfo performOperation(EntityManager em)
                     {
                         ArtistEntity e = findAndCheckArtist(em, artistID);
-                        return createArtistDetailInfo(e);
+                        return createArtistDetailInfo(em, e);
                     }
                 };
         return templ.execute();
@@ -145,15 +148,35 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     /**
      * Creates a detail info object for an artist entity.
      *
+     * @param em the entity manager
      * @param e the artist entity
      * @return the detail info object
      */
-    private ArtistDetailInfo createArtistDetailInfo(ArtistEntity e)
+    private ArtistDetailInfo createArtistDetailInfo(EntityManager em,
+            ArtistEntity e)
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
         ArtistEntityConverter.INSTANCE.convert(e, info);
         info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
+        info.setSongs(fetchSongsForArtist(em, e));
+
         return info;
+    }
+
+    /**
+     * Obtains a list with {@link SongInfo} objects for the songs associated
+     * with the given artist entity.
+     *
+     * @param em the entity manager
+     * @param e the artist entity
+     * @return a list with the songs of this artist
+     */
+    private List<SongInfo> fetchSongsForArtist(EntityManager em, ArtistEntity e)
+    {
+        List<SongEntity> songs = Finders.findSongsByArtist(em, e);
+        SongEntityConverter conv = new SongEntityConverter();
+        conv.initResolvedArtists(Collections.singleton(e));
+        return ConvertUtils.convertEntities(songs, conv);
     }
 
     /**

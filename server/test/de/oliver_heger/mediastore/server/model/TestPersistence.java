@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.server.db;
+package de.oliver_heger.mediastore.server.model;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -17,7 +17,9 @@ import org.junit.Test;
 
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.Finders;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.Album;
 import de.oliver_heger.mediastore.shared.model.Artist;
 import de.oliver_heger.mediastore.shared.model.Song;
@@ -81,6 +83,23 @@ public class TestPersistence
     }
 
     /**
+     * Creates a test song entity with the given index.
+     *
+     * @param idx the index
+     * @return the test song entity
+     */
+    private static SongEntity createTestSongEntity(int idx)
+    {
+        SongEntity song = new SongEntity();
+        song.setName(SONG_NAME + idx);
+        song.setDuration(20 * 60 * 1000L + idx);
+        song.setTrackNo(idx);
+        song.setInceptionYear(1973 + idx);
+        song.setUser(PersistenceTestHelper.getTestUser());
+        return song;
+    }
+
+    /**
      * Helper method for testing songs retrieved from the database.
      *
      * @param songs the collection with test songs
@@ -90,6 +109,24 @@ public class TestPersistence
         assertEquals("Wrong number of songs", SONG_COUNT, songs.size());
         Set<Integer> tracks = new HashSet<Integer>();
         for (Song s : songs)
+        {
+            int i = s.getTrackNo();
+            assertTrue("Invalid track: " + i, i >= 0 && i < SONG_COUNT);
+            assertTrue("Duplicate ID: " + i, tracks.add(i));
+            assertEquals("Wrong name", SONG_NAME + i, s.getName());
+        }
+    }
+
+    /**
+     * Helper method for testing songs retrieved from the database.
+     *
+     * @param songs the collection with test songs
+     */
+    private static void checkSongEntities(List<SongEntity> songs)
+    {
+        assertEquals("Wrong number of songs", SONG_COUNT, songs.size());
+        Set<Integer> tracks = new HashSet<Integer>();
+        for (SongEntity s : songs)
         {
             int i = s.getTrackNo();
             assertTrue("Invalid track: " + i, i >= 0 && i < SONG_COUNT);
@@ -162,19 +199,19 @@ public class TestPersistence
     @Test
     public void testPersistArtistAndSongs()
     {
-        Artist a = new Artist();
+        ArtistEntity a = new ArtistEntity();
         a.setName("Mike Oldfield");
-        a.setUserID(PersistenceTestHelper.USER);
+        a.setUser(PersistenceTestHelper.getTestUser());
         persist(a);
         for (int i = 0; i < SONG_COUNT; i++)
         {
-            Song song = createTestSong(i);
+            SongEntity song = createTestSongEntity(i);
             song.setArtistID(a.getId());
             persist(song);
         }
         helper.closeEM();
-        List<Song> songs = Finders.findSongsByArtist(helper.getEM(), a);
-        checkSongs(songs);
+        List<SongEntity> songs = Finders.findSongsByArtist(helper.getEM(), a);
+        checkSongEntities(songs);
     }
 
     /**
