@@ -24,6 +24,7 @@ import org.junit.Test;
 import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.convert.EntityConverter;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
@@ -573,7 +574,7 @@ public class TestMediaSearchServiceImpl
         private SearchFilter<?> mockFilter;
 
         /** A mock search converter. */
-        private SearchConverter<?, ?> mockConverter;
+        private EntityConverter<?, ?> mockConverter;
 
         /** A mock search result. */
         @SuppressWarnings("rawtypes")
@@ -600,7 +601,7 @@ public class TestMediaSearchServiceImpl
                 SearchIterator sit)
         {
             mockFilter = EasyMock.createMock(SearchFilter.class);
-            mockConverter = EasyMock.createMock(SearchConverter.class);
+            mockConverter = EasyMock.createMock(EntityConverter.class);
             expIterator = sit;
             expParameters = params;
             mockSearchResult = EasyMock.createMock(SearchResult.class);
@@ -674,9 +675,9 @@ public class TestMediaSearchServiceImpl
          */
         @SuppressWarnings("unchecked")
         @Override
-        SearchConverter<SongEntity, SongInfo> createSongSearchConverter()
+        EntityConverter<SongEntity, SongInfo> createSongSearchConverter()
         {
-            return (SearchConverter<SongEntity, SongInfo>) ((mockConverter != null) ? mockConverter
+            return (EntityConverter<SongEntity, SongInfo>) ((mockConverter != null) ? mockConverter
                     : super.createSongSearchConverter());
         }
 
@@ -687,7 +688,7 @@ public class TestMediaSearchServiceImpl
         @Override
         <E, D> SearchResult<D> executeChunkSearch(MediaSearchParameters params,
                 SearchIterator searchIterator, SearchFilter<E> filter,
-                SearchConverter<E, D> converter, String queryStr)
+                EntityConverter<E, D> converter, String queryStr)
         {
             if (mockSearchResult != null)
             {

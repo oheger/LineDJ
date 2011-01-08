@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.server.search;
+package de.oliver_heger.mediastore.server.convert;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -16,7 +16,7 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
 
 /**
  * <p>
- * A specialized {@link SearchConverter} implementation that deals with song
+ * A specialized {@link EntityConverter} implementation that deals with song
  * objects.
  * </p>
  * <p>
@@ -27,8 +27,8 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class SongSearchConverter implements
-        SearchConverter<SongEntity, SongInfo>, EntityManagerSupport
+public class SongEntityConverter implements
+        EntityConverter<SongEntity, SongInfo>, EntityManagerSupport
 {
     /** A map with the already resolved artist entities. */
     private Map<Long, ArtistEntity> artistEntities;

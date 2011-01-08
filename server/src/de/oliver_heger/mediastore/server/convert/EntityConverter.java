@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.server.search;
+package de.oliver_heger.mediastore.server.convert;
 
 /**
  * <p>
@@ -19,7 +19,7 @@ package de.oliver_heger.mediastore.server.search;
  * @param <E> the type of the entity objects used as input for this converter
  * @param <D> the type of the data objects used as output for this converter
  */
-public interface SearchConverter<E, D>
+public interface EntityConverter<E, D>
 {
     /**
      * Converts a source entity object to a target data object.

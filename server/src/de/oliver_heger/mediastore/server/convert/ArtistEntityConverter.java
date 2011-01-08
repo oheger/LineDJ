@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.server.search;
+package de.oliver_heger.mediastore.server.convert;
 
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
@@ -6,7 +6,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 
 /**
  * <p>
- * A specialized implementation of the {@link SearchConverter} interface for
+ * A specialized implementation of the {@link EntityConverter} interface for
  * artists.
  * </p>
  * <p>
@@ -20,8 +20,8 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public enum ArtistSearchConverter implements
-        SearchConverter<ArtistEntity, ArtistInfo>
+public enum ArtistEntityConverter implements
+        EntityConverter<ArtistEntity, ArtistInfo>
 {
     /** The single instance of this class. */
     INSTANCE;

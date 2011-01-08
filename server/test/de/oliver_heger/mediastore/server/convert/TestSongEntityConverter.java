@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.server.search;
+package de.oliver_heger.mediastore.server.convert;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -18,6 +18,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -29,7 +30,7 @@ import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestSongSearchConverter
+public class TestSongEntityConverter
 {
     /** Constant for an ID of a referenced entity. */
     private static final Long REF_ID = 20110103204622L;
@@ -42,14 +43,14 @@ public class TestSongSearchConverter
     private Key key;
 
     /** The test converter. */
-    private SongSearchConverter converter;
+    private SongEntityConverter converter;
 
     @Before
     public void setUp() throws Exception
     {
         helper.setUp();
         key = KeyFactory.createKey("testKey", 20110104103228L);
-        converter = new SongSearchConverter();
+        converter = new SongEntityConverter();
     }
 
     @After

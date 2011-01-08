@@ -14,6 +14,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.Query;
 
 import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
+import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
+import de.oliver_heger.mediastore.server.convert.EntityConverter;
+import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.Finders;
@@ -169,7 +172,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             SearchIteratorImpl sit = new SearchIteratorImpl();
             List<SongEntity> songs =
                     executeFullSearch(params, sit, QUERY_SONGS);
-            SongSearchConverter conv =
+            SongEntityConverter conv =
                     createAndInitializeSongSearchConverter(songs);
             return new SearchResultImpl<SongInfo>(convertResults(songs, conv),
                     sit, params);
@@ -264,9 +267,9 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      *
      * @return the converter for artists
      */
-    ArtistSearchConverter createArtistSearchConverter()
+    ArtistEntityConverter createArtistSearchConverter()
     {
-        return ArtistSearchConverter.INSTANCE;
+        return ArtistEntityConverter.INSTANCE;
     }
 
     /**
@@ -285,9 +288,9 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      *
      * @return the converter for songs
      */
-    SearchConverter<SongEntity, SongInfo> createSongSearchConverter()
+    EntityConverter<SongEntity, SongInfo> createSongSearchConverter()
     {
-        return new SongSearchConverter();
+        return new SongEntityConverter();
     }
 
     /**
@@ -362,7 +365,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     <E, D> SearchResult<D> executeChunkSearch(
             final MediaSearchParameters params,
             final SearchIterator searchIterator, final SearchFilter<E> filter,
-            final SearchConverter<E, D> converter, final String queryStr)
+            final EntityConverter<E, D> converter, final String queryStr)
     {
         JPATemplate<SearchResult<D>> templ =
                 new JPATemplate<SearchResult<D>>(false)
@@ -467,11 +470,11 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      * @param songs the list with the songs to be converted
      * @return an initialized converter for song entities
      */
-    private SongSearchConverter createAndInitializeSongSearchConverter(
+    private SongEntityConverter createAndInitializeSongSearchConverter(
             Collection<? extends SongEntity> songs)
     {
-        SongSearchConverter conv =
-                (SongSearchConverter) createSongSearchConverter();
+        SongEntityConverter conv =
+                (SongEntityConverter) createSongSearchConverter();
         conv.initResolvedArtists(fetchReferencedArtists(songs));
         return conv;
     }
@@ -542,7 +545,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      * @return the list with the converted objects
      */
     private static <E, D> List<D> convertResults(Collection<? extends E> src,
-            SearchConverter<E, D> converter)
+            EntityConverter<E, D> converter)
     {
         List<D> results = new ArrayList<D>(src.size());
 
