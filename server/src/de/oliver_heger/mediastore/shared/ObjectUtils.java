@@ -1,5 +1,9 @@
 package de.oliver_heger.mediastore.shared;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
 
 /**
  * <p>
@@ -146,5 +150,41 @@ public final class ObjectUtils
             buf.append(SPACE);
             buf.append(name).append(VALUE_SEPARATOR).append(value);
         }
+    }
+
+    /**
+     * Returns a list which is guaranteed to be not <b>null</b>. If the
+     * specified source list is defined, it is returned directly. Otherwise, an
+     * empty list is returned.
+     *
+     * @param <E> the type of the list
+     * @param src the source list
+     * @return a non <b>null</b> list
+     */
+    public static <E> List<E> nonNullList(List<E> src)
+    {
+        if (src == null)
+        {
+            return Collections.emptyList();
+        }
+        return src;
+    }
+
+    /**
+     * Returns a set which is guaranteed to be not <b>null</b>. If the specified
+     * source set is defined, it is returned directly. Otherwise, an empty set
+     * is returned.
+     *
+     * @param <E> the type of the set
+     * @param src the source set
+     * @return a non <b>null</b> set
+     */
+    public static <E> Set<E> nonNullSet(Set<E> src)
+    {
+        if (src == null)
+        {
+            return Collections.emptySet();
+        }
+        return src;
     }
 }
