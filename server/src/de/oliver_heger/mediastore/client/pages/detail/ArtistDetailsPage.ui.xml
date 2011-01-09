@@ -67,6 +67,14 @@
           </tr>
           </table>
         </g:HTMLPanel>
+
+        <!-- Panels with the songs and albums associated with the artist -->
+        <g:HorizontalPanel>
+          <g:DisclosurePanel ui:field="pnlSongs" styleName="{style.attribute}">
+            <g:header></g:header>
+            <g:FlexTable ui:field="tabSongs"/>
+          </g:DisclosurePanel>
+        </g:HorizontalPanel>
       </g:VerticalPanel>
     </g:ScrollPanel>
     </g:center>

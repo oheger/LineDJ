@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.user.client.ui.Hyperlink;
 
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
@@ -20,6 +21,7 @@ import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
+import de.oliver_heger.mediastore.shared.model.SongInfo;
 
 /**
  * Test class for {@code ArtistDetailsPage}. This class also tests functionality
@@ -65,6 +67,7 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertNotNull("No name span", page.spanArtistName);
         assertNotNull("No creation date span", page.spanCreationDate);
         assertNotNull("No synonyms span", page.spanSynonyms);
+        assertNotNull("No songs table", page.tabSongs);
         checkBaseFields(page);
     }
 
@@ -149,7 +152,8 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         page.pnlError.displayError(new Exception());
         page.progressIndicator.setVisible(true);
         page.btnEditSynonyms.setEnabled(false);
-        AsyncCallback<ArtistDetailInfo> callback = page.getFetchDetailsCallback();
+        AsyncCallback<ArtistDetailInfo> callback =
+                page.getFetchDetailsCallback();
         ArtistDetailInfo info = createArtistInfo();
         callback.onSuccess(info);
         assertFalse("Got a progress indicator",
@@ -165,6 +169,9 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertSame("Wrong current object", info, page.getCurrentEntity());
         assertTrue("Edit synonyms button not enabled",
                 page.btnEditSynonyms.isEnabled());
+        assertEquals("Got songs", 1, page.tabSongs.getRowCount());
+        assertEquals("Wrong song count", "Songs (0)", page.pnlSongs
+                .getHeaderTextAccessor().getText());
     }
 
     /**
@@ -175,7 +182,8 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         ArtistDetailsPage page = new ArtistDetailsPage();
         Throwable ex = new Exception("Test exception");
         page.progressIndicator.setVisible(true);
-        AsyncCallback<ArtistDetailInfo> callback = page.getFetchDetailsCallback();
+        AsyncCallback<ArtistDetailInfo> callback =
+                page.getFetchDetailsCallback();
         callback.onFailure(ex);
         assertTrue("Not in error state", page.pnlError.isInErrorState());
         assertEquals("Wrong exception", ex, page.pnlError.getError());
@@ -350,5 +358,50 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         AsyncCallback<Void> callback = page.getUpdateSynonymsCallback();
         callback.onSuccess(null);
         assertEquals("Refresh not called", 1, callList.size());
+    }
+
+    /**
+     * Tests whether songs can be displayed.
+     */
+    public void testFillPageWithSongs()
+    {
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        MockPageManager pm = initializePage(page);
+        final int songCount = 4;
+        final String songTitle = "Mambo No ";
+        final int duration = 3 * 60;
+        List<SongInfo> songInfos = new ArrayList<SongInfo>(songCount);
+        for (int i = 0; i < songCount; i++)
+        {
+            SongInfo si = new SongInfo();
+            si.setSongID(String.valueOf(i));
+            si.setName(songTitle + i);
+            si.setDuration(Long.valueOf((duration + i) * 1000L));
+            si.setPlayCount(i);
+            songInfos.add(si);
+            pm.expectCreatePageSpecification(Pages.SONGDETAILS, null)
+                    .withParameter(si.getSongID()).toToken();
+        }
+        ArtistDetailInfo info = new ArtistDetailInfo();
+        info.setSongs(songInfos);
+        page.fillPage(info);
+        pm.verify();
+        assertEquals("Wrong song count", "Songs (" + songCount + ")",
+                page.pnlSongs.getHeaderTextAccessor().getText());
+        assertEquals("Wrong number of song rows", songCount + 1,
+                page.tabSongs.getRowCount());
+        for (int i = 0; i < songCount; i++)
+        {
+            SongInfo si = songInfos.get(i);
+            Hyperlink link = (Hyperlink) page.tabSongs.getWidget(i + 1, 0);
+            assertEquals("Wrong target",
+                    MockPageManager.defaultToken(Pages.SONGDETAILS),
+                    link.getTargetHistoryToken());
+            assertEquals("Wrong link text", si.getName(), link.getText());
+            assertEquals("Wrong duration", si.getFormattedDuration(),
+                    page.tabSongs.getText(i + 1, 1));
+            assertEquals("Wrong play count", String.valueOf(i),
+                    page.tabSongs.getText(i + 1, 2));
+        }
     }
 }

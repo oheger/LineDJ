@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -57,6 +58,10 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
      */
     public List<SongInfo> getSongs()
     {
+        if (songs == null)
+        {
+            return Collections.emptyList();
+        }
         return songs;
     }
 
