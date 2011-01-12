@@ -14,6 +14,7 @@ import java.util.Set;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Hyperlink;
 
+import de.oliver_heger.mediastore.client.SortableTableHeader;
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
@@ -67,7 +68,6 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertNotNull("No name span", page.spanArtistName);
         assertNotNull("No creation date span", page.spanCreationDate);
         assertNotNull("No synonyms span", page.spanSynonyms);
-        assertNotNull("No songs table", page.tabSongs);
         checkBaseFields(page);
     }
 
@@ -358,6 +358,29 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         AsyncCallback<Void> callback = page.getUpdateSynonymsCallback();
         callback.onSuccess(null);
         assertEquals("Refresh not called", 1, callList.size());
+    }
+
+    /**
+     * Tests whether the table for the songs is correctly initialized.
+     */
+    public void testTabSongsColumns()
+    {
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        assertNotNull("No songs table", page.tabSongs);
+        final String[] props = {
+                "songName", "songDuration", "songPlayCount"
+        };
+        assertEquals("Wrong row count", 1, page.tabSongs.getRowCount());
+        assertEquals("Wrong number of columns", props.length,
+                page.tabSongs.getCellCount(0));
+        for (int i = 0; i < page.tabSongs.getCellCount(0); i++)
+        {
+            SortableTableHeader header =
+                    (SortableTableHeader) page.tabSongs.getWidget(0, i);
+            assertEquals("Wrong property", props[i], header.getPropertyName());
+            assertSame("Listener not registered", page,
+                    header.getTableHeaderListener());
+        }
     }
 
     /**

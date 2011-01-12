@@ -5,10 +5,12 @@ import com.google.gwt.dom.client.SpanElement;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.DisclosurePanel;
-import com.google.gwt.user.client.ui.FlexTable;
+import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.Hyperlink;
 import com.google.gwt.user.client.ui.Widget;
 
+import de.oliver_heger.mediastore.client.SortableTableHeader;
+import de.oliver_heger.mediastore.client.SortableTableHeader.TableHeaderListener;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -29,6 +31,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @version $Id: $
  */
 public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
+        implements TableHeaderListener
 {
     /** Constant for the header for the song panel. */
     private static final String HEADER_SONG_PANEL = "Songs (";
@@ -58,10 +61,13 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 
     /** The table which displays the songs of the artist. */
     @UiField
-    FlexTable tabSongs;
+    Grid tabSongs;
 
     /** The entity handler for fetching artist details. */
     private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
+
+    /** An array with the table header components for the songs table. */
+    private final SortableTableHeader[] songTableHeaders;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -70,6 +76,15 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     {
         initWidget(uiBinder.createAndBindUi(this));
         entityHandler = new ArtistDetailsEntityHandler();
+
+        songTableHeaders = initSongTableHeaders();
+    }
+
+    @Override
+    public void onSortableTableHeaderClick(SortableTableHeader header)
+    {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     /**
@@ -132,15 +147,13 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
      */
     protected void fillSongsTable(ArtistDetailInfo data)
     {
+        int songsCount = data.getSongs().size();
         StringBuilder buf = new StringBuilder();
         buf.append(HEADER_SONG_PANEL);
-        buf.append(data.getSongs().size()).append(CLOSING_BRACKET);
+        buf.append(songsCount).append(CLOSING_BRACKET);
         pnlSongs.getHeaderTextAccessor().setText(buf.toString());
-        tabSongs.removeAllRows();
-        tabSongs.setText(0, 0, "Name");
-        tabSongs.setText(0, 1, "Duration");
-        tabSongs.setText(0, 2, "Played");
 
+        tabSongs.resizeRows(songsCount + 1);
         int row = 1;
         for (SongInfo si : data.getSongs())
         {
@@ -153,6 +166,24 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
             tabSongs.setText(row, 2, String.valueOf(si.getPlayCount()));
             row++;
         }
+    }
+
+    /**
+     * Extracts the table header components from the songs table.
+     *
+     * @return an array with the header components of the songs table
+     */
+    private SortableTableHeader[] initSongTableHeaders()
+    {
+        SortableTableHeader[] headers =
+                new SortableTableHeader[tabSongs.getCellCount(0)];
+        for (int i = 0; i < headers.length; i++)
+        {
+            headers[i] = (SortableTableHeader) tabSongs.getWidget(0, i);
+            headers[i].setTableHeaderListener(this);
+        }
+
+        return headers;
     }
 
     /**

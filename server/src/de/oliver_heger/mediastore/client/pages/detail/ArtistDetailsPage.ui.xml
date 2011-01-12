@@ -72,7 +72,19 @@
         <g:HorizontalPanel>
           <g:DisclosurePanel ui:field="pnlSongs" styleName="{style.attribute}">
             <g:header></g:header>
-            <g:FlexTable ui:field="tabSongs"/>
+            <g:Grid ui:field="tabSongs">
+              <g:row>
+                <g:customCell>
+                  <rms:SortableTableHeader propertyName="songName">Name</rms:SortableTableHeader>
+                </g:customCell>
+                <g:customCell>
+                  <rms:SortableTableHeader propertyName="songDuration">Duration</rms:SortableTableHeader>
+                </g:customCell>
+                <g:customCell>
+                  <rms:SortableTableHeader propertyName="songPlayCount">Played</rms:SortableTableHeader>
+                </g:customCell>
+              </g:row>
+            </g:Grid>
           </g:DisclosurePanel>
         </g:HorizontalPanel>
       </g:VerticalPanel>
