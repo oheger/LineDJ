@@ -187,4 +187,30 @@ public final class ObjectUtils
         }
         return src;
     }
+
+    /**
+     * Performs a <b>null</b>-safe comparison of the given {@code Comparable}
+     * objects. A <b>null</b> value is ordered before a non <b>null</b> value.
+     *
+     * @param <T> the type of objects to be compared
+     * @param obj1 the first object
+     * @param obj2 the second object
+     * @return the result of the comparison
+     */
+    public static <T extends Comparable<T>> int compareTo(T obj1, T obj2)
+    {
+        if (obj1 == null && obj2 == null)
+        {
+            return 0;
+        }
+        if (obj1 == null)
+        {
+            return -1;
+        }
+        if (obj2 == null)
+        {
+            return 1;
+        }
+        return obj1.compareTo(obj2);
+    }
 }
