@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 
 import org.easymock.EasyMock;
@@ -97,7 +98,7 @@ public class TestChainComparator
      * Tests whether objects can be compared if there are no differences.
      */
     @Test
-    public void testCompareNoDifference()
+    public void testCompareToNoDifference()
     {
         Comparator<Object> c1 = comparatorMock();
         Comparator<Object> c2 = comparatorMock();
@@ -116,5 +117,19 @@ public class TestChainComparator
         ChainComparator<Object> comp = new ChainComparator<Object>(children);
         assertEquals("Wrong result", 0, comp.compare(o1, o2));
         EasyMock.verify(c1, c2, c3);
+    }
+
+    /**
+     * Tests the optimization if the objects are actually the same.
+     */
+    @Test
+    public void testCompareToSameObjects()
+    {
+        Comparator<Object> c = comparatorMock();
+        EasyMock.replay(c);
+        Collection<Comparator<Object>> children = Collections.singleton(c);
+        ChainComparator<Object> comp = new ChainComparator<Object>(children);
+        assertEquals("Wrong result", 0, comp.compare(this, this));
+        EasyMock.verify(c);
     }
 }

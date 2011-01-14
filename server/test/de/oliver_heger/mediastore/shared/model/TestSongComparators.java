@@ -94,4 +94,62 @@ public class TestSongComparators
         checkComparator(info1, info2,
                 SongComparators.PLAYCOUNT_PROPERTY_COMPARATOR);
     }
+
+    /**
+     * Tests the comparator for durations if the durations are different.
+     */
+    @Test
+    public void testDurationComparatorDifferentDurations()
+    {
+        SongInfo info1 = new SongInfo();
+        SongInfo info2 = new SongInfo();
+        info1.setDuration(20110114211950L);
+        checkComparator(info2, info1, SongComparators.DURATION_COMPARATOR);
+        info2.setDuration(info1.getDuration() + 1);
+        checkComparator(info1, info2, SongComparators.DURATION_COMPARATOR);
+    }
+
+    /**
+     * Tests the comparator for durations if the durations are equal and the
+     * song names have to be checked.
+     */
+    public void testDurationComparatorSameDurations()
+    {
+        SongInfo info1 = new SongInfo();
+        SongInfo info2 = new SongInfo();
+        info1.setDuration(20110114213500L);
+        info2.setDuration(info1.getDuration());
+        info1.setName("Songa");
+        info2.setName("SongZ");
+        checkComparator(info1, info2, SongComparators.DURATION_COMPARATOR);
+    }
+
+    /**
+     * Tests the comparator for playCount if the values are different.
+     */
+    @Test
+    public void testPlaycountComparatorDifferentCounts()
+    {
+        SongInfo info1 = new SongInfo();
+        SongInfo info2 = new SongInfo();
+        info1.setPlayCount(1);
+        info2.setPlayCount(2);
+        checkComparator(info1, info2, SongComparators.PLAYCOUNT_COMPARATOR);
+    }
+
+    /**
+     * Tests the comparator for playCount if the values are equal and the song
+     * names have to be checked.
+     */
+    @Test
+    public void testPlaycountComparatorSameCounts()
+    {
+        SongInfo info1 = new SongInfo();
+        SongInfo info2 = new SongInfo();
+        info1.setPlayCount(10);
+        info2.setPlayCount(info1.getPlayCount());
+        info1.setName("All of my Love");
+        info2.setName("zombie");
+        checkComparator(info1, info2, SongComparators.PLAYCOUNT_COMPARATOR);
+    }
 }

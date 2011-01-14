@@ -71,11 +71,14 @@ public class ChainComparator<T> implements Comparator<T>
     {
         int result = 0;
 
-        for (Iterator<Comparator<T>> it = childComparators.iterator(); it
-                .hasNext() && result == 0;)
+        if (o1 != o2)
         {
-            Comparator<T> comp = it.next();
-            result = comp.compare(o1, o2);
+            for (Iterator<Comparator<T>> it = childComparators.iterator(); it
+                    .hasNext() && result == 0;)
+            {
+                Comparator<T> comp = it.next();
+                result = comp.compare(o1, o2);
+            }
         }
 
         return result;
