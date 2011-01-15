@@ -34,6 +34,8 @@ public class TestSortableTableHeader extends GWTTestCase
                 SortableTableHeader.SortDirection.SORT_NONE,
                 header.getSortDirection());
         assertNull("Got a property", header.getPropertyName());
+        assertFalse("Wrong default descending", header.isDefaultDescending());
+        assertFalse("Wrong initially sorted", header.isInitiallySorted());
         assertNull("Got a listener", header.getTableHeaderListener());
     }
 
@@ -144,6 +146,64 @@ public class TestSortableTableHeader extends GWTTestCase
     public void testOnLinkClick3Times()
     {
         checkOnLinkClick(3, SortDirection.SORT_ASCENDING);
+    }
+
+    /**
+     * Tests whether the default descending flag is taken into account when
+     * clicking the link.
+     */
+    public void testOnLinkClickDefaultDescending()
+    {
+        SortableTableHeader header = new SortableTableHeader();
+        header.setDefaultDescending(true);
+        header.onLinkClick(null);
+        assertEquals("Wrong direction 1",
+                SortableTableHeader.SortDirection.SORT_DESCENDING,
+                header.getSortDirection());
+        header.onLinkClick(null);
+        assertEquals("Wrong direction 2",
+                SortableTableHeader.SortDirection.SORT_ASCENDING,
+                header.getSortDirection());
+    }
+
+    /**
+     * Tests whether an initial order can be specified.
+     */
+    public void testApplyInitialOrder()
+    {
+        SortableTableHeader header = new SortableTableHeader();
+        header.setDefaultDescending(true);
+        header.setInitiallySorted(true);
+        assertTrue("Wrong result", header.applyInitialOrder());
+        assertEquals("Wrong sort order",
+                SortableTableHeader.SortDirection.SORT_DESCENDING,
+                header.getSortDirection());
+    }
+
+    /**
+     * Tests applyInitialOrder() if the header is not sorted initially.
+     */
+    public void testApplyInitialOrderNoInitialSort()
+    {
+        SortableTableHeader header = new SortableTableHeader();
+        assertFalse("Applied default order", header.applyInitialOrder());
+        assertEquals("Wrong sort order",
+                SortableTableHeader.SortDirection.SORT_NONE,
+                header.getSortDirection());
+    }
+
+    /**
+     * Tests applyInitialOrder() if a sort direction has already been set.
+     */
+    public void testApplyInitialOrderSortDirection()
+    {
+        SortableTableHeader header = new SortableTableHeader();
+        header.setInitiallySorted(true);
+        header.setSortDirection(SortDirection.SORT_ASCENDING);
+        assertFalse("Applied default order", header.applyInitialOrder());
+        assertEquals("Wrong sort order",
+                SortableTableHeader.SortDirection.SORT_ASCENDING,
+                header.getSortDirection());
     }
 
     /**

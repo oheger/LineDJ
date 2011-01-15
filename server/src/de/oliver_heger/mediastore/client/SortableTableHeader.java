@@ -57,6 +57,12 @@ public class SortableTableHeader extends Composite implements HasText
     /** The listener registered at this header component. */
     private TableHeaderListener tableHeaderListener;
 
+    /** A flag whether the sort order is descending by default. */
+    private boolean defaultDescending;
+
+    /** A flag whether the represented column should be sorted initially. */
+    private boolean initiallySorted;
+
     /**
      * Creates a new instance of {@code SortableTableHeader}.
      */
@@ -153,6 +159,75 @@ public class SortableTableHeader extends Composite implements HasText
     }
 
     /**
+     * Returns a flag whether the sort is descending by default.
+     *
+     * @return the descending by default flag
+     */
+    public boolean isDefaultDescending()
+    {
+        return defaultDescending;
+    }
+
+    /**
+     * Sets a flag whether the sort order is descending by default. Normally,
+     * when a header with the sort order {@link SortDirection#SORT_NONE} is
+     * clicked it changes to {@link SortDirection#SORT_ASCENDING}. If this flag
+     * is set to <b>true</b>, it will change to
+     * {@link SortDirection#SORT_DESCENDING} instead.
+     *
+     * @param defaultDescending the descending by default flag
+     */
+    public void setDefaultDescending(boolean defaultDescending)
+    {
+        this.defaultDescending = defaultDescending;
+    }
+
+    /**
+     * Returns a flag whether the represented column should be sorted initially.
+     *
+     * @return the initially sorted flag
+     */
+    public boolean isInitiallySorted()
+    {
+        return initiallySorted;
+    }
+
+    /**
+     * Sets a flag whether the represented column should be sorted initially.
+     * This flag is evaluated when a table is filled with data for the first
+     * time. It allows determining a default sort order.
+     *
+     * @param initiallySorted the initially sorted flag
+     */
+    public void setInitiallySorted(boolean initiallySorted)
+    {
+        this.initiallySorted = initiallySorted;
+    }
+
+    /**
+     * Applies the initial order if there is one. This method evaluates the
+     * initially sorted flag. If it is set and the current sort order is
+     * {@link SortDirection#SORT_NONE}, the default sort direction is set. This
+     * makes sense when a grid is populated for the first time. The responsible
+     * component can iterate over all headers and call this method. If one
+     * column has been set as default order, the correct initialization is
+     * performed.
+     *
+     * @return a flag whether an initial order has been applied
+     */
+    public boolean applyInitialOrder()
+    {
+        if (isInitiallySorted()
+                && getSortDirection() == SortDirection.SORT_NONE)
+        {
+            setSortDirection(nextSortDirection());
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Handler method for click events on the header link. This method is called
      * when the user clicks on the table header. This causes the sort behavior
      * to be changed. A registered listener is notified.
@@ -190,7 +265,12 @@ public class SortableTableHeader extends Composite implements HasText
      */
     private SortDirection nextSortDirection()
     {
-        if (getSortDirection() == SortDirection.SORT_ASCENDING)
+        if (getSortDirection() == SortDirection.SORT_NONE)
+        {
+            return isDefaultDescending() ? SortDirection.SORT_DESCENDING
+                    : SortDirection.SORT_ASCENDING;
+        }
+        else if (getSortDirection() == SortDirection.SORT_ASCENDING)
         {
             return SortDirection.SORT_DESCENDING;
         }
