@@ -135,6 +135,35 @@ public class TestComparatorMapGridTableModel extends GWTTestCase
     }
 
     /**
+     * Tests whether a comparator can be found whose name has to be derived from
+     * the property name.
+     */
+    public void testFetchComparatorTransformName()
+    {
+        ComparatorMapGridTableModelTestImpl model =
+                new ComparatorMapGridTableModelTestImpl(new Grid(),
+                        ComparatorMapGridTableModel
+                                .comparatorMapForEnum(SongComparators.values()));
+        assertEquals("Wrong name comparator", SongComparators.NAME_COMPARATOR,
+                model.fetchComparator("name"));
+        assertEquals("Wrong play count comparator",
+                SongComparators.PLAYCOUNT_COMPARATOR,
+                model.fetchComparator("playCount"));
+    }
+
+    /**
+     * Tries to obtain a comparator for a null property.
+     */
+    public void testFetchComparatorNullProperty()
+    {
+        ComparatorMapGridTableModelTestImpl model =
+                new ComparatorMapGridTableModelTestImpl(new Grid(),
+                        ComparatorMapGridTableModel
+                                .comparatorMapForEnum(SongComparators.values()));
+        assertNull("Got a comparator", model.fetchComparator(null));
+    }
+
+    /**
      * A test implementation of the abstract class under test.
      */
     private static class ComparatorMapGridTableModelTestImpl extends
@@ -147,7 +176,7 @@ public class TestComparatorMapGridTableModel extends GWTTestCase
         }
 
         @Override
-        protected void writeCell(int row, int col, SongInfo obj)
+        protected void writeCell(int row, int col, String property, SongInfo obj)
         {
         }
     }

@@ -88,21 +88,36 @@ public class TestGridTableModel extends GWTTestCase
     }
 
     /**
-     * Tests the content of a grid.
+     * Tests the content of a grid expecting default property names.
      *
      * @param grid the grid
      * @param infos the list with songs
      */
     private static void checkGrid(Grid grid, List<SongInfo> infos)
     {
+        checkGrid(grid, infos, PROPERTIES);
+    }
+
+    /**
+     * Tests the content of a grid.
+     *
+     * @param grid the grid
+     * @param infos the list with songs
+     * @param properties the names of the properties
+     */
+    private static void checkGrid(Grid grid, List<SongInfo> infos,
+            String[] properties)
+    {
         assertEquals("Wrong row count", infos.size() + 1, grid.getRowCount());
         for (int i = 0; i < infos.size(); i++)
         {
             SongInfo song = infos.get(i);
             int row = i + 1;
-            assertEquals("Wrong name", song.getName(), grid.getText(row, 0));
+            assertEquals("Wrong name", properties[0] + song.getName(),
+                    grid.getText(row, 0));
             assertEquals("Wrong play count",
-                    String.valueOf(song.getPlayCount()), grid.getText(row, 1));
+                    properties[1] + String.valueOf(song.getPlayCount()),
+                    grid.getText(row, 1));
         }
     }
 
@@ -234,12 +249,15 @@ public class TestGridTableModel extends GWTTestCase
     public void testOnSortableTableHeaderClickNoComparator()
     {
         Grid grid = setUpGrid();
+        String[] properties = new String[PROPERTIES.length];
+        System.arraycopy(PROPERTIES, 0, properties, 0, PROPERTIES.length);
+        properties[1] = "unknown Property";
         List<SongInfo> songs = createRandomTestSongs();
-        headers[1].setPropertyName("unknown Property");
+        headers[1].setPropertyName(properties[1]);
         GridTableModelTestImpl model = new GridTableModelTestImpl(grid);
         model.initData(songs);
         model.onSortableTableHeaderClick(headers[1]);
-        checkGrid(grid, songs);
+        checkGrid(grid, songs, properties);
     }
 
     /**
@@ -261,6 +279,41 @@ public class TestGridTableModel extends GWTTestCase
     }
 
     /**
+     * Tests whether a message for an unknown property can be written.
+     */
+    public void testUnknownProperty()
+    {
+        Grid grid = new Grid(1, 1);
+        GridTableModelTestImpl model = new GridTableModelTestImpl(grid);
+        model.unknownProperty(0, 0, PROPERTIES[0]);
+        assertEquals("Wrong cell content",
+                "Unknown property: " + PROPERTIES[0], grid.getText(0, 0));
+    }
+
+    /**
+     * Tests whether the property names can be queried for the single columns.
+     */
+    public void testGetProperty()
+    {
+        GridTableModelTestImpl model = new GridTableModelTestImpl(setUpGrid());
+        for (int i = 0; i < PROPERTIES.length; i++)
+        {
+            assertEquals("Wrong property at " + i, PROPERTIES[i],
+                    model.getProperty(i));
+        }
+    }
+
+    /**
+     * Tests whether the number of columns can be queried.
+     */
+    public void testGetColumnCount()
+    {
+        GridTableModelTestImpl model = new GridTableModelTestImpl(setUpGrid());
+        assertEquals("Wrong number of columns", PROPERTIES.length,
+                model.getColumnCount());
+    }
+
+    /**
      * A test implementation of the grid table model.
      */
     private static class GridTableModelTestImpl extends
@@ -272,13 +325,12 @@ public class TestGridTableModel extends GWTTestCase
         }
 
         @Override
-        protected void writeCell(int row, int col, SongInfo obj)
+        protected void writeCell(int row, int col, String property, SongInfo obj)
         {
-            getGrid().setText(
-                    row,
-                    col,
+            String text =
                     (col == 0) ? obj.getName() : String.valueOf(obj
-                            .getPlayCount()));
+                            .getPlayCount());
+            getGrid().setText(row, col, property + text);
         }
 
         @Override

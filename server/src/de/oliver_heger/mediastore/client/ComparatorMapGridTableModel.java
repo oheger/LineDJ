@@ -30,6 +30,9 @@ import com.google.gwt.user.client.ui.Grid;
  */
 public abstract class ComparatorMapGridTableModel<T> extends GridTableModel<T>
 {
+    /** Constant for the comparator suffix. */
+    private static final String COMPARATOR_SUFFIX = "_COMPARATOR";
+
     /** The map with the comparators. */
     private final Map<String, Comparator<T>> comparators;
 
@@ -94,7 +97,9 @@ public abstract class ComparatorMapGridTableModel<T> extends GridTableModel<T>
     /**
      * Returns the comparator for the specified property. This implementation
      * just looks up the map with comparators that was passed to the
-     * constructor.
+     * constructor. If no comparator is found for the specified property name,
+     * the method checks whether there is a comparator with the property name
+     * transformed to upper case and the suffix <em>_COMPARATOR</em>.
      *
      * @param property the name of the property in question
      * @return the comparator for this property (can be <b>null</b> if the
@@ -103,6 +108,24 @@ public abstract class ComparatorMapGridTableModel<T> extends GridTableModel<T>
     @Override
     protected Comparator<T> fetchComparator(String property)
     {
-        return getComparatorMap().get(property);
+        Comparator<T> result = getComparatorMap().get(property);
+
+        if (result == null && property != null)
+        {
+            result = getComparatorMap().get(deriveComparatorName(property));
+        }
+
+        return result;
+    }
+
+    /**
+     * Tries to derive the name of a comparator from a property name.
+     *
+     * @param property the name of the property
+     * @return the corresponding comparator name
+     */
+    private static String deriveComparatorName(String property)
+    {
+        return property.toUpperCase() + COMPARATOR_SUFFIX;
     }
 }

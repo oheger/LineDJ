@@ -45,6 +45,9 @@ import de.oliver_heger.mediastore.shared.InverseComparator;
 public abstract class GridTableModel<T> implements
         SortableTableHeader.TableHeaderListener
 {
+    /** Constant for the message for an unknown property. */
+    private static final String MSG_UNKN_PROPERTY = "Unknown property: ";
+
     /** Stores the managed grid. */
     private final Grid grid;
 
@@ -83,6 +86,27 @@ public abstract class GridTableModel<T> implements
     public Grid getGrid()
     {
         return grid;
+    }
+
+    /**
+     * Returns the name of the property for the column with the given index.
+     *
+     * @param col the column index
+     * @return the name of the corresponding property
+     */
+    public String getProperty(int col)
+    {
+        return getHeaders()[col].getPropertyName();
+    }
+
+    /**
+     * Returns the number of columns of this model.
+     *
+     * @return the number of columns
+     */
+    public int getColumnCount()
+    {
+        return getHeaders().length;
     }
 
     /**
@@ -127,16 +151,6 @@ public abstract class GridTableModel<T> implements
 
         sortModelData(modelData, header);
         populateGrid();
-    }
-
-    /**
-     * Returns the number of columns of this model.
-     *
-     * @return the number of columns
-     */
-    private int getColumnCount()
-    {
-        return getHeaders().length;
     }
 
     /**
@@ -190,14 +204,33 @@ public abstract class GridTableModel<T> implements
     }
 
     /**
-     * Writes data into a cell of the underlying grid. This method is called for
-     * each cell when populating the grid.
+     * An unknown property name was passed to
+     * {@link #writeCell(int, int, String, Object)}. This method writes a
+     * corresponding message into the cell. This should make it obvious that
+     * something is wrong with the configuration of the grid.
      *
      * @param row the row index
      * @param col the column index
+     * @param property the name of the unknown property
+     */
+    protected void unknownProperty(int row, int col, String property)
+    {
+        getGrid().setText(row, col, MSG_UNKN_PROPERTY + property);
+    }
+
+    /**
+     * Writes data into a cell of the underlying grid. This method is called for
+     * each cell when populating the grid. The property name is obtained from
+     * the {@link SortableTableHeader} component of the current column. It
+     * allows a concrete implementation to identify the correct data to be
+     * written into this cell.
+     *
+     * @param row the row index
+     * @param col the column index
+     * @param property the name of the property
      * @param obj the data object for this row
      */
-    protected abstract void writeCell(int row, int col, T obj);
+    protected abstract void writeCell(int row, int col, String property, T obj);
 
     /**
      * Returns the {@code Comparator} for the specified property. This
@@ -300,7 +333,7 @@ public abstract class GridTableModel<T> implements
         {
             for (int col = 0; col < getColumnCount(); col++)
             {
-                writeCell(row, col, obj);
+                writeCell(row, col, getHeaders()[col].getPropertyName(), obj);
             }
             row++;
         }
