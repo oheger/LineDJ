@@ -65,7 +65,7 @@ public abstract class GridTableModel<T> implements
      *        not be <b>null</b>)
      * @throws NullPointerException if the {@code Grid} is <b>null</b>
      */
-    public GridTableModel(Grid wrappedGrid)
+    protected GridTableModel(Grid wrappedGrid)
     {
         if (wrappedGrid == null)
         {
