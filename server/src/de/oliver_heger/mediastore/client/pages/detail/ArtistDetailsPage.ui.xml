@@ -11,6 +11,9 @@
     	font-weight: bold;
     	font-size: larger;
     }
+    .detailGrid {
+    	border: 1px solid silver;
+    }
   </ui:style>
   <ui:with field='images'
     type='de.oliver_heger.mediastore.client.ImageResources'/>
@@ -72,16 +75,16 @@
         <g:HorizontalPanel>
           <g:DisclosurePanel ui:field="pnlSongs" styleName="{style.attribute}">
             <g:header></g:header>
-            <g:Grid ui:field="tabSongs">
+            <g:Grid ui:field="tabSongs" styleName="{style.detailGrid}">
               <g:row>
                 <g:customCell>
-                  <rms:SortableTableHeader propertyName="songName">Name</rms:SortableTableHeader>
+                  <rms:SortableTableHeader propertyName="name" initiallySorted="true">Name</rms:SortableTableHeader>
                 </g:customCell>
                 <g:customCell>
-                  <rms:SortableTableHeader propertyName="songDuration">Duration</rms:SortableTableHeader>
+                  <rms:SortableTableHeader propertyName="duration">Duration</rms:SortableTableHeader>
                 </g:customCell>
                 <g:customCell>
-                  <rms:SortableTableHeader propertyName="songPlayCount">Played</rms:SortableTableHeader>
+                  <rms:SortableTableHeader propertyName="playCount">Played</rms:SortableTableHeader>
                 </g:customCell>
               </g:row>
             </g:Grid>

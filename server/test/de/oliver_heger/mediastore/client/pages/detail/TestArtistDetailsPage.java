@@ -14,7 +14,6 @@ import java.util.Set;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Hyperlink;
 
-import de.oliver_heger.mediastore.client.SortableTableHeader;
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
@@ -149,9 +148,11 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
     public void testFetchDetailsCallbackSuccess()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
+        initializePage(page);
         page.pnlError.displayError(new Exception());
         page.progressIndicator.setVisible(true);
         page.btnEditSynonyms.setEnabled(false);
+        page.pnlSongs.setOpen(true);
         AsyncCallback<ArtistDetailInfo> callback =
                 page.getFetchDetailsCallback();
         ArtistDetailInfo info = createArtistInfo();
@@ -172,6 +173,7 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertEquals("Got songs", 1, page.tabSongs.getRowCount());
         assertEquals("Wrong song count", "Songs (0)", page.pnlSongs
                 .getHeaderTextAccessor().getText());
+        assertFalse("Songs panel is open", page.pnlSongs.isOpen());
     }
 
     /**
@@ -180,6 +182,7 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
     public void testFetchDetailsCallbackError()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
+        initializePage(page);
         Throwable ex = new Exception("Test exception");
         page.progressIndicator.setVisible(true);
         AsyncCallback<ArtistDetailInfo> callback =
@@ -361,29 +364,6 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
     }
 
     /**
-     * Tests whether the table for the songs is correctly initialized.
-     */
-    public void testTabSongsColumns()
-    {
-        ArtistDetailsPage page = new ArtistDetailsPage();
-        assertNotNull("No songs table", page.tabSongs);
-        final String[] props = {
-                "songName", "songDuration", "songPlayCount"
-        };
-        assertEquals("Wrong row count", 1, page.tabSongs.getRowCount());
-        assertEquals("Wrong number of columns", props.length,
-                page.tabSongs.getCellCount(0));
-        for (int i = 0; i < page.tabSongs.getCellCount(0); i++)
-        {
-            SortableTableHeader header =
-                    (SortableTableHeader) page.tabSongs.getWidget(0, i);
-            assertEquals("Wrong property", props[i], header.getPropertyName());
-            assertSame("Listener not registered", page,
-                    header.getTableHeaderListener());
-        }
-    }
-
-    /**
      * Tests whether songs can be displayed.
      */
     public void testFillPageWithSongs()
@@ -401,14 +381,18 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
             si.setName(songTitle + i);
             si.setDuration(Long.valueOf((duration + i) * 1000L));
             si.setPlayCount(i);
-            songInfos.add(si);
             pm.expectCreatePageSpecification(Pages.SONGDETAILS, null)
                     .withParameter(si.getSongID()).toToken();
+            songInfos.add(si);
         }
+        List<SongInfo> randomSongs = new ArrayList<SongInfo>(songInfos);
+        Collections.swap(randomSongs, 0, 2);
+        Collections.swap(randomSongs, 3, 1);
         ArtistDetailInfo info = new ArtistDetailInfo();
-        info.setSongs(songInfos);
+        info.setSongs(randomSongs);
         page.fillPage(info);
         pm.verify();
+        assertTrue("Songs panel not open", page.pnlSongs.isOpen());
         assertEquals("Wrong song count", "Songs (" + songCount + ")",
                 page.pnlSongs.getHeaderTextAccessor().getText());
         assertEquals("Wrong number of song rows", songCount + 1,
@@ -426,5 +410,21 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
             assertEquals("Wrong play count", String.valueOf(i),
                     page.tabSongs.getText(i + 1, 2));
         }
+    }
+
+    /**
+     * Tests whether the grid with the songs and its model are correctly set up.
+     */
+    public void testInitSongGridModel()
+    {
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        MockPageManager pm = initializePage(page);
+        SongGridTableModel model = page.getSongTableModel();
+        assertEquals("Wrong number of columns", 3, model.getColumnCount());
+        assertSame("Wrong page manager", pm, model.getPageManager());
+        assertEquals("Wrong property (1)", "name", model.getProperty(0));
+        assertEquals("Wrong property (2)", "duration", model.getProperty(1));
+        assertEquals("Wrong property (3)", "playCount", model.getProperty(2));
+        assertSame("Wrong grid", page.tabSongs, model.getGrid());
     }
 }

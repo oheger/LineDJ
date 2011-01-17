@@ -4,6 +4,8 @@
   <ui:style>
     .header {
     	font-weight: bold;
+    	text-decoration: underline;
+        color: black;
     }
   </ui:style>
   <ui:with field='images'

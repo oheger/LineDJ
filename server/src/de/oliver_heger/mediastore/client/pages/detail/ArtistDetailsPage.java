@@ -6,14 +6,10 @@ import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.Grid;
-import com.google.gwt.user.client.ui.Hyperlink;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.SortableTableHeader;
-import de.oliver_heger.mediastore.client.SortableTableHeader.TableHeaderListener;
-import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
-import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 
 /**
@@ -31,7 +27,6 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @version $Id: $
  */
 public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
-        implements TableHeaderListener
 {
     /** Constant for the header for the song panel. */
     private static final String HEADER_SONG_PANEL = "Songs (";
@@ -66,8 +61,8 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     /** The entity handler for fetching artist details. */
     private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
 
-    /** An array with the table header components for the songs table. */
-    private final SortableTableHeader[] songTableHeaders;
+    /** The model for the table with the songs of this artist. */
+    private SongGridTableModel songModel;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -76,15 +71,17 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     {
         initWidget(uiBinder.createAndBindUi(this));
         entityHandler = new ArtistDetailsEntityHandler();
-
-        songTableHeaders = initSongTableHeaders();
     }
 
+    /**
+     * {@inheritDoc} This implementation also initializes the models for grids
+     * used on this page.
+     */
     @Override
-    public void onSortableTableHeaderClick(SortableTableHeader header)
+    public void initialize(PageManager pm)
     {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
+        super.initialize(pm);
+        songModel = new SongGridTableModel(tabSongs, pm);
     }
 
     /**
@@ -141,7 +138,8 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 
     /**
      * Populates the table with the songs of the artist. This method is called
-     * when the page is to be filled with a new data object.
+     * when the page is to be filled with a new data object. It mainly delegates
+     * to the table model in order to get the grid populated.
      *
      * @param data the data object
      */
@@ -152,38 +150,19 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
         buf.append(HEADER_SONG_PANEL);
         buf.append(songsCount).append(CLOSING_BRACKET);
         pnlSongs.getHeaderTextAccessor().setText(buf.toString());
+        pnlSongs.setOpen(songsCount > 0);
 
-        tabSongs.resizeRows(songsCount + 1);
-        int row = 1;
-        for (SongInfo si : data.getSongs())
-        {
-            Hyperlink link =
-                    new Hyperlink(si.getName(), getPageManager()
-                            .createPageSpecification(Pages.SONGDETAILS)
-                            .withParameter(si.getSongID()).toToken());
-            tabSongs.setWidget(row, 0, link);
-            tabSongs.setText(row, 1, si.getFormattedDuration());
-            tabSongs.setText(row, 2, String.valueOf(si.getPlayCount()));
-            row++;
-        }
+        getSongTableModel().initData(data.getSongs());
     }
 
     /**
-     * Extracts the table header components from the songs table.
+     * Returns the model for the table with the songs of this artist.
      *
-     * @return an array with the header components of the songs table
+     * @return the song table model
      */
-    private SortableTableHeader[] initSongTableHeaders()
+    SongGridTableModel getSongTableModel()
     {
-        SortableTableHeader[] headers =
-                new SortableTableHeader[tabSongs.getCellCount(0)];
-        for (int i = 0; i < headers.length; i++)
-        {
-            headers[i] = (SortableTableHeader) tabSongs.getWidget(0, i);
-            headers[i].setTableHeaderListener(this);
-        }
-
-        return headers;
+        return songModel;
     }
 
     /**
