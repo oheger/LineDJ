@@ -1,27 +1,29 @@
 package de.oliver_heger.mediastore.server.model;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
+import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
- * Test class for {@code SongSynonym}.
+ * Test class for {@code AlbumSynonym}.
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestSongSynonym
+public class TestAlbumSynonym
 {
     /** The synonym to be tested. */
-    private SongSynonym synonym;
+    private AlbumSynonym synonym;
 
     @Before
     public void setUp() throws Exception
     {
-        synonym = new SongSynonym();
+        synonym = new AlbumSynonym();
     }
 
     /**
@@ -31,11 +33,14 @@ public class TestSongSynonym
     public void testEqualsTrue()
     {
         RemoteMediaStoreTestHelper.checkEquals(synonym, synonym, true);
-        SongSynonym syn2 = new SongSynonym();
+        AlbumSynonym syn2 = new AlbumSynonym();
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
-        SongEntity song = new SongEntity();
-        synonym.setSong(song);
-        syn2.setSong(song);
+        synonym.setName("TestAlbum");
+        syn2.setName(synonym.getName().toUpperCase(Locale.ENGLISH));
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
+        AlbumEntity album = new AlbumEntity();
+        synonym.setAlbum(album);
+        syn2.setAlbum(album);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
     }
 
@@ -45,16 +50,17 @@ public class TestSongSynonym
     @Test
     public void testEqualsFalse()
     {
-        SongEntity song1 = new SongEntity();
-        song1.setName("song1");
-        SongEntity song2 = new SongEntity();
-        song2.setName("song2");
-        synonym.setSong(song1);
-        SongSynonym syn2 = new SongSynonym();
-        syn2.setSong(song2);
+        AlbumSynonym syn2 = new AlbumSynonym();
+        synonym.setName("A script for a Jester's Tear");
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
-        syn2.setSong(synonym.getSong());
-        syn2.setName("aSynonym");
+        syn2.setName("A brief encounter");
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        syn2.setName(synonym.getName());
+        synonym.setAlbum(new AlbumEntity());
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        AlbumEntity a = new AlbumEntity();
+        a.setName("Fugazzi");
+        syn2.setAlbum(a);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
     }
 
@@ -64,7 +70,7 @@ public class TestSongSynonym
     @Test
     public void testEqualsTrivial()
     {
-        synonym.setName("Test synonym");
+        synonym.setName("Some synonym");
         RemoteMediaStoreTestHelper.checkEqualsTrivial(synonym);
     }
 
@@ -74,8 +80,9 @@ public class TestSongSynonym
     @Test
     public void testSerialization() throws IOException
     {
-        synonym.setName("TestSongSyn");
-        synonym.setSong(new SongEntity());
+        synonym.setName("The wedding album");
+        synonym.setAlbum(new AlbumEntity());
+        synonym.setUser(PersistenceTestHelper.getTestUser());
         RemoteMediaStoreTestHelper.checkSerialization(synonym);
     }
 }
