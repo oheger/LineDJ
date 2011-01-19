@@ -41,12 +41,16 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
 @NamedQueries({
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_NAME, query = SongEntity.QUERY_FIND_BY_NAME_DEF),
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF),
-        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ARTIST, query = SongEntity.QUERY_FIND_BY_ARTIST_DEF)
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ARTIST, query = SongEntity.QUERY_FIND_BY_ARTIST_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUM, query = SongEntity.QUERY_FIND_BY_ALBUM_DEF)
 })
 public class SongEntity implements Serializable
 {
     /** Constant for the source artist parameter. */
     static final String PARAM_ARTIST = "artist";
+
+    /** Constant for the album parameter. */
+    static final String PARAM_ALBUM = "album";
 
     /** Constant for the prefix for song queries. */
     static final String SONG_QUERY_PREFIX =
@@ -78,7 +82,7 @@ public class SongEntity implements Serializable
      * artist.
      */
     static final String QUERY_FIND_BY_ARTIST = SONG_QUERY_PREFIX
-            + "QUERY_UPDATE_ARTIST";
+            + "QUERY_FIND_BY_ARTIST";
 
     /**
      * Constant for the definition of the query which searches for the songs of
@@ -86,6 +90,20 @@ public class SongEntity implements Serializable
      */
     static final String QUERY_FIND_BY_ARTIST_DEF = "select e from SongEntity e"
             + " where e.artistID = :" + PARAM_ARTIST;
+
+    /**
+     * Constant for the name of the query which searches for the songs of an
+     * album.
+     */
+    static final String QUERY_FIND_BY_ALBUM = SONG_QUERY_PREFIX
+            + "QUERY_FIND_BY_ALBUM";
+
+    /**
+     * Constant for the definition of the query which searches for the songs of
+     * an album.
+     */
+    static final String QUERY_FIND_BY_ALBUM_DEF = "select e from SongEntity e"
+            + " where e.albumID = :" + PARAM_ALBUM;
 
     /**
      * The serial version UID.
@@ -117,6 +135,9 @@ public class SongEntity implements Serializable
 
     /** Stores the ID performing artist. */
     private Long artistID;
+
+    /** Stores the ID of the album this song belongs to. */
+    private Long albumID;
 
     /** Stores the track number (if this song belongs to an album). */
     private Integer trackNo;
@@ -246,6 +267,27 @@ public class SongEntity implements Serializable
     public void setArtistID(Long artist)
     {
         this.artistID = artist;
+    }
+
+    /**
+     * Returns the ID of the album this song belongs to. This may be <b>null</b>
+     * if there is no album.
+     *
+     * @return the album this song belongs to
+     */
+    public Long getAlbumID()
+    {
+        return albumID;
+    }
+
+    /**
+     * Sets the ID of the album this song belongs to.
+     *
+     * @param albumID the album ID
+     */
+    public void setAlbumID(Long albumID)
+    {
+        this.albumID = albumID;
     }
 
     /**
@@ -548,6 +590,7 @@ public class SongEntity implements Serializable
      * @param em the entity manager
      * @param artistID the ID of the artist in question
      * @return the songs assigned to this artist
+     * @throws NullPointerException if the entity manager is <b>null</b>
      */
     public static List<SongEntity> findByArtist(EntityManager em, Long artistID)
     {
@@ -591,6 +634,75 @@ public class SongEntity implements Serializable
         for (SongEntity song : songs)
         {
             song.setArtistID(destID);
+        }
+    }
+
+    /**
+     * Retrieves all songs that belong to the specified album.
+     *
+     * @param em the entity manager
+     * @param album the album in question
+     * @return the list with the found song entities
+     * @throws NullPointerException if the entity manager or the album entity
+     *         are <b>null</b>
+     */
+    public static List<SongEntity> findByAlbum(EntityManager em,
+            AlbumEntity album)
+    {
+        return findByAlbum(em, album.getId());
+    }
+
+    /**
+     * Retrieves all songs that belong to the album with the given ID. Works
+     * like the method with the same name, but the album ID is passed directly.
+     *
+     * @param em the entity manager
+     * @param albumID the ID of the album in question
+     * @return a list with the found album entities
+     * @throws NullPointerException if the entity manager is <b>null</b>
+     */
+    public static List<SongEntity> findByAlbum(EntityManager em, Long albumID)
+    {
+        @SuppressWarnings("unchecked")
+        List<SongEntity> songs =
+                em.createNamedQuery(QUERY_FIND_BY_ALBUM)
+                        .setParameter(PARAM_ALBUM, albumID).getResultList();
+        return songs;
+    }
+
+    /**
+     * Updates album IDs of songs. All songs which belong to the given source
+     * album are assigned to the new destination album. The destination album
+     * can be <b>null</b>; in this case the songs do not belong to any album
+     * after this operation.
+     *
+     * @param em the entity manager
+     * @param dest the destination album (can be <b>null</b>)
+     * @param src the source album
+     * @throws NullPointerException if the source album is <b>null</b>
+     */
+    public static void updateAlbumID(EntityManager em, AlbumEntity dest,
+            AlbumEntity src)
+    {
+        updateAlbumID(em, (dest != null) ? dest.getId() : null, src.getId());
+    }
+
+    /**
+     * Updates album IDs of songs for the given album IDs. This method works
+     * like the method with the same name, but the IDs of the albums affected
+     * are directly passed in.
+     *
+     * @param em the entity manager
+     * @param destID the ID of the destination album
+     * @param srcID the ID of the source album
+     */
+    public static void updateAlbumID(EntityManager em, Long destID, Long srcID)
+    {
+        List<SongEntity> songs = findByAlbum(em, srcID);
+
+        for (SongEntity song : songs)
+        {
+            song.setAlbumID(destID);
         }
     }
 

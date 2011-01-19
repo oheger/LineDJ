@@ -59,6 +59,21 @@ public class TestSongEntity
     }
 
     /**
+     * Helper method for retrieving all songs currently in the database.
+     *
+     * @return the list with the found songs
+     */
+    private List<SongEntity> findAllSongs()
+    {
+        helper.closeEM();
+        @SuppressWarnings("unchecked")
+        List<SongEntity> songs =
+                helper.getEM().createQuery("select s from SongEntity s")
+                        .getResultList();
+        return songs;
+    }
+
+    /**
      * Creates a song entity populated with test data.
      *
      * @return the test entity
@@ -88,6 +103,19 @@ public class TestSongEntity
     }
 
     /**
+     * Creates a test album which can be associated with test songs.
+     *
+     * @return the test album
+     */
+    private AlbumEntity createAlbum()
+    {
+        AlbumEntity album = new AlbumEntity();
+        album.setName("Hotel California (album)");
+        album.setUser(PersistenceTestHelper.getTestUser());
+        return album;
+    }
+
+    /**
      * Tests a newly created instance.
      */
     @Test
@@ -96,6 +124,7 @@ public class TestSongEntity
         SongEntity song = new SongEntity();
         assertNull("Got a user", song.getUser());
         assertNull("Got an artist", song.getArtistID());
+        assertNull("Got an album", song.getAlbumID());
         assertNull("Got a key", song.getId());
         assertNull("Got a name", song.getName());
         assertNull("Got a search name", song.getSearchName());
@@ -548,11 +577,7 @@ public class TestSongEntity
         }
         helper.closeEM();
         SongEntity.updateArtistID(helper.getEM(), artDest, artSrc);
-        helper.closeEM();
-        @SuppressWarnings("unchecked")
-        List<SongEntity> songs =
-                helper.getEM().createQuery("select s from SongEntity s")
-                        .getResultList();
+        List<SongEntity> songs = findAllSongs();
         assertEquals("Wrong number of songs", songCount, songs.size());
         Long expArtID = (artDest != null) ? artDest.getId() : null;
         for (SongEntity e : songs)
@@ -605,5 +630,132 @@ public class TestSongEntity
         art2.setName("Other Artist");
         helper.persist(art2);
         SongEntity.updateArtistID(helper.getEM(), art1.getId(), art2.getId());
+    }
+
+    /**
+     * Tests findByAlbum() if the album does not have any songs.
+     */
+    @Test
+    public void testFindByAlbumNoSongs()
+    {
+        AlbumEntity album = createAlbum();
+        helper.persist(album);
+        helper.closeEM();
+        List<SongEntity> songs = SongEntity.findByAlbum(helper.getEM(), album);
+        assertTrue("Got songs", songs.isEmpty());
+    }
+
+    /**
+     * Creates a number of test songs which are associated with the given album.
+     *
+     * @param songCount the number of test songs
+     * @param albumID the ID of the album
+     * @return a set with the created song entities
+     */
+    private Set<SongEntity> createSongsForAlbum(int songCount, Long albumID)
+    {
+        Set<SongEntity> testSongs = new HashSet<SongEntity>();
+        for (int i = 0; i < songCount; i++)
+        {
+            SongEntity song = createSong();
+            song.setName(SONG_NAME + i);
+            song.setAlbumID(albumID);
+            assertTrue("Duplicate song", testSongs.add(song));
+            helper.persist(song);
+        }
+        return testSongs;
+    }
+
+    /**
+     * Tests whether songs that do not have an album can be found.
+     */
+    @Test
+    public void testFindSongsWithoutAnAlbum()
+    {
+        final int songCount = 8;
+        Set<SongEntity> testSongs = createSongsForAlbum(songCount, null);
+        AlbumEntity album = createAlbum();
+        helper.persist(album);
+        SongEntity song = createSong();
+        song.setAlbumID(album.getId());
+        helper.persist(song);
+        helper.closeEM();
+        List<SongEntity> songs =
+                SongEntity.findByAlbum(helper.getEM(), (Long) null);
+        assertEquals("Wrong number of songs", songCount, songs.size());
+        for (SongEntity e : songs)
+        {
+            assertTrue("Unexpected song: " + e, testSongs.remove(e));
+        }
+    }
+
+    /**
+     * Helper method for checking whether songs can be assigned to a different
+     * album.
+     *
+     * @param destAlbum the new destination album (can be null)
+     */
+    private void checkUpdateAlbumID(AlbumEntity destAlbum)
+    {
+        final int songCount = 32;
+        AlbumEntity srcAlbum = createAlbum();
+        helper.persist(srcAlbum);
+        createSongsForAlbum(songCount, srcAlbum.getId());
+        helper.closeEM();
+        SongEntity.updateAlbumID(helper.getEM(), destAlbum, srcAlbum);
+        List<SongEntity> songs = findAllSongs();
+        assertEquals("Wrong number of songs", songCount, songs.size());
+        Long destID = (destAlbum != null) ? destAlbum.getId() : null;
+        for (SongEntity song : songs)
+        {
+            assertEquals("Wrong album ID", destID, song.getAlbumID());
+        }
+    }
+
+    /**
+     * Tests whether songs can be assigned another album.
+     */
+    @Test
+    public void testUpdateAlbumID()
+    {
+        AlbumEntity dst = createAlbum();
+        dst.setName("another album");
+        helper.persist(dst);
+        checkUpdateAlbumID(dst);
+    }
+
+    /**
+     * Tests whether songs can be assigned a null album ID.
+     */
+    @Test
+    public void testUpdateAlbumIDNullDest()
+    {
+        checkUpdateAlbumID(null);
+    }
+
+    /**
+     * Tries to update album IDs passing in a null source album.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testUpdateAlbumIDNullSource()
+    {
+        AlbumEntity album = createAlbum();
+        helper.persist(album);
+        SongEntity.updateAlbumID(helper.getEM(), album, null);
+    }
+
+    /**
+     * Tests updateAlbumID() if no songs are found.
+     */
+    @Test
+    public void testUpdateAlbumIDNoSongs()
+    {
+        AlbumEntity album1 = createAlbum();
+        AlbumEntity album2 = createAlbum();
+        album2.setName("Another Album");
+        helper.persist(album1);
+        helper.persist(album2);
+        SongEntity
+                .updateAlbumID(helper.getEM(), album1.getId(), album2.getId());
     }
 }
