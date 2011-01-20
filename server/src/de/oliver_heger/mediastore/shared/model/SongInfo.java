@@ -51,6 +51,12 @@ public class SongInfo implements Serializable
     /** The name of the performing artist. */
     private String artistName;
 
+    /** Stores the ID of the owning album. */
+    private Long albumID;
+
+    /** Stores the name of the album the songs belong to. */
+    private String albumName;
+
     /** Stores the track number (if this song belongs to an album). */
     private Integer trackNo;
 
@@ -200,6 +206,48 @@ public class SongInfo implements Serializable
     }
 
     /**
+     * Returns the ID of the album this song belongs to. This may be <b>null</b>
+     * if the album is unknown.
+     *
+     * @return the album ID
+     */
+    public Long getAlbumID()
+    {
+        return albumID;
+    }
+
+    /**
+     * Sets the ID of the album this song belongs to.
+     *
+     * @param albumID the album ID
+     */
+    public void setAlbumID(Long albumID)
+    {
+        this.albumID = albumID;
+    }
+
+    /**
+     * Returns the name of the album this song belongs to. This may be
+     * <b>null</b> if the album is unknown.
+     *
+     * @return the album name
+     */
+    public String getAlbumName()
+    {
+        return albumName;
+    }
+
+    /**
+     * Sets the name of the album this song belongs to.
+     *
+     * @param albumName the album name
+     */
+    public void setAlbumName(String albumName)
+    {
+        this.albumName = albumName;
+    }
+
+    /**
      * Returns the track number of the song (if it belongs to a known album).
      *
      * @return the track number
@@ -271,6 +319,7 @@ public class SongInfo implements Serializable
         StringBuilder buf = ObjectUtils.prepareToStringBuffer(this);
         ObjectUtils.appendToStringField(buf, "name", getName(), true);
         ObjectUtils.appendToStringField(buf, "artist", getArtistName(), false);
+        ObjectUtils.appendToStringField(buf, "album", getAlbumName(), false);
         ObjectUtils.appendToStringField(buf, "inceptionYear",
                 getInceptionYear(), false);
         ObjectUtils

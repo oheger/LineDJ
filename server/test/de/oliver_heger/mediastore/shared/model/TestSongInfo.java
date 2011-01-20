@@ -45,6 +45,7 @@ public class TestSongInfo
         si.setInceptionYear(1984);
         si.setPlayCount(111);
         si.setArtistName("John Miles");
+        si.setAlbumName("Nights of the Proms");
     }
 
     /**
@@ -57,6 +58,8 @@ public class TestSongInfo
         assertNull("Got a creation date", info.getCreationDate());
         assertNull("Got an artist ID", info.getArtistID());
         assertNull("Got an artist name", info.getArtistName());
+        assertNull("Got an album ID", info.getAlbumID());
+        assertNull("Got an album name", info.getAlbumName());
         assertEquals("Wrong play count", 0, info.getPlayCount());
     }
 
@@ -72,6 +75,8 @@ public class TestSongInfo
                 s.contains("name = " + info.getName()));
         assertTrue("Artist not found: " + s,
                 s.contains("artist = " + info.getArtistName()));
+        assertTrue("Album not found: " + s,
+                s.contains("album = " + info.getAlbumName()));
         assertTrue("Play count not found: " + s,
                 s.contains("playCount = " + info.getPlayCount()));
         assertTrue("Year not found: " + s,
