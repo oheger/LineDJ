@@ -337,7 +337,6 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             if (ssyn != null)
             {
                 song.removeSynonym(ssyn);
-                em.remove(ssyn);
             }
         }
     }

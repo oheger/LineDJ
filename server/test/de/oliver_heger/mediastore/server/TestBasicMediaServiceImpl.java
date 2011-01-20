@@ -502,6 +502,11 @@ public class TestBasicMediaServiceImpl
         service.updateSongSynonyms(key, upData);
         checkSongSynonyms(song,
                 Arrays.asList(SONG_SYNONYMS).subList(1, SONG_SYNONYMS.length));
+        List<?> allSyns =
+                helper.getEM().createQuery("select s from SongSynonym s")
+                        .getResultList();
+        assertEquals("Wrong number of synonyms", SONG_SYNONYMS.length - 1,
+                allSyns.size());
     }
 
     /**

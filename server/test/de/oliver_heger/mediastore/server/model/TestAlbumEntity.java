@@ -255,7 +255,6 @@ public class TestAlbumEntity
         assertEquals("Wrong number of synonyms", 1, a.getSynonyms().size());
         assertEquals("Wrong synonym name", synName, a.getSynonyms().iterator()
                 .next().getName());
-        assertNull("Album reference not cleared", syn.getAlbum());
     }
 
     /**

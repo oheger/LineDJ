@@ -212,7 +212,6 @@ public class AlbumEntity implements Serializable
         }
 
         boolean result = synonyms.remove(syn);
-        syn.setAlbum(null);
         return result;
     }
 

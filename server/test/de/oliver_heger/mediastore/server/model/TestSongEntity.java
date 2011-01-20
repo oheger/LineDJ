@@ -365,7 +365,6 @@ public class TestSongEntity
         assertEquals("Wrong number of synonyms", 1, song.getSynonyms().size());
         assertEquals("Wrong name", otherSyn, song.getSynonyms().iterator()
                 .next().getName());
-        assertNull("Song reference not cleared", ssym.getSong());
     }
 
     /**

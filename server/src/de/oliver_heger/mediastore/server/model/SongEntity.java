@@ -423,7 +423,6 @@ public class SongEntity implements Serializable
         }
 
         boolean result = synonyms.remove(syn);
-        syn.setSong(null);
         return result;
     }
 
