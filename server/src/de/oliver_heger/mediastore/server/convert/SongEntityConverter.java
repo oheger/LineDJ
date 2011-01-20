@@ -9,6 +9,7 @@ import javax.persistence.EntityManager;
 import com.google.appengine.api.datastore.KeyFactory;
 
 import de.oliver_heger.mediastore.server.db.EntityManagerSupport;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
@@ -33,6 +34,9 @@ public class SongEntityConverter implements
     /** A map with the already resolved artist entities. */
     private Map<Long, ArtistEntity> artistEntities;
 
+    /** A map with the already resolved album entities. */
+    private Map<Long, AlbumEntity> albumEntities;
+
     /** The entity manager for resolving references. */
     private EntityManager em;
 
@@ -41,6 +45,8 @@ public class SongEntityConverter implements
      * used to resolve the IDs stored in the song entity objects.
      *
      * @param artists a list of artist objects
+     * @throws NullPointerException if the list is <b>null</b> or contains
+     *         <b>null</b> elements
      */
     public void initResolvedArtists(Collection<? extends ArtistEntity> artists)
     {
@@ -48,6 +54,23 @@ public class SongEntityConverter implements
         for (ArtistEntity ae : artists)
         {
             artistEntities.put(ae.getId(), ae);
+        }
+    }
+
+    /**
+     * Initializes this object with a list of album entities. These albums are
+     * used to resolve the IDs stored in the song entity objects.
+     *
+     * @param albums a list of album objects
+     * @throws NullPointerException if the list is <b>null</b> or contains
+     *         <b>null</b> elements
+     */
+    public void initResolvedAlbums(Collection<? extends AlbumEntity> albums)
+    {
+        albumEntities = new HashMap<Long, AlbumEntity>();
+        for (AlbumEntity ae : albums)
+        {
+            albumEntities.put(ae.getId(), ae);
         }
     }
 
@@ -107,15 +130,8 @@ public class SongEntityConverter implements
             info.setSongID(KeyFactory.keyToString(e.getId()));
         }
 
-        ArtistEntity ae = resolveArtist(e);
-        if (ae == null)
-        {
-            info.setArtistID(null);
-        }
-        else
-        {
-            info.setArtistName(ae.getName());
-        }
+        convertArtist(e, info);
+        convertAlbum(e, info);
     }
 
     /**
@@ -146,5 +162,72 @@ public class SongEntityConverter implements
         }
 
         return null;
+    }
+
+    /**
+     * Resolves the album of the specified song. Works analogously to
+     * {@link #resolveArtist(SongEntity)}.
+     *
+     * @param song the song entity
+     * @return the resolved album entity or <b>null</b> if the album cannot be
+     *         resolved
+     */
+    AlbumEntity resolveAlbum(SongEntity song)
+    {
+        if (song.getAlbumID() != null)
+        {
+            if (albumEntities != null)
+            {
+                return albumEntities.get(song.getAlbumID());
+            }
+            else
+            {
+                if (getEntityManager() != null)
+                {
+                    return getEntityManager().find(AlbumEntity.class,
+                            song.getAlbumID());
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Converts the data related to the song's artist.
+     *
+     * @param e the song entity
+     * @param info the song info object
+     */
+    private void convertArtist(SongEntity e, SongInfo info)
+    {
+        ArtistEntity ae = resolveArtist(e);
+        if (ae == null)
+        {
+            info.setArtistID(null);
+        }
+        else
+        {
+            info.setArtistName(ae.getName());
+        }
+    }
+
+    /**
+     * Converts the data related to the song's album.
+     *
+     * @param e the song entity
+     * @param info the song info object
+     */
+    private void convertAlbum(SongEntity e, SongInfo info)
+    {
+        AlbumEntity ae = resolveAlbum(e);
+        if (ae == null)
+        {
+            info.setAlbumID(null);
+        }
+        else
+        {
+            info.setAlbumName(ae.getName());
+        }
     }
 }

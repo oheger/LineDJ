@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import javax.persistence.EntityManager;
 
@@ -18,6 +19,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -67,6 +69,26 @@ public class TestSongEntityConverter
     private static ArtistEntity createArtist(final Long id)
     {
         return new ArtistEntity()
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Long getId()
+            {
+                return id;
+            }
+        };
+    }
+
+    /**
+     * Creates an album entity with the specified ID.
+     *
+     * @param id the album ID
+     * @return the album entity
+     */
+    private static AlbumEntity createAlbum(final Long id)
+    {
+        return new AlbumEntity()
         {
             private static final long serialVersionUID = 1L;
 
@@ -215,6 +237,89 @@ public class TestSongEntityConverter
     }
 
     /**
+     * Tests whether an album ID can be converted from a list of resolved
+     * albums.
+     */
+    @Test
+    public void testResolveAlbumFromList()
+    {
+        AlbumEntity album = createAlbum(REF_ID);
+        album.setName("Blurring the edges");
+        SongEntity song = new SongEntity();
+        song.setAlbumID(REF_ID);
+        converter.initResolvedAlbums(Collections.singleton(album));
+        SongInfo info = converter.convert(song);
+        assertEquals("Wrong album ID", REF_ID, info.getAlbumID());
+        assertEquals("Wrong album name", album.getName(), info.getAlbumName());
+    }
+
+    /**
+     * Tests resolveAlbum() if a list of albums is provided, by an ID cannot be
+     * resolved.
+     */
+    @Test
+    public void testResolveAlbumFromListNotFound()
+    {
+        converter.initResolvedAlbums(new ArrayList<AlbumEntity>());
+        SongEntity song = new SongEntity();
+        song.setAlbumID(REF_ID);
+        SongInfo info = converter.convert(song);
+        assertNull("Got an album ID", info.getAlbumID());
+        assertNull("Got an album name", info.getAlbumName());
+    }
+
+    /**
+     * Tests whether an album can be resolved using the entity manager.
+     */
+    @Test
+    public void testResolveAlbumEM()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        AlbumEntity album = new AlbumEntity();
+        album.setName("Test Album");
+        EasyMock.expect(em.find(AlbumEntity.class, REF_ID)).andReturn(album);
+        EasyMock.replay(em);
+        converter.setEntityManager(em);
+        SongEntity e = new SongEntity();
+        e.setAlbumID(REF_ID);
+        SongInfo info = converter.convert(e);
+        assertEquals("Wrong album name", album.getName(), info.getAlbumName());
+        assertEquals("Wrong album ID", REF_ID, info.getAlbumID());
+    }
+
+    /**
+     * Tests resolveAlbum() with an entity manager if the ID cannot be resolved.
+     */
+    @Test
+    public void testResolveAlbumEMNotFound()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        AlbumEntity album = new AlbumEntity();
+        album.setName("Test Album");
+        EasyMock.expect(em.find(AlbumEntity.class, REF_ID)).andReturn(null);
+        EasyMock.replay(em);
+        converter.setEntityManager(em);
+        SongEntity e = new SongEntity();
+        e.setAlbumID(REF_ID);
+        SongInfo info = converter.convert(e);
+        assertNull("Got an album name", info.getAlbumName());
+        assertNull("Got an album ID", info.getAlbumID());
+    }
+
+    /**
+     * Tests resolveAlbum() if neither a list nor an EM are provided.
+     */
+    @Test
+    public void testResolveAlbumNoEM()
+    {
+        SongEntity song = new SongEntity();
+        song.setAlbumID(REF_ID);
+        SongInfo info = converter.convert(song);
+        assertNull("Got an album name", info.getAlbumName());
+        assertNull("Got an album ID", info.getAlbumID());
+    }
+
+    /**
      * Tries to call convert() with a null entity.
      */
     @Test(expected = IllegalArgumentException.class)
@@ -230,5 +335,28 @@ public class TestSongEntityConverter
     public void testConvertNullInfo()
     {
         converter.convert(new SongEntity(), null);
+    }
+
+    /**
+     * Tests whether a null collection for initializing resolved elements is
+     * handled as expected.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testInitListNull()
+    {
+        converter.initResolvedAlbums(null);
+    }
+
+    /**
+     * Tests whether null elements in a collection for initializing resolved
+     * elements are handled as expected.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testInitListNullElements()
+    {
+        List<ArtistEntity> arts = new ArrayList<ArtistEntity>();
+        arts.add(createArtist(REF_ID));
+        arts.add(null);
+        converter.initResolvedArtists(arts);
     }
 }
