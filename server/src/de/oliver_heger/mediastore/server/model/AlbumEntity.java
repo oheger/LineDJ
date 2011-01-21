@@ -10,6 +10,8 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 
 import com.google.appengine.api.users.User;
@@ -25,8 +27,26 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
  * @version $Id: $
  */
 @Entity
+@NamedQueries({
+    @NamedQuery(name = AlbumEntity.QUERY_FIND_BY_IDS, query = AlbumEntity.QUERY_FIND_BY_IDS_DEF)
+})
 public class AlbumEntity implements Serializable
 {
+    /** Constant for the prefix for album queries. */
+    public static final String ALBUM_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.server.model.AlbumEntity.";
+
+    /** Constant for the query for retrieving albums by IDs. */
+    public static final String QUERY_FIND_BY_IDS = ALBUM_QUERY_PREFIX
+            + "QUERY_FIND_BY_IDS";
+
+    /**
+     * Constant for the definition of the query for retrieving artists by a set
+     * of ID values.
+     */
+    static final String QUERY_FIND_BY_IDS_DEF = "select a from AlbumEntity a"
+            + " where a.id in (:" + Finders.PARAM_ID + ")";
+
     /**
      * The serial version UID.
      */

@@ -19,6 +19,7 @@ import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.EntityConverter;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.server.model.SongEntity;
@@ -431,7 +432,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     List<ArtistEntity> fetchReferencedArtists(
             Collection<? extends SongEntity> songs)
     {
-        final Set<Long> artistIDs = new HashSet<Long>();
+        Set<Long> artistIDs = new HashSet<Long>();
         for (SongEntity song : songs)
         {
             if (song.getArtistID() != null)
@@ -440,27 +441,68 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             }
         }
 
-        JPATemplate<List<ArtistEntity>> templ =
-                new JPATemplate<List<ArtistEntity>>(false)
-                {
-                    @Override
-                    protected List<ArtistEntity> performOperation(
-                            EntityManager em)
-                    {
-                        Map<String, Object> params =
-                                Collections
-                                        .singletonMap(Finders.PARAM_ID,
-                                                (Object) new ArrayList<Long>(
-                                                        artistIDs));
-                        @SuppressWarnings("unchecked")
-                        List<ArtistEntity> result =
-                                (List<ArtistEntity>) Finders.queryInCondition(
-                                        em, ArtistEntity.QUERY_FIND_BY_IDS,
-                                        params, Finders.PARAM_ID);
-                        result.size(); // ensure that the entities are loaded
-                        return result;
-                    }
-                };
+        // the result type of the query is determined
+        @SuppressWarnings("unchecked")
+        List<ArtistEntity> result =
+                (List<ArtistEntity>) fetchReferencedObjects(artistIDs,
+                        ArtistEntity.QUERY_FIND_BY_IDS);
+        return result;
+    }
+
+    /**
+     * Retrieves all album entities which are referenced by the given song
+     * entities. This method is used to populate the album name property in the
+     * sing info objects returned for song searches.
+     *
+     * @param songs the song entities to be converted
+     * @return a list with the referenced album entities
+     */
+    List<AlbumEntity> fetchReferencedAlbums(
+            Collection<? extends SongEntity> songs)
+    {
+        Set<Long> albumIDs = new HashSet<Long>();
+        for (SongEntity song : songs)
+        {
+            if (song.getAlbumID() != null)
+            {
+                albumIDs.add(song.getAlbumID());
+            }
+        }
+
+        // the result type of the query is determined
+        @SuppressWarnings("unchecked")
+        List<AlbumEntity> result =
+                (List<AlbumEntity>) fetchReferencedObjects(albumIDs,
+                        AlbumEntity.QUERY_FIND_BY_IDS);
+        return result;
+    }
+
+    /**
+     * Helper method for retrieving objects referenced by songs. This method
+     * performs a query with an in condition for the specified IDs.
+     *
+     * @param ids the IDs to be retrieved
+     * @param queryName the name of the query to be executed
+     * @return the list with retrieved entities
+     */
+    private List<?> fetchReferencedObjects(final Collection<Long> ids,
+            final String queryName)
+    {
+        JPATemplate<List<?>> templ = new JPATemplate<List<?>>(false)
+        {
+            @Override
+            protected List<?> performOperation(EntityManager em)
+            {
+                Map<String, Object> params =
+                        Collections.singletonMap(Finders.PARAM_ID,
+                                (Object) new ArrayList<Long>(ids));
+                List<?> result =
+                        (List<?>) Finders.queryInCondition(em, queryName,
+                                params, Finders.PARAM_ID);
+                result.size(); // ensure that the entities are loaded
+                return result;
+            }
+        };
 
         return templ.execute();
     }
@@ -478,6 +520,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         SongEntityConverter conv =
                 (SongEntityConverter) createSongSearchConverter();
         conv.initResolvedArtists(fetchReferencedArtists(songs));
+        conv.initResolvedAlbums(fetchReferencedAlbums(songs));
         return conv;
     }
 

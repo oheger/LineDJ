@@ -25,6 +25,7 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.convert.EntityConverter;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
@@ -59,6 +60,13 @@ public class TestMediaSearchServiceImpl
             "Thunderstrike", "House of the rising sun", "Run to you",
             "Do you really want to heart me?", "Thank you", "Electric Avenue",
             "Come to live", "What's going on?", "American idiot"
+    };
+
+    /** An array with some test albums. */
+    private static final String[] ALBUM_NAMES = {
+        "Back in Black", "Best of the Animals", "Best of Bryan Adams",
+        "Kissing to be clever", "Dido & PlemPleminem", "Eddy's Greatests",
+        "Open Door", "Classics", "American Idiot", "Stoosh"
     };
 
     /** Constant for a test client parameter. */
@@ -125,7 +133,41 @@ public class TestMediaSearchServiceImpl
     }
 
     /**
-     * Creates a number of test songs.
+     * Creates a number of test albums.
+     * @return a map with the names of the entities created by this method and
+     *         their ID values
+     */
+    private Map<String, Long> createAlbums()
+    {
+        Map<String, Long> result = new HashMap<String, Long>();
+        List<String> albumNames = Arrays.asList(ALBUM_NAMES);
+        Collections.shuffle(albumNames);
+        for(String name : albumNames)
+        {
+            AlbumEntity album = new AlbumEntity();
+            album.setName(name);
+            album.setUser(PersistenceTestHelper.getTestUser());
+            helper.persist(album);
+            result.put(name, album.getId());
+        }
+        // create some albums for a different user
+        // create some artists for a different user
+        User usrOther =
+                PersistenceTestHelper.getUser(PersistenceTestHelper.OTHER_USER);
+        for (int i = 0; i < TEST_OBJ_COUNT; i++)
+        {
+            AlbumEntity album = new AlbumEntity();
+            album.setName("Album_" + PersistenceTestHelper.OTHER_USER + i);
+            album.setUser(usrOther);
+            helper.persist(album);
+        }
+        helper.closeEM();
+        return result;
+    }
+
+    /**
+     * Creates a number of test songs. The songs are associated with artists and
+     * albums (based on their index in the array with names).
      *
      * @param persist a flag whether the entities should be persisted
      * @return the entities created by this method
@@ -133,6 +175,7 @@ public class TestMediaSearchServiceImpl
     private List<SongEntity> createSongs(boolean persist)
     {
         Map<String, Long> artists = createArtists();
+        Map<String, Long> albums = createAlbums();
         List<SongEntity> songs = new ArrayList<SongEntity>(SONG_NAMES.length);
         for (int i = 0; i < SONG_NAMES.length; i++)
         {
@@ -141,6 +184,7 @@ public class TestMediaSearchServiceImpl
             song.setPlayCount(i);
             song.setInceptionYear(1970 + i);
             song.setArtistID(artists.get(ARTIST_NAMES[i]));
+            song.setAlbumID(albums.get(ALBUM_NAMES[i]));
             song.setUser(PersistenceTestHelper.getTestUser());
             songs.add(song);
             if (persist)
@@ -523,6 +567,7 @@ public class TestMediaSearchServiceImpl
                     info.getInceptionYear());
             assertEquals("Wrong artist name", ARTIST_NAMES[idx],
                     info.getArtistName());
+            assertEquals("Wrong album name", ALBUM_NAMES[idx], info.getAlbumName());
             idx++;
         }
     }
@@ -538,12 +583,24 @@ public class TestMediaSearchServiceImpl
         params.setSearchText("a");
         service.setChunkSize(2 * SONG_NAMES.length);
         SearchResult<SongInfo> result = service.searchSongs(params, null);
+        boolean foundArtist = false;
+        boolean foundAlbum = false;
         for (SongInfo si : result.getResults())
         {
             assertTrue("Unexpected result: " + si,
                     si.getName().toUpperCase(Locale.ENGLISH).indexOf('A') >= 0);
+            if (si.getArtistName() != null)
+            {
+                foundArtist = true;
+            }
+            if (si.getAlbumName() != null)
+            {
+                foundAlbum = true;
+            }
         }
         assertFalse("No results", result.getResults().isEmpty());
+        assertTrue("No artist found", foundArtist);
+        assertTrue("No album found", foundAlbum);
     }
 
     /**
