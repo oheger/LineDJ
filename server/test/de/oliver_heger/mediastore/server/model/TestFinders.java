@@ -377,4 +377,22 @@ public class TestFinders
         }
         EasyMock.verify(em, query);
     }
+
+    /**
+     * Tests queryInCondition() if an empty collection is passed as parameter
+     * for the in list. This has to be treated in a special way, otherwise an
+     * exception is thrown by the persistence provider.
+     */
+    @Test
+    public void testQueryInConditionEmptyList()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EasyMock.replay(em);
+        Map<String, Object> params = createParametersMap(10);
+        params.put(PARAM, range(0, 0));
+        assertTrue("Got results",
+                Finders.queryInCondition(em, QUERY_NAME, params, PARAM)
+                        .isEmpty());
+        EasyMock.verify(em);
+    }
 }

@@ -2,6 +2,7 @@ package de.oliver_heger.mediastore.server.model;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -268,6 +269,11 @@ public final class Finders
             Map<String, Object> params, String paramIn)
     {
         List<?> inList = (List<?>) params.get(paramIn);
+        if (inList.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+
         if (inList.size() <= IN_THRESHOLD)
         {
             Query query = em.createNamedQuery(queryName);
