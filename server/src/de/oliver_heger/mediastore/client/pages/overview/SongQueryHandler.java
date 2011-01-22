@@ -28,7 +28,7 @@ class SongQueryHandler extends AbstractOverviewQueryHandler<SongInfo>
 {
     /** An array with the columns of the song overview table. */
     private static final String[] COLUMNS = {
-            "Name", "Artist", "Duration", "Year", "Track", "Played",
+            "Name", "Artist", "Duration", "Year", "Album", "Track", "Played",
             "Created at"
     };
 
@@ -108,10 +108,12 @@ class SongQueryHandler extends AbstractOverviewQueryHandler<SongInfo>
             case 3:
                 return data.getInceptionYear();
             case 4:
-                return data.getTrackNo();
+                return data.getAlbumName();
             case 5:
-                return data.getPlayCount();
+                return data.getTrackNo();
             case 6:
+                return data.getPlayCount();
+            case 7:
                 return getFormatter().formatDate(data.getCreationDate());
             default:
                 throw new IllegalArgumentException("Invalid column index: "

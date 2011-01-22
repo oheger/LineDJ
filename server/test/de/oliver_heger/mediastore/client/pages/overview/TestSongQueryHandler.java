@@ -62,6 +62,7 @@ public class TestSongQueryHandler
         info.setCreationDate(new Date());
         info.setSongID(SONG_KEY + idx);
         info.setArtistName("Artist" + idx);
+        info.setAlbumName("Album" + idx);
         info.setDuration(Long.valueOf(idx));
         info.setInceptionYear(1970 + idx);
         info.setName("Test Song " + idx);
@@ -156,7 +157,7 @@ public class TestSongQueryHandler
         ResultData data = handler.createResult(result);
         final String[] expColumns =
                 {
-                        "Name", "Artist", "Duration", "Year", "Track",
+                        "Name", "Artist", "Duration", "Year", "Album", "Track",
                         "Played", "Created at"
                 };
         assertEquals("Wrong number of columns", expColumns.length,
@@ -187,12 +188,14 @@ public class TestSongQueryHandler
                 data.getPropertyForColumn(info, 2));
         assertEquals("Wrong year", info.getInceptionYear(),
                 data.getPropertyForColumn(info, 3));
-        assertEquals("Wrong track", info.getTrackNo(),
+        assertEquals("Wrong album", info.getAlbumName(),
                 data.getPropertyForColumn(info, 4));
-        assertEquals("Wrong play count", Integer.valueOf(info.getPlayCount()),
+        assertEquals("Wrong track", info.getTrackNo(),
                 data.getPropertyForColumn(info, 5));
-        assertEquals("Wrong date", FMT_DATE_PREFIX + info.getCreationDate(),
+        assertEquals("Wrong play count", Integer.valueOf(info.getPlayCount()),
                 data.getPropertyForColumn(info, 6));
+        assertEquals("Wrong date", FMT_DATE_PREFIX + info.getCreationDate(),
+                data.getPropertyForColumn(info, 7));
     }
 
     /**
