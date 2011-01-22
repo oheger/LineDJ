@@ -108,7 +108,8 @@ public class TestSongInfo
     @Test
     public void testGetFormattedDurationNull()
     {
-        assertNull("Wrong formatted duration", info.getFormattedDuration());
+        assertEquals("Wrong formatted duration", "",
+                info.getFormattedDuration());
     }
 
     /**

@@ -24,12 +24,6 @@ public class SongInfo implements Serializable
      */
     private static final long serialVersionUID = 20110101L;
 
-    /** Constant for the string buffer size. */
-    private static final int BUF_SIZE = 5;
-
-    /** Constant for the separator for the formatted duration. */
-    private static final char DURATION_SEPARATOR = ':';
-
     /** The ID of the song. */
     private String songID;
 
@@ -294,17 +288,7 @@ public class SongInfo implements Serializable
      */
     public String getFormattedDuration()
     {
-        if (getDuration() == null)
-        {
-            return null;
-        }
-
-        long durSecs = getDuration() / 1000;
-        StringBuilder buf = new StringBuilder(BUF_SIZE);
-        appendDurationPart(buf, durSecs / 60);
-        buf.append(DURATION_SEPARATOR);
-        appendDurationPart(buf, durSecs % 60);
-        return buf.toString();
+        return DurationFormatter.formatMinutes(getDuration());
     }
 
     /**
@@ -326,20 +310,5 @@ public class SongInfo implements Serializable
                 .appendToStringField(buf, "playCount", getPlayCount(), false);
         buf.append(ObjectUtils.TOSTR_DATA_SUFFIX);
         return buf.toString();
-    }
-
-    /**
-     * Appends a duration part to a buffer.
-     *
-     * @param buf the buffer
-     * @param part the part to be added
-     */
-    private static void appendDurationPart(StringBuilder buf, long part)
-    {
-        if (part < 10)
-        {
-            buf.append('0');
-        }
-        buf.append(part);
     }
 }
