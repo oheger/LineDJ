@@ -8,6 +8,7 @@ import javax.persistence.EntityManager;
 import com.google.appengine.api.users.User;
 
 import de.oliver_heger.mediastore.server.db.JPATemplate;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 
@@ -35,23 +36,37 @@ class DummyDataCreator
 
     /** An array with the data about test songs. */
     private static final String[] SONG_DATA = {
-            "Thunderstrike|0", "TNT|0", "Highway to Hell|0", "Run to You|2",
-            "Summer of 69|2", "Do you really want to heart me?|3",
-            "War Song|3", "Thank You|4", "All that you want|4",
-            "Electric Avenue|5", "Gimme hope, Johanna|5", "Come to live|6",
-            "What's going on?|7", "American idiot|8",
-            "21st Century Breakdown|8", "Entre dos tierros|9",
-            "Kids in America|12", "Go for the second time|12", "Fugazzi|14",
-            "A script for a Jester's tear|14", "Grendel|14",
-            "Tubular Bells|15", "Moonlight Shaddow|15", "To France|15",
-            "Wishmaster|16", "Over the hills and far away|16",
-            "Pandorras Box|17", "Inuendo|19", "Bohemien Rapsody|19",
-            "Princes of the Universe|19", "Roll with the changes|20",
-            "Rocking all over the world|21", "More|22", "Temple of Love|22",
-            "Pride|23", "With or without you|23", "Jump|25",
-            "Conquest of Paradise|26", "Mother Earth|27", "The Race|28",
-            "Gimme all your loving|29", "LeGrange|29", "Return to sender|30",
-            "Heartbreak Hotel|31", "Love me tender|31"
+            "Thunderstrike|0|0", "TNT|0|0", "Highway to Hell|0|1",
+            "Run to You|2", "Summer of 69|2",
+            "Do you really want to heart me?|3|2", "War Song|3|2",
+            "Thank You|4", "All that you want|4|3", "Electric Avenue|5|4",
+            "Gimme hope, Johanna|5|4", "Come to live|6|5",
+            "What's going on?|7", "American idiot|8|6",
+            "21st Century Breakdown|8|7", "Entre dos tierros|9",
+            "Kids in America|12", "Go for the second time|12", "Fugazzi|14|11",
+            "A script for a Jester's tear|14", "Grendel|14|14",
+            "Tubular Bells|15|15", "Moonlight Shaddow|15|16",
+            "To France|15|17", "Wishmaster|16|20",
+            "Over the hills and far away|16|19", "Pandorras Box|17",
+            "Inuendo|19", "Bohemien Rapsody|19",
+            "Princes of the Universe|19|21", "Roll with the changes|20",
+            "Rocking all over the world|21", "More|22|23",
+            "Temple of Love|22|23", "Pride|23", "With or without you|23",
+            "Jump|25", "Conquest of Paradise|26", "Mother Earth|27",
+            "The Race|28", "Gimme all your loving|29|24", "LeGrange|29|24",
+            "Return to sender|30", "Heartbreak Hotel|31", "Love me tender|31"
+    };
+
+    /** An array with data about test albums. */
+    private static final String[] ALBUM_NAMES = {
+            "High Voltage", "Jailbreak", "Kissing to be clever",
+            "Long way home", "Electric Avenue", "Fallen", "American idiot",
+            "21st century breakdown", "El espiritu del vino", "A way away",
+            "Come and play", "Fugazzi", "Misplaced Childhood",
+            "Brief encounter", "B-sides themselves", "Tubular Bells", "Crisis",
+            "Discovery", "Islands", "Over the hills and far away",
+            "Wishmastour", "A kind of magic", "A night at the opera",
+            "Floodland", "Texas"
     };
 
     /** Constant for the user parameter. */
@@ -62,6 +77,10 @@ class DummyDataCreator
 
     /** Constant for a query for searching for an artist. */
     private static final String QUERY_ARTIST = "select a from ArtistEntity a "
+            + "where a.name = :" + PARAM_NAME + " and a.user = :" + PARAM_USER;
+
+    /** Constant for a query for searching for an album. */
+    private static final String QUERY_ALBUM = "select a from AlbumEntity a "
             + "where a.name = :" + PARAM_NAME + " and a.user = :" + PARAM_USER;
 
     /** Constant for a query for searching for a song. */
@@ -104,6 +123,11 @@ class DummyDataCreator
         for (String n : ARTIST_NAMES)
         {
             createArtist(n);
+        }
+
+        for (String n : ALBUM_NAMES)
+        {
+            createAlbum(n);
         }
 
         for (String d : SONG_DATA)
@@ -171,16 +195,58 @@ class DummyDataCreator
     }
 
     /**
+     * Searches for an album with a given name. If the album cannot be found,
+     * result is <b>null</b>.
+     *
+     * @param em the entity manager
+     * @param name the name of the album
+     * @return the corresponding album object or <b>null</b> if it cannot be
+     *         resolved
+     */
+    private AlbumEntity findAlbum(EntityManager em, String name)
+    {
+        return (AlbumEntity) findEntityByName(em, QUERY_ALBUM, name);
+    }
+
+    /**
+     * Creates an entity for an album with the given name.
+     *
+     * @param name the name of the album
+     */
+    private void createAlbum(final String name)
+    {
+        JPATemplate<Void> templ = new JPATemplate<Void>()
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                if (findAlbum(em, name) == null)
+                {
+                    LOG.info("Creating Album instance for " + name);
+                    AlbumEntity album = new AlbumEntity();
+                    album.setName(name);
+                    album.setUser(getUser());
+                    em.persist(album);
+                }
+                return null;
+            }
+        };
+        templ.execute();
+    }
+
+    /**
      * Creates a song entity.
      *
      * @param data the data for the song
      */
     private void createSong(String data)
     {
-        int pos = data.indexOf('|');
-        final String name = data.substring(0, pos);
-        final String artistName =
-                ARTIST_NAMES[Integer.parseInt(data.substring(pos + 1))];
+        String[] songData = data.split("\\|");
+        final String name = songData[0];
+        final String artistName = ARTIST_NAMES[Integer.parseInt(songData[1])];
+        final String albumName =
+                (songData.length < 3) ? null : ALBUM_NAMES[Integer
+                        .parseInt(songData[2])];
         JPATemplate<Void> templ = new JPATemplate<Void>(false)
         {
             @Override
@@ -198,6 +264,13 @@ class DummyDataCreator
                     if (artist != null)
                     {
                         song.setArtistID(artist.getId());
+                    }
+                    AlbumEntity album =
+                            (albumName != null) ? findAlbum(em, albumName)
+                                    : null;
+                    if (album != null)
+                    {
+                        song.setAlbumID(album.getId());
                     }
                     em.persist(song);
                 }
