@@ -42,19 +42,27 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_NAME, query = SongEntity.QUERY_FIND_BY_NAME_DEF),
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF),
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_ARTIST, query = SongEntity.QUERY_FIND_BY_ARTIST_DEF),
-        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUM, query = SongEntity.QUERY_FIND_BY_ALBUM_DEF)
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUM, query = SongEntity.QUERY_FIND_BY_ALBUM_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUMLIST, query = SongEntity.QUERY_FIND_BY_ALBUMLIST_DEF)
 })
 public class SongEntity implements Serializable
 {
+    /** Constant for the prefix for song queries. */
+    public static final String SONG_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.server.model.SongEntity.";
+
+    /**
+     * Constant for the name of the query for finding songs by a collection of
+     * albums.
+     */
+    public static final String QUERY_FIND_BY_ALBUMLIST = SONG_QUERY_PREFIX
+            + "QUERY_FIND_BY_ALBUMLIST";
+
     /** Constant for the source artist parameter. */
-    static final String PARAM_ARTIST = "artist";
+    public static final String PARAM_ARTIST = "artist";
 
     /** Constant for the album parameter. */
-    static final String PARAM_ALBUM = "album";
-
-    /** Constant for the prefix for song queries. */
-    static final String SONG_QUERY_PREFIX =
-            "de.oliver_heger.mediastore.server.model.SongEntity.";
+    public static final String PARAM_ALBUM = "album";
 
     /** Constant for the name of the query for finding a song by name. */
     static final String QUERY_FIND_BY_NAME = SONG_QUERY_PREFIX
@@ -104,6 +112,14 @@ public class SongEntity implements Serializable
      */
     static final String QUERY_FIND_BY_ALBUM_DEF = "select e from SongEntity e"
             + " where e.albumID = :" + PARAM_ALBUM;
+
+    /**
+     * Constant for the definition of the query which searches for the songs of
+     * a set of albums.
+     */
+    static final String QUERY_FIND_BY_ALBUMLIST_DEF =
+            "select e from SongEntity" + " e where e.albumID in (:"
+                    + PARAM_ALBUM + ")";
 
     /**
      * The serial version UID.

@@ -123,6 +123,36 @@ public final class Finders
     }
 
     /**
+     * Returns a list with all songs associated with one of the passed in
+     * albums.
+     *
+     * @param em the {@code EntityManager} (must not be <b>null</b>)
+     * @param albums the list with the albums (must not be <b>null</b>)
+     * @return a list with the songs associated with these albums
+     * @throws NullPointerException if a required parameter is missing
+     */
+    public static List<SongEntity> findSongsByAlbums(EntityManager em,
+            Collection<? extends AlbumEntity> albums)
+    {
+        List<Long> albumIDs = new ArrayList<Long>(albums.size());
+        for (AlbumEntity e : albums)
+        {
+            albumIDs.add(e.getId());
+        }
+
+        Map<String, Object> params =
+                Collections.singletonMap(SongEntity.PARAM_ALBUM,
+                        (Object) albumIDs);
+        // the query returns objects of the correct type
+        @SuppressWarnings("unchecked")
+        List<SongEntity> result =
+                (List<SongEntity>) queryInCondition(em,
+                        SongEntity.QUERY_FIND_BY_ALBUMLIST, params,
+                        SongEntity.PARAM_ALBUM);
+        return result;
+    }
+
+    /**
      * Returns a list of all albums referenced by the given songs.
      *
      * @param em the {@code EntityManager} (must not be <b>null</b>)

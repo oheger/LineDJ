@@ -395,4 +395,27 @@ public class TestFinders
                         .isEmpty());
         EasyMock.verify(em);
     }
+
+    /**
+     * Tries to find songs for a null collection of albums.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testFindSongsByAlbumsNullAlbums()
+    {
+        EntityManager em = EasyMock.createNiceMock(EntityManager.class);
+        Finders.findSongsByAlbums(em, null);
+    }
+
+    /**
+     * Tests findSongsByAlbums() for an empty list of albums.
+     */
+    @Test
+    public void testFindSongsByAlbumsNoAlbums()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EasyMock.replay(em);
+        List<AlbumEntity> albums = Collections.emptyList();
+        assertTrue("Got songs", Finders.findSongsByAlbums(em, albums).isEmpty());
+        EasyMock.verify(em);
+    }
 }
