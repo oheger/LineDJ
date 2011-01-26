@@ -178,8 +178,7 @@ public class AlbumEntityConverter implements
      */
     List<SongEntity> loadSongs(AlbumEntity e)
     {
-        // TODO implementation
-        throw new UnsupportedOperationException("Not yet implemented!");
+        return SongEntity.findByAlbum(getEntityManager(), e);
     }
 
     /**

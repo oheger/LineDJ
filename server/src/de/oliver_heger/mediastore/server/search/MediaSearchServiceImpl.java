@@ -14,6 +14,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.Query;
 
 import de.oliver_heger.mediastore.server.RemoteMediaServiceServlet;
+import de.oliver_heger.mediastore.server.convert.AlbumEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.EntityConverter;
@@ -23,6 +24,7 @@ import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.server.model.SongEntity;
+import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
@@ -101,6 +103,10 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
 
     /** Constant for the query string for songs. */
     private static final String QUERY_SONGS = SELECT_PREFIX + "SongEntity"
+            + WHERE_USER + ORDER_BY + "name";
+
+    /** Constant for the query string for albums. */
+    private static final String QUERY_ALBUMS = SELECT_PREFIX + "AlbumEntity"
             + WHERE_USER + ORDER_BY + "name";
 
     /** Constant for the default chunk size for search operations. */
@@ -184,6 +190,35 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
         return executeChunkSearch(params, iterator,
                 createSongSearchFilter(params), createSongSearchConverter(),
                 QUERY_SONGS);
+    }
+
+    /**
+     * Performs a search for albums. Based on the parameters objects either a
+     * full or a chunk search is performed. In both cases extended information
+     * is obtained about the album based on the albums associated with it.
+     *
+     * @param params search parameters
+     * @param iterator the search iterator
+     * @return the search results
+     */
+    @Override
+    public SearchResult<AlbumInfo> searchAlbums(MediaSearchParameters params,
+            SearchIterator iterator)
+    {
+        if (params.getSearchText() == null)
+        {
+            SearchIteratorImpl sit = new SearchIteratorImpl();
+            List<AlbumEntity> albums =
+                    executeFullSearch(params, sit, QUERY_ALBUMS);
+            AlbumEntityConverter conv =
+                    createAndInitializeAlbumSearchConverter(albums);
+            return new SearchResultImpl<AlbumInfo>(
+                    ConvertUtils.convertEntities(albums, conv), sit, params);
+        }
+
+        return executeChunkSearch(params, iterator,
+                createAlbumSearchFilter(params), createAlbumSearchConverter(),
+                QUERY_ALBUMS);
     }
 
     /**
@@ -294,6 +329,28 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     EntityConverter<SongEntity, SongInfo> createSongSearchConverter()
     {
         return new SongEntityConverter();
+    }
+
+    /**
+     * Creates a filter object for an album search.
+     *
+     * @param params the search parameters
+     * @return the filter for albums
+     */
+    SearchFilter<AlbumEntity> createAlbumSearchFilter(
+            MediaSearchParameters params)
+    {
+        return new AlbumSearchFilter(params.getSearchText());
+    }
+
+    /**
+     * Creates a converter object for converting album result objects.
+     *
+     * @return the converter for albums
+     */
+    EntityConverter<AlbumEntity, AlbumInfo> createAlbumSearchConverter()
+    {
+        return new AlbumEntityConverter();
     }
 
     /**
@@ -478,6 +535,33 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * Retrieves all song entities which belong to one of the specified album
+     * entities. This method is used to initialize the converter for albums
+     * which also has to deal with information about the songs of the albums to
+     * be converted.
+     *
+     * @param albums the album entities to be converted
+     * @return a list with the songs associated with these albums
+     */
+    List<SongEntity> fetchSongsForAlbums(
+            final Collection<? extends AlbumEntity> albums)
+    {
+        JPATemplate<List<SongEntity>> templ =
+                new JPATemplate<List<SongEntity>>(false)
+                {
+                    @Override
+                    protected List<SongEntity> performOperation(EntityManager em)
+                    {
+                        List<SongEntity> songs =
+                                Finders.findSongsByAlbums(em, albums);
+                        songs.size(); // ensure that list is loaded
+                        return songs;
+                    }
+                };
+        return templ.execute();
+    }
+
+    /**
      * Helper method for retrieving objects referenced by songs. This method
      * performs a query with an in condition for the specified IDs.
      *
@@ -521,6 +605,22 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                 (SongEntityConverter) createSongSearchConverter();
         conv.initResolvedArtists(fetchReferencedArtists(songs));
         conv.initResolvedAlbums(fetchReferencedAlbums(songs));
+        return conv;
+    }
+
+    /**
+     * Returns a converter for albums which is already initialized with song
+     * information needed for converting album entities.
+     *
+     * @param albums the list with the albums to be converted
+     * @return the initialized converter for album entities
+     */
+    private AlbumEntityConverter createAndInitializeAlbumSearchConverter(
+            Collection<? extends AlbumEntity> albums)
+    {
+        AlbumEntityConverter conv =
+                (AlbumEntityConverter) createAlbumSearchConverter();
+        conv.initializeSongData(fetchSongsForAlbums(albums));
         return conv;
     }
 

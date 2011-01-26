@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,6 +29,7 @@ import de.oliver_heger.mediastore.server.convert.EntityConverter;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
+import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
@@ -64,9 +66,9 @@ public class TestMediaSearchServiceImpl
 
     /** An array with some test albums. */
     private static final String[] ALBUM_NAMES = {
-        "Back in Black", "Best of the Animals", "Best of Bryan Adams",
-        "Kissing to be clever", "Dido & PlemPleminem", "Eddy's Greatests",
-        "Open Door", "Classics", "American Idiot", "Stoosh"
+            "Back in Black", "Best of the Animals", "Best of Bryan Adams",
+            "Kissing to be clever", "Dido & PlemPleminem", "Eddy's Greatests",
+            "Open Door", "Classics", "American Idiot", "Stoosh"
     };
 
     /** Constant for a test client parameter. */
@@ -134,21 +136,24 @@ public class TestMediaSearchServiceImpl
 
     /**
      * Creates a number of test albums.
+     *
      * @return a map with the names of the entities created by this method and
-     *         their ID values
+     *         the newly created entities
      */
-    private Map<String, Long> createAlbums()
+    private Map<String, AlbumEntity> createAlbums()
     {
-        Map<String, Long> result = new HashMap<String, Long>();
-        List<String> albumNames = Arrays.asList(ALBUM_NAMES);
+        Map<String, AlbumEntity> result =
+                new LinkedHashMap<String, AlbumEntity>();
+        List<String> albumNames =
+                new ArrayList<String>(Arrays.asList(ALBUM_NAMES));
         Collections.shuffle(albumNames);
-        for(String name : albumNames)
+        for (String name : albumNames)
         {
             AlbumEntity album = new AlbumEntity();
             album.setName(name);
             album.setUser(PersistenceTestHelper.getTestUser());
             helper.persist(album);
-            result.put(name, album.getId());
+            result.put(name, album);
         }
         // create some albums for a different user
         // create some artists for a different user
@@ -175,7 +180,22 @@ public class TestMediaSearchServiceImpl
     private List<SongEntity> createSongs(boolean persist)
     {
         Map<String, Long> artists = createArtists();
-        Map<String, Long> albums = createAlbums();
+        Map<String, AlbumEntity> albums = createAlbums();
+        return createSongs(persist, artists, albums);
+    }
+
+    /**
+     * Creates a number of test songs and associates them with the given artists
+     * and albums.
+     *
+     * @param persist a flag whether the entities should be persisted
+     * @param artists a map with data about artists
+     * @param albums a map with data about albums
+     * @return the entities created by this method
+     */
+    private List<SongEntity> createSongs(boolean persist,
+            Map<String, Long> artists, Map<String, AlbumEntity> albums)
+    {
         List<SongEntity> songs = new ArrayList<SongEntity>(SONG_NAMES.length);
         for (int i = 0; i < SONG_NAMES.length; i++)
         {
@@ -183,8 +203,13 @@ public class TestMediaSearchServiceImpl
             song.setName(SONG_NAMES[i]);
             song.setPlayCount(i);
             song.setInceptionYear(1970 + i);
+            song.setDuration((60 + i) * 1000L);
             song.setArtistID(artists.get(ARTIST_NAMES[i]));
-            song.setAlbumID(albums.get(ALBUM_NAMES[i]));
+            AlbumEntity alb = albums.get(ALBUM_NAMES[i]);
+            if (alb != null)
+            {
+                song.setAlbumID(alb.getId());
+            }
             song.setUser(PersistenceTestHelper.getTestUser());
             songs.add(song);
             if (persist)
@@ -567,7 +592,8 @@ public class TestMediaSearchServiceImpl
                     info.getInceptionYear());
             assertEquals("Wrong artist name", ARTIST_NAMES[idx],
                     info.getArtistName());
-            assertEquals("Wrong album name", ALBUM_NAMES[idx], info.getAlbumName());
+            assertEquals("Wrong album name", ALBUM_NAMES[idx],
+                    info.getAlbumName());
             idx++;
         }
     }
@@ -614,6 +640,98 @@ public class TestMediaSearchServiceImpl
                 service.searchSongs(new MediaSearchParameters(), null);
         assertEquals("Wrong number of results", SONG_NAMES.length, result
                 .getResults().size());
+    }
+
+    /**
+     * Tests a chunk-based search for albums.
+     */
+    @Test
+    public void testSearchAlbumsChunk()
+    {
+        SearchIterator sit = EasyMock.createMock(SearchIterator.class);
+        EasyMock.replay(sit);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("testAlbum");
+        SearchResult<?> result = service.expectChunkSearch(params, sit);
+        assertSame("Wrong result", result, service.searchAlbums(params, sit));
+        EasyMock.verify(sit);
+    }
+
+    /**
+     * Checks whether a search result with albums also contains information
+     * about songs.
+     *
+     * @param result the result to check
+     */
+    private void checkSongData(SearchResult<AlbumInfo> result)
+    {
+        boolean foundDuration = false;
+        boolean foundInceptionYear = false;
+        boolean foundSongCount = false;
+        for (AlbumInfo info : result.getResults())
+        {
+            if (info.getDuration() != null)
+            {
+                foundDuration = true;
+            }
+            if (info.getInceptionYear() != null)
+            {
+                foundInceptionYear = true;
+            }
+            if (info.getNumberOfSongs() > 0)
+            {
+                foundSongCount = true;
+            }
+        }
+        assertTrue("No duration found", foundDuration);
+        assertTrue("No inception year found", foundInceptionYear);
+        assertTrue("No song count found", foundSongCount);
+    }
+
+    /**
+     * Tests a search for all albums.
+     */
+    @Test
+    public void testSearchAlbumsAll()
+    {
+        Map<String, Long> artists = createArtists();
+        Map<String, AlbumEntity> albums = createAlbums();
+        MediaSearchParameters params = new MediaSearchParameters();
+        createSongs(true, artists, albums);
+        service.expectFullSearch(params,
+                new ArrayList<AlbumEntity>(albums.values()));
+        SearchResult<AlbumInfo> result = service.searchAlbums(params, null);
+        List<AlbumInfo> results = result.getResults();
+        assertEquals("Wrong number of albums", ALBUM_NAMES.length,
+                results.size());
+        checkSongData(result);
+    }
+
+    /**
+     * Tests an actual chunk search for albums.
+     */
+    @Test
+    public void testSearchAlbumsChunkQuery()
+    {
+        createSongs(true);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("a");
+        service.setChunkSize(2 * ALBUM_NAMES.length);
+        checkSongData(service.searchAlbums(params, null));
+    }
+
+    /**
+     * Tests an actual search for all albums.
+     */
+    @Test
+    public void testSearchAlbumsAllQuery()
+    {
+        createSongs(true);
+        SearchResult<AlbumInfo> result =
+                service.searchAlbums(new MediaSearchParameters(), null);
+        assertEquals("Wrong number of search results", ALBUM_NAMES.length,
+                result.getResults().size());
+        checkSongData(result);
     }
 
     /**
@@ -736,6 +854,33 @@ public class TestMediaSearchServiceImpl
         {
             return (EntityConverter<SongEntity, SongInfo>) ((mockConverter != null) ? mockConverter
                     : super.createSongSearchConverter());
+        }
+
+        /**
+         * Either returns the mock album filter or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        SearchFilter<AlbumEntity> createAlbumSearchFilter(
+                MediaSearchParameters params)
+        {
+            if (mockFilter != null)
+            {
+                assertEquals("Wrong parameters", expParameters, params);
+                return (SearchFilter<AlbumEntity>) mockFilter;
+            }
+            return super.createAlbumSearchFilter(params);
+        }
+
+        /**
+         * Either returns the mock album converter or calls the super method.
+         */
+        @SuppressWarnings("unchecked")
+        @Override
+        EntityConverter<AlbumEntity, AlbumInfo> createAlbumSearchConverter()
+        {
+            return (EntityConverter<AlbumEntity, AlbumInfo>) ((mockConverter != null) ? mockConverter
+                    : super.createAlbumSearchConverter());
         }
 
         /**
