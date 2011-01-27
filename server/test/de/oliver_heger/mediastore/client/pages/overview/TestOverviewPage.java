@@ -45,6 +45,7 @@ public class TestOverviewPage extends GWTTestCase
         assertNotNull("No tab panel", page.tabPanel);
         assertNotNull("No artist table", page.tabArtists);
         assertNotNull("No songs table", page.tabSongs);
+        assertNotNull("No albums table", page.tabAlbums);
     }
 
     /**
@@ -137,6 +138,20 @@ public class TestOverviewPage extends GWTTestCase
         assertTrue("Wrong query handler", handler instanceof SongQueryHandler);
         assertSame("Wrong search listener", page,
                 page.tabSongs.getSearchListener());
+    }
+
+    /**
+     * Tests whether a query handler for albums can be obtained.
+     */
+    public void testFetchAlbumQueryHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        page.initQueryHandlers();
+        AbstractOverviewQueryHandler<?> handler =
+                page.fetchQueryHandler(page.tabAlbums);
+        assertTrue("Wrong query handler", handler instanceof AlbumQueryHandler);
+        assertSame("Wrong search listener", page,
+                page.tabAlbums.getSearchListener());
     }
 
     /**

@@ -47,6 +47,10 @@ public class OverviewPage extends Composite implements SearchListener
     @UiField
     OverviewTable tabSongs;
 
+    /** The table for the albums. */
+    @UiField
+    OverviewTable tabAlbums;
+
     /** A map with handlers for processing search queries. */
     private Map<OverviewTable, OverviewData> overviewTables;
 
@@ -138,6 +142,17 @@ public class OverviewPage extends Composite implements SearchListener
     }
 
     /**
+     * Creates the handler for album queries. This method is called when a query
+     * for albums is initiated.
+     *
+     * @return the query handler for albums
+     */
+    protected AbstractOverviewQueryHandler<?> createAlbumQueryHandler()
+    {
+        return new AlbumQueryHandler(tabAlbums);
+    }
+
+    /**
      * Initializes the map with query handlers. This method also registers this
      * object as search listener at all overview tables.
      */
@@ -150,6 +165,8 @@ public class OverviewPage extends Composite implements SearchListener
         overviewTables
                 .put(tabSongs, new OverviewData(createSongQueryHandler()));
         tabSongs.setSearchListener(this);
+        overviewTables.put(tabAlbums, new OverviewData(createAlbumQueryHandler()));
+        tabAlbums.setSearchListener(this);
         // TODO add further handlers
     }
 

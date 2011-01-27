@@ -13,5 +13,9 @@
       <g:header>Songs</g:header>
       <rms:OverviewTable ui:field="tabSongs"/>
     </g:tab>
+    <g:tab>
+      <g:header>Albums</g:header>
+      <rms:OverviewTable ui:field="tabAlbums"/>
+    </g:tab>
   </g:TabLayoutPanel>
 </ui:UiBinder>
