@@ -21,9 +21,6 @@ import javax.persistence.Query;
 import org.easymock.EasyMock;
 import org.junit.Test;
 
-import de.oliver_heger.mediastore.shared.model.Album;
-import de.oliver_heger.mediastore.shared.model.Artist;
-import de.oliver_heger.mediastore.shared.model.Song;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
@@ -79,7 +76,7 @@ public class TestFinders
     @Test(expected = NullPointerException.class)
     public void testFindSongsByAlbumNoEM()
     {
-        Finders.findSongsByAlbum(null, new Album());
+        Finders.findSongsByAlbum(null, new AlbumEntity());
     }
 
     /**
@@ -107,7 +104,7 @@ public class TestFinders
     @Test(expected = NullPointerException.class)
     public void testFindAlbumsForSongsNoEM()
     {
-        Finders.findAlbumsForSongs(null, new HashSet<Song>());
+        Finders.findAlbumsForSongs(null, new HashSet<SongEntity>());
     }
 
     /**
@@ -135,7 +132,7 @@ public class TestFinders
     @Test(expected = NullPointerException.class)
     public void testFindAlbumsForArtistNoEM()
     {
-        Finders.findAlbumsForArtist(null, new Artist());
+        Finders.findAlbumsForArtist(null, new ArtistEntity());
     }
 
     /**
@@ -163,7 +160,7 @@ public class TestFinders
     @Test(expected = NullPointerException.class)
     public void testFindArtistsForAlbumNoEM()
     {
-        Finders.findArtistsForAlbum(null, new Album());
+        Finders.findArtistsForAlbum(null, new AlbumEntity());
     }
 
     /**

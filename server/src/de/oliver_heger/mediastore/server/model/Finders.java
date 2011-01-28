@@ -16,10 +16,6 @@ import javax.persistence.Query;
 
 import com.google.appengine.api.users.User;
 
-import de.oliver_heger.mediastore.shared.model.Album;
-import de.oliver_heger.mediastore.shared.model.Artist;
-import de.oliver_heger.mediastore.shared.model.Song;
-
 /**
  * <p>
  * A helper class defining a bunch of finder methods on the entity classes.
@@ -43,40 +39,6 @@ public final class Finders
     /** Constant for the name parameter. */
     static final String PARAM_NAME = "name";
 
-    /** The parameter for the artist ID. */
-    private static final String PARAM_ARTIST = "artID";
-
-    /** The parameter for the album ID. */
-    private static final String PARAM_ALBUM = "albumID";
-
-    /** The part of a query for retrieving songs by an artist ID. */
-    private static final String ARTIST_QUERY_SUFFIX = " from Song s "
-            + "where s.artistID = :" + PARAM_ARTIST;
-
-    /** The part of a query for retrieving songs by an album ID. */
-    private static final String ALBUM_QUERY_SUFFIX = " from Song s "
-            + "where s.albumID = :" + PARAM_ALBUM;
-
-    /** The query string of the query for finding the songs of an album. */
-    private static final String QUERY_FIND_BY_ALBUM_DEF = "select s"
-            + ALBUM_QUERY_SUFFIX;
-
-    /** The query string of the query for finding song IDs of an artist. */
-    private static final String QUERY_FIND_IDS_BY_ARTIST_DEF =
-            "select s.albumID" + ARTIST_QUERY_SUFFIX;
-
-    /** The query string of the query for finding song IDs of an album. */
-    private static final String QUERY_FIND_IDS_BY_ALBUM_DEF =
-            "select s.artistID" + ALBUM_QUERY_SUFFIX;
-
-    /** The query string of the query for retrieving a set of artists. */
-    private static final String QUERY_FIND_ARTISTS_DEF =
-            "select a from Artist a " + "where a.id in (:" + PARAM_ARTIST + ")";
-
-    /** The query string of the query for retrieving a set of albums. */
-    private static final String QUERY_FIND_ALBUMS_DEF =
-            "select a from Album a " + "where a.id in (:" + PARAM_ALBUM + ")";
-
     /**
      * Constant for the threshold for in conditions. If an in condition contains
      * more elements than this number, the query is split.
@@ -94,7 +56,7 @@ public final class Finders
      * Returns a list with the songs of the specified artist.
      *
      * @param em the {@code EntityManager} (must not be <b>null</b>)
-     * @param art the {@code Artist} (must not be <b>null</b>)
+     * @param art the {@code ArtistEntity} (must not be <b>null</b>)
      * @return a list with the songs of this artist
      * @throws NullPointerException if a required parameter is missing
      */
@@ -108,18 +70,52 @@ public final class Finders
      * Returns a list with the songs of the specified album.
      *
      * @param em the {@code EntityManager} (must not be <b>null</b>)
-     * @param album the {@code Album} (must not be <b>null</b>)
+     * @param art the {@code AlbumEntity} (must not be <b>null</b>)
      * @return a list with the songs of this album
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Song> findSongsByAlbum(EntityManager em, Album album)
+    public static List<SongEntity> findSongsByAlbum(EntityManager em,
+            AlbumEntity album)
     {
-        Long albumID = album.getId();
+        return SongEntity.findByAlbum(em, album);
+    }
+
+    /**
+     * Returns the {@code AlbumEntity} instances for the specified IDs.
+     *
+     * @param em the {@code EntityManager} (must not be <b>null</b>)
+     * @param albumIDs a set with the IDs of the albums to retrieve
+     * @return a list with the found albums
+     * @throws NullPointerException if a required parameter is missing
+     */
+    public static List<AlbumEntity> findAlbumsByIDs(EntityManager em,
+            Set<Long> albumIDs)
+    {
+        // the query guarantees that the correct type is returned
         @SuppressWarnings("unchecked")
-        List<Song> songs =
-                em.createQuery(QUERY_FIND_BY_ALBUM_DEF)
-                        .setParameter(PARAM_ALBUM, albumID).getResultList();
-        return songs;
+        List<AlbumEntity> albums =
+                (List<AlbumEntity>) queryByIDs(em,
+                        AlbumEntity.QUERY_FIND_BY_IDS, albumIDs);
+        return albums;
+    }
+
+    /**
+     * Returns the {@code ArtistEntity} instances of the specified IDs.
+     *
+     * @param em the {@code EntityManager} (must not be <b>null</b>)
+     * @param artistIDs a set with the IDs of the artists to retrieve
+     * @return a list with the found albums
+     * @throws NullPointerException if a required parameter is missing
+     */
+    public static List<ArtistEntity> findArtistsByIDs(EntityManager em,
+            Set<Long> artistIDs)
+    {
+        // the query guarantees that the correct type is returned
+        @SuppressWarnings("unchecked")
+        List<ArtistEntity> artists =
+                (List<ArtistEntity>) queryByIDs(em,
+                        ArtistEntity.QUERY_FIND_BY_IDS, artistIDs);
+        return artists;
     }
 
     /**
@@ -160,11 +156,11 @@ public final class Finders
      * @return a list with all albums referenced by the songs
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Album> findAlbumsForSongs(EntityManager em,
-            Collection<? extends Song> songs)
+    public static List<AlbumEntity> findAlbumsForSongs(EntityManager em,
+            Collection<? extends SongEntity> songs)
     {
         Set<Long> albumIDs = new HashSet<Long>();
-        for (Song s : songs)
+        for (SongEntity s : songs)
         {
             albumIDs.add(s.getAlbumID());
         }
@@ -182,14 +178,11 @@ public final class Finders
      * @return a list with the albums of this artist
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Album> findAlbumsForArtist(EntityManager em, Artist art)
+    public static List<AlbumEntity> findAlbumsForArtist(EntityManager em,
+            ArtistEntity art)
     {
-        Long artID = art.getId();
-        @SuppressWarnings("unchecked")
-        List<Long> albumIDs =
-                em.createQuery(QUERY_FIND_IDS_BY_ARTIST_DEF)
-                        .setParameter(PARAM_ARTIST, artID).getResultList();
-        return findAlbumsByIDs(em, new HashSet<Long>(albumIDs));
+        List<SongEntity> songs = findSongsByArtist(em, art);
+        return findAlbumsForSongs(em, songs);
     }
 
     /**
@@ -200,11 +193,11 @@ public final class Finders
      * @return a list with all artists referenced by the songs
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Artist> findArtistsForSongs(EntityManager em,
-            Collection<? extends Song> songs)
+    public static List<ArtistEntity> findArtistsForSongs(EntityManager em,
+            Collection<? extends SongEntity> songs)
     {
         Set<Long> artistIDs = new HashSet<Long>();
-        for (Song s : songs)
+        for (SongEntity s : songs)
         {
             artistIDs.add(s.getArtistID());
         }
@@ -222,14 +215,11 @@ public final class Finders
      * @return a list with the artists of this album
      * @throws NullPointerException if a required parameter is missing
      */
-    public static List<Artist> findArtistsForAlbum(EntityManager em, Album album)
+    public static List<ArtistEntity> findArtistsForAlbum(EntityManager em,
+            AlbumEntity album)
     {
-        Long albumID = album.getId();
-        @SuppressWarnings("unchecked")
-        List<Long> artistIDs =
-                em.createQuery(QUERY_FIND_IDS_BY_ALBUM_DEF)
-                        .setParameter(PARAM_ALBUM, albumID).getResultList();
-        return findArtistsByIDs(em, new HashSet<Long>(artistIDs));
+        List<SongEntity> songs = findSongsByAlbum(em, album);
+        return findArtistsForSongs(em, songs);
     }
 
     /**
@@ -298,7 +288,7 @@ public final class Finders
     public static List<?> queryInCondition(EntityManager em, String queryName,
             Map<String, Object> params, String paramIn)
     {
-        List<?> inList = (List<?>) params.get(paramIn);
+        Collection<?> inList = (Collection<?>) params.get(paramIn);
         if (inList.isEmpty())
         {
             return Collections.emptyList();
@@ -312,15 +302,40 @@ public final class Finders
         }
 
         Map<String, Object> paramsCopy = new HashMap<String, Object>(params);
-        paramsCopy.put(paramIn, inList.subList(0, IN_THRESHOLD));
+        List<?> idList =
+                (inList instanceof List) ? (List<?>) inList
+                        : new ArrayList<Object>(inList);
+        paramsCopy.put(paramIn, idList.subList(0, IN_THRESHOLD));
         List<?> result1 = queryInCondition(em, queryName, paramsCopy, paramIn);
-        paramsCopy.put(paramIn, inList.subList(IN_THRESHOLD, inList.size()));
+        paramsCopy.put(paramIn, idList.subList(IN_THRESHOLD, inList.size()));
         List<?> result2 = queryInCondition(em, queryName, paramsCopy, paramIn);
         @SuppressWarnings("rawtypes")
         List result = new ArrayList(result1.size() + result2.size());
         result.addAll(result1);
         result.addAll(result2);
         return result;
+    }
+
+    /**
+     * Executes a named query whose single parameter is a list of IDs. This is a
+     * convenience method of invoking {@code queryInCondition()} manually.
+     *
+     * @param em the entity manager
+     * @param queryName the name of the query
+     * @param ids the collection with IDs
+     * @return the results of the query
+     * @throws NullPointerException if a required parameter is missing
+     */
+    private static List<?> queryByIDs(EntityManager em, String queryName,
+            Collection<?> ids)
+    {
+        if (em == null)
+        {
+            throw new NullPointerException("EntityManager must not be null!");
+        }
+        Map<String, Object> params =
+                Collections.singletonMap(PARAM_ID, (Object) ids);
+        return queryInCondition(em, queryName, params, PARAM_ID);
     }
 
     /**
@@ -335,41 +350,5 @@ public final class Finders
         {
             query.setParameter(e.getKey(), e.getValue());
         }
-    }
-
-    /**
-     * Returns the {@code Album} instances for the specified IDs.
-     *
-     * @param em the {@code EntityManager} (must not be <b>null</b>)
-     * @param albumIDs a set with the IDs of the albums to retrieve
-     * @return a list with the found albums
-     * @throws NullPointerException if a required parameter is missing
-     */
-    private static List<Album> findAlbumsByIDs(EntityManager em,
-            Set<Long> albumIDs)
-    {
-        @SuppressWarnings("unchecked")
-        List<Album> albums =
-                em.createQuery(QUERY_FIND_ALBUMS_DEF)
-                        .setParameter(PARAM_ALBUM, albumIDs).getResultList();
-        return albums;
-    }
-
-    /**
-     * Returns the {@code Artist} instances of the specified IDs.
-     *
-     * @param em the {@code EntityManager} (must not be <b>null</b>)
-     * @param artistIDs a set with the IDs of the artists to retrieve
-     * @return a list with the found albums
-     * @throws NullPointerException if a required parameter is missing
-     */
-    private static List<Artist> findArtistsByIDs(EntityManager em,
-            Set<Long> artistIDs)
-    {
-        @SuppressWarnings("unchecked")
-        List<Artist> artists =
-                em.createQuery(QUERY_FIND_ARTISTS_DEF)
-                        .setParameter(PARAM_ARTIST, artistIDs).getResultList();
-        return artists;
     }
 }

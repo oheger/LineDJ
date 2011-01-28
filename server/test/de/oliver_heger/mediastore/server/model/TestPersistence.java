@@ -17,12 +17,6 @@ import org.junit.Test;
 
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
-import de.oliver_heger.mediastore.server.model.ArtistEntity;
-import de.oliver_heger.mediastore.server.model.Finders;
-import de.oliver_heger.mediastore.server.model.SongEntity;
-import de.oliver_heger.mediastore.shared.model.Album;
-import de.oliver_heger.mediastore.shared.model.Artist;
-import de.oliver_heger.mediastore.shared.model.Song;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
@@ -66,23 +60,6 @@ public class TestPersistence
     }
 
     /**
-     * Creates a test song with the given index.
-     *
-     * @param idx the index
-     * @return the test song
-     */
-    private static Song createTestSong(int idx)
-    {
-        Song song = new Song();
-        song.setName(SONG_NAME + idx);
-        song.setDuration(20 * 60 * 1000L + idx);
-        song.setTrackNo(idx);
-        song.setInceptionYear(1973 + idx);
-        song.setUserID(PersistenceTestHelper.USER);
-        return song;
-    }
-
-    /**
      * Creates a test song entity with the given index.
      *
      * @param idx the index
@@ -97,24 +74,6 @@ public class TestPersistence
         song.setInceptionYear(1973 + idx);
         song.setUser(PersistenceTestHelper.getTestUser());
         return song;
-    }
-
-    /**
-     * Helper method for testing songs retrieved from the database.
-     *
-     * @param songs the collection with test songs
-     */
-    private static void checkSongs(List<Song> songs)
-    {
-        assertEquals("Wrong number of songs", SONG_COUNT, songs.size());
-        Set<Integer> tracks = new HashSet<Integer>();
-        for (Song s : songs)
-        {
-            int i = s.getTrackNo();
-            assertTrue("Invalid track: " + i, i >= 0 && i < SONG_COUNT);
-            assertTrue("Duplicate ID: " + i, tracks.add(i));
-            assertEquals("Wrong name", SONG_NAME + i, s.getName());
-        }
     }
 
     /**
@@ -142,17 +101,17 @@ public class TestPersistence
     public void testPersistArtist()
     {
         final String artistName = "Marillion";
-        Artist a = new Artist();
+        ArtistEntity a = new ArtistEntity();
         a.setName(artistName);
-        a.setUserID(PersistenceTestHelper.USER);
+        a.setUser(PersistenceTestHelper.getTestUser());
         persist(a);
         helper.closeEM();
         assertNotNull("No ID", a.getId());
-        Artist a2 = helper.getEM().find(Artist.class, a.getId());
+        ArtistEntity a2 = helper.getEM().find(ArtistEntity.class, a.getId());
         assertNotSame("Same artist", a, a2);
         assertEquals("Wrong artist name", artistName, a2.getName());
-        assertEquals("Wrong artist user", PersistenceTestHelper.USER,
-                a2.getUserID());
+        assertEquals("Wrong artist user", PersistenceTestHelper.getTestUser(),
+                a2.getUser());
     }
 
     /**
@@ -161,14 +120,14 @@ public class TestPersistence
     @Test
     public void testPersistSong()
     {
-        Song song = new Song();
+        SongEntity song = new SongEntity();
         song.setName("Garden Party");
         song.setDuration(50000L);
         song.setInceptionYear(1980);
         song.setTrackNo(2);
         persist(song);
         helper.closeEM();
-        Song song2 = helper.getEM().find(Song.class, song.getId());
+        SongEntity song2 = helper.getEM().find(SongEntity.class, song.getId());
         assertNotSame("Same objects", song, song2);
         assertEquals("Not equal", song, song2);
         assertEquals("Wrong year", song.getInceptionYear(),
@@ -182,13 +141,13 @@ public class TestPersistence
     @Test
     public void testPersistAlbum()
     {
-        Album album = new Album();
+        AlbumEntity album = new AlbumEntity();
         album.setName("Misplaced Childhood");
-        album.setInceptionYear(1985);
-        album.setUserID(PersistenceTestHelper.USER);
+        album.setUser(PersistenceTestHelper.getTestUser());
         persist(album);
         helper.closeEM();
-        Album album2 = helper.getEM().find(Album.class, album.getId());
+        AlbumEntity album2 =
+                helper.getEM().find(AlbumEntity.class, album.getId());
         assertNotSame("Same objects", album, album2);
         assertEquals("Not equal", album, album2);
     }
@@ -220,21 +179,21 @@ public class TestPersistence
     @Test
     public void testPersistAlbumAndSongs()
     {
-        Album album = new Album();
+        AlbumEntity album = new AlbumEntity();
         album.setName("Tubular Bells Collection");
-        album.setUserID(PersistenceTestHelper.USER);
-        album.setInceptionYear(2010);
+        album.setUser(PersistenceTestHelper.getTestUser());
         persist(album);
         for (int i = 0; i < SONG_COUNT; i++)
         {
-            Song song = createTestSong(i);
+            SongEntity song = createTestSongEntity(i);
             song.setAlbumID(album.getId());
             persist(song);
         }
-        persist(createTestSong(SONG_COUNT));
+        persist(createTestSongEntity(SONG_COUNT));
         helper.closeEM();
-        List<Song> songs = Finders.findSongsByAlbum(helper.getEM(), album);
-        checkSongs(songs);
+        List<SongEntity> songs =
+                Finders.findSongsByAlbum(helper.getEM(), album);
+        checkSongEntities(songs);
     }
 
     /**
@@ -244,31 +203,29 @@ public class TestPersistence
      */
     private MediaTestData prepareMediaTest()
     {
-        Artist art1 = new Artist();
+        ArtistEntity art1 = new ArtistEntity();
         art1.setName("Mike Oldfield");
-        art1.setUserID(PersistenceTestHelper.USER);
+        art1.setUser(PersistenceTestHelper.getTestUser());
         persist(art1);
-        Artist art2 = new Artist();
+        ArtistEntity art2 = new ArtistEntity();
         art2.setName("Marillion");
-        art2.setUserID(PersistenceTestHelper.USER);
+        art2.setUser(PersistenceTestHelper.getTestUser());
         persist(art2);
-        Album album1 = new Album();
+        AlbumEntity album1 = new AlbumEntity();
         album1.setName("Tubular Bells Collection");
-        album1.setUserID(PersistenceTestHelper.USER);
-        album1.setInceptionYear(2010);
+        album1.setUser(PersistenceTestHelper.getTestUser());
         persist(album1);
-        Album album2 = new Album();
+        AlbumEntity album2 = new AlbumEntity();
         album2.setName("A script for a Jester's tear");
-        album2.setUserID(PersistenceTestHelper.USER);
-        album2.setInceptionYear(1983);
+        album2.setUser(PersistenceTestHelper.getTestUser());
         persist(album2);
         for (int i = 0; i < SONG_COUNT; i++)
         {
-            Song song = createTestSong(i);
+            SongEntity song = createTestSongEntity(i);
             song.setAlbumID(album1.getId());
             song.setArtistID(art1.getId());
             persist(song);
-            song = createTestSong(i + SONG_COUNT);
+            song = createTestSongEntity(i + SONG_COUNT);
             song.setAlbumID(album2.getId());
             song.setArtistID(art2.getId());
             persist(song);
@@ -284,7 +241,7 @@ public class TestPersistence
     public void testFindAlbumsForArtistSingle()
     {
         MediaTestData data = prepareMediaTest();
-        List<Album> albums =
+        List<AlbumEntity> albums =
                 Finders.findAlbumsForArtist(helper.getEM(), data.getArtist1());
         assertEquals("Wrong number of albums", 1, albums.size());
         assertEquals("Wrong album title", data.getAlbum1().getName(), albums
@@ -301,24 +258,24 @@ public class TestPersistence
         MediaTestData data = prepareMediaTest();
         final int albumCount = 6;
         int startIdx = 2 * SONG_COUNT + 1;
-        List<Album> newAlbums = new ArrayList<Album>(albumCount + 1);
+        List<AlbumEntity> newAlbums =
+                new ArrayList<AlbumEntity>(albumCount + 1);
         for (int i = 0; i < albumCount; i++)
         {
-            Album album = new Album();
+            AlbumEntity album = new AlbumEntity();
             album.setName("Additional Album " + i);
-            album.setInceptionYear(1983 + i);
-            album.setUserID(PersistenceTestHelper.USER);
+            album.setUser(PersistenceTestHelper.getTestUser());
             persist(album);
             newAlbums.add(album);
-            Song song = createTestSong(startIdx++);
+            SongEntity song = createTestSongEntity(startIdx++);
             song.setArtistID(data.getArtist1().getId());
             song.setAlbumID(album.getId());
             persist(song);
         }
         helper.closeEM();
         newAlbums.add(data.getAlbum1());
-        List<Album> albums =
-                new ArrayList<Album>(Finders.findAlbumsForArtist(
+        List<AlbumEntity> albums =
+                new ArrayList<AlbumEntity>(Finders.findAlbumsForArtist(
                         helper.getEM(), data.getArtist1()));
         assertEquals("Wrong number of albums", newAlbums.size(), albums.size());
         assertTrue("Wrong albums: " + albums, albums.containsAll(newAlbums));
@@ -331,7 +288,7 @@ public class TestPersistence
     public void testFindArtistsForAlbumSingle()
     {
         MediaTestData data = prepareMediaTest();
-        List<Artist> artists =
+        List<ArtistEntity> artists =
                 Finders.findArtistsForAlbum(helper.getEM(), data.getAlbum1());
         assertEquals("Wrong number of artists", 1, artists.size());
         assertEquals("Wrong artist name", data.getArtist1().getName(), artists
@@ -348,23 +305,24 @@ public class TestPersistence
         MediaTestData data = prepareMediaTest();
         final int artistCount = 12;
         int startIdx = 2 * SONG_COUNT + 1;
-        List<Artist> newArtists = new ArrayList<Artist>(artistCount + 1);
+        List<ArtistEntity> newArtists =
+                new ArrayList<ArtistEntity>(artistCount + 1);
         for (int i = 0; i < artistCount; i++)
         {
-            Artist art = new Artist();
+            ArtistEntity art = new ArtistEntity();
             art.setName("New Artist " + i);
-            art.setUserID(PersistenceTestHelper.USER);
+            art.setUser(PersistenceTestHelper.getTestUser());
             persist(art);
             newArtists.add(art);
-            Song song = createTestSong(startIdx++);
+            SongEntity song = createTestSongEntity(startIdx++);
             song.setAlbumID(data.getAlbum2().getId());
             song.setArtistID(art.getId());
             persist(song);
         }
         helper.closeEM();
         newArtists.add(data.getArtist2());
-        List<Artist> artists =
-                new ArrayList<Artist>(Finders.findArtistsForAlbum(
+        List<ArtistEntity> artists =
+                new ArrayList<ArtistEntity>(Finders.findArtistsForAlbum(
                         helper.getEM(), data.getAlbum2()));
         assertEquals("Wrong number of artists", newArtists.size(),
                 artists.size());
@@ -378,13 +336,13 @@ public class TestPersistence
     public void testInCondition()
     {
         MediaTestData data = prepareMediaTest();
-        List<Long> params =
-                Arrays.asList(data.getArtist1().getId(), data.getArtist2()
-                        .getId());
+        Set<Long> params =
+                new HashSet<Long>(Arrays.asList(data.getArtist1().getId(), data
+                        .getArtist2().getId()));
         List<?> artists =
                 helper.getEM()
                         .createQuery(
-                                "select a from Artist a "
+                                "select a from ArtistEntity a "
                                         + "where a.id in (:ids)")
                         .setParameter("ids", params).getResultList();
         assertEquals("Wrong number of results", 2, artists.size());
@@ -397,16 +355,16 @@ public class TestPersistence
     private static class MediaTestData
     {
         /** The first test artist. */
-        private final Artist artist1;
+        private final ArtistEntity artist1;
 
         /** The second test artist. */
-        private final Artist artist2;
+        private final ArtistEntity artist2;
 
         /** The first test album. */
-        private final Album album1;
+        private final AlbumEntity album1;
 
         /** The second test album. */
-        private final Album album2;
+        private final AlbumEntity album2;
 
         /**
          * Creates a new instance of {@code MediaTestData} and initializes it.
@@ -416,7 +374,8 @@ public class TestPersistence
          * @param alb1 test album 1
          * @param alb2 test album 2
          */
-        public MediaTestData(Artist art1, Artist art2, Album alb1, Album alb2)
+        public MediaTestData(ArtistEntity art1, ArtistEntity art2,
+                AlbumEntity alb1, AlbumEntity alb2)
         {
             artist1 = art1;
             artist2 = art2;
@@ -424,22 +383,22 @@ public class TestPersistence
             album2 = alb2;
         }
 
-        public Artist getArtist1()
+        public ArtistEntity getArtist1()
         {
             return artist1;
         }
 
-        public Artist getArtist2()
+        public ArtistEntity getArtist2()
         {
             return artist2;
         }
 
-        public Album getAlbum1()
+        public AlbumEntity getAlbum1()
         {
             return album1;
         }
 
-        public Album getAlbum2()
+        public AlbumEntity getAlbum2()
         {
             return album2;
         }
