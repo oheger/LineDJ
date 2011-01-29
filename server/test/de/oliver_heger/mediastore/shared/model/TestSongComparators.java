@@ -1,9 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Comparator;
+import static de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper.checkComparator;
 
 import org.junit.Test;
 
@@ -16,22 +13,6 @@ import org.junit.Test;
  */
 public class TestSongComparators
 {
-    /**
-     * Helper method for checking a comparator.
-     *
-     * @param s1 the first info object (which is expected to be less than the
-     *        2nd)
-     * @param s2 the second info object (the greater one)
-     * @param comp the comparator
-     */
-    private static void checkComparator(SongInfo s1, SongInfo s2,
-            Comparator<SongInfo> comp)
-    {
-        assertTrue("Wrong order", comp.compare(s1, s2) < 0);
-        assertTrue("Wrong symmetric order", comp.compare(s2, s1) > 0);
-        assertEquals("Wrong reflexive order", 0, comp.compare(s1, s1));
-    }
-
     /**
      * Helper method for testing the comparator for song names.
      *

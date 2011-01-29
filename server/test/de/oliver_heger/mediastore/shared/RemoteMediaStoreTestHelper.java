@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -152,5 +153,22 @@ public class RemoteMediaStoreTestHelper
         String s = obj.toString();
         Matcher m = expr.matcher(s);
         assertTrue("Invalid string representation: " + s, m.matches());
+    }
+
+    /**
+     * Helper method for checking a comparator. The first object passed in is
+     * expected to be less than the second. The method performs some checks
+     * related to the ordering of the objects.
+     *
+     * @param <T> the type of the comparator
+     * @param o1 the first object to be compared
+     * @param o2 the 2nd object to be compared
+     * @param comp the comparator
+     */
+    public static <T> void checkComparator(T o1, T o2, Comparator<T> comp)
+    {
+        assertTrue("Wrong order", comp.compare(o1, o2) < 0);
+        assertTrue("Wrong symmetric order", comp.compare(o2, o1) > 0);
+        assertEquals("Wrong reflexive order", 0, comp.compare(o1, o1));
     }
 }
