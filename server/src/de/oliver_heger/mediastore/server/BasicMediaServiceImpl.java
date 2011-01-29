@@ -10,10 +10,12 @@ import javax.persistence.EntityNotFoundException;
 
 import com.google.appengine.api.datastore.KeyFactory;
 
+import de.oliver_heger.mediastore.server.convert.AlbumEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 import de.oliver_heger.mediastore.server.model.Finders;
@@ -21,6 +23,7 @@ import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
+import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -60,7 +63,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     public ArtistDetailInfo fetchArtistDetails(final long artistID)
     {
         JPATemplate<ArtistDetailInfo> templ =
-                new JPATemplate<ArtistDetailInfo>()
+                new JPATemplate<ArtistDetailInfo>(false)
                 {
                     @Override
                     protected ArtistDetailInfo performOperation(EntityManager em)
@@ -158,25 +161,48 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         ArtistDetailInfo info = new ArtistDetailInfo();
         ArtistEntityConverter.INSTANCE.convert(e, info);
         info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
-        info.setSongs(fetchSongsForArtist(em, e));
+        List<SongEntity> songs = fetchSongsForArtist(em, e, info);
+        fetchAlbumsForArtist(em, e, info, songs);
 
         return info;
     }
 
     /**
-     * Obtains a list with {@link SongInfo} objects for the songs associated
-     * with the given artist entity.
+     * Initializes the list with {@link SongInfo} objects for the info object of
+     * the given artist entity.
      *
      * @param em the entity manager
      * @param e the artist entity
-     * @return a list with the songs of this artist
+     * @param info the info object for the artist
+     * @return a list with the song entities of this artist
      */
-    private List<SongInfo> fetchSongsForArtist(EntityManager em, ArtistEntity e)
+    private List<SongEntity> fetchSongsForArtist(EntityManager em,
+            ArtistEntity e, ArtistDetailInfo info)
     {
         List<SongEntity> songs = Finders.findSongsByArtist(em, e);
         SongEntityConverter conv = new SongEntityConverter();
         conv.initResolvedArtists(Collections.singleton(e));
-        return ConvertUtils.convertEntities(songs, conv);
+        info.setSongs(ConvertUtils.convertEntities(songs, conv));
+        return songs;
+    }
+
+    /**
+     * Initializes the list with {@link AlbumInfo} objects for the info object
+     * of the given artist entity. Basically, all albums the given songs refer
+     * to are collected.
+     *
+     * @param em the entity manager
+     * @param e the artist entity
+     * @param songs a list with all songs of this artist
+     * @return a list with the album entities related to this artist
+     */
+    private List<AlbumEntity> fetchAlbumsForArtist(EntityManager em,
+            ArtistEntity e, ArtistDetailInfo info, List<SongEntity> songs)
+    {
+        List<AlbumEntity> albums = Finders.findAlbumsForSongs(em, songs);
+        AlbumEntityConverter conv = new AlbumEntityConverter();
+        info.setAlbums(ConvertUtils.convertEntities(albums, conv));
+        return albums;
     }
 
     /**

@@ -21,9 +21,11 @@ import org.junit.Test;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
+import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -53,9 +55,15 @@ public class TestBasicMediaServiceImpl
             "Love me tender!", "Love me tenderly"
     };
 
+    /** Constant for the name of a test album. */
+    private static final String TEST_ALBUM = "Test Album of Elvis";
+
     /** The persistence test helper. */
     private final PersistenceTestHelper helper = new PersistenceTestHelper(
             new LocalDatastoreServiceTestConfig());
+
+    /** A counter for the generation of names. */
+    private int counter;
 
     /** The service to be tested. */
     private BasicMediaServiceImpl service;
@@ -127,20 +135,29 @@ public class TestBasicMediaServiceImpl
      * other entities.
      *
      * @param songCount the number of songs to create
-     * @param e the associated artist (can be <b>null</b>)
+     * @param art the associated artist (can be <b>null</b>)
+     * @param album the associated album (can be <b>null</b>)
+     * @return a set with the names of the songs created by this method
      */
-    private void createTestSongs(int songCount, ArtistEntity e)
+    private Set<String> createTestSongs(int songCount, ArtistEntity art,
+            AlbumEntity album)
     {
-        for (String name : createTestSongNames(songCount))
+        Set<String> songNames = createTestSongNames(songCount);
+        for (String name : songNames)
         {
             SongEntity song = createTestSong(false);
             song.setName(name);
-            if (e != null)
+            if (art != null)
             {
-                song.setArtistID(e.getId());
+                song.setArtistID(art.getId());
+            }
+            if (album != null)
+            {
+                song.setAlbumID(album.getId());
             }
             helper.persist(song);
         }
+        return songNames;
     }
 
     /**
@@ -150,14 +167,28 @@ public class TestBasicMediaServiceImpl
      * @param songCount the number of test songs
      * @return a set with the names of these test songs
      */
-    private static Set<String> createTestSongNames(int songCount)
+    private Set<String> createTestSongNames(int songCount)
     {
         Set<String> names = new HashSet<String>();
         for (int i = 0; i < songCount; i++)
         {
-            names.add(TEST_SONG + i);
+            names.add(TEST_SONG + counter);
+            counter++;
         }
         return names;
+    }
+
+    /**
+     * Creates a simple album entity instance.
+     *
+     * @return the test album
+     */
+    private AlbumEntity createBasicAlbum()
+    {
+        AlbumEntity album = new AlbumEntity();
+        album.setName(TEST_ALBUM);
+        album.setUser(PersistenceTestHelper.getTestUser());
+        return album;
     }
 
     /**
@@ -175,6 +206,7 @@ public class TestBasicMediaServiceImpl
                 info.getCreationDate());
         assertTrue("Got synonyms", info.getSynonyms().isEmpty());
         assertTrue("Got songs", info.getSongs().isEmpty());
+        assertTrue("Got albums", info.getAlbums().isEmpty());
     }
 
     /**
@@ -196,6 +228,22 @@ public class TestBasicMediaServiceImpl
     }
 
     /**
+     * Tests whether the artist has the expected songs.
+     *
+     * @param info the artist info object
+     * @param expNames a set with the expected song names
+     */
+    private void checkSongsOfArtist(ArtistDetailInfo info, Set<String> expNames)
+    {
+        assertEquals("Wrong number of songs", expNames.size(), info.getSongs()
+                .size());
+        for (SongInfo si : info.getSongs())
+        {
+            assertTrue("Unexpected song: " + si, expNames.remove(si.getName()));
+        }
+    }
+
+    /**
      * Tests whether the songs of an artist can also be fetched.
      */
     @Test
@@ -204,13 +252,38 @@ public class TestBasicMediaServiceImpl
         ArtistEntity e = createBasicArtist();
         helper.persist(e);
         final int songCount = 8;
-        createTestSongs(songCount, e);
+        Set<String> expNames = createTestSongs(songCount, e, null);
         ArtistDetailInfo info = service.fetchArtistDetails(e.getId());
-        assertEquals("Wrong number of songs", songCount, info.getSongs().size());
-        Set<String> expNames = createTestSongNames(songCount);
-        for (SongInfo si : info.getSongs())
+        checkSongsOfArtist(info, expNames);
+    }
+
+    /**
+     * Tests whether albums related to the artist can be retrieved.
+     */
+    @Test
+    public void testFetchArtistDetailsWithAlbums()
+    {
+        ArtistEntity art = createBasicArtist();
+        helper.persist(art);
+        Set<String> songNames = createTestSongs(2, art, null);
+        Set<String> albumNames = new HashSet<String>();
+        final int albumCount = 4;
+        for (int i = 0; i < albumCount; i++)
         {
-            assertTrue("Unexpected song: " + si, expNames.remove(si.getName()));
+            AlbumEntity album = createBasicAlbum();
+            album.setName(album.getName() + i);
+            helper.persist(album);
+            albumNames.add(album.getName());
+            songNames.addAll(createTestSongs(i + 1, art, album));
+        }
+        ArtistDetailInfo info = service.fetchArtistDetails(art.getId());
+        checkSongsOfArtist(info, songNames);
+        assertEquals("Wrong number of albums", albumCount, info.getAlbums()
+                .size());
+        for (AlbumInfo album : info.getAlbums())
+        {
+            assertTrue("Album not found: " + album,
+                    albumNames.remove(album.getName()));
         }
     }
 
