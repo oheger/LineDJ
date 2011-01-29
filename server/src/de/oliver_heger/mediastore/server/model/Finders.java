@@ -162,7 +162,10 @@ public final class Finders
         Set<Long> albumIDs = new HashSet<Long>();
         for (SongEntity s : songs)
         {
-            albumIDs.add(s.getAlbumID());
+            if (s.getAlbumID() != null)
+            {
+                albumIDs.add(s.getAlbumID());
+            }
         }
 
         return findAlbumsByIDs(em, albumIDs);
@@ -199,7 +202,10 @@ public final class Finders
         Set<Long> artistIDs = new HashSet<Long>();
         for (SongEntity s : songs)
         {
-            artistIDs.add(s.getArtistID());
+            if (s.getArtistID() != null)
+            {
+                artistIDs.add(s.getArtistID());
+            }
         }
 
         return findArtistsByIDs(em, artistIDs);

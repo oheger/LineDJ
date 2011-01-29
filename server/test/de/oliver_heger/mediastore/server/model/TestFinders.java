@@ -127,6 +127,38 @@ public class TestFinders
     }
 
     /**
+     * Tests whether songs with no album ID are skipped when fetching the albums
+     * for a list of songs.
+     */
+    @Test
+    public void testFindAlbumsForSongsNoAlbumID()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EasyMock.replay(em);
+        SongEntity song = new SongEntity();
+        assertTrue("Got albums",
+                Finders.findAlbumsForSongs(em, Collections.singleton(song))
+                        .isEmpty());
+        EasyMock.verify(em);
+    }
+
+    /**
+     * Tests whether songs with no artist ID are skipped when fetching the
+     * artists for a list of songs.
+     */
+    @Test
+    public void testFindArtistsForSongsNoArtistID()
+    {
+        EntityManager em = EasyMock.createMock(EntityManager.class);
+        EasyMock.replay(em);
+        SongEntity song = new SongEntity();
+        assertTrue("Got artists",
+                Finders.findArtistsForSongs(em, Collections.singleton(song))
+                        .isEmpty());
+        EasyMock.verify(em);
+    }
+
+    /**
      * Tries to find the albums of an artist without an entity manager.
      */
     @Test(expected = NullPointerException.class)
