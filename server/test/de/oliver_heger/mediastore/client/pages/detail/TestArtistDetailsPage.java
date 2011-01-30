@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.Hyperlink;
 
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
@@ -19,6 +20,7 @@ import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
+import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.HasSynonyms;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -174,6 +176,10 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertEquals("Wrong song count", "Songs (0)", page.pnlSongs
                 .getHeaderTextAccessor().getText());
         assertFalse("Songs panel is open", page.pnlSongs.isOpen());
+        assertEquals("Got albums", 1, page.tabAlbums.getRowCount());
+        assertEquals("Wrong album count", "Albums (0)", page.pnlAlbums
+                .getHeaderTextAccessor().getText());
+        assertFalse("Albums panel is open", page.pnlAlbums.isOpen());
     }
 
     /**
@@ -426,5 +432,58 @@ public class TestArtistDetailsPage extends AbstractTestDetailsPage
         assertEquals("Wrong property (2)", "duration", model.getProperty(1));
         assertEquals("Wrong property (3)", "playCount", model.getProperty(2));
         assertSame("Wrong grid", page.tabSongs, model.getGrid());
+    }
+
+    /**
+     * Tests whether the grid with the albums and its model are correctly set
+     * up.
+     */
+    public void testInitAlbumGridModel()
+    {
+        ArtistDetailsPage page = new ArtistDetailsPage();
+        MockPageManager pm = initializePage(page);
+        AlbumGridTableModel model = page.getAlbumTableModel();
+        assertEquals("Wrong number of columns", 1, model.getColumnCount());
+        assertEquals("Wrong property (1)", "name", model.getProperty(0));
+        assertSame("Wrong page manager", pm, model.getPageManager());
+        assertSame("Wrong grid", page.tabAlbums, model.getGrid());
+    }
+
+    /**
+     * Tests whether albums are correctly handled when the page is filled.
+     */
+    public void testFillPageWithAlbums()
+    {
+        final List<List<AlbumInfo>> dataLists =
+                new ArrayList<List<AlbumInfo>>();
+        final AlbumGridTableModel model =
+                new AlbumGridTableModel(new Grid(), new MockPageManager())
+                {
+                    @Override
+                    public void initData(List<AlbumInfo> data)
+                    {
+                        dataLists.add(data);
+                    }
+                };
+        ArtistDetailsPage page = new ArtistDetailsPage()
+        {
+            @Override
+            AlbumGridTableModel getAlbumTableModel()
+            {
+                return model;
+            }
+        };
+        initializePage(page);
+        AlbumInfo ai = new AlbumInfo();
+        ai.setName("TestAlbum");
+        ArtistDetailInfo info = new ArtistDetailInfo();
+        info.setAlbums(Collections.singletonList(ai));
+        page.fillPage(info);
+        assertEquals("Wrong number of initData() calls for albums", 1,
+                dataLists.size());
+        assertSame("Albums not initialized", info.getAlbums(), dataLists.get(0));
+        assertTrue("Album panel not open", page.pnlAlbums.isOpen());
+        assertEquals("Wrong album count", "Albums (1)", page.pnlAlbums
+                .getHeaderTextAccessor().getText());
     }
 }

@@ -63,5 +63,18 @@ public enum Pages implements PageFactory
             page.initialize(pageManager);
             return page;
         }
+    },
+
+    /**
+     * The page with details about an album.
+     */
+    ALBUMDETAILS
+    {
+        @Override
+        public Widget getPageWidget(PageManager pageManager)
+        {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Not yet implemented!");
+        }
     }
 }

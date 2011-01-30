@@ -1,5 +1,7 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
+import java.util.Collection;
+
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.SpanElement;
 import com.google.gwt.uibinder.client.UiBinder;
@@ -29,7 +31,13 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
 public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 {
     /** Constant for the header for the song panel. */
-    private static final String HEADER_SONG_PANEL = "Songs (";
+    private static final String HEADER_SONG_PANEL = "Songs";
+
+    /** Constant for the header for the album panel. */
+    private static final String HEADER_ALBUM_PANEL = "Albums";
+
+    /** Constant for the opening bracket. */
+    private static final String OPENING_BRACKET = " (";
 
     /** Constant for the closing bracket. */
     private static final String CLOSING_BRACKET = ")";
@@ -50,7 +58,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     @UiField
     SpanElement spanSynonyms;
 
-    /** The label for the songs of the artist. */
+    /** The panel for the songs of the artist. */
     @UiField
     DisclosurePanel pnlSongs;
 
@@ -58,11 +66,22 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     @UiField
     Grid tabSongs;
 
+    /** The panel for the albums related to the artist. */
+    @UiField
+    DisclosurePanel pnlAlbums;
+
+    /** The table for the albums related to the artist. */
+    @UiField
+    Grid tabAlbums;
+
     /** The entity handler for fetching artist details. */
     private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
 
     /** The model for the table with the songs of this artist. */
     private SongGridTableModel songModel;
+
+    /** The model for the table with the albums of this artist. */
+    private AlbumGridTableModel albumModel;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -81,7 +100,9 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     public void initialize(PageManager pm)
     {
         super.initialize(pm);
+
         songModel = new SongGridTableModel(tabSongs, pm);
+        albumModel = new AlbumGridTableModel(tabAlbums, pm);
     }
 
     /**
@@ -111,6 +132,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
         spanSynonyms.setInnerText(formatSynonyms(data.getSynonyms()));
 
         fillSongsTable(data);
+        fillAlbumsTable(data);
     }
 
     /**
@@ -145,14 +167,21 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
      */
     protected void fillSongsTable(ArtistDetailInfo data)
     {
-        int songsCount = data.getSongs().size();
-        StringBuilder buf = new StringBuilder();
-        buf.append(HEADER_SONG_PANEL);
-        buf.append(songsCount).append(CLOSING_BRACKET);
-        pnlSongs.getHeaderTextAccessor().setText(buf.toString());
-        pnlSongs.setOpen(songsCount > 0);
-
+        updateTableHeader(data.getSongs(), HEADER_SONG_PANEL, pnlSongs);
         getSongTableModel().initData(data.getSongs());
+    }
+
+    /**
+     * Populates the table with the albums related to the artist. This method is
+     * called when the page is to be filled with a new data object. The actual
+     * work to populate the table is done by the table model.
+     *
+     * @param data the data object
+     */
+    protected void fillAlbumsTable(ArtistDetailInfo data)
+    {
+        updateTableHeader(data.getAlbums(), HEADER_ALBUM_PANEL, pnlAlbums);
+        getAlbumTableModel().initData(data.getAlbums());
     }
 
     /**
@@ -163,6 +192,36 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     SongGridTableModel getSongTableModel()
     {
         return songModel;
+    }
+
+    /**
+     * Returns the model for the table with the albums related to this artist.
+     *
+     * @return the album table model
+     */
+    AlbumGridTableModel getAlbumTableModel()
+    {
+        return albumModel;
+    }
+
+    /**
+     * Updates the text of a disclosure panel containing a table with the number
+     * of items which are currently displayed. If there are items, the panel is
+     * opened.
+     *
+     * @param items the collection with items
+     * @param text the prefix text for the header message
+     * @param pnl the {@code DisclosurePanel}
+     */
+    private void updateTableHeader(Collection<?> items, String text,
+            DisclosurePanel pnl)
+    {
+        int count = items.size();
+        StringBuilder buf = new StringBuilder();
+        buf.append(text).append(OPENING_BRACKET);
+        buf.append(count).append(CLOSING_BRACKET);
+        pnl.getHeaderTextAccessor().setText(buf.toString());
+        pnl.setOpen(count > 0);
     }
 
     /**

@@ -72,7 +72,7 @@
         </g:HTMLPanel>
 
         <!-- Panels with the songs and albums associated with the artist -->
-        <g:HorizontalPanel>
+        <g:HorizontalPanel spacing="20">
           <g:DisclosurePanel ui:field="pnlSongs" styleName="{style.attribute}">
             <g:header></g:header>
             <g:Grid ui:field="tabSongs" styleName="{style.detailGrid}">
@@ -85,6 +85,17 @@
                 </g:customCell>
                 <g:customCell>
                   <rms:SortableTableHeader propertyName="playCount">Played</rms:SortableTableHeader>
+                </g:customCell>
+              </g:row>
+            </g:Grid>
+          </g:DisclosurePanel>
+
+          <g:DisclosurePanel ui:field="pnlAlbums" styleName="{style.attribute}">
+            <g:header></g:header>
+            <g:Grid ui:field="tabAlbums" styleName="{style.detailGrid}">
+              <g:row>
+                <g:customCell>
+                  <rms:SortableTableHeader propertyName="name" initiallySorted="true">Name</rms:SortableTableHeader>
                 </g:customCell>
               </g:row>
             </g:Grid>
