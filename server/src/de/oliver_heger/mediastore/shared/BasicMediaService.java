@@ -3,6 +3,7 @@ package de.oliver_heger.mediastore.shared;
 import com.google.gwt.user.client.rpc.RemoteService;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
 
+import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 
@@ -81,4 +82,33 @@ public interface BasicMediaService extends RemoteService
      * @throws NullPointerException if the update data object is <b>null</b>
      */
     void updateSongSynonyms(String songID, SynonymUpdateData updateData);
+
+    /**
+     * Returns a data object with detail information for the specified album.
+     * This object can be used to populate a detail page about this album.
+     *
+     * @param albumID the ID of the album in question
+     * @return a data object with details about this album
+     * @throws javax.persistence.EntityNotFoundException if the song cannot be
+     *         resolved
+     * @throws IllegalStateException if the song does not belong to the current
+     *         user
+     */
+    AlbumDetailInfo fetchAlbumDetails(long albumID);
+
+    /**
+     * Updates the synonyms of the specified album. The passed in data object
+     * contains information about the changes to be performed on the album's
+     * synonyms.
+     *
+     * @param albumID the ID of the album in question
+     * @param updateData an object with information about updates to be
+     *        performed
+     * @throws javax.persistence.EntityNotFoundException if the album cannot be
+     *         resolved
+     * @throws IllegalStateException if the album does not belong to the current
+     *         user
+     * @throws NullPointerException if the update data object is <b>null</b>
+     */
+    void updateAlbumSynonyms(long albumID, SynonymUpdateData updateData);
 }

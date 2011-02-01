@@ -16,6 +16,7 @@ import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
+import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 import de.oliver_heger.mediastore.server.model.Finders;
@@ -23,8 +24,10 @@ import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.shared.BasicMediaService;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
+import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 
@@ -79,6 +82,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      * Returns details for the specified song.
      *
      * @param songID the ID of the song
+     * @return a data object with detail information about this song
      * @throws EntityNotFoundException if the song cannot be resolved
      * @throws IllegalStateException if the song does not belong to the logged
      *         in user
@@ -94,6 +98,31 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                     {
                         SongEntity song = findAndCheckSong(em, songID);
                         return createSongDetailInfo(em, song);
+                    }
+                };
+        return templ.execute();
+    }
+
+    /**
+     * Returns detail information about the specified album.
+     *
+     * @param albumID the ID of the album
+     * @return a data object with detail information about this album
+     * @throws EntityNotFoundException if the album cannot be resolved
+     * @throws IllegalStateException if the album does not belong to the logged
+     *         in user
+     */
+    @Override
+    public AlbumDetailInfo fetchAlbumDetails(final long albumID)
+    {
+        JPATemplate<AlbumDetailInfo> templ =
+                new JPATemplate<AlbumDetailInfo>(false)
+                {
+                    @Override
+                    protected AlbumDetailInfo performOperation(EntityManager em)
+                    {
+                        AlbumEntity album = findAndCheckAlbum(em, albumID);
+                        return createAlbumDetailInfo(em, album);
                     }
                 };
         return templ.execute();
@@ -149,6 +178,33 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * {@inheritDoc} This implementation applies the changes described by the
+     * {@link SynonymUpdateData} object to the specified song. When adding new
+     * synonyms all data from the affected albums is copied to the current
+     * album. Then the synonym albums are removed.
+     */
+    @Override
+    public void updateAlbumSynonyms(final long albumID,
+            final SynonymUpdateData updateData)
+    {
+        moveAlbumSongs(albumID, updateData.getNewSynonymIDsAsLongs());
+
+        JPATemplate<Void> templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                AlbumEntity album = findAndCheckAlbum(em, albumID);
+                removeAlbumSyonyms(em, album, updateData.getRemoveSynonyms());
+                addAlbumSynonyms(em, album,
+                        updateData.getNewSynonymIDsAsLongs());
+                return null;
+            }
+        };
+        templ.execute();
+    }
+
+    /**
      * Creates a detail info object for an artist entity.
      *
      * @param em the entity manager
@@ -182,6 +238,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         List<SongEntity> songs = Finders.findSongsByArtist(em, e);
         SongEntityConverter conv = new SongEntityConverter();
         conv.initResolvedArtists(Collections.singleton(e));
+        conv.setEntityManager(em);
         info.setSongs(ConvertUtils.convertEntities(songs, conv));
         return songs;
     }
@@ -253,7 +310,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     private void addArtistSynonyms(EntityManager em, ArtistEntity e,
             Set<Long> newSynIDs)
     {
-        for (Object id : newSynIDs)
+        for (Long id : newSynIDs)
         {
             ArtistEntity synArt = findAndCheckArtist(em, id);
             copyArtistSynonyms(e, synArt);
@@ -279,6 +336,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             @Override
             protected Void performOperation(EntityManager em)
             {
+                findAndCheckArtist(em, artistID);
                 for (Long synArtID : srcIDs)
                 {
                     SongEntity.updateArtistID(em, artistID, synArtID);
@@ -300,7 +358,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      * @throws IllegalStateException if the artist does not belong to the
      *         current user
      */
-    private ArtistEntity findAndCheckArtist(EntityManager em, Object artistID)
+    private ArtistEntity findAndCheckArtist(EntityManager em, Long artistID)
     {
         ArtistEntity e = find(em, ArtistEntity.class, artistID);
         checkUser(e.getUser());
@@ -324,6 +382,24 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                 find(em, SongEntity.class, KeyFactory.stringToKey(songID));
         checkUser(song.getUser());
         return song;
+    }
+
+    /**
+     * Helper method for retrieving an album entity. This method also checks
+     * whether the album belongs to the current user.
+     *
+     * @param em the entity manager
+     * @param albumID the ID of the album to be retrieved
+     * @return the album entity with this ID
+     * @throws EntityNotFoundException if the entity cannot be resolved
+     * @throws IllegalStateException if the entity does not belong to the
+     *         current user
+     */
+    private AlbumEntity findAndCheckAlbum(EntityManager em, Long albumID)
+    {
+        AlbumEntity album = find(em, AlbumEntity.class, albumID);
+        checkUser(album.getUser());
+        return album;
     }
 
     /**
@@ -418,6 +494,149 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             transferSongData(em, song, synSong);
             em.remove(synSong);
         }
+    }
+
+    /**
+     * Creates a detail info object for an album entity.
+     *
+     * @param em the entity manager
+     * @param e the album entity
+     * @return the detail info object
+     */
+    private AlbumDetailInfo createAlbumDetailInfo(EntityManager em,
+            AlbumEntity e)
+    {
+        AlbumDetailInfo info = new AlbumDetailInfo();
+        AlbumEntityConverter converter = new AlbumEntityConverter();
+        List<SongEntity> songs = fetchSongsForAlbum(em, e, info);
+        converter.convert(e, info, songs);
+        info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
+        fetchArtistsForAlbum(em, e, info, songs);
+
+        return info;
+    }
+
+    /**
+     * Initializes the list with {@link SongInfo} objects for the info object of
+     * the given album entity.
+     *
+     * @param em the entity manager
+     * @param e the album entity
+     * @param info the info object for the album
+     * @return a list with the song entities of this album
+     */
+    private List<SongEntity> fetchSongsForAlbum(EntityManager em,
+            AlbumEntity e, AlbumDetailInfo info)
+    {
+        List<SongEntity> songs = Finders.findSongsByAlbum(em, e);
+        SongEntityConverter conv = new SongEntityConverter();
+        conv.initResolvedAlbums(Collections.singleton(e));
+        conv.setEntityManager(em);
+        info.setSongs(ConvertUtils.convertEntities(songs, conv));
+        return songs;
+    }
+
+    /**
+     * Initializes the list with {@link ArtistInfo} objects for the info object
+     * of the given album entity. Basically, all artists the given songs refer
+     * to are collected.
+     *
+     * @param em the entity manager
+     * @param e the album entity
+     * @param songs a list with all songs of this album
+     * @return a list with the artist entities related to this album
+     */
+    private List<ArtistEntity> fetchArtistsForAlbum(EntityManager em,
+            AlbumEntity e, AlbumDetailInfo info, List<SongEntity> songs)
+    {
+        List<ArtistEntity> artists = Finders.findArtistsForSongs(em, songs);
+        info.setArtists(ConvertUtils.convertEntities(artists,
+                ArtistEntityConverter.INSTANCE));
+        return artists;
+    }
+
+    /**
+     * Removes synonyms from a given album.
+     *
+     * @param em the entity manager
+     * @param album the album affected by this operation
+     * @param syns the set of the synonym names to be removed
+     */
+    private void removeAlbumSyonyms(EntityManager em, AlbumEntity album,
+            Set<String> syns)
+    {
+        for (String syn : syns)
+        {
+            AlbumSynonym albumSynonym = album.findSynonym(syn);
+            if (albumSynonym != null)
+            {
+                album.removeSynonym(albumSynonym);
+                em.remove(albumSynonym);
+            }
+        }
+    }
+
+    /**
+     * Adds new entities as synonyms to an album. All data of the new synonym
+     * entities is added to the current album.
+     *
+     * @param em the entity manager
+     * @param e the current album entity
+     * @param newSynIDs a set with the IDs of the new synonym entities
+     */
+    private void addAlbumSynonyms(EntityManager em, AlbumEntity e,
+            Set<Long> newSynIDs)
+    {
+        for (Long id : newSynIDs)
+        {
+            AlbumEntity synAlb = findAndCheckAlbum(em, id);
+            copyAlbumSynonyms(e, synAlb);
+            em.remove(synAlb);
+        }
+    }
+
+    /**
+     * Copies all synonyms from one album to another one.
+     *
+     * @param dest the destination album
+     * @param src the source album
+     */
+    private void copyAlbumSynonyms(AlbumEntity dest, AlbumEntity src)
+    {
+        for (AlbumSynonym as : src.getSynonyms())
+        {
+            dest.addSynonymName(as.getName());
+        }
+        dest.addSynonymName(src.getName());
+    }
+
+    /**
+     * Moves songs associated with one of a given set of albums to another
+     * album. This method can be used for merging or removing albums.
+     * Implementation note: Obviously this operation has to be performed in a
+     * separate step; otherwise there were strange data nucleus exceptions.
+     *
+     * @param albumID the ID of the new destination album (can be <b>null</b> if
+     *        albums are to be removed)
+     * @param srcIDs a collection with the IDs of the source albums
+     */
+    private void moveAlbumSongs(final long albumID,
+            final Collection<Long> srcIDs)
+    {
+        JPATemplate<Void> templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                findAndCheckAlbum(em, albumID);
+                for (Long synAlbID : srcIDs)
+                {
+                    SongEntity.updateAlbumID(em, albumID, synAlbID);
+                }
+                return null;
+            }
+        };
+        templ.execute();
     }
 
     /**

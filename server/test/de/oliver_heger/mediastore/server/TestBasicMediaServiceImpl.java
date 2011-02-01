@@ -4,12 +4,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.persistence.EntityNotFoundException;
@@ -22,11 +25,15 @@ import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
+import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
+import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
+import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
@@ -57,6 +64,18 @@ public class TestBasicMediaServiceImpl
 
     /** Constant for the name of a test album. */
     private static final String TEST_ALBUM = "Test Album of Elvis";
+
+    /** An array with synonyms of the test album. */
+    private static final String[] ALBUM_SYNONYMS = {
+            "Test Elvis #1", "1st Elvis Test", "Elvis for Testing",
+            "Test songs by Elvis"
+    };
+
+    /** Constant for the duration of a test song. */
+    private static final long DURATION = 3 * 60 * 1000L;
+
+    /** Constant for the inception year of a test song. */
+    private static final int YEAR = 1957;
 
     /** The persistence test helper. */
     private final PersistenceTestHelper helper = new PersistenceTestHelper(
@@ -117,9 +136,9 @@ public class TestBasicMediaServiceImpl
     {
         SongEntity e = new SongEntity();
         e.setUser(PersistenceTestHelper.getTestUser());
-        e.setDuration(3 * 60 * 1000L);
+        e.setDuration(DURATION);
         e.setName(TEST_SONG);
-        e.setInceptionYear(1957);
+        e.setInceptionYear(YEAR);
         if (withSyns)
         {
             for (String syn : SONG_SYNONYMS)
@@ -192,6 +211,19 @@ public class TestBasicMediaServiceImpl
     }
 
     /**
+     * Adds the test synonyms to the specified album.
+     *
+     * @param e the album entity
+     */
+    private void appendAlbumSynonyms(AlbumEntity e)
+    {
+        for (String syn : ALBUM_SYNONYMS)
+        {
+            e.addSynonymName(syn);
+        }
+    }
+
+    /**
      * Tests querying details of an artist with only simple properties.
      */
     @Test
@@ -240,6 +272,8 @@ public class TestBasicMediaServiceImpl
         for (SongInfo si : info.getSongs())
         {
             assertTrue("Unexpected song: " + si, expNames.remove(si.getName()));
+            assertEquals("Wrong artist ID", info.getArtistID(),
+                    si.getArtistID());
         }
     }
 
@@ -278,6 +312,15 @@ public class TestBasicMediaServiceImpl
         }
         ArtistDetailInfo info = service.fetchArtistDetails(art.getId());
         checkSongsOfArtist(info, songNames);
+        Set<String> songAlbums = new HashSet<String>();
+        for (SongInfo si : info.getSongs())
+        {
+            if (si.getAlbumName() != null)
+            {
+                songAlbums.add(si.getAlbumName());
+            }
+        }
+        assertEquals("Album names not resolved", albumNames, songAlbums);
         assertEquals("Wrong number of albums", albumCount, info.getAlbums()
                 .size());
         for (AlbumInfo album : info.getAlbums())
@@ -463,6 +506,40 @@ public class TestBasicMediaServiceImpl
     }
 
     /**
+     * Tests whether an invalid user is detected when updating synonyms of an
+     * artist.
+     */
+    @Test
+    public void testUpdateArtistSynonymsInvalidUser()
+    {
+        ArtistEntity a1 = new ArtistEntity();
+        a1.setName(ARTIST_SYNONYMS[0]);
+        a1.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(a1);
+        ArtistEntity artist = createBasicArtist();
+        helper.persist(artist);
+        final int songCount = 12;
+        createTestSongs(songCount, artist, null);
+        SynonymUpdateData ud =
+                new SynonymUpdateData(null, Collections.singleton(artist
+                        .getId()));
+        try
+        {
+            service.updateArtistSynonyms(a1.getId(), ud);
+            fail("Invalid user not detected!");
+        }
+        catch (IllegalStateException istex)
+        {
+            // ok
+        }
+        assertTrue("Songs were moved",
+                Finders.findSongsByArtist(helper.getEM(), a1).isEmpty());
+        assertEquals("Wrong song count", songCount,
+                Finders.findSongsByArtist(helper.getEM(), artist).size());
+    }
+
+    /**
      * Tests whether details of a song can be fetched if there are no dependent
      * objects.
      */
@@ -643,5 +720,292 @@ public class TestBasicMediaServiceImpl
         SongEntity song = createTestSong(false);
         helper.persist(song);
         service.updateSongSynonyms(KeyFactory.keyToString(song.getId()), null);
+    }
+
+    /**
+     * Tests whether details of an album can be fetched if not much information
+     * is available.
+     */
+    @Test
+    public void testFetchAlbumDetailsSimple()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
+        assertEquals("Wrong albumID", album.getId(), info.getAlbumID());
+        assertEquals("Wrong name", TEST_ALBUM, info.getName());
+        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        assertEquals("Got songs", 0, info.getNumberOfSongs());
+        assertTrue("Got song entities", info.getSongs().isEmpty());
+        assertNull("Got a duration", info.getDuration());
+        assertNull("Got a year", info.getInceptionYear());
+        assertTrue("Got artists", info.getArtists().isEmpty());
+    }
+
+    /**
+     * Tests whether the synonyms of an album can be retrieved.
+     */
+    @Test
+    public void testFetchAlbumDetailsWithSynonyms()
+    {
+        AlbumEntity album = createBasicAlbum();
+        appendAlbumSynonyms(album);
+        helper.persist(album);
+        helper.closeEM();
+        AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
+        assertEquals("Wrong number of synonyms", ALBUM_SYNONYMS.length, info
+                .getSynonyms().size());
+        for (String syn : ALBUM_SYNONYMS)
+        {
+            assertTrue("Synonym not found: " + syn, info.getSynonyms()
+                    .contains(syn));
+        }
+    }
+
+    /**
+     * Checks whether the correct songs of an album have been retrieved.
+     *
+     * @param info the album info object
+     * @param songs the set with the expected song names
+     */
+    private void checkSongsOfAlbum(AlbumDetailInfo info, Set<String> songs)
+    {
+        assertEquals("Wrong number of songs", songs.size(), info.getSongs()
+                .size());
+        for (SongInfo si : info.getSongs())
+        {
+            assertTrue("Song not found: " + si, songs.remove(si.getName()));
+            assertEquals("Wrong album ID", info.getAlbumID(), si.getAlbumID());
+        }
+    }
+
+    /**
+     * Tests whether the songs of an album can be retrieved.
+     */
+    @Test
+    public void testFetchAlbumWithSongs()
+    {
+        final int songCount = 16;
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        Set<String> songs = createTestSongs(songCount, null, album);
+        AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
+        checkSongsOfAlbum(info, songs);
+        assertEquals("Wrong number of songs", songCount,
+                info.getNumberOfSongs());
+        assertEquals("Wrong inception year", YEAR, info.getInceptionYear()
+                .intValue());
+        assertEquals("Wrong duration", songCount * DURATION, info.getDuration()
+                .longValue());
+    }
+
+    /**
+     * Tests whether information about the artists of an album can be fetched.
+     */
+    @Test
+    public void testFetchAlbumWithArtists()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        Set<String> songs = createTestSongs(4, null, album);
+        final int artistCount = 4;
+        Map<Long, ArtistEntity> artists = new HashMap<Long, ArtistEntity>();
+        for (int i = 0; i < artistCount; i++)
+        {
+            ArtistEntity art = createBasicArtist();
+            art.setName(art.getName() + i);
+            helper.persist(art);
+            artists.put(art.getId(), art);
+            songs.addAll(createTestSongs(i + 1, art, album));
+        }
+        helper.closeEM();
+        AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
+        checkSongsOfAlbum(info, songs);
+        Set<Long> artistIDs = new HashSet<Long>();
+        for (SongInfo si : info.getSongs())
+        {
+            if (si.getArtistID() != null)
+            {
+                artistIDs.add(si.getArtistID());
+            }
+        }
+        assertTrue("Not all artist IDs could be resolved",
+                artistIDs.containsAll(artists.keySet()));
+        assertEquals("Wrong number of artists", artistCount, info.getArtists()
+                .size());
+        for (ArtistInfo ai : info.getArtists())
+        {
+            ArtistEntity art = artists.remove(ai.getArtistID());
+            assertNotNull("Unexpected artist: " + ai, art);
+            assertEquals("Wrong artist name", art.getName(), ai.getName());
+        }
+    }
+
+    /**
+     * Tests whether a wrong user is detected when fetching details of an album.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testFetchAlbumDetailsWrongUser()
+    {
+        AlbumEntity album = createBasicAlbum();
+        album.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(album);
+        service.fetchAlbumDetails(album.getId());
+    }
+
+    /**
+     * Helper method for checking the synonyms of an album.
+     *
+     * @param album the album entity
+     * @param expSynonyms the expected synonyms
+     */
+    private void checkAlbumSynonyms(AlbumEntity album,
+            Collection<String> expSynonyms)
+    {
+        helper.closeEM();
+        helper.begin();
+        AlbumEntity ae = helper.getEM().find(AlbumEntity.class, album.getId());
+        assertEquals("Wrong number of synonyms", expSynonyms.size(), ae
+                .getSynonyms().size());
+        Set<String> syns = new HashSet<String>(expSynonyms);
+        for (AlbumSynonym as : ae.getSynonyms())
+        {
+            assertTrue("Unexpected synonym: " + as, syns.remove(as.getName()));
+        }
+        helper.commit();
+    }
+
+    /**
+     * Tests whether synonyms can be removed from an album.
+     */
+    @Test
+    public void testUpdateAlbumSynonymsRemoveSyns()
+    {
+        AlbumEntity album = createBasicAlbum();
+        appendAlbumSynonyms(album);
+        helper.persist(album);
+        SynonymUpdateData ud =
+                new SynonymUpdateData(Collections.singleton(ALBUM_SYNONYMS[0]),
+                        null);
+        service.updateAlbumSynonyms(album.getId(), ud);
+        checkAlbumSynonyms(album,
+                Arrays.asList(ALBUM_SYNONYMS).subList(1, ALBUM_SYNONYMS.length));
+    }
+
+    /**
+     * Tests that removing an unknown synonym does not have any effect.
+     */
+    @Test
+    public void testUpdateAlbumSynonymsRemoveSynsUnknown()
+    {
+        AlbumEntity album = createBasicAlbum();
+        appendAlbumSynonyms(album);
+        helper.persist(album);
+        SynonymUpdateData ud =
+                new SynonymUpdateData(Collections.singleton("unknown synoyn"),
+                        null);
+        service.updateAlbumSynonyms(album.getId(), ud);
+        checkAlbumSynonyms(album, Arrays.asList(ALBUM_SYNONYMS));
+    }
+
+    /**
+     * Tests whether an album can be declared a synonym of another album.
+     */
+    @Test
+    public void testUpdateAlbumSynonymsNewSyns()
+    {
+        AlbumEntity album = createBasicAlbum();
+        album.addSynonymName(ALBUM_SYNONYMS[0]);
+        helper.persist(album);
+        AlbumEntity albSyn = createBasicAlbum();
+        albSyn.setName(ALBUM_SYNONYMS[1]);
+        for (int i = 2; i < ALBUM_SYNONYMS.length; i++)
+        {
+            albSyn.addSynonymName(ALBUM_SYNONYMS[i]);
+        }
+        helper.persist(albSyn);
+        SynonymUpdateData ud =
+                new SynonymUpdateData(null, Collections.singleton(albSyn
+                        .getId()));
+        service.updateAlbumSynonyms(album.getId(), ud);
+        checkAlbumSynonyms(album, Arrays.asList(ALBUM_SYNONYMS));
+        assertNull("Synonym album still found",
+                helper.getEM().find(AlbumEntity.class, albSyn.getId()));
+    }
+
+    /**
+     * Tests whether songs are copied when one album becomes a synonym of
+     * another one.
+     */
+    @Test
+    public void testUpdateAlbumSynonymsNewSynsWithSongs()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        Set<String> songNames = createTestSongs(4, null, album);
+        AlbumEntity albSyn = createBasicAlbum();
+        albSyn.setName(ALBUM_SYNONYMS[0]);
+        helper.persist(albSyn);
+        songNames.addAll(createTestSongs(6, null, albSyn));
+        SynonymUpdateData ud =
+                new SynonymUpdateData(null, Collections.singleton(albSyn
+                        .getId()));
+        service.updateAlbumSynonyms(album.getId(), ud);
+        helper.closeEM();
+        List<SongEntity> songs =
+                Finders.findSongsByAlbum(helper.getEM(), album);
+        assertEquals("Wrong number of songs", songNames.size(), songs.size());
+        for (SongEntity se : songs)
+        {
+            assertTrue("Unexpected song: " + se, songNames.remove(se.getName()));
+        }
+        assertNull("Synonym album still found",
+                helper.getEM().find(AlbumEntity.class, albSyn.getId()));
+    }
+
+    /**
+     * Tries to update an album's synonyms without an update data object.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testUpdateAlbumSynonymsNoUpdateData()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        service.updateAlbumSynonyms(album.getId(), null);
+    }
+
+    /**
+     * Tests whether an invalid user is detected when updating synonyms of an
+     * album.
+     */
+    @Test
+    public void testUpdateAlbumSynonymsInvalidUser()
+    {
+        AlbumEntity a1 = new AlbumEntity();
+        a1.setName(ALBUM_SYNONYMS[0]);
+        a1.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(a1);
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        final int songCount = 12;
+        createTestSongs(songCount, null, album);
+        SynonymUpdateData ud =
+                new SynonymUpdateData(null,
+                        Collections.singleton(album.getId()));
+        try
+        {
+            service.updateAlbumSynonyms(a1.getId(), ud);
+            fail("Invalid user not detected!");
+        }
+        catch (IllegalStateException istex)
+        {
+            // ok
+        }
+        assertTrue("Songs were moved",
+                Finders.findSongsByAlbum(helper.getEM(), a1).isEmpty());
+        assertEquals("Wrong song count", songCount,
+                Finders.findSongsByAlbum(helper.getEM(), album).size());
     }
 }

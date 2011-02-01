@@ -2,6 +2,7 @@ package de.oliver_heger.mediastore.shared;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
+import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistDetailInfo;
 import de.oliver_heger.mediastore.shared.model.SongDetailInfo;
 
@@ -22,5 +23,10 @@ public interface BasicMediaServiceAsync
     void fetchSongDetails(String songID, AsyncCallback<SongDetailInfo> callback);
 
     void updateSongSynonyms(String songID, SynonymUpdateData updateData,
+            AsyncCallback<Void> callback);
+
+    void fetchAlbumDetails(long albumID, AsyncCallback<AlbumDetailInfo> callback);
+
+    void updateAlbumSynonyms(long albumID, SynonymUpdateData updateData,
             AsyncCallback<Void> callback);
 }
