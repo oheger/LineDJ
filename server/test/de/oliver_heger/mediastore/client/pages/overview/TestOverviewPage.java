@@ -113,6 +113,15 @@ public class TestOverviewPage extends GWTTestCase
     }
 
     /**
+     * Tests whether a handler for the details of an album has been installed.
+     */
+    public void testAlbumDetailsHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        checkPageHandler(page, page.tabAlbums, Pages.ALBUMDETAILS);
+    }
+
+    /**
      * Tests whether a query handler for artists can be obtained.
      */
     public void testFetchArtistQueryHandler()
