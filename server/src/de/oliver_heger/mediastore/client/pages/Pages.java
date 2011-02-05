@@ -4,6 +4,7 @@ import com.google.gwt.user.client.ui.Widget;
 
 import de.oliver_heger.mediastore.client.pageman.PageFactory;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
+import de.oliver_heger.mediastore.client.pages.detail.AlbumDetailsPage;
 import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsPage;
 import de.oliver_heger.mediastore.client.pages.detail.SongDetailsPage;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
@@ -73,8 +74,9 @@ public enum Pages implements PageFactory
         @Override
         public Widget getPageWidget(PageManager pageManager)
         {
-            // TODO Auto-generated method stub
-            throw new UnsupportedOperationException("Not yet implemented!");
+            AlbumDetailsPage page = new AlbumDetailsPage();
+            page.initialize(pageManager);
+            return page;
         }
     }
 }
