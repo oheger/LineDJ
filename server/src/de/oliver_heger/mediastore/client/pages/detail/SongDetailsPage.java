@@ -38,6 +38,10 @@ public class SongDetailsPage extends AbstractDetailsPage<SongDetailInfo>
     @UiField
     Hyperlink lnkArtist;
 
+    /** The hyper link to the songs's album. */
+    @UiField
+    Hyperlink lnkAlbum;
+
     /** The span for the song's duration. */
     @UiField
     SpanElement spanDuration;
@@ -104,6 +108,7 @@ public class SongDetailsPage extends AbstractDetailsPage<SongDetailInfo>
         spanSynonyms.setInnerText(formatSynonyms(data.getSynonyms()));
 
         initializeArtistLink(data);
+        initializeAlbumLink(data);
     }
 
     /**
@@ -147,6 +152,27 @@ public class SongDetailsPage extends AbstractDetailsPage<SongDetailInfo>
         else
         {
             lnkArtist.setVisible(false);
+        }
+    }
+
+    /**
+     * Initializes the link to the album of the song.
+     *
+     * @param data the data object
+     */
+    private void initializeAlbumLink(SongDetailInfo data)
+    {
+        if (data.getAlbumID() != null)
+        {
+            lnkAlbum.setText(data.getAlbumName());
+            lnkAlbum.setTargetHistoryToken(getPageManager()
+                    .createPageSpecification(Pages.ALBUMDETAILS)
+                    .withParameter(data.getAlbumID()).toToken());
+            lnkAlbum.setVisible(true);
+        }
+        else
+        {
+            lnkAlbum.setVisible(false);
         }
     }
 

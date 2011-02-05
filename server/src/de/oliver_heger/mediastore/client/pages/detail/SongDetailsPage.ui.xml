@@ -57,6 +57,10 @@
             <td colspan="2"><g:Hyperlink ui:field="lnkArtist"/></td>
           </tr>
           <tr>
+            <td valign="top" align="right" class="{style.attribute}">Album:</td>
+            <td colspan="2"><g:Hyperlink ui:field="lnkAlbum"/></td>
+          </tr>
+          <tr>
             <td valign="top" align="right" class="{style.attribute}">Duration:</td>
             <td colspan="2"><span ui:field="spanDuration"/></td>
           </tr>

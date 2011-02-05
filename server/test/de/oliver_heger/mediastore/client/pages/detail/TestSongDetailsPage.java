@@ -80,6 +80,8 @@ public class TestSongDetailsPage extends AbstractTestDetailsPage
         info.setCreationDate(new Date());
         info.setArtistName("Test artist");
         info.setArtistID(20110107202834L);
+        info.setAlbumName("Test album");
+        info.setAlbumID(20110205170640L);
         info.setDuration(4 * 60 * 1000L);
         info.setInceptionYear(1999);
         info.setName("Test Song");
@@ -95,6 +97,8 @@ public class TestSongDetailsPage extends AbstractTestDetailsPage
         MockPageManager pm = createPMForInitialize();
         pm.expectCreatePageSpecification(Pages.ARTISTDETAILS, null)
                 .withParameter(info.getArtistID()).toToken();
+        pm.expectCreatePageSpecification(Pages.ALBUMDETAILS, null)
+                .withParameter(info.getAlbumID()).toToken();
         page.initialize(pm);
         page.fillPage(info);
         pm.verify();
@@ -115,12 +119,18 @@ public class TestSongDetailsPage extends AbstractTestDetailsPage
         {
             assertTrue("Synonym not found: " + syn, synContent.contains(syn));
         }
-        assertTrue("Link not visible", page.lnkArtist.isVisible());
-        assertEquals("Wrong link text", info.getArtistName(),
+        assertTrue("Artist link not visible", page.lnkArtist.isVisible());
+        assertEquals("Wrong artist link text", info.getArtistName(),
                 page.lnkArtist.getText());
-        assertEquals("Wrong link target",
+        assertEquals("Wrong artist link target",
                 MockPageManager.defaultToken(Pages.ARTISTDETAILS),
                 page.lnkArtist.getTargetHistoryToken());
+        assertTrue("Album link not visible", page.lnkAlbum.isVisible());
+        assertEquals("Wrong album link text", info.getAlbumName(),
+                page.lnkAlbum.getText());
+        assertEquals("Wrong album link target",
+                MockPageManager.defaultToken(Pages.ALBUMDETAILS),
+                page.lnkAlbum.getTargetHistoryToken());
     }
 
     /**
@@ -137,6 +147,7 @@ public class TestSongDetailsPage extends AbstractTestDetailsPage
         assertEmpty("Got track", page.spanTrack.getInnerText());
         assertEmpty("Got play count", page.spanPlayCount.getInnerText());
         assertEmpty("Got synonyms", page.spanSynonyms.getInnerText());
-        assertFalse("Link is visible", page.lnkArtist.isVisible());
+        assertFalse("Artist link is visible", page.lnkArtist.isVisible());
+        assertFalse("Album link is visible", page.lnkAlbum.isVisible());
     }
 }
