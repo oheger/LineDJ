@@ -426,7 +426,7 @@ public class TestArtistQueryHandler
             MediaSearchParameters params, SearchResult<ArtistInfo> result)
     {
         AbstractOverviewQueryHandler<ArtistInfo>.QueryCallback cb =
-                (AbstractOverviewQueryHandler<ArtistInfo>.QueryCallback) handler
+                (AbstractOverviewQueryHandler.QueryCallback) handler
                         .createQueryCallback(params);
         return handler.createMoreResultsCallback(cb, result);
     }

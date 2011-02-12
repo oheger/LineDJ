@@ -29,7 +29,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestSynonymEditor extends GWTTestCase
+public class GwtTestSynonymEditor extends GWTTestCase
 {
     /** Constant for a synonym prefix. */
     private static final String SYN = "TestSynonym_";

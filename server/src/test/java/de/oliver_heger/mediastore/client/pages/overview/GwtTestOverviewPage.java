@@ -18,7 +18,7 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestOverviewPage extends GWTTestCase
+public class GwtTestOverviewPage extends GWTTestCase
 {
     @Override
     public String getModuleName()

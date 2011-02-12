@@ -25,7 +25,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestOverviewTable extends GWTTestCase
+public class GwtTestOverviewTable extends GWTTestCase
 {
     /** Constant for a search text. */
     private static final String SEARCH_TEXT = "TextToSearch*";

@@ -16,7 +16,7 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestComparatorMapGridTableModel extends GWTTestCase
+public class GwtTestComparatorMapGridTableModel extends GWTTestCase
 {
     @Override
     public String getModuleName()

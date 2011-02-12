@@ -17,7 +17,7 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestGridTableModel extends GWTTestCase
+public class GwtTestGridTableModel extends GWTTestCase
 {
     /** An array with the property names for the test columns. */
     private static final String[] PROPERTIES = {

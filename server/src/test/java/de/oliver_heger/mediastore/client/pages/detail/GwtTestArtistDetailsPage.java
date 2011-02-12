@@ -32,7 +32,7 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestArtistDetailsPage extends AbstractTestDetailsPage
+public class GwtTestArtistDetailsPage extends AbstractTestDetailsPage
 {
     /** Constant for the ID of the test artist. */
     private static final Long ARTIST_ID = 20101216075421L;

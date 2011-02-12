@@ -18,7 +18,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestSongDetailsPage extends AbstractTestDetailsPage
+public class GwtTestSongDetailsPage extends AbstractTestDetailsPage
 {
     /**
      * Tests whether the member fields have been created correctly.

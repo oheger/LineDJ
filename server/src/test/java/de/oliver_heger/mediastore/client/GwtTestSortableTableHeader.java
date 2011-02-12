@@ -10,7 +10,7 @@ import de.oliver_heger.mediastore.client.SortableTableHeader.SortDirection;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class TestSortableTableHeader extends GWTTestCase
+public class GwtTestSortableTableHeader extends GWTTestCase
 {
     @Override
     public String getModuleName()
