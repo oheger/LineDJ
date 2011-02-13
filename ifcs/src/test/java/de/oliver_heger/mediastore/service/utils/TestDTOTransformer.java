@@ -2,6 +2,7 @@ package de.oliver_heger.mediastore.service.utils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 
 import java.util.Date;
 
@@ -64,6 +65,20 @@ public class TestDTOTransformer
         assertEquals("Wrong long", LONG_VALUE, b.getPropertyLong());
         assertEquals("Wrong string", STR_VALUE, b.getPropertyString());
         assertFalse("Specific property set", b.isSpecificBProperty());
+    }
+    
+    /**
+     * Tests a transformation if there is no date value set.
+     */
+    @Test
+    public void testTransformNullDate()
+    {
+    	BeanA a = new BeanA();
+    	a.setPropertyInt(INT_VALUE);
+    	BeanB b = new BeanB();
+    	DTOTransformer.transform(a, b);
+    	assertEquals("Wrong int", INT_VALUE, b.getPropertyInt());
+    	assertNull("Got a date", b.getPropertyDate());
     }
 
     /**

@@ -1,8 +1,11 @@
 package de.oliver_heger.mediastore.service.utils;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Date;
 
 import org.apache.commons.beanutils.BeanUtils;
+import org.apache.commons.beanutils.ConvertUtils;
+import org.apache.commons.beanutils.converters.DateConverter;
 
 /**
  * <p>
@@ -53,5 +56,20 @@ public final class DTOTransformer
         {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    /**
+     * Handles the initialization of default converters. For instance, a
+     * specialized date converter has to be installed that can deal with
+     * <b>null</b> values.
+     */
+    private static void initDefaultConverters()
+    {
+        ConvertUtils.register(new DateConverter(null), Date.class);
+    }
+
+    static
+    {
+        initDefaultConverters();
     }
 }
