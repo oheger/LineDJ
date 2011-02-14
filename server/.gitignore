@@ -6,4 +6,7 @@ WEB-INF
 www-test
 target
 war
+remotemediastore.launch
+.classpath
+.project
 
