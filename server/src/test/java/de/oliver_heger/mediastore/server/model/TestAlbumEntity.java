@@ -16,6 +16,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
@@ -118,6 +119,17 @@ public class TestAlbumEntity
     {
         AlbumEntity a = new AlbumEntity();
         AlbumEntity a2 = new AlbumEntity();
+        AlbumEntity aID = new AlbumEntity()
+        {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Long getId()
+            {
+                return 20110220221600L;
+            }
+        };
+        RemoteMediaStoreTestHelper.checkEquals(a, aID, false);
         a.setName(TEST_NAME);
         RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
         a2.setName(TEST_NAME + "_other");
@@ -348,5 +360,192 @@ public class TestAlbumEntity
         helper.getEM().remove(a);
         helper.commit();
         assertTrue("Got synoym entities", fetchAlbumSynonyms().isEmpty());
+    }
+
+    /**
+     * Creates a number of test albums with unrelated names and synonyms. This
+     * method is used to populate the database for tests which query albums.
+     */
+    private void persistTestAlbums()
+    {
+        for (int i = 0; i < 32; i++)
+        {
+            AlbumEntity ae = new AlbumEntity();
+            ae.setName("Another Test Album #" + i);
+            User usr =
+                    (i % 2 == 0) ? PersistenceTestHelper.getTestUser()
+                            : PersistenceTestHelper
+                                    .getUser(PersistenceTestHelper.OTHER_USER);
+            ae.setUser(usr);
+            ae.addSynonymName(SYNONYM_PREFIX + i);
+            helper.persist(ae);
+        }
+    }
+
+    /**
+     * Tests whether the expected albums were retrieved.
+     *
+     * @param expAlbumIDs a set with the expected album IDs
+     * @param list the list with the retrieved albums
+     */
+    private void checkRetrievedAlbums(Set<Long> expAlbumIDs,
+            List<AlbumEntity> list)
+    {
+        assertEquals("Wrong number of entities", expAlbumIDs.size(),
+                list.size());
+        for (AlbumEntity ae : list)
+        {
+            assertTrue("Unexpected album: " + ae,
+                    expAlbumIDs.remove(ae.getId()));
+        }
+    }
+
+    /**
+     * Tests whether albums can be found by name.
+     */
+    @Test
+    public void testFindByName()
+    {
+        Set<Long> expAlbumIDs = new HashSet<Long>();
+        AlbumEntity album = createAlbum();
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        persistTestAlbums();
+        album = createAlbum();
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        helper.closeEM();
+        List<AlbumEntity> list =
+                AlbumEntity.findByName(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), TEST_NAME);
+        checkRetrievedAlbums(expAlbumIDs, list);
+    }
+
+    /**
+     * Tests findByName() if no matching album is found.
+     */
+    @Test
+    public void testFindByNameNoMatch()
+    {
+        helper.persist(createAlbum());
+        assertTrue(
+                "Got results",
+                AlbumEntity.findByName(
+                        helper.getEM(),
+                        PersistenceTestHelper
+                                .getUser(PersistenceTestHelper.OTHER_USER),
+                        TEST_NAME).isEmpty());
+    }
+
+    /**
+     * Tests whether albums can be found by synonyms.
+     */
+    @Test
+    public void testFindBySynonym()
+    {
+        Set<Long> expAlbumIDs = new HashSet<Long>();
+        AlbumEntity album = createAlbum();
+        album.addSynonymName(SYNONYM_PREFIX);
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        persistTestAlbums();
+        album = new AlbumEntity();
+        album.setName("Another album");
+        album.setUser(PersistenceTestHelper.getTestUser());
+        album.addSynonymName(SYNONYM_PREFIX);
+        album.addSynonymName(SYNONYM_PREFIX + 11);
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        helper.closeEM();
+        List<AlbumEntity> list =
+                AlbumEntity.findBySynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SYNONYM_PREFIX);
+        checkRetrievedAlbums(expAlbumIDs, list);
+    }
+
+    /**
+     * Tests findBySynonym() if no matching album can be found.
+     */
+    @Test
+    public void testFindBySynonymNoMatch()
+    {
+        AlbumEntity album = createAlbum();
+        album.addSynonymName(SYNONYM_PREFIX);
+        helper.persist(album);
+        assertTrue(
+                "Got results",
+                AlbumEntity.findBySynonym(
+                        helper.getEM(),
+                        PersistenceTestHelper
+                                .getUser(PersistenceTestHelper.OTHER_USER),
+                        SYNONYM_PREFIX).isEmpty());
+    }
+
+    /**
+     * Tests whether an album search can be performed for both the name and the
+     * synonyms.
+     */
+    @Test
+    public void testFindByNameAndSynonym()
+    {
+        Set<Long> expAlbumIDs = new HashSet<Long>();
+        AlbumEntity album = createAlbum();
+        album.addSynonymName("some synonym");
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        persistTestAlbums();
+        album = new AlbumEntity();
+        album.setName("Another test album...");
+        album.setUser(PersistenceTestHelper.getTestUser());
+        album.addSynonymName(TEST_NAME);
+        helper.persist(album);
+        expAlbumIDs.add(album.getId());
+        helper.closeEM();
+        List<AlbumEntity> list =
+                AlbumEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), TEST_NAME);
+        checkRetrievedAlbums(expAlbumIDs, list);
+    }
+
+    /**
+     * Tests a find operation by name and synonym if there is no match.
+     */
+    @Test
+    public void testFindByNameAndSynonymNoMatch()
+    {
+        helper.persist(createAlbum());
+        AlbumEntity album = new AlbumEntity();
+        album.setName(SYNONYM_PREFIX);
+        album.setUser(PersistenceTestHelper.getTestUser());
+        album.addSynonymName(TEST_NAME);
+        helper.persist(album);
+        persistTestAlbums();
+        assertTrue(
+                "Got results",
+                AlbumEntity.findByNameAndSynonym(
+                        helper.getEM(),
+                        PersistenceTestHelper
+                                .getUser(PersistenceTestHelper.OTHER_USER),
+                        TEST_NAME).isEmpty());
+    }
+
+    /**
+     * Tests whether duplicates are removed when searching for albums by name
+     * and synonym.
+     */
+    @Test
+    public void testFindByNameAndSynonymNoDuplicates()
+    {
+        AlbumEntity album = createAlbum();
+        album.addSynonymName(TEST_NAME);
+        helper.persist(album);
+        persistTestAlbums();
+        helper.closeEM();
+        List<AlbumEntity> list =
+                AlbumEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), TEST_NAME);
+        Set<Long> expAlbumIDs = new HashSet<Long>();
+        expAlbumIDs.add(album.getId());
+        checkRetrievedAlbums(expAlbumIDs, list);
     }
 }

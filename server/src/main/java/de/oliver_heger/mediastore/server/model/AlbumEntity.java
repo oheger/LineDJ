@@ -1,12 +1,16 @@
 package de.oliver_heger.mediastore.server.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
+import javax.persistence.EntityManager;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -28,7 +32,9 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
  */
 @Entity
 @NamedQueries({
-    @NamedQuery(name = AlbumEntity.QUERY_FIND_BY_IDS, query = AlbumEntity.QUERY_FIND_BY_IDS_DEF)
+        @NamedQuery(name = AlbumEntity.QUERY_FIND_BY_IDS, query = AlbumEntity.QUERY_FIND_BY_IDS_DEF),
+        @NamedQuery(name = AlbumEntity.QUERY_FIND_BY_NAME, query = AlbumEntity.QUERY_FIND_BY_NAME_DEF),
+        @NamedQuery(name = AlbumEntity.QUERY_FIND_BY_SYNONYM, query = AlbumEntity.QUERY_FIND_BY_SYNONYM_DEF)
 })
 public class AlbumEntity implements Serializable
 {
@@ -40,12 +46,31 @@ public class AlbumEntity implements Serializable
     public static final String QUERY_FIND_BY_IDS = ALBUM_QUERY_PREFIX
             + "QUERY_FIND_BY_IDS";
 
+    /** Constant for the name of the query for finding albums by name. */
+    static final String QUERY_FIND_BY_NAME = ALBUM_QUERY_PREFIX
+            + "QUERY_FIND_BY_NAME";
+
+    /** Constant for the name of the query for finding albums by synonym name. */
+    static final String QUERY_FIND_BY_SYNONYM = ALBUM_QUERY_PREFIX
+            + "QUERY_FIND_BY_SYNONYM";
+
     /**
      * Constant for the definition of the query for retrieving artists by a set
      * of ID values.
      */
     static final String QUERY_FIND_BY_IDS_DEF = "select a from AlbumEntity a"
             + " where a.id in (:" + Finders.PARAM_ID + ")";
+
+    /** Constant for the definition of the query for finding albums by name. */
+    static final String QUERY_FIND_BY_NAME_DEF = "select a from AlbumEntity a "
+            + "where a.user = :" + Finders.PARAM_USER + " and a.searchName = :"
+            + Finders.PARAM_NAME;
+
+    /** Constant for the definition of the query for finding albums by synonym. */
+    static final String QUERY_FIND_BY_SYNONYM_DEF = "select syn.album "
+            + "from AlbumSynonym syn " + "where syn.user = :"
+            + Finders.PARAM_USER + " and syn.searchName = :"
+            + Finders.PARAM_NAME;
 
     /**
      * The serial version UID.
@@ -268,6 +293,7 @@ public class AlbumEntity implements Serializable
     public int hashCode()
     {
         int result = ObjectUtils.HASH_SEED;
+        result = ObjectUtils.hash(getId(), result);
         result = ObjectUtils.hash(getSearchName(), result);
         result = ObjectUtils.hash(getUser(), result);
 
@@ -277,7 +303,9 @@ public class AlbumEntity implements Serializable
     /**
      * Compares this object with another one. Two instances of
      * {@code AlbumEntity} are considered equal if they have the same name
-     * (ignoring case) and belong to the same user.
+     * (ignoring case), belong to the same user, and have the same ID. Because
+     * the name of an album is not necessarily unique the synthetic ID must be
+     * taken into account when comparing entities.
      *
      * @param obj the object to compare to
      * @return a flag whether the objects are equal
@@ -295,7 +323,8 @@ public class AlbumEntity implements Serializable
         }
 
         AlbumEntity c = (AlbumEntity) obj;
-        return ObjectUtils.equals(getSearchName(), c.getSearchName())
+        return ObjectUtils.equals(getId(), c.getId())
+                && ObjectUtils.equals(getSearchName(), c.getSearchName())
                 && ObjectUtils.equals(getUser(), c.getUser());
     }
 
@@ -315,6 +344,54 @@ public class AlbumEntity implements Serializable
     }
 
     /**
+     * Searches for albums by name. The album name need not be unique, therefore
+     * this method can return a list of albums.
+     *
+     * @param em the entity manager
+     * @param user the current user
+     * @param name the name of the album
+     * @return a list with matching albums
+     */
+    public static List<AlbumEntity> findByName(EntityManager em, User user,
+            String name)
+    {
+        return queryForAlbumsByName(em, QUERY_FIND_BY_NAME, user, name);
+    }
+
+    /**
+     * Searches for albums by their synonym name. Multiple results can be
+     * retrieved as synonym names need not be unique.
+     *
+     * @param em the entity manager
+     * @param user the current user
+     * @param name the synonym name to search for
+     * @return a list with the matching albums
+     */
+    public static List<AlbumEntity> findBySynonym(EntityManager em, User user,
+            String name)
+    {
+        return queryForAlbumsByName(em, QUERY_FIND_BY_SYNONYM, user, name);
+    }
+
+    /**
+     * Searches for albums with the given name in both the name and synonym
+     * properties. Duplicates are removed.
+     *
+     * @param em the entity manager
+     * @param user the current user
+     * @param name the name to search for
+     * @return a set with the matching albums
+     */
+    public static List<AlbumEntity> findByNameAndSynonym(EntityManager em,
+            User user, String name)
+    {
+        LinkedHashSet<AlbumEntity> result =
+                new LinkedHashSet<AlbumEntity>(findByName(em, user, name));
+        result.addAll(findBySynonym(em, user, name));
+        return new ArrayList<AlbumEntity>(result);
+    }
+
+    /**
      * Returns the search name of this album. This property is updated
      * automatically when the name is changed. It is used by database queries.
      *
@@ -323,5 +400,28 @@ public class AlbumEntity implements Serializable
     String getSearchName()
     {
         return searchName;
+    }
+
+    /**
+     * Helper method for executing a named query for albums with a name and user
+     * parameter.
+     *
+     * @param em the entity manager
+     * @param query the name of the query
+     * @param user the current user
+     * @param name the name to be searched for
+     * @return the query results
+     */
+    private static List<AlbumEntity> queryForAlbumsByName(EntityManager em,
+            String query, User user, String name)
+    {
+        @SuppressWarnings("unchecked")
+        List<AlbumEntity> result =
+                em.createNamedQuery(query)
+                        .setParameter(Finders.PARAM_USER, user)
+                        .setParameter(Finders.PARAM_NAME,
+                                EntityUtils.generateSearchString(name))
+                        .getResultList();
+        return result;
     }
 }
