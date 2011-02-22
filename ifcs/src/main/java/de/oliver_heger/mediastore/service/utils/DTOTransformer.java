@@ -26,6 +26,9 @@ import org.apache.commons.beanutils.converters.DateConverter;
  */
 public final class DTOTransformer
 {
+    /** Constant for a default numeric value with the meaning "undefined". */
+    public static final int UNDEFINED = 0;
+
     /**
      * Private constructor so that no instances can be created.
      */
@@ -56,6 +59,58 @@ public final class DTOTransformer
         {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    /**
+     * Transforms the given {@code Integer} object to a primitive value. This
+     * method is <b>null</b>-safe; if the parameter is <b>null</b>, a default
+     * value representing an undefined value is returned.
+     *
+     * @param v the value to be converted
+     * @return the converted primitive value
+     * @see #UNDEFINED
+     */
+    public static int toPrimitive(Integer v)
+    {
+        return (v != null) ? v.intValue() : UNDEFINED;
+    }
+
+    /**
+     * Transforms the given {@code Long} object to a primitive value. An
+     * overloaded version for {@code Long} objects.
+     *
+     * @param v the value to be converted
+     * @return the converted primitive value
+     * @see #UNDEFINED
+     */
+    public static long toPrimitive(Long v)
+    {
+        return (v != null) ? v.longValue() : UNDEFINED;
+    }
+
+    /**
+     * Transforms the given numeric value to an {@code Integer} object. If the
+     * value equals the {@link #UNDEFINED} constant, <b>null</b> is returned.
+     * This method is the counterpart to {@link #toPrimitive(Integer)}.
+     *
+     * @param v the value to be converted
+     * @return the corresponding wrapper object
+     */
+    public static Integer toWrapper(int v)
+    {
+        return (v != UNDEFINED) ? Integer.valueOf(v) : null;
+    }
+
+    /**
+     * Transforms the given numeric value to a {@code Long} object. This is an
+     * overloaded version for <b>long</b> values.
+     *
+     * @param v the value to be converted
+     * @return the corresponding wrapper object
+     */
+    public static Long toWrapper(long v)
+    {
+        return (v != UNDEFINED) ? Long.valueOf(v) : null;
     }
 
     /**

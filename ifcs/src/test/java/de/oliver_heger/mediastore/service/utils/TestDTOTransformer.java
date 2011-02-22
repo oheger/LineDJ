@@ -66,7 +66,7 @@ public class TestDTOTransformer
         assertEquals("Wrong string", STR_VALUE, b.getPropertyString());
         assertFalse("Specific property set", b.isSpecificBProperty());
     }
-    
+
     /**
      * Tests a transformation if there is no date value set.
      */
@@ -97,6 +97,90 @@ public class TestDTOTransformer
             };
         };
         DTOTransformer.transform(a, new BeanB());
+    }
+
+    /**
+     * Tests whether an Integer object can be transformed to a primitive.
+     */
+    @Test
+    public void testToPrimitiveInteger()
+    {
+        Integer v = 20110222;
+        assertEquals("Wrong result", v.intValue(),
+                DTOTransformer.toPrimitive(v));
+    }
+
+    /**
+     * Tests whether toPrimitive() can handle null Integer objects.
+     */
+    @Test
+    public void testToPrimitiveIntegerNull()
+    {
+        assertEquals("Wrong result", DTOTransformer.UNDEFINED,
+                DTOTransformer.toPrimitive((Integer) null));
+    }
+
+    /**
+     * Tests whether a Long object can be transformed to a primitive.
+     */
+    @Test
+    public void testToPrimitiveLong()
+    {
+        Long v = 20110222211832L;
+        assertEquals("Wrong result", v.longValue(),
+                DTOTransformer.toPrimitive(v));
+    }
+
+    /**
+     * Tests whether toPrimitive() can handle null Long objects.
+     */
+    @Test
+    public void testToPrimitiveLongNull()
+    {
+        assertEquals("Wrong result", DTOTransformer.UNDEFINED,
+                DTOTransformer.toPrimitive((Long) null));
+    }
+
+    /**
+     * Tests whether an int value can be converted to a wrapper.
+     */
+    @Test
+    public void testToWrapperInt()
+    {
+        int value = 20110222;
+        assertEquals("Wrong result", value, DTOTransformer.toWrapper(value)
+                .intValue());
+    }
+
+    /**
+     * Tests the conversion of an undefined int value to a wrapper.
+     */
+    @Test
+    public void testToWrapperIntUndef()
+    {
+        int value = DTOTransformer.UNDEFINED;
+        assertNull("Wrong result", DTOTransformer.toWrapper(value));
+    }
+
+    /**
+     * Tests whether a long value can be converted to a wrapper.
+     */
+    @Test
+    public void testToWrapperLong()
+    {
+        long value = 20110222212744L;
+        assertEquals("Wrong result", value, DTOTransformer.toWrapper(value)
+                .longValue());
+    }
+
+    /**
+     * Tests the conversion of an undefined long value to a wrapper.
+     */
+    @Test
+    public void testToWrapperLongUndef()
+    {
+        long value = DTOTransformer.UNDEFINED;
+        assertNull("Wrong result", DTOTransformer.toWrapper(value));
     }
 
     /**
