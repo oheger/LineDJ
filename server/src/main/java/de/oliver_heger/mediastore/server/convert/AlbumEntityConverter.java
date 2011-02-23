@@ -144,10 +144,13 @@ public class AlbumEntityConverter implements
     {
         DTOTransformer.transform(e, info);
         info.setAlbumID(e.getId());
+
         if (songs != null)
         {
-            convertSongRelatedData(info, songs);
+            info.setNumberOfSongs(songs.size());
+            info.setDuration(calcAlbumDuration(songs));
         }
+        info.setInceptionYear(calcAlbumInceptionYear(e, songs));
     }
 
     /**
@@ -208,20 +211,6 @@ public class AlbumEntityConverter implements
     }
 
     /**
-     * Fills the fields that are based on the songs of the album.
-     *
-     * @param info the info object to be filled
-     * @param songs a collection with the known songs of this album
-     */
-    private void convertSongRelatedData(AlbumInfo info,
-            Collection<? extends SongEntity> songs)
-    {
-        info.setNumberOfSongs(songs.size());
-        info.setDuration(calcAlbumDuration(songs));
-        info.setInceptionYear(calcAlbumInceptionYear(songs));
-    }
-
-    /**
      * Calculates the duration of the album from the songs. If a song has an
      * unknown duration, the whole duration is unknown.
      *
@@ -250,6 +239,28 @@ public class AlbumEntityConverter implements
     }
 
     /**
+     * Determines the inception year of the album. If the entity has an
+     * inception year set, it is used. Otherwise, it is tried to determine the
+     * year from the songs.
+     *
+     * @param e the album entity
+     * @param songs the collection of songs
+     * @return the inception year of the album or <b>null</b> if it cannot be
+     *         determined
+     */
+    private static Integer calcAlbumInceptionYear(AlbumEntity e,
+            Collection<? extends SongEntity> songs)
+    {
+        Integer year = e.getInceptionYear();
+        if (year == null && songs != null)
+        {
+            year = calcAlbumInceptionYearFromSongs(songs);
+        }
+
+        return year;
+    }
+
+    /**
      * Determines the inception year of the album based on the songs. The
      * inception year is set only if all songs have the same - non <b>null</b> -
      * inception year.
@@ -258,7 +269,7 @@ public class AlbumEntityConverter implements
      * @return the inception year of the album or <b>null</b> if it cannot be
      *         determined
      */
-    private static Integer calcAlbumInceptionYear(
+    private static Integer calcAlbumInceptionYearFromSongs(
             Collection<? extends SongEntity> songs)
     {
         Integer year = null;

@@ -36,6 +36,9 @@ public class TestAlbumEntity
     /** Constant for a synonym prefix. */
     private static final String SYNONYM_PREFIX = "Album Synonym ";
 
+    /** Constant for an inception year. */
+    private static final Integer YEAR = 1985;
+
     /** The test helper. */
     private final PersistenceTestHelper helper = new PersistenceTestHelper(
             new LocalDatastoreServiceTestConfig());
@@ -62,6 +65,7 @@ public class TestAlbumEntity
         AlbumEntity a = new AlbumEntity();
         a.setName(TEST_NAME);
         a.setUser(PersistenceTestHelper.getTestUser());
+        a.setInceptionYear(YEAR);
         return a;
     }
 
@@ -76,6 +80,7 @@ public class TestAlbumEntity
         assertNull("Got a name", a.getName());
         assertNull("Got a search name", a.getSearchName());
         assertNull("Got a user", a.getUser());
+        assertNull("Got an inception year", a.getInceptionYear());
         RemoteMediaStoreTestHelper.checkCurrentDate(a.getCreationDate());
     }
 
@@ -109,6 +114,9 @@ public class TestAlbumEntity
         a.setUser(PersistenceTestHelper.getTestUser());
         a2.setUser(PersistenceTestHelper.getTestUser());
         RemoteMediaStoreTestHelper.checkEquals(a, a2, true);
+        a.setInceptionYear(YEAR);
+        a2.setInceptionYear(YEAR);
+        RemoteMediaStoreTestHelper.checkEquals(a, a2, true);
     }
 
     /**
@@ -119,17 +127,6 @@ public class TestAlbumEntity
     {
         AlbumEntity a = new AlbumEntity();
         AlbumEntity a2 = new AlbumEntity();
-        AlbumEntity aID = new AlbumEntity()
-        {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            public Long getId()
-            {
-                return 20110220221600L;
-            }
-        };
-        RemoteMediaStoreTestHelper.checkEquals(a, aID, false);
         a.setName(TEST_NAME);
         RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
         a2.setName(TEST_NAME + "_other");
@@ -139,6 +136,11 @@ public class TestAlbumEntity
         RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
         a2.setUser(PersistenceTestHelper
                 .getUser(PersistenceTestHelper.OTHER_USER));
+        RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
+        a2.setUser(a.getUser());
+        a.setInceptionYear(YEAR);
+        RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
+        a2.setInceptionYear(Integer.valueOf(YEAR.intValue() + 1));
         RemoteMediaStoreTestHelper.checkEquals(a, a2, false);
     }
 
@@ -159,10 +161,10 @@ public class TestAlbumEntity
     @Test
     public void testToString()
     {
-        AlbumEntity a = new AlbumEntity();
-        a.setName(TEST_NAME);
+        AlbumEntity a = createAlbum();
         String s = a.toString();
         assertTrue("Name not found: " + s, s.contains("name = " + TEST_NAME));
+        assertTrue("Year not found:" + s, s.contains("inceptionYear = " + YEAR));
     }
 
     /**

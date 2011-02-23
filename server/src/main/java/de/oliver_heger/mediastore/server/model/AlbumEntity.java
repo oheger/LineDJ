@@ -94,6 +94,9 @@ public class AlbumEntity implements Serializable
     /** The date when this album was created. */
     private Date creationDate;
 
+    /** The inception year of this album. */
+    private Integer inceptionYear;
+
     /** A set with the synonyms of this album. */
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL)
     private Set<AlbumSynonym> synonyms = new HashSet<AlbumSynonym>();
@@ -176,6 +179,27 @@ public class AlbumEntity implements Serializable
     public void setCreationDate(Date creationDate)
     {
         this.creationDate = creationDate;
+    }
+
+    /**
+     * Returns the inception year of this album. Result may be <b>null</b> if
+     * the inception year is unknown.
+     *
+     * @return the inception year
+     */
+    public Integer getInceptionYear()
+    {
+        return inceptionYear;
+    }
+
+    /**
+     * Sets the inception year of this album.
+     *
+     * @param inceptionYear the inception year
+     */
+    public void setInceptionYear(Integer inceptionYear)
+    {
+        this.inceptionYear = inceptionYear;
     }
 
     /**
@@ -293,9 +317,9 @@ public class AlbumEntity implements Serializable
     public int hashCode()
     {
         int result = ObjectUtils.HASH_SEED;
-        result = ObjectUtils.hash(getId(), result);
         result = ObjectUtils.hash(getSearchName(), result);
         result = ObjectUtils.hash(getUser(), result);
+        result = ObjectUtils.hash(getInceptionYear(), result);
 
         return result;
     }
@@ -303,9 +327,8 @@ public class AlbumEntity implements Serializable
     /**
      * Compares this object with another one. Two instances of
      * {@code AlbumEntity} are considered equal if they have the same name
-     * (ignoring case), belong to the same user, and have the same ID. Because
-     * the name of an album is not necessarily unique the synthetic ID must be
-     * taken into account when comparing entities.
+     * (ignoring case), belong to the same user, and have the same inception
+     * year.
      *
      * @param obj the object to compare to
      * @return a flag whether the objects are equal
@@ -323,9 +346,9 @@ public class AlbumEntity implements Serializable
         }
 
         AlbumEntity c = (AlbumEntity) obj;
-        return ObjectUtils.equals(getId(), c.getId())
-                && ObjectUtils.equals(getSearchName(), c.getSearchName())
-                && ObjectUtils.equals(getUser(), c.getUser());
+        return ObjectUtils.equals(getSearchName(), c.getSearchName())
+                && ObjectUtils.equals(getUser(), c.getUser())
+                && ObjectUtils.equals(getInceptionYear(), c.getInceptionYear());
     }
 
     /**
@@ -339,6 +362,8 @@ public class AlbumEntity implements Serializable
     {
         StringBuilder buf = ObjectUtils.prepareToStringBuffer(this);
         ObjectUtils.appendToStringField(buf, "name", getName(), true);
+        ObjectUtils.appendToStringField(buf, "inceptionYear",
+                getInceptionYear(), false);
         buf.append(ObjectUtils.TOSTR_DATA_SUFFIX);
         return buf.toString();
     }

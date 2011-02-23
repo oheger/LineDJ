@@ -242,6 +242,22 @@ public class TestAlbumEntityConverter
     }
 
     /**
+     * Tests whether an inception year that is explicitly set is taken into
+     * account by the conversion.
+     */
+    @Test
+    public void testConvertYearSet()
+    {
+        final Integer inceptionYear = 2011;
+        List<SongEntity> songs = createTestSongsForAlbum1();
+        AlbumEntity e = createAlbumEntity(ID_ALBUM1);
+        e.setInceptionYear(inceptionYear);
+        AlbumInfo info = new AlbumInfo();
+        converter.convert(e, info, songs);
+        assertEquals("Wrong year", inceptionYear, info.getInceptionYear());
+    }
+
+    /**
      * Helper method for testing a conversion if no song data is available.
      *
      * @param songs the collection with songs
