@@ -23,7 +23,7 @@ import de.oliver_heger.mediastore.service.ObjectFactory;
 public class TestArtistResource
 {
     /** The resource to be tested. */
-    ArtistResourceTestImpl resource;
+    private ArtistResourceTestImpl resource;
 
     @Before
     public void setUp() throws Exception
