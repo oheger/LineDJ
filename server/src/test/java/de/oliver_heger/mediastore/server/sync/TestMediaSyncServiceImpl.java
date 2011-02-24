@@ -2,6 +2,7 @@ package de.oliver_heger.mediastore.server.sync;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -18,7 +19,9 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.server.NotLoggedInException;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 import de.oliver_heger.mediastore.service.ObjectFactory;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
@@ -33,6 +36,9 @@ public class TestMediaSyncServiceImpl
 {
     /** Constant for the name of an entity to be synchronized. */
     private static final String ENTITY_NAME = "TestName";
+
+    /** Constant for an inception year. */
+    private final Integer INCEPTION_YEAR = 2011;
 
     /** The object factory. */
     private static ObjectFactory factory;
@@ -138,6 +144,111 @@ public class TestMediaSyncServiceImpl
         SyncResult<Long> res = service.syncArtist(data);
         assertFalse("Added", res.imported());
         assertEquals("Wrong key", entity.getId(), res.getKey());
+    }
+
+    /**
+     * Helper method for testing a sync operation if a new album has to be
+     * added.
+     *
+     * @return the album entity
+     * @throws NotLoggedInException if no user is logged in
+     */
+    private AlbumEntity checkSyncAlbumAdded() throws NotLoggedInException
+    {
+        AlbumData data = factory.createAlbumData();
+        data.setName(ENTITY_NAME);
+        data.setInceptionYear(INCEPTION_YEAR);
+        SyncResult<Long> res = service.syncAlbum(data);
+        assertTrue("Not added", res.imported());
+        AlbumEntity entity =
+                helper.getEM().find(AlbumEntity.class, res.getKey());
+        assertEquals("Wrong name", ENTITY_NAME, entity.getName());
+        assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
+                entity.getUser());
+        assertEquals("Wrong inception year", INCEPTION_YEAR,
+                entity.getInceptionYear());
+        PersistenceTestHelper.checkCurrentDate(entity.getCreationDate());
+        return entity;
+    }
+
+    /**
+     * Creates an album entity and associates it with a song with the given
+     * inception year.
+     *
+     * @param name the album name
+     * @param user the user (can be <b>null</b>, then the default user is used)
+     * @param year the year
+     * @return the album entity
+     */
+    private AlbumEntity persistAlbum(String name, User user, Integer year)
+    {
+        AlbumEntity album = new AlbumEntity();
+        album.setName(name);
+        album.setUser((user != null) ? user : PersistenceTestHelper
+                .getTestUser());
+        album.setInceptionYear(year);
+        helper.persist(album);
+        return album;
+    }
+
+    /**
+     * Tests synchronization of an album if no match is found.
+     */
+    @Test
+    public void testSyncAlbumNew() throws NotLoggedInException
+    {
+        checkSyncAlbumAdded();
+    }
+
+    /**
+     * Tests whether the inception year is taken into account when synchronizing
+     * an album.
+     */
+    @Test
+    public void testSyncAlbumMatchingName() throws NotLoggedInException
+    {
+        final int year = INCEPTION_YEAR.intValue();
+        for (int i = 2000; i < year; i++)
+        {
+            persistAlbum(ENTITY_NAME, null, i);
+        }
+        persistAlbum(
+                ENTITY_NAME,
+                PersistenceTestHelper.getUser(PersistenceTestHelper.OTHER_USER),
+                INCEPTION_YEAR);
+        checkSyncAlbumAdded();
+    }
+
+    /**
+     * Tests whether a missing inception year is handled correctly when
+     * synchronizing an album.
+     */
+    @Test
+    public void testSyncAlbumNoInceptionYear() throws NotLoggedInException
+    {
+        persistAlbum(ENTITY_NAME, null, INCEPTION_YEAR);
+        AlbumData data = factory.createAlbumData();
+        data.setName(ENTITY_NAME);
+        SyncResult<Long> result = service.syncAlbum(data);
+        assertTrue("Not imported", result.imported());
+        AlbumEntity entity =
+                helper.getEM().find(AlbumEntity.class, result.getKey());
+        assertNull("Got an inception year", entity.getInceptionYear());
+    }
+
+    /**
+     * Tests a sync operation if a matching album can be found.
+     */
+    @Test
+    public void testSyncAlbumExisting() throws NotLoggedInException
+    {
+        AlbumEntity album = persistAlbum(ENTITY_NAME, null, INCEPTION_YEAR);
+        AlbumData data = factory.createAlbumData();
+        data.setName(ENTITY_NAME);
+        data.setInceptionYear(INCEPTION_YEAR);
+        SyncResult<Long> result = service.syncAlbum(data);
+        assertFalse("Imported", result.imported());
+        assertEquals("Wrong ID", album.getId(), result.getKey());
     }
 
     /**

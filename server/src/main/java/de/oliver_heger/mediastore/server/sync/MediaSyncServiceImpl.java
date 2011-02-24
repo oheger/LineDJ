@@ -1,5 +1,8 @@
 package de.oliver_heger.mediastore.server.sync;
 
+import java.util.Iterator;
+import java.util.List;
+
 import javax.persistence.EntityManager;
 
 import com.google.appengine.api.oauth.OAuthRequestException;
@@ -9,9 +12,12 @@ import com.google.appengine.api.users.User;
 
 import de.oliver_heger.mediastore.server.NotLoggedInException;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
+import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
+import de.oliver_heger.mediastore.shared.ObjectUtils;
 
 /**
  * <p>
@@ -48,6 +54,31 @@ public class MediaSyncServiceImpl implements MediaSyncService
                     protected SyncResult<Long> performOperation(EntityManager em)
                     {
                         return syncArtist(em, user, artist);
+                    }
+                };
+
+        return templ.execute();
+    }
+
+    /**
+     * Performs a sync operation with the specified album data object.
+     *
+     * @param album the album data object
+     * @return the result of the sync operation
+     * @throws NotLoggedInException if no user is logged in
+     */
+    @Override
+    public SyncResult<Long> syncAlbum(final AlbumData album)
+            throws NotLoggedInException
+    {
+        final User user = authenticateUser();
+        JPATemplate<SyncResult<Long>> templ =
+                new JPATemplate<SyncResult<Long>>()
+                {
+                    @Override
+                    protected SyncResult<Long> performOperation(EntityManager em)
+                    {
+                        return syncAlbum(em, user, album);
                     }
                 };
 
@@ -110,5 +141,62 @@ public class MediaSyncServiceImpl implements MediaSyncService
         }
 
         return new SyncResultImpl<Long>(e.getId(), add);
+    }
+
+    /**
+     * Synchronizes an album.
+     *
+     * @param em the entity manager
+     * @param user the current user
+     * @param data the data object describing the album
+     * @return the result of the operation
+     */
+    private SyncResult<Long> syncAlbum(EntityManager em, User user,
+            AlbumData data)
+    {
+        AlbumEntity album = findAlbum(em, user, data);
+        boolean add = album == null;
+
+        if (add)
+        {
+            album = new AlbumEntity();
+            DTOTransformer.transform(data, album);
+            album.setInceptionYear(DTOTransformer.toWrapper(data
+                    .getInceptionYear()));
+            album.setUser(user);
+            em.persist(album);
+            em.flush();
+        }
+
+        return new SyncResultImpl<Long>(album.getId(), add);
+    }
+
+    /**
+     * Searches for an album based on the given data object. If no matching
+     * album is found, result is <b>null</b>.
+     *
+     * @param em the entity manager
+     * @param user the current user
+     * @param data the album data object
+     * @return the found entity or <b>null</b>
+     */
+    private AlbumEntity findAlbum(EntityManager em, User user, AlbumData data)
+    {
+        AlbumEntity album = null;
+        List<AlbumEntity> albums =
+                AlbumEntity.findByNameAndSynonym(em, user, data.getName());
+
+        Integer inceptionYear =
+                DTOTransformer.toWrapper(data.getInceptionYear());
+        for (Iterator<AlbumEntity> it = albums.iterator(); it.hasNext()
+                && album == null;)
+        {
+            AlbumEntity e = it.next();
+            if (ObjectUtils.equals(e.getInceptionYear(), inceptionYear))
+            {
+                album = e;
+            }
+        }
+        return album;
     }
 }

@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.server.sync;
 
 import de.oliver_heger.mediastore.server.NotLoggedInException;
+import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 
 /**
@@ -27,4 +28,14 @@ public interface MediaSyncService
      * @throws NotLoggedInException if the current user cannot be determined
      */
     SyncResult<Long> syncArtist(ArtistData artist) throws NotLoggedInException;
+
+    /**
+     * Synchronizes the specified album data object. If no matching album entity
+     * is found in the database, the album is added.
+     *
+     * @param album the album data object
+     * @return a result object for the synchronization operation
+     * @throws NotLoggedInException if the current user cannot be determined
+     */
+    SyncResult<Long> syncAlbum(AlbumData album) throws NotLoggedInException;
 }
