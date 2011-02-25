@@ -48,4 +48,22 @@
   </xsd:all>
 </xsd:complexType>
 
+<!-- The song type.
+     Songs have more properties. They may also reference an artist and an
+     album. In order to identify a song, a combination of the properties name,
+     duration, and artist is used.
+ -->
+ <xsd:element name="SongData" type="SongType"/>
+ 
+ <xsd:complexType name="SongType">
+   <xsd:all>
+     <xsd:element name="name" type="xsd:string"/>
+     <xsd:element name="artistName" type="xsd:string"/>
+     <xsd:element name="albumName" type="xsd:string"/>
+     <xsd:element name="duration" type="xsd:integer"/>
+     <xsd:element name="inceptionYear" type="xsd:integer"/>
+     <xsd:element name="trackNo" type="xsd:integer"/>
+     <xsd:element name="playCount" type="xsd:int"/>
+   </xsd:all>
+ </xsd:complexType>
 </xsd:schema>
