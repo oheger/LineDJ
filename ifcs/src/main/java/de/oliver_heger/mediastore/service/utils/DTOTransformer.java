@@ -1,11 +1,15 @@
 package de.oliver_heger.mediastore.service.utils;
 
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigInteger;
 import java.util.Date;
 
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.beanutils.ConvertUtils;
+import org.apache.commons.beanutils.converters.BigIntegerConverter;
 import org.apache.commons.beanutils.converters.DateConverter;
+import org.apache.commons.beanutils.converters.IntegerConverter;
+import org.apache.commons.beanutils.converters.LongConverter;
 
 /**
  * <p>
@@ -121,6 +125,9 @@ public final class DTOTransformer
     private static void initDefaultConverters()
     {
         ConvertUtils.register(new DateConverter(null), Date.class);
+        ConvertUtils.register(new BigIntegerConverter(null), BigInteger.class);
+        ConvertUtils.register(new IntegerConverter(null), Integer.class);
+        ConvertUtils.register(new LongConverter(null), Long.class);
     }
 
     static

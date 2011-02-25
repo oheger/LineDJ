@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 
+import java.math.BigInteger;
 import java.util.Date;
 
 import org.junit.Test;
@@ -73,12 +74,88 @@ public class TestDTOTransformer
     @Test
     public void testTransformNullDate()
     {
-    	BeanA a = new BeanA();
-    	a.setPropertyInt(INT_VALUE);
-    	BeanB b = new BeanB();
-    	DTOTransformer.transform(a, b);
-    	assertEquals("Wrong int", INT_VALUE, b.getPropertyInt());
-    	assertNull("Got a date", b.getPropertyDate());
+        BeanA a = new BeanA();
+        a.setPropertyInt(INT_VALUE);
+        BeanB b = new BeanB();
+        DTOTransformer.transform(a, b);
+        assertEquals("Wrong int", INT_VALUE, b.getPropertyInt());
+        assertNull("Got a date", b.getPropertyDate());
+    }
+
+    /**
+     * Tests whether wrapper types can take part in data conversion.
+     */
+    @Test
+    public void testTransformWithWrappers()
+    {
+        BeanA a = new BeanA();
+        a.setPropertyInt(INT_VALUE);
+        a.setPropertyLong(LONG_VALUE);
+        BeanWrappers bw = new BeanWrappers();
+        DTOTransformer.transform(a, bw);
+        assertEquals("Wrong int", INT_VALUE, bw.getPropertyInt().intValue());
+        assertEquals("Wrong long", LONG_VALUE, bw.getPropertyLong().longValue());
+        BeanB b = new BeanB();
+        DTOTransformer.transform(bw, b);
+        assertEquals("Wrong int (2)", INT_VALUE, b.getPropertyInt());
+        assertEquals("Wrong long (2)", LONG_VALUE, b.getPropertyLong());
+    }
+
+    /**
+     * Tests whether BigInteger properties can be converted.
+     */
+    @Test
+    public void testTransformWithBigTypes()
+    {
+        BeanB b = new BeanB();
+        b.setPropertyInt(INT_VALUE);
+        b.setPropertyLong(LONG_VALUE);
+        BeanBigProperties bb = new BeanBigProperties();
+        DTOTransformer.transform(b, bb);
+        assertEquals("Wrong int", INT_VALUE, bb.getPropertyInt().intValue());
+        assertEquals("Wrong long", LONG_VALUE, bb.getPropertyLong().longValue());
+    }
+
+    /**
+     * Tests transformations with BigInteger properties and wrappers.
+     */
+    @Test
+    public void testTransformWithBigTypesAndWrappers()
+    {
+        BeanWrappers bw = new BeanWrappers();
+        bw.setPropertyInt(INT_VALUE);
+        bw.setPropertyLong(LONG_VALUE);
+        BeanBigProperties bb = new BeanBigProperties();
+        DTOTransformer.transform(bw, bb);
+        assertEquals("Wrong int", INT_VALUE, bb.getPropertyInt().intValue());
+        assertEquals("Wrong long", LONG_VALUE, bb.getPropertyLong().longValue());
+    }
+
+    /**
+     * Tests the handling of undefined properties when converting to BigInteger.
+     */
+    @Test
+    public void testTransformBigToWrappersUndefined()
+    {
+        BeanWrappers bw = new BeanWrappers();
+        BeanBigProperties bb = new BeanBigProperties();
+        DTOTransformer.transform(bb, bw);
+        assertNull("Got a wrapper int", bw.getPropertyInt());
+        assertNull("Got a wrapper long", bw.getPropertyLong());
+    }
+
+    /**
+     * Tests the handling of undefined properties when converting to wrapper
+     * types.
+     */
+    @Test
+    public void testTransformWrapperToBigUndefined()
+    {
+        BeanWrappers bw = new BeanWrappers();
+        BeanBigProperties bb = new BeanBigProperties();
+        DTOTransformer.transform(bw, bb);
+        assertNull("Got a big int", bb.getPropertyInt());
+        assertNull("Got a big long", bb.getPropertyLong());
     }
 
     /**
@@ -312,6 +389,66 @@ public class TestDTOTransformer
         public void setSpecificBProperty(boolean specificBProperty)
         {
             this.specificBProperty = specificBProperty;
+        }
+    }
+
+    /**
+     * A test bean class that has wrapper types as properties.
+     */
+    public static class BeanWrappers
+    {
+        private Integer propertyInt;
+
+        private Long propertyLong;
+
+        public Integer getPropertyInt()
+        {
+            return propertyInt;
+        }
+
+        public void setPropertyInt(Integer propertyInt)
+        {
+            this.propertyInt = propertyInt;
+        }
+
+        public Long getPropertyLong()
+        {
+            return propertyLong;
+        }
+
+        public void setPropertyLong(Long propertyLong)
+        {
+            this.propertyLong = propertyLong;
+        }
+    }
+
+    /**
+     * A test bean class which has properties of type BigInteger.
+     */
+    public static class BeanBigProperties
+    {
+        private BigInteger propertyLong;
+
+        private BigInteger propertyInt;
+
+        public BigInteger getPropertyLong()
+        {
+            return propertyLong;
+        }
+
+        public void setPropertyLong(BigInteger propertyLong)
+        {
+            this.propertyLong = propertyLong;
+        }
+
+        public BigInteger getPropertyInt()
+        {
+            return propertyInt;
+        }
+
+        public void setPropertyInt(BigInteger propertyInt)
+        {
+            this.propertyInt = propertyInt;
         }
     }
 }
