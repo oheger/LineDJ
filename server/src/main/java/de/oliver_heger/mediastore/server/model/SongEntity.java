@@ -1,8 +1,10 @@
 package de.oliver_heger.mediastore.server.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -531,58 +533,55 @@ public class SongEntity implements Serializable
     }
 
     /**
-     * Searches for an entity with the specified name. This method expects that
-     * song names are unique for a given user. If a song with the specified name
-     * (ignoring case) is found, it is returned. Otherwise, result is
-     * <b>null</b>.
+     * Searches for song entities with the specified name. Song names need not
+     * to be unique, so an arbitrary number of results can be found.
      *
      * @param em the entity manager
      * @param user the user
      * @param name the name of the song
-     * @return the found entity or <b>null</b>
+     * @return a list with the entities found
      */
-    public static SongEntity findByName(EntityManager em, User user, String name)
+    public static List<SongEntity> findByName(EntityManager em, User user,
+            String name)
     {
         return querySong(em, QUERY_FIND_BY_NAME, user, name);
     }
 
     /**
-     * Searches for an entity with the specified synonym name. Works like
+     * Searches for entities with the specified synonym name. Works like
      * {@link #findByName(EntityManager, User, String)}, but a case-independent
      * search is performed in the synonym names.
      *
      * @param em the entity manager
      * @param user the user
      * @param name the synonym name of the song
-     * @return the found entity or <b>null</b>
+     * @return a list with the entities found
      */
-    public static SongEntity findBySynonym(EntityManager em, User user,
+    public static List<SongEntity> findBySynonym(EntityManager em, User user,
             String name)
     {
         return querySong(em, QUERY_FIND_BY_SYNONYM, user, name);
     }
 
     /**
-     * Searches for a song either directly by name or by the associated
-     * synonyms. This method combines the methods
+     * Searches for songs either directly by name or by the associated synonyms.
+     * This method combines the methods
      * {@link #findByName(EntityManager, User, String)} and
-     * {@link #findBySynonym(EntityManager, User, String)}.
+     * {@link #findBySynonym(EntityManager, User, String)}. Duplicates are
+     * removed.
      *
      * @param em the entity manager
      * @param user the user
      * @param name the name of the song to be searched for
-     * @return the found entity or <b>null</b>
+     * @return a list with the entities found
      */
-    public static SongEntity findByNameOrSynonym(EntityManager em, User user,
-            String name)
+    public static List<SongEntity> findByNameAndSynonym(EntityManager em,
+            User user, String name)
     {
-        SongEntity result = findByName(em, user, name);
-        if (result == null)
-        {
-            result = findBySynonym(em, user, name);
-        }
-
-        return result;
+        LinkedHashSet<SongEntity> result =
+                new LinkedHashSet<SongEntity>(findByName(em, user, name));
+        result.addAll(findBySynonym(em, user, name));
+        return new ArrayList<SongEntity>(result);
     }
 
     /**
@@ -734,17 +733,24 @@ public class SongEntity implements Serializable
     }
 
     /**
-     * Helper method for performing a query for a single song entity.
+     * Helper method for performing a query for song entities.
      *
      * @param em the entity manager
      * @param queryName the name of the query to be issued
      * @param user the user
      * @param name the name of the song
-     * @return the entity found
+     * @return the result list
      */
-    private static SongEntity querySong(EntityManager em, String queryName,
-            User user, String name)
+    private static List<SongEntity> querySong(EntityManager em,
+            String queryName, User user, String name)
     {
-        return (SongEntity) Finders.queryNamedEntity(em, queryName, user, name);
+        @SuppressWarnings("unchecked")
+        List<SongEntity> result =
+                em.createNamedQuery(queryName)
+                        .setParameter(Finders.PARAM_USER, user)
+                        .setParameter(Finders.PARAM_NAME,
+                                EntityUtils.generateSearchString(name))
+                        .getResultList();
+        return result;
     }
 }

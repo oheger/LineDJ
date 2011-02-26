@@ -17,6 +17,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.appengine.api.datastore.Key;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
 import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
@@ -483,16 +484,29 @@ public class TestSongEntity
     }
 
     /**
+     * Helper method for checking results of a song query that expects a single result.
+     * @param songs the query results
+     * @return the single result entity
+     */
+    private SongEntity checkFoundSongs(List<SongEntity> songs)
+    {
+        assertEquals("Wrong number of songs", 1, songs.size());
+        SongEntity song = songs.get(0);
+        return song;
+    }
+
+    /**
      * Tests whether a song can be found by name.
      */
     @Test
     public void testFindByName()
     {
         createSongsAndSynonyms();
-        SongEntity song =
+        List<SongEntity> songs =
                 SongEntity.findByName(helper.getEM(),
                         PersistenceTestHelper.getTestUser(),
                         SONG_NAME.toLowerCase(Locale.ENGLISH));
+        SongEntity song = checkFoundSongs(songs);
         assertEquals("Wrong song name", SONG_NAME, song.getName());
         assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
                 song.getUser());
@@ -505,10 +519,11 @@ public class TestSongEntity
     public void testFindBySynonym()
     {
         createSongsAndSynonyms();
-        SongEntity song =
+        List<SongEntity> songs =
                 SongEntity.findBySynonym(helper.getEM(),
                         PersistenceTestHelper.getTestUser(),
                         SYN_PREFIX.toLowerCase(Locale.ENGLISH));
+        SongEntity song = checkFoundSongs(songs);
         assertEquals("Wrong song name", SONG_NAME, song.getName());
         assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
                 song.getUser());
@@ -518,30 +533,82 @@ public class TestSongEntity
      * Tests searching for both song names and synonyms.
      */
     @Test
-    public void testFindByNameOrSynonym()
+    public void testFindByNameAndSynonym()
     {
         createSongsAndSynonyms();
         SongEntity song =
-                SongEntity.findByNameOrSynonym(helper.getEM(),
-                        PersistenceTestHelper.getTestUser(), SONG_NAME);
+                checkFoundSongs(SongEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SONG_NAME));
         assertEquals("Wrong song name", SONG_NAME, song.getName());
         assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
                 song.getUser());
         assertEquals("Wrong synonym result", song,
-                SongEntity.findByNameOrSynonym(helper.getEM(),
-                        PersistenceTestHelper.getTestUser(), SYN_PREFIX));
+                checkFoundSongs(SongEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SYN_PREFIX)));
     }
 
     /**
      * Tests a search for a non existing song.
      */
     @Test
-    public void testFindByNameOrSynonymNotFound()
+    public void testFindByNameAndSynonymNotFound()
     {
         createSongsAndSynonyms();
-        assertNull("Got a result", SongEntity.findByNameOrSynonym(
-                helper.getEM(), PersistenceTestHelper.getTestUser(),
-                "non existing song!"));
+        assertTrue(
+                "Got a result",
+                SongEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(),
+                        "non existing song!").isEmpty());
+    }
+
+    /**
+     * Tests whether duplicates are handled correctly by a name and synonym
+     * search.
+     */
+    @Test
+    public void testFindByNameAndSynonymDuplicates()
+    {
+        createSongsAndSynonyms();
+        SongEntity song = createSong();
+        song.setName("Completely different name");
+        song.addSynonymName(SONG_NAME);
+        helper.persist(song);
+        song = createSong();
+        song.addSynonymName(SONG_NAME);
+        song.setDuration(Long.valueOf(DURATION + 10000));
+        helper.persist(song);
+        List<SongEntity> songs =
+                SongEntity.findByNameAndSynonym(helper.getEM(),
+                        PersistenceTestHelper.getTestUser(), SONG_NAME);
+        assertEquals("Wrong number of songs", 3, songs.size());
+        Set<Key> ids = new HashSet<Key>();
+        for (SongEntity s : songs)
+        {
+            assertTrue("Invalid song: " + s, findNameOrSynonym(s));
+            assertTrue("Duplicate song: " + s, ids.add(s.getId()));
+        }
+    }
+
+    /**
+     * Checks whether a song either has the test name or one of its synonyms.
+     *
+     * @param s the song entity
+     * @return a flag whether the name was found
+     */
+    private boolean findNameOrSynonym(SongEntity s)
+    {
+        if (SONG_NAME.equalsIgnoreCase(s.getName()))
+        {
+            return true;
+        }
+        for (SongSynonym syn : s.getSynonyms())
+        {
+            if (SONG_NAME.equalsIgnoreCase(syn.getName()))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
