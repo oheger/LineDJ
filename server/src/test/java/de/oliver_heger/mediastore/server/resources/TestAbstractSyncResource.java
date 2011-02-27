@@ -139,7 +139,7 @@ public class TestAbstractSyncResource
         EasyMock.replay(res, uinfo);
         resource.uriInfo = uinfo;
         Response resp = resource.createResponseFromSyncResult(res);
-        assertEquals("Wrong status", Status.SEE_OTHER.getStatusCode(),
+        assertEquals("Wrong status", Status.NOT_MODIFIED.getStatusCode(),
                 resp.getStatus());
         List<Object> list = resp.getMetadata().get("Location");
         assertEquals("Wrong number of location headers", 1, list.size());

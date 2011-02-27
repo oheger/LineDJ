@@ -100,7 +100,7 @@ public abstract class AbstractSyncResource<T, K>
             return Response.created(uri).build();
         }
 
-        return Response.seeOther(uri).build();
+        return Response.status(Status.NOT_MODIFIED).location(uri).build();
     }
 
     /**
