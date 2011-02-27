@@ -7,12 +7,16 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.math.BigInteger;
+
 import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.oauth.OAuthRequestException;
 import com.google.appengine.api.oauth.OAuthService;
 import com.google.appengine.api.users.User;
@@ -21,9 +25,11 @@ import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestC
 import de.oliver_heger.mediastore.server.NotLoggedInException;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 import de.oliver_heger.mediastore.service.ObjectFactory;
+import de.oliver_heger.mediastore.service.SongData;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**
@@ -38,7 +44,10 @@ public class TestMediaSyncServiceImpl
     private static final String ENTITY_NAME = "TestName";
 
     /** Constant for an inception year. */
-    private final Integer INCEPTION_YEAR = 2011;
+    private static final Integer INCEPTION_YEAR = 2011;
+
+    /** Constant for the duration of a song. */
+    private static final Long DURATION = (5 * 60 + 30) * 1000L;
 
     /** The object factory. */
     private static ObjectFactory factory;
@@ -249,6 +258,167 @@ public class TestMediaSyncServiceImpl
         SyncResult<Long> result = service.syncAlbum(data);
         assertFalse("Imported", result.imported());
         assertEquals("Wrong ID", album.getId(), result.getKey());
+    }
+
+    /**
+     * Helper method for creating and saving a song entity.
+     *
+     * @param name the song name
+     * @param user the user (<b>null</b> for the default user)
+     * @param duration the duration (may be <b>null</b>)
+     * @param art the associated artist (may be <b>null</b>)
+     */
+    private SongEntity persistSong(String name, User user, Long duration,
+            ArtistEntity art)
+    {
+        SongEntity song = new SongEntity();
+        song.setName(name);
+        song.setUser((user == null) ? PersistenceTestHelper.getTestUser()
+                : user);
+        song.setDuration(duration);
+        if (art != null)
+        {
+            song.setArtistID(art.getId());
+        }
+        helper.persist(song);
+        return song;
+    }
+
+    /**
+     * Helper method for testing a sync operation with a song that has to be
+     * added.
+     *
+     * @param data the data object
+     * @return the added entity
+     * @throws NotLoggedInException if an error occurs
+     */
+    private SongEntity checkSyncSongAdded(SongData data)
+            throws NotLoggedInException
+    {
+        initSongData(data);
+        SyncResult<String> result = service.syncSong(data);
+        assertTrue("Not imported", result.imported());
+        Key key = KeyFactory.stringToKey(result.getKey());
+        SongEntity song = helper.getEM().find(SongEntity.class, key);
+        assertEquals("Wrong album name", ENTITY_NAME, song.getName());
+        assertEquals("Wrong user", PersistenceTestHelper.getTestUser(),
+                song.getUser());
+        assertEquals("Wrong inception year", INCEPTION_YEAR,
+                song.getInceptionYear());
+        assertEquals("Wrong duration", DURATION, song.getDuration());
+        assertEquals("Wrong track number", 2, song.getTrackNo().intValue());
+        assertEquals("Wrong play count", data.getPlayCount(),
+                song.getPlayCount());
+        return song;
+    }
+
+    /**
+     * Initializes the given song data object with default values.
+     *
+     * @param data the data object to be filled
+     */
+    private void initSongData(SongData data)
+    {
+        data.setName(ENTITY_NAME);
+        data.setDuration(BigInteger.valueOf(DURATION.longValue()));
+        data.setInceptionYear(BigInteger.valueOf(INCEPTION_YEAR.longValue()));
+        data.setTrackNo(BigInteger.valueOf(2));
+        data.setPlayCount(5);
+    }
+
+    /**
+     * Tests a sync operation for a new song if there are no references to an
+     * album or artist.
+     */
+    @Test
+    public void testSyncSongNewNoReferences() throws NotLoggedInException
+    {
+        SongData data = factory.createSongData();
+        SongEntity song = checkSyncSongAdded(data);
+        assertNull("Got an album ID", song.getAlbumID());
+        assertNull("Got an artist ID", song.getArtistID());
+    }
+
+    /**
+     * Tests a sync operation for a new song if there are no references, but
+     * existing similar song entities.
+     */
+    @Test
+    public void testSyncSongNewNoReferencesOtherEntities()
+            throws NotLoggedInException
+    {
+        ArtistEntity art = new ArtistEntity();
+        art.setName(ENTITY_NAME);
+        art.setUser(PersistenceTestHelper.getTestUser());
+        helper.persist(art);
+        persistSong(ENTITY_NAME, null, DURATION, art);
+        persistSong(ENTITY_NAME, null, Long.valueOf(DURATION + 30000), null);
+        persistSong(ENTITY_NAME, null, null, null);
+        persistSong(ENTITY_NAME + "_other", null, DURATION, null);
+        SongData data = factory.createSongData();
+        checkSyncSongAdded(data);
+    }
+
+    /**
+     * Tests whether references to other entities are resolved when a new song
+     * is added.
+     */
+    @Test
+    public void testSyncSongNewWithReferences() throws NotLoggedInException
+    {
+        ArtistEntity art = new ArtistEntity();
+        art.setName(ENTITY_NAME);
+        art.setUser(PersistenceTestHelper.getTestUser());
+        helper.persist(art);
+        AlbumEntity album = persistAlbum(ENTITY_NAME, null, INCEPTION_YEAR);
+        persistSong(ENTITY_NAME, null, DURATION, null);
+        SongData data = factory.createSongData();
+        data.setAlbumName(ENTITY_NAME);
+        data.setArtistName(ENTITY_NAME);
+        SongEntity song = checkSyncSongAdded(data);
+        assertEquals("Wrong album ID", album.getId(), song.getAlbumID());
+        assertEquals("Wrong artist ID", art.getId(), song.getArtistID());
+    }
+
+    /**
+     * Tests a sync operation for a new song if there are references to other
+     * entities which cannot be resolved.
+     */
+    @Test
+    public void testSyncSongNewReferencesUnresolved()
+            throws NotLoggedInException
+    {
+        persistAlbum(
+                ENTITY_NAME,
+                PersistenceTestHelper.getUser(PersistenceTestHelper.OTHER_USER),
+                INCEPTION_YEAR);
+        persistAlbum(ENTITY_NAME, null, INCEPTION_YEAR + 1);
+        persistAlbum(ENTITY_NAME + "_other", null, INCEPTION_YEAR);
+        SongData data = factory.createSongData();
+        data.setAlbumName(ENTITY_NAME);
+        data.setArtistName(ENTITY_NAME);
+        SongEntity song = checkSyncSongAdded(data);
+        assertNull("Got an album ID", song.getAlbumID());
+        assertNull("Got an artist ID", song.getArtistID());
+    }
+
+    /**
+     * Tests a sync operation if the song already exists.
+     */
+    @Test
+    public void testSyncSongExisting() throws NotLoggedInException
+    {
+        persistSong(
+                ENTITY_NAME,
+                PersistenceTestHelper.getUser(PersistenceTestHelper.OTHER_USER),
+                DURATION, null);
+        SongEntity expSong = persistSong(ENTITY_NAME, null, DURATION, null);
+        SongData data = factory.createSongData();
+        initSongData(data);
+        SyncResult<String> result = service.syncSong(data);
+        assertFalse("Imported", result.imported());
+        assertEquals("Wrong key", expSong.getId(),
+                KeyFactory.stringToKey(result.getKey()));
     }
 
     /**
