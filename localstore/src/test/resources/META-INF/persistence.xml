@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="http://java.sun.com/xml/ns/persistence" 
+    xmlns:schemaLocation="http://java.sun.com/xml/ns/persistence 
+                          http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd " 
+    version="1.0">
+
+   <persistence-unit name="localstore-test" transaction-type="RESOURCE_LOCAL">
+      <class></class>
+      <properties>
+        <property name="javax.persistence.jdbc.driver" value="org.hsqldb.jdbcDriver"/>
+        <property name="javax.persistence.jdbc.user" value="sa"/>
+        <property name="javax.persistence.jdbc.password" value=""/>
+        <property name="javax.persistence.jdbc.url" value="jdbc:hsqldb:mem:testdb"/>
+        <property name="hibernate.dialect" value="org.hibernate.dialect.HSQLDialect"/
+
+        <!-- Use the C3P0 connection pool provider -->
+        <property name="hibernate.c3p0.min_size">5</property>
+        <property name="hibernate.c3p0.max_size">20</property>
+        <property name="hibernate.c3p0.timeout">300</property>
+        <property name="hibernate.c3p0.max_statements">50</property>
+        <property name="hibernate.c3p0.idle_test_period">3000</property>
+
+        <!-- Show and print nice SQL on stdout -->
+        <property name="show_sql">true</property>
+        <property name="format_sql">true</property>
+      </properties>
+   </persistence-unit>
+</persistence>

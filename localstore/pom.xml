@@ -26,6 +26,10 @@
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.hibernate</groupId>
@@ -49,6 +53,13 @@
       <groupId>org.hsqldb</groupId>
       <artifactId>hsqldb</artifactId>
       <version>1.8.0.10</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>c3p0</groupId>
+      <artifactId>c3p0</artifactId>
+      <version>0.9.1.1</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
