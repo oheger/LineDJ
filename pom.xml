@@ -11,6 +11,7 @@
   <packaging>pom</packaging>
 
   <modules>
+    <module>testutils</module>
     <module>ifcs</module>
     <module>server</module>
   </modules>
@@ -97,6 +98,12 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>ifcs</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-testutils</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
