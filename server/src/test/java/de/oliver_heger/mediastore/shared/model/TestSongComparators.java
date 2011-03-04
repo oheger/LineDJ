@@ -1,6 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
-import static de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper.checkComparator;
+import static de.oliver_heger.mediastore.RemoteMediaStoreTestHelper.checkComparator;
 
 import org.junit.Test;
 

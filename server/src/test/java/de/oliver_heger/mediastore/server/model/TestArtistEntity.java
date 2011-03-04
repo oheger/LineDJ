@@ -21,7 +21,7 @@ import org.junit.Test;
 import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
-import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
+import de.oliver_heger.mediastore.RemoteMediaStoreTestHelper;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 
 /**

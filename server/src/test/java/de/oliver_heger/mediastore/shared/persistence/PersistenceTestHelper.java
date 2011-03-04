@@ -9,8 +9,8 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.tools.development.testing.LocalServiceTestConfig;
 import com.google.appengine.tools.development.testing.LocalServiceTestHelper;
 
+import de.oliver_heger.mediastore.RemoteMediaStoreTestHelper;
 import de.oliver_heger.mediastore.server.db.EMF;
-import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
 
 /**
  * A helper class providing common functionality for testing AppEngine

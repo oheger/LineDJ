@@ -2,7 +2,7 @@ package de.oliver_heger.mediastore.shared.model;
 
 import org.junit.Test;
 
-import de.oliver_heger.mediastore.shared.RemoteMediaStoreTestHelper;
+import de.oliver_heger.mediastore.RemoteMediaStoreTestHelper;
 
 /**
  * Test class for {@code ArtistComparators}.

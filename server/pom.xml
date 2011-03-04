@@ -166,6 +166,12 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-testutils</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- GAE libraries for local testing as described here: http://code.google.com/appengine/docs/java/howto/unittesting.html -->
     <dependency>
       <groupId>com.google.appengine</groupId>
