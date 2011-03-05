@@ -14,6 +14,7 @@
     <module>testutils</module>
     <module>ifcs</module>
     <module>server</module>
+    <module>localstore</module>
   </modules>
 
   <name>RemoteMediaStore Parent</name>
@@ -53,9 +54,21 @@
   <dependencyManagement>
   <dependencies>
     <dependency>
-      <groupId>commons-logging</groupId>
-      <artifactId>commons-logging</artifactId>
-      <version>1.1.1</version>
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+      <version>2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.6.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.6.1</version>
     </dependency>
 
     <dependency>
