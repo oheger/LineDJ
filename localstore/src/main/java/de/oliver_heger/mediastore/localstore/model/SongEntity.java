@@ -57,6 +57,9 @@ public class SongEntity implements Serializable
     /** The reference to the artist this song belongs to. */
     private ArtistEntity artist;
 
+    /** The reference to the album this song belongs to. */
+    private AlbumEntity album;
+
     /**
      * Returns the ID of this song.
      *
@@ -189,7 +192,8 @@ public class SongEntity implements Serializable
     }
 
     /**
-     * Returns the artist this song belongs to.
+     * Returns the artist this song belongs to. This can be <b>null</b> if the
+     * artist is not known.
      *
      * @return the artist of this song
      */
@@ -208,6 +212,29 @@ public class SongEntity implements Serializable
     public void setArtist(ArtistEntity artist)
     {
         this.artist = artist;
+    }
+
+    /**
+     * Returns the album this song belongs to. This can be <b>null</b> if the
+     * album is not known.
+     *
+     * @return the album of this song
+     */
+    @ManyToOne
+    @JoinColumn(name = "ALBUM_ID")
+    public AlbumEntity getAlbum()
+    {
+        return album;
+    }
+
+    /**
+     * Sets the album this song belongs to.
+     *
+     * @param album the album of this song
+     */
+    public void setAlbum(AlbumEntity album)
+    {
+        this.album = album;
     }
 
     /**
