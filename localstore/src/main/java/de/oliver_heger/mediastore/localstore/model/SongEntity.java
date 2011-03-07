@@ -7,6 +7,8 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 
 import org.apache.commons.lang.ObjectUtils;
@@ -52,6 +54,9 @@ public class SongEntity implements Serializable
     /** The play count. */
     private int playCount;
 
+    /** The reference to the artist this song belongs to. */
+    private ArtistEntity artist;
+
     /**
      * Returns the ID of this song.
      *
@@ -59,6 +64,7 @@ public class SongEntity implements Serializable
      */
     @Id
     @GeneratedValue
+    @Column(name = "SONG_ID")
     public Long getId()
     {
         return id;
@@ -180,6 +186,28 @@ public class SongEntity implements Serializable
     public void setPlayCount(int playCount)
     {
         this.playCount = playCount;
+    }
+
+    /**
+     * Returns the artist this song belongs to.
+     *
+     * @return the artist of this song
+     */
+    @ManyToOne
+    @JoinColumn(name = "ARTIST_ID")
+    public ArtistEntity getArtist()
+    {
+        return artist;
+    }
+
+    /**
+     * Sets the artist this song belongs to.
+     *
+     * @param artist the artist of this song
+     */
+    public void setArtist(ArtistEntity artist)
+    {
+        this.artist = artist;
     }
 
     /**
