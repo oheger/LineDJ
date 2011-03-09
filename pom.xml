@@ -96,6 +96,12 @@
     </dependency>
 
     <dependency>
+      <groupId>net.sf.jguiraffe</groupId>
+      <artifactId>jguiraffe</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.8.2</version>
