@@ -11,7 +11,7 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>ifcs</artifactId>
+  <artifactId>rms-ifcs</artifactId>
   <packaging>jar</packaging>
 
   <name>Remote Media Store Services Interface definitions</name>

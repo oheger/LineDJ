@@ -137,7 +137,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>ifcs</artifactId>
+      <artifactId>rms-ifcs</artifactId>
     </dependency>
 
     <!-- These dependencies are here just for enabling logging -->

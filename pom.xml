@@ -116,7 +116,7 @@
     <!-- Inter project dependencies -->
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>ifcs</artifactId>
+      <artifactId>rms-ifcs</artifactId>
       <version>${project.version}</version>
     </dependency>
 
