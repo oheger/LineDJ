@@ -9,6 +9,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 
 import org.apache.commons.lang.ObjectUtils;
@@ -29,8 +31,54 @@ import org.apache.commons.lang.builder.ToStringBuilder;
  */
 @Entity
 @Table(name = "SONG")
+@NamedQueries({
+        @NamedQuery(name = SongEntity.QUERY_FIND_SPECIFIC_WITH_ARTIST, query = SongEntity.QUERY_FIND_SPECIFIC_WITH_ARTIST_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_SPECIFIC_NO_ARTIST, query = SongEntity.QUERY_FIND_SPECIFIC_NO_ARTIST_DEF)
+})
 public class SongEntity implements Serializable
 {
+    /** Constant for the song name parameter. */
+    public static final String PARAM_NAME = "songName";
+
+    /** Constant for the duration parameter. */
+    public static final String PARAM_DURATION = "duration";
+
+    /** Constant for the artist name parameter. */
+    public static final String PARAM_ARTIST = "artist";
+
+    /** Constant for the prefix used for all named song queries. */
+    public static final String SONG_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.localstore.model.SongEntity.";
+
+    /**
+     * Constant for the name of the query for finding a song by its defining
+     * properties if an artist parameter is provided.
+     */
+    public static final String QUERY_FIND_SPECIFIC_WITH_ARTIST =
+            SONG_QUERY_PREFIX + "FIND_SPECIFIC_WITH_ARTIST";
+
+    /**
+     * Constant for the name of the query for finding a song by its defining
+     * properties if no artist parameter is provided.
+     */
+    public static final String QUERY_FIND_SPECIFIC_NO_ARTIST =
+            SONG_QUERY_PREFIX + "FIND_SPECIFIC_NO_ARTIST";
+
+    /** A query prefix with the defining properties except for the artist. */
+    static final String QUERY_FIND_SPECIFIC_PREFIX =
+            "select s from SongEntity s where upper(s.name) = :" + PARAM_NAME
+                    + " and ((s.duration = :" + PARAM_DURATION + ") or (:"
+                    + PARAM_DURATION + " is null and s.duration is null))";
+
+    /** The definition of the find specific with artist query. */
+    static final String QUERY_FIND_SPECIFIC_WITH_ARTIST_DEF =
+            QUERY_FIND_SPECIFIC_PREFIX + " and upper(s.artist.name) = :"
+                    + PARAM_ARTIST;
+
+    /** The definition of the find specific without artist query. */
+    static final String QUERY_FIND_SPECIFIC_NO_ARTIST_DEF =
+            QUERY_FIND_SPECIFIC_PREFIX + " and s.artist is null";
+
     /**
      * The serial version UID.
      */

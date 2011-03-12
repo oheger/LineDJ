@@ -7,6 +7,8 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
@@ -27,8 +29,34 @@ import org.apache.commons.lang.builder.ToStringBuilder;
  */
 @Entity
 @Table(name = "ALBUM")
+@NamedQueries({
+    @NamedQuery(name = AlbumEntity.QUERY_FIND_SPECIFIC, query = AlbumEntity.QUERY_FIND_SPECIFIC_DEF)
+})
 public class AlbumEntity extends SongOwner
 {
+    /** Constant for the album name parameter. */
+    public static final String PARAM_NAME = "albumName";
+
+    /** Constant for the inception year parameter. */
+    public static final String PARAM_YEAR = "inceptionYear";
+
+    /** Constant for the prefix used for all named album queries. */
+    public static final String ALBUM_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.localstore.model.AlbumEntity.";
+
+    /**
+     * Constant for the name of the query for finding an album by its defining
+     * properties.
+     */
+    public static final String QUERY_FIND_SPECIFIC = ALBUM_QUERY_PREFIX
+            + "FIND_SPECIFIC";
+
+    /** The definition of the find specific query. */
+    static final String QUERY_FIND_SPECIFIC_DEF =
+            "select a from AlbumEntity a where upper(a.name) = :" + PARAM_NAME
+                    + " and ((a.inceptionYear = :" + PARAM_YEAR + ") or (:"
+                    + PARAM_YEAR + " is null and a.inceptionYear is null))";
+
     /**
      * The serial version UID.
      */

@@ -7,6 +7,8 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
@@ -23,8 +25,26 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "ARTIST")
+@NamedQueries({
+    @NamedQuery(name = ArtistEntity.QUERY_FIND_BY_NAME, query = ArtistEntity.QUERY_FIND_BY_NAME_DEF)
+})
 public class ArtistEntity extends SongOwner
 {
+    /** Constant for the artist name parameter. */
+    public static final String PARAM_NAME = "artistName";
+
+    /** Constant for the prefix used for all named artist queries. */
+    public static final String ARTIST_QUERY_PREFIX =
+            "de.oliver_heger.mediastore.localstore.model.ArtistEntity.";
+
+    /** Constant for the name of the query for finding an artist by name. */
+    public static final String QUERY_FIND_BY_NAME = ARTIST_QUERY_PREFIX
+            + "FIND_BY_NAME";
+
+    /** The definition of the find by name query. */
+    static final String QUERY_FIND_BY_NAME_DEF =
+            "select a from ArtistEntity a where upper(a.name) = :" + PARAM_NAME;
+
     /**
      * The serial version UID.
      */
