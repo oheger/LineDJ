@@ -25,6 +25,15 @@ import org.apache.commons.lang.builder.ToStringBuilder;
  * stores a set of meta data about the song. It can be associated with an album
  * and an artist.
  * </p>
+ * <p>
+ * This entity class keeps counters for the number of times the song has been
+ * played. There is one counter for the total count and one for the count since
+ * the last synchronization with the server database. The latter is also used to
+ * determine which songs have to be sent to the server. Normally both counters
+ * are initialized when a new instance is created. However, for legacy data the
+ * total count is undefined. Therefore this class contains some logic for
+ * dealing with such cases.
+ * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
@@ -99,14 +108,25 @@ public class SongEntity implements Serializable
     /** The track number. */
     private Integer trackNo;
 
-    /** The play count. */
-    private int playCount;
+    /** The play count since the last synchronization. */
+    private int currentPlayCount;
+
+    /** The total play count. */
+    private Integer totalPlayCount;
 
     /** The reference to the artist this song belongs to. */
     private ArtistEntity artist;
 
     /** The reference to the album this song belongs to. */
     private AlbumEntity album;
+
+    /**
+     * Creates a new instance of {@code SongEntity}.
+     */
+    public SongEntity()
+    {
+        totalPlayCount = Integer.valueOf(0);
+    }
 
     /**
      * Returns the ID of this song.
@@ -219,24 +239,52 @@ public class SongEntity implements Serializable
     }
 
     /**
-     * Returns the number of times this song has been played.
+     * Returns the current number of times this song has been played since the
+     * last synchronization. This number is reset every time a synchronization
+     * with the remote media store happens.
      *
-     * @return the number of times this song has been played
+     * @return the current number of times this song has been played
      */
     @Column(name = "PLAY_COUNT")
-    public int getPlayCount()
+    public int getCurrentPlayCount()
     {
-        return playCount;
+        return currentPlayCount;
     }
 
     /**
-     * Sets the number of times this song has been played.
+     * Sets the current number of times this song has been played.
      *
      * @param playCount the counter for the plays
      */
-    public void setPlayCount(int playCount)
+    public void setCurrentPlayCount(int playCount)
     {
-        this.playCount = playCount;
+        this.currentPlayCount = playCount;
+    }
+
+    /**
+     * Returns the total number of times this song has been played. This field
+     * is only increased, it is not affected by a synchronization.
+     *
+     * @return the total play count
+     */
+    @Column(name = "TOTAL_PLAY_COUNT")
+    public Integer getTotalPlayCount()
+    {
+        return (totalPlayCount != null) ? totalPlayCount : Integer
+                .valueOf(getCurrentPlayCount());
+    }
+
+    /**
+     * Sets the total number of times this song has been played. Note: Normally,
+     * this field should always be set. However, for legacy data it may be
+     * <b>null</b>. For such cases this class contains some logic to update the
+     * field automatically.
+     *
+     * @param totalPlayCount the total play count
+     */
+    public void setTotalPlayCount(Integer totalPlayCount)
+    {
+        this.totalPlayCount = totalPlayCount;
     }
 
     /**
@@ -286,6 +334,34 @@ public class SongEntity implements Serializable
     }
 
     /**
+     * Increments the counters managed by this entity. This method should be
+     * called when the song has been played.
+     */
+    public void incrementPlayCount()
+    {
+        setCurrentPlayCount(getCurrentPlayCount() + 1);
+
+        if (totalPlayCount != null)
+        {
+            setTotalPlayCount(Integer.valueOf(totalPlayCount + 1));
+        }
+    }
+
+    /**
+     * Resets the current play count. This method should be called after a
+     * successful synchronization.
+     */
+    public void resetCurrentCount()
+    {
+        if (totalPlayCount == null)
+        {
+            setTotalPlayCount(Integer.valueOf(getCurrentPlayCount()));
+        }
+
+        setCurrentPlayCount(0);
+    }
+
+    /**
      * Returns a hash code for this object.
      *
      * @return a hash code
@@ -303,7 +379,10 @@ public class SongEntity implements Serializable
                             + getName().toLowerCase(Locale.ENGLISH).hashCode();
         }
         result = factor * result + ObjectUtils.hashCode(getDuration());
-        // TODO add artist
+        if (getArtist() != null)
+        {
+            result = factor * result + getArtist().hashCode();
+        }
         return result;
     }
 
@@ -328,10 +407,10 @@ public class SongEntity implements Serializable
         }
 
         SongEntity c = (SongEntity) obj;
-        // TODO add artist
         return ((getName() == null) ? c.getName() == null : getName()
                 .equalsIgnoreCase(c.getName()))
-                && ObjectUtils.equals(getDuration(), c.getDuration());
+                && ObjectUtils.equals(getDuration(), c.getDuration())
+                && ObjectUtils.equals(getArtist(), c.getArtist());
     }
 
     /**
@@ -344,6 +423,7 @@ public class SongEntity implements Serializable
     public String toString()
     {
         return new ToStringBuilder(this).append("name", getName())
-                .append("duration", getDuration()).toString();
+                .append("duration", getDuration())
+                .append("artist", getArtist()).toString();
     }
 }

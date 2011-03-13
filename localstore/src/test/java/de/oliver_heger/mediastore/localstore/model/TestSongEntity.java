@@ -25,6 +25,9 @@ public class TestSongEntity
     /** Constant for the song name. */
     private static final String SONG_NAME = "Crisis";
 
+    /** Constant for the name of the test artist. */
+    private static final String ARTIST_NAME = "Mike Oldfield";
+
     /** Constant for the duration of the song. */
     private static final Integer DURATION = 20 * 60 + 43;
 
@@ -57,7 +60,30 @@ public class TestSongEntity
         song.setDuration(DURATION);
         song.setInceptionYear(1980);
         song.setTrackNo(1);
-        song.setPlayCount(2);
+        song.setCurrentPlayCount(2);
+    }
+
+    /**
+     * Returns a test artist instance.
+     *
+     * @return the test artist
+     */
+    private ArtistEntity createTestArtist()
+    {
+        ArtistEntity art = new ArtistEntity();
+        art.setName(ARTIST_NAME);
+        return art;
+    }
+
+    /**
+     * Tests some initialization values.
+     */
+    @Test
+    public void testInit()
+    {
+        assertEquals("Wrong current count", 0, song.getCurrentPlayCount());
+        assertEquals("Wrong total count", 0, song.getTotalPlayCount()
+                .intValue());
     }
 
     /**
@@ -76,7 +102,7 @@ public class TestSongEntity
         s2.setDuration(DURATION);
         RemoteMediaStoreTestHelper.checkEquals(song, s2, true);
         song.setInceptionYear(2011);
-        song.setPlayCount(42);
+        song.setCurrentPlayCount(42);
         song.setTrackNo(2);
         RemoteMediaStoreTestHelper.checkEquals(song, s2, true);
     }
@@ -98,7 +124,10 @@ public class TestSongEntity
         s2.setDuration(DURATION + 1);
         RemoteMediaStoreTestHelper.checkEquals(song, s2, false);
         s2.setDuration(DURATION);
-        // TODO add tests with artist
+        song.setArtist(createTestArtist());
+        RemoteMediaStoreTestHelper.checkEquals(song, s2, false);
+        s2.setArtist(new ArtistEntity());
+        RemoteMediaStoreTestHelper.checkEquals(song, s2, false);
     }
 
     /**
@@ -117,11 +146,13 @@ public class TestSongEntity
     public void testToString()
     {
         initSong();
+        ArtistEntity art = createTestArtist();
+        song.setArtist(art);
         String s = song.toString();
         assertTrue("Name not found: " + s, s.contains("name=" + SONG_NAME));
         assertTrue("Duration not found: " + s,
                 s.contains("duration=" + DURATION));
-        // TODO check artist
+        assertTrue("Artist not found: " + s, s.contains("artist=" + art));
     }
 
     /**
@@ -135,7 +166,8 @@ public class TestSongEntity
         assertEquals("Wrong inception year", song.getInceptionYear(),
                 s2.getInceptionYear());
         assertEquals("Wrong track number", song.getTrackNo(), s2.getTrackNo());
-        assertEquals("Wrong play count", song.getPlayCount(), s2.getPlayCount());
+        assertEquals("Wrong play count", song.getCurrentPlayCount(),
+                s2.getCurrentPlayCount());
     }
 
     /**
@@ -153,6 +185,90 @@ public class TestSongEntity
         assertEquals("Wrong inception year", song.getInceptionYear(),
                 s2.getInceptionYear());
         assertEquals("Wrong track number", song.getTrackNo(), s2.getTrackNo());
-        assertEquals("Wrong play count", 2, s2.getPlayCount());
+        assertEquals("Wrong play count", 2, s2.getCurrentPlayCount());
+    }
+
+    /**
+     * Tests whether the total play count field is correctly initialized.
+     */
+    @Test
+    public void testGetTotalPlayCountInit()
+    {
+        assertEquals("Wrong initial play count", 0, song.getTotalPlayCount()
+                .intValue());
+    }
+
+    /**
+     * Tests getTotalPlayCount() for a legacy record.
+     */
+    @Test
+    public void testGetTotalPlayCountLegacy()
+    {
+        song.setTotalPlayCount(null);
+        song.setCurrentPlayCount(5);
+        assertEquals("Wrong total play count", song.getCurrentPlayCount(), song
+                .getTotalPlayCount().intValue());
+    }
+
+    /**
+     * Tests whether the play counters can be incremented.
+     */
+    @Test
+    public void testIncrementPlayCount()
+    {
+        final int currentCount = 10;
+        final int totalCount = 100;
+        song.setCurrentPlayCount(currentCount);
+        song.setTotalPlayCount(totalCount);
+        song.incrementPlayCount();
+        assertEquals("Wrong current count", currentCount + 1,
+                song.getCurrentPlayCount());
+        assertEquals("Wrong total count", totalCount + 1, song
+                .getTotalPlayCount().intValue());
+    }
+
+    /**
+     * Tests incrementPlayCount() for legacy data.
+     */
+    @Test
+    public void testIncrementPlayCountLegacy()
+    {
+        final int currentCount = 10;
+        song.setTotalPlayCount(null);
+        song.setCurrentPlayCount(currentCount);
+        song.incrementPlayCount();
+        assertEquals("Wrong current count", currentCount + 1,
+                song.getCurrentPlayCount());
+        assertEquals("Wrong total count", currentCount + 1, song
+                .getTotalPlayCount().intValue());
+    }
+
+    /**
+     * Tests whether the current count can be reset.
+     */
+    @Test
+    public void testResetCurrentCount()
+    {
+        final Integer count = 47;
+        song.setCurrentPlayCount(count.intValue());
+        song.setTotalPlayCount(count);
+        song.resetCurrentCount();
+        assertEquals("Wrong current count", 0, song.getCurrentPlayCount());
+        assertEquals("Wrong total count", count, song.getTotalPlayCount());
+    }
+
+    /**
+     * Tests resetCurrentCount() for legacy data.
+     */
+    @Test
+    public void testResetCurrentCountLegacy()
+    {
+        final int count = 5;
+        song.setCurrentPlayCount(count);
+        song.setTotalPlayCount(null);
+        song.resetCurrentCount();
+        assertEquals("Wrong current count", 0, song.getCurrentPlayCount());
+        assertEquals("Wrong total count", count, song.getTotalPlayCount()
+                .intValue());
     }
 }

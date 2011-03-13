@@ -100,6 +100,7 @@ public class TestArtistEntity
                 .getSongs().size());
         for (SongEntity song : createTestSongs())
         {
+            song.setArtist(artist);
             assertTrue("Song not found: " + song,
                     artist.getSongs().contains(song));
         }
@@ -179,7 +180,7 @@ public class TestArtistEntity
         initTestSongs();
         ArtistEntity a2 = RemoteMediaStoreTestHelper.serialize(artist);
         assertEquals("Different artist", artist, a2);
-        checkSongs(a2);
+        assertEquals("Wrong songs", artist.getSongs(), a2.getSongs());
     }
 
     /**
@@ -198,12 +199,7 @@ public class TestArtistEntity
     public void testAddSong()
     {
         initTestSongs();
-        assertEquals("Wrong number of songs", SONG_COUNT, artist.getSongs()
-                .size());
-        for (SongEntity song : createTestSongs())
-        {
-            assertTrue("Song not found", artist.getSongs().contains(song));
-        }
+        checkSongs(artist);
     }
 
     /**
