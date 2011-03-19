@@ -3,6 +3,8 @@ package de.oliver_heger.mediastore.localstore;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
+import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
+
 import de.oliver_heger.mediastore.localstore.model.AlbumEntity;
 import de.oliver_heger.mediastore.localstore.model.ArtistEntity;
 import de.oliver_heger.mediastore.localstore.model.SongEntity;
@@ -33,14 +35,16 @@ class UpdateLocalStoreCommand extends JPACommand
      * it with the {@code EntityManagerFactory} and the object with the song
      * information.
      *
-     * @param emf the {@code EntityManagerFactory} (must not be <b>null</b>)
+     * @param emfInit the initializer for the {@code EntityManagerFactory} (must
+     *        not be <b>null</b>)
      * @param data the data object for the song to be updated (must not be
      *        <b>null</b>)
      * @throws NullPointerException if a required parameter is missing
      */
-    public UpdateLocalStoreCommand(EntityManagerFactory emf, SongData data)
+    public UpdateLocalStoreCommand(
+            ConcurrentInitializer<EntityManagerFactory> emfInit, SongData data)
     {
-        super(emf, false);
+        super(emfInit, false);
         if (data == null)
         {
             throw new NullPointerException("SongData must not be null!");

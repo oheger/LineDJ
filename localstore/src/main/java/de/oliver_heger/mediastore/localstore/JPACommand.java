@@ -6,6 +6,9 @@ import javax.persistence.EntityTransaction;
 
 import net.sf.jguiraffe.gui.cmd.CommandBase;
 
+import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
+import org.apache.commons.lang3.concurrent.ConcurrentUtils;
+
 /**
  * <p>
  * A specialized base class for <em>command</em> objects that need to execute
@@ -23,28 +26,37 @@ import net.sf.jguiraffe.gui.cmd.CommandBase;
  * rolled back. Further the class ensures that the {@code EntityManager}
  * instance is always closed.
  * </p>
+ * <p>
+ * At construction time a {@code ConcurrentInitializer} for the
+ * {@code EntityManagerFactory} is passed. At the beginning of the command
+ * execution the factory is obtained from this initializer. An application could
+ * use a background initializer for instance, so that the complex operation of
+ * setting up the {@code EntityManagerFactory} is performed in a background
+ * thread.
+ * </p>
  *
  * @author Oliver Heger
  * @version $Id: $
  */
 abstract class JPACommand extends CommandBase
 {
-    /** Stores the entity manager factory. */
-    private final EntityManagerFactory factory;
+    /** The initializer for the entity manager factory. */
+    private final ConcurrentInitializer<EntityManagerFactory> factoryInitializer;
 
     /** The current entity manager instance. */
     private EntityManager entityManager;
 
     /**
      * Creates a new instance of {@code JPACommand} and initializes it with the
-     * {@code EntityManagerFactory}.
+     * initializer for the {@code EntityManagerFactory}.
      *
-     * @param emf the entity manager factory (must not be <b>null</b>)
-     * @throws NullPointerException if the factory is <b>null</b>
+     * @param emfInit the initializer for the entity manager factory (must not
+     *        be <b>null</b>)
+     * @throws NullPointerException if the factory initializer is <b>null</b>
      */
-    protected JPACommand(EntityManagerFactory emf)
+    protected JPACommand(ConcurrentInitializer<EntityManagerFactory> emfInit)
     {
-        factory = checkFactory(emf);
+        factoryInitializer = checkFactory(emfInit);
     }
 
     /**
@@ -56,20 +68,24 @@ abstract class JPACommand extends CommandBase
      * @throws NullPointerException if the factory is <b>null</b>
      * @param updateUI the update UI flag
      */
-    protected JPACommand(EntityManagerFactory emf, boolean updateUI)
+    protected JPACommand(ConcurrentInitializer<EntityManagerFactory> emfInit,
+            boolean updateUI)
     {
         super(updateUI);
-        factory = checkFactory(emf);
+        factoryInitializer = checkFactory(emfInit);
     }
 
     /**
      * Returns the {@code EntityManagerFactory} used by this command object.
+     * This method accesses the initializer passed to the constructor for
+     * obtaining the factory. Note that depending on the concrete initializer
+     * used this may be a blocking call.
      *
      * @return the {@code EntityManagerFactory}
      */
     public final EntityManagerFactory getEntityManagerFactory()
     {
-        return factory;
+        return ConcurrentUtils.initializeUnchecked(factoryInitializer);
     }
 
     /**
@@ -216,20 +232,21 @@ abstract class JPACommand extends CommandBase
     protected abstract void executeJPAOperation(EntityManager em);
 
     /**
-     * Checks the {@code EntityManagerFactory} passed to the constructor. If it
-     * is invalid, an exception is thrown.
+     * Checks the initializer for the {@code EntityManagerFactory} passed to the
+     * constructor. If it is invalid, an exception is thrown.
      *
-     * @param emf the factory passed to the constructor
-     * @return the factory to be used
+     * @param emfInit the initializer for the factory passed to the constructor
+     * @return the factory initializer to be used
      * @throws NullPointerException if no factory was provided
      */
-    private static EntityManagerFactory checkFactory(EntityManagerFactory emf)
+    private static ConcurrentInitializer<EntityManagerFactory> checkFactory(
+            ConcurrentInitializer<EntityManagerFactory> emfInit)
     {
-        if (emf == null)
+        if (emfInit == null)
         {
             throw new NullPointerException(
-                    "Entity manager factory must not be null!");
+                    "Initializer for entity manager factory must not be null!");
         }
-        return emf;
+        return emfInit;
     }
 }

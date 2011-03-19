@@ -9,6 +9,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 
+import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
+import org.apache.commons.lang3.concurrent.ConstantInitializer;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,10 +26,14 @@ public class TestJPACommand
     /** A mock for the EMF. */
     private EntityManagerFactory emf;
 
+    /** The initializer for the EMF. */
+    private ConcurrentInitializer<EntityManagerFactory> emfInit;
+
     @Before
     public void setUp() throws Exception
     {
         emf = EasyMock.createMock(EntityManagerFactory.class);
+        emfInit = new ConstantInitializer<EntityManagerFactory>(emf);
     }
 
     /**
@@ -36,7 +42,7 @@ public class TestJPACommand
     @Test
     public void testInitNoUIFlag()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         assertSame("Wrong EMF", emf, cmd.getEntityManagerFactory());
         assertTrue("Wrong flag", cmd.isUpdateGUI());
     }
@@ -47,7 +53,7 @@ public class TestJPACommand
     @Test
     public void testInitWithUIFlag()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf, false);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit, false);
         assertSame("Wrong EMF", emf, cmd.getEntityManagerFactory());
         assertFalse("Wrong flag", cmd.isUpdateGUI());
     }
@@ -67,7 +73,7 @@ public class TestJPACommand
     @Test(expected = IllegalStateException.class)
     public void testFetchEntityManagerNotSet()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         cmd.fetchEntityManager();
     }
 
@@ -77,18 +83,22 @@ public class TestJPACommand
     @Test
     public void testExecuteSuccess() throws Exception
     {
+        @SuppressWarnings("unchecked")
+        ConcurrentInitializer<EntityManagerFactory> init =
+                EasyMock.createMock(ConcurrentInitializer.class);
         EntityManager em = EasyMock.createMock(EntityManager.class);
         EntityTransaction tx = EasyMock.createMock(EntityTransaction.class);
+        EasyMock.expect(init.get()).andReturn(emf);
         EasyMock.expect(emf.createEntityManager()).andReturn(em);
         EasyMock.expect(em.getTransaction()).andReturn(tx).anyTimes();
         tx.begin();
         tx.commit();
-        EasyMock.replay(emf, em, tx);
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        EasyMock.replay(emf, em, tx, init);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(init);
         cmd.execute();
         assertSame("Wrong current EM", em, cmd.fetchEntityManager());
         cmd.verifyExecute(em);
-        EasyMock.verify(emf, em, tx);
+        EasyMock.verify(emf, em, tx, init);
     }
 
     /**
@@ -97,7 +107,7 @@ public class TestJPACommand
     @Test
     public void testOnException()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         EntityManager em = cmd.installMockEM();
         EntityTransaction tx = EasyMock.createMock(EntityTransaction.class);
         EasyMock.expect(em.getTransaction()).andReturn(tx);
@@ -116,7 +126,7 @@ public class TestJPACommand
     @Test
     public void testOnExceptionNoEM()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         EasyMock.replay(emf);
         cmd.onException(new RuntimeException("Another test exception!"));
         EasyMock.verify(emf);
@@ -128,7 +138,7 @@ public class TestJPACommand
     @Test
     public void testRollbackEx()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         EntityManager em = cmd.installMockEM();
         EntityTransaction tx = EasyMock.createMock(EntityTransaction.class);
         EasyMock.expect(em.getTransaction()).andReturn(tx);
@@ -146,7 +156,7 @@ public class TestJPACommand
     @Test
     public void testOnFinally()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         EntityManager em = cmd.installMockEM();
         em.close();
         EasyMock.replay(emf, em);
@@ -161,7 +171,7 @@ public class TestJPACommand
     @Test
     public void testOnFinyllyNoEM()
     {
-        JPACommandTestImpl cmd = new JPACommandTestImpl(emf);
+        JPACommandTestImpl cmd = new JPACommandTestImpl(emfInit);
         EasyMock.replay(emf);
         cmd.onFinally();
         EasyMock.verify(emf);
@@ -178,14 +188,17 @@ public class TestJPACommand
         /** A mock EM to be returned by getEntityManager(). */
         private EntityManager mockEM;
 
-        public JPACommandTestImpl(EntityManagerFactory emf)
+        public JPACommandTestImpl(
+                ConcurrentInitializer<EntityManagerFactory> emfInit)
         {
-            super(emf);
+            super(emfInit);
         }
 
-        public JPACommandTestImpl(EntityManagerFactory emf, boolean updateUI)
+        public JPACommandTestImpl(
+                ConcurrentInitializer<EntityManagerFactory> emfInit,
+                boolean updateUI)
         {
-            super(emf, updateUI);
+            super(emfInit, updateUI);
         }
 
         /**

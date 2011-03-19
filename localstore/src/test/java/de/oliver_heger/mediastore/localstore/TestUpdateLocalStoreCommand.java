@@ -8,6 +8,9 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Locale;
 
+import javax.persistence.EntityManagerFactory;
+
+import org.apache.commons.lang3.concurrent.ConstantInitializer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,6 +63,19 @@ public class TestUpdateLocalStoreCommand
     public void tearDown() throws Exception
     {
         helper.close();
+    }
+
+    /**
+     * Helper method for creating a test command object.
+     *
+     * @param data the object with song data
+     * @return the test command object
+     */
+    private UpdateLocalStoreCommand createCommand(SongData data)
+    {
+        return new UpdateLocalStoreCommand(
+                new ConstantInitializer<EntityManagerFactory>(helper.getEMF()),
+                data);
     }
 
     /**
@@ -163,8 +179,7 @@ public class TestUpdateLocalStoreCommand
     @Test
     public void testInit()
     {
-        UpdateLocalStoreCommand cmd =
-                new UpdateLocalStoreCommand(helper.getEMF(), createSongData());
+        UpdateLocalStoreCommand cmd = createCommand(createSongData());
         assertSame("Wrong factory", helper.getEMF(),
                 cmd.getEntityManagerFactory());
         assertFalse("UI update", cmd.isUpdateGUI());
@@ -176,7 +191,7 @@ public class TestUpdateLocalStoreCommand
     @Test(expected = NullPointerException.class)
     public void testInitNoSongData()
     {
-        new UpdateLocalStoreCommand(helper.getEMF(), null);
+        createCommand(null);
     }
 
     /**
@@ -189,8 +204,7 @@ public class TestUpdateLocalStoreCommand
         SongData data = createSongData();
         data.setAlbumName(null);
         data.setArtistName(null);
-        UpdateLocalStoreCommand cmd =
-                new UpdateLocalStoreCommand(helper.getEMF(), data);
+        UpdateLocalStoreCommand cmd = createCommand(data);
         cmd.execute();
         checkSyncedSong(1);
     }
@@ -203,8 +217,7 @@ public class TestUpdateLocalStoreCommand
      */
     private void checkUpdateCommand(SongData data) throws Exception
     {
-        UpdateLocalStoreCommand cmd =
-                new UpdateLocalStoreCommand(helper.getEMF(), data);
+        UpdateLocalStoreCommand cmd = createCommand(data);
         cmd.execute();
         checkLocalStore(1);
     }
@@ -307,8 +320,7 @@ public class TestUpdateLocalStoreCommand
         data.setArtistName(null);
         data.setAlbumName(null);
         data.setName(songName);
-        UpdateLocalStoreCommand cmd =
-                new UpdateLocalStoreCommand(helper.getEMF(), data);
+        UpdateLocalStoreCommand cmd = createCommand(data);
         cmd.execute();
         helper.closeEM();
         checkCount(SongEntity.class, 1);
