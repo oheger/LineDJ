@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.localstore;
+package de.oliver_heger.mediastore.localstore.impl;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;

@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.localstore;
+package de.oliver_heger.mediastore.localstore.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -15,6 +15,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.oliver_heger.mediastore.localstore.JPATestHelper;
 import de.oliver_heger.mediastore.localstore.model.AlbumEntity;
 import de.oliver_heger.mediastore.localstore.model.ArtistEntity;
 import de.oliver_heger.mediastore.localstore.model.SongEntity;

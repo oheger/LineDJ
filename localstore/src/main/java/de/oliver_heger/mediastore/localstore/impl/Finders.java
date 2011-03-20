@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.localstore;
+package de.oliver_heger.mediastore.localstore.impl;
 
 import java.util.List;
 import java.util.Locale;
