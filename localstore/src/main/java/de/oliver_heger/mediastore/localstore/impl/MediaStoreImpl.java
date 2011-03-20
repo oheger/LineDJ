@@ -77,7 +77,7 @@ public class MediaStoreImpl implements MediaStore
      * @throws NullPointerException if the song data object is <b>null</b>
      */
     @Override
-    public void syncSongData(SongData songData)
+    public void updateSongData(SongData songData)
     {
         commandQueue.execute(createUpdateSongDataCommand(songData));
     }

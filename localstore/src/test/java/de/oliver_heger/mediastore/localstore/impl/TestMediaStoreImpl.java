@@ -96,14 +96,14 @@ public class TestMediaStoreImpl
      * Tests whether a song data object can be synchronized.
      */
     @Test
-    public void testSyncSongData()
+    public void testUpdateSongData()
     {
         MediaStoreTestImpl store = createStore();
         SongData data = factory.createSongData();
         Command cmd = store.installMockUpdateCommand(data);
         queue.execute(cmd);
         EasyMock.replay(emf, queue, cmd);
-        store.syncSongData(data);
+        store.updateSongData(data);
         EasyMock.verify(emf, queue, cmd);
     }
 
@@ -111,10 +111,10 @@ public class TestMediaStoreImpl
      * Tries to synchronize a null song data object.
      */
     @Test(expected = NullPointerException.class)
-    public void testSyncSongDataNull()
+    public void testUpdateSongDataNull()
     {
         MediaStoreTestImpl store = createStore();
-        store.syncSongData(null);
+        store.updateSongData(null);
     }
 
     /**

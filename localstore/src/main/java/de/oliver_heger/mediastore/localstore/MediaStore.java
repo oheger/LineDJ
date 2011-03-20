@@ -26,5 +26,5 @@ public interface MediaStore
      *
      * @param songData the data object describing the song
      */
-    void syncSongData(SongData songData);
+    void updateSongData(SongData songData);
 }
