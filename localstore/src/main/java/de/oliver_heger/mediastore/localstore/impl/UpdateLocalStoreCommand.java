@@ -53,6 +53,16 @@ class UpdateLocalStoreCommand extends JPACommand
     }
 
     /**
+     * Returns the {@code SongData} object which is processed by this command.
+     *
+     * @return the managed song data object
+     */
+    public SongData getSongData()
+    {
+        return songData;
+    }
+
+    /**
      * Implements the logic of this command. This implementation checks which of
      * the entities specified by the current {@code SongData} object already
      * exist in the local database. Entities that are not yet present are newly
@@ -64,9 +74,9 @@ class UpdateLocalStoreCommand extends JPACommand
     protected void executeJPAOperation(EntityManager em)
     {
         SongEntity song =
-                Finders.findSong(em, songData.getName(),
-                        toInteger(songData.getDuration()),
-                        songData.getArtistName());
+                Finders.findSong(em, getSongData().getName(),
+                        toInteger(getSongData().getDuration()),
+                        getSongData().getArtistName());
 
         if (song == null)
         {
@@ -74,7 +84,7 @@ class UpdateLocalStoreCommand extends JPACommand
             {
                 getLog().info(
                         "Creating new SongEntity for song "
-                                + songData.getName());
+                                + getSongData().getName());
             }
 
             song = createEntityFromSongData(em);
@@ -95,18 +105,18 @@ class UpdateLocalStoreCommand extends JPACommand
     {
         SongEntity song;
         song = new SongEntity();
-        song.setDuration(toInteger(songData.getDuration()));
-        song.setInceptionYear(toInteger(songData.getInceptionYear()));
-        song.setName(songData.getName());
-        song.setTrackNo(toInteger(songData.getTrackNo()));
+        song.setDuration(toInteger(getSongData().getDuration()));
+        song.setInceptionYear(toInteger(getSongData().getInceptionYear()));
+        song.setName(getSongData().getName());
+        song.setTrackNo(toInteger(getSongData().getTrackNo()));
 
-        if (songData.getArtistName() != null)
+        if (getSongData().getArtistName() != null)
         {
             ArtistEntity artist = fetchOrCreateArtist(em);
             artist.addSong(song);
         }
 
-        if (songData.getAlbumName() != null)
+        if (getSongData().getAlbumName() != null)
         {
             AlbumEntity album = fetchOrCreateAlbum(em);
             album.addSong(song);
@@ -123,7 +133,7 @@ class UpdateLocalStoreCommand extends JPACommand
      */
     private ArtistEntity fetchOrCreateArtist(EntityManager em)
     {
-        ArtistEntity artist = Finders.findArtist(em, songData.getArtistName());
+        ArtistEntity artist = Finders.findArtist(em, getSongData().getArtistName());
 
         if (artist == null)
         {
@@ -131,11 +141,11 @@ class UpdateLocalStoreCommand extends JPACommand
             {
                 getLog().info(
                         "Creating new ArtistEntity for "
-                                + songData.getArtistName());
+                                + getSongData().getArtistName());
             }
 
             artist = new ArtistEntity();
-            artist.setName(songData.getArtistName());
+            artist.setName(getSongData().getArtistName());
             em.persist(artist);
         }
 
@@ -151,9 +161,9 @@ class UpdateLocalStoreCommand extends JPACommand
      */
     private AlbumEntity fetchOrCreateAlbum(EntityManager em)
     {
-        Integer year = toInteger(songData.getInceptionYear());
+        Integer year = toInteger(getSongData().getInceptionYear());
         AlbumEntity album =
-                Finders.findAlbum(em, songData.getAlbumName(), year);
+                Finders.findAlbum(em, getSongData().getAlbumName(), year);
 
         if (album == null)
         {
@@ -161,11 +171,11 @@ class UpdateLocalStoreCommand extends JPACommand
             {
                 getLog().info(
                         "Creating new AlbumEntity for "
-                                + songData.getAlbumName());
+                                + getSongData().getAlbumName());
             }
 
             album = new AlbumEntity();
-            album.setName(songData.getAlbumName());
+            album.setName(getSongData().getAlbumName());
             album.setInceptionYear(year);
             em.persist(album);
         }
