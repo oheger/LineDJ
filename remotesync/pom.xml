@@ -20,7 +20,13 @@
     the remote store. An OAuth client is implemented to get authorized access to
     the server application.
   </description>
+
   <dependencies>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>com.sun.jersey</groupId>
       <artifactId>jersey-client</artifactId>
@@ -52,6 +58,12 @@
     <dependency>
       <groupId>org.easymock</groupId>
       <artifactId>easymock</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-testutils</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
