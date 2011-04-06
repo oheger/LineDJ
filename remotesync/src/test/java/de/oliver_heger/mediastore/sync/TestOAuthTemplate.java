@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -19,7 +20,6 @@ import javax.ws.rs.ext.Providers;
 
 import org.easymock.EasyMock;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.sun.jersey.api.client.Client;
@@ -75,6 +75,7 @@ public class TestOAuthTemplate
     {
         OAuthTemplate templ = new OAuthTemplate(OAUTH_URI, SERVICE_URI);
         assertNotNull("No client", templ.getClient());
+        assertNull("Got a filter", templ.getOAuthFilter());
     }
 
     /**
@@ -399,20 +400,28 @@ public class TestOAuthTemplate
     private ClientResponse prepareResourceProcessor(ResourceProcessor proc,
             WebResource resource, ClientResponse.Status status)
     {
-        ClientResponse resp = EasyMock.createMock(ClientResponse.class);
-        EasyMock.expect(proc.doWithResource(resource)).andReturn(resp);
-        EasyMock.expect(resp.getStatus()).andReturn(status.getStatusCode());
-        if (status != ClientResponse.Status.UNAUTHORIZED)
+        try
         {
-            proc.processResponse(resp);
+            ClientResponse resp = EasyMock.createMock(ClientResponse.class);
+            EasyMock.expect(proc.doWithResource(resource)).andReturn(resp);
+            EasyMock.expect(resp.getStatus()).andReturn(status.getStatusCode());
+            if (status != ClientResponse.Status.UNAUTHORIZED)
+            {
+                proc.processResponse(resp);
+            }
+            return resp;
         }
-        return resp;
+        catch (NotAuthorizedException nex)
+        {
+            // cannot happen
+            throw new AssertionError();
+        }
     }
 
     /**
      * Tests execute() if the callback provides the correct tokens immediately.
      */
-    @Test @Ignore
+    @Test
     public void testExecuteCorrectTokensAvailable()
     {
         Client client = EasyMock.createMock(Client.class);
@@ -430,13 +439,14 @@ public class TestOAuthTemplate
                         ClientResponse.Status.CREATED);
         EasyMock.replay(client, callback, proc, resource, resp);
         assertTrue("Wrong result", templ.execute(proc, callback));
+        assertSame("Filter not cached", filter, templ.getOAuthFilter());
         EasyMock.verify(client, callback, proc, resource, resp);
     }
 
     /**
      * Tests execute() if the callback does not provide tokens.
      */
-    @Test @Ignore
+    @Test
     public void testExecuteNoTokensAvailable()
     {
         Client client = EasyMock.createMock(Client.class);
@@ -462,7 +472,7 @@ public class TestOAuthTemplate
     /**
      * Tests execute() if the callback provides invalid tokens.
      */
-    @Test @Ignore
+    @Test
     public void testExecuteInvalidTokensAvailable()
     {
         Client client = EasyMock.createMock(Client.class);
@@ -474,8 +484,10 @@ public class TestOAuthTemplate
                 new OAuthTemplateExecuteTestImpl(OAUTH_URI, SERVICE_URI, client);
         templ.expectAuthorize(callback, true);
         OAuthClientFilter filter = templ.installMockFilter();
-        EasyMock.expect(client.resource(SERVICE_URI)).andReturn(resource);
+        EasyMock.expect(client.resource(SERVICE_URI)).andReturn(resource)
+                .times(2);
         resource.addFilter(filter);
+        EasyMock.expectLastCall().times(2);
         ClientResponse resp1 =
                 prepareResourceProcessor(proc, resource,
                         ClientResponse.Status.UNAUTHORIZED);
@@ -491,7 +503,7 @@ public class TestOAuthTemplate
     /**
      * Tests execute() if the authorization is aborted.
      */
-    @Test @Ignore
+    @Test
     public void testExecuteAuthorizationAborted()
     {
         Client client = EasyMock.createMock(Client.class);
@@ -506,9 +518,123 @@ public class TestOAuthTemplate
         EasyMock.verify(client, callback, proc);
     }
 
-    // TODO testExecuteProcessorNullResult()
-    // TODO testExecuteProcessorNotAuthorizedException()
-    // TODO tests for null arguments
+    /**
+     * Tests execute() if the processor does not return a response object.
+     */
+    @Test
+    public void testExecuteProcessorNullResult() throws NotAuthorizedException
+    {
+        Client client = EasyMock.createMock(Client.class);
+        OAuthCallback callback = EasyMock.createMock(OAuthCallback.class);
+        ResourceProcessor proc = EasyMock.createMock(ResourceProcessor.class);
+        WebResource resource = EasyMock.createMock(WebResource.class);
+        EasyMock.expect(callback.getTokens()).andReturn(TOKENS);
+        OAuthTemplateExecuteTestImpl templ =
+                new OAuthTemplateExecuteTestImpl(OAUTH_URI, SERVICE_URI, client);
+        OAuthClientFilter filter = templ.installMockFilter();
+        EasyMock.expect(client.resource(SERVICE_URI)).andReturn(resource);
+        resource.addFilter(filter);
+        EasyMock.expect(proc.doWithResource(resource)).andReturn(null);
+        EasyMock.replay(client, callback, proc, resource);
+        assertTrue("Wrong result", templ.execute(proc, callback));
+        EasyMock.verify(client, callback, proc, resource);
+    }
+
+    /**
+     * Tests execute() if the processor throws a not authorized exception.
+     */
+    @Test
+    public void testExecuteProcessorNotAuthorizedException()
+            throws NotAuthorizedException
+    {
+        Client client = EasyMock.createMock(Client.class);
+        OAuthCallback callback = EasyMock.createMock(OAuthCallback.class);
+        ResourceProcessor proc = EasyMock.createMock(ResourceProcessor.class);
+        WebResource resource = EasyMock.createMock(WebResource.class);
+        EasyMock.expect(callback.getTokens()).andReturn(TOKENS);
+        OAuthTemplateExecuteTestImpl templ =
+                new OAuthTemplateExecuteTestImpl(OAUTH_URI, SERVICE_URI, client);
+        OAuthClientFilter filter = templ.installMockFilter();
+        EasyMock.expect(client.resource(SERVICE_URI)).andReturn(resource)
+                .times(2);
+        resource.addFilter(filter);
+        EasyMock.expectLastCall().times(2);
+        EasyMock.expect(proc.doWithResource(resource)).andThrow(
+                new NotAuthorizedException());
+        EasyMock.expect(proc.doWithResource(resource)).andReturn(null);
+        templ.expectAuthorize(callback, true);
+        callback.setTokens(TOKENS);
+        EasyMock.replay(client, callback, proc, resource);
+        assertTrue("Wrong result", templ.execute(proc, callback));
+        EasyMock.verify(client, callback, proc, resource);
+    }
+
+    /**
+     * Tests execute() if an OAuth filter is already available.
+     */
+    @Test
+    public void testExecuteFilterAvailable() throws NotAuthorizedException
+    {
+        Client client = EasyMock.createMock(Client.class);
+        OAuthCallback callback = EasyMock.createMock(OAuthCallback.class);
+        ResourceProcessor proc = EasyMock.createMock(ResourceProcessor.class);
+        WebResource resource = EasyMock.createMock(WebResource.class);
+        final OAuthClientFilter filter = createDummyFilter();
+        OAuthTemplate templ = new OAuthTemplate(OAUTH_URI, SERVICE_URI, client)
+        {
+            @Override
+            public OAuthClientFilter getOAuthFilter()
+            {
+                return filter;
+            }
+        };
+        EasyMock.expect(client.resource(SERVICE_URI)).andReturn(resource);
+        resource.addFilter(filter);
+        EasyMock.expect(proc.doWithResource(resource)).andReturn(null);
+        EasyMock.replay(client, callback, proc, resource);
+        assertTrue("Wrong result", templ.execute(proc, callback));
+        EasyMock.verify(client, callback, proc, resource);
+    }
+
+    /**
+     * Tests execute() if not processor is provided.
+     */
+    @Test
+    public void testExecuteNoProcessor()
+    {
+        OAuthCallback callback = EasyMock.createMock(OAuthCallback.class);
+        EasyMock.replay(callback);
+        OAuthTemplate templ = new OAuthTemplate(OAUTH_URI, SERVICE_URI);
+        try
+        {
+            templ.execute(null, callback);
+            fail("Missing processor not detected!");
+        }
+        catch (NullPointerException npex)
+        {
+            EasyMock.verify(callback);
+        }
+    }
+
+    /**
+     * Tests execute() if no callback object is provided.
+     */
+    @Test
+    public void testExecuteNoCallback()
+    {
+        ResourceProcessor proc = EasyMock.createMock(ResourceProcessor.class);
+        EasyMock.replay(proc);
+        OAuthTemplate templ = new OAuthTemplate(OAUTH_URI, SERVICE_URI);
+        try
+        {
+            templ.execute(proc, null);
+            fail("Missing callback not detected!");
+        }
+        catch (NullPointerException npex)
+        {
+            EasyMock.verify(proc);
+        }
+    }
 
     /**
      * A test implementation of the template with enhanced mocking facilities

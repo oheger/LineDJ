@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 
 import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.oauth.client.OAuthClientFilter;
 import com.sun.jersey.oauth.signature.OAuthParameters;
@@ -84,6 +85,9 @@ public class OAuthTemplate
     /** The base URI for the resources to be accessed. */
     private final String serviceURI;
 
+    /** The current OAuth filter. */
+    private OAuthClientFilter oAuthFilter;
+
     /**
      * Creates a new instance of {@code OAuthTemplate} and initializes it with
      * the URIs for the OAuth endpoint and the service and the {@code Client} to
@@ -157,6 +161,18 @@ public class OAuthTemplate
     }
 
     /**
+     * Returns the current filter for OAuth authorization. This filter is
+     * created once (performing a full OAuth authorization if necessary). Then
+     * it is cached and reused for further requests.
+     *
+     * @return the current OAuth filter
+     */
+    public OAuthClientFilter getOAuthFilter()
+    {
+        return oAuthFilter;
+    }
+
+    /**
      * Executes an operation on a resource using the specified
      * {@link ResourceProcessor}. This is the main method for accessing
      * resources through the OAuth protocol. A {@code WebResource} object is
@@ -173,8 +189,81 @@ public class OAuthTemplate
      */
     public boolean execute(ResourceProcessor proc, OAuthCallback callback)
     {
-        // TODO implementation
-        throw new UnsupportedOperationException("Not yet implemented!");
+        if (proc == null)
+        {
+            throw new NullPointerException(
+                    "ResourceProcessor must not be null!");
+        }
+        if (callback == null)
+        {
+            throw new NullPointerException("Callback must not be null!");
+        }
+
+        boolean hasTokens = true;
+        do
+        {
+            OAuthTokens tokens = null;
+            OAuthClientFilter filter = getOAuthFilter();
+
+            if (filter == null)
+            {
+                if (hasTokens)
+                {
+                    tokens = callback.getTokens();
+                    hasTokens = tokens != null;
+                }
+
+                if (!hasTokens)
+                {
+                    tokens = authorize(callback);
+                    if (tokens == null)
+                    {
+                        return false;
+                    }
+                }
+                filter = createOAuthFilterFromTokens(tokens);
+                oAuthFilter = filter;
+            }
+
+            WebResource resource = createResourceForServiceCall(filter);
+            try
+            {
+                interactWithResourceProcessor(proc, resource);
+                if (!hasTokens)
+                {
+                    callback.setTokens(tokens);
+                }
+                return true;
+            }
+            catch (NotAuthorizedException naex)
+            {
+                oAuthFilter = null;
+                hasTokens = false;
+            }
+        } while (true);
+    }
+
+    /**
+     * Tests whether the specified response is authorized. This method checks
+     * the status code of the response object. If it indicates that the response
+     * is not authorized, an exception is thrown.
+     *
+     * @param response the response to be checked (may be <b>null</b>)
+     * @throws NotAuthorizedException if the response indicates an unauthorized
+     *         request
+     */
+    public static void checkAuthorizedResponse(ClientResponse response)
+            throws NotAuthorizedException
+    {
+        if (response != null)
+        {
+            if (ClientResponse.Status.UNAUTHORIZED.getStatusCode() == response
+                    .getStatus())
+            {
+                throw new NotAuthorizedException("Unauthorized response "
+                        + response);
+            }
+        }
     }
 
     /**
@@ -363,6 +452,41 @@ public class OAuthTemplate
     {
         return createSecrets().tokenSecret(decode(secToken)).consumerSecret(
                 CONSUMER_SECRET);
+    }
+
+    /**
+     * Creates the resource object for invoking the service. This resource is
+     * then passed to the {@link ResourceProcessor}.
+     *
+     * @param filter the current OAuth filter
+     * @return the resource object
+     */
+    private WebResource createResourceForServiceCall(OAuthClientFilter filter)
+    {
+        WebResource resource = getClient().resource(getServiceURI());
+        resource.addFilter(filter);
+        return resource;
+    }
+
+    /**
+     * Calls the specified resource processor with the given resource. This
+     * method calls the methods defined by the {@link ResourceProcessor}
+     * interface in the expected way.
+     *
+     * @param proc the processor
+     * @param resource the current resource
+     * @throws NotAuthorizedException if the request was not authorized
+     */
+    private void interactWithResourceProcessor(ResourceProcessor proc,
+            WebResource resource) throws NotAuthorizedException
+    {
+        ClientResponse response = proc.doWithResource(resource);
+        checkAuthorizedResponse(response);
+
+        if (response != null)
+        {
+            proc.processResponse(response);
+        }
     }
 
     /**

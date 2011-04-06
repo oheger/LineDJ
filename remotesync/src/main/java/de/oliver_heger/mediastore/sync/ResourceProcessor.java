@@ -35,8 +35,10 @@ public interface ResourceProcessor
      *
      * @param resource the resource to be used by this object
      * @return the response received when interacting with the resource
+     * @throws NotAuthorizedException if the request was not authorized
      */
-    ClientResponse doWithResource(WebResource resource);
+    ClientResponse doWithResource(WebResource resource)
+            throws NotAuthorizedException;
 
     /**
      * Allows this implementation to evaluate the response received from the
@@ -45,6 +47,7 @@ public interface ResourceProcessor
      * checked whether the request was authorized.
      *
      * @param response the response to be evaluated
+     * @throws NotAuthorizedException if the request was not authorized
      */
-    void processResponse(ClientResponse response);
+    void processResponse(ClientResponse response) throws NotAuthorizedException;
 }
