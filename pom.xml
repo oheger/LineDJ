@@ -14,7 +14,7 @@
     <module>testutils</module>
     <module>ifcs</module>
     <module>server</module>
-    <module>remotesync</module>
+    <module>oauthclient</module>
     <module>localstore</module>
   </modules>
 
