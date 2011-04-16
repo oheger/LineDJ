@@ -66,6 +66,13 @@ public interface SyncController
             boolean artistCreated, boolean albumCreated);
 
     /**
+     * Notifies this object that a sync operation for a song was not successful.
+     *
+     * @param data the data object for the song affected
+     */
+    void failedSongSync(SongData data);
+
+    /**
      * Notifies this object that synchronization is complete.
      */
     void endSynchronization();
