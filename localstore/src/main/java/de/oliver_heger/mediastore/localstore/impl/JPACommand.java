@@ -85,7 +85,17 @@ abstract class JPACommand extends CommandBase
      */
     public final EntityManagerFactory getEntityManagerFactory()
     {
-        return ConcurrentUtils.initializeUnchecked(factoryInitializer);
+        return ConcurrentUtils.initializeUnchecked(getFactoryInitializer());
+    }
+
+    /**
+     * Returns the initializer object for the {@code EntityManagerFactory}.
+     *
+     * @return the initializer for the {@code EntityManagerFactory}
+     */
+    public ConcurrentInitializer<EntityManagerFactory> getFactoryInitializer()
+    {
+        return factoryInitializer;
     }
 
     /**

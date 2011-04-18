@@ -79,6 +79,37 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     }
 
     /**
+     * Returns the controller of the sync operation used by this command.
+     *
+     * @return the sync controller
+     */
+    public SyncController getController()
+    {
+        return controller;
+    }
+
+    /**
+     * Returns the template for OAuth requests used by this command.
+     *
+     * @return the OAuth template
+     */
+    public OAuthTemplate getOAuthTemplate()
+    {
+        return oauthTemplate;
+    }
+
+    /**
+     * Returns the entity for the song that is to be synchronized by this
+     * command.
+     *
+     * @return the song entity
+     */
+    public SongEntity getSong()
+    {
+        return song;
+    }
+
+    /**
      * {@inheritDoc} This implementation first handles the synchronization with
      * the server. Then the features of the base class related to JPA processing
      * are used in order to update the song entity.
@@ -106,7 +137,7 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
         boolean albumResult = syncAlbum(resource);
         boolean songResult = syncSong(resource, fetchSongData());
 
-        controller.afterSongSync(fetchSongData(), songResult, artistResult,
+        getController().afterSongSync(fetchSongData(), songResult, artistResult,
                 albumResult);
         return null;
     }
@@ -127,11 +158,11 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     @Override
     protected void executeJPAOperation(EntityManager em)
     {
-        SongEntity e = em.find(SongEntity.class, song.getId());
+        SongEntity e = em.find(SongEntity.class, getSong().getId());
 
         if (e == null)
         {
-            getLog().warn("Could not find song entity: " + song);
+            getLog().warn("Could not find song entity: " + getSong());
         }
         else
         {
@@ -151,12 +182,12 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
         SongData data = fetchSongData();
         boolean executed = false;
 
-        if (controller.beforeSongSync(data))
+        if (getController().beforeSongSync(data))
         {
             executed = true;
-            if (!oauthTemplate.execute(this, controller.getOAuthCallback()))
+            if (!getOAuthTemplate().execute(this, getController().getOAuthCallback()))
             {
-                controller.failedSongSync(data);
+                getController().failedSongSync(data);
                 executed = false;
             }
         }
@@ -173,21 +204,21 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     SongData createSongData()
     {
         SongData data = factory.createSongData();
-        DTOTransformer.transform(song, data);
+        DTOTransformer.transform(getSong(), data);
 
-        data.setPlayCount(song.getCurrentPlayCount());
-        if (song.getDuration() != null)
+        data.setPlayCount(getSong().getCurrentPlayCount());
+        if (getSong().getDuration() != null)
         {
-            data.setDuration(BigInteger.valueOf(song.getDuration().intValue()
+            data.setDuration(BigInteger.valueOf(getSong().getDuration().intValue()
                     * MILLIS));
         }
-        if (song.getAlbum() != null)
+        if (getSong().getAlbum() != null)
         {
-            data.setAlbumName(song.getAlbum().getName());
+            data.setAlbumName(getSong().getAlbum().getName());
         }
-        if (song.getArtist() != null)
+        if (getSong().getArtist() != null)
         {
-            data.setArtistName(song.getArtist().getName());
+            data.setArtistName(getSong().getArtist().getName());
         }
 
         return data;
@@ -219,7 +250,7 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     ArtistData createArtistData()
     {
         ArtistData data = factory.createArtistData();
-        DTOTransformer.transform(song.getArtist(), data);
+        DTOTransformer.transform(getSong().getArtist(), data);
         return data;
     }
 
@@ -233,7 +264,7 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     AlbumData createAlbumData()
     {
         AlbumData data = factory.createAlbumData();
-        DTOTransformer.transform(song.getAlbum(), data);
+        DTOTransformer.transform(getSong().getAlbum(), data);
         return data;
     }
 

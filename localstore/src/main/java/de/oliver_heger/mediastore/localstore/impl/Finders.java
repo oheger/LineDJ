@@ -103,6 +103,32 @@ final class Finders
     }
 
     /**
+     * Searches for songs to be synchronized with the server. This method
+     * executes a query which selects songs with a current play count greater
+     * than 0. These are the songs that have been played since the last sync
+     * operation.
+     *
+     * @param em the {@code EntityManager} (must not be <b>null</b>)
+     * @param limit the limit of the results to be returned (<b>null</b> means
+     *        that there is no restriction)
+     * @return a list with the song entities that should be synchronized
+     * @throws NullPointerException if the {@code EntityManager} is <b>null</b>
+     */
+    public static List<SongEntity> findSongsToSync(EntityManager em,
+            Integer limit)
+    {
+        Query query = em.createNamedQuery(SongEntity.QUERY_FIND_SONGS_TO_SYNC);
+        if (limit != null)
+        {
+            query.setMaxResults(limit.intValue());
+        }
+
+        @SuppressWarnings("unchecked")
+        List<SongEntity> result = query.getResultList();
+        return result;
+    }
+
+    /**
      * Executes a query for a specific entity. The query can return a single
      * object or none.
      *
