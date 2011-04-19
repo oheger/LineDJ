@@ -1,5 +1,7 @@
 package de.oliver_heger.mediastore.localstore.impl;
 
+import java.util.List;
+
 import javax.persistence.EntityManagerFactory;
 
 import net.sf.jguiraffe.gui.cmd.Command;
@@ -7,7 +9,10 @@ import net.sf.jguiraffe.gui.cmd.CommandQueue;
 
 import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
 
+import de.oliver_heger.mediastore.localstore.CommandObserver;
 import de.oliver_heger.mediastore.localstore.MediaStore;
+import de.oliver_heger.mediastore.localstore.SyncController;
+import de.oliver_heger.mediastore.localstore.model.SongEntity;
 import de.oliver_heger.mediastore.service.SongData;
 
 /**
@@ -42,17 +47,26 @@ public class MediaStoreImpl implements MediaStore
     /** The command queue. */
     private final CommandQueue commandQueue;
 
+    /** The URL of the OAuth authorization service. */
+    private final String oauthEndpointURI;
+
+    /** The base URI for performing server requests. */
+    private final String serviceURI;
+
     /**
      * Creates a new instance of {@code MediaStoreImpl} and initializes it.
      *
      * @param factoryInit the initializer for the {@code EntityManagerFactory}
      *        (must not be <b>null</b>)
      * @param cmdQueue the command queue (must not be <b>null</b>)
+     * @param oauthURI the URI for OAuth requests (must not be <b>null</b>)
+     * @param svcURI the base URI for resource services (must not be
+     *        <b>null</b>)
      * @throws NullPointerException if a required parameter is missing
      */
     public MediaStoreImpl(
             ConcurrentInitializer<EntityManagerFactory> factoryInit,
-            CommandQueue cmdQueue)
+            CommandQueue cmdQueue, String oauthURI, String svcURI)
     {
         if (factoryInit == null)
         {
@@ -63,9 +77,19 @@ public class MediaStoreImpl implements MediaStore
         {
             throw new NullPointerException("Command queue must not be null!");
         }
+        if (oauthURI == null)
+        {
+            throw new NullPointerException("OAuth URI must not be null!");
+        }
+        if (svcURI == null)
+        {
+            throw new NullPointerException("Service URI must not be null!");
+        }
 
         factoryInitializer = factoryInit;
         commandQueue = cmdQueue;
+        oauthEndpointURI = oauthURI;
+        serviceURI = svcURI;
     }
 
     /**
@@ -79,7 +103,29 @@ public class MediaStoreImpl implements MediaStore
     @Override
     public void updateSongData(SongData songData)
     {
-        commandQueue.execute(createUpdateSongDataCommand(songData));
+        execute(createUpdateSongDataCommand(songData));
+    }
+
+    /**
+     * {@inheritDoc} This implementation creates a specialized command object
+     * which handles the complete synchronization in a background thread.
+     */
+    @Override
+    public void syncWithServer(CommandObserver<List<SongEntity>> observer,
+            SyncController syncController, Integer maxSongs)
+    {
+        execute(createSyncCommand(observer, syncController, maxSongs));
+    }
+
+    /**
+     * Executes the specified command. This implementation passes the command to
+     * the command queue.
+     *
+     * @param command the command to be executed
+     */
+    void execute(Command command)
+    {
+        commandQueue.execute(command);
     }
 
     /**
@@ -92,5 +138,22 @@ public class MediaStoreImpl implements MediaStore
     Command createUpdateSongDataCommand(SongData songData)
     {
         return new UpdateLocalStoreCommand(factoryInitializer, songData);
+    }
+
+    /**
+     * Creates a command object for performing the sync operation. This
+     * implementation creates a {@link SyncCommand} object.
+     *
+     * @param observer the observer for the command
+     * @param syncController the sync controller
+     * @param maxSongs the maximum number of songs to synchronize
+     * @return the command handling the sync operation
+     * @throws NullPointerException if a required parameter is missing
+     */
+    Command createSyncCommand(CommandObserver<List<SongEntity>> observer,
+            SyncController syncController, Integer maxSongs)
+    {
+        return new SyncCommand(factoryInitializer, observer, syncController,
+                commandQueue, oauthEndpointURI, serviceURI, maxSongs);
     }
 }

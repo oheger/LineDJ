@@ -1,5 +1,8 @@
 package de.oliver_heger.mediastore.localstore;
 
+import java.util.List;
+
+import de.oliver_heger.mediastore.localstore.model.SongEntity;
 import de.oliver_heger.mediastore.service.SongData;
 
 /**
@@ -27,4 +30,19 @@ public interface MediaStore
      * @param songData the data object describing the song
      */
     void updateSongData(SongData songData);
+
+    /**
+     * Synchronizes the local database with the server. Synchronization happens
+     * in the background thread and is monitored by the {@link SyncController}
+     * object. A limit for the number of songs to synchronize can be specified;
+     * a value of <b>null</b> means that there is no restriction.
+     *
+     * @param observer the observer for the command (must not be <b>null</b>)
+     * @param syncController the controller for the sync operation (must not be
+     *        <b>null</b>)
+     * @param maxSongs the maximum number of songs to synchronize (can be
+     *        <b>null</b> for no limit)
+     */
+    void syncWithServer(CommandObserver<List<SongEntity>> observer,
+            SyncController syncController, Integer maxSongs);
 }

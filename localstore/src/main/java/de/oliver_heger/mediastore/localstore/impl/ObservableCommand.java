@@ -55,6 +55,16 @@ abstract class ObservableCommand<T> extends JPACommand
     }
 
     /**
+     * Returns the observer of this command.
+     *
+     * @return the observer
+     */
+    public CommandObserver<T> getObserver()
+    {
+        return observer;
+    }
+
+    /**
      * An error occurred during command execution. This implementation notifies
      * the observer.
      *
@@ -64,7 +74,7 @@ abstract class ObservableCommand<T> extends JPACommand
     public void onException(Throwable t)
     {
         super.onException(t);
-        observer.commandExecutionFailed(t);
+        getObserver().commandExecutionFailed(t);
     }
 
     /**
@@ -75,7 +85,7 @@ abstract class ObservableCommand<T> extends JPACommand
     @Override
     protected void performGUIUpdate()
     {
-        observer.commandCompletedUI(getResult(), getException());
+        getObserver().commandCompletedUI(getResult(), getException());
     }
 
     /**
@@ -86,7 +96,7 @@ abstract class ObservableCommand<T> extends JPACommand
     protected void executeJPAOperation(EntityManager em)
     {
         result = produceResults(em);
-        observer.commandCompletedBackground(getResult());
+        getObserver().commandCompletedBackground(getResult());
     }
 
     /**
