@@ -16,6 +16,7 @@
     <module>server</module>
     <module>oauthclient</module>
     <module>localstore</module>
+    <module>jplaya-ui</module>
   </modules>
 
   <name>RemoteMediaStore Parent</name>
@@ -124,6 +125,12 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>rms-oauthclient</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-localstore</artifactId>
       <version>${project.version}</version>
     </dependency>
 

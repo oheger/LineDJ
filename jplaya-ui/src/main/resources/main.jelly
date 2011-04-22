@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- The Jelly script defining the main window of the JPlaya application.
+     $Id:$
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+    resgrp="application" taskBean="exitTask"/>
+
+  <!-- Synchronize action -->
+  <a:action name="fileSyncAction" textres="act_filesync_text"
+    tooltipres="act_filesync_tip" mnemonicres="act_filesync_mnemo"
+    taskBean="syncTask">
+  </a:action>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="fileSyncAction"/>
+      <a:separator/>
+      <a:menuitem actionName="exitAction"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- The main window -->
+  <w:frame titleres="main_title" menu="mainMenu" autoClose="false">
+
+    <!-- An event listener that delegates the window closing event to the
+         application exit action.
+    -->
+    <w:windowEvent actionName="exitAction">
+      <a:eventFilter eventType="WINDOW_CLOSING"
+        class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
+    </w:windowEvent>
+  </w:frame>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+    beanClass="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- File sync action command and task -->
+  <di:bean name="openSyncDialogCommand"
+    beanClass="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:sync.jelly"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="syncTask"
+    beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openSyncDialogCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:fileSyncAction"/>
+  </di:bean>
+</j:jelly>
