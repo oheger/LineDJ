@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- A Jelly script with the definitions of global beans used by the application.
+     $Id:$
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
+
+  <!-- The initializer for an Entity Manager Factory -->
+  <di:bean name="emfInitializer"
+    beanClass="de.oliver_heger.mediastore.localstore.impl.EMFInitializer">
+    <di:constructor>
+      <di:param value=".jplaya/data/jplaya"/>
+    </di:constructor>
+    <di:methodInvocation method="start"/>
+  </di:bean>
+
+  <!-- The bean implementing the MediaStore interface -->
+  <di:bean name="mediaStore"
+    beanClass="de.oliver_heger.mediastore.localstore.impl.MediaStoreImpl">
+    <di:constructor>
+      <di:param refName="emfInitializer"/>
+      <di:param refName="jguiraffe.commandQueue"/>
+      <di:param value="https://remotemediastore.appspot.com/_ah/"/>
+      <di:param value="https://remotemediastore.appspot.com/resources/"/>
+    </di:constructor>
+  </di:bean>
+</j:jelly>
