@@ -6,6 +6,7 @@ import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -170,5 +171,30 @@ public class RemoteMediaStoreTestHelper
         assertTrue("Wrong order", comp.compare(o1, o2) < 0);
         assertTrue("Wrong symmetric order", comp.compare(o2, o1) > 0);
         assertEquals("Wrong reflexive order", 0, comp.compare(o1, o1));
+    }
+
+    /**
+     * Removes the specified root directory and all of its sub directories.
+     *
+     * @param root the root directory to be removed
+     */
+    public static void removeDir(File root)
+    {
+        File[] files = root.listFiles();
+        if (files != null)
+        {
+            for (File f : files)
+            {
+                if (f.isDirectory())
+                {
+                    removeDir(f);
+                }
+                else
+                {
+                    assertTrue("Could not delete file: " + f, f.delete());
+                }
+            }
+            assertTrue("Could not delete directory: " + root, root.delete());
+        }
     }
 }

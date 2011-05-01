@@ -12,6 +12,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import de.oliver_heger.mediastore.RemoteMediaStoreTestHelper;
+
 /**
  * Test class of {@code EMFInitializer}.
  *
@@ -44,7 +46,7 @@ public class TestEMFInitializer
     {
         if (testDir.exists())
         {
-            removeDir(testDir);
+            RemoteMediaStoreTestHelper.removeDir(testDir);
         }
     }
 
@@ -58,31 +60,6 @@ public class TestEMFInitializer
         em.getTransaction().begin();
         em.createNativeQuery("SHUTDOWN").executeUpdate();
         em.getTransaction().commit();
-    }
-
-    /**
-     * Removes the specified root directory and all of its sub directories.
-     *
-     * @param root the root directory to be removed
-     */
-    private static void removeDir(File root)
-    {
-        File[] files = root.listFiles();
-        if (files != null)
-        {
-            for (File f : files)
-            {
-                if (f.isDirectory())
-                {
-                    removeDir(f);
-                }
-                else
-                {
-                    assertTrue("Could not delete file: " + f, f.delete());
-                }
-            }
-            assertTrue("Could not delete directory: " + root, root.delete());
-        }
     }
 
     /**
