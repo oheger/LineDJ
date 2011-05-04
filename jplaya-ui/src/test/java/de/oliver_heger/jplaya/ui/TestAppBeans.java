@@ -15,6 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import de.oliver_heger.mediastore.localstore.MediaStore;
+import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
 
 /**
  * A test class for the global bean definition file of the application.
@@ -67,6 +68,17 @@ public class TestAppBeans
         Object emf = ConcurrentUtils.initializeUnchecked(init);
         assertTrue("Wrong initialized object: " + emf,
                 emf instanceof EntityManagerFactory);
+    }
+
+    /**
+     * Tests whether the bean for the token store can be queried.
+     */
+    @Test
+    public void testBeanTokenStore()
+    {
+        OAuthTokenStore tokenStore =
+                getBeanContext().getBean(OAuthTokenStore.class);
+        assertNotNull("No token store", tokenStore);
     }
 
     /**

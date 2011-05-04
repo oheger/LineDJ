@@ -13,6 +13,14 @@
     <di:methodInvocation method="start"/>
   </di:bean>
 
+  <!-- The OAuth token store implementation. -->
+  <di:bean name="oauthTokenStore"
+    beanClass="de.oliver_heger.mediastore.localstore.impl.OAuthFileTokenStore">
+    <di:constructor>
+      <di:param value=".jplaya/oauth_tokens.dat"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The bean implementing the MediaStore interface -->
   <di:bean name="mediaStore"
     beanClass="de.oliver_heger.mediastore.localstore.impl.MediaStoreImpl">
