@@ -64,6 +64,7 @@
     <di:setProperty property="componentBuilderData" refName="COMPONENT_BUILDER_DATA"/>
     <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
     <di:setProperty property="progressBar" refName="comp:progress"/>
+    <di:setProperty property="syncAction" refName="action:fileSyncAction"/>
   </di:bean>
 
   <!-- Event listener registrations -->

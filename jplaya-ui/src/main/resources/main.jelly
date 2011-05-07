@@ -58,5 +58,8 @@
     beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="openSyncDialogCommand"/>
     <di:setProperty property="beforeEnabler" value="action:fileSyncAction"/>
+    <di:setProperty property="afterEnabler">
+      <di:bean beanClass="net.sf.jguiraffe.gui.builder.enablers.NullEnabler"/>
+    </di:setProperty>
   </di:bean>
 </j:jelly>

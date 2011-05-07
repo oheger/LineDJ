@@ -3,6 +3,7 @@ package de.oliver_heger.jplaya.ui;
 import java.util.List;
 
 import net.sf.jguiraffe.gui.app.ApplicationContext;
+import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData;
 import net.sf.jguiraffe.gui.builder.components.model.ProgressBarHandler;
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler;
@@ -97,6 +98,9 @@ public class SyncControllerImpl implements WindowListener, SyncController,
 
     /** The progress bar. */
     private ProgressBarHandler progressBar;
+
+    /** The sync action. */
+    private FormAction syncAction;
 
     /** The window managed by this controller. */
     private Window window;
@@ -218,6 +222,27 @@ public class SyncControllerImpl implements WindowListener, SyncController,
     public void setProgressBar(ProgressBarHandler progressBar)
     {
         this.progressBar = progressBar;
+    }
+
+    /**
+     * Returns the action which starts the sync operation.
+     *
+     * @return the sync action
+     */
+    public FormAction getSyncAction()
+    {
+        return syncAction;
+    }
+
+    /**
+     * Sets the action which starts the sync operation. This action has to be
+     * enabled again after the operation is complete.
+     *
+     * @param syncAction the sync action
+     */
+    public void setSyncAction(FormAction syncAction)
+    {
+        this.syncAction = syncAction;
     }
 
     /**
@@ -417,6 +442,7 @@ public class SyncControllerImpl implements WindowListener, SyncController,
             {
                 updateButtonStatesForSyncEnd();
                 updateStaticText(LAB_STATUS, getStatusFinished());
+                getSyncAction().setEnabled(true);
             }
         });
     }

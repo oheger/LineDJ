@@ -13,6 +13,7 @@ import java.util.Map;
 
 import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.ApplicationContext;
+import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData;
 import net.sf.jguiraffe.gui.builder.components.model.ProgressBarHandler;
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler;
@@ -357,10 +358,12 @@ public class TestSyncControllerImpl
                 EasyMock.createMock(ComponentHandler.class);
         StaticTextHandler thStatus =
                 EasyMock.createMock(StaticTextHandler.class);
+        FormAction act = EasyMock.createMock(FormAction.class);
         chCancel.setEnabled(false);
         chClose.setEnabled(true);
         thStatus.setText(FINISHED);
-        EasyMock.replay(chCancel, chClose, thStatus, store, callback);
+        act.setEnabled(true);
+        EasyMock.replay(chCancel, chClose, thStatus, act, store, callback);
         GUISynchronizerTestImpl sync = new GUISynchronizerTestImpl();
         Map<String, ComponentHandler<?>> handlers =
                 new HashMap<String, ComponentHandler<?>>();
@@ -374,8 +377,9 @@ public class TestSyncControllerImpl
         ctrl.setSynchronizer(sync);
         ctrl.setComponentBuilderData(cbd);
         ctrl.endSynchronization();
+        ctrl.setSyncAction(act);
         sync.execute(1);
-        EasyMock.verify(chCancel, chClose, thStatus, store, callback);
+        EasyMock.verify(chCancel, chClose, thStatus, act, store, callback);
     }
 
     /**
