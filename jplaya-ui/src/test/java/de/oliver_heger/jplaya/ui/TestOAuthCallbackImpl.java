@@ -17,6 +17,7 @@ import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
 import net.sf.jguiraffe.gui.builder.window.Window;
 import net.sf.jguiraffe.locators.Locator;
+import net.sf.jguiraffe.locators.LocatorException;
 
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.easymock.EasyMock;
@@ -197,11 +198,15 @@ public class TestOAuthCallbackImpl
     }
 
     /**
-     * Tests getVerificationCode() if the builder script cannot be executed.
+     * Helper method for testing getVerificationCode() if the builder invocation
+     * causes an error.
+     *
+     * @param t the exception to be thrown by the builder
+     * @throws BuilderException if a builder exception occurs
+     * @throws IOException if an IO error occurs
      */
-    @Test
-    public void testGetVerificationCodeBuilderError() throws BuilderException,
-            IOException
+    private void checkGetVerificationCodeBuilderError(Throwable t)
+            throws BuilderException, IOException
     {
         Builder builder = EasyMock.createMock(Builder.class);
         OAuthCallbackTestImpl cb =
@@ -212,8 +217,7 @@ public class TestOAuthCallbackImpl
         ApplicationBuilderData builderData = new ApplicationBuilderData();
         EasyMock.expect(appCtx.newBuilder()).andReturn(builder);
         EasyMock.expect(appCtx.initBuilderData()).andReturn(builderData);
-        EasyMock.expect(builder.buildWindow(locator, builderData)).andThrow(
-                new BuilderException(EX_MSG));
+        EasyMock.expect(builder.buildWindow(locator, builderData)).andThrow(t);
         EasyMock.expect(appCtx.getGUISynchronizer()).andReturn(sync);
         sync.asyncInvoke(errRun);
         EasyMock.replay(builder, errRun, sync, appCtx, store, locator);
@@ -222,6 +226,26 @@ public class TestOAuthCallbackImpl
         EasyMock.replay(desktop);
         assertNull("Got a code", cb.getVerificationCode(verifyURI));
         EasyMock.verify(builder, desktop, errRun, sync, appCtx, store, locator);
+    }
+
+    /**
+     * Tests getVerificationCode() if the builder script cannot be executed.
+     */
+    @Test
+    public void testGetVerificationCodeBuilderError() throws BuilderException,
+            IOException
+    {
+        checkGetVerificationCodeBuilderError(new BuilderException(EX_MSG));
+    }
+
+    /**
+     * Tests getVerificationCode() if the builder throws a locator exception.
+     */
+    @Test
+    public void testGetVerificationCodeBuilderLocatorEx()
+            throws BuilderException, IOException
+    {
+        checkGetVerificationCodeBuilderError(new LocatorException(EX_MSG));
     }
 
     /**

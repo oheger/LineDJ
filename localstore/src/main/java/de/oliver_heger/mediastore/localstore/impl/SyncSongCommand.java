@@ -124,6 +124,17 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     }
 
     /**
+     * {@inheritDoc} This implementation notifies the sync controller about the
+     * exception.
+     */
+    @Override
+    public void onException(Throwable t)
+    {
+        super.onException(t);
+        getController().failedSongSync(fetchSongData(), t);
+    }
+
+    /**
      * {@inheritDoc} This implementation performs the actual synchronization of
      * the current song entity and related data. Because it may execute multiple
      * server calls no response object is returned; response codes indicating
@@ -187,7 +198,7 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
             executed = true;
             if (!getOAuthTemplate().execute(this, getController().getOAuthCallback()))
             {
-                getController().failedSongSync(data);
+                getController().authorizationFailed(data);
                 executed = false;
             }
         }

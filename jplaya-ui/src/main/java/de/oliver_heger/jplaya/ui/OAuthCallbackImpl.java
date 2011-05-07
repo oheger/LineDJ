@@ -11,6 +11,7 @@ import net.sf.jguiraffe.gui.builder.BuilderException;
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
 import net.sf.jguiraffe.gui.builder.window.Window;
 import net.sf.jguiraffe.locators.Locator;
+import net.sf.jguiraffe.locators.LocatorException;
 
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.log4j.Logger;
@@ -133,8 +134,11 @@ public class OAuthCallbackImpl implements OAuthCallback
         }
         catch (BuilderException bex)
         {
-            log.error("Error when executing builder script!", bex);
-            showErrorMessage(RES_ERRMSG_BUILDER);
+            handleBuilderException(bex);
+        }
+        catch (LocatorException lex)
+        {
+            handleBuilderException(lex);
         }
 
         return null;
@@ -221,5 +225,16 @@ public class OAuthCallbackImpl implements OAuthCallback
                 applicationContext.initBuilderData();
         builderData.addProperty(KEY_MODEL, model);
         return builder.buildWindow(scriptLocator, builderData);
+    }
+
+    /**
+     * Handles an exception thrown during the execution of a builder script.
+     *
+     * @param t the exception
+     */
+    private void handleBuilderException(Throwable t)
+    {
+        log.error("Error when executing builder script!", t);
+        showErrorMessage(RES_ERRMSG_BUILDER);
     }
 }

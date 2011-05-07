@@ -66,11 +66,22 @@ public interface SyncController
             boolean artistCreated, boolean albumCreated);
 
     /**
-     * Notifies this object that a sync operation for a song was not successful.
+     * Notifies this object that a sync operation for a song was not successful
+     * due to an exception which occurred during execution of the sync command.
+     *
+     * @param data the data object for the song affected
+     * @param ex the exception that occurred
+     */
+    void failedSongSync(SongData data, Throwable ex);
+
+    /**
+     * Notifies this object that the OAuth authorization was aborted by the
+     * user. Typically this means that the user wants to cancel the whole
+     * operation.
      *
      * @param data the data object for the song affected
      */
-    void failedSongSync(SongData data);
+    void authorizationFailed(SongData data);
 
     /**
      * Notifies this object that synchronization is complete.

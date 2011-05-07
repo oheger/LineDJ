@@ -407,10 +407,10 @@ public class TestSyncSongCommand
 
     /**
      * Tests whether the sync controller is properly informed about a failed
-     * sync operation.
+     * OAuth authorization.
      */
     @Test
-    public void testExecuteSyncOperationFailed()
+    public void testExecuteSyncOperationOAuthAborted()
     {
         OAuthCallback callback = EasyMock.createMock(OAuthCallback.class);
         SongData data = factory.createSongData();
@@ -419,10 +419,25 @@ public class TestSyncSongCommand
         EasyMock.expect(controller.getOAuthCallback()).andReturn(callback);
         SyncSongCommand cmd = new SyncSongCommandMockSongData(data);
         EasyMock.expect(templ.execute(cmd, callback)).andReturn(Boolean.FALSE);
-        controller.failedSongSync(data);
+        controller.authorizationFailed(data);
         EasyMock.replay(callback, controller, templ);
         assertFalse("Wrong result", cmd.executeSyncOperation());
         EasyMock.verify(callback, controller, templ);
+    }
+
+    /**
+     * Tests whether exceptions are reported to the sync controller.
+     */
+    @Test
+    public void testOnException()
+    {
+        SongData data = factory.createSongData();
+        Throwable ex = new RuntimeException("Test exception!");
+        controller.failedSongSync(data, ex);
+        EasyMock.replay(controller, templ);
+        SyncSongCommand cmd = new SyncSongCommandMockSongData(data);
+        cmd.onException(ex);
+        EasyMock.verify(controller, templ);
     }
 
     /**

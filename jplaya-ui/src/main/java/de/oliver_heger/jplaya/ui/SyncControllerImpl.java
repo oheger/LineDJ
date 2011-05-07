@@ -53,6 +53,9 @@ public class SyncControllerImpl implements WindowListener, SyncController,
     /** The resource ID for the error status. */
     static final String RES_ERR_STATUS = "sync_err_status";
 
+    /** The resource ID for the status of a completed sync operation. */
+    static final String RES_STATUS_FINISHED = "sync_status_finished";
+
     /** The name of the status label. */
     static final String LAB_STATUS = "labStatus";
 
@@ -67,6 +70,9 @@ public class SyncControllerImpl implements WindowListener, SyncController,
 
     /** The name of the close button. */
     static final String BTN_CLOSE = "btnClose";
+
+    /** The name of the application context bean.*/
+    private static final String BEAN_APPCTX = "jguiraffe.applicationContext";
 
     /** Constant for the range of the progress bar. */
     private static final float MAX_PROGRESS_VALUE = 100;
@@ -103,6 +109,9 @@ public class SyncControllerImpl implements WindowListener, SyncController,
 
     /** The format pattern for the status line. */
     private String fmtStatus;
+
+    /** The status text for a complete sync operation. */
+    private String statusFinished;
 
     /** The number of songs to be synchronized. */
     private int songCount;
@@ -407,6 +416,7 @@ public class SyncControllerImpl implements WindowListener, SyncController,
             public void run()
             {
                 updateButtonStatesForSyncEnd();
+                updateStaticText(LAB_STATUS, getStatusFinished());
             }
         });
     }
@@ -414,9 +424,12 @@ public class SyncControllerImpl implements WindowListener, SyncController,
     /**
      * The synchronization of a song failed. This implementation updates the UI
      * correspondingly.
+     *
+     * @param song the song object affected
+     * @param ex the exception that occurred
      */
     @Override
-    public void failedSongSync(SongData song)
+    public void failedSongSync(SongData song, Throwable ex)
     {
         getSynchronizer().asyncInvoke(new Runnable()
         {
@@ -429,6 +442,17 @@ public class SyncControllerImpl implements WindowListener, SyncController,
                 updateProgressBar();
             }
         });
+    }
+
+    /**
+     * OAuth authorization failed. This will abort the whole sync operation.
+     *
+     * @param data the current song data object
+     */
+    @Override
+    public void authorizationFailed(SongData data)
+    {
+        setCanceled(true);
     }
 
     /**
@@ -605,6 +629,16 @@ public class SyncControllerImpl implements WindowListener, SyncController,
     }
 
     /**
+     * Returns the status text of a finished sync operation.
+     *
+     * @return the status text to be set when the sync operation is complete
+     */
+    String getStatusFinished()
+    {
+        return statusFinished;
+    }
+
+    /**
      * Initializes some internal fields from resources.
      */
     private void initResourceTexts()
@@ -613,6 +647,7 @@ public class SyncControllerImpl implements WindowListener, SyncController,
         fmtErrors = appCtx.getResourceText(RES_FMT_ERRORS);
         fmtNewObjects = appCtx.getResourceText(RES_FMT_NEWOBJECTS);
         fmtStatus = appCtx.getResourceText(RES_FMT_STATUS);
+        statusFinished = appCtx.getResourceText(RES_STATUS_FINISHED);
     }
 
     /**
@@ -623,8 +658,8 @@ public class SyncControllerImpl implements WindowListener, SyncController,
      */
     private ApplicationContext fetchApplicationContext()
     {
-        return getComponentBuilderData().getBeanContext().getBean(
-                ApplicationContext.class);
+        return (ApplicationContext) getComponentBuilderData().getBeanContext()
+                .getBean(BEAN_APPCTX);
     }
 
     /**

@@ -66,6 +66,9 @@ public class TestSyncControllerImpl
     /** Constant for a song name. */
     private static final String SONG_NAME = "Shaddow on the wall";
 
+    /** Constant for the finished status text. */
+    private static final String FINISHED = "Done!";
+
     /** Constant for the step size for the progress bar. */
     private static final int STEP = 2;
 
@@ -151,7 +154,7 @@ public class TestSyncControllerImpl
         ApplicationContext appCtx =
                 EasyMock.createMock(ApplicationContext.class);
         Window window = EasyMock.createMock(Window.class);
-        EasyMock.expect(bc.getBean(ApplicationContext.class)).andReturn(appCtx);
+        EasyMock.expect(bc.getBean("jguiraffe.applicationContext")).andReturn(appCtx);
         EasyMock.expect(
                 appCtx.getResourceText(SyncControllerImpl.RES_FMT_ERRORS))
                 .andReturn(FMT_ERRORS);
@@ -161,6 +164,9 @@ public class TestSyncControllerImpl
         EasyMock.expect(
                 appCtx.getResourceText(SyncControllerImpl.RES_FMT_STATUS))
                 .andReturn(FMT_STATUS);
+        EasyMock.expect(
+                appCtx.getResourceText(SyncControllerImpl.RES_STATUS_FINISHED))
+                .andReturn(FINISHED);
         SyncControllerImpl ctrl =
                 new SyncControllerImpl(store, callback, MAX_SONGS);
         store.syncWithServer(ctrl, ctrl, MAX_SONGS);
@@ -176,6 +182,8 @@ public class TestSyncControllerImpl
                 ctrl.getFmtPatternNewObjects());
         assertEquals("Wrong status pattern", FMT_STATUS,
                 ctrl.getFmtPatternStatus());
+        assertEquals("Wrong finished status", FINISHED,
+                ctrl.getStatusFinished());
         EasyMock.verify(bc, appCtx, window, store, callback);
     }
 
@@ -314,13 +322,26 @@ public class TestSyncControllerImpl
         ctrl.setProgressBar(progr);
         ctrl.startSynchronization(MAX_SONGS);
         SongData data = factory.createSongData();
-        ctrl.failedSongSync(data);
-        ctrl.failedSongSync(data);
+        ctrl.failedSongSync(data, new RuntimeException("TestEx1"));
+        ctrl.failedSongSync(data, new RuntimeException("TestEx2"));
         sync.execute(2);
         assertEquals("Wrong number of synchronized songs", 2,
                 ctrl.getSyncCount());
         assertEquals("Wrong number of errors", 2, ctrl.getErrorCount());
         EasyMock.verify(thStatus, thErrors, progr, store, callback);
+    }
+
+    /**
+     * Tests whether a failed OAuth authorization is correctly handled.
+     */
+    @Test
+    public void testAuthorizationFailed()
+    {
+        SongData data = factory.createSongData();
+        SyncControllerImpl ctrl =
+                new SyncControllerImpl(store, callback, MAX_SONGS);
+        ctrl.authorizationFailed(data);
+        assertTrue("Not canceled", ctrl.isCanceled());
     }
 
     /**
@@ -334,14 +355,18 @@ public class TestSyncControllerImpl
                 EasyMock.createMock(ComponentHandler.class);
         ComponentHandler<?> chClose =
                 EasyMock.createMock(ComponentHandler.class);
+        StaticTextHandler thStatus =
+                EasyMock.createMock(StaticTextHandler.class);
         chCancel.setEnabled(false);
         chClose.setEnabled(true);
-        EasyMock.replay(chCancel, chClose, store, callback);
+        thStatus.setText(FINISHED);
+        EasyMock.replay(chCancel, chClose, thStatus, store, callback);
         GUISynchronizerTestImpl sync = new GUISynchronizerTestImpl();
         Map<String, ComponentHandler<?>> handlers =
                 new HashMap<String, ComponentHandler<?>>();
         handlers.put(SyncControllerImpl.BTN_CANCEL, chCancel);
         handlers.put(SyncControllerImpl.BTN_CLOSE, chClose);
+        handlers.put(SyncControllerImpl.LAB_STATUS, thStatus);
         ComponentBuilderDataTestImpl cbd =
                 new ComponentBuilderDataTestImpl(handlers, null);
         SyncControllerTestImpl ctrl =
@@ -350,7 +375,7 @@ public class TestSyncControllerImpl
         ctrl.setComponentBuilderData(cbd);
         ctrl.endSynchronization();
         sync.execute(1);
-        EasyMock.verify(chCancel, chClose, store, callback);
+        EasyMock.verify(chCancel, chClose, thStatus, store, callback);
     }
 
     /**
@@ -449,7 +474,8 @@ public class TestSyncControllerImpl
         ApplicationContext appCtx =
                 EasyMock.createMock(ApplicationContext.class);
         BeanContext bc = EasyMock.createMock(BeanContext.class);
-        EasyMock.expect(bc.getBean(ApplicationContext.class)).andReturn(appCtx);
+        EasyMock.expect(bc.getBean("jguiraffe.applicationContext")).andReturn(
+                appCtx);
         final String errText = "Error!!";
         EasyMock.expect(
                 appCtx.getResourceText(SyncControllerImpl.RES_ERR_STATUS))
@@ -711,6 +737,15 @@ public class TestSyncControllerImpl
         String getFmtPatternStatus()
         {
             return FMT_STATUS;
+        }
+
+        /**
+         * Returns the test string.
+         */
+        @Override
+        String getStatusFinished()
+        {
+            return FINISHED;
         }
     }
 }
