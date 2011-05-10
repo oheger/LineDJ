@@ -556,6 +556,19 @@ public class TestSyncSongCommand
     }
 
     /**
+     * Tests whether the inception year 0 is correctly handled. (This year may
+     * occur in legacy data.)
+     */
+    @Test
+    public void testCreateSongDataInceptionYear0()
+    {
+        song.setInceptionYear(0);
+        SyncSongCommand cmd = createTestCommand();
+        SongData data = cmd.fetchSongData();
+        assertNull("Got an inception year", data.getInceptionYear());
+    }
+
+    /**
      * A test implementation for testing whether sync requests are correctly
      * handled.
      */

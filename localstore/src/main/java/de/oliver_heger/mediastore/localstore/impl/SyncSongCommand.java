@@ -216,6 +216,7 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     {
         SongData data = factory.createSongData();
         DTOTransformer.transform(getSong(), data);
+        handleYear0(data);
 
         data.setPlayCount(getSong().getCurrentPlayCount());
         if (getSong().getDuration() != null)
@@ -353,5 +354,21 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
     UniformInterface prepareResource(WebResource resource, String path)
     {
         return resource.path(path).accept(MediaType.APPLICATION_XML);
+    }
+
+    /**
+     * Handles the special year 0. For legacy data an undefined year may have
+     * the value 0. In this case the resulting {@code SongData} object must have
+     * a <b>null</b> inception year.
+     *
+     * @param data the current song data object
+     */
+    private void handleYear0(SongData data)
+    {
+        if (data.getInceptionYear() != null
+                && data.getInceptionYear().intValue() == 0)
+        {
+            data.setInceptionYear(null);
+        }
     }
 }
