@@ -419,6 +419,10 @@ public class TestMediaSyncServiceImpl
         assertFalse("Imported", result.imported());
         assertEquals("Wrong key", expSong.getId(),
                 KeyFactory.stringToKey(result.getKey()));
+        SongEntity song2 =
+                helper.getEM().find(SongEntity.class, expSong.getId());
+        assertEquals("Play count not increased", data.getPlayCount(),
+                song2.getPlayCount());
     }
 
     /**

@@ -303,6 +303,10 @@ public class MediaSyncServiceImpl implements MediaSyncService
             em.persist(syncSong);
             em.flush();
         }
+        else
+        {
+            syncSong.setPlayCount(syncSong.getPlayCount() + data.getPlayCount());
+        }
 
         return new SyncResultImpl<String>(KeyFactory.keyToString(syncSong
                 .getId()), add);
