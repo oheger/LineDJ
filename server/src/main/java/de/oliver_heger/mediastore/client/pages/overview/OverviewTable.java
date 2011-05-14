@@ -63,6 +63,10 @@ public class OverviewTable extends Composite implements SearchResultView
     @UiField
     Button btnSearch;
 
+    /** The refresh button. */
+    @UiField
+    PushButton btnRefresh;
+
     /** The table with the search results. */
     @UiField
     FlexTable table;
@@ -87,6 +91,9 @@ public class OverviewTable extends Composite implements SearchResultView
 
     /** A list with the single element handlers registered at this table. */
     private final List<SingleElementHandler> singleHandlers;
+
+    /** Stores the search parameters of the latest search request. */
+    private MediaSearchParameters latestSearchParameters;
 
     /**
      * Creates a new instance of {@code OverviewTable} and initializes the UI of
@@ -190,6 +197,7 @@ public class OverviewTable extends Composite implements SearchResultView
     {
         pnlError.clearError();
         pnlSearchProgress.setVisible(false);
+        enableUIDuringSearch(true);
     }
 
     /**
@@ -205,6 +213,7 @@ public class OverviewTable extends Composite implements SearchResultView
         pnlSearchProgress.setVisible(false);
         table.setVisible(false);
         pnlError.displayError(err);
+        enableUIDuringSearch(true);
     }
 
     /**
@@ -215,7 +224,23 @@ public class OverviewTable extends Composite implements SearchResultView
     @UiHandler("btnSearch")
     void handleSearchClick(ClickEvent e)
     {
-        handleSearchRequest();
+        handleSearchRequest(createSearchParameters());
+    }
+
+    /**
+     * Reacts on a click of the refresh button. A refresh causes a search with
+     * the latest search parameters to be started again.
+     *
+     * @param e the click event
+     */
+    @UiHandler("btnRefresh")
+    void handleRefreshClick(ClickEvent e)
+    {
+        MediaSearchParameters params = getLatestSearchParameters();
+        if (params != null)
+        {
+            handleSearchRequest(params);
+        }
     }
 
     /**
@@ -231,22 +256,49 @@ public class OverviewTable extends Composite implements SearchResultView
     }
 
     /**
+     * Enables or disables UI controls whose state is influenced by a running
+     * search operation. This method is called before and after a search
+     * operation to update affected controls.
+     *
+     * @param enabled a flag whether the controls should be enabled or disabled
+     */
+    void enableUIDuringSearch(boolean enabled)
+    {
+        btnSearch.setEnabled(enabled);
+        btnRefresh.setEnabled(enabled);
+    }
+
+    /**
+     * Returns the parameters object that was used for the latest search
+     * request. This object is required for instance for performing a refresh.
+     *
+     * @return the latest search parameters
+     */
+    MediaSearchParameters getLatestSearchParameters()
+    {
+        return latestSearchParameters;
+    }
+
+    /**
      * Handles a search request. This method is called when the user triggers an
      * action which causes a new search to be performed. It updates the UI and
      * notifies the search listener.
+     *
+     * @param params the object with search parameters
      */
-    private void handleSearchRequest()
+    private void handleSearchRequest(MediaSearchParameters params)
     {
         table.removeAllRows();
         table.setVisible(true);
         labResultCount.setVisible(false);
         pnlError.clearError();
         pnlSearchProgress.setVisible(true);
+        enableUIDuringSearch(false);
+        latestSearchParameters = params;
 
         SearchListener l = getSearchListener();
         if (l != null)
         {
-            MediaSearchParameters params = createSearchParameters();
             l.searchRequest(this, params);
         }
     }
@@ -326,14 +378,15 @@ public class OverviewTable extends Composite implements SearchResultView
             Iterator<ImageResource> images = singleHandlerImages.iterator();
             for (final SingleElementHandler h : singleHandlers)
             {
-                panel.add(new PushButton(new Image(images.next()), new ClickHandler()
-                {
-                    @Override
-                    public void onClick(ClickEvent event)
-                    {
-                        h.handleElement(elemID);
-                    }
-                }));
+                panel.add(new PushButton(new Image(images.next()),
+                        new ClickHandler()
+                        {
+                            @Override
+                            public void onClick(ClickEvent event)
+                            {
+                                h.handleElement(elemID);
+                            }
+                        }));
             }
 
             table.setWidget(row, col, panel);

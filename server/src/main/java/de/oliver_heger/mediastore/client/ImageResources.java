@@ -28,6 +28,13 @@ public interface ImageResources extends ClientBundle
     ImageResource viewDetails();
 
     /**
+     * Returns the refresh icon.
+     *
+     * @return the refresh icon
+     */
+    ImageResource viewRefresh();
+
+    /**
      * Returns the icon representing ascending sort order.
      *
      * @return the icon for ascending sort order

@@ -69,7 +69,8 @@ public class GwtTestOverviewTable extends GWTTestCase
     {
         OverviewTable table = new OverviewTable();
         assertNotNull("No table", table.table);
-        assertNotNull("No button", table.btnSearch);
+        assertNotNull("No search button", table.btnSearch);
+        assertNotNull("No refresh button", table.btnRefresh);
         assertNotNull("No text field", table.txtSearch);
         assertNotNull("No progress panel", table.pnlSearchProgress);
         assertNotNull("No result count label", table.labResultCount);
@@ -95,6 +96,7 @@ public class GwtTestOverviewTable extends GWTTestCase
         assertTrue("Progress panel not visible",
                 table.pnlSearchProgress.isVisible());
         assertFalse("In error state", table.pnlError.isInErrorState());
+        assertFalse("Search button enabled", table.btnSearch.isEnabled());
     }
 
     /**
@@ -110,6 +112,8 @@ public class GwtTestOverviewTable extends GWTTestCase
         table.handleSearchClick(null);
         MediaSearchParameters params = listener.nextParameters();
         assertEquals("Wrong search text", SEARCH_TEXT, params.getSearchText());
+        assertSame("Wrong latest parameters", params,
+                table.getLatestSearchParameters());
         listener.verify();
     }
 
@@ -125,6 +129,37 @@ public class GwtTestOverviewTable extends GWTTestCase
         table.handleSearchClick(null);
         MediaSearchParameters params = listener.nextParameters();
         assertNull("Got a search text", params.getSearchText());
+        listener.verify();
+    }
+
+    /**
+     * Tests whether the refresh button is correctly handled.
+     */
+    public void testHandleRefreshClick()
+    {
+        OverviewTable table = new OverviewTable();
+        table.txtSearch.setText(SEARCH_TEXT);
+        table.handleSearchClick(null);
+        SearchListenerTestImpl listener = new SearchListenerTestImpl(table);
+        table.setSearchListener(listener);
+        table.txtSearch.setText("a completely different text!");
+        table.handleRefreshClick(null);
+        MediaSearchParameters params = listener.nextParameters();
+        assertEquals("Wrong search text", SEARCH_TEXT, params.getSearchText());
+        listener.verify();
+    }
+
+    /**
+     * Tests whether a refresh click is ignored if there are no latest search
+     * parameters. (Note: in practice this should not happen, so this is just a
+     * paranoia check.)
+     */
+    public void testHandleRefreshClickNoLatestParameters()
+    {
+        OverviewTable table = new OverviewTable();
+        SearchListenerTestImpl listener = new SearchListenerTestImpl(table);
+        table.setSearchListener(listener);
+        table.handleRefreshClick(null);
         listener.verify();
     }
 
@@ -195,6 +230,7 @@ public class GwtTestOverviewTable extends GWTTestCase
         OverviewTable table = new OverviewTable();
         table.pnlSearchProgress.setVisible(true);
         table.table.setVisible(true);
+        table.btnSearch.setEnabled(false);
         Throwable t = new RuntimeException();
         table.onFailure(t, null);
         assertTrue("Error panel not visible", table.pnlError.isVisible());
@@ -203,6 +239,7 @@ public class GwtTestOverviewTable extends GWTTestCase
         assertFalse("Table still visible", table.table.isVisible());
         assertTrue("Not in error state", table.pnlError.isInErrorState());
         assertEquals("Wrong error", t, table.pnlError.getError());
+        assertTrue("Search button not enabled", table.btnSearch.isEnabled());
     }
 
     /**
@@ -214,10 +251,23 @@ public class GwtTestOverviewTable extends GWTTestCase
         OverviewTable table = new OverviewTable();
         table.pnlError.displayError(new RuntimeException());
         table.pnlSearchProgress.setVisible(true);
+        table.btnSearch.setEnabled(false);
         table.searchComplete(null, null, false);
         assertFalse("In error state", table.pnlError.isInErrorState());
         assertFalse("Progress panel visible",
                 table.pnlSearchProgress.isVisible());
+        assertTrue("Search button not enabled", table.btnSearch.isEnabled());
+    }
+
+    /**
+     * Tests whether the correct set of controls is disabled during a search operation.
+     */
+    public void testEnableUIDuringSearch()
+    {
+        OverviewTable table = new OverviewTable();
+        table.enableUIDuringSearch(false);
+        assertFalse("Search button not disabled", table.btnSearch.isEnabled());
+        assertFalse("Refresh button not disabled", table.btnRefresh.isEnabled());
     }
 
     /**

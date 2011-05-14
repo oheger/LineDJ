@@ -17,6 +17,12 @@
           <td>Search:</td>
           <td><g:TextBox ui:field="txtSearch"></g:TextBox></td>
           <td><g:Button ui:field="btnSearch" text="Find"></g:Button></td>
+          <td>
+            <g:PushButton ui:field="btnRefresh">
+              <g:upFace image="{images.viewRefresh}">
+              </g:upFace>
+            </g:PushButton>
+          </td>
         </tr>
         </table>
       </g:HTMLPanel>
