@@ -20,13 +20,19 @@ public interface BasicMediaServiceAsync
     void updateArtistSynonyms(long artistID, SynonymUpdateData updateData,
             AsyncCallback<Void> callback);
 
+    void removeArtist(long artistID, AsyncCallback<Boolean> callback);
+
     void fetchSongDetails(String songID, AsyncCallback<SongDetailInfo> callback);
 
     void updateSongSynonyms(String songID, SynonymUpdateData updateData,
             AsyncCallback<Void> callback);
 
+    void removeSong(String songID, AsyncCallback<Boolean> callback);
+
     void fetchAlbumDetails(long albumID, AsyncCallback<AlbumDetailInfo> callback);
 
     void updateAlbumSynonyms(long albumID, SynonymUpdateData updateData,
             AsyncCallback<Void> callback);
+
+    void removeAlbum(long albumID, AsyncCallback<Boolean> callback);
 }

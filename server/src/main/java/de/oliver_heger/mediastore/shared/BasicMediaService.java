@@ -54,6 +54,18 @@ public interface BasicMediaService extends RemoteService
     void updateArtistSynonyms(long artistID, SynonymUpdateData updateData);
 
     /**
+     * Removes the artist with the specified ID. If there are songs referencing
+     * this artist, this reference is cleared so that the songs do not belong to
+     * any artist after the operation.
+     *
+     * @param artistID the ID of the artist to be removed
+     * @return a flag whether the artist was removed successfully
+     * @throws IllegalStateException if the artist does not belong to the
+     *         current user
+     */
+    boolean removeArtist(long artistID);
+
+    /**
      * Returns a data object with detail information for the specified song.
      * This object contains all information available about this song. It can be
      * used for instance to populate a details page.
@@ -84,6 +96,17 @@ public interface BasicMediaService extends RemoteService
     void updateSongSynonyms(String songID, SynonymUpdateData updateData);
 
     /**
+     * Removes the song with the specified ID. All dependent objects like
+     * synonyms are removed, too.
+     *
+     * @param songID the ID of the song to be removed
+     * @return a flag whether the song could be removed successfully
+     * @throws IllegalStateException if the song does not belong to the current
+     *         user
+     */
+    boolean removeSong(String songID);
+
+    /**
      * Returns a data object with detail information for the specified album.
      * This object can be used to populate a detail page about this album.
      *
@@ -111,4 +134,15 @@ public interface BasicMediaService extends RemoteService
      * @throws NullPointerException if the update data object is <b>null</b>
      */
     void updateAlbumSynonyms(long albumID, SynonymUpdateData updateData);
+
+    /**
+     * Removes the album with the specified ID. If there are songs referencing
+     * this album, they do not point to any album after the operation.
+     *
+     * @param albumID the ID of the album to be removed
+     * @return a flag whether the album was removed successfully
+     * @throws IllegalStateException if the album does not belong to the current
+     *         user
+     */
+    boolean removeAlbum(long albumID);
 }

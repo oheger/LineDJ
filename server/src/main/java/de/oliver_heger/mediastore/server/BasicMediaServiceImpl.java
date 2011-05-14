@@ -205,6 +205,124 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
+     * Removes the artist with the specified ID. All dependent objects are
+     * handled, too.
+     *
+     * @param artistID the ID of the artist to be removed
+     * @return a flag whether the artist could be removed successfully
+     * @throws IllegalStateException if the artist does not belong to the
+     *         current user
+     */
+    @Override
+    public boolean removeArtist(final long artistID)
+    {
+        try
+        {
+            moveArtistSongs(null, Collections.singleton(Long.valueOf(artistID)));
+        }
+        catch (EntityNotFoundException enfex)
+        {
+            return false;
+        }
+
+        JPATemplate<Boolean> templ = new JPATemplate<Boolean>()
+        {
+            @Override
+            protected Boolean performOperation(EntityManager em)
+            {
+                ArtistEntity artist = em.find(ArtistEntity.class, artistID);
+                if (artist != null)
+                {
+                    checkUser(artist.getUser());
+                    em.remove(artist);
+                    return Boolean.TRUE;
+                }
+                else
+                {
+                    return Boolean.FALSE;
+                }
+            }
+        };
+        return templ.execute();
+    }
+
+    /**
+     * Removes the album with the specified ID. All dependent objects are
+     * handled, too.
+     *
+     * @param albumID the ID of the album to be removed
+     * @return a flag whether the album could be removed successfully
+     * @throws IllegalStateException if the album does not belong to the current
+     *         user
+     */
+    @Override
+    public boolean removeAlbum(final long albumID)
+    {
+        try
+        {
+            moveAlbumSongs(null, Collections.singleton(Long.valueOf(albumID)));
+        }
+        catch (EntityNotFoundException enfex)
+        {
+            return false;
+        }
+
+        JPATemplate<Boolean> templ = new JPATemplate<Boolean>()
+        {
+            @Override
+            protected Boolean performOperation(EntityManager em)
+            {
+                AlbumEntity album = em.find(AlbumEntity.class, albumID);
+                if (album != null)
+                {
+                    checkUser(album.getUser());
+                    em.remove(album);
+                    return Boolean.TRUE;
+                }
+                else
+                {
+                    return Boolean.FALSE;
+                }
+            }
+        };
+        return templ.execute();
+    }
+
+    /**
+     * Removes the song with the specified ID including its synonyms.
+     *
+     * @param songID the ID of the song to be removed
+     * @return a flag whether the song could be removed successfully
+     * @throws IllegalStateException if the song does not belong to the current
+     *         user
+     */
+    @Override
+    public boolean removeSong(final String songID)
+    {
+        JPATemplate<Boolean> templ = new JPATemplate<Boolean>()
+        {
+            @Override
+            protected Boolean performOperation(EntityManager em)
+            {
+                SongEntity song =
+                        em.find(SongEntity.class,
+                                KeyFactory.stringToKey(songID));
+                if (song != null)
+                {
+                    checkUser(song.getUser());
+                    em.remove(song);
+                    return Boolean.TRUE;
+                }
+                else
+                {
+                    return Boolean.FALSE;
+                }
+            }
+        };
+        return templ.execute();
+    }
+
+    /**
      * Creates a detail info object for an artist entity.
      *
      * @param em the entity manager
@@ -328,7 +446,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      *        if artists are to be removed)
      * @param srcIDs a collection with the IDs of the source artists
      */
-    private void moveArtistSongs(final long artistID,
+    private void moveArtistSongs(final Long artistID,
             final Collection<Long> srcIDs)
     {
         JPATemplate<Void> templ = new JPATemplate<Void>(false)
@@ -339,6 +457,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                 findAndCheckArtist(em, artistID);
                 for (Long synArtID : srcIDs)
                 {
+                    findAndCheckArtist(em, synArtID);
                     SongEntity.updateArtistID(em, artistID, synArtID);
                 }
                 return null;
@@ -360,6 +479,10 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      */
     private ArtistEntity findAndCheckArtist(EntityManager em, Long artistID)
     {
+        if (artistID == null)
+        {
+            return null;
+        }
         ArtistEntity e = find(em, ArtistEntity.class, artistID);
         checkUser(e.getUser());
         return e;
@@ -397,6 +520,10 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      */
     private AlbumEntity findAndCheckAlbum(EntityManager em, Long albumID)
     {
+        if (albumID == null)
+        {
+            return null;
+        }
         AlbumEntity album = find(em, AlbumEntity.class, albumID);
         checkUser(album.getUser());
         return album;
@@ -460,23 +587,6 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     }
 
     /**
-     * Transfers data from one song to another one. This method is called when a
-     * song entity is to be merged with another one. It is also used for
-     * deleting a song entity - in this case the destination entity is
-     * <b>null</b>.
-     *
-     * @param em the entity manager
-     * @param dest the destination entity
-     * @param src the source entity
-     */
-    private void transferSongData(EntityManager em, SongEntity dest,
-            SongEntity src)
-    {
-        // TODO handle null destination
-        copySongSynonyms(dest, src);
-    }
-
-    /**
      * Adds song entities as synonyms to the specified song entity. With this
      * method the entities declared as synonyms are merged with the current
      * song. After that they are removed.
@@ -491,7 +601,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         for (String songID : synonymIDs)
         {
             SongEntity synSong = findAndCheckSong(em, songID);
-            transferSongData(em, song, synSong);
+            copySongSynonyms(song, synSong);
             em.remove(synSong);
         }
     }
@@ -620,7 +730,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
      *        albums are to be removed)
      * @param srcIDs a collection with the IDs of the source albums
      */
-    private void moveAlbumSongs(final long albumID,
+    private void moveAlbumSongs(final Long albumID,
             final Collection<Long> srcIDs)
     {
         JPATemplate<Void> templ = new JPATemplate<Void>(false)
@@ -631,6 +741,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
                 findAndCheckAlbum(em, albumID);
                 for (Long synAlbID : srcIDs)
                 {
+                    findAndCheckAlbum(em, synAlbID);
                     SongEntity.updateAlbumID(em, albumID, synAlbID);
                 }
                 return null;

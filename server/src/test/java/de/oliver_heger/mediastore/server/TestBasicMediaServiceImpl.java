@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.server;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -21,6 +22,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
@@ -1007,5 +1009,281 @@ public class TestBasicMediaServiceImpl
                 Finders.findSongsByAlbum(helper.getEM(), a1).isEmpty());
         assertEquals("Wrong song count", songCount,
                 Finders.findSongsByAlbum(helper.getEM(), album).size());
+    }
+
+    /**
+     * Tests whether a non existing album can be removed.
+     */
+    @Test
+    public void testRemoveAlbumNotExisting()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        long albumID = album.getId().longValue();
+        helper.begin();
+        album = helper.getEM().merge(album);
+        helper.getEM().remove(album);
+        helper.commit();
+        assertFalse("Wrong result", service.removeAlbum(albumID));
+    }
+
+    /**
+     * Tests whether an album without related objects can be removed.
+     */
+    @Test
+    public void testRemoveAlbumSimple()
+    {
+        AlbumEntity album = createBasicAlbum();
+        helper.persist(album);
+        AlbumEntity a2 = createBasicAlbum();
+        a2.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(a2);
+        assertTrue("Wrong result",
+                service.removeAlbum(album.getId().longValue()));
+        assertNull("Album still found",
+                helper.getEM().find(AlbumEntity.class, album.getId()));
+        assertNotNull("Other album removed",
+                helper.getEM().find(AlbumEntity.class, a2.getId()));
+    }
+
+    /**
+     * Tests whether an album can be removed which has references to other
+     * entities.
+     */
+    @Test
+    public void testRemoveAlbumWithReferences()
+    {
+        AlbumEntity album = createBasicAlbum();
+        appendAlbumSynonyms(album);
+        helper.persist(album);
+        Set<String> songNames = createTestSongs(42, null, album);
+        assertTrue("Wrong result", service.removeAlbum(album.getId()));
+        helper.closeEM();
+        List<?> syns =
+                helper.getEM().createQuery("select s from AlbumSynonym s")
+                        .getResultList();
+        assertTrue("Still got synonyms", syns.isEmpty());
+        List<SongEntity> songs = loadAllSongs();
+        assertEquals("Wrong number of songs", songNames.size(), songs.size());
+        for (SongEntity song : songs)
+        {
+            assertTrue("Unexpected song name: " + song,
+                    songNames.remove(song.getName()));
+            assertNull("Still got an album ID", song.getAlbumID());
+        }
+    }
+
+    /**
+     * Helper method for loading all songs in the database.
+     *
+     * @return the list with all songs
+     */
+    private List<SongEntity> loadAllSongs()
+    {
+        @SuppressWarnings("unchecked")
+        List<SongEntity> songs =
+                helper.getEM().createQuery("select s from SongEntity s")
+                        .getResultList();
+        return songs;
+    }
+
+    /**
+     * Tests that an album of a different user cannot be removed.
+     */
+    @Test
+    public void testRemoveAlbumWrongUser()
+    {
+        AlbumEntity album = createBasicAlbum();
+        album.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(album);
+        Set<String> songNames = createTestSongs(10, null, album);
+        try
+        {
+            service.removeAlbum(album.getId());
+            fail("Could remove album of other user!");
+        }
+        catch (IllegalStateException istex)
+        {
+            // ok
+        }
+        List<SongEntity> songs =
+                Finders.findSongsByAlbum(helper.getEM(), album);
+        assertEquals("Songs have been removed", songNames.size(), songs.size());
+    }
+
+    /**
+     * Tests whether a non existing artist can be removed.
+     */
+    @Test
+    public void testRemoveArtistNotExisting()
+    {
+        ArtistEntity artist = createBasicArtist();
+        helper.persist(artist);
+        long artistID = artist.getId().longValue();
+        helper.begin();
+        artist = helper.getEM().merge(artist);
+        helper.getEM().remove(artist);
+        helper.commit();
+        assertFalse("Wrong result", service.removeArtist(artistID));
+    }
+
+    /**
+     * Tests whether an artist without related objects can be removed.
+     */
+    @Test
+    public void testRemoveArtistSimple()
+    {
+        ArtistEntity artist = createBasicArtist();
+        helper.persist(artist);
+        ArtistEntity a2 = createBasicArtist();
+        a2.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(a2);
+        assertTrue("Wrong result",
+                service.removeArtist(artist.getId().longValue()));
+        assertNull("Artist still found",
+                helper.getEM().find(ArtistEntity.class, artist.getId()));
+        assertNotNull("Other artist removed",
+                helper.getEM().find(ArtistEntity.class, a2.getId()));
+    }
+
+    /**
+     * Tests whether an artist can be removed which has references to other
+     * entities.
+     */
+    @Test
+    public void testRemoveArtistWithReferences()
+    {
+        ArtistEntity artist = createBasicArtist();
+        appendArtistSynonyms(artist);
+        helper.persist(artist);
+        Set<String> songNames = createTestSongs(32, artist, null);
+        assertTrue("Wrong result", service.removeArtist(artist.getId()));
+        helper.closeEM();
+        List<?> syns =
+                helper.getEM().createQuery("select s from ArtistSynonym s")
+                        .getResultList();
+        assertTrue("Still got synonyms", syns.isEmpty());
+        List<SongEntity> songs = loadAllSongs();
+        assertEquals("Wrong number of songs", songNames.size(), songs.size());
+        for (SongEntity song : songs)
+        {
+            assertTrue("Unexpected song name: " + song,
+                    songNames.remove(song.getName()));
+            assertNull("Still got an artist ID", song.getArtistID());
+        }
+    }
+
+    /**
+     * Tests that an artist of a different user cannot be removed.
+     */
+    @Test
+    public void testRemoveArtistWrongUser()
+    {
+        ArtistEntity artist = createBasicArtist();
+        artist.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(artist);
+        Set<String> songNames = createTestSongs(8, artist, null);
+        try
+        {
+            service.removeArtist(artist.getId());
+            fail("Could remove artist of other user!");
+        }
+        catch (IllegalStateException istex)
+        {
+            // ok
+        }
+        List<SongEntity> songs =
+                Finders.findSongsByArtist(helper.getEM(), artist);
+        assertEquals("Songs have been removed", songNames.size(), songs.size());
+    }
+
+    /**
+     * Tests whether a non existing song can be removed.
+     */
+    @Test
+    public void testRemoveSongNotExisting()
+    {
+        SongEntity song = createTestSong(false);
+        helper.persist(song);
+        Key songID = song.getId();
+        helper.begin();
+        song = helper.getEM().merge(song);
+        helper.getEM().remove(song);
+        helper.commit();
+        assertFalse("Wrong result",
+                service.removeSong(KeyFactory.keyToString(songID)));
+    }
+
+    /**
+     * Helper method for testing whether a song can be removed.
+     *
+     * @param withSyns a flag whether synonyms should be involved
+     * @return the ID of the song used for testing
+     */
+    private void checkRemoveSong(boolean withSyns)
+    {
+        SongEntity song = createTestSong(withSyns);
+        helper.persist(song);
+        SongEntity song2 = createTestSong(false);
+        song2.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(song2);
+        helper.closeEM();
+        assertTrue("Wrong result",
+                service.removeSong(KeyFactory.keyToString(song.getId())));
+        assertNull("Song still found",
+                helper.getEM().find(SongEntity.class, song.getId()));
+        assertNotNull("Other song removed",
+                helper.getEM().find(SongEntity.class, song2.getId()));
+    }
+
+    /**
+     * Tests whether a song without references to other objects can be removed.
+     */
+    @Test
+    public void testRemoveSongSimple()
+    {
+        checkRemoveSong(false);
+    }
+
+    /**
+     * Tests whether a song with synonyms can be removed.
+     */
+    @Test
+    public void testRemoveSongWithSynonyms()
+    {
+        checkRemoveSong(true);
+        List<?> syns =
+                helper.getEM().createQuery("select s from SongSynonym s")
+                        .getResultList();
+        assertTrue("Still got synonyms", syns.isEmpty());
+    }
+
+    /**
+     * Tests that it is not allowed to remove a song from another user.
+     */
+    @Test
+    public void testRemoveSongWrongUser()
+    {
+        SongEntity song = createTestSong(true);
+        song.setUser(PersistenceTestHelper
+                .getUser(PersistenceTestHelper.OTHER_USER));
+        helper.persist(song);
+        helper.closeEM();
+        try
+        {
+            service.removeSong(KeyFactory.keyToString(song.getId()));
+            fail("Could remove song from other user!");
+        }
+        catch (IllegalStateException istex)
+        {
+            // ok
+        }
+        song = helper.getEM().find(SongEntity.class, song.getId());
+        assertFalse("No synonyms", song.getSynonyms().isEmpty());
     }
 }
