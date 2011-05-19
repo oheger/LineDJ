@@ -217,6 +217,19 @@ public class OverviewTable extends Composite implements SearchResultView
     }
 
     /**
+     * Reloads the data displayed in this table. This method can be called to
+     * make changes on the server-sided database visible.
+     */
+    public void refresh()
+    {
+        MediaSearchParameters params = getLatestSearchParameters();
+        if (params != null)
+        {
+            handleSearchRequest(params);
+        }
+    }
+
+    /**
      * Reacts on a click of the search button.
      *
      * @param e the click event
@@ -236,11 +249,7 @@ public class OverviewTable extends Composite implements SearchResultView
     @UiHandler("btnRefresh")
     void handleRefreshClick(ClickEvent e)
     {
-        MediaSearchParameters params = getLatestSearchParameters();
-        if (params != null)
-        {
-            handleSearchRequest(params);
-        }
+        refresh();
     }
 
     /**

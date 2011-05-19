@@ -133,9 +133,14 @@ public class GwtTestOverviewTable extends GWTTestCase
     }
 
     /**
-     * Tests whether the refresh button is correctly handled.
+     * Helper method for testing a refresh operation. The boolean parameter
+     * determines whether the refresh() method should be called directly or a
+     * click on the refresh button should be simulated.
+     *
+     * @param button true for testing a button click, false for direct
+     *        invocation
      */
-    public void testHandleRefreshClick()
+    private void checkRefresh(boolean button)
     {
         OverviewTable table = new OverviewTable();
         table.txtSearch.setText(SEARCH_TEXT);
@@ -143,10 +148,33 @@ public class GwtTestOverviewTable extends GWTTestCase
         SearchListenerTestImpl listener = new SearchListenerTestImpl(table);
         table.setSearchListener(listener);
         table.txtSearch.setText("a completely different text!");
-        table.handleRefreshClick(null);
+        if (button)
+        {
+            table.handleRefreshClick(null);
+        }
+        else
+        {
+            table.refresh();
+        }
         MediaSearchParameters params = listener.nextParameters();
         assertEquals("Wrong search text", SEARCH_TEXT, params.getSearchText());
         listener.verify();
+    }
+
+    /**
+     * Tests the refresh() method.
+     */
+    public void testRefresh()
+    {
+        checkRefresh(false);
+    }
+
+    /**
+     * Tests whether the refresh button is correctly handled.
+     */
+    public void testHandleRefreshClick()
+    {
+        checkRefresh(true);
     }
 
     /**
