@@ -9,4 +9,5 @@ war
 remotemediastore.launch
 .classpath
 .project
+.gwt
 
