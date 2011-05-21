@@ -16,7 +16,6 @@ import com.google.gwt.event.dom.client.DomEvent;
 import com.google.gwt.event.dom.client.KeyCodes;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.Timer;
-import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.ListBox;
 
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
@@ -605,8 +604,6 @@ public class GwtTestSynonymEditor extends GWTTestCase
     public void testOnBtnSaveClickNewSynonyms()
     {
         SynonymEditor editor = new SynonymEditor();
-        TestDialogImpl dlg = new TestDialogImpl();
-        editor.editDlg = dlg;
         SynonymEditResultsProcessorTestImpl proc =
                 new SynonymEditResultsProcessorTestImpl();
         editor.setResultsProcessor(proc);
@@ -623,7 +620,7 @@ public class GwtTestSynonymEditor extends GWTTestCase
         select(editor.lstSearchSyns, true);
         editor.onBtnAddSearchSynClick(null);
         editor.onBtnSaveClick(null);
-        assertEquals("Wrong number of hide() calls", 1, dlg.getHideCount());
+        assertFalse("Dialog still showing", editor.editDlg.isShowing());
         assertTrue("Got removed synonyms", proc.getRemovedSynonyms().isEmpty());
         checkSet(proc.getAddedSynonyms(), "0", "1");
     }
@@ -655,14 +652,12 @@ public class GwtTestSynonymEditor extends GWTTestCase
     public void testOnBtnSaveClickNoChanges()
     {
         SynonymEditor editor = new SynonymEditor();
-        TestDialogImpl dlg = new TestDialogImpl();
-        editor.editDlg = dlg;
         SynonymEditResultsProcessorTestImpl proc =
                 new SynonymEditResultsProcessorTestImpl();
         editor.setResultsProcessor(proc);
         editor.onBtnSaveClick(null);
         assertNull("Processor was called", proc.getAddedSynonyms());
-        assertEquals("Wrong number of hide() calls", 1, dlg.getHideCount());
+        assertFalse("Dialog still showing", editor.editDlg.isShowing());
     }
 
     /**
@@ -671,14 +666,12 @@ public class GwtTestSynonymEditor extends GWTTestCase
     public void testOnBtnCancelClick()
     {
         SynonymEditor editor = new SynonymEditor();
-        TestDialogImpl dlg = new TestDialogImpl();
-        editor.editDlg = dlg;
         SynonymEditResultsProcessorTestImpl proc =
                 new SynonymEditResultsProcessorTestImpl();
         editor.setResultsProcessor(proc);
         editor.onBtnCancelClick(null);
         assertNull("Processor was called", proc.getAddedSynonyms());
-        assertEquals("Wrong number of hide() calls", 1, dlg.getHideCount());
+        assertFalse("Dialog still showing", editor.editDlg.isShowing());
     }
 
     /**
@@ -877,35 +870,6 @@ public class GwtTestSynonymEditor extends GWTTestCase
         {
             removedSynonyms = data.getRemoveSynonyms();
             addedSynonyms = data.getNewSynonymIDs();
-        }
-    }
-
-    /**
-     * A test dialog box implementation used for testing whether the hide()
-     * method was called.
-     */
-    private static class TestDialogImpl extends DialogBox
-    {
-        /** The number of invocations of the hide() method. */
-        private int hideCount;
-
-        /**
-         * Returns the number of invocations of the hide() method.
-         *
-         * @return the number of hide() calls
-         */
-        public int getHideCount()
-        {
-            return hideCount;
-        }
-
-        /**
-         * Records this invocation.
-         */
-        @Override
-        public void hide()
-        {
-            hideCount++;
         }
     }
 
