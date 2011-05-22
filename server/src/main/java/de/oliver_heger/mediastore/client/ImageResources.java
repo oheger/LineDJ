@@ -47,4 +47,11 @@ public interface ImageResources extends ClientBundle
      * @return the icon for descending sort order
      */
     ImageResource sortDown();
+
+    /**
+     * Returns the icon for removing an item.
+     *
+     * @return the remove icon
+     */
+    ImageResource removeItem();
 }

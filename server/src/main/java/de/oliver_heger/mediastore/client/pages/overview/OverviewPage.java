@@ -9,6 +9,7 @@ import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
@@ -16,6 +17,7 @@ import com.google.gwt.user.client.ui.Widget;
 import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 
 /**
@@ -165,7 +167,8 @@ public class OverviewPage extends Composite implements SearchListener
         overviewTables
                 .put(tabSongs, new OverviewData(createSongQueryHandler()));
         tabSongs.setSearchListener(this);
-        overviewTables.put(tabAlbums, new OverviewData(createAlbumQueryHandler()));
+        overviewTables.put(tabAlbums, new OverviewData(
+                createAlbumQueryHandler()));
         tabAlbums.setSearchListener(this);
         // TODO add further handlers
     }
@@ -184,6 +187,16 @@ public class OverviewPage extends Composite implements SearchListener
         tabAlbums.addSingleElementHandler(getImageResources().viewDetails(),
                 new OpenPageSingleElementHandler(getPageManager(),
                         Pages.ALBUMDETAILS));
+
+        tabArtists.addSingleElementHandler(getImageResources().removeItem(),
+                new RemoveSingleElementHandler(createRemoveArtistHandler(),
+                        tabArtists));
+        tabAlbums.addSingleElementHandler(getImageResources().removeItem(),
+                new RemoveSingleElementHandler(createRemoveAlbumHandler(),
+                        tabAlbums));
+        tabSongs.addSingleElementHandler(getImageResources().removeItem(),
+                new RemoveSingleElementHandler(createRemoveSongHandler(),
+                        tabSongs));
     }
 
     /**
@@ -233,6 +246,60 @@ public class OverviewPage extends Composite implements SearchListener
         {
             Window.alert("Could not initialize overview table at " + index);
         }
+    }
+
+    /**
+     * Creates a remove service handler for removing an artist.
+     *
+     * @return the handler
+     */
+    private RemoveServiceHandler createRemoveArtistHandler()
+    {
+        return new RemoveServiceHandler()
+        {
+            @Override
+            public void removeElement(BasicMediaServiceAsync service,
+                    Object elemID, AsyncCallback<Boolean> callback)
+            {
+                service.removeArtist((Long) elemID, callback);
+            }
+        };
+    }
+
+    /**
+     * Creates a remove service handler for removing an album.
+     *
+     * @return the handler
+     */
+    private RemoveServiceHandler createRemoveAlbumHandler()
+    {
+        return new RemoveServiceHandler()
+        {
+            @Override
+            public void removeElement(BasicMediaServiceAsync service,
+                    Object elemID, AsyncCallback<Boolean> callback)
+            {
+                service.removeAlbum((Long) elemID, callback);
+            }
+        };
+    }
+
+    /**
+     * Creates a remove service handler for removing a song.
+     *
+     * @return the handler
+     */
+    private RemoveServiceHandler createRemoveSongHandler()
+    {
+        return new RemoveServiceHandler()
+        {
+            @Override
+            public void removeElement(BasicMediaServiceAsync service,
+                    Object elemID, AsyncCallback<Boolean> callback)
+            {
+                service.removeSong(String.valueOf(elemID), callback);
+            }
+        };
     }
 
     /**
