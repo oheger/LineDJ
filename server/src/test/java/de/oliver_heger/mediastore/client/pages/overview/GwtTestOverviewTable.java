@@ -11,6 +11,7 @@ import com.google.gwt.dom.client.NativeEvent;
 import com.google.gwt.event.dom.client.DomEvent;
 import com.google.gwt.event.shared.HasHandlers;
 import com.google.gwt.junit.client.GWTTestCase;
+import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.CustomButton;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.HasWidgets;
@@ -214,19 +215,24 @@ public class GwtTestOverviewTable extends GWTTestCase
     {
         FlexTable ft = table.table;
         assertEquals("Wrong number of rows", rowCount + 1, ft.getRowCount());
-        assertEquals("Wrong number of columns", COL_COUNT, ft.getCellCount(0));
+        assertEquals("Wrong number of columns", COL_COUNT + 1,
+                ft.getCellCount(0));
+        assertEquals("Wrong header at 0", "", ft.getText(0, 0));
         for (int i = 0; i < COL_COUNT; i++)
         {
             assertEquals("Wrong header at " + i, COL_HEADER + i,
-                    ft.getText(0, i));
+                    ft.getText(0, i + 1));
         }
         for (int i = 0; i < rowCount; i++)
         {
             for (int j = 0; j < COL_COUNT; j++)
             {
                 assertEquals("Wrong cell data", generateCellData(i, j),
-                        ft.getText(i + 1, j));
+                        ft.getText(i + 1, j + 1));
             }
+            Widget widget = ft.getWidget(i + 1, 0);
+            assertEquals("Wrong checkbox widget", CheckBox.class,
+                    widget.getClass());
         }
         assertEquals("Wrong header style", "overviewTableHeader", ft
                 .getRowFormatter().getStyleName(0));
@@ -301,7 +307,8 @@ public class GwtTestOverviewTable extends GWTTestCase
     }
 
     /**
-     * Tests whether the correct set of controls is disabled during a search operation.
+     * Tests whether the correct set of controls is disabled during a search
+     * operation.
      */
     public void testEnableUIDuringSearch()
     {
@@ -350,6 +357,7 @@ public class GwtTestOverviewTable extends GWTTestCase
 
     /**
      * Helper method for adding some single element handlers to the table.
+     *
      * @param table the test table
      * @return an array with the handlers that have been added
      */

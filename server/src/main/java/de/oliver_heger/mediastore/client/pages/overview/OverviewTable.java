@@ -12,6 +12,7 @@ import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.ui.Button;
+import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.HorizontalPanel;
@@ -338,13 +339,28 @@ public class OverviewTable extends Composite implements SearchResultView
 
         for (int row = 0; row < data.getRowCount(); row++)
         {
+            addRowSelectionWidget(rowOffset + row);
             for (int col = 0; col < data.getColumnCount(); col++)
             {
-                table.setText(row + rowOffset, col, data.getValueAt(row, col));
+                table.setText(row + rowOffset, col + 1,
+                        data.getValueAt(row, col));
             }
             installSingleElementHandlers(data.getID(row), row + rowOffset,
                     data.getColumnCount());
         }
+    }
+
+    /**
+     * Adds a widget in the first column of a row that can be used for selecting
+     * the whole row. This method inserts a Checkbox control. Using these
+     * checkboxes the user can select multiple items and perform operations on
+     * them.
+     *
+     * @param row the index of the current row
+     */
+    private void addRowSelectionWidget(int row)
+    {
+        table.setWidget(row, 0, new CheckBox());
     }
 
     /**
@@ -368,7 +384,7 @@ public class OverviewTable extends Composite implements SearchResultView
     {
         for (int i = 0; i < data.getColumnCount(); i++)
         {
-            table.setText(0, i, data.getColumnName(i));
+            table.setText(0, i + 1, data.getColumnName(i));
         }
     }
 
