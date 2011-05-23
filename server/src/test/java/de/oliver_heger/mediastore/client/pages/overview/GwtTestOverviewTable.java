@@ -133,6 +133,17 @@ public class GwtTestOverviewTable extends GWTTestCase
     }
 
     /**
+     * Tests the default search parameters created by the table.
+     */
+    public void testCreateDefaultSearchParameters()
+    {
+        OverviewTable table = new OverviewTable();
+        MediaSearchParameters params = table.createDefaultSearchParameters();
+        assertNull("Got a search text", params.getSearchText());
+        assertEquals("Got an offset", 0, params.getFirstResult());
+    }
+
+    /**
      * Helper method for testing a refresh operation. The boolean parameter
      * determines whether the refresh() method should be called directly or a
      * click on the refresh button should be simulated.
@@ -178,9 +189,8 @@ public class GwtTestOverviewTable extends GWTTestCase
     }
 
     /**
-     * Tests whether a refresh click is ignored if there are no latest search
-     * parameters. (Note: in practice this should not happen, so this is just a
-     * paranoia check.)
+     * Tests whether default parameters are used if there are no latest search
+     * parameters. (This can happen when the table is initialized.)
      */
     public void testHandleRefreshClickNoLatestParameters()
     {
@@ -188,6 +198,9 @@ public class GwtTestOverviewTable extends GWTTestCase
         SearchListenerTestImpl listener = new SearchListenerTestImpl(table);
         table.setSearchListener(listener);
         table.handleRefreshClick(null);
+        assertEquals("Wrong search parameters",
+                table.createDefaultSearchParameters(),
+                listener.nextParameters());
         listener.verify();
     }
 

@@ -1,8 +1,12 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.google.gwt.event.logical.shared.SelectionEvent;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.user.client.ui.Widget;
 
 import de.oliver_heger.mediastore.client.BasicMediaServiceTestImpl;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
@@ -207,6 +211,19 @@ public class GwtTestOverviewPage extends GWTTestCase
     }
 
     /**
+     * Tests whether table widgets can be queried.
+     */
+    public void testGetTableWidget()
+    {
+        OverviewPage page = new OverviewPage();
+        assertEquals("Wrong widget at 0", page.tabArtists,
+                page.getTableWidget(0));
+        assertEquals("Wrong widget at 1", page.tabSongs, page.getTableWidget(1));
+        assertEquals("Wrong widget at 2", page.tabAlbums,
+                page.getTableWidget(2));
+    }
+
+    /**
      * Helper method for testing whether an overview page is initialized when
      * its tab is activated for the first time.
      *
@@ -214,19 +231,28 @@ public class GwtTestOverviewPage extends GWTTestCase
      */
     private OverviewPage checkTabSelectionChanged()
     {
-        final QueryHandlerTestImpl handler =
-                new QueryHandlerTestImpl(new OverviewTable());
+        final List<Boolean> refreshList = new ArrayList<Boolean>();
+        final OverviewTable tab = new OverviewTable()
+        {
+            @Override
+            public void refresh()
+            {
+                refreshList.add(Boolean.TRUE);
+            };
+        };
         OverviewPage page = new OverviewPage()
         {
             @Override
-            protected AbstractOverviewQueryHandler<?> createArtistQueryHandler()
+            Widget getTableWidget(int index)
             {
-                return handler;
+                assertEquals("Wrong table index", 0, index);
+                return tab;
             }
         };
+        page.tabArtists = tab;
         page.initQueryHandlers();
         SelectionEvent.fire(page.tabPanel, 0);
-        handler.verifyHandleQuery(new MediaSearchParameters(), null);
+        assertEquals("Wrong number of refresh() calls", 1, refreshList.size());
         return page;
     }
 

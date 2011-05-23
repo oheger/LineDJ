@@ -230,6 +230,18 @@ public class OverviewTable extends Composite implements SearchResultView
     }
 
     /**
+     * Creates an object with default search parameters. These parameters are
+     * used for an initial query before the user has entered search criteria.
+     *
+     * @return an object with default search parameters
+     */
+    public MediaSearchParameters createDefaultSearchParameters()
+    {
+        // TODO initialize parameters object properly
+        return new MediaSearchParameters();
+    }
+
+    /**
      * Reacts on a click of the search button.
      *
      * @param e the click event
@@ -280,12 +292,15 @@ public class OverviewTable extends Composite implements SearchResultView
     /**
      * Returns the parameters object that was used for the latest search
      * request. This object is required for instance for performing a refresh.
+     * If there are no latest parameters (because this is the initial request) a
+     * default parameters object is returned.
      *
      * @return the latest search parameters
      */
     MediaSearchParameters getLatestSearchParameters()
     {
-        return latestSearchParameters;
+        return (latestSearchParameters != null) ? latestSearchParameters
+                : createDefaultSearchParameters();
     }
 
     /**

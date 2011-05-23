@@ -161,16 +161,15 @@ public class OverviewPage extends Composite implements SearchListener
     void initQueryHandlers()
     {
         overviewTables = new HashMap<OverviewTable, OverviewData>();
-        overviewTables.put(tabArtists, new OverviewData(
+        overviewTables.put(tabArtists, new OverviewData(tabArtists,
                 createArtistQueryHandler()));
         tabArtists.setSearchListener(this);
-        overviewTables
-                .put(tabSongs, new OverviewData(createSongQueryHandler()));
+        overviewTables.put(tabSongs, new OverviewData(tabSongs,
+                createSongQueryHandler()));
         tabSongs.setSearchListener(this);
-        overviewTables.put(tabAlbums, new OverviewData(
+        overviewTables.put(tabAlbums, new OverviewData(tabAlbums,
                 createAlbumQueryHandler()));
         tabAlbums.setSearchListener(this);
-        // TODO add further handlers
     }
 
     /**
@@ -228,6 +227,17 @@ public class OverviewPage extends Composite implements SearchListener
     }
 
     /**
+     * Returns the widget of the tab pane with the specified index.
+     *
+     * @param index the index in the tab pane
+     * @return the widget at this index
+     */
+    Widget getTableWidget(int index)
+    {
+        return tabPanel.getWidget(index);
+    }
+
+    /**
      * Ensures that the overview table with the given index is initialized. This
      * method is called when the application starts and when the selection of
      * the tab panel with the overview tables changes.
@@ -236,8 +246,7 @@ public class OverviewPage extends Composite implements SearchListener
      */
     private void ensureOverviewTableInitialized(int index)
     {
-        OverviewData overviewData =
-                overviewTables.get(tabPanel.getWidget(index));
+        OverviewData overviewData = overviewTables.get(getTableWidget(index));
         if (overviewData != null)
         {
             overviewData.ensureInit();
@@ -318,6 +327,9 @@ public class OverviewPage extends Composite implements SearchListener
      */
     private static class OverviewData
     {
+        /** The overview table control. */
+        private final OverviewTable table;
+
         /** Stores the handler for the overview table. */
         private final AbstractOverviewQueryHandler<?> overviewHandler;
 
@@ -325,12 +337,15 @@ public class OverviewPage extends Composite implements SearchListener
         private boolean initialized;
 
         /**
-         * Creates a new instance of {@code OverviewData} and sets the handler.
+         * Creates a new instance of {@code OverviewData} and initializes it.
          *
+         * @param tab the overview table object
          * @param handler the handler for the overview table
          */
-        public OverviewData(AbstractOverviewQueryHandler<?> handler)
+        public OverviewData(OverviewTable tab,
+                AbstractOverviewQueryHandler<?> handler)
         {
+            table = tab;
             overviewHandler = handler;
         }
 
@@ -347,17 +362,15 @@ public class OverviewPage extends Composite implements SearchListener
 
         /**
          * Ensures that the represented overview table has been initialized. If
-         * this has not been the case, the handler is invoked with an empty
-         * search parameters object. This causes a query to be sent to the
-         * server. With the results of this query the table is initialized.
+         * this has not been the case, an initial refresh operation is performed
+         * on the table.
          */
         public void ensureInit()
         {
             if (!initialized)
             {
                 initialized = true;
-                // TODO initialize parameters object properly
-                overviewHandler.handleQuery(new MediaSearchParameters(), null);
+                table.refresh();
             }
         }
     }
