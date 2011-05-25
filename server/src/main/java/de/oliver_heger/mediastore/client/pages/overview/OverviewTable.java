@@ -1,8 +1,10 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ClickEvent;
@@ -43,6 +45,9 @@ import de.oliver_heger.mediastore.shared.search.SearchIterator;
  */
 public class OverviewTable extends Composite implements SearchResultView
 {
+    /** Constant for the initial list size. */
+    private static final int LIST_SIZE = 50;
+
     /** The binder used for building this component. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);
 
@@ -52,9 +57,13 @@ public class OverviewTable extends Composite implements SearchResultView
     /** Constant for the style sheet of the table's header row. */
     private static final String STYLE_TABLE_HEADER = "overviewTableHeader";
 
-    /** Constant for an empty array of handlers. */
+    /** Constant for an empty array of single element handlers. */
     private static final SingleElementHandler[] EMPTY_SINGLE_HANDLERS =
             new SingleElementHandler[0];
+
+    /** Constant for an empty array of multiple handlers. */
+    private static final MultiElementHandler[] EMPTY_MULTI_HANDLERS =
+            new MultiElementHandler[0];
 
     /** The text component with the search text. */
     @UiField
@@ -72,9 +81,13 @@ public class OverviewTable extends Composite implements SearchResultView
     @UiField
     FlexTable table;
 
-    /** The label indicating a query in progress. */
+    /** The panel indicating a query in progress. */
     @UiField
     Panel pnlSearchProgress;
+
+    /** The panel with handlers for multiple elements. */
+    @UiField
+    HorizontalPanel pnlMultiHandlers;
 
     /** The label with the results of the query. */
     @UiField
@@ -93,6 +106,15 @@ public class OverviewTable extends Composite implements SearchResultView
     /** A list with the single element handlers registered at this table. */
     private final List<SingleElementHandler> singleHandlers;
 
+    /** A list with the handlers for multiple elements registered at this table. */
+    private final List<MultiElementHandler> multiHandlers;
+
+    /** A list with the IDs of the elements which are currently displayed. */
+    private final List<Object> elementIDs;
+
+    /** A set with the IDs of the currently selected elements. */
+    private final Set<Object> selectedIDs;
+
     /** Stores the search parameters of the latest search request. */
     private MediaSearchParameters latestSearchParameters;
 
@@ -104,6 +126,9 @@ public class OverviewTable extends Composite implements SearchResultView
     {
         singleHandlerImages = new ArrayList<ImageResource>();
         singleHandlers = new ArrayList<SingleElementHandler>();
+        multiHandlers = new ArrayList<MultiElementHandler>();
+        elementIDs = new ArrayList<Object>(LIST_SIZE);
+        selectedIDs = new HashSet<Object>();
         initWidget(binder.createAndBindUi(this));
     }
 
@@ -152,6 +177,44 @@ public class OverviewTable extends Composite implements SearchResultView
     public SingleElementHandler[] getSingleElementHandlers()
     {
         return singleHandlers.toArray(EMPTY_SINGLE_HANDLERS);
+    }
+
+    /**
+     * Adds a {@code MultiElementHandler} implementation to this table. This
+     * method adds a new button with the specified image and label to the tool
+     * bar. When the button is clicked the handler is invoked with the currently
+     * selected element IDs as argument.
+     *
+     * @param imgres the image resource for the handler's button
+     * @param label the label for the handler's button
+     * @param handler the handler
+     */
+    public void addMultiElementHandler(ImageResource imgres, String label,
+            final MultiElementHandler handler)
+    {
+        PushButton btn = new PushButton(new Image(imgres), new ClickHandler()
+        {
+            @Override
+            public void onClick(ClickEvent event)
+            {
+                handler.handleElements(selectedIDs);
+            }
+        });
+        multiHandlers.add(handler);
+        pnlMultiHandlers.add(btn);
+        btn.setText(label);
+        btn.setEnabled(false);
+    }
+
+    /**
+     * Returns an array with all {@code MultiElementHandler} objects registered
+     * at this table.
+     *
+     * @return an array with all {@code MultiElementHandler} objects
+     */
+    public MultiElementHandler[] getMultiElementHandlers()
+    {
+        return multiHandlers.toArray(EMPTY_MULTI_HANDLERS);
     }
 
     /**
@@ -243,6 +306,19 @@ public class OverviewTable extends Composite implements SearchResultView
     }
 
     /**
+     * Returns the ID of the element which is displayed in the specified row.
+     * The row with the index 0 is the header row. For this row no ID is
+     * returned.
+     *
+     * @param row the index of the row
+     * @return the ID of the element in this row
+     */
+    public Object getElementID(int row)
+    {
+        return (row == 0) ? null : elementIDs.get(row - 1);
+    }
+
+    /**
      * Reacts on a click of the search button.
      *
      * @param e the click event
@@ -313,6 +389,10 @@ public class OverviewTable extends Composite implements SearchResultView
      */
     private void handleSearchRequest(MediaSearchParameters params)
     {
+        elementIDs.clear();
+        selectedIDs.clear();
+        selectionChanged();
+
         table.removeAllRows();
         table.setVisible(true);
         labResultCount.setVisible(false);
@@ -340,6 +420,7 @@ public class OverviewTable extends Composite implements SearchResultView
         for (int row = 0; row < data.getRowCount(); row++)
         {
             addRowSelectionWidget(rowOffset + row);
+            elementIDs.add(data.getID(row));
             for (int col = 0; col < data.getColumnCount(); col++)
             {
                 table.setText(row + rowOffset, col + 1,
@@ -358,9 +439,32 @@ public class OverviewTable extends Composite implements SearchResultView
      *
      * @param row the index of the current row
      */
-    private void addRowSelectionWidget(int row)
+    private void addRowSelectionWidget(final int row)
     {
-        table.setWidget(row, 0, new CheckBox());
+        final CheckBox cb = new CheckBox();
+        cb.addClickHandler(new ClickHandler()
+        {
+            /*
+             * Reacts on check box clicks. Depending on the state of the check box
+             * the ID of the current row is either added or removed from the set
+             * of currently selected elements.
+             */
+            @Override
+            public void onClick(ClickEvent event)
+            {
+                Object id = getElementID(row);
+                if (cb.getValue().booleanValue())
+                {
+                    selectedIDs.add(id);
+                }
+                else
+                {
+                    selectedIDs.remove(id);
+                }
+                selectionChanged();
+            }
+        });
+        table.setWidget(row, 0, cb);
     }
 
     /**
@@ -431,6 +535,29 @@ public class OverviewTable extends Composite implements SearchResultView
 
             table.setWidget(row, col, panel);
         }
+    }
+
+    /**
+     * Sets the enabled flag for all buttons for multiple element handlers. This
+     * method is called when the selection of the table changes.
+     *
+     * @param enabled the enabled flag
+     */
+    private void enableMultiHandlerButtons(boolean enabled)
+    {
+        for (int i = 0; i < pnlMultiHandlers.getWidgetCount(); i++)
+        {
+            ((PushButton) pnlMultiHandlers.getWidget(i)).setEnabled(enabled);
+        }
+    }
+
+    /**
+     * The selection has changed. This causes the buttons for multiple element
+     * handlers to be updated.
+     */
+    private void selectionChanged()
+    {
+        enableMultiHandlerButtons(!selectedIDs.isEmpty());
     }
 
     /**

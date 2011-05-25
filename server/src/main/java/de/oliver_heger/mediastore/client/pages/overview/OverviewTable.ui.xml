@@ -23,6 +23,11 @@
               </g:upFace>
             </g:PushButton>
           </td>
+          <td> </td>
+          <td>Actions</td>
+          <td>
+            <g:HorizontalPanel ui:field="pnlMultiHandlers"/>
+          </td>
         </tr>
         </table>
       </g:HTMLPanel>
