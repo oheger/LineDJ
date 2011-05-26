@@ -283,13 +283,13 @@ public class GwtTestOverviewPage extends GWTTestCase
      * @param tab the overview table
      * @return the handler found
      */
-    private RemoveSingleElementHandler findRemoveHandler(OverviewTable tab)
+    private RemoveElementHandler findRemoveHandler(OverviewTable tab)
     {
         for (SingleElementHandler h : tab.getSingleElementHandlers())
         {
-            if (h instanceof RemoveSingleElementHandler)
+            if (h instanceof RemoveElementHandler)
             {
-                RemoveSingleElementHandler rh = (RemoveSingleElementHandler) h;
+                RemoveElementHandler rh = (RemoveElementHandler) h;
                 assertSame("Wrong overview table", tab, rh.getOverviewTable());
                 return rh;
             }
@@ -307,7 +307,7 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveSingleElementHandler handler = findRemoveHandler(page.tabArtists);
+        RemoveElementHandler handler = findRemoveHandler(page.tabArtists);
         final Long artistID = 20110522183023L;
         handler.getServiceHandler().removeElement(service, artistID,
                 REMOVE_CALLBACK);
@@ -323,7 +323,7 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveSingleElementHandler handler = findRemoveHandler(page.tabAlbums);
+        RemoveElementHandler handler = findRemoveHandler(page.tabAlbums);
         final Long albumID = 20110522221401L;
         handler.getServiceHandler().removeElement(service, albumID,
                 REMOVE_CALLBACK);
@@ -339,7 +339,7 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveSingleElementHandler handler = findRemoveHandler(page.tabSongs);
+        RemoveElementHandler handler = findRemoveHandler(page.tabSongs);
         final String songID = "SONG_" + 20110522221610L;
         handler.getServiceHandler().removeElement(service, songID,
                 REMOVE_CALLBACK);

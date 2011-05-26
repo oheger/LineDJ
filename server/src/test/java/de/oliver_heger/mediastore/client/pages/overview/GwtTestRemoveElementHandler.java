@@ -1,6 +1,10 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -8,12 +12,12 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 
 /**
- * Test class for {@code RemoveSingleElementHandler}.
+ * Test class for {@code RemoveElementHandler}.
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestRemoveSingleElementHandler extends GWTTestCase
+public class GwtTestRemoveElementHandler extends GWTTestCase
 {
     /** Constant for a dummy service handler. */
     private static final RemoveServiceHandler SERVICE_HANDLER =
@@ -42,11 +46,11 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
      * @param ctrl the remove controller
      * @return the test instance
      */
-    private RemoveSingleElementHandler createHandler(final RemoveController ctrl)
+    private RemoveElementHandler createHandler(final RemoveController ctrl)
     {
         OverviewTable tab = new OverviewTable();
-        RemoveSingleElementHandler handler =
-                new RemoveSingleElementHandler(SERVICE_HANDLER, tab)
+        RemoveElementHandler handler =
+                new RemoveElementHandler(SERVICE_HANDLER, tab)
                 {
                     @Override
                     RemoveController createRemoveController()
@@ -69,7 +73,7 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
      *
      * @return the test instance
      */
-    private RemoveSingleElementHandler createHandler()
+    private RemoveElementHandler createHandler()
     {
         return createHandler(null);
     }
@@ -79,24 +83,49 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
      */
     public void testCreateRemoveController()
     {
-        RemoveSingleElementHandler handler = createHandler();
+        RemoveElementHandler handler = createHandler();
         assertNotNull("No remove controller", handler.createRemoveController());
     }
 
     /**
-     * Tests whether the handler can be invoked.
+     * Tests whether a single element is correctly handled.
      */
     public void testHandleElement()
     {
         RemoveControllerTestImpl ctrl = new RemoveControllerTestImpl();
-        RemoveSingleElementHandler handler = createHandler(ctrl);
+        RemoveElementHandler handler = createHandler(ctrl);
         final Object elemID = 20110521212935L;
         handler.handleElement(elemID);
         assertSame("Wrong service handler", handler.getServiceHandler(),
                 ctrl.getServiceHandler());
         assertSame("Wrong overview table", handler.getOverviewTable(),
                 ctrl.getOverviewTable());
-        assertSame("Wrong element ID", elemID, ctrl.getElemID());
+        assertEquals("Wrong number of IDs", 1, ctrl.getElemIDs().size());
+        assertSame("Wrong element ID", elemID, ctrl.getElemIDs().iterator()
+                .next());
+    }
+
+    /**
+     * Tests whether a set of elements is handled correctly.
+     */
+    public void testHandleElements()
+    {
+        RemoveControllerTestImpl ctrl = new RemoveControllerTestImpl();
+        RemoveElementHandler handler = createHandler(ctrl);
+        Object[] ids =
+                new Object[] {
+                        20110526214305L, 20110526214350L, 20110526214402L,
+                        20110526214420L
+                };
+        Set<Object> idCol =
+                Collections.unmodifiableSet(new HashSet<Object>(Arrays
+                        .asList(ids)));
+        handler.handleElements(idCol);
+        assertSame("Wrong service handler", handler.getServiceHandler(),
+                ctrl.getServiceHandler());
+        assertSame("Wrong overview table", handler.getOverviewTable(),
+                ctrl.getOverviewTable());
+        assertSame("Wrong IDs", idCol, ctrl.getElemIDs());
     }
 
     /**
@@ -111,8 +140,8 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
         /** The overview table. */
         private OverviewTable overviewTable;
 
-        /** The element ID. */
-        private Object elemID;
+        /** The element IDs. */
+        private Collection<Object> elemIDs;
 
         /**
          * Returns the service handler passed to performRemoveOperation().
@@ -135,13 +164,14 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
         }
 
         /**
-         * Returns the element ID passed to performRemoveOperation().
+         * Returns the collection of element IDs passed to
+         * performRemoveOperation().
          *
-         * @return the element ID
+         * @return the element IDs
          */
-        public Object getElemID()
+        public Collection<Object> getElemIDs()
         {
-            return elemID;
+            return elemIDs;
         }
 
         /**
@@ -154,8 +184,7 @@ public class GwtTestRemoveSingleElementHandler extends GWTTestCase
             assertNull("Multiple invocations", serviceHandler);
             serviceHandler = handler;
             overviewTable = tab;
-            assertEquals("Wrong number of IDs", 1, elemIDs.size());
-            elemID = elemIDs.iterator().next();
+            this.elemIDs = elemIDs;
         }
     }
 }

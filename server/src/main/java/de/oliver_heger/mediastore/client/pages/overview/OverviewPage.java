@@ -188,13 +188,13 @@ public class OverviewPage extends Composite implements SearchListener
                         Pages.ALBUMDETAILS));
 
         tabArtists.addSingleElementHandler(getImageResources().removeItem(),
-                new RemoveSingleElementHandler(createRemoveArtistHandler(),
+                new RemoveElementHandler(createRemoveArtistHandler(),
                         tabArtists));
         tabAlbums.addSingleElementHandler(getImageResources().removeItem(),
-                new RemoveSingleElementHandler(createRemoveAlbumHandler(),
+                new RemoveElementHandler(createRemoveAlbumHandler(),
                         tabAlbums));
         tabSongs.addSingleElementHandler(getImageResources().removeItem(),
-                new RemoveSingleElementHandler(createRemoveSongHandler(),
+                new RemoveElementHandler(createRemoveSongHandler(),
                         tabSongs));
     }
 
