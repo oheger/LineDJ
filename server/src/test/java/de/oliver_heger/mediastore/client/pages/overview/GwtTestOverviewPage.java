@@ -277,15 +277,16 @@ public class GwtTestOverviewPage extends GWTTestCase
     }
 
     /**
-     * Searches the specified table for a single element handler for removing an
-     * element.
+     * Searches the passed in array for a remove handler.
      *
+     * @param handlers the array with handlers
      * @param tab the overview table
-     * @return the handler found
+     * @return the element remove handler
      */
-    private RemoveElementHandler findRemoveHandler(OverviewTable tab)
+    private static RemoveElementHandler findRemoveHandler(Object[] handlers,
+            OverviewTable tab)
     {
-        for (SingleElementHandler h : tab.getSingleElementHandlers())
+        for (Object h : handlers)
         {
             if (h instanceof RemoveElementHandler)
             {
@@ -299,6 +300,45 @@ public class GwtTestOverviewPage extends GWTTestCase
     }
 
     /**
+     * Searches the specified table for a single element handler for removing an
+     * element.
+     *
+     * @param tab the overview table
+     * @return the handler found
+     */
+    private RemoveElementHandler findRemoveSingleHandler(OverviewTable tab)
+    {
+        return findRemoveHandler(tab.getSingleElementHandlers(), tab);
+    }
+
+    /**
+     * Searches the specified table for a multiple element handler for removing
+     * elements.
+     *
+     * @param tab the overview table
+     * @return the handler found
+     */
+    private RemoveElementHandler findRemoveMultiHandler(OverviewTable tab)
+    {
+        return findRemoveHandler(tab.getMultiElementHandlers(), tab);
+    }
+
+    /**
+     * Helper method for testing whether a multiple element handler of a
+     * specific type has been correctly installed.
+     *
+     * @param page the overview page test instance
+     * @param tab the overview table to be checked
+     */
+    private void checkRemoveMultiHandler(OverviewPage page, OverviewTable tab)
+    {
+        page.initialize(createPageManager());
+        RemoveElementHandler hndMulti = findRemoveMultiHandler(tab);
+        assertSame("Wrong multi handler", hndMulti,
+                findRemoveSingleHandler(tab));
+    }
+
+    /**
      * Tests whether the single element handler for removing an artist has been
      * correctly installed.
      */
@@ -307,11 +347,21 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveElementHandler handler = findRemoveHandler(page.tabArtists);
+        RemoveElementHandler handler = findRemoveSingleHandler(page.tabArtists);
         final Long artistID = 20110522183023L;
         handler.getServiceHandler().removeElement(service, artistID,
                 REMOVE_CALLBACK);
         assertEquals("Wrong artist ID", artistID, service.getRemoveArtistID());
+    }
+
+    /**
+     * Tests whether a multiple element handler for removing artists has been
+     * correctly installed.
+     */
+    public void testRemoveArtistMultiHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        checkRemoveMultiHandler(page, page.tabArtists);
     }
 
     /**
@@ -323,11 +373,21 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveElementHandler handler = findRemoveHandler(page.tabAlbums);
+        RemoveElementHandler handler = findRemoveSingleHandler(page.tabAlbums);
         final Long albumID = 20110522221401L;
         handler.getServiceHandler().removeElement(service, albumID,
                 REMOVE_CALLBACK);
         assertEquals("Wrong album ID", albumID, service.getRemoveAlbumID());
+    }
+
+    /**
+     * Tests whether a multiple element handler for removing albums has been
+     * correctly installed.
+     */
+    public void testRemoveAlbumMultiHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        checkRemoveMultiHandler(page, page.tabAlbums);
     }
 
     /**
@@ -339,11 +399,21 @@ public class GwtTestOverviewPage extends GWTTestCase
         OverviewPage page = new OverviewPage();
         page.initialize(createPageManager());
         RemoveMediaServiceMock service = new RemoveMediaServiceMock();
-        RemoveElementHandler handler = findRemoveHandler(page.tabSongs);
+        RemoveElementHandler handler = findRemoveSingleHandler(page.tabSongs);
         final String songID = "SONG_" + 20110522221610L;
         handler.getServiceHandler().removeElement(service, songID,
                 REMOVE_CALLBACK);
         assertEquals("Wrong song ID", songID, service.getRemoveSongID());
+    }
+
+    /**
+     * Tests whether a multiple element handler for removing songs has been
+     * correctly installed.
+     */
+    public void testRemoveSongMultiHandler()
+    {
+        OverviewPage page = new OverviewPage();
+        checkRemoveMultiHandler(page, page.tabSongs);
     }
 
     /**

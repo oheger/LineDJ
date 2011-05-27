@@ -34,6 +34,9 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
  */
 public class OverviewPage extends Composite implements SearchListener
 {
+    /** Constant for the label of the remove action. */
+    private static final String ACTION_REMOVE = "Remove";
+
     /** The binder used for building this component. */
     private static MyUiBinder binder = GWT.create(MyUiBinder.class);
 
@@ -117,7 +120,7 @@ public class OverviewPage extends Composite implements SearchListener
         imageResources = GWT.create(ImageResources.class);
 
         initQueryHandlers();
-        initSingleElementHandlers();
+        initElementHandlers();
         ensureOverviewTableInitialized(tabPanel.getSelectedIndex());
     }
 
@@ -173,9 +176,10 @@ public class OverviewPage extends Composite implements SearchListener
     }
 
     /**
-     * Initializes the single element handlers for the overview tables.
+     * Initializes the single and multiple element handlers for the overview
+     * tables.
      */
-    void initSingleElementHandlers()
+    void initElementHandlers()
     {
         tabArtists.addSingleElementHandler(getImageResources().viewDetails(),
                 new OpenPageSingleElementHandler(getPageManager(),
@@ -187,15 +191,25 @@ public class OverviewPage extends Composite implements SearchListener
                 new OpenPageSingleElementHandler(getPageManager(),
                         Pages.ALBUMDETAILS));
 
-        tabArtists.addSingleElementHandler(getImageResources().removeItem(),
+        RemoveElementHandler removeArtistHandler =
                 new RemoveElementHandler(createRemoveArtistHandler(),
-                        tabArtists));
+                        tabArtists);
+        RemoveElementHandler removeAlbumHandler =
+                new RemoveElementHandler(createRemoveAlbumHandler(), tabAlbums);
+        RemoveElementHandler removeSongHander =
+                new RemoveElementHandler(createRemoveSongHandler(), tabSongs);
+        tabArtists.addSingleElementHandler(getImageResources().removeItem(),
+                removeArtistHandler);
+        tabArtists.addMultiElementHandler(getImageResources().removeItem(),
+                ACTION_REMOVE, removeArtistHandler);
         tabAlbums.addSingleElementHandler(getImageResources().removeItem(),
-                new RemoveElementHandler(createRemoveAlbumHandler(),
-                        tabAlbums));
+                removeAlbumHandler);
+        tabAlbums.addMultiElementHandler(getImageResources().removeItem(),
+                ACTION_REMOVE, removeAlbumHandler);
         tabSongs.addSingleElementHandler(getImageResources().removeItem(),
-                new RemoveElementHandler(createRemoveSongHandler(),
-                        tabSongs));
+                removeSongHander);
+        tabSongs.addMultiElementHandler(getImageResources().removeItem(),
+                ACTION_REMOVE, removeSongHander);
     }
 
     /**

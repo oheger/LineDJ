@@ -395,9 +395,9 @@ public class GwtTestOverviewTable extends GWTTestCase
         ResultDataTestImpl data = new ResultDataTestImpl(1, 0);
         table.addSearchResults(data, null);
         FlexTable ft = table.table;
-        assertEquals("Wrong number of columns", COL_COUNT + 1,
+        assertEquals("Wrong number of columns", COL_COUNT + 2,
                 ft.getCellCount(1));
-        HasWidgets widgets = (HasWidgets) ft.getWidget(1, COL_COUNT);
+        HasWidgets widgets = (HasWidgets) ft.getWidget(1, COL_COUNT + 1);
         Iterator<Widget> widgetIt = widgets.iterator();
         CustomButton btn = (CustomButton) widgetIt.next();
         assertFalse("Too many widgets", widgetIt.hasNext());
@@ -438,11 +438,12 @@ public class GwtTestOverviewTable extends GWTTestCase
         ResultDataTestImpl data = new ResultDataTestImpl(HANDLER_COUNT + 1, 0);
         table.addSearchResults(data, null);
         FlexTable ft = table.table;
-        assertEquals("Wrong number of columns", COL_COUNT + 1,
+        assertEquals("Wrong number of columns", COL_COUNT + 2,
                 ft.getCellCount(1));
         for (int i = 0; i < HANDLER_COUNT; i++)
         {
-            HasWidgets widgets = (HasWidgets) ft.getWidget(i + 1, COL_COUNT);
+            HasWidgets widgets =
+                    (HasWidgets) ft.getWidget(i + 1, COL_COUNT + 1);
             Iterator<Widget> widgetIt = widgets.iterator();
             for (int j = 0; j < i; j++)
             {

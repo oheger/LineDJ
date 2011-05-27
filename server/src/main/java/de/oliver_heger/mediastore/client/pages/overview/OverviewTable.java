@@ -427,7 +427,7 @@ public class OverviewTable extends Composite implements SearchResultView
                         data.getValueAt(row, col));
             }
             installSingleElementHandlers(data.getID(row), row + rowOffset,
-                    data.getColumnCount());
+                    data.getColumnCount() + 1);
         }
     }
 
