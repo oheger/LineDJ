@@ -19,23 +19,24 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Oliver Heger
  * @version $Id$
  */
-public class AudioReadMonitorImpl implements AudioBufferListener, AudioReadMonitor
+public class AudioReadMonitorImpl implements AudioBufferListener,
+        AudioReadMonitor
 {
-    /** Stores the buffer to monitor.*/
-    private AudioBuffer audioBuffer;
+    /** Stores the buffer to monitor. */
+    private final AudioBuffer audioBuffer;
 
     /** The lock for synchronization. */
-    private Lock lockWait;
+    private final Lock lockWait;
 
     /** The condition for waiting. */
-    private Condition condWait;
+    private final Condition condWait;
 
     /** Stores the waiting flag. */
     private Boolean waiting;
 
     /**
-     * Creates a new instance of <code>AudioReadMonitor</code> that will
-     * monitor the specified buffer.
+     * Creates a new instance of <code>AudioReadMonitor</code> that will monitor
+     * the specified buffer.
      *
      * @param buffer the associated audio buffer
      * @throws IllegalArgumentException if the passed in buffer is <b>null</b>
@@ -58,19 +59,17 @@ public class AudioReadMonitorImpl implements AudioBufferListener, AudioReadMonit
      * called before operations on the source medium are performed. If the
      * buffer is currently in use, it will block until it is full or closed.
      * Then the source medium can be accessed.
+     *
+     * @throws InterruptedException if waiting was interrupted
      */
-    public void waitForBufferIdle()
+    public void waitForMediumIdle() throws InterruptedException
     {
         lockWait.lock();
         try
         {
-            if (waiting == null)
+            while (fetchAndInitWaitingFlag().booleanValue())
             {
-                waiting = Boolean.valueOf(!audioBuffer.isFull());
-            }
-            if (waiting.booleanValue())
-            {
-                condWait.awaitUninterruptibly();
+                getWaitingCondition().await();
             }
         }
         finally
@@ -95,14 +94,64 @@ public class AudioReadMonitorImpl implements AudioBufferListener, AudioReadMonit
             changeState(false);
             break;
         case BUFFER_FREE:
-            changeState(true);
+            if (!event.getSourceBuffer().isClosed())
+            {
+                changeState(true);
+            }
             break;
         }
     }
 
     /**
+     * Returns the current waiting flag. If it has not yet been initialized, its
+     * value is determined now based on the status of the buffer.
+     *
+     * @return the current waiting flag (never <b>null</b>)
+     */
+    Boolean fetchAndInitWaitingFlag()
+    {
+        Boolean result = getWaitingFlag();
+        if (result == null)
+        {
+            result = Boolean.valueOf(!audioBuffer.isFull());
+        }
+        return result;
+    }
+
+    /**
+     * Returns the current value of the waiting flag. Result may be <b>null</b>
+     * if the flag has not yet been initialized.
+     *
+     * @return the current value of the waiting flag
+     */
+    Boolean getWaitingFlag()
+    {
+        return waiting;
+    }
+
+    /**
+     * Releases all threads that are waiting at this monitor. This method is
+     * called when the internal waiting flag is changed to a value of false.
+     */
+    void unlockWaitingThreads()
+    {
+        getWaitingCondition().signalAll();
+    }
+
+    /**
+     * Returns the {@code Condition} object on which threads are waiting until
+     * they are allowed to access the source medium.
+     *
+     * @return the condition used for blocking threads
+     */
+    Condition getWaitingCondition()
+    {
+        return condWait;
+    }
+
+    /**
      * Changes the waiting state. This method checks whether the new waiting
-     * state differs from the old state. If this is the case and the buffer is
+     * state differs from the old state. If this is the case, and the buffer is
      * free now, waiting threads are notified.
      *
      * @param newState the new waiting state
@@ -112,12 +161,12 @@ public class AudioReadMonitorImpl implements AudioBufferListener, AudioReadMonit
         lockWait.lock();
         try
         {
-            if (newState != waiting)
+            if (newState != fetchAndInitWaitingFlag())
             {
                 waiting = newState;
                 if (!newState)
                 {
-                    condWait.signalAll();
+                    unlockWaitingThreads();
                 }
             }
         }

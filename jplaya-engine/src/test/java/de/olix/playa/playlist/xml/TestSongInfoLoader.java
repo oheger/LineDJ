@@ -375,7 +375,7 @@ public class TestSongInfoLoader extends TestCase
         /** The number of wait invocations. */
         int count;
 
-        public void waitForBufferIdle()
+        public void waitForMediumIdle()
         {
             count++;
         }

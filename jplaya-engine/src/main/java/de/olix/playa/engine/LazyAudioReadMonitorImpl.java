@@ -9,7 +9,7 @@ package de.olix.playa.engine;
  * immediately registers an event listener at an audio buffer this class can be
  * more efficient, especially if it is not clear whether synchronization with
  * the audio engine is actually needed.</p>
- * 
+ *
  * @author Oliver Heger
  * @version $Id$
  */
@@ -17,10 +17,10 @@ public class LazyAudioReadMonitorImpl implements AudioReadMonitor
 {
     /** Stores the audio buffer to be monitored.*/
     private AudioBuffer buffer;
-    
+
     /** Stores the internally used monitor object.*/
     private AudioReadMonitor internalMonitor;
-    
+
     /**
      * Creates a new instance of <code>LazyAudioReadMonitorImpl</code> and sets
      * the <code>AudioBuffer</code> to be monitored.
@@ -35,7 +35,7 @@ public class LazyAudioReadMonitorImpl implements AudioReadMonitor
         }
         buffer = buf;
     }
-    
+
     /**
      * Returns the audio buffer monitored by this object.
      * @return the monitored audio buffer
@@ -50,9 +50,9 @@ public class LazyAudioReadMonitorImpl implements AudioReadMonitor
      * This implementation delegates to the internally used monitor. If this is
      * the first access to this object, the internal monitor will be created.
      */
-    public void waitForBufferIdle()
+    public void waitForMediumIdle() throws InterruptedException
     {
-        getInternalMonitor().waitForBufferIdle();
+        getInternalMonitor().waitForMediumIdle();
     }
 
     /**
@@ -70,7 +70,7 @@ public class LazyAudioReadMonitorImpl implements AudioReadMonitor
         }
         return internalMonitor;
     }
-    
+
     /**
      * Creates the internal audio monitor for this object. This method will be
      * called once on first access to the internal monitor. This implementation

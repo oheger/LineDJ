@@ -1,44 +1,51 @@
 package de.olix.playa.engine;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.locks.Condition;
 
-import junit.framework.TestCase;
+import org.easymock.EasyMock;
+import org.easymock.IAnswer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import de.olix.playa.engine.AudioBufferEvent.Type;
 
 /**
- * Test class for AudioReadMonitorImpl.
+ * Test class for {@code AudioReadMonitorImpl}.
  *
  * @author Oliver Heger
  * @version $Id$
  */
-public class TestAudioReadMonitorImpl extends TestCase
+public class TestAudioReadMonitorImpl
 {
     /** Constant for the cache directory. */
     private static final File CACHE_DIR = new File("target/cache");
-
-    /** Constant for the sleep period. */
-    private static final long SLEEP_TIME = 150;
 
     /** Stores the test audio buffer. */
     private AudioBufferTestImpl buffer;
 
     /** Stores the monitor under test. */
-    private AudioReadMonitorImpl monitor;
+    private AudioReadMonitorTestImpl monitor;
 
-    @Override
-    protected void setUp() throws Exception
+    @Before
+    public void setUp() throws Exception
     {
-        super.setUp();
         buffer = new AudioBufferTestImpl(CACHE_DIR, 1024, 2);
-        monitor = new AudioReadMonitorImpl(buffer);
+        monitor = new AudioReadMonitorTestImpl(buffer);
     }
 
-    @Override
     /**
      * Clears any used resources. Ensures that the cache directory is cleared
      * and removed.
      */
-    protected void tearDown() throws Exception
+    @After
+    public void tearDown() throws Exception
     {
         buffer.close();
         buffer.clear();
@@ -46,149 +53,215 @@ public class TestAudioReadMonitorImpl extends TestCase
         {
             assertTrue("Cache directory cannot be removed", CACHE_DIR.delete());
         }
-        super.tearDown();
     }
 
     /**
-     * Creates a buffer event of the specified type.
+     * Tests whether the monitor registers itself as buffer listener.
+     */
+    @Test
+    public void testRegisterListener()
+    {
+        buffer.verifyListener(monitor);
+    }
+
+    /**
+     * Tries to initialize an object without a buffer.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitNullBuffer()
+    {
+        new AudioReadMonitorImpl(null);
+    }
+
+    /**
+     * Tests fetchWaitingFlag() if the flag has to be initialized from the
+     * buffer.
+     */
+    @Test
+    public void testFetchWaitingFlagInitialize()
+    {
+        AudioBuffer buf = EasyMock.createMock(AudioBuffer.class);
+        buf.addBufferListener(EasyMock.anyObject(AudioBufferListener.class));
+        EasyMock.expect(buf.isFull()).andReturn(Boolean.FALSE);
+        EasyMock.replay(buf);
+        monitor = new AudioReadMonitorTestImpl(buf);
+        assertEquals("Wrong result", Boolean.TRUE,
+                monitor.fetchAndInitWaitingFlag());
+        EasyMock.verify(buf);
+    }
+
+    /**
+     * Tests whether a condition object has been initialized.
+     */
+    @Test
+    public void testGetWaitingCondition()
+    {
+        assertNotNull("No condition", monitor.getWaitingCondition());
+    }
+
+    /**
+     * Tests whether waiting threads can be unlocked.
+     */
+    @Test
+    public void testUnlockWaitingThreads()
+    {
+        Condition cond = monitor.installMockCondition();
+        cond.signalAll();
+        EasyMock.replay(cond);
+        monitor.unlockWaitingThreads();
+        EasyMock.verify(cond);
+    }
+
+    /**
+     * Tests waitForMediumIdle() if the medium can be accessed directly.
+     */
+    @Test
+    public void testWaitForMediumIdleDirect() throws InterruptedException
+    {
+        Condition cond = monitor.installMockCondition();
+        EasyMock.replay(cond);
+        monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.waitForMediumIdle();
+        EasyMock.verify(cond);
+    }
+
+    /**
+     * Tests waitForMediumIdle() if the thread has to wait.
+     */
+    @Test
+    public void testWaitForMediumIdleWait() throws InterruptedException
+    {
+        Condition cond = monitor.installMockCondition();
+        cond.await();
+        EasyMock.expectLastCall().times(10);
+        cond.await();
+        EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
+        {
+            @Override
+            public Object answer() throws Throwable
+            {
+                monitor.setWaitingFlag(Boolean.FALSE);
+                return null;
+            }
+        });
+        EasyMock.replay(cond);
+        monitor.setWaitingFlag(Boolean.TRUE);
+        monitor.waitForMediumIdle();
+        EasyMock.verify(cond);
+    }
+
+    /**
+     * Helper method for creating a buffer event.
      *
      * @param type the event type
-     * @return the event to be created
+     * @return the event
      */
-    private AudioBufferEvent createEvent(AudioBufferEvent.Type type)
+    private AudioBufferEvent event(AudioBufferEvent.Type type)
     {
         return new AudioBufferEvent(buffer, type);
     }
 
     /**
-     * Sends a buffer event to the test monitor.
+     * Tests the waiting flag of the monitor.
      *
-     * @param type the type of the event
+     * @param expected the expected flag value
      */
-    private void fireEvent(AudioBufferEvent.Type type)
+    private void checkWaitingFlag(Boolean expected)
     {
-        monitor.bufferChanged(createEvent(type));
+        monitor.setWaitingFlag(null);
+        assertEquals("Wrong flag", expected, monitor.getWaitingFlag());
     }
 
     /**
-     * Initializes a wait thread.
+     * Tests a buffer event which does not cause a change in the monitor's
+     * status.
+     */
+    @Test
+    public void testBufferChangedNoStatusChange()
+    {
+        monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_CLOSED));
+        assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
+    }
+
+    /**
+     * Helper method for checking whether an event of the specified type unlocks
+     * the buffer.
      *
-     * @return the initialized thread
+     * @param type the event type
      */
-    private TestWaitThread setUpWaitThread()
+    private void checkMonitorUnlocked(AudioBufferEvent.Type type)
     {
-        TestWaitThread t = new TestWaitThread();
-        try
-        {
-            Thread.sleep(SLEEP_TIME);
-        }
-        catch (InterruptedException iex)
-        {
-            fail("Sleeping was interrupted: " + iex);
-        }
-        assertTrue("Thread not waiting", t.waiting);
-        return t;
+        monitor.setWaitingFlag(Boolean.TRUE);
+        monitor.bufferChanged(event(type));
+        assertEquals("Threads not unlocked", 1, monitor.getUnlockCount());
+        checkWaitingFlag(Boolean.FALSE);
     }
 
     /**
-     * Tests whether the monitor registeres itself as buffer listener.
+     * Tests the reaction on a buffer closed event.
      */
-    public void testRegisterListener()
+    @Test
+    public void testBufferChangedClosedEvent()
     {
-        assertEquals("Wrong listener count", 1, buffer.listenerCount);
+        checkMonitorUnlocked(AudioBufferEvent.Type.BUFFER_CLOSED);
     }
 
     /**
-     * Tests calling the constructor with a null buffer. This should cause an
-     * exception.
+     * Tests the reaction on a buffer full event.
      */
-    public void testInitNullBuffer()
+    @Test
+    public void testBufferChangedFullEvent()
     {
-        try
-        {
-            new AudioReadMonitorImpl(null);
-            fail("Could create instance with null monitor!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        checkMonitorUnlocked(Type.BUFFER_FULL);
     }
 
     /**
-     * Tests whether a buffer full event unlocks the monitor.
+     * Tests the reaction on a buffer free event.
      */
-    public void testBufferFull()
+    @Test
+    public void testBufferChangedFreeEvent()
     {
-        TestWaitThread t = setUpWaitThread();
-        fireEvent(AudioBufferEvent.Type.BUFFER_FULL);
-        t.shutdown();
+        monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
+        checkWaitingFlag(Boolean.TRUE);
+        assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
 
     /**
-     * Tests whether a buffer closed event unlocks the monitor.
+     * Tests that events of other types do not affect the status of the monitor.
      */
-    public void testBufferClosed()
+    @Test
+    public void testBufferChangedOtherEvents()
     {
-        TestWaitThread t = setUpWaitThread();
-        fireEvent(AudioBufferEvent.Type.BUFFER_CLOSED);
-        t.shutdown();
+        monitor.bufferChanged(event(AudioBufferEvent.Type.DATA_ADDED));
+        monitor.bufferChanged(event(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED));
+        checkWaitingFlag(null);
+        assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
 
     /**
-     * Tests whether a buffer free event locks the monitor again.
+     * Tests whether the closed status of the buffer is taken into account.
      */
-    public void testBufferFree()
-    {
-        testBufferFull();
-        fireEvent(AudioBufferEvent.Type.BUFFER_FREE);
-        TestWaitThread t = setUpWaitThread();
-        fireEvent(AudioBufferEvent.Type.BUFFER_FULL);
-        t.shutdown();
-    }
-
-    /**
-     * Tests that other, unrelated events do not affect the monitor's state.
-     */
-    public void testOtherEvents()
-    {
-        TestWaitThread t = setUpWaitThread();
-        fireEvent(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED);
-        fireEvent(AudioBufferEvent.Type.DATA_ADDED);
-        fireEvent(AudioBufferEvent.Type.BUFFER_FREE);
-        assertTrue("Thread no more waiting", t.waiting);
-        fireEvent(AudioBufferEvent.Type.BUFFER_FULL);
-        t.shutdown();
-    }
-
-    /**
-     * Tests the behavior of the monitor when the buffer is already full at
-     * creation time. In this case waiting is not necessary.
-     */
-    public void testBufferAlreadyFull() throws IOException
+    @Test
+    public void testBufferChangedClosed() throws IOException
     {
         buffer.close();
-        buffer.clear();
-        buffer = new AudioBufferTestImpl(CACHE_DIR, 1024, 2)
-        {
-            @Override
-            public boolean isFull()
-            {
-                return true;
-            }
-        };
-        monitor = new AudioReadMonitorImpl(buffer);
-        monitor.waitForBufferIdle();
+        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
+        checkWaitingFlag(Boolean.FALSE);
     }
 
     /**
      * A test implementation of AudioBuffer for testing whether the event
      * listener is registered.
      */
-    static class AudioBufferTestImpl extends AudioBuffer
+    private static class AudioBufferTestImpl extends AudioBuffer
     {
+        /** The event listener registered at this buffer. */
+        private AudioBufferListener listener;
+
         /** Stores the number of registered event listeners. */
-        int listenerCount;
+        private int listenerCount;
 
         public AudioBufferTestImpl(File dir, long chunkSize, int chunks)
                 throws IOException
@@ -196,86 +269,108 @@ public class TestAudioReadMonitorImpl extends TestCase
             super(dir, chunkSize, chunks, true);
         }
 
+        /**
+         * Verifies whether the expected listener has been registered at this
+         * object.
+         *
+         * @param expected the expected listener
+         */
+        public void verifyListener(AudioBufferListener expected)
+        {
+            assertEquals("Wrong number of listeners", 1, listenerCount);
+            assertEquals("Wrong listener", expected, listener);
+        }
+
+        /**
+         * Records this invocation.
+         */
         @Override
         public void addBufferListener(AudioBufferListener l)
         {
             super.addBufferListener(l);
             listenerCount++;
+            listener = l;
         }
     }
 
     /**
-     * A simple test thread class for testing the monitor.
+     * A test implementation of the monitor which provides some mocking
+     * facilities.
      */
-    class TestWaitThread extends Thread
+    private static class AudioReadMonitorTestImpl extends AudioReadMonitorImpl
     {
-        volatile boolean waiting;
+        /** A mock condition object. */
+        private Condition mockCondition;
 
-        /**
-         * Creates a new instance of <code>TestWaitThread</code> and
-         * immediately starts the thread. The method will wait until the thread
-         * enters the wait state.
-         */
-        public TestWaitThread()
+        /** The overridden waiting flag. */
+        private Boolean waitingFlag;
+
+        /** Stores the number of calls to unlockWaitingThreads(). */
+        private int unlockCount;
+
+        public AudioReadMonitorTestImpl(AudioBuffer buffer)
         {
-            start();
-            initWaiting();
+            super(buffer);
         }
 
+        /**
+         * Creates and installs a mock object for the wait condition.
+         *
+         * @return the mock condition
+         */
+        public Condition installMockCondition()
+        {
+            mockCondition = EasyMock.createMock(Condition.class);
+            return mockCondition;
+        }
+
+        /**
+         * Sets the overridden waiting flag.
+         *
+         * @param f the flag value
+         */
+        public void setWaitingFlag(Boolean f)
+        {
+            waitingFlag = f;
+        }
+
+        /**
+         * Returns the number of calls to unlock threads.
+         *
+         * @return the number of unlockWaitingThreads() calls.
+         */
+        public int getUnlockCount()
+        {
+            return unlockCount;
+        }
+
+        /**
+         * Either returns a mock object or calls the super method.
+         */
         @Override
-        public void run()
+        Condition getWaitingCondition()
         {
-            doWaiting();
-            waiting = false;
+            return (mockCondition != null) ? mockCondition : super
+                    .getWaitingCondition();
         }
 
         /**
-         * Waits until the thread terminates gracefully.
+         * Either returns the overridden flag or calls the super method.
          */
-        public void shutdown()
+        @Override
+        Boolean getWaitingFlag()
         {
-            try
-            {
-                join();
-            }
-            catch (InterruptedException iex)
-            {
-                fail("Exception while waiting for termination: " + iex);
-            }
+            return (waitingFlag != null) ? waitingFlag : super.getWaitingFlag();
         }
 
         /**
-         * Waits at the buffer.
+         * Records this invocation.
          */
-        private void doWaiting()
+        @Override
+        void unlockWaitingThreads()
         {
-            synchronized (this)
-            {
-                waiting = true;
-                notify();
-            }
-            monitor.waitForBufferIdle();
-        }
-
-        /**
-         * Waits until the waiting state is reached.
-         */
-        private void initWaiting()
-        {
-            synchronized (this)
-            {
-                while (!waiting)
-                {
-                    try
-                    {
-                        wait();
-                    }
-                    catch (InterruptedException iex)
-                    {
-                        iex.printStackTrace();
-                    }
-                }
-            }
+            super.unlockWaitingThreads();
+            unlockCount++;
         }
     }
 }

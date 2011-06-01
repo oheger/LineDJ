@@ -323,7 +323,14 @@ class SongInfoLoader
      */
     protected SongInfo doFetchSongInfo(File mediaFile) throws PlaylistException
     {
-        getMonitor().waitForBufferIdle();
+        try
+        {
+            getMonitor().waitForMediumIdle();
+        }
+        catch (InterruptedException iex)
+        {
+            // TODO handle exception, temporarily ignore
+        }
         return getInfoProvider().getSongInfo(
                 XMLPlaylistManager.fetchURLforFile(mediaFile));
     }

@@ -2,13 +2,13 @@ package de.olix.playa.engine;
 
 import java.io.File;
 
-import org.easymock.EasyMock;
-
 import junit.framework.TestCase;
+
+import org.easymock.EasyMock;
 
 /**
  * Test class for LazyAudioReadMonitorImpl.
- * 
+ *
  * @author Oliver Heger
  * @version $Id$
  */
@@ -19,7 +19,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
 
     /** Stores the internally needed audio buffer object.*/
     private AudioBuffer buffer;
-    
+
     /** Stores the monitor to be tested.*/
     private LazyAudioReadMonitorImplTestImpl monitor;
 
@@ -30,7 +30,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
         buffer = new AudioBuffer(CACHE_DIR, 1024, 2, true);
         monitor = new LazyAudioReadMonitorImplTestImpl(buffer);
     }
-    
+
     /**
      * Removes the cache directory if it exists.
      */
@@ -41,7 +41,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
         buffer.clear();
         assertTrue("Cache directory cannot be removed", CACHE_DIR.delete());
     }
-    
+
     /**
      * Tests whether the correct buffer is returned.
      */
@@ -49,7 +49,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
     {
         assertSame("Wrong buffer", buffer, monitor.getAudioBuffer());
     }
-    
+
     /**
      * Tries to create an instance with a null buffer. This should cause an
      * exception.
@@ -66,7 +66,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
             //ok
         }
     }
-    
+
     /**
      * Tests obtaining the internal monitor.
      */
@@ -74,7 +74,7 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
     {
         assertTrue("Wrong internal monitor", monitor.getInternalMonitor() instanceof AudioReadMonitorImpl);
     }
-    
+
     /**
      * Tests whether the internally used monitor is cached after it was created.
      */
@@ -83,18 +83,18 @@ public class TestLazyAudioReadMonitorImpl extends TestCase
         AudioReadMonitor m = monitor.getInternalMonitor();
         assertSame("Multiple instances created", m, monitor.getInternalMonitor());
     }
-    
+
     /**
      * Tests whether waitForIdle() is correctly delegated to the internal
      * monitor.
      */
-    public void testWaitForIdle()
+    public void testWaitForIdle() throws InterruptedException
     {
         AudioReadMonitor mockMonitor = EasyMock.createMock(AudioReadMonitor.class);
-        mockMonitor.waitForBufferIdle();
+        mockMonitor.waitForMediumIdle();
         EasyMock.replay(mockMonitor);
         monitor.setTestMonitor(mockMonitor);
-        monitor.waitForBufferIdle();
+        monitor.waitForMediumIdle();
         EasyMock.verify(mockMonitor);
     }
 
