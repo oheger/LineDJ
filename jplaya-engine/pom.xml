@@ -82,6 +82,11 @@
       <artifactId>easymock</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-testutils</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

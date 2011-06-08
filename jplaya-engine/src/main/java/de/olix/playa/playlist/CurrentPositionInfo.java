@@ -1,9 +1,12 @@
 package de.olix.playa.playlist;
 
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+
 /**
  * <p>
  * A simple data class that holds information about the current position in the
- * playlist.
+ * play list.
  * </p>
  * <p>
  * If playback is interrupted in the middle of a song, the playlist manager has
@@ -18,15 +21,15 @@ package de.olix.playa.playlist;
  * @author Oliver Heger
  * @version $Id$
  */
-public class CurrentPositionInfo
+public final class CurrentPositionInfo
 {
     /**
      * Constant for an info object for an undefined position. This position
      * object has all properties set to 0. It can be used for referring to a non
      * existing position.
      */
-    public static final CurrentPositionInfo UNDEFINED_POSITION = new CurrentPositionInfo(
-            0, 0);
+    public static final CurrentPositionInfo UNDEFINED_POSITION =
+            new CurrentPositionInfo(0, 0);
 
     /** Stores the position in bytes. */
     private final long position;
@@ -65,5 +68,53 @@ public class CurrentPositionInfo
     public long getTime()
     {
         return time;
+    }
+
+    /**
+     * Calculates a hash code for this object.
+     *
+     * @return a hash code for this object
+     */
+    @Override
+    public int hashCode()
+    {
+        return new HashCodeBuilder().append(getPosition()).append(getTime())
+                .toHashCode();
+    }
+
+    /**
+     * Compares this object with another one. Two instances of this class are
+     * considered equals if they have the same position and time properties.
+     *
+     * @param obj the object to compare to
+     * @return a flag whether these objects are equal
+     */
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+        {
+            return true;
+        }
+        if (!(obj instanceof CurrentPositionInfo))
+        {
+            return false;
+        }
+
+        CurrentPositionInfo c = (CurrentPositionInfo) obj;
+        return getPosition() == c.getPosition() && getTime() == c.getTime();
+    }
+
+    /**
+     * Returns a string representation for this object. This string contains the
+     * values of all properties.
+     *
+     * @return a string for this object
+     */
+    @Override
+    public String toString()
+    {
+        return new ToStringBuilder(this).append("position", getPosition())
+                .append("time", getTime()).toString();
     }
 }
