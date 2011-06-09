@@ -1,33 +1,19 @@
 package de.olix.playa.playlist;
 
-import de.olix.playa.engine.AudioReadMonitor;
-import de.olix.playa.engine.AudioStreamSource;
+import java.io.IOException;
 
 /**
  * <p>
- * Definition of an interface for objects that can deal with playlists.
+ * Definition of an interface for objects that manage a list of songs to be
+ * played.
  * </p>
  * <p>
  * The audio player main class does not itself decide, which songs to play in
- * which order. This task is delegated to a <code>PlaylistManager</code>. At
- * startup a concrete implementation of this interface is created from the main
- * application's configuration file. Then through the methods defined by this
- * interface a <code>{@link de.olix.playa.engine.AudioStreamSource}</code>
- * object is obtained that represents the current playlist.
- * </p>
- * <p>
- * Additional methods in this interface allow a concrete playlist manager to
- * maintain its internal state. At startup or when the user wants to change the
- * source media the manager's <code>loadState()</code> method is called. The
- * counter part of this method is <code>saveState()</code>, which is invoked
- * at the end of the application.
- * </p>
- * <p>
- * During playback the manager is informed about the currently played songs. A
- * sophisticated implementation may use this information to decide, which songs
- * should be played next (e.g. based on playback frequency or on a self learning
- * heuristic taking the user's taste into account). It is also possible to query
- * more detailed information about a certain song.
+ * which order. This task is delegated to a {@code PlaylistManager}. The main
+ * task of such an object is to obtain all media files currently available and
+ * to define an order in which they are played. This list of songs also has to
+ * be persisted, so that the application can be closed and later restarted at
+ * the very same position.
  * </p>
  *
  * @author Oliver Heger
@@ -36,109 +22,80 @@ import de.olix.playa.engine.AudioStreamSource;
 public interface PlaylistManager
 {
     /**
-     * Returns the <code>AudioStreamSource</code> object associated with the
-     * current playlist. From this object the songs to be played can be fetched.
+     * Loads the state of this {@code PlaylistManager}. Here a concrete
+     * implementation should check, which audio files are available and whether
+     * already an order for playing them is defined. If so, this list should be
+     * loaded. The return value indicates the start position of the first song
+     * of the play list. So when playback stopped in the middle of the song, it
+     * can later continue at this very position.
      *
-     * @return the source object for the audio streams to be played
-     */
-    AudioStreamSource getSource();
-
-    /**
-     * Loads the state of this playlist manager. Here a concrete implementation
-     * should check, which auido files are available and prepare the creation of
-     * an <code>AudioStreamSource</code> for the playlist.
-     * <code>getSource()</code> will be called next. The return value
-     * indicates the start position of the first song of the playlist. So when
-     * playback stopped in the middle of the song, it can later continue at this
-     * very position.
-     *
-     * @return the start position of the first song in the playlist
+     * @return the start position of the first song in the play list
      * @throws IOException if an IO error occurs
      */
-    CurrentPositionInfo loadState() throws PlaylistException;
+    CurrentPositionInfo loadState() throws IOException;
 
     /**
-     * Saves the current state of the playlist manager. This method is called
-     * by the main application to tell the playlist manager that playback is to
-     * be stopped at the current position. A concrete implementation must
-     * somehow make all necessary information persistent, so that playback can
-     * later be continued at the same position.
+     * Saves the current state of this {@code PlaylistManager}. This method is
+     * called by the main application to tell this object that playback is to be
+     * stopped at the current position. A concrete implementation must somehow
+     * make all necessary information persistent, so that playback can later be
+     * continued at the same position.
      *
      * @param position the position of the currently played song; here a non
-     * <b>null</b> value is passed in when the user canceled playback in the middle
-     * of a song; a concrete implementation must save this value so that
-     * playback can continue at that exact position; the parameter can also be
-     * <b>null</b>
+     *        <b>null</b> value is passed in when the user canceled playback in
+     *        the middle of a song; a concrete implementation must save this
+     *        value so that playback can continue at that exact position; the
+     *        parameter can also be <b>null</b>
      * @throws IOException if an IO error occurs
      */
-    void saveState(CurrentPositionInfo position) throws PlaylistException;
+    void saveState(CurrentPositionInfo position) throws IOException;
 
     /**
-     * Tells the playlist manager that playback of a song has started. The song
-     * is identified by the ID of its audio stream (as returned by the
-     * corresponding <code>{@link de.olix.playa.engine.AudioStreamData}</code>
-     * object). A concrete implementation can update its internal state in
-     * reaction of this method call.
+     * Returns information about the current list of songs to be played. This
+     * can be displayed to the user in the GUI of an audio application.
      *
-     * @param streamID the ID of the stream whose playback recently started
-     */
-    void playbackStarted(Object streamID);
-
-    /**
-     * Tells the playlist manager that playback of a song was finished. This
-     * method is similar to <code>{@link #playbackStarted(Object)}</code>,
-     * but it is called when playback of a song has finished.
-     *
-     * @param streamID the ID of the affected audio stream
-     */
-    void playbackEnded(Object streamID);
-
-    /**
-     * Requests a <code>{@link SongInfo}</code> object for a specified audio
-     * stream. This information can be used to display some interesting
-     * information about a song to the user of an audio player application. The
-     * requested info object is not immediately fetched because this could be a
-     * longer running operation, which also could interfere with other parts of
-     * the audio engine. Instead a <code>{@link SongInfoCallBack}</code>
-     * object is provided that is invoked when the desired information is
-     * available.
-     *
-     * @param streamID the ID of the affected audio stream
-     * @param callBack the call back object
-     * @param param an arbitrary parameter that will be passed to the call back
-     * when it is invoked
-     */
-    void requestSongInfo(Object streamID, SongInfoCallBack callBack,
-            Object param);
-
-    /**
-     * Initializes the audio read monitor. If this playlist manager needs access
-     * to the source medium, it can use this monitor object for synchronization
-     * with the audio engine.
-     *
-     * @param monitor the monitor object
-     */
-    void initAudioReadMonitor(AudioReadMonitor monitor);
-
-    /**
-     * Initializes the song info provider for obtaining information about audio
-     * files.
-     *
-     * @param provider the song info provider
-     */
-    void initSongInfoProvider(SongInfoProvider provider);
-
-	/**
-     * Returns information about the current playlist. This can be displayed to
-     * the user in the GUI of an audio application.
-     *
-     * @return an object with information about the current playlist
+     * @return an object with information about the current play list
      */
     PlaylistInfo getPlaylistInfo();
 
-	/**
-	 * Tells the playlist manager to shut down and free all used resources.
-	 * This method should be called at the end of an audio application.
-	 */
-	void shutdown();
+    /**
+     * Tells this object to make the previous song the current one. This method
+     * can be called if the user wants to go back one song in the current play
+     * list.
+     *
+     * @return a flag whether there is a previous song
+     */
+    boolean previousSong();
+
+    /**
+     * Tells this object to advance to the next song. This method is called if
+     * the user wants to skip a song or a song has been played completely. The
+     * return value indicates whether the position could be changed; a value of
+     * <b>false</b> means that already the end of the list was reached.
+     *
+     * @return a flag there is a next song
+     */
+    boolean nextSong();
+
+    /**
+     * Returns the index of the current song in the play list.
+     *
+     * @return the index of the current song (0-based)
+     */
+    int getCurrentSongIndex();
+
+    /**
+     * Sets the index of the current song. Using this method the position in the
+     * song list can be set to an arbitrary index.
+     *
+     * @param idx the index of the new current song
+     */
+    void setCurrentSongIndex(int idx);
+
+    /**
+     * Returns the URI of the current media file. This file has to be played.
+     *
+     * @return the URI of the current media file
+     */
+    String getCurrentSongURI();
 }

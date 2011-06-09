@@ -18,7 +18,6 @@ import de.olix.playa.engine.AudioStreamSource;
 import de.olix.playa.playlist.CurrentPositionInfo;
 import de.olix.playa.playlist.PlaylistException;
 import de.olix.playa.playlist.PlaylistInfo;
-import de.olix.playa.playlist.PlaylistManager;
 import de.olix.playa.playlist.SongInfoCallBack;
 import de.olix.playa.playlist.SongInfoProvider;
 
@@ -94,7 +93,7 @@ import de.olix.playa.playlist.SongInfoProvider;
  * @author Oliver Heger
  * @version $Id$
  */
-public class XMLPlaylistManager implements PlaylistManager
+public class XMLPlaylistManager
 {
     /** Constant for the encoding to be used.*/
     static final String ENCODING = "iso-8859-1";
