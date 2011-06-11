@@ -6,13 +6,9 @@ import java.util.List;
 import java.util.Locale;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import de.olix.playa.playlist.KeepGroup;
 import de.olix.playa.playlist.PlaylistOrder;
-import de.olix.playa.playlist.PlaylistSettings;
 
 /**
  * <p>
@@ -36,41 +32,11 @@ import de.olix.playa.playlist.PlaylistSettings;
  * @author Oliver Heger
  * @version $Id$
  */
-public class ImmutablePlaylistSettings implements PlaylistSettings
+public class ImmutablePlaylistSettings extends AbstractPlaylistSettings
 {
     /** Constant for the empty instance. */
     private static final ImmutablePlaylistSettings EMPTY =
             new ImmutablePlaylistSettings(new HierarchicalConfiguration());
-
-    /** Constant for the playlist name key. */
-    private static final String KEY_NAME = "name";
-
-    /** Constant for the playlist description key. */
-    private static final String KEY_DESC = "description";
-
-    /** Constant for the order section. */
-    private static final String SEC_ORDER = "order";
-
-    /** Constant for the order key. */
-    private static final String KEY_ORDER = SEC_ORDER + ".mode";
-
-    /** Constant for the file name key. */
-    private static final String KEY_FILENAME = "[@name]";
-
-    /** Constant for the file key. */
-    private static final String KEY_FILE = "file";
-
-    /** Constant for the files key. */
-    private static final String KEY_FILES = KEY_FILE + KEY_FILENAME;
-
-    /** Constant for the keep key. */
-    private static final String KEY_KEEP = SEC_ORDER + ".keep";
-
-    /** Constant for the exact list key. */
-    private static final String KEY_LIST = SEC_ORDER + ".list";
-
-    /** Constant for the exact list files key. */
-    private static final String KEY_LISTFILES = KEY_LIST + '.' + KEY_FILES;
 
     /** Stores the name of the associated playlist. */
     private final String name;
@@ -191,19 +157,6 @@ public class ImmutablePlaylistSettings implements PlaylistSettings
     }
 
     /**
-     * Returns a hash code for this object.
-     *
-     * @return a hash code
-     */
-    @Override
-    public int hashCode()
-    {
-        return new HashCodeBuilder().append(getName()).append(getDescription())
-                .append(getOrder()).append(getKeepGroups())
-                .append(getExactPlaylist()).toHashCode();
-    }
-
-    /**
      * Compares this object with another one. Two instances of this class are
      * considered equal if all of their properties match.
      *
@@ -223,23 +176,7 @@ public class ImmutablePlaylistSettings implements PlaylistSettings
         }
 
         ImmutablePlaylistSettings c = (ImmutablePlaylistSettings) obj;
-        return new EqualsBuilder().append(getName(), c.getName())
-                .append(getDescription(), c.getDescription())
-                .append(getOrder(), c.getOrder())
-                .append(getKeepGroups(), c.getKeepGroups())
-                .append(getExactPlaylist(), c.getExactPlaylist()).isEquals();
-    }
-
-    /**
-     * Returns a string representation of this object.
-     *
-     * @return a string for this object
-     */
-    @Override
-    public String toString()
-    {
-        return new ToStringBuilder(this).append("name", getName())
-                .append("description", getDescription()).toString();
+        return equalsProperties(c);
     }
 
     /**
