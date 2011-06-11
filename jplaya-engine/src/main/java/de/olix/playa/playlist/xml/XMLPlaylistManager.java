@@ -474,7 +474,7 @@ public class XMLPlaylistManager
 	}
 
 	/**
-     * Returns a <code>PlaylistSettings</code> object for the current
+     * Returns a <code>ImmutablePlaylistSettings</code> object for the current
      * playlist. This method can be called after <code>loadState()</code>.
      *
      * @return a settings object
@@ -682,7 +682,7 @@ public class XMLPlaylistManager
      * ID and the extension <code>.settings</code>, this file will be loaded.</li>
      * <li>If the music directory contains a file named <code>.settings</code>,
      * this file will be loaded.</li>
-     * <li>Otherwise a new <code>PlaylistSettings</code> object will be
+     * <li>Otherwise a new <code>ImmutablePlaylistSettings</code> object will be
      * created and initialized with some default properties.</li>
      * </ol>
      *

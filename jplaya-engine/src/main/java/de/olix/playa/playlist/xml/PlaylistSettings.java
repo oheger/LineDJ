@@ -99,7 +99,7 @@ public class PlaylistSettings
     private List<PlaylistItem> exactList;
 
     /**
-     * Creates a new instance of <code>PlaylistSettings</code>.
+     * Creates a new instance of <code>ImmutablePlaylistSettings</code>.
      */
     public PlaylistSettings()
     {

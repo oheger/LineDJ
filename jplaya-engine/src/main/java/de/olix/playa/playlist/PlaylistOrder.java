@@ -27,5 +27,11 @@ public enum PlaylistOrder
      * The order mode <em>exact</em>. In this mode the order of the songs is
      * exactly defined.
      */
-    EXACT
+    EXACT,
+
+    /**
+     * The order mode <em>undefined</em>. This constant simply means that no
+     * order is available. In this case a default order mode should be used.
+     */
+    UNDEFINED
 }
