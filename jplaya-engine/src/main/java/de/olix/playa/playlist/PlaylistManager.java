@@ -22,17 +22,14 @@ import java.io.IOException;
 public interface PlaylistManager
 {
     /**
-     * Loads the state of this {@code PlaylistManager}. Here a concrete
-     * implementation should check, which audio files are available and whether
-     * already an order for playing them is defined. If so, this list should be
-     * loaded. The return value indicates the start position of the first song
-     * of the play list. So when playback stopped in the middle of the song, it
-     * can later continue at this very position.
+     * Returns a position object for the initial song in the playlist. This
+     * method can be called after a {@code PlaylistManager} has been newly
+     * obtained. If playback was interrupted in the middle of a song, this
+     * method returns the exact position where to continue.
      *
-     * @return the start position of the first song in the play list
-     * @throws IOException if an IO error occurs
+     * @return the start position of the first song in the playlist
      */
-    CurrentPositionInfo loadState() throws IOException;
+    CurrentPositionInfo getInitialPositionInfo();
 
     /**
      * Saves the current state of this {@code PlaylistManager}. This method is
@@ -98,4 +95,13 @@ public interface PlaylistManager
      * @return the URI of the current media file
      */
     String getCurrentSongURI();
+
+    /**
+     * Returns a flag whether all songs in the current playlist have been
+     * played. If this method returns <b>true</b>, a new {@code PlaylistManager}
+     * has to be obtained which will cause the generation of a new playlist.
+     *
+     * @return a flag whether the playlist has been finished
+     */
+    boolean isFinished();
 }
