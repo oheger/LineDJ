@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import junit.framework.TestCase;
+
 import org.easymock.EasyMock;
 
 import de.olix.playa.engine.AudioReadMonitor;
@@ -25,8 +27,6 @@ import de.olix.playa.playlist.PlaylistInfo;
 import de.olix.playa.playlist.SongInfo;
 import de.olix.playa.playlist.SongInfoCallBack;
 import de.olix.playa.playlist.SongInfoProvider;
-
-import junit.framework.TestCase;
 
 /**
  * Test class for XMLPlaylistManager.
@@ -975,16 +975,11 @@ public class TestXMLPlaylistManager extends TestCase
         assertEquals("Wrong name", name, pinfo.getName());
         assertEquals("Wrong number of songs", list.size(), pinfo
                 .getNumberOfSongs());
-        assertEquals("Wrong song index", 0, pinfo.getCurrentSongIndex());
 
         AudioStreamData data = source.nextAudioStream();
         manager.playbackStarted(data.getID());
         pinfo = manager.getPlaylistInfo();
-        assertEquals("Wrong index after playback start", 1, pinfo
-                .getCurrentSongIndex());
         manager.playbackEnded(data.getID());
-        assertEquals("Wrong index after playback end", 1, pinfo
-                .getCurrentSongIndex());
         assertEquals("Wrong number of songs after playback", list.size(), pinfo
                 .getNumberOfSongs());
     }
