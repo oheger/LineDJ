@@ -17,68 +17,6 @@ import de.olix.playa.playlist.PlaylistSettings;
  * stores playlist data in XML files in a configurable directory.
  * </p>
  * <p>
- * This playlist manager implementation is able to scan the content of a
- * specified directory structure, e.g. a CD-ROM drive. From the information
- * gathered from this directory structure it creates a checksum that is used as
- * the playlist's ID. Information about the available songs and the current
- * playlist is stored in a XML file whose name is derived from the checksum with
- * the extension &quot;.plist&quot; in a data directory. If a second file with
- * the same name, but the extension &quot;.settings&quot; exists, this file is
- * used to determine some properties of the playlist. It can contain the
- * following elements:
- * </p>
- * <p>
- * <table border="1">
- * <tr>
- * <th>Element</th>
- * <th>Description</th>
- * </tr>
- * <tr>
- * <td valign="top">name</td>
- * <td>A name for the playlist.</td>
- * </tr>
- * <tr>
- * <td valign="top">description</td>
- * <td>Here a description for the playlist can be set.</td>
- * </tr>
- * <tr>
- * <td valign="top">order</td>
- * <td>This property defines the order, in which the songs of the playlist are
- * played. It has a sub element named <code>mode</code>, for which the following
- * values are allowed:
- * <dl>
- * <dt>directories</dt>
- * <dd>The songs are played in an order defined by the directory structure. This
- * is usually suitable if the playlist contains different albums that are each
- * stored in their own directory. The contents of a directory is played in
- * alphabetical order.</dd>
- * <dt>random</dt>
- * <dd>A random order is used. In this mode, an arbitrary number of
- * <code>keep</code> elements can be placed below the <code>order</code>
- * element. Each <code>keep</code> element can in turn contain an arbitrary
- * number of <code>file</code> elements with a <code>name</code> attribute
- * storing relative path names to the files in the playlist. The meaning of
- * these elements is that they allow defining files that always should be played
- * in serial (e.g. if a large song is split into multiple song files).</dd>
- * <dt>exact</dt>
- * <dd>In this mode a playlist can directly be specified. This is done by
- * placing a <code>list</code> element below the <code>order</code> element.
- * This element can have an arbitrary number of <code>file</code> sub elements
- * with relative path names to the files to be played. Only the files specified
- * here will be played; if the directory tree contains more song files, these
- * files will be ignored.</dd></td>
- * </table>
- * </p>
- * <p>
- * If no such file exists in the data directory, for a file named
- * <code>.settings</code> is searched in the root directory of the directory
- * structure that is parsed. If here a file with the same structure as described
- * above is found, information about the playlist will be obtained from this
- * file. This mechanism allows it for instance to add a default settings file to
- * a CD ROM, but it will be also possible to override the settings by creating a
- * specific settings file in the data directory.
- * </p>
- * <p>
  * Implementation notes: This class is thread-safe. It is expected that multiple
  * threads change and access the state of an instance. Creation of new instances
  * happens internally only by the factory. Therefore no parameter checking is

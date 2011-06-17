@@ -1,5 +1,7 @@
 package de.olix.playa.playlist;
 
+import java.io.IOException;
+
 /**
  * <p>
  * Definition of an interface which is used to obtain new
@@ -20,5 +22,16 @@ package de.olix.playa.playlist;
  */
 public interface PlaylistManagerFactory
 {
-    PlaylistManager createPlaylistManager();
+    /**
+     * Creates a {@code PlaylistManager}. An implementation has to return a
+     * fully initialized {@code PlaylistManager} instance which can be used to
+     * play the songs in the current playlist.
+     *
+     * @param defaultOrder the default order if a playlist has to be newly
+     *        generated
+     * @return the {@code PlaylistManager} instance
+     * @throws IOException if an error occurs
+     */
+    PlaylistManager createPlaylistManager(PlaylistOrder defaultOrder)
+            throws IOException;
 }
