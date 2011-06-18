@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import de.olix.playa.playlist.CurrentPositionInfo;
@@ -31,9 +32,6 @@ class XMLPlaylistManager implements PlaylistManager
     /** The collection with the URIs of the files in the current playlist. */
     private final List<String> songURIs;
 
-    /** The settings of the current playlist. */
-    private final PlaylistSettings settings;
-
     /** The position of the first song to be played. */
     private final CurrentPositionInfo initialPositionInfo;
 
@@ -42,6 +40,9 @@ class XMLPlaylistManager implements PlaylistManager
 
     /** A reference to the factory which created this object. */
     private final XMLPlaylistManagerFactory factory;
+
+    /** The object with information about the playlist. */
+    private final PlaylistInfoImpl playlistInfo;
 
     /** The index of the current song. */
     private int currentSongIndex;
@@ -64,11 +65,35 @@ class XMLPlaylistManager implements PlaylistManager
             PlaylistSettings currentSettings, CurrentPositionInfo initPos,
             File plistFile, XMLPlaylistManagerFactory myFactory)
     {
-        songURIs = new ArrayList<String>(uris);
-        settings = currentSettings;
+        songURIs = Collections.unmodifiableList(new ArrayList<String>(uris));
         initialPositionInfo = initPos;
         this.plistFile = plistFile;
         factory = myFactory;
+        playlistInfo = new PlaylistInfoImpl(currentSettings, uris.size());
+    }
+
+    /**
+     * Creates a new instance of {@code XMLPlaylistManager} that is an exact
+     * copy of the passed in playlist manager.
+     *
+     * @param c the source playlist manager (must not be <b>null</b>)
+     * @throws IllegalArgumentException if the passed in playlist manager is
+     *         <b>null</b>
+     */
+    public XMLPlaylistManager(XMLPlaylistManager c)
+    {
+        if (c == null)
+        {
+            throw new IllegalArgumentException(
+                    "Manager to copy must not be null!");
+        }
+
+        factory = c.factory;
+        initialPositionInfo = c.initialPositionInfo;
+        playlistInfo = c.playlistInfo;
+        plistFile = c.plistFile;
+        songURIs = c.songURIs;
+        currentSongIndex = c.currentSongIndex;
     }
 
     /**
@@ -107,26 +132,7 @@ class XMLPlaylistManager implements PlaylistManager
     @Override
     public PlaylistInfo getPlaylistInfo()
     {
-        return new PlaylistInfo()
-        {
-            @Override
-            public int getNumberOfSongs()
-            {
-                return getSongURIs().size();
-            }
-
-            @Override
-            public String getName()
-            {
-                return settings.getName();
-            }
-
-            @Override
-            public String getDescription()
-            {
-                return settings.getDescription();
-            }
-        };
+        return playlistInfo;
     }
 
     /**
@@ -239,12 +245,68 @@ class XMLPlaylistManager implements PlaylistManager
     }
 
     /**
+     * Returns a copy of this playlist manager. This implementation creates a
+     * new instance by invoking the copy constructor.
+     *
+     * @return a copy of this {@code PlaylistManager}
+     */
+    @Override
+    public PlaylistManager copy()
+    {
+        return new XMLPlaylistManager(this);
+    }
+
+    /**
      * Returns the URIs of the songs in this playlist.
      *
      * @return the song URIs
      */
-    List<String> getSongURIs()
+    public List<String> getSongURIs()
     {
         return songURIs;
+    }
+
+    /**
+     * A simple implementation of the {@code PlaylistInfo} interface used by
+     * {@code getPlaylistInfo()}.
+     */
+    private static class PlaylistInfoImpl implements PlaylistInfo
+    {
+        /** The settings for this playlist. */
+        private final PlaylistSettings settings;
+
+        /** The number of songs in this playlist. */
+        private final int numberOfSongs;
+
+        /**
+         * Creates a new instance of {@code PlaylistInfoImpl} and initializes
+         * it.
+         *
+         * @param mySettings the settings of this playlist
+         * @param count the number of songs
+         */
+        public PlaylistInfoImpl(PlaylistSettings mySettings, int count)
+        {
+            settings = mySettings;
+            numberOfSongs = count;
+        }
+
+        @Override
+        public int getNumberOfSongs()
+        {
+            return numberOfSongs;
+        }
+
+        @Override
+        public String getName()
+        {
+            return settings.getName();
+        }
+
+        @Override
+        public String getDescription()
+        {
+            return settings.getDescription();
+        }
     }
 }

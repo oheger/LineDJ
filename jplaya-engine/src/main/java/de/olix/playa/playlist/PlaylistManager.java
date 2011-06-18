@@ -1,6 +1,7 @@
 package de.olix.playa.playlist;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * <p>
@@ -104,4 +105,26 @@ public interface PlaylistManager
      * @return a flag whether the playlist has been finished
      */
     boolean isFinished();
+
+    /**
+     * Returns a list with all URIs that are part of this playlist. The list
+     * should be unmodifiable.
+     *
+     * @return the list with the URIs of the songs belonging to the current
+     *         playlist
+     */
+    List<String> getSongURIs();
+
+    /**
+     * Returns a copy of this {@code PlaylistManager}. A playlist is often
+     * required on multiple places, for instance when reading audio files from
+     * the source medium, or when displaying the song currently played. These
+     * lists are the same, but they are slightly out of phase (songs are already
+     * read and buffered on the local hard disc before they are played).
+     * Therefore it makes sense to copy a playlist manager and manipulate the
+     * copy independently.
+     *
+     * @return the copy of this {@code PlaylistManager}
+     */
+    PlaylistManager copy();
 }

@@ -265,4 +265,40 @@ public class TestXMLPlaylistManager
         manager.saveState(null);
         EasyMock.verify(factory);
     }
+
+    /**
+     * Tries to invoke the copy constructor with a null object.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitCopyNull()
+    {
+        new XMLPlaylistManager(null);
+    }
+
+    /**
+     * Tests whether a copy of the manager can be created.
+     */
+    @Test
+    public void testCopy()
+    {
+        manager.setCurrentSongIndex(2);
+        XMLPlaylistManager copy = (XMLPlaylistManager) manager.copy();
+        assertSame("Different playlist", manager.getSongURIs(),
+                copy.getSongURIs());
+        assertSame("Different current position", initialPosition,
+                copy.getInitialPositionInfo());
+        assertSame("Different info", manager.getPlaylistInfo(),
+                copy.getPlaylistInfo());
+        assertEquals("Different file", manager.getPListFile(),
+                copy.getPListFile());
+    }
+
+    /**
+     * Tests whether the list with song URIs cannot be modified.
+     */
+    @Test(expected = UnsupportedOperationException.class)
+    public void testGetSongURIsModify()
+    {
+        manager.getSongURIs().add("newSong");
+    }
 }
