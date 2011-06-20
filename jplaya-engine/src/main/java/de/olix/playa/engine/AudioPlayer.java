@@ -622,15 +622,15 @@ public class AudioPlayer extends Thread
         {
             while (!isTerminate())
             {
-                streamData = nextStream();
-                if (isTerminate() || streamData.size() < 0)
-                {
-                    break;
-                }
-
                 boolean lineOpened = false;
                 try
                 {
+                    streamData = nextStream();
+                    if (isTerminate() || streamData.size() < 0)
+                    {
+                        break;
+                    }
+
                     setUpAudioStreams(streamData);
                     lockLine.lock();
                     locked = true;
@@ -650,6 +650,10 @@ public class AudioPlayer extends Thread
                         locked = false;
                     }
                     fatalError(luex);
+                }
+                catch (IllegalStateException istex)
+                {
+                    throw istex;
                 }
                 catch (Exception ex)
                 {
@@ -1061,8 +1065,9 @@ public class AudioPlayer extends Thread
      * source. If this operation is interrupted, <b>null</b> will be returned.
      *
      * @return the next audio stream to process
+     * @throws IOException if an IO error occurs
      */
-    private AudioStreamData nextStream()
+    private AudioStreamData nextStream() throws IOException
     {
         if (getAudioSource() == null)
         {

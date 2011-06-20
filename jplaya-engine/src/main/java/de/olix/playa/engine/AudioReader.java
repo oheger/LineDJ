@@ -41,7 +41,7 @@ import org.apache.commons.logging.LogFactory;
  * also be modified if necessary. But these things should not be done when the
  * main loop is running.
  * </p>
- * 
+ *
  * @author Oliver Heger
  * @version $Id$
  */
@@ -79,7 +79,7 @@ public class AudioReader implements Runnable
     /**
      * Creates a new instance of <code>AudioReader</code> and initializes it
      * with the reference to the target audio buffer.
-     * 
+     *
      * @param buffer the target buffer
      */
     public AudioReader(DataBuffer buffer)
@@ -91,7 +91,7 @@ public class AudioReader implements Runnable
      * Creates a new instance of <code>AudioReader</code> and initializes it
      * with the reference to the target audio buffer and an iterator for
      * obtaining the source data.
-     * 
+     *
      * @param buffer the target buffer
      * @param source the source data iterator
      */
@@ -104,7 +104,7 @@ public class AudioReader implements Runnable
     /**
      * Creates a new instance of <code>AudioReader</code> and initializes it
      * with the reference to the target audio buffer and the source object.
-     * 
+     *
      * @param buffer the target buffer
      * @param src the source object, from which the streams are fetched
      */
@@ -116,7 +116,7 @@ public class AudioReader implements Runnable
 
     /**
      * Initializes this instance.
-     * 
+     *
      * @param buffer the target buffer
      */
     private void initialize(DataBuffer buffer)
@@ -127,7 +127,7 @@ public class AudioReader implements Runnable
 
     /**
      * Returns the target audio buffer.
-     * 
+     *
      * @return the target buffer
      */
     public DataBuffer getAudioBuffer()
@@ -138,7 +138,7 @@ public class AudioReader implements Runnable
     /**
      * Sets the target audio buffer. To this object the source data will be
      * passed.
-     * 
+     *
      * @param audioBuffer the target audio buffer
      */
     public void setAudioBuffer(DataBuffer audioBuffer)
@@ -148,7 +148,7 @@ public class AudioReader implements Runnable
 
     /**
      * Returns the current close buffer at end flag.
-     * 
+     *
      * @return a flag whether the buffer is to be closed when all source data
      * has been processed
      */
@@ -161,7 +161,7 @@ public class AudioReader implements Runnable
      * Sets the close buffer at end flag. If this flag is set, the audio
      * buffer's <code>close()</code> method will be invoked when no more
      * source data is available.
-     * 
+     *
      * @param closeBufferAtEnd the value of the flag
      */
     public void setCloseBufferAtEnd(boolean closeBufferAtEnd)
@@ -172,7 +172,7 @@ public class AudioReader implements Runnable
     /**
      * Returns the <code>{@link AudioStreamSource}</code> object, from which
      * the stream data is obtained.
-     * 
+     *
      * @return the object with the source data
      */
     public AudioStreamSource getStreamSource()
@@ -183,7 +183,7 @@ public class AudioReader implements Runnable
     /**
      * Sets the <code>{@link AudioStreamSource}</code> object, from which the
      * stream data is obtained.
-     * 
+     *
      * @param src the object with the source data
      */
     public void setStreamSource(AudioStreamSource src)
@@ -195,7 +195,7 @@ public class AudioReader implements Runnable
      * Initializes the <code>AudioStreamSource</code> to be used from the
      * given iterator. This implementation will create a special stream source
      * that is backed by the given iterator.
-     * 
+     *
      * @param iterator the iterator with the source data
      */
     public void initStreamSource(Iterator<AudioStreamData> iterator)
@@ -205,7 +205,7 @@ public class AudioReader implements Runnable
 
     /**
      * Returns the currently used chunk size.
-     * 
+     *
      * @return the chunk size
      */
     public int getChunkSize()
@@ -218,7 +218,7 @@ public class AudioReader implements Runnable
      * into the target buffer buffers of this size will be used. The concrete
      * value of this property will have some influence on performance and memory
      * usage.
-     * 
+     *
      * @param chunkSize the chunk size
      */
     public void setChunkSize(int chunkSize)
@@ -232,7 +232,7 @@ public class AudioReader implements Runnable
      * have been set, otherwise a <code>IllegalStateException</code> exception
      * is thrown. This is the main method of this class, which does all the
      * processing.
-     * 
+     *
      * @throws InterruptedException if the operation is interrupted
      */
     public void read() throws InterruptedException
@@ -250,13 +250,21 @@ public class AudioReader implements Runnable
         byte[] buffer = new byte[getChunkSize()];
         while (!getAudioBuffer().isClosed())
         {
-            AudioStreamData asd = getStreamSource().nextAudioStream();
-            if (asd.size() < 0)
+            try
             {
-                // end marker?
-                break;
+                AudioStreamData asd = getStreamSource().nextAudioStream();
+                if (asd.size() < 0)
+                {
+                    // end marker?
+                    break;
+                }
+                processSourceStream(asd, buffer);
             }
-            processSourceStream(asd, buffer);
+            catch (IOException ioex)
+            {
+                //TODO correct exception handling
+                log.error("Error when reading stream!", ioex);
+            }
         }
         log.info("Source iteration completed.");
 
@@ -290,7 +298,7 @@ public class AudioReader implements Runnable
      * Processes the given source stream. Copies all of its content into the
      * target buffer. If an exception occurs, it is caught and logged. Then the
      * copy process in terminated, so that the next stream can be processed.
-     * 
+     *
      * @param source the source stream to be handled
      * @param buffer the buffer to use for the copy operation
      * @throws InterruptedException if the operation is interrupted
@@ -318,7 +326,7 @@ public class AudioReader implements Runnable
 
     /**
      * Copies the given source input stream into the target buffer.
-     * 
+     *
      * @param in the source input stream
      * @param buffer the buffer to use for the copy operation
      * @throws IOException if an error occurs

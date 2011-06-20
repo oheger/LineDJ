@@ -718,7 +718,7 @@ public class TestXMLPlaylistManager extends TestCase
      * Tests saving the manager's state while a song is played.
      */
     public void testSaveStateInSong() throws PlaylistException,
-            InterruptedException
+            InterruptedException, IOException
     {
         AudioStreamSource source = setUpLoadTest();
         final long position = 250;
@@ -743,7 +743,7 @@ public class TestXMLPlaylistManager extends TestCase
      * in.
      */
     public void testSaveStateNullPosition() throws PlaylistException,
-            InterruptedException
+            InterruptedException, IOException
     {
         AudioStreamSource source = setUpLoadTest();
         AudioStreamData data = source.nextAudioStream();
@@ -760,7 +760,7 @@ public class TestXMLPlaylistManager extends TestCase
      * a passed in current position will be ignored.
      */
     public void testSaveStateAfterSong() throws PlaylistException,
-            InterruptedException
+            InterruptedException, IOException
     {
         AudioStreamSource source = setUpLoadTest();
         AudioStreamData data = source.nextAudioStream();
@@ -783,7 +783,7 @@ public class TestXMLPlaylistManager extends TestCase
      * lost. Normally this should not happen, but who knows?
      */
     public void testSkipCallback() throws PlaylistException,
-            InterruptedException
+            InterruptedException, IOException
     {
         AudioStreamSource source = setUpLoadTest();
         AudioStreamData data1 = source.nextAudioStream();
@@ -810,7 +810,7 @@ public class TestXMLPlaylistManager extends TestCase
      * be ignored.
      */
     public void testInvalidCallback() throws PlaylistException,
-            InterruptedException
+            InterruptedException, IOException
     {
         AudioStreamSource source = setUpLoadTest();
         AudioStreamData data = source.nextAudioStream();
