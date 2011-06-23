@@ -143,6 +143,12 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>jplaya-engine</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>rms-testutils</artifactId>
       <version>${project.version}</version>
     </dependency>
