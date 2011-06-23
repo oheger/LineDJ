@@ -163,6 +163,17 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     }
 
     /**
+     * Returns the data directory used by this factory. In this directory the
+     * playlist and settings files are stored.
+     *
+     * @return the data directory
+     */
+    public File getDataDirectory()
+    {
+        return dataDirectory;
+    }
+
+    /**
      * Creates a new {@code PlaylistManager}. This implementation scans the
      * source medium and calculates a checksum over the media files found. Based
      * on this checksum files for the current status of the playlist and
@@ -435,7 +446,7 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
      */
     private File getDataFile(String checksum, String ext)
     {
-        return new File(dataDirectory, checksum + ext);
+        return new File(getDataDirectory(), checksum + ext);
     }
 
     /**
