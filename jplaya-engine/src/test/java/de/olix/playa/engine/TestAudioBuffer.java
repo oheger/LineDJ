@@ -1,5 +1,12 @@
 package de.olix.playa.engine;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
@@ -11,13 +18,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.easymock.EasyMock;
-
-import de.olix.playa.engine.AudioBuffer;
-import de.olix.playa.engine.AudioStreamData;
-import de.olix.playa.engine.ChainedInputStream;
-import de.olix.playa.engine.ChainedInputStreamCallBack;
-
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Test class for audio buffer.
@@ -25,10 +28,10 @@ import junit.framework.TestCase;
  * @author Oliver Heger
  * @version $Id$
  */
-public class TestAudioBuffer extends TestCase
+public class TestAudioBuffer
 {
     /** Constant for the cache directory. */
-    private static final File CACHE_DIR = new File("target/cache");
+    private static final String CACHE_DIR = "target/cache";
 
     /** Constant for the prefix of the name of a test stream. */
     private static final String NAME_PREFIX = "TestStream";
@@ -45,24 +48,36 @@ public class TestAudioBuffer extends TestCase
     /** Stores the buffer to be tested. */
     private AudioBufferTestImpl buffer;
 
-    @Override
-    protected void setUp() throws Exception
+    @Before
+    public void setUp() throws Exception
     {
-        super.setUp();
-        buffer = new AudioBufferTestImpl(CACHE_DIR, CHUNK_SIZE, CHUNK_COUNT, true);
+        buffer =
+                new AudioBufferTestImpl(CACHE_DIR, CHUNK_SIZE, CHUNK_COUNT,
+                        true);
     }
 
     /**
      * Clears any used resources. Ensures that the cache directory is cleared
      * and removed.
      */
-    @Override
-    protected void tearDown() throws Exception
+    @After
+    public void tearDown() throws Exception
     {
         buffer.close();
         buffer.clear();
-        assertTrue("Cache directory cannot be removed", CACHE_DIR.delete());
-        super.tearDown();
+        removeCacheDir();
+    }
+
+    /**
+     * Removes the cache directory if it exists.
+     */
+    private void removeCacheDir()
+    {
+        File cache = new File(CACHE_DIR);
+        if (cache.exists())
+        {
+            assertTrue("Cache directory cannot be removed", cache.delete());
+        }
     }
 
     /**
@@ -79,6 +94,7 @@ public class TestAudioBuffer extends TestCase
 
     /**
      * Returns a mock audio stream data object with the specified parameters.
+     *
      * @param name the name of the stream
      * @param id the Id of the stream
      * @param size the size of the stream
@@ -100,7 +116,7 @@ public class TestAudioBuffer extends TestCase
      * buffer size.
      *
      * @param index the index of the stream (used for creating a name for the
-     * stream)
+     *        stream)
      * @param len the length of the test stream
      * @param bufSize the buffer size for writing the single chunks
      * @throws IOException if an IO error occurs
@@ -109,7 +125,8 @@ public class TestAudioBuffer extends TestCase
     private void writeTestData(int index, int len, int bufSize)
             throws IOException, InterruptedException
     {
-        buffer.addNewStream(createStreamData(NAME_PREFIX + index, Integer.valueOf(index), len));
+        buffer.addNewStream(createStreamData(NAME_PREFIX + index,
+                Integer.valueOf(index), len));
         InputStream in = createTestStream(len);
         byte[] buffy = new byte[bufSize];
         int read;
@@ -129,7 +146,7 @@ public class TestAudioBuffer extends TestCase
      * @param to the to index of the part list (including)
      * @param size the expected stream size
      * @param callBackFile the index of the data file, for which a call back is
-     * expected or -1 for none
+     *        expected or -1 for none
      */
     private void checkChunkParts(int from, int to, long size, int callBackFile)
     {
@@ -137,105 +154,84 @@ public class TestAudioBuffer extends TestCase
         assertTrue("Too few chunk parts", buffer.getChildStreamCount() > to);
         for (int i = from; i <= to; i++)
         {
-            assertEquals("Wrong size for stream at index " + i, size, buffer
-                    .getChildStreamSize(i));
+            assertEquals("Wrong size for stream at index " + i, size,
+                    buffer.getChildStreamSize(i));
             if (callBackFile >= 0)
             {
-                assertEquals("Wrong call back reference", buffer, buffer
-                        .getChildStreamCallBack(i));
-                assertEquals("Wrong call back file param", files
-                        .get(callBackFile), buffer
-                        .getChildStreamCallBackParam(i));
+                assertEquals("Wrong call back reference", buffer,
+                        buffer.getChildStreamCallBack(i));
+                assertEquals("Wrong call back file param",
+                        files.get(callBackFile),
+                        buffer.getChildStreamCallBackParam(i));
             }
             else
             {
-                assertNull("A call back was registered", buffer
-                        .getChildStreamCallBack(i));
-                assertNull("A call back param was given", buffer
-                        .getChildStreamCallBackParam(i));
+                assertNull("A call back was registered",
+                        buffer.getChildStreamCallBack(i));
+                assertNull("A call back param was given",
+                        buffer.getChildStreamCallBackParam(i));
             }
         }
     }
 
     /**
-     * Tests whether the correct cache directory is set and whether it exists.
+     * Tests whether the correct cache directory is set.
      */
+    @Test
     public void testGetCacheDirectory()
     {
-        assertEquals("Wrong cache directory set", CACHE_DIR, buffer
-                .getCacheDirectory());
-        assertTrue("Directory does not exist", buffer.getCacheDirectory()
-                .exists());
-        assertTrue("No directory", buffer.getCacheDirectory().isDirectory());
+        assertEquals("Wrong cache directory set", new File(CACHE_DIR),
+                buffer.getCacheDirectory());
     }
 
     /**
      * Tests whether the buffer was correctly initialized.
      */
+    @Test
     public void testInit()
     {
         assertEquals("Wrong chunk size", CHUNK_SIZE, buffer.getChunkSize());
         assertEquals("Wrong chunk count", CHUNK_COUNT, buffer.getChunkCount());
-        assertEquals("Wrong number of data files", 1, buffer.getDataFiles()
+        assertEquals("Wrong number of data files", 0, buffer.getDataFiles()
                 .size());
         assertEquals("Wrong buffer size", 0, buffer.getCurrentSize());
-        assertEquals("Wrong number of current chunks", 1, buffer
-                .getCurrentChunkCount());
-        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT, buffer
-                .getAllowedChunkCount());
+        assertEquals("Wrong number of current chunks", 0,
+                buffer.getCurrentChunkCount());
+        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT,
+                buffer.getAllowedChunkCount());
     }
 
     /**
      * Tests creating an audio buffer with an undefined directory.
      */
+    @Test(expected = IllegalArgumentException.class)
     public void testInitInvalidDir() throws IOException
     {
-        try
-        {
-            new AudioBuffer(null, CHUNK_SIZE, CHUNK_COUNT);
-            fail("Could create buffer with null directory!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        new AudioBuffer(null, CHUNK_SIZE, CHUNK_COUNT);
     }
 
     /**
      * Tests creating an audio buffer with an invalid chunk count argument.
      */
+    @Test(expected = IllegalArgumentException.class)
     public void testInitInvalidChunkCount() throws IOException
     {
-        try
-        {
-            new AudioBuffer(CACHE_DIR, CHUNK_SIZE, 0);
-            fail("Could create audio buffer with invalid chunk count!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        new AudioBuffer(CACHE_DIR, CHUNK_SIZE, 0);
     }
 
     /**
      * Tests creating an audio buffer with an invalid chunk size argument.
      */
+    @Test(expected = IllegalArgumentException.class)
     public void testInitInvalidChunkSize() throws IOException
     {
-        try
-        {
-            new AudioBuffer(CACHE_DIR, 0, CHUNK_COUNT);
-            fail("Could create audio buffer with invalid chunk size!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        new AudioBuffer(CACHE_DIR, 0, CHUNK_COUNT);
     }
 
     /**
      * Tests writing some test streams.
      */
+    @Test
     public void testWriteData() throws IOException, InterruptedException
     {
         final int chunks = 5;
@@ -245,13 +241,15 @@ public class TestAudioBuffer extends TestCase
         thread.waitForStream(chunks);
         assertEquals("Wrong number of data files", 1, buffer.getDataFiles()
                 .size());
-        assertEquals("Wrong number of current chunks", 1, buffer
-                .getCurrentChunkCount());
-        assertEquals("Wrong buffer size", chunks * size, buffer
-                .getCurrentSize());
+        assertEquals("Wrong number of current chunks", 1,
+                buffer.getCurrentChunkCount());
+        assertEquals("Wrong buffer size", chunks * size,
+                buffer.getCurrentSize());
+        File cache = new File(CACHE_DIR);
+        assertTrue("Cache directory not created", cache.exists());
         buffer.close();
-        assertEquals("Wrong number of available streams", chunks + 1, buffer
-                .availableStreams());
+        assertEquals("Wrong number of available streams", chunks + 1,
+                buffer.availableStreams());
         checkChunkParts(0, chunks - 2, size, -1);
         checkChunkParts(chunks - 1, chunks - 1, size, 0);
 
@@ -259,8 +257,8 @@ public class TestAudioBuffer extends TestCase
         {
             AudioStreamData asd = buffer.nextAudioStream();
             StreamHelper.checkTestData(asd.getStream(), size);
-            assertEquals("Wrong name for stream", NAME_PREFIX + i, asd
-                    .getName());
+            assertEquals("Wrong name for stream", NAME_PREFIX + i,
+                    asd.getName());
         }
     }
 
@@ -268,19 +266,20 @@ public class TestAudioBuffer extends TestCase
      * Tests writing more data than the buffer is capable. The write operations
      * should block then.
      */
+    @Test
     public void testWriteDataBlocking() throws InterruptedException
     {
-        TestWriterThread thread = new TestWriterThread(CHUNK_COUNT + 5,
-                (int) CHUNK_SIZE, 32);
+        TestWriterThread thread =
+                new TestWriterThread(CHUNK_COUNT + 5, (int) CHUNK_SIZE, 32);
         thread.start();
         thread.waitForStream(2);
         Thread.sleep(SLEEP_TIME);
-        assertEquals("Wrong number of chunks", CHUNK_COUNT, buffer
-                .getCurrentChunkCount());
-        assertEquals("Wrong current size", CHUNK_SIZE * CHUNK_COUNT, buffer
-                .getCurrentSize());
-        assertEquals("Wrong number of chunk parts", 2, buffer
-                .getChildStreamCount());
+        assertEquals("Wrong number of chunks", CHUNK_COUNT,
+                buffer.getCurrentChunkCount());
+        assertEquals("Wrong current size", CHUNK_SIZE * CHUNK_COUNT,
+                buffer.getCurrentSize());
+        assertEquals("Wrong number of chunk parts", 2,
+                buffer.getChildStreamCount());
         checkChunkParts(0, 0, (int) CHUNK_SIZE, 0);
         checkChunkParts(1, 1, (int) CHUNK_SIZE, 1);
     }
@@ -288,12 +287,13 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests writing a large block at once that spans multiple chunks.
      */
+    @Test
     public void testWriteLargeBlock() throws IOException, InterruptedException
     {
         writeTestData(0, CHUNK_COUNT * (int) CHUNK_SIZE, CHUNK_COUNT
                 * (int) CHUNK_SIZE);
-        assertEquals("Wrong number of available streams", 1, buffer
-                .availableStreams());
+        assertEquals("Wrong number of available streams", 1,
+                buffer.availableStreams());
         checkChunkParts(0, 0, (int) CHUNK_SIZE, 0);
         buffer.close();
         checkChunkParts(1, 1, (int) CHUNK_SIZE, 1);
@@ -303,14 +303,15 @@ public class TestAudioBuffer extends TestCase
      * Tests writing only a part of a chunk. The data will become available only
      * after close() was called.
      */
+    @Test
     public void testWriteWithClose() throws IOException, InterruptedException
     {
         final int len = (int) CHUNK_SIZE / 2;
         writeTestData(0, len, len);
         assertEquals("Already streams available", 0, buffer.availableStreams());
         buffer.close();
-        assertEquals("Wrong number of streams available", 2, buffer
-                .availableStreams());
+        assertEquals("Wrong number of streams available", 2,
+                buffer.availableStreams());
         StreamHelper.checkTestData(buffer.nextAudioStream().getStream(), len);
     }
 
@@ -318,6 +319,7 @@ public class TestAudioBuffer extends TestCase
      * Tests the streamRead() call back. If this call back arrives, a new chunk
      * can be opened.
      */
+    @Test
     public void testStreamRead() throws InterruptedException
     {
         final int count = 5;
@@ -326,15 +328,15 @@ public class TestAudioBuffer extends TestCase
         thread.start();
         thread.waitForStream(CHUNK_COUNT);
         Thread.sleep(SLEEP_TIME);
-        assertEquals("Wrong number of chunks", CHUNK_COUNT, buffer
-                .getCurrentChunkCount());
-        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT, buffer
-                .getAllowedChunkCount());
+        assertEquals("Wrong number of chunks", CHUNK_COUNT,
+                buffer.getCurrentChunkCount());
+        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT,
+                buffer.getAllowedChunkCount());
         TestInputStream in = createTestStream(size);
         buffer.streamRead(in, size, buffer.getDataFiles().get(0));
         assertFalse("Stream was closed", in.isClosed);
-        assertEquals("No additional chunks allowed", CHUNK_COUNT + 1, buffer
-                .getAllowedChunkCount());
+        assertEquals("No additional chunks allowed", CHUNK_COUNT + 1,
+                buffer.getAllowedChunkCount());
         for (int i = 3; i <= count; i++)
         {
             thread.waitForStream(i);
@@ -342,14 +344,15 @@ public class TestAudioBuffer extends TestCase
                     .getDataFiles().get(i - 2));
         }
         thread.join();
-        assertEquals("Wrong number of chunks at end", count, buffer
-                .getCurrentChunkCount());
+        assertEquals("Wrong number of chunks at end", count,
+                buffer.getCurrentChunkCount());
     }
 
     /**
      * Tests invoking the stream read multiple times for the same stream. Only
      * the first invocation should have an effect.
      */
+    @Test
     public void testStreamReadMultipleTimes() throws InterruptedException
     {
         final int count = CHUNK_COUNT + 2;
@@ -362,8 +365,8 @@ public class TestAudioBuffer extends TestCase
         thread.waitForStream(CHUNK_COUNT + 1);
         buffer.streamRead(in, 2 * size, buffer.getDataFiles().get(0));
         Thread.sleep(SLEEP_TIME);
-        assertEquals("Number of chunks was increased", CHUNK_COUNT + 1, buffer
-                .getCurrentChunkCount());
+        assertEquals("Number of chunks was increased", CHUNK_COUNT + 1,
+                buffer.getCurrentChunkCount());
         assertEquals("Number of allowed chunks was increased", CHUNK_COUNT + 1,
                 buffer.getAllowedChunkCount());
         buffer.streamRead(createTestStream(size), 3 * size, buffer
@@ -374,6 +377,7 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests the stream completed call back.
      */
+    @Test
     public void testStreamCompleted() throws InterruptedException
     {
         final int count = CHUNK_COUNT + 1;
@@ -383,8 +387,8 @@ public class TestAudioBuffer extends TestCase
         thread.waitForStream(CHUNK_COUNT);
         File f = buffer.getDataFiles().get(0);
         buffer.streamCompleted(buffer.getChildStream(0), size, f);
-        assertEquals("Number of allowed chunks is wrong", CHUNK_COUNT, buffer
-                .getAllowedChunkCount());
+        assertEquals("Number of allowed chunks is wrong", CHUNK_COUNT,
+                buffer.getAllowedChunkCount());
         assertFalse("File was not deleted", f.exists());
         thread.join();
     }
@@ -392,6 +396,7 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests both call backs together.
      */
+    @Test
     public void testStreamReadAndCompleted() throws InterruptedException
     {
         final int count = CHUNK_COUNT + 2;
@@ -404,42 +409,37 @@ public class TestAudioBuffer extends TestCase
         buffer.streamRead(in, size, f);
         thread.waitForStream(CHUNK_COUNT + 1);
         buffer.streamCompleted(in, size, f);
-        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT, buffer
-                .getAllowedChunkCount());
+        assertEquals("Wrong number of allowed chunks", CHUNK_COUNT,
+                buffer.getAllowedChunkCount());
         assertEquals("Wrong number of data files", 2, buffer.getDataFiles()
                 .size());
         buffer.streamCompleted(createTestStream(size), 2 * size, buffer
                 .getDataFiles().get(0));
         thread.join();
-        assertEquals("Number of allowed chunks too small", CHUNK_COUNT, buffer
-                .getAllowedChunkCount());
+        assertEquals("Number of allowed chunks too small", CHUNK_COUNT,
+                buffer.getAllowedChunkCount());
     }
 
     /**
      * Tests calling clear() without calling close() first. This should cause an
      * exception.
      */
+    @Test(expected = IllegalStateException.class)
     public void testClearWithoutClose()
     {
-        try
-        {
-            buffer.clear();
-            fail("Could invoke clear() without close()!");
-        }
-        catch (IllegalStateException isex)
-        {
-            // ok
-        }
+        buffer.clear();
     }
 
     /**
      * Tests the close() method when a writer thread is blocking.
      */
+    @Test
     public void testCloseWithBlockingThread() throws IOException,
             InterruptedException
     {
-        TestWriterThread thread = new TestWriterThread(CHUNK_COUNT + 2,
-                (int) CHUNK_SIZE, (int) CHUNK_SIZE / 2);
+        TestWriterThread thread =
+                new TestWriterThread(CHUNK_COUNT + 2, (int) CHUNK_SIZE,
+                        (int) CHUNK_SIZE / 2);
         thread.start();
         thread.waitForStream(CHUNK_COUNT);
         checkClose(thread);
@@ -448,11 +448,12 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests the close() method with a (probably) running writer thread.
      */
+    @Test
     public void testCloseWithRunningThread() throws IOException,
             InterruptedException
     {
-        TestWriterThread thread = new TestWriterThread(CHUNK_COUNT + 2,
-                (int) CHUNK_SIZE, 1);
+        TestWriterThread thread =
+                new TestWriterThread(CHUNK_COUNT + 2, (int) CHUNK_SIZE, 1);
         thread.start();
         checkClose(thread);
     }
@@ -477,30 +478,33 @@ public class TestAudioBuffer extends TestCase
         {
             data = buffer.nextAudioStream();
         } while (data.size() >= 0);
-        assertEquals("Data available after close indicator", 0, buffer
-                .availableStreams());
+        assertEquals("Data available after close indicator", 0,
+                buffer.availableStreams());
     }
 
-	/**
+    /**
      * Exposes an ArrayIndexOutOfBoundsException in addChunk.
      */
-	public void testAddChunkOverflow() throws IOException, InterruptedException
-	{
-		buffer.addNewStream(createStreamData(NAME_PREFIX, NAME_PREFIX, 0L));
-		byte[] chunk = new byte[(int) (2 * CHUNK_SIZE) - 1];
-		buffer.addChunk(chunk, 0, chunk.length);
-	}
+    @Test
+    public void testAddChunkOverflow() throws IOException, InterruptedException
+    {
+        buffer.addNewStream(createStreamData(NAME_PREFIX, NAME_PREFIX, 0L));
+        byte[] chunk = new byte[(int) (2 * CHUNK_SIZE) - 1];
+        buffer.addChunk(chunk, 0, chunk.length);
+    }
 
     /**
      * Tests event notifications sent to a registered listener.
      */
+    @Test
     public void testBufferListener() throws Exception
     {
         final int count = 10;
         AudioBufferListenerTestImpl l = new AudioBufferListenerTestImpl(buffer);
         buffer.addBufferListener(l);
-        TestWriterThread writer = new TestWriterThread(count, (int) CHUNK_SIZE,
-                (int) (CHUNK_SIZE) / 2, true);
+        TestWriterThread writer =
+                new TestWriterThread(count, (int) CHUNK_SIZE,
+                        (int) (CHUNK_SIZE) / 2, true);
         writer.start();
         writer.waitForStream(CHUNK_COUNT);
         Thread.sleep(SLEEP_TIME);
@@ -520,34 +524,29 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tries to add a null listener. This should cause an exception.
      */
+    @Test(expected = IllegalArgumentException.class)
     public void testBufferListenerNull()
     {
-        try
-        {
-            buffer.addBufferListener(null);
-            fail("Could add null buffer listener!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        buffer.addBufferListener(null);
     }
 
     /**
      * Tests whether a buffer listener can be successfully removed.
      */
+    @Test
     public void testRemoveBufferListener() throws Exception
     {
         final int count = 10;
         AudioBufferListenerTestImpl l = new AudioBufferListenerTestImpl(buffer);
         buffer.addBufferListener(l);
-        TestWriterThread writer = new TestWriterThread(count, (int) CHUNK_SIZE,
-                (int) (CHUNK_SIZE) / 2, true);
+        TestWriterThread writer =
+                new TestWriterThread(count, (int) CHUNK_SIZE,
+                        (int) (CHUNK_SIZE) / 2, true);
         writer.start();
         readStreamsFromBuffer(count / 2);
         buffer.removeBufferListener(l);
-        Map<AudioBufferEvent.Type, Integer> oldEvents = new HashMap<AudioBufferEvent.Type, Integer>(
-                l.events);
+        Map<AudioBufferEvent.Type, Integer> oldEvents =
+                new HashMap<AudioBufferEvent.Type, Integer>(l.events);
         readStreamsFromBuffer(0);
         for (AudioBufferEvent.Type t : oldEvents.keySet())
         {
@@ -560,7 +559,7 @@ public class TestAudioBuffer extends TestCase
      * Reads a number of streams from the audio buffer.
      *
      * @param count the number of streams to read; can be 0, then the buffer
-     * will be completely read
+     *        will be completely read
      * @throws IOException if an IO error occurs
      * @throws InterruptedException if waiting is interrupted
      */
@@ -588,6 +587,7 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests clearing data from the cache directory.
      */
+    @Test
     public void testClearCacheDirectory() throws IOException
     {
         for (int i = 0; i < 20; i++)
@@ -598,14 +598,15 @@ public class TestAudioBuffer extends TestCase
     }
 
     /**
-     * Tests whether subdirectories are not affected by clearCacheDirectory().
+     * Tests whether sub directories are not affected by clearCacheDirectory().
      */
+    @Test
     public void testClearCacheDirectorySubDir() throws IOException
     {
         createTestFile(CACHE_DIR, 1);
         File subDir = new File(CACHE_DIR, "sub");
         assertTrue("Sub dir cannot be created", subDir.mkdir());
-        File testFile = createTestFile(subDir, 2);
+        File testFile = createTestFile(subDir.getAbsolutePath(), 2);
         assertTrue("File does not exist", testFile.exists());
         buffer.clearCacheDirectory();
         assertTrue("File has been deleted", testFile.exists());
@@ -616,6 +617,7 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests initializing a buffer without clearing the test directory.
      */
+    @Test
     public void testInitNoClearCacheDirectory() throws IOException
     {
         File f = createTestFile(CACHE_DIR, 5);
@@ -629,11 +631,12 @@ public class TestAudioBuffer extends TestCase
     /**
      * Tests the isFull() method.
      */
+    @Test
     public void testIsFull() throws InterruptedException
     {
         assertFalse("Buffer already full", buffer.isFull());
-        TestWriterThread thread = new TestWriterThread(CHUNK_COUNT + 5,
-                (int) CHUNK_SIZE, 16);
+        TestWriterThread thread =
+                new TestWriterThread(CHUNK_COUNT + 5, (int) CHUNK_SIZE, 16);
         thread.start();
         thread.waitForStream(CHUNK_COUNT);
         Thread.sleep(SLEEP_TIME);
@@ -644,11 +647,12 @@ public class TestAudioBuffer extends TestCase
      * Tests whether the size of the involved input streams is correctly
      * maintained.
      */
+    @Test
     public void testStreamSize() throws InterruptedException
     {
         final int streamSize = 10123;
-        TestWriterThread writer = new TestWriterThread(1, streamSize,
-                (int) CHUNK_SIZE, true);
+        TestWriterThread writer =
+                new TestWriterThread(1, streamSize, (int) CHUNK_SIZE, true);
         writer.start();
         Thread.sleep(SLEEP_TIME);
         AudioStreamData data = buffer.nextAudioStream();
@@ -664,9 +668,14 @@ public class TestAudioBuffer extends TestCase
      * @return the created test file
      * @throws IOException if an io error occurs
      */
-    private File createTestFile(File dir, int idx) throws IOException
+    private File createTestFile(String dir, int idx) throws IOException
     {
-        File f = new File(dir, "testfile" + idx + ".dat");
+        File cache = new File(dir);
+        if (!cache.exists())
+        {
+            assertTrue("Could not create cache directory", cache.mkdirs());
+        }
+        File f = new File(cache, "testfile" + idx + ".dat");
         FileOutputStream out = new FileOutputStream(f);
         try
         {
@@ -686,7 +695,7 @@ public class TestAudioBuffer extends TestCase
         return f;
     }
 
-	/**
+    /**
      * A test input stream class. This class allows to find out whether the
      * close() method has been invoked.
      */
@@ -716,14 +725,14 @@ public class TestAudioBuffer extends TestCase
         /** Stores a list with the added child streams. */
         private List<Object[]> childStreams;
 
-        public AudioBufferTestImpl(File dir, long chunkSize, int chunks)
-                throws IOException
+        public AudioBufferTestImpl(String dir, long chunkSize, int chunks)
         {
             super(dir, chunkSize, chunks);
             childStreams = new ArrayList<Object[]>();
         }
 
-        public AudioBufferTestImpl(File dir, long chunkSize, int chunks, boolean clearCache) throws IOException
+        public AudioBufferTestImpl(String dir, long chunkSize, int chunks,
+                boolean clearCache)
         {
             super(dir, chunkSize, chunks, clearCache);
             childStreams = new ArrayList<Object[]>();
@@ -819,7 +828,7 @@ public class TestAudioBuffer extends TestCase
         /** Stores the buffer size. */
         private int bufSize;
 
-        /** A flag whether the buffer should be closed after writing all data.*/
+        /** A flag whether the buffer should be closed after writing all data. */
         private boolean closeBuffer;
 
         /**
@@ -853,6 +862,7 @@ public class TestAudioBuffer extends TestCase
         /**
          * Executes this thread. Writes data into the audio buffer.
          */
+        @Override
         public void run()
         {
             try

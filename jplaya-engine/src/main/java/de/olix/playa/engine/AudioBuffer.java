@@ -35,24 +35,24 @@ import org.apache.commons.logging.LogFactory;
  * <p>
  * This class is used for buffering audio data that can be obtained from a CD
  * ROM or over the network on the user's hard disk. It reserves a buffer of a
- * configurable size at a given directory. This buffer is devided in a number of
+ * configurable size at a given directory. This buffer is divided in a number of
  * chunks (which can also be configured). Each chunk corresponds to a physical
  * file in the data directory. The buffer can be filled with data through the
- * methods of the <code>{@link DataBuffer}</code> interface. When data is
- * added temporary files for the chunks are created if necessary. If the the
- * buffer is full, write operations will block.
+ * methods of the {@link DataBuffer} interface. When data is added temporary
+ * files for the chunks are created if necessary. If the the buffer is full,
+ * write operations will block.
  * </p>
  * <p>
  * Concurrently data can be read via streams obtained through the methods of the
- * <code>{@link AudioStreamSource}</code> interface. These streams point to
- * the data files created for the single chunks. (In fact they are instances of
- * the <code>{@link ChainedInputStream}</code> class, that allows to treat the
- * content of multiple chunk files as a single stream.) If the buffer is closed,
- * an empty stream will be returned by <code>nextAudioStream()</code>. This
- * can be used by a client to determine when there is no more data.
+ * {@link AudioStreamSource} interface. These streams point to the data files
+ * created for the single chunks. (In fact they are instances of the
+ * {@link ChainedInputStream} class, that allows to treat the content of
+ * multiple chunk files as a single stream.) If the buffer is closed, an empty
+ * stream will be returned by {@code nextAudioStream()}. This can be used by a
+ * client to determine when there is no more data.
  * </p>
  * <p>
- * When ever a chunk has been completly read the corresponding file is deleted
+ * When ever a chunk has been completely read the corresponding file is deleted
  * from the data directory. Its space is then available for a new chunk file. So
  * if there are blocking write operations, the corresponding threads can then
  * continue with their work. This way the size of the buffer remains constantly
@@ -87,28 +87,28 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private static final long ADD_EVENT_THRESHOLD = 1000;
 
     /** The logger. */
-    private Log log = LogFactory.getLog(getClass());
+    private final Log log = LogFactory.getLog(getClass());
 
     /** Stores the directory with the file cache. */
-    private File cacheDirectory;
+    private final File cacheDirectory;
 
     /** A queue which stores the available audio streams. */
-    private BlockingQueue<AudioStreamData> availableStreams;
+    private final BlockingQueue<AudioStreamData> availableStreams;
 
     /**
      * A set with the currently existing data files. This object is also used as
      * a lock when writing of chunk files is involved.
      */
-    private Map<File, InputStream> dataFiles;
+    private final Map<File, InputStream> dataFiles;
 
     /** A collection with the currently existing parts. */
-    private Collection<ChunkDataPart> parts;
+    private final Collection<ChunkDataPart> parts;
 
     /** Stores the current chunk part. */
     private ChunkDataPart currentPart;
 
     /** A set with streams, for which read call backs have been received. */
-    private Set<InputStream> readCallBacks;
+    private final Set<InputStream> readCallBacks;
 
     /** The output stream for the current chunk. */
     private OutputStream out;
@@ -117,31 +117,31 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private File currentChunkFile;
 
     /** The lock for manipulating chunk counts. */
-    private Lock chunkLock;
+    private final Lock chunkLock;
 
-    /** The condition for signalling a waiting writer thread. */
-    private Condition chunksNotFull;
+    /** The condition for signaling a waiting writer thread. */
+    private final Condition chunksNotFull;
 
-    /** Stores the registered event listeners.*/
-    private EventListenerList listeners;
+    /** Stores the registered event listeners. */
+    private final EventListenerList listeners;
 
-    /** A queue for sending events.*/
-    private BlockingQueue<AudioBufferEvent.Type> events;
+    /** A queue for sending events. */
+    private final BlockingQueue<AudioBufferEvent.Type> events;
 
-    /** A reference to the thread for sending events.*/
-    private EventThread eventThread;
+    /** A reference to the thread for sending events. */
+    private final EventThread eventThread;
 
     /** The size of a chunk in bytes. */
-    private long chunkSize;
+    private final long chunkSize;
 
     /** Stores the number of bytes written into the current chunk. */
     private long currentChunkSize;
 
-    /** Stores the time of the last <em>DATA_ADDED</em> event.*/
+    /** Stores the time of the last <em>DATA_ADDED</em> event. */
     private long lastDataAddedEvent;
 
     /** Stores the initial number of chunks. */
-    private int chunkCount;
+    private final int chunkCount;
 
     /** Stores the number of allowed chunks. */
     private int allowedChunkCount;
@@ -149,40 +149,45 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     /** Stores the number of currently existing chunks. */
     private int currentChunkCount;
 
+    /** A flag whether the cache directory is to be cleared. */
+    private final boolean clearCacheDirectory;
+
     /** A flag whether this buffer has been closed. */
     private volatile boolean closed;
 
-    /** A flag whether the buffer is full.*/
+    /** A flag whether the buffer is full. */
     private boolean full;
 
+    /** A flag whether this instance has already been initialized. */
+    private boolean initialized;
+
     /**
-     * Creates a new instance of <code>AudioBuffer</code> and initializes it.
-     * This is equivalent to
-     * <code>AudioBuffer(dir, chunkSize, chunks, false);</code>.
+     * Creates a new instance of {@code AudioBuffer} and initializes it. This is
+     * equivalent to {@code AudioBuffer(dir, chunkSize, chunks, false);}.
      *
-     * @param dir the cache directory
+     * @param dir the path to the cache directory
      * @param chunkSize the size of a chunk in bytes
      * @param chunks the number of chunks
-     * @throws IOException if an IO error occurs
      */
-    public AudioBuffer(File dir, long chunkSize, int chunks) throws IOException
+    public AudioBuffer(String dir, long chunkSize, int chunks)
     {
         this(dir, chunkSize, chunks, false);
     }
 
     /**
-     * Creates a new instance of <code>AudioBuffer</code>, initializes it,
-     * and optionally clears the cache directory. With this constructor
-     * remaining artifacts of a previous run can be removed from the cache
-     * directory.
+     * Creates a new instance of {@code AudioBuffer}, initializes it, and
+     * optionally clears the cache directory. With this constructor remaining
+     * artifacts of a previous run can be removed from the cache directory.
+     * (Actually the cache directory is cleared when the instance is
+     * initialized.)
      *
-     * @param dir the cache directory
+     * @param dir the path to the cache directory
      * @param chunkSize the size of a chunk in bytes
      * @param chunks the number of chunks
      * @param clearCache a flag whether the cache directory should be cleared
-     * @throws IOException if an IO error occurs
      */
-    public AudioBuffer(File dir, long chunkSize, int chunks, boolean clearCache) throws IOException
+    public AudioBuffer(String dir, long chunkSize, int chunks,
+            boolean clearCache)
     {
         if (dir == null)
         {
@@ -200,12 +205,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
                     "Number of chunks must be greater than 0!");
         }
 
-        cacheDirectory = dir;
-        checkCacheDir(dir);
-        if (clearCache)
-        {
-            clearCacheDirectory();
-        }
+        cacheDirectory = new File(dir);
+        clearCacheDirectory = clearCache;
         this.chunkSize = chunkSize;
         chunkCount = chunks;
         allowedChunkCount = chunks;
@@ -217,13 +218,28 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
         chunkLock = new ReentrantLock();
         chunksNotFull = chunkLock.newCondition();
 
-        createChunkFile();
-        currentChunkCount = 1;
-
         listeners = new EventListenerList();
         events = new LinkedBlockingQueue<AudioBufferEvent.Type>();
         eventThread = new EventThread();
+    }
+
+    /**
+     * Initializes the buffer. This method has to be called before the buffer
+     * can actually be used. It is normally not necessary to invoke this method
+     * manually because it is automatically called before a write operation.
+     *
+     * @throws IOException if an IO exception occurs
+     */
+    public void initialize() throws IOException
+    {
+        checkCacheDir(cacheDirectory);
+        if (clearCacheDirectory)
+        {
+            clearCacheDirectory();
+        }
+        initFirstChunkFile();
         eventThread.start();
+        initialized = true;
     }
 
     /**
@@ -325,6 +341,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     public void addChunk(byte[] data, int ofs, int len) throws IOException,
             InterruptedException
     {
+        ensureInitialized();
         int bytesWritten = 0;
         int curOfs = ofs;
 
@@ -333,19 +350,18 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             boolean chunkFull = false;
             synchronized (getWriteLock())
             {
-                if (out != null)
+                int cnt =
+                        (int) Math.min(len - bytesWritten,
+                                getRemainingChunkSize());
+                if (cnt > 0)
                 {
-                    int cnt = (int) Math.min(len - bytesWritten, getRemainingChunkSize());
-                    if (cnt > 0)
-                    {
-                        out.write(data, curOfs, cnt);
-                        bytesWritten += cnt;
-                        curOfs += cnt;
-                        currentChunkSize += cnt;
-                        currentPart.addBytes(cnt);
-                    }
-                    chunkFull = currentChunkSize >= getChunkSize();
+                    out.write(data, curOfs, cnt);
+                    bytesWritten += cnt;
+                    curOfs += cnt;
+                    currentChunkSize += cnt;
+                    currentPart.addBytes(cnt);
                 }
+                chunkFull = currentChunkSize >= getChunkSize();
             }
 
             if (chunkFull && bytesWritten < len)
@@ -369,8 +385,9 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
         {
             if (!isClosed())
             {
-                currentPart = new ChunkDataPart(data.getName(), data.getID(),
-                        data.size());
+                currentPart =
+                        new ChunkDataPart(data.getName(), data.getID(),
+                                data.size());
             }
         }
         finally
@@ -588,7 +605,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             {
                 eventThread.join();
             }
-            catch(InterruptedException iex)
+            catch (InterruptedException iex)
             {
                 log.warn("Interrupted when waiting for event thread!", iex);
             }
@@ -644,11 +661,11 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * an irregular shutdown of the audio engine. It will remove all files found
      * in the cache directory (sub directories are not affected). Note: This
      * method must not be called while the buffer is active; call
-     * <code>close()</code> and <code>clear()</code> before. A constructor
-     * is provided that allows to clear the cache directory at startup.
+     * <code>close()</code> and <code>clear()</code> before. A constructor is
+     * provided that allows to clear the cache directory at startup.
      *
      * @return a flag whether all files could be removed from the cache
-     * directory
+     *         directory
      */
     public boolean clearCacheDirectory()
     {
@@ -689,6 +706,11 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      */
     public long getCurrentSize()
     {
+        if (!isInitialized())
+        {
+            return 0;
+        }
+
         chunkLock.lock();
         try
         {
@@ -705,8 +727,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * Returns the number of currently allowed chunks. At the beginning this is
      * the same number as was specified in the constructor for the number of
      * chunks. If mark operations are involved (i.e. the
-     * <code>streamRead()</code> call back is triggered), the number returned
-     * by this method may increase.
+     * <code>streamRead()</code> call back is triggered), the number returned by
+     * this method may increase.
      *
      * @return the number of currently allowed chunks
      */
@@ -746,13 +768,13 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * Notifies all registered event listeners about a change of the given type.
      * This implementation does not directly send an event to the registered
      * listeners; it rather schedules the event for being send. The sending
-     * operation will be performed by a background thread. If the passed in event
-     * type is <em>DATA_ADDED</em>, the method will only pass it to the listeners
-     * if a certain amount of time has passed since the last event of this type.
-     * This is due to the fact that, while the buffer is filled, a large amount
-     * of <em>DATA_ADDED</em> events will occur, which can cause a high CPU
-     * load. There is no point in propagating each of these events to the
-     * registered listeners.
+     * operation will be performed by a background thread. If the passed in
+     * event type is <em>DATA_ADDED</em>, the method will only pass it to the
+     * listeners if a certain amount of time has passed since the last event of
+     * this type. This is due to the fact that, while the buffer is filled, a
+     * large amount of <em>DATA_ADDED</em> events will occur, which can cause a
+     * high CPU load. There is no point in propagating each of these events to
+     * the registered listeners.
      *
      * @param type the event type
      */
@@ -801,8 +823,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      */
     private void createChunkFile() throws IOException
     {
-        currentChunkFile = File.createTempFile(FILE_PREFIX, null,
-                getCacheDirectory());
+        currentChunkFile =
+                File.createTempFile(FILE_PREFIX, null, getCacheDirectory());
         dataFiles.put(currentChunkFile, null);
         out = new BufferedOutputStream(new FileOutputStream(currentChunkFile));
         log.info("Creating out stream for chunk file " + currentChunkFile);
@@ -818,6 +840,11 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private void closeChunk() throws IOException, InterruptedException
     {
         closeCurrentOutStream();
+        if (currentChunkFile == null)
+        {
+            return;
+        }
+
         InputStream in = dataFiles.get(currentChunkFile);
         if (in == null)
         {
@@ -910,8 +937,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     }
 
     /**
-     * Creates an <code>AudioStreamData</code> object from the given part
-     * object if necessary and adds it to the queue with available streams.
+     * Creates an <code>AudioStreamData</code> object from the given part object
+     * if necessary and adds it to the queue with available streams.
      *
      * @param part the part object
      * @param in the input stream to use
@@ -935,8 +962,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             callBackParam = null;
         }
 
-        ChainedInputStream stream = part.getAppendStream(in, callBack,
-                callBackParam);
+        ChainedInputStream stream =
+                part.getAppendStream(in, callBack, callBackParam);
         if (stream != null)
         {
             availableStreams.put(new AudioStreamDataImpl(part.getName(), part
@@ -976,6 +1003,50 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private long getRemainingChunkSize()
     {
         return getChunkSize() - currentChunkSize;
+    }
+
+    /**
+     * Checks whether this object has already been initialized.
+     *
+     * @return a flag whether the object has been initialized
+     */
+    private boolean isInitialized()
+    {
+        synchronized (getWriteLock())
+        {
+            return initialized;
+        }
+    }
+
+    /**
+     * Ensures that this instance has been initialized. This method is called
+     * before data is written into the buffer. It takes care that a chunk file
+     * has been created. It also deals with clearing the cache directory if
+     * necessary.
+     *
+     * @throws IOException if an IO error occurs
+     */
+    private void ensureInitialized() throws IOException
+    {
+        synchronized (getWriteLock())
+        {
+            if (!isInitialized())
+            {
+                initialize();
+            }
+        }
+    }
+
+    /**
+     * Creates the first chunk file used by this buffer. This method is called
+     * on first write access to the buffer.
+     *
+     * @throws IOException if an IO exception occurs
+     */
+    private void initFirstChunkFile() throws IOException
+    {
+        createChunkFile();
+        currentChunkCount = 1;
     }
 
     /**
@@ -1076,7 +1147,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
         /** Stores the number of bytes to read. */
         private long bytesToRead;
 
-        /** Stores the total size of the stream.*/
+        /** Stores the total size of the stream. */
         private long size;
 
         /**
@@ -1196,8 +1267,9 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
                         if (lstnrs[i] == AudioBufferListener.class)
                         {
                             if (event == null)
-                                event = new AudioBufferEvent(AudioBuffer.this,
-                                        type);
+                                event =
+                                        new AudioBufferEvent(AudioBuffer.this,
+                                                type);
                             ((AudioBufferListener) lstnrs[i + 1])
                                     .bufferChanged(event);
                         }

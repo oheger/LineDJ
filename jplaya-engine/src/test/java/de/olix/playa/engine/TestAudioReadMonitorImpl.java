@@ -36,7 +36,8 @@ public class TestAudioReadMonitorImpl
     @Before
     public void setUp() throws Exception
     {
-        buffer = new AudioBufferTestImpl(CACHE_DIR, 1024, 2);
+        buffer = new AudioBufferTestImpl(CACHE_DIR.getAbsolutePath(), 1024, 2);
+        buffer.initialize();
         monitor = new AudioReadMonitorTestImpl(buffer);
     }
 
@@ -110,6 +111,7 @@ public class TestAudioReadMonitorImpl
         EasyMock.replay(cond);
         monitor.unlockWaitingThreads();
         EasyMock.verify(cond);
+        monitor.resetWaitCondition();
     }
 
     /**
@@ -263,8 +265,7 @@ public class TestAudioReadMonitorImpl
         /** Stores the number of registered event listeners. */
         private int listenerCount;
 
-        public AudioBufferTestImpl(File dir, long chunkSize, int chunks)
-                throws IOException
+        public AudioBufferTestImpl(String dir, long chunkSize, int chunks)
         {
             super(dir, chunkSize, chunks, true);
         }
@@ -322,6 +323,15 @@ public class TestAudioReadMonitorImpl
         {
             mockCondition = EasyMock.createMock(Condition.class);
             return mockCondition;
+        }
+
+        /**
+         * Removes the mock wait condition so that the default behavior is
+         * restored.
+         */
+        public void resetWaitCondition()
+        {
+            mockCondition = null;
         }
 
         /**
