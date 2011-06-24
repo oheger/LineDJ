@@ -18,6 +18,7 @@ import de.olix.playa.engine.AudioPlayerListener;
 import de.olix.playa.engine.AudioStreamData;
 import de.olix.playa.engine.AudioStreamSource;
 import de.olix.playa.engine.EndAudioStreamData;
+import de.olix.playa.engine.mediainfo.SongDataManager;
 
 /**
  * <p>
@@ -204,6 +205,39 @@ public class PlaylistController implements AudioStreamSource,
     public CurrentPositionInfo getCurrentPosition()
     {
         return new CurrentPositionInfo(currentPosition.get(), currentTime.get());
+    }
+
+    /**
+     * Passes all URIs of the current playlist to the specified
+     * {@code SongDataManager} so that media information for all streams can be
+     * fetched. This method can be called after a playlist has been initialized.
+     * It passes the URIs of the playlist in the order they are played (starting
+     * with the current index). As ID object the index of the song (as
+     * {@code Integer}) is used.
+     *
+     * @param manager the {@code SongDataManager} (must not be <b>null</b>)
+     * @throws IllegalArgumentException if the {@code SongDataManager} is
+     *         <b>null</b>
+     * @throws IllegalStateException if the playlist has not been initialized
+     */
+    public void fetchAllSongData(SongDataManager manager)
+    {
+        if (manager == null)
+        {
+            throw new IllegalArgumentException(
+                    "SongDataManager must not be null!");
+        }
+
+        List<String> songURIs = fetchPlaylistManager().getSongURIs();
+        int currentIndex = fetchPlaylistManager().getCurrentSongIndex();
+        for (int i = currentIndex; i < songURIs.size(); i++)
+        {
+            manager.extractSongData(songURIs.get(i), i);
+        }
+        for (int i = 0; i < currentIndex; i++)
+        {
+            manager.extractSongData(songURIs.get(i), i);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,7 @@ import org.junit.rules.TemporaryFolder;
 import de.olix.playa.engine.AudioPlayerEvent;
 import de.olix.playa.engine.AudioStreamData;
 import de.olix.playa.engine.EndAudioStreamData;
+import de.olix.playa.engine.mediainfo.SongDataManager;
 
 /**
  * Test class for {@code PlaylistController}.
@@ -817,6 +819,48 @@ public class TestPlaylistController extends EasyMockSupport
             t.join();
         }
         assertEquals("Wrong counter", AUTO_SAVE - 1, counter.get());
+        verifyAll();
+    }
+
+    /**
+     * Tests fetchAllSongData() if no manager is provided.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testFetchAllSongDataNoManager()
+    {
+        createController().fetchAllSongData(null);
+    }
+
+    /**
+     * Tests whether a song data manager can be initialized to fetch the media
+     * information for the whole playlist.
+     */
+    @Test
+    public void testFetchAllSongData()
+    {
+        final int count = 128;
+        final int currentIndex = 77;
+        SongDataManager manager = createStrictMock(SongDataManager.class);
+        PlaylistManager[] pms = prepareInitPlaylist();
+        List<String> uris = new ArrayList<String>(count);
+        for (int i = 0; i < count; i++)
+        {
+            uris.add(FILE_NAME + i);
+        }
+        EasyMock.expect(pms[IDX_PM_PLAYED].getSongURIs()).andReturn(uris);
+        EasyMock.expect(pms[IDX_PM_PLAYED].getCurrentSongIndex()).andReturn(
+                currentIndex);
+        for (int i = currentIndex; i < count; i++)
+        {
+            manager.extractSongData(FILE_NAME + i, i);
+        }
+        for (int i = 0; i < currentIndex; i++)
+        {
+            manager.extractSongData(FILE_NAME + i, i);
+        }
+        replayAll();
+        PlaylistController controller = createInitializedController();
+        controller.fetchAllSongData(manager);
         verifyAll();
     }
 }
