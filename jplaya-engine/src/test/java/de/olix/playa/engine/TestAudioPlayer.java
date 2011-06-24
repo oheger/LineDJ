@@ -1,5 +1,14 @@
 package de.olix.playa.engine;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -16,10 +25,10 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
 
 import de.olix.playa.engine.AudioPlayerEvent.Type;
-
-import junit.framework.TestCase;
 
 /**
  * Test class for AudioPlayer.
@@ -27,7 +36,7 @@ import junit.framework.TestCase;
  * @author Oliver Heger
  * @version $Id$
  */
-public class TestAudioPlayer extends TestCase
+public class TestAudioPlayer
 {
     /** Constant for the length in the write chunk tests. */
     private static final int CHUNK_LEN = 30;
@@ -41,18 +50,32 @@ public class TestAudioPlayer extends TestCase
     /** Constant for a wait period. */
     private static final long WAIT_TIME = 100;
 
+    /** A mock for the audio source. */
+    private AudioStreamSource mockSource;
+
     /** The player object to be tested. */
     private AudioPlayerTestImpl player;
 
-    protected void setUp() throws Exception
+    @Before
+    public void setUp() throws Exception
     {
-        super.setUp();
-        player = new AudioPlayerTestImpl();
+        mockSource = EasyMock.createMock(AudioStreamSource.class);
+        player = new AudioPlayerTestImpl(mockSource);
+    }
+
+    /**
+     * Tries to create an instance without a source.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitNoSource()
+    {
+        new AudioPlayer(null);
     }
 
     /**
      * Tests the writeChunk() method when no skip position is set.
      */
+    @Test
     public void testWriteChunkNoSkip()
     {
         checkWriteChunk(0, 0, CHUNK_LEN);
@@ -61,6 +84,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the writeChunk() method when the chunk is fully skipped.
      */
+    @Test
     public void testWriteChunkSkip()
     {
         checkWriteChunk(CHUNK_LEN, 0, 0);
@@ -70,6 +94,7 @@ public class TestAudioPlayer extends TestCase
      * Tests the writeChunk() method when the chunk is partly skipped, i.e. the
      * chunk overlaps with the skip position.
      */
+    @Test
     public void testWriteChunkPartlySkip()
     {
         checkWriteChunk(10, 10, CHUNK_LEN - 10);
@@ -79,6 +104,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests writing a chunk when multiple calls to the line are necessary.
      */
+    @Test
     public void testWriteChunkMultipleCalls()
     {
         byte[] chunk = new byte[CHUNK_LEN];
@@ -98,6 +124,7 @@ public class TestAudioPlayer extends TestCase
      * Tests writing a chunk when the skip flag is set. In this case nothing
      * should be written and the operation should be aborted.
      */
+    @Test
     public void testWriteChunkWithSkip()
     {
         SourceDataLine mockLine = EasyMock.createMock(SourceDataLine.class);
@@ -105,8 +132,8 @@ public class TestAudioPlayer extends TestCase
         player.setLine(mockLine);
         player.setSkipPosition(AudioPlayer.SKIP_STREAM);
         byte[] chunk = new byte[CHUNK_LEN];
-        assertFalse("Skip was not detected", player
-                .writeChunk(chunk, CHUNK_LEN));
+        assertFalse("Skip was not detected",
+                player.writeChunk(chunk, CHUNK_LEN));
         EasyMock.verify(mockLine);
     }
 
@@ -114,16 +141,17 @@ public class TestAudioPlayer extends TestCase
      * Tests setting a skip time. When the skip position is reached in
      * writeChunk() a offset for the current time must be set.
      */
+    @Test
     public void testWriteChunkSkipTime()
     {
         final long skipTime = 10000;
         player.getTimer().start();
         player.setSkipTime(skipTime);
         checkWriteChunk(10, 10, CHUNK_LEN - 10);
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.POSITION_CHANGED, null);
-        assertTrue("Skip time was not set: " + event.getPlaybackTime(), event
-                .getPlaybackTime() >= skipTime);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        assertTrue("Skip time was not set: " + event.getPlaybackTime(),
+                event.getPlaybackTime() >= skipTime);
     }
 
     /**
@@ -152,9 +180,11 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests whether a correct command thread is created.
      */
+    @Test
     public void testCreateCommandThread() throws InterruptedException
     {
-        CommandDispatchThread thread = new AudioPlayer().createCommandThread();
+        CommandDispatchThread thread =
+                new AudioPlayer(mockSource).createCommandThread();
         assertNotNull("No command thread created", thread);
         assertTrue("Thread is not alive", thread.isAlive());
         thread.exit();
@@ -164,6 +194,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests adding a new audio player listener.
      */
+    @Test
     public void testAddAudioPlayerListener()
     {
         AudioPlayerListener l = EasyMock.createMock(AudioPlayerListener.class);
@@ -181,22 +212,16 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests adding a null audio listener. This should cause an exception.
      */
+    @Test(expected = IllegalArgumentException.class)
     public void testAddAudioPlayerListenerNull()
     {
-        try
-        {
-            player.addAudioPlayerListener(null);
-            fail("Could add null audio player listener!");
-        }
-        catch (IllegalArgumentException iex)
-        {
-            // ok
-        }
+        player.addAudioPlayerListener(null);
     }
 
     /**
      * Tests removing an audio player listener.
      */
+    @Test
     public void testRemoveAudioPlayerListener()
     {
         AudioPlayerListener l = EasyMock.createMock(AudioPlayerListener.class);
@@ -214,6 +239,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests removing audio player listener, which are not registered.
      */
+    @Test
     public void testRemoveAudioPlayerListenerUnRegistered()
     {
         AudioPlayerListener l1 = EasyMock.createMock(AudioPlayerListener.class);
@@ -233,14 +259,15 @@ public class TestAudioPlayer extends TestCase
      * Tests obtaining the current audio format. This is the format object
      * associated with the source audio stream.
      */
+    @Test
     public void testGetAudioFormat()
     {
         player.setCurrentSourceInputStream(setUpAudioInputStream(1024));
         AudioFormat format = player.getAudioFormat();
-        assertEquals("Wrong encoding", AudioFormat.Encoding.PCM_SIGNED, format
-                .getEncoding());
-        assertTrue("Test property not found", format.properties().containsKey(
-                TEST_PROP));
+        assertEquals("Wrong encoding", AudioFormat.Encoding.PCM_SIGNED,
+                format.getEncoding());
+        assertTrue("Test property not found",
+                format.properties().containsKey(TEST_PROP));
         assertEquals("Wrong sample rate", 44000, format.getSampleRate(), 0.001f);
         assertEquals("Wrong sample size", 16, format.getSampleSizeInBits());
     }
@@ -249,15 +276,17 @@ public class TestAudioPlayer extends TestCase
      * Tests obtaining the audio format if the source stream is undefined. In
      * this case the result should be null.
      */
+    @Test
     public void testGetAudioFormatUndefined()
     {
-        assertNull("Could obtain undefined audio format", player
-                .getAudioFormat());
+        assertNull("Could obtain undefined audio format",
+                player.getAudioFormat());
     }
 
     /**
      * Tests creating an audio player event.
      */
+    @Test
     public void testCreateEvent()
     {
         AudioInputStream stream = setUpAudioInputStream(1024);
@@ -269,19 +298,19 @@ public class TestAudioPlayer extends TestCase
         player.setStreamData(mockData);
         Throwable ex = new Exception("Test");
 
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.START_SONG, ex);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.START_SONG, ex);
         assertEquals("Wrong stream name", TEST_FILE, event.getStreamName());
         assertSame("Wrong stream data", mockData, event.getStreamData());
         assertSame("Wrong source", player, event.getSource());
         Map<String, Object> props = event.getFormat().properties();
-        assertEquals("Test property not found", Boolean.TRUE, props
-                .get(TEST_PROP));
+        assertEquals("Test property not found", Boolean.TRUE,
+                props.get(TEST_PROP));
         assertEquals("Wrong stream length", 1024 * 64, event.getStreamLength());
         assertEquals("Wrong position", 0, event.getPosition());
         assertEquals("Wrong exception", ex, event.getException());
-        assertEquals("Wrong percentual position", 0, event
-                .getRelativePosition());
+        assertEquals("Wrong percentual position", 0,
+                event.getRelativePosition());
         EasyMock.verify(mockData);
     }
 
@@ -289,13 +318,14 @@ public class TestAudioPlayer extends TestCase
      * Tests creating an event when the source audio stream is undefined. Then
      * some of the properties are not available.
      */
+    @Test
     public void testCreateEventUndefinedSourceStream()
     {
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.PLAYLIST_END, null);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.PLAYLIST_END, null);
         assertNull("Exception available", event.getException());
-        assertEquals("Wrong type", AudioPlayerEvent.Type.PLAYLIST_END, event
-                .getType());
+        assertEquals("Wrong type", AudioPlayerEvent.Type.PLAYLIST_END,
+                event.getType());
         assertNull("Audio format available", event.getFormat());
         assertNull("Stream name available", event.getStreamName());
         assertNull("Stream data available", event.getStreamData());
@@ -303,14 +333,15 @@ public class TestAudioPlayer extends TestCase
         assertEquals("Non unknown stream length",
                 AudioPlayerEvent.UNKNOWN_STREAM_LENGTH, event.getStreamLength());
         assertEquals("Percentual position available",
-                AudioPlayerEvent.UNKNOWN_STREAM_LENGTH, event
-                        .getRelativePosition());
+                AudioPlayerEvent.UNKNOWN_STREAM_LENGTH,
+                event.getRelativePosition());
     }
 
     /**
      * Tests creating an event object. The percental position will be obtained
      * from the stream data object.
      */
+    @Test
     public void testCreateEventPercentalPositionFromStreamData()
     {
         AudioInputStream stream = setUpAudioInputStream(-1);
@@ -323,16 +354,16 @@ public class TestAudioPlayer extends TestCase
         EasyMock.replay(mockData);
         player.setStreamData(mockData);
 
-        AudioPlayerEvent ev = player.createEvent(
-                AudioPlayerEvent.Type.POSITION_CHANGED, null);
-        assertEquals("Wrong percentual position", 50, ev
-                .getRelativePosition());
+        AudioPlayerEvent ev =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        assertEquals("Wrong percentual position", 50, ev.getRelativePosition());
         EasyMock.verify(mockData);
     }
 
     /**
      * Tests whether the timer is suspended when playback stops.
      */
+    @Test
     public void testCreateEventSuspendTimer() throws InterruptedException
     {
         SourceDataLine line = EasyMock.createMock(SourceDataLine.class);
@@ -341,10 +372,13 @@ public class TestAudioPlayer extends TestCase
         player.setLine(line);
         player.getTimer().start();
         player.stopPlayback();
-        AudioPlayerEvent event1 = player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        AudioPlayerEvent event1 =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
         Thread.sleep(WAIT_TIME * 5);
-        AudioPlayerEvent event2 = player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
-        assertEquals("Timer was not suspended", event1.getPlaybackTime(), event2.getPlaybackTime());
+        AudioPlayerEvent event2 =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        assertEquals("Timer was not suspended", event1.getPlaybackTime(),
+                event2.getPlaybackTime());
         EasyMock.verify(line);
     }
 
@@ -352,6 +386,7 @@ public class TestAudioPlayer extends TestCase
      * Tests whether created events contain a running playback time after the
      * timer has been resumed.
      */
+    @Test
     public void testCreateEventResumeTimer() throws InterruptedException
     {
         SourceDataLine line = EasyMock.createMock(SourceDataLine.class);
@@ -361,11 +396,14 @@ public class TestAudioPlayer extends TestCase
         player.setLine(line);
         player.getTimer().start();
         player.stopPlayback();
-        AudioPlayerEvent event1 = player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        AudioPlayerEvent event1 =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
         player.startPlayback();
         Thread.sleep(WAIT_TIME * 5);
-        AudioPlayerEvent event2 = player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
-        assertTrue("Timer not running", event2.getPlaybackTime() > event1.getPlaybackTime());
+        AudioPlayerEvent event2 =
+                player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
+        assertTrue("Timer not running",
+                event2.getPlaybackTime() > event1.getPlaybackTime());
     }
 
     /**
@@ -378,8 +416,9 @@ public class TestAudioPlayer extends TestCase
     {
         Map<String, Object> props = new HashMap<String, Object>();
         props.put(TEST_PROP, Boolean.TRUE);
-        AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
-                44000, 16, 2, 64, 10, false, props);
+        AudioFormat format =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44000, 16, 2,
+                        64, 10, false, props);
         return new AudioInputStream(StreamHelper.createTestStream(1024),
                 format, length);
     }
@@ -387,25 +426,28 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests writing a complete source stream.
      */
+    @Test
     public void testWriteStream() throws IOException
     {
         final int chunks = 10;
         final int remaining = 16;
         byte[] buffer = new byte[CHUNK_LEN];
-        InputStream testStream = StreamHelper.createTestStream(chunks
-                * CHUNK_LEN + remaining);
+        InputStream testStream =
+                StreamHelper.createTestStream(chunks * CHUNK_LEN + remaining);
         InputStream testDataStream = StreamHelper.createTestStream(1);
-        AudioPlayerEvent event = new AudioPlayerEvent(player,
-                AudioPlayerEvent.Type.START_SONG, null);
+        AudioPlayerEvent event =
+                new AudioPlayerEvent(player, AudioPlayerEvent.Type.START_SONG,
+                        null);
         player.setTestEvent(event);
 
         SourceDataLine line = EasyMock.createStrictMock(SourceDataLine.class);
-        AudioPlayerListener listener = EasyMock
-                .createStrictMock(AudioPlayerListener.class);
+        AudioPlayerListener listener =
+                EasyMock.createStrictMock(AudioPlayerListener.class);
         for (int i = 0; i < chunks; i++)
         {
-            byte[] testBytes = StreamHelper.createTestBytes(i * CHUNK_LEN,
-                    (i + 1) * CHUNK_LEN);
+            byte[] testBytes =
+                    StreamHelper.createTestBytes(i * CHUNK_LEN, (i + 1)
+                            * CHUNK_LEN);
             EasyMock.expect(
                     line.write(EasyMock.aryEq(testBytes), EasyMock.eq(0),
                             EasyMock.eq(CHUNK_LEN))).andReturn(CHUNK_LEN);
@@ -420,8 +462,8 @@ public class TestAudioPlayer extends TestCase
         player.writeStream(testStream, testDataStream, buffer);
         player.executeAllCommands();
         EasyMock.verify(line, listener);
-        assertEquals("Wrong position", chunks * CHUNK_LEN + remaining, player
-                .getPosition());
+        assertEquals("Wrong position", chunks * CHUNK_LEN + remaining,
+                player.getPosition());
         assertTrue("Data stream was read", testDataStream.read() != -1);
     }
 
@@ -429,11 +471,12 @@ public class TestAudioPlayer extends TestCase
      * Tests the writeStream() method when the terminate flag is set. In this
      * case nothing should be written.
      */
+    @Test
     public void testWriteStreamWithTerminate() throws IOException
     {
         SourceDataLine line = EasyMock.createMock(SourceDataLine.class);
-        AudioPlayerListener listener = EasyMock
-                .createMock(AudioPlayerListener.class);
+        AudioPlayerListener listener =
+                EasyMock.createMock(AudioPlayerListener.class);
         EasyMock.replay(line, listener);
         player.setLine(line);
         player.addAudioPlayerListener(listener);
@@ -450,11 +493,12 @@ public class TestAudioPlayer extends TestCase
      * data should be written into the data line and the source stream should be
      * read.
      */
+    @Test
     public void testWriteStreamWithSkip() throws IOException
     {
         SourceDataLine line = EasyMock.createMock(SourceDataLine.class);
-        AudioPlayerListener listener = EasyMock
-                .createMock(AudioPlayerListener.class);
+        AudioPlayerListener listener =
+                EasyMock.createMock(AudioPlayerListener.class);
         EasyMock.replay(line, listener);
         player.setLine(line);
         player.addAudioPlayerListener(listener);
@@ -471,6 +515,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the stop playback method.
      */
+    @Test
     public void testStopPlayback()
     {
         player.getTimer().start();
@@ -486,6 +531,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests waiting for the end of playback.
      */
+    @Test
     public void testWaitForPlaybackEnds() throws InterruptedException
     {
         SourceDataLine line = EasyMock.createMock(SourceDataLine.class);
@@ -504,6 +550,7 @@ public class TestAudioPlayer extends TestCase
      * Tests waiting for playback end when the stopPlayback() method is called.
      * In this case two calls to update() are necessary to end the waiting.
      */
+    @Test
     public void testWaitForPlaybackEndsWithStopPlayback()
             throws InterruptedException
     {
@@ -526,6 +573,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests waiting for the end of playback when the thread is interrupted.
      */
+    @Test
     public void testWaitForPlaybackEndsInterrupted()
             throws InterruptedException
     {
@@ -544,14 +592,15 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the error method.
      */
+    @Test
     public void testError()
     {
         Exception ex = new Exception("Test exception");
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.EXCEPTION, ex);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.EXCEPTION, ex);
         player.setTestEvent(event);
-        AudioPlayerListener listener = EasyMock
-                .createMock(AudioPlayerListener.class);
+        AudioPlayerListener listener =
+                EasyMock.createMock(AudioPlayerListener.class);
         listener.error(event);
         EasyMock.replay(listener);
         player.addAudioPlayerListener(listener);
@@ -563,25 +612,26 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests raising a fatal error and then waiting until recover() is called.
      */
+    @Test
     public void testFatalError() throws InterruptedException
     {
         Exception ex = new Exception("Test exception");
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.EXCEPTION, ex);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.EXCEPTION, ex);
         player.setTestEvent(event);
-        AudioPlayerListener listener = EasyMock
-                .createMock(AudioPlayerListener.class);
+        AudioPlayerListener listener =
+                EasyMock.createMock(AudioPlayerListener.class);
         listener.fatalError(event);
         EasyMock.replay(listener);
         player.addAudioPlayerListener(listener);
         WaitFatalErrorThread thread = new WaitFatalErrorThread();
         thread.start();
         assertTrue("Thread is not waiting", thread.waiting);
-        assertTrue("Not waiting after fatal error", player
-                .isWaitAfterFatalError());
+        assertTrue("Not waiting after fatal error",
+                player.isWaitAfterFatalError());
         player.recover();
-        assertFalse("Still wait after fatal error", player
-                .isWaitAfterFatalError());
+        assertFalse("Still wait after fatal error",
+                player.isWaitAfterFatalError());
         thread.join();
         assertFalse("Thread is still waiting", thread.waiting);
         player.executeAllCommands();
@@ -591,13 +641,14 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests waiting after a fatal error when the waiting is interrupted.
      */
+    @Test
     public void testFatalErrorInterrupted() throws InterruptedException
     {
         WaitFatalErrorThread thread = new WaitFatalErrorThread();
         thread.start();
         assertTrue("Thread is not waiting", thread.waiting);
-        assertTrue("Not waiting after fatal error", player
-                .isWaitAfterFatalError());
+        assertTrue("Not waiting after fatal error",
+                player.isWaitAfterFatalError());
         thread.interrupt();
         thread.join();
         assertFalse("Thread is still waiting", thread.waiting);
@@ -608,6 +659,7 @@ public class TestAudioPlayer extends TestCase
      * Tests setting up the next audio source stream. Here we can only check
      * whether a non null stream is returned and no exception is thrown.
      */
+    @Test
     public void testSetUpSourceStream() throws Exception
     {
         AudioInputStream ais = player.setUpSourceStream(createTestStream());
@@ -619,21 +671,22 @@ public class TestAudioPlayer extends TestCase
      * Tests setting up an encoded audio stream. We can here at least test some
      * properties of the decoded stream's format.
      */
+    @Test
     public void testSetUpDecodedStream() throws Exception
     {
         player.setCurrentSourceInputStream(player
                 .setUpSourceStream(createTestStream()));
-        AudioInputStream ais = player.setUpDecodedStream(player
-                .getCurrentSourceInputStream());
+        AudioInputStream ais =
+                player.setUpDecodedStream(player.getCurrentSourceInputStream());
         assertNotNull("No stream returned", ais);
         assertNotNull("Audio format was not set", player.getAudioFormat());
         AudioFormat format = ais.getFormat();
-        assertNotSame("Encoded audio format is the same", player
-                .getAudioFormat(), format);
-        assertEquals("Wrong encoding", AudioFormat.Encoding.PCM_SIGNED, format
-                .getEncoding());
-        assertEquals("Wrong sample size in bits", 16, format
-                .getSampleSizeInBits());
+        assertNotSame("Encoded audio format is the same",
+                player.getAudioFormat(), format);
+        assertEquals("Wrong encoding", AudioFormat.Encoding.PCM_SIGNED,
+                format.getEncoding());
+        assertEquals("Wrong sample size in bits", 16,
+                format.getSampleSizeInBits());
         assertEquals("Wrong sample rate", player.getAudioFormat()
                 .getSampleRate(), format.getSampleRate(), 0.001f);
         ais.close();
@@ -655,10 +708,12 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests creating a copy buffer with simple parameters.
      */
+    @Test
     public void testCreateCopyBuffer()
     {
-        AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
-                44100, 16, 2, 4, 44100, false, new HashMap<String, Object>());
+        AudioFormat format =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44100, 16, 2,
+                        4, 44100, false, new HashMap<String, Object>());
         byte[] buffer = player.createCopyBuffer(format);
         assertEquals("Wrong buffer length", AudioPlayer.DEFAULT_CHUNK_SIZE,
                 buffer.length);
@@ -667,11 +722,13 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests creating a copy buffer when the frame size is unspecified.
      */
+    @Test
     public void testCreateCopyBufferUndefFrames()
     {
-        AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
-                44100, 16, 2, 4, AudioSystem.NOT_SPECIFIED, false,
-                new HashMap<String, Object>());
+        AudioFormat format =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44100, 16, 2,
+                        4, AudioSystem.NOT_SPECIFIED, false,
+                        new HashMap<String, Object>());
         byte[] buffer = player.createCopyBuffer(format);
         assertEquals("Wrong buffer size", AudioPlayer.DEFAULT_CHUNK_SIZE,
                 buffer.length);
@@ -679,25 +736,29 @@ public class TestAudioPlayer extends TestCase
 
     /**
      * Tests creating a copy buffer when the a round operation is necessary to
-     * obtain an integral number of rames.
+     * obtain an integral number of frames.
      */
+    @Test
     public void testCreateCopyBufferRounded()
     {
-        AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
-                44100, 16, 2, 10, 100.5f, true);
+        AudioFormat format =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44100, 16, 2,
+                        10, 100.5f, true);
         player.setChunkSize(999);
-        assertEquals("Wrong rounded buffer size", 1000, player
-                .createCopyBuffer(format).length);
+        assertEquals("Wrong rounded buffer size", 1000,
+                player.createCopyBuffer(format).length);
     }
 
     /**
      * Tests setting up a data line. We can only test here that a non null line
      * is returned and no exception is thrown.
      */
+    @Test
     public void testSetUpLine() throws LineUnavailableException
     {
-        AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
-                44100, 16, 2, 4, 44100, false, new HashMap<String, Object>());
+        AudioFormat format =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44100, 16, 2,
+                        4, 44100, false, new HashMap<String, Object>());
         SourceDataLine line = player.setUpLine(format);
         assertNotNull(line);
     }
@@ -705,6 +766,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the playback loop.
      */
+    @Test
     public void testPlayback() throws Exception
     {
         SourceDataLine mockLine = EasyMock.createMock(SourceDataLine.class);
@@ -719,10 +781,10 @@ public class TestAudioPlayer extends TestCase
         player.setLine(mockLine);
         player.setTestLine(mockLine);
 
-        AudioPlayerListener mockListener = EasyMock
-                .createMock(AudioPlayerListener.class);
-        AudioPlayerEvent event = player.createEvent(
-                AudioPlayerEvent.Type.START_SONG, null);
+        AudioPlayerListener mockListener =
+                EasyMock.createMock(AudioPlayerListener.class);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.START_SONG, null);
         player.setTestEvent(event);
         mockListener.streamStarts(event);
         mockListener.positionChanged(event);
@@ -733,13 +795,12 @@ public class TestAudioPlayer extends TestCase
         player.setSkipTime(12345);
 
         Collection<AudioStreamData> streams = new ArrayList<AudioStreamData>(2);
-        AudioStreamSource mockSrc = setUpAudioSource(streams);
-        player.setAudioSource(mockSrc);
+        setUpAudioSource(streams);
 
         EasyMock.replay(mockLine, mockListener);
         player.run();
         player.executeAllCommands();
-        EasyMock.verify(mockLine, mockListener, mockSrc);
+        EasyMock.verify(mockLine, mockListener, mockSource);
         EasyMock.verify(streams.toArray());
         assertEquals("Skip time was not reset", 0, player.getSkipTime());
         assertEquals("Timer offset was not reset", 0, player.getTimeOffset());
@@ -748,6 +809,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the playback method when an error occurs.
      */
+    @Test
     public void testPlaybackWithError() throws Exception
     {
         checkPlaybackWithException(new IllegalArgumentException(
@@ -759,6 +821,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests the playback method when a fatal error occurs.
      */
+    @Test
     public void testPlaybackWithFatalError() throws Exception
     {
         checkPlaybackWithException(new LineUnavailableException(
@@ -779,61 +842,40 @@ public class TestAudioPlayer extends TestCase
         EasyMock.expectLastCall().andThrow(ex);
         player.setTestLine(mockLine);
         Collection<AudioStreamData> streams = new ArrayList<AudioStreamData>(2);
-        AudioStreamSource mockSrc = setUpAudioSource(streams);
-        player.setAudioSource(mockSrc);
+        setUpAudioSource(streams);
         player.setIgnoreErrors(true);
         EasyMock.replay(mockLine);
 
         player.playback();
         player.executeAllCommands();
-        EasyMock.verify(mockSrc, mockLine);
+        EasyMock.verify(mockSource, mockLine);
         EasyMock.verify(streams.toArray());
     }
 
     /**
-     * Tests the playback method when no audio source is set. This should throw
-     * an exception.
-     */
-    public void testPlaybackWithNoAudioSource()
-    {
-        try
-        {
-            player.playback();
-            fail("Could call playback() without an audio source!");
-        }
-        catch (IllegalStateException istex)
-        {
-            // ok
-        }
-    }
-
-    /**
-     * Initializes an audio source for returning some test streams. One real
-     * stream and one end mark stream will be returned.
+     * Initializes the audio source mock for returning some test streams. One
+     * real stream and one end mark stream will be returned.
      *
      * @param streams a collection for storing the stream mock objects
-     * @return the mock object for the source
      */
-    private AudioStreamSource setUpAudioSource(
-            Collection<AudioStreamData> streams)
+    private void setUpAudioSource(Collection<AudioStreamData> streams)
     {
-        AudioStreamSource mockSrc = EasyMock
-                .createMock(AudioStreamSource.class);
         try
         {
-            AudioStreamData mockData = EasyMock
-                    .createMock(AudioStreamData.class);
+            AudioStreamData mockData =
+                    EasyMock.createMock(AudioStreamData.class);
             EasyMock.expect(mockData.getStream()).andReturn(createTestStream())
                     .times(1, 2);
             EasyMock.expect(mockData.getName()).andStubReturn(TEST_FILE);
             EasyMock.expect(mockData.size()).andReturn(1000L);
-            EasyMock.expect(mockSrc.nextAudioStream()).andReturn(mockData);
-            AudioStreamData mockEndData = EasyMock
-                    .createMock(AudioStreamData.class);
+            EasyMock.expect(mockSource.nextAudioStream()).andReturn(mockData);
+            AudioStreamData mockEndData =
+                    EasyMock.createMock(AudioStreamData.class);
             EasyMock.expect(mockEndData.getName()).andStubReturn(null);
             EasyMock.expect(mockEndData.size()).andReturn(-1L);
-            EasyMock.expect(mockSrc.nextAudioStream()).andReturn(mockEndData);
-            EasyMock.replay(mockData, mockEndData, mockSrc);
+            EasyMock.expect(mockSource.nextAudioStream())
+                    .andReturn(mockEndData);
+            EasyMock.replay(mockData, mockEndData, mockSource);
             streams.add(mockData);
             streams.add(mockEndData);
         }
@@ -845,12 +887,12 @@ public class TestAudioPlayer extends TestCase
         {
             fail("Strange exception occurred: " + ioex);
         }
-        return mockSrc;
     }
 
     /**
      * Tests the startPlayback() method.
      */
+    @Test
     public void testStartPlayback()
     {
         SourceDataLine mockLine = EasyMock.createMock(SourceDataLine.class);
@@ -867,6 +909,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests skipping a stream.
      */
+    @Test
     public void testSkipStream()
     {
         setUpSkipLine();
@@ -879,6 +922,7 @@ public class TestAudioPlayer extends TestCase
     /**
      * Tests skipping the current stream when playback is not running.
      */
+    @Test
     public void testSkipStreamNoPlaying()
     {
         SourceDataLine mockLine = EasyMock.createMock(SourceDataLine.class);
@@ -893,6 +937,7 @@ public class TestAudioPlayer extends TestCase
      * Tests shutting down the audio player. This should cause the main loop to
      * exit as soon as possible.
      */
+    @Test
     public void testShutdown()
     {
         setUpSkipLine();
@@ -906,6 +951,7 @@ public class TestAudioPlayer extends TestCase
      * Tests shutting down the audio player when it is blocked at the audio
      * source.
      */
+    @Test
     public void testShutdownWithInterrupt() throws InterruptedException
     {
         AudioStreamSource source = new AudioStreamSource()
@@ -913,13 +959,13 @@ public class TestAudioPlayer extends TestCase
             public AudioStreamData nextAudioStream()
                     throws InterruptedException
             {
-                BlockingQueue<AudioStreamData> queue = new ArrayBlockingQueue<AudioStreamData>(
-                        1);
+                BlockingQueue<AudioStreamData> queue =
+                        new ArrayBlockingQueue<AudioStreamData>(1);
                 // This will block forever
                 return queue.take();
             }
         };
-        player.setAudioSource(source);
+        player = new AudioPlayerTestImpl(source);
         player.start();
         Thread.sleep(WAIT_TIME);
         assertTrue("Player is not playing", player.isPlaying());
@@ -948,18 +994,19 @@ public class TestAudioPlayer extends TestCase
      * Tests starting playback when the line is not yet defined. This should be
      * a noop.
      */
+    @Test
     public void testStartPlaybackNullLine()
     {
-    	assertFalse("Already playing", player.isPlaying());
-    	player.startPlayback();
-    	assertFalse("Now playing", player.isPlaying());
+        assertFalse("Already playing", player.isPlaying());
+        player.startPlayback();
+        assertFalse("Now playing", player.isPlaying());
     }
 
     /**
      * A special AudioPlayer implementation used for testing. Some methods are
      * overloaded in a way so that they can be easier tested.
      */
-    static class AudioPlayerTestImpl extends AudioPlayer
+    private static class AudioPlayerTestImpl extends AudioPlayer
     {
         /** The number of invocations of the error method. */
         public int errorCount;
@@ -975,6 +1022,11 @@ public class TestAudioPlayer extends TestCase
 
         /** Stores the ignore errors flag. */
         private boolean ignoreErrors;
+
+        public AudioPlayerTestImpl(AudioStreamSource source)
+        {
+            super(source);
+        }
 
         public AudioPlayerEvent getTestEvent()
         {
@@ -1126,6 +1178,7 @@ public class TestAudioPlayer extends TestCase
         /**
          * Executes the thread. Calls the wait method.
          */
+        @Override
         public void run()
         {
             waiting = true;

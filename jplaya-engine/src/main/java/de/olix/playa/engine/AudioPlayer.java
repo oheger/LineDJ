@@ -25,10 +25,10 @@ import org.apache.commons.logging.LogFactory;
  * The class for playing audio files.
  * </p>
  * <p>
- * This class will read audio data from a <code>{@link AudioBuffer}</code> and
- * play it using Java sound. This happens in a background thread and can work
- * automatically. From other threads (e.g. from the GUI) some methods can be
- * called to pause and continue the playback, abort it or skip the current song.
+ * This class will read audio data from a {@link AudioBuffer} and play it using
+ * Java sound. This happens in a background thread and can work automatically.
+ * From other threads (e.g. from the GUI) some methods can be called to pause
+ * and continue the playback, abort it or skip the current song.
  * </p>
  * <p>
  * It is possible to register an event listener at an instance. This listener
@@ -48,13 +48,13 @@ public class AudioPlayer extends Thread
     static final int DEFAULT_CHUNK_SIZE = 4096;
 
     /** Stores the audio source, from which the data is obtained. */
-    private AudioStreamSource audioSource;
+    private final AudioStreamSource audioSource;
 
     /** Stores a reference to the command thread. */
-    private CommandDispatchThread commandDispatchThread;
+    private final CommandDispatchThread commandDispatchThread;
 
     /** Stores the registered event listeners. */
-    private Collection<AudioPlayerListener> listeners;
+    private final Collection<AudioPlayerListener> listeners;
 
     /** Stores the line for audio playback. */
     private SourceDataLine line;
@@ -69,25 +69,25 @@ public class AudioPlayer extends Thread
     private AudioInputStream sourceInputStream;
 
     /** The logger. */
-    private Log log = LogFactory.getLog(getClass());
+    private final Log log = LogFactory.getLog(getClass());
 
     /** A lock for modifications of the data line. */
-    private Lock lockLine;
+    private final Lock lockLine;
 
     /** A condition for stopping and continuing playback. */
-    private Condition condPausePlayback;
+    private final Condition condPausePlayback;
 
     /** A lock for the fatal error waiting. */
-    private Lock lockFatalError;
+    private final Lock lockFatalError;
 
     /** A condition variable for the fatal error waiting. */
-    private Condition condFatalError;
+    private final Condition condFatalError;
 
     /** A lock for modifications of the skip position. */
-    private Lock lockSkip;
+    private final Lock lockSkip;
 
-    /** Stores the timer for measuring playback time.*/
-    private StopWatch timer;
+    /** Stores the timer for measuring playback time. */
+    private final StopWatch timer;
 
     /** Stores the skip position when input data is to be skipped. */
     private long skipPosition;
@@ -101,10 +101,10 @@ public class AudioPlayer extends Thread
     /** Stores the read position in the current song. */
     private long position;
 
-    /** Stores the length of the current audio stream.*/
+    /** Stores the length of the current audio stream. */
     private long inputStreamSize;
 
-    /** Stores the offset of the current time.*/
+    /** Stores the offset of the current time. */
     private long timeOffset;
 
     /**
@@ -123,10 +123,21 @@ public class AudioPlayer extends Thread
     private boolean playing;
 
     /**
-     * Creates a new instance of <code>AudioPlayer</code>.
+     * Creates a new instance of {@code AudioPlayer} and initializes it with the
+     * source for audio streams.
+     *
+     * @param source the {@code AudioStreamSource} (must not be <b>null</b>)
+     * @throws IllegalArgumentException if the source is <b>null</b>
      */
-    public AudioPlayer()
+    public AudioPlayer(AudioStreamSource source)
     {
+        if (source == null)
+        {
+            throw new IllegalArgumentException(
+                    "AudioStreamSource must not be null!");
+        }
+
+        audioSource = source;
         listeners = new ArrayList<AudioPlayerListener>();
         commandDispatchThread = createCommandThread();
         lockLine = new ReentrantLock();
@@ -147,16 +158,6 @@ public class AudioPlayer extends Thread
     public AudioStreamSource getAudioSource()
     {
         return audioSource;
-    }
-
-    /**
-     * Sets the audio source.
-     *
-     * @param audioSource the audio source
-     */
-    public void setAudioSource(AudioStreamSource audioSource)
-    {
-        this.audioSource = audioSource;
     }
 
     /**
@@ -265,8 +266,7 @@ public class AudioPlayer extends Thread
     public AudioFormat getAudioFormat()
     {
         return (getCurrentSourceInputStream() != null) ? getCurrentSourceInputStream()
-                .getFormat()
-                : null;
+                .getFormat() : null;
     }
 
     /**
@@ -296,6 +296,7 @@ public class AudioPlayer extends Thread
 
     /**
      * Returns the current playback time.
+     *
      * @return the current playback time
      */
     long getPlaybackTime()
@@ -368,8 +369,9 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Returns the offset of the current time. This value has to be added to
-     * the current timer value for obtaining the correct playback time.
+     * Returns the offset of the current time. This value has to be added to the
+     * current timer value for obtaining the correct playback time.
+     *
      * @return the current time offset
      */
     long getTimeOffset()
@@ -382,6 +384,7 @@ public class AudioPlayer extends Thread
      * start at the beginning of a song, but somewhere in the middle. It
      * represents a value in milliseconds that will be added to the current
      * timer value.
+     *
      * @param timeOffset the time offset
      */
     void setTimeOffset(long timeOffset)
@@ -486,8 +489,8 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Stops playback. Calling <code>startPlayback()</code> later will
-     * continue playback.
+     * Stops playback. Calling <code>startPlayback()</code> later will continue
+     * playback.
      */
     public void stopPlayback()
     {
@@ -507,31 +510,31 @@ public class AudioPlayer extends Thread
         }
     }
 
-	/**
+    /**
      * Restarts playback after it was stopped using
      * <code>{@link #stopPlayback()}</code>. With these two methods a pause
      * function can be implemented.
      */
-	public void startPlayback()
-	{
-		lockLine.lock();
-		try
-		{
-			if (getLine() != null)
-			{
-				getLine().start();
-				playing = true;
-				getTimer().resume();
-				condPausePlayback.signal();
-			}
-		}
-		finally
-		{
-			lockLine.unlock();
-		}
-	}
+    public void startPlayback()
+    {
+        lockLine.lock();
+        try
+        {
+            if (getLine() != null)
+            {
+                getLine().start();
+                playing = true;
+                getTimer().resume();
+                condPausePlayback.signal();
+            }
+        }
+        finally
+        {
+            lockLine.unlock();
+        }
+    }
 
-	/**
+    /**
      * Skips the current stream. Playback will continue with the next stream in
      * the playlist.
      */
@@ -715,7 +718,7 @@ public class AudioPlayer extends Thread
      * @return an audio stream for this input stream
      * @throws IOException if an IO error occurs
      * @throws UnsupportedAudioFileException if the audio format is not
-     * supported
+     *         supported
      */
     protected AudioInputStream setUpSourceStream(InputStream in)
             throws UnsupportedAudioFileException, IOException
@@ -734,10 +737,11 @@ public class AudioPlayer extends Thread
     protected AudioInputStream setUpDecodedStream(AudioInputStream src)
     {
         AudioFormat baseFormat = src.getFormat();
-        AudioFormat decodedFormat = new AudioFormat(
-                AudioFormat.Encoding.PCM_SIGNED, baseFormat.getSampleRate(),
-                16, baseFormat.getChannels(), baseFormat.getChannels() * 2,
-                baseFormat.getSampleRate(), false);
+        AudioFormat decodedFormat =
+                new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
+                        baseFormat.getSampleRate(), 16,
+                        baseFormat.getChannels(), baseFormat.getChannels() * 2,
+                        baseFormat.getSampleRate(), false);
         return AudioSystem.getAudioInputStream(decodedFormat, src);
     }
 
@@ -868,7 +872,7 @@ public class AudioPlayer extends Thread
      * @param data the data to write
      * @param len the length of the data
      * @return a flag whether the chunk was successfully written or writing was
-     * aborted because of a skip operation
+     *         aborted because of a skip operation
      */
     protected boolean writeChunk(byte[] data, int len)
     {
@@ -1041,7 +1045,7 @@ public class AudioPlayer extends Thread
      * interrupted. This method can only be called when the line lock is held.
      *
      * @return a flag if waiting was successful; a return value of <b>false</b>
-     * means that waiting was interrupted
+     *         means that waiting was interrupted
      */
     private boolean waitForPlaybackStart()
     {
@@ -1093,7 +1097,7 @@ public class AudioPlayer extends Thread
      * @param asd the stream data object for the input stream
      * @throws IOException if an IO error occurs
      * @throws UnsupportedAudioFileException if the audio format is not
-     * supported
+     *         supported
      */
     private void setUpAudioStreams(AudioStreamData asd)
             throws UnsupportedAudioFileException, IOException
@@ -1126,7 +1130,7 @@ public class AudioPlayer extends Thread
      */
     private void processAudioStream() throws IOException
     {
-    	position = 0;
+        position = 0;
         getCommandDispatchThread().execute(
                 new FireEventCommand(createEvent(
                         AudioPlayerEvent.Type.START_SONG, null))
@@ -1166,7 +1170,7 @@ public class AudioPlayer extends Thread
      * @param skipPos the current skip position
      * @param len the length of the current chunk
      * @return a delta value to be subtracted from the length of the current
-     * chunk
+     *         chunk
      */
     private int calcSkipDelta(long skipPos, int len)
     {
