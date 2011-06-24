@@ -1,6 +1,9 @@
 package de.oliver_heger.jplaya.ui;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import javax.persistence.EntityManagerFactory;
@@ -16,6 +19,15 @@ import org.junit.Test;
 
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
+import de.olix.playa.engine.AudioBuffer;
+import de.olix.playa.engine.AudioPlayer;
+import de.olix.playa.engine.AudioStreamSource;
+import de.olix.playa.engine.DataBuffer;
+import de.olix.playa.engine.mediainfo.SongDataManager;
+import de.olix.playa.playlist.FSScanner;
+import de.olix.playa.playlist.PlaylistController;
+import de.olix.playa.playlist.PlaylistManagerFactory;
+import de.olix.playa.playlist.impl.XMLPlaylistManagerFactory;
 
 /**
  * A test class for the global bean definition file of the application.
@@ -89,6 +101,109 @@ public class TestAppBeans
     {
         MediaStore store = getBeanContext().getBean(MediaStore.class);
         assertNotNull("No media store", store);
+    }
+
+    /**
+     * Tests whether the file system scanner bean can be obtained.
+     */
+    @Test
+    public void testBeanFSScanner()
+    {
+        FSScanner scanner = getBeanContext().getBean(FSScanner.class);
+        assertNull("Got a root URI", scanner.getRootURI());
+    }
+
+    /**
+     * Tests whether the bean for the playlist manager factory has been defined
+     * correctly.
+     */
+    @Test
+    public void testBeanPlaylistManagerFactory()
+    {
+        PlaylistManagerFactory factory =
+                getBeanContext().getBean(PlaylistManagerFactory.class);
+        XMLPlaylistManagerFactory xmlFactory =
+                (XMLPlaylistManagerFactory) factory;
+        assertTrue(
+                "Wrong data directory: " + xmlFactory.getDataDirectory(),
+                xmlFactory.getDataDirectory().getAbsolutePath()
+                        .startsWith(System.getProperty("user.home")));
+    }
+
+    /**
+     * Tests whether the bean for the playlist controller has been defined
+     * correctly.
+     */
+    @Test
+    public void testBeanPlaylistController()
+    {
+        PlaylistController ctrl =
+                getBeanContext().getBean(PlaylistController.class);
+        assertTrue("No auto-save interval", ctrl.getAutoSaveInterval() > 0);
+        assertTrue("No skip backwards limit", ctrl.getSkipBackwardsLimit() > 0);
+    }
+
+    /**
+     * Tests whether the bean for the audio buffer has been defined correctly.
+     */
+    @Test
+    public void testBeanAudioBuffer()
+    {
+        AudioBuffer buffer =
+                (AudioBuffer) getBeanContext().getBean(DataBuffer.class);
+        assertEquals("Wrong chunk count", 2, buffer.getChunkCount());
+        assertTrue("Wrong chunk size", buffer.getChunkSize() > 0);
+        assertTrue(
+                "Wrong cache directory: " + buffer.getCacheDirectory(),
+                buffer.getCacheDirectory().getAbsolutePath()
+                        .startsWith(System.getProperty("java.io.tmpdir")));
+    }
+
+    /**
+     * Tests that the audio buffer bean is not a singleton.
+     */
+    @Test
+    public void testBeanAudioBufferNoSingleton()
+    {
+        DataBuffer buffer = getBeanContext().getBean(DataBuffer.class);
+        assertNotSame("Same instance", buffer,
+                getBeanContext().getBean(DataBuffer.class));
+    }
+
+    /**
+     * Tests whether the bean for the song data manager has been defined
+     * correctly.
+     */
+    @Test
+    public void testBeanSongDataManager()
+    {
+        SongDataManager manager =
+                getBeanContext().getBean(SongDataManager.class);
+        assertNotNull("No song data manager", manager);
+    }
+
+    /**
+     * Tests whether the bean for the audio player has been defined correctly.
+     */
+    @Test
+    public void testBeanAudioPlayer()
+    {
+        AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
+        assertTrue("Wrong source",
+                player.getAudioSource() instanceof AudioBuffer);
+    }
+
+    /**
+     * Tests that each access to the audio player bean creates a new instance.
+     */
+    @Test
+    public void testBeanAudioPlayerNoSingleton()
+    {
+        AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
+        AudioStreamSource source = player.getAudioSource();
+        AudioPlayer player2 = getBeanContext().getBean(AudioPlayer.class);
+        assertNotSame("Same player instance", player, player2);
+        assertNotSame("Same source instance", source, player2.getAudioSource());
     }
 
     private static class MainTestImpl extends Main

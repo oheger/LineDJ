@@ -31,4 +31,99 @@
       <di:param value="https://remotemediastore.appspot.com/resources/"/>
     </di:constructor>
   </di:bean>
+
+  <!-- Beans related to the audio engine -->
+
+  <!-- The file system manager -->
+  <di:bean name="fileSystemManager"
+    beanClass="org.apache.commons.vfs.FileSystemManager">
+    <di:factory>
+      <di:methodInvocation method="getManager"
+        targetClass="org.apache.commons.vfs.VFS">
+      </di:methodInvocation>
+    </di:factory>
+  </di:bean>
+
+  <!-- The file system scanner -->
+  <di:bean name="fsScanner"
+    beanClass="de.olix.playa.playlist.impl.FSScannerImpl">
+    <di:constructor>
+      <di:param refName="fileSystemManager"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The playlist manager factory -->
+  <di:bean name="playlistManagerFactory"
+    beanClass="de.olix.playa.playlist.impl.XMLPlaylistManagerFactory">
+    <di:constructor>
+      <di:param refName="fsScanner"/>
+      <di:param value="${user.home}/.jplaya"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The playlist controller -->
+  <di:bean name="playlistController"
+    beanClass="de.olix.playa.playlist.PlaylistController">
+    <di:constructor>
+      <di:param refName="fileSystemManager"/>
+      <di:param refName="playlistManagerFactory"/>
+      <di:param value="5"/>
+      <di:param value="5000"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The audio buffer -->
+  <di:bean name="audioBuffer" singleton="false"
+    beanClass="de.olix.playa.engine.AudioBuffer">
+    <di:constructor>
+      <di:param value="${java.io.tmpdir}/.jplaya"/>
+      <di:param value="10485760"/>
+      <di:param value="2"/>
+      <di:param value="true"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- An executor service for the song data manager -->
+  <di:bean name="dataManagerExecutor" singleton="false"
+    beanClass="java.util.concurrent.ExecutorService">
+    <di:factory>
+      <di:methodInvocation method="newSingleThreadExecutor"
+        targetClass="java.util.concurrent.Executors">
+      </di:methodInvocation>
+    </di:factory>
+  </di:bean>
+
+  <!-- The audio read monitor for synchronizing with the audio buffer -->
+  <di:bean name="audioReadMonitor" singleton="false"
+    beanClass="de.olix.playa.engine.AudioReadMonitorImpl">
+    <di:constructor>
+      <di:param refName="audioBuffer"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The song data loader -->
+  <di:bean name="songDataLoader"
+    beanClass="de.olix.playa.engine.mediainfo.SongDataLoaderImpl">
+    <di:constructor>
+      <di:param refName="fileSystemManager"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The song data manager, the object managing media information -->
+  <di:bean name="songDataManager" singleton="false"
+    beanClass="de.olix.playa.engine.mediainfo.SongDataManager">
+    <di:constructor>
+      <di:param refName="dataManagerExecutor"/>
+      <di:param refName="songDataLoader"/>
+      <di:param refName="audioReadMonitor"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The audio player -->
+  <di:bean name="audioPlayer" beanClass="de.olix.playa.engine.AudioPlayer"
+    singleton="false">
+    <di:constructor>
+      <di:param refName="audioBuffer"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>
