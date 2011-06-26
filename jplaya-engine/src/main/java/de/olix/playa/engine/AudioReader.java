@@ -12,34 +12,26 @@ import org.apache.commons.logging.LogFactory;
  * A class for reading source audio data.
  * </p>
  * <p>
- * An instance of this class is passed a list with
- * <code>{@link AudioStreamData}</code> objects in form of a
- * <code>{@link AudioStreamSource}</code> object. It will then process the
- * list element by element, read the provided audio streams and store their
- * content in a <code>{@link DataBuffer}</code> object. From there the streams
- * can be buffered, further processed, and finally played.
+ * An instance of this class is passed a list with {@link AudioStreamData}
+ * objects in form of a {@link AudioStreamSource} object. It will then process
+ * the list element by element, read the provided audio streams and store their
+ * content in a {@link DataBuffer} object. From there the streams can be
+ * buffered, further processed, and finally played.
  * </p>
  * <p>
  * The class is quite simple. The list with the input data is simply iterated in
- * a main loop and the protocol of a <code>DataBuffer</code> is used to pass
- * the source data to the buffer. If the buffer has been closed during this
+ * a main loop and the protocol of a {@code DataBuffer} is used to pass the
+ * source data to the buffer. If the buffer has been closed during this
  * operation, the loop will terminate. The class can also be instructed to close
  * the buffer when the list with the source data has been completely processed.
  * If an IO exception occurs during processing of a source stream, this stream
  * will be skipped, and processing will continue with the next stream.
  * </p>
  * <p>
- * The fact that the list with the source data contains
- * <code>AudioStreamData</code> objects make this class independed from a
- * specific data source. Different implementations of the
- * <code>AudioStreamData</code> interface are possible, which obtain their
- * data from many different sources.
- * </p>
- * <p>
- * An instance of this class can be reused. After the source data has been
- * processed, new source data can be set. The reference to the target buffer can
- * also be modified if necessary. But these things should not be done when the
- * main loop is running.
+ * The fact that the list with the source data contains {@code AudioStreamData}
+ * objects make this class independent from a specific data source. Different
+ * implementations of the {@code AudioStreamData} interface are possible, which
+ * obtain their data from many different sources.
  * </p>
  *
  * @author Oliver Heger
@@ -51,41 +43,22 @@ public class AudioReader implements Runnable
     static final int DEFAULT_CHUNK_SIZE = 8192;
 
     /** The logger. */
-    private Log log = LogFactory.getLog(getClass());
+    private final Log log = LogFactory.getLog(getClass());
 
     /** Stores the reference to the target audio buffer. */
-    private DataBuffer audioBuffer;
+    private final DataBuffer audioBuffer;
 
     /** Stores a reference to the audio data source object. */
-    private AudioStreamSource source;
+    private final AudioStreamSource source;
 
     /** Stores the size of chunks used for copying data. */
-    private int chunkSize;
+    private final int chunkSize;
 
     /**
      * A flag whether the buffer should be closed after the source data has been
      * processed.
      */
-    private boolean closeBufferAtEnd;
-
-    /**
-     * Creates a new, uninitialized instance of <code>AudioReader</code>.
-     */
-    public AudioReader()
-    {
-        this(null, (AudioStreamSource) null);
-    }
-
-    /**
-     * Creates a new instance of <code>AudioReader</code> and initializes it
-     * with the reference to the target audio buffer.
-     *
-     * @param buffer the target buffer
-     */
-    public AudioReader(DataBuffer buffer)
-    {
-        this(buffer, (AudioStreamSource) null);
-    }
+    private final boolean closeBufferAtEnd;
 
     /**
      * Creates a new instance of <code>AudioReader</code> and initializes it
@@ -97,8 +70,7 @@ public class AudioReader implements Runnable
      */
     public AudioReader(DataBuffer buffer, Iterator<AudioStreamData> source)
     {
-        initialize(buffer);
-        initStreamSource(source);
+        this(buffer, new IteratorAudioStreamSource(source));
     }
 
     /**
@@ -110,19 +82,44 @@ public class AudioReader implements Runnable
      */
     public AudioReader(DataBuffer buffer, AudioStreamSource src)
     {
-        initialize(buffer);
-        setStreamSource(src);
+        this(buffer, src, DEFAULT_CHUNK_SIZE, true);
     }
 
     /**
-     * Initializes this instance.
+     * Creates a new instance of {@code AudioReader} and initializes all
+     * properties.
      *
-     * @param buffer the target buffer
+     * @param buffer the target buffer (must not be <b>null</b>)
+     * @param src the source object, from which the streams are fetched (must
+     *        not be <b>null</b>)
+     * @param myChunkSize the chunk size to be used when writing data into the
+     *        buffer (must be &lt; 0)
+     * @param autoCloseBuffer a flag whether the buffer should be closed when
+     *        the end of the playlist is reached
+     * @throws IllegalArgumentException if a parameter is invalid
      */
-    private void initialize(DataBuffer buffer)
+    public AudioReader(DataBuffer buffer, AudioStreamSource src,
+            int myChunkSize, boolean autoCloseBuffer)
     {
-        setAudioBuffer(buffer);
-        setChunkSize(DEFAULT_CHUNK_SIZE);
+        if (buffer == null)
+        {
+            throw new IllegalArgumentException("Audio buffer must not be null!");
+        }
+        if (src == null)
+        {
+            throw new IllegalArgumentException(
+                    "AudioStreamSource must not be null!");
+        }
+        if (myChunkSize <= 0)
+        {
+            throw new IllegalArgumentException("Invalid chunks size: "
+                    + myChunkSize);
+        }
+
+        audioBuffer = buffer;
+        source = src;
+        chunkSize = myChunkSize;
+        closeBufferAtEnd = autoCloseBuffer;
     }
 
     /**
@@ -136,21 +133,10 @@ public class AudioReader implements Runnable
     }
 
     /**
-     * Sets the target audio buffer. To this object the source data will be
-     * passed.
-     *
-     * @param audioBuffer the target audio buffer
-     */
-    public void setAudioBuffer(DataBuffer audioBuffer)
-    {
-        this.audioBuffer = audioBuffer;
-    }
-
-    /**
      * Returns the current close buffer at end flag.
      *
      * @return a flag whether the buffer is to be closed when all source data
-     * has been processed
+     *         has been processed
      */
     public boolean isCloseBufferAtEnd()
     {
@@ -158,49 +144,14 @@ public class AudioReader implements Runnable
     }
 
     /**
-     * Sets the close buffer at end flag. If this flag is set, the audio
-     * buffer's <code>close()</code> method will be invoked when no more
-     * source data is available.
-     *
-     * @param closeBufferAtEnd the value of the flag
-     */
-    public void setCloseBufferAtEnd(boolean closeBufferAtEnd)
-    {
-        this.closeBufferAtEnd = closeBufferAtEnd;
-    }
-
-    /**
-     * Returns the <code>{@link AudioStreamSource}</code> object, from which
-     * the stream data is obtained.
+     * Returns the <code>{@link AudioStreamSource}</code> object, from which the
+     * stream data is obtained.
      *
      * @return the object with the source data
      */
     public AudioStreamSource getStreamSource()
     {
         return source;
-    }
-
-    /**
-     * Sets the <code>{@link AudioStreamSource}</code> object, from which the
-     * stream data is obtained.
-     *
-     * @param src the object with the source data
-     */
-    public void setStreamSource(AudioStreamSource src)
-    {
-        source = src;
-    }
-
-    /**
-     * Initializes the <code>AudioStreamSource</code> to be used from the
-     * given iterator. This implementation will create a special stream source
-     * that is backed by the given iterator.
-     *
-     * @param iterator the iterator with the source data
-     */
-    public void initStreamSource(Iterator<AudioStreamData> iterator)
-    {
-        setStreamSource(new IteratorAudioStreamSource(iterator));
     }
 
     /**
@@ -214,24 +165,10 @@ public class AudioReader implements Runnable
     }
 
     /**
-     * Sets the chunk size to use. When the source streams are read and copied
-     * into the target buffer buffers of this size will be used. The concrete
-     * value of this property will have some influence on performance and memory
-     * usage.
-     *
-     * @param chunkSize the chunk size
-     */
-    public void setChunkSize(int chunkSize)
-    {
-        this.chunkSize = chunkSize;
-    }
-
-    /**
-     * Processes all source data and passes it to the target buffer. Before this
-     * method can be called the target buffer and the source data iterator must
-     * have been set, otherwise a <code>IllegalStateException</code> exception
-     * is thrown. This is the main method of this class, which does all the
-     * processing.
+     * Processes all source data and passes it to the target buffer. This is the
+     * main method of this class, which does all the processing. It should be
+     * called from a separate thread so that the audio reader can work in
+     * background.
      *
      * @throws InterruptedException if the operation is interrupted
      */
@@ -262,7 +199,7 @@ public class AudioReader implements Runnable
             }
             catch (IOException ioex)
             {
-                //TODO correct exception handling
+                // TODO correct exception handling
                 log.error("Error when reading stream!", ioex);
             }
         }
@@ -282,6 +219,10 @@ public class AudioReader implements Runnable
         }
     }
 
+    /**
+     * Executes the reader. This method is called when the reader is started in
+     * a separate thread.
+     */
     public void run()
     {
         try
@@ -291,7 +232,25 @@ public class AudioReader implements Runnable
         catch (InterruptedException iex)
         {
             log.warn("Operation was interrupted!", iex);
+            Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * Starts this reader in a separate thread. This is a convenience method
+     * which calls the reader's main {@code read()} method in a separate thread.
+     * The reader starts immediately processing streams provided by the
+     * {@code AudioStreamSource}. It ends when the source has no more data or
+     * the buffer was closed.
+     *
+     * @return the thread which runs the reader
+     */
+    public Thread start()
+    {
+        Thread t = new Thread(this);
+        t.setDaemon(true);
+        t.start();
+        return t;
     }
 
     /**

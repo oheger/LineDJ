@@ -1,36 +1,48 @@
 package de.olix.playa.engine;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 
 import org.easymock.EasyMock;
-
-import junit.framework.TestCase;
+import org.easymock.EasyMockSupport;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
- * Test class for AudioReader.
+ * Test class for {@code AudioReader}.
  *
  * @author Oliver Heger
  * @version $Id$
  */
-public class TestAudioReader extends TestCase
+public class TestAudioReader extends EasyMockSupport
 {
     /** Constant for the prefix of stream names. */
     private static final String STREAM_NAME = "TestStream";
 
     /** An array with the lengths of a sequence of test streams. */
-    private static final int[] STREAM_LENS =
-    { 10000, 20000, 512, 16384, 10 };
+    private static final int[] STREAM_LENS = {
+            10000, 20000, 512, 16384, 10
+    };
 
-    /** The reader to be tested. */
-    private AudioReader reader;
+    /** A mock for the data buffer. */
+    private DataBuffer buffer;
 
-    protected void setUp() throws Exception
+    /** A mock for the audio stream source. */
+    private AudioStreamSource source;
+
+    @Before
+    public void setUp() throws Exception
     {
-        super.setUp();
-        reader = new AudioReader();
+        buffer = createMock(DataBuffer.class);
+        source = createMock(AudioStreamSource.class);
     }
 
     /**
@@ -39,11 +51,13 @@ public class TestAudioReader extends TestCase
      *
      * @param mockBuffer the buffer mock
      * @param mockData the audio stream data mock
+     * @param chunkSize the chunk size
      * @param streamLen the length of the test stream
      * @throws IOException if an IO error occurs
      */
-    protected void setUpBufferMockForStream(DataBuffer mockBuffer,
-            AudioStreamData mockData, int streamLen) throws IOException
+    private void setUpBufferMockForStream(DataBuffer mockBuffer,
+            AudioStreamData mockData, int chunkSize, int streamLen)
+            throws IOException
     {
         EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
         mockBuffer.addNewStream(mockData);
@@ -52,22 +66,23 @@ public class TestAudioReader extends TestCase
 
         try
         {
-            while (len >= reader.getChunkSize())
+            while (len >= chunkSize)
             {
                 EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
-                byte[] data = StreamHelper.createTestBytes(offset, offset
-                        + reader.getChunkSize());
+                byte[] data =
+                        StreamHelper
+                                .createTestBytes(offset, offset + chunkSize);
                 mockBuffer.addChunk(EasyMock.aryEq(data), EasyMock.eq(0),
-                        EasyMock.eq(reader.getChunkSize()));
-                offset += reader.getChunkSize();
-                len -= reader.getChunkSize();
+                        EasyMock.eq(chunkSize));
+                offset += chunkSize;
+                len -= chunkSize;
             }
             if (len > 0)
             {
                 EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
                 // The final block is partly undefined, so we cannot compare it
-                mockBuffer.addChunk((byte[]) EasyMock.anyObject(), EasyMock
-                        .eq(0), EasyMock.eq(len));
+                mockBuffer.addChunk((byte[]) EasyMock.anyObject(),
+                        EasyMock.eq(0), EasyMock.eq(len));
             }
             mockBuffer.streamFinished();
         }
@@ -79,7 +94,7 @@ public class TestAudioReader extends TestCase
     }
 
     /**
-     * Creates a mock for an audio stream data object.
+     * Initializes a mock for an audio stream data object.
      *
      * @param name the stream's name
      * @param length the stream's length
@@ -87,7 +102,7 @@ public class TestAudioReader extends TestCase
      */
     private AudioStreamData setUpStreamDataMock(String name, int length)
     {
-        AudioStreamData mockData = EasyMock.createMock(AudioStreamData.class);
+        AudioStreamData mockData = createMock(AudioStreamData.class);
         EasyMock.expect(mockData.getName()).andReturn(name);
         EasyMock.expect(mockData.getID()).andStubReturn(name);
         EasyMock.expect(mockData.size()).andStubReturn(Long.valueOf(length));
@@ -102,87 +117,80 @@ public class TestAudioReader extends TestCase
             fail("Strange exception occurred: " + ioex);
         }
         EasyMock.expect(mockData.size()).andReturn(Long.valueOf(length));
-        EasyMock.replay(mockData);
         return mockData;
     }
 
     /**
-     * Tests the state of a newly created audio reader.
+     * Tests whether default values for constructor arguments are set.
      */
-    public void testInit()
+    @Test
+    public void testInitDefaults()
     {
-        assertNull("Audio buffer is set", reader.getAudioBuffer());
-        assertNull("Source is set", reader.getStreamSource());
-        assertFalse("Close flag is set", reader.isCloseBufferAtEnd());
+        replayAll();
+        AudioReader reader = new AudioReader(buffer, source);
+        assertSame("Wrong buffer", buffer, reader.getAudioBuffer());
+        assertSame("Wrong source", source, reader.getStreamSource());
+        assertTrue("Wrong close flag", reader.isCloseBufferAtEnd());
         assertEquals("Default chunk size not set",
                 AudioReader.DEFAULT_CHUNK_SIZE, reader.getChunkSize());
     }
 
     /**
-     * Tests the constructor that takes a data buffer.
+     * Tries to create an instance without a buffer.
      */
-    public void testInitWithBuffer()
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitNoBuffer() throws InterruptedException
     {
-        DataBuffer buffer = EasyMock.createMock(DataBuffer.class);
-        EasyMock.replay(buffer);
-        reader = new AudioReader(buffer);
-        assertEquals("Wrong buffer set", buffer, reader.getAudioBuffer());
-        assertNull("Source is set", reader.getStreamSource());
-        assertEquals("Default chunk size not set",
-                AudioReader.DEFAULT_CHUNK_SIZE, reader.getChunkSize());
-        EasyMock.verify(buffer);
+        new AudioReader(null, source);
     }
 
     /**
-     * Tries to invoke the read() method when no target buffer was set. This
-     * should cause an exception.
+     * Tries to create an instance without a source.
      */
-    public void testReadUndefinedBuffer() throws InterruptedException
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitNoSource() throws InterruptedException
     {
-        reader.initStreamSource(new ArrayList<AudioStreamData>().iterator());
-        try
-        {
-            reader.read();
-            fail("Could call read() without a buffer!");
-        }
-        catch (IllegalStateException istex)
-        {
-            // ok
-        }
+        new AudioReader(buffer, (AudioStreamSource) null);
     }
 
     /**
-     * Tries to invoke the read() method when no source object was set. This
-     * should cause an exception.
+     * Tests whether an invalid chunk size is detected.
      */
-    public void testReadUndefinedSource() throws InterruptedException
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitInvalidChunkSize()
     {
-        DataBuffer mockBuffer = EasyMock.createMock(DataBuffer.class);
-        EasyMock.replay(mockBuffer);
-        reader.setAudioBuffer(mockBuffer);
-        try
-        {
-            reader.read();
-            fail("Could call read() without a source!");
-        }
-        catch (IllegalStateException istex)
-        {
-            // ok
-        }
+        new AudioReader(buffer, source, 0, false);
+    }
+
+    /**
+     * Tests the constructor which expects an iterator.
+     */
+    @Test
+    public void testInitIterator()
+    {
+        @SuppressWarnings("unchecked")
+        Iterator<AudioStreamData> it = createMock(Iterator.class);
+        replayAll();
+        AudioReader reader = new AudioReader(buffer, it);
+        IteratorAudioStreamSource src =
+                (IteratorAudioStreamSource) reader.getStreamSource();
+        assertSame("Wrong iterator", it, src.getIterator());
     }
 
     /**
      * Tests reading a sequence of streams with the default chunk size.
      */
+    @Test
     public void testReadDefaultChunkSize() throws IOException,
             InterruptedException
     {
-        checkReadWithBufferSize(reader.getChunkSize(), false);
+        checkReadWithBufferSize(AudioReader.DEFAULT_CHUNK_SIZE, false);
     }
 
     /**
      * Tests reading a sequence of streams with a large chunk size.
      */
+    @Test
     public void testReadLargeChunkSize() throws IOException,
             InterruptedException
     {
@@ -192,6 +200,7 @@ public class TestAudioReader extends TestCase
     /**
      * Tests reading a sequence of streams with a small chunk size.
      */
+    @Test
     public void testReadSmallChunkSize() throws IOException,
             InterruptedException
     {
@@ -201,9 +210,10 @@ public class TestAudioReader extends TestCase
     /**
      * Tests reading the test streams and then closing the buffer.
      */
+    @Test
     public void testReadWithClose() throws IOException, InterruptedException
     {
-        checkReadWithBufferSize(reader.getChunkSize(), true);
+        checkReadWithBufferSize(AudioReader.DEFAULT_CHUNK_SIZE, true);
     }
 
     /**
@@ -220,28 +230,27 @@ public class TestAudioReader extends TestCase
     }
 
     /**
-     * Tests the read operation when the buffer is closed in the middle.
+     * Tests the read operation if the buffer is closed in the middle.
      */
+    @Test
     public void testReadWithBufferClosed() throws InterruptedException,
             IOException
     {
-        DataBuffer mockBuffer = EasyMock.createMock(DataBuffer.class);
         Collection<AudioStreamData> col = new ArrayList<AudioStreamData>(3);
         AudioStreamData mockData = setUpStreamDataMock(STREAM_NAME, 1000);
         col.add(mockData);
-        setUpBufferMockForStream(mockBuffer, mockData, 1000);
+        setUpBufferMockForStream(buffer, mockData,
+                AudioReader.DEFAULT_CHUNK_SIZE, 1000);
         mockData = setUpStreamDataMock(STREAM_NAME + "1", 10000);
         col.add(mockData);
-        EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
-        mockBuffer.addNewStream(mockData);
-        EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.TRUE).times(2);
-        mockBuffer.streamFinished();
+        EasyMock.expect(buffer.isClosed()).andReturn(Boolean.FALSE);
+        buffer.addNewStream(mockData);
+        EasyMock.expect(buffer.isClosed()).andReturn(Boolean.TRUE).times(2);
+        buffer.streamFinished();
         mockData = EasyMock.createMock(AudioStreamData.class);
-        EasyMock.replay(mockData);
         col.add(mockData);
-        EasyMock.replay(mockBuffer);
-
-        ReaderTestHelper helper = new ReaderTestHelper(mockBuffer, col);
+        ReaderTestHelper helper = new ReaderTestHelper(col);
+        helper.initMocks(AudioReader.DEFAULT_CHUNK_SIZE, false);
         helper.readAndVerify();
     }
 
@@ -249,14 +258,15 @@ public class TestAudioReader extends TestCase
      * Tests the read operation when an IO exception occurs. This should be
      * caught, and the current stream should be skipped.
      */
+    @Test
     public void testReadWithException() throws InterruptedException,
             IOException
     {
-        DataBuffer mockBuffer = EasyMock.createMock(DataBuffer.class);
         Collection<AudioStreamData> col = new ArrayList<AudioStreamData>(3);
         AudioStreamData mockData = setUpStreamDataMock(STREAM_NAME, 1000);
         col.add(mockData);
-        setUpBufferMockForStream(mockBuffer, mockData, 1000);
+        setUpBufferMockForStream(buffer, mockData,
+                AudioReader.DEFAULT_CHUNK_SIZE, 1000);
 
         // A stream that will throw an exception on the 2nd read invocation
         InputStream exStream = new InputStream()
@@ -285,48 +295,66 @@ public class TestAudioReader extends TestCase
                 throw new UnsupportedOperationException("Not yet implemented!");
             }
         };
-        mockData = EasyMock.createMock(AudioStreamData.class);
+        mockData = createMock(AudioStreamData.class);
         EasyMock.expect(mockData.getName()).andReturn(STREAM_NAME + "1");
         EasyMock.expect(mockData.getStream()).andReturn(exStream);
         EasyMock.expect(mockData.size()).andReturn(1000L);
         EasyMock.expect(mockData.getID()).andStubReturn(STREAM_NAME + "1");
-        EasyMock.replay(mockData);
         col.add(mockData);
-        setUpBufferMockForStream(mockBuffer, mockData, reader.getChunkSize());
+        setUpBufferMockForStream(buffer, mockData,
+                AudioReader.DEFAULT_CHUNK_SIZE, AudioReader.DEFAULT_CHUNK_SIZE);
         mockData = setUpStreamDataMock(STREAM_NAME + "2", 12000);
         col.add(mockData);
-        setUpBufferMockForStream(mockBuffer, mockData, 12000);
-        EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
-        EasyMock.replay(mockBuffer);
+        setUpBufferMockForStream(buffer, mockData,
+                AudioReader.DEFAULT_CHUNK_SIZE, 12000);
+        EasyMock.expect(buffer.isClosed()).andReturn(Boolean.FALSE);
 
-        ReaderTestHelper helper = new ReaderTestHelper(mockBuffer, col);
+        ReaderTestHelper helper = new ReaderTestHelper(col);
+        helper.initMocks(AudioReader.DEFAULT_CHUNK_SIZE, false);
         helper.readAndVerify();
     }
 
     /**
-     * Tests the run() method. This should simply delegate to read().
+     * Tests whether the reader can be started in a separate thread.
      */
-    public void testRun() throws InterruptedException
+    @Test
+    public void testStart() throws InterruptedException
     {
-        ReaderTestHelper helper = new ReaderTestHelper();
-        helper.initMocks(AudioReader.DEFAULT_CHUNK_SIZE, true);
-        helper.initReader();
-        Thread t = new Thread(reader);
-        t.start();
+        final StringBuilder bufMethods = new StringBuilder();
+        AudioReader reader = new AudioReader(buffer, source)
+        {
+            @Override
+            public void read() throws InterruptedException
+            {
+                bufMethods.append("read()");
+            }
+        };
+        replayAll();
+        Thread t = reader.start();
+        assertTrue("Not a deamon thread", t.isDaemon());
         t.join();
-        helper.verify();
+        assertEquals("Method not called", "read()", bufMethods.toString());
+        verifyAll();
     }
 
     /**
-     * Tests initializing a reader instance with a stream source object.
+     * Tests whether an interrupted exception is handled by run().
      */
-    public void testInitWithStreamSource()
+    @Test
+    public void testRunInterruptedException()
     {
-        AudioStreamSource source = EasyMock.createMock(AudioStreamSource.class);
-        EasyMock.replay(source);
-        reader = new AudioReader(null, source);
-        assertEquals("Wrong source used", source, reader.getStreamSource());
-        EasyMock.verify(source);
+        replayAll();
+        AudioReader reader = new AudioReader(buffer, source)
+        {
+            @Override
+            public void read() throws InterruptedException
+            {
+                throw new InterruptedException("Test exception!");
+            };
+        };
+        reader.run();
+        assertTrue("Not interrupted", Thread.interrupted());
+        verifyAll();
     }
 
     /**
@@ -336,32 +364,28 @@ public class TestAudioReader extends TestCase
      */
     class ReaderTestHelper
     {
-        /** Stores the buffer mock. */
-        private DataBuffer mockBuffer;
-
         /** A collection for the stream data. */
         private Collection<AudioStreamData> streamCollection;
 
+        /** The reader to be tested. */
+        private AudioReader reader;
+
         /**
-         * Creates a new, uninitialized instance of
-         * <code>ReaderTestHelper</code>.
+         * Creates a new, uninitialized instance of {@code ReaderTestHelper}.
          */
         public ReaderTestHelper()
         {
-            this(null, null);
+            this(null);
         }
 
         /**
-         * Creates a new instance of <code>ReaderTestHelper</code> and
-         * initializes it with the mock objects.
+         * Creates a new instance of ReaderTestHelper and initializes it with
+         * the mock objects.
          *
-         * @param buffer the buffer mock
          * @param col a collection with the source stream data
          */
-        public ReaderTestHelper(DataBuffer buffer,
-                Collection<AudioStreamData> col)
+        public ReaderTestHelper(Collection<AudioStreamData> col)
         {
-            setMockBuffer(buffer);
             setStreamCollection(col);
         }
 
@@ -375,70 +399,45 @@ public class TestAudioReader extends TestCase
             this.streamCollection = col;
         }
 
-        public DataBuffer getMockBuffer()
-        {
-            return mockBuffer;
-        }
-
-        public void setMockBuffer(DataBuffer mockBuffer)
-        {
-            this.mockBuffer = mockBuffer;
-        }
-
         /**
-         * Initializes mock objects for the data buffer and the test audio
-         * streams.
+         * Initializes the test helper class. If a collection with mock stream
+         * data objects has not been set, it is created now with default data.
+         * The test reader instance is created.
          *
          * @param chunkSize the chunk size to be used
          * @param close a flag whether the buffer should be closed at the end
          */
         public void initMocks(int chunkSize, boolean close)
         {
-            reader.setChunkSize(chunkSize);
-            reader.setCloseBufferAtEnd(close);
-            try
+            if (streamCollection == null)
             {
-                mockBuffer = EasyMock.createMock(DataBuffer.class);
-                streamCollection = new ArrayList<AudioStreamData>(
-                        STREAM_LENS.length);
-                for (int i = 0; i < STREAM_LENS.length; i++)
+                try
                 {
-                    AudioStreamData mockData = setUpStreamDataMock(STREAM_NAME
-                            + i, STREAM_LENS[i]);
-                    streamCollection.add(mockData);
-                    setUpBufferMockForStream(mockBuffer, mockData,
-                            STREAM_LENS[i]);
+                    streamCollection =
+                            new ArrayList<AudioStreamData>(STREAM_LENS.length);
+                    for (int i = 0; i < STREAM_LENS.length; i++)
+                    {
+                        AudioStreamData mockData =
+                                setUpStreamDataMock(STREAM_NAME + i,
+                                        STREAM_LENS[i]);
+                        streamCollection.add(mockData);
+                        setUpBufferMockForStream(buffer, mockData, chunkSize,
+                                STREAM_LENS[i]);
+                    }
+                    EasyMock.expect(buffer.isClosed()).andReturn(Boolean.FALSE);
+                    if (close)
+                    {
+                        buffer.close();
+                    }
                 }
-                EasyMock.expect(mockBuffer.isClosed()).andReturn(Boolean.FALSE);
-                if (close)
+                catch (IOException ioex)
                 {
-                    mockBuffer.close();
+                    // should not happen here
+                    fail(ioex.toString());
                 }
-                EasyMock.replay(mockBuffer);
             }
-            catch (IOException ioex)
-            {
-                // should not happen here
-                fail(ioex.toString());
-            }
-        }
 
-        /**
-         * Verifies the mock objects.
-         */
-        public void verify()
-        {
-            EasyMock.verify(getMockBuffer());
-            EasyMock.verify(getStreamCollection().toArray());
-        }
-
-        /**
-         * Prepares the read() operation. Passes the mock objects to the reader.
-         */
-        public void initReader()
-        {
-            reader.setAudioBuffer(getMockBuffer());
-            reader.initStreamSource(getStreamCollection().iterator());
+            reader = new AudioReader(buffer, createSource(), chunkSize, close);
         }
 
         /**
@@ -446,7 +445,11 @@ public class TestAudioReader extends TestCase
          */
         public void readAndVerify()
         {
-            initReader();
+            if (reader == null)
+            {
+                reader = new AudioReader(buffer, createSource());
+            }
+            replayAll();
             try
             {
                 reader.read();
@@ -455,7 +458,17 @@ public class TestAudioReader extends TestCase
             {
                 fail("Interrupted exception: " + iex);
             }
-            verify();
+            verifyAll();
+        }
+
+        /**
+         * Creates an iterator stream source for the collection with streams.
+         *
+         * @return the source
+         */
+        private IteratorAudioStreamSource createSource()
+        {
+            return new IteratorAudioStreamSource(streamCollection.iterator());
         }
     }
 }
