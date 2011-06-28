@@ -432,7 +432,7 @@ public class MainWndController implements AudioPlayerListener,
      *
      * @return the application
      */
-    private Application getApplication()
+    Application getApplication()
     {
         Application app =
                 (Application) getBeanContext().getBean(

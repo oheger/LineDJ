@@ -12,10 +12,16 @@
     tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
     resgrp="application" taskBean="exitTask"/>
 
-  <!-- Synchronize action -->
+  <!-- File Synchronize action -->
   <a:action name="fileSyncAction" textres="act_filesync_text"
     tooltipres="act_filesync_tip" mnemonicres="act_filesync_mnemo"
     taskBean="syncTask">
+  </a:action>
+
+  <!-- Player initialize playlist action -->
+  <a:action name="playerInitPlaylistAction" textres="act_playerinitpl_text"
+    tooltipres="act_playerinitpl_tip" mnemonicres="act_playerinitpl_mnemo"
+    taskBean="initPlaylistTask">
   </a:action>
 
   <!-- The main menu -->
@@ -24,6 +30,9 @@
       <a:menuitem actionName="fileSyncAction"/>
       <a:separator/>
       <a:menuitem actionName="exitAction"/>
+    </a:menu>
+    <a:menu textres="menu_player_text" mnemonicres="menu_player_mnemo">
+      <a:menuitem actionName="playerInitPlaylistAction"/>
     </a:menu>
   </a:menubar>
 
@@ -38,6 +47,18 @@
         class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
     </w:windowEvent>
   </w:frame>
+
+  <!-- The main controller -->
+  <di:bean name="controller"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
+    <di:constructor>
+      <di:param refName="CURRENT_CONTEXT"/>
+      <di:param refName="mediaStore"/>
+    </di:constructor>
+    <di:setProperty property="actionStore" refName="ACTION_STORE"/>
+    <di:setProperty property="playlistController" refName="playlistController"/>
+    <di:setProperty property="scanner" refName="fsScanner"/>
+  </di:bean>
 
   <!-- Action tasks and commands -->
 
@@ -61,5 +82,18 @@
     <di:setProperty property="afterEnabler">
       <di:bean beanClass="net.sf.jguiraffe.gui.builder.enablers.NullEnabler"/>
     </di:setProperty>
+  </di:bean>
+
+  <!-- Player initialize playlist action command and task -->
+  <di:bean name="initPlaylistCommand"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistCommand">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="initPlaylistTask"
+    beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="initPlaylistCommand"/>
   </di:bean>
 </j:jelly>
