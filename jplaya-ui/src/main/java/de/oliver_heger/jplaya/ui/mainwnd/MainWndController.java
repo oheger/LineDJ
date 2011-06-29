@@ -302,6 +302,7 @@ public class MainWndController implements AudioPlayerListener,
     @Override
     public void windowOpened(WindowEvent event)
     {
+        getActionStore().enableGroup(ACTGRP_PLAYER, false);
         Application app = getApplication();
         Configuration config = app.getUserConfiguration();
 
@@ -313,10 +314,6 @@ public class MainWndController implements AudioPlayerListener,
             FormAction action =
                     getActionStore().getAction(ACTION_INIT_PLAYLIST);
             action.execute(event);
-        }
-        else
-        {
-            getActionStore().enableGroup(ACTGRP_PLAYER, false);
         }
     }
 

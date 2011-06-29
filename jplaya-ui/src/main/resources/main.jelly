@@ -21,7 +21,7 @@
   <!-- Player initialize playlist action -->
   <a:action name="playerInitPlaylistAction" textres="act_playerinitpl_text"
     tooltipres="act_playerinitpl_tip" mnemonicres="act_playerinitpl_mnemo"
-    taskBean="initPlaylistTask">
+    group="playerActions" taskBean="initPlaylistTask">
   </a:action>
 
   <!-- The main menu -->
@@ -37,7 +37,8 @@
   </a:menubar>
 
   <!-- The main window -->
-  <w:frame titleres="main_title" menu="mainMenu" autoClose="false">
+  <w:frame name="mainFrame" titleres="main_title" menu="mainMenu"
+    autoClose="false">
 
     <!-- An event listener that delegates the window closing event to the
          application exit action.
@@ -59,6 +60,8 @@
     <di:setProperty property="playlistController" refName="playlistController"/>
     <di:setProperty property="scanner" refName="fsScanner"/>
   </di:bean>
+
+  <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>
 
   <!-- Action tasks and commands -->
 

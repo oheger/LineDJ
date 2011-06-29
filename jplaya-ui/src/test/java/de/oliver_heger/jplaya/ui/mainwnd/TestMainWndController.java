@@ -201,6 +201,7 @@ public class TestMainWndController extends EasyMockSupport
         FormAction action = createMock(FormAction.class);
         WindowEvent event = createMock(WindowEvent.class);
         final String mediaDir = "R:\\";
+        actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
         EasyMock.expect(mockContext.getBean(Application.BEAN_APPLICATION))
                 .andReturn(app);
         EasyMock.expect(app.getUserConfiguration()).andReturn(config);
