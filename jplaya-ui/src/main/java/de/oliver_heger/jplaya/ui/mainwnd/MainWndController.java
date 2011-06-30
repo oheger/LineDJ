@@ -50,6 +50,18 @@ public class MainWndController implements AudioPlayerListener,
     /** Constant for the action for initializing the playlist. */
     static final String ACTION_INIT_PLAYLIST = "playerInitPlaylistAction";
 
+    /** Constant for the action for starting the player. */
+    static final String ACTION_PLAYER_START = "playerStartPlaybackAction";
+
+    /** Constant for the action for stopping the player. */
+    static final String ACTION_PLAYER_STOP = "playerStopPlaybackAction";
+
+    /** Constant for the action for moving to the next song. */
+    static final String ACTION_PLAYER_NEXT = "playerNextSongAction";
+
+    /** Constant for the action for moving the previous song. */
+    static final String ACTION_PLAYER_PREV = "playerPrevSongAction";
+
     /** The logger. */
     private final Log log = LogFactory.getLog(getClass());
 
@@ -215,21 +227,18 @@ public class MainWndController implements AudioPlayerListener,
     public void positionChanged(AudioPlayerEvent arg0)
     {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     @Override
     public void streamEnds(AudioPlayerEvent arg0)
     {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     @Override
     public void streamStarts(AudioPlayerEvent arg0)
     {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     /**
@@ -302,7 +311,7 @@ public class MainWndController implements AudioPlayerListener,
     @Override
     public void windowOpened(WindowEvent event)
     {
-        getActionStore().enableGroup(ACTGRP_PLAYER, false);
+        disablePlayerActions();
         Application app = getApplication();
         Configuration config = app.getUserConfiguration();
 
@@ -372,13 +381,48 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Updates the enabled state of the actions related to the player. The
+     * depends on the isPlaying() flag of the player. This method is always
+     * called after the status of the player has changed.
+     */
+    protected void updatePlayerActionStates()
+    {
+        boolean playing = getAudioPlayer().isPlaying();
+        enableAction(ACTION_PLAYER_START, !playing);
+        enableAction(ACTION_PLAYER_STOP, playing);
+        enableAction(ACTION_PLAYER_NEXT, playing);
+        enableAction(ACTION_PLAYER_PREV, playing);
+        enableAction(ACTION_INIT_PLAYLIST, !playing);
+    }
+
+    /**
      * Starts the audio player. This method is called in reaction of the start
-     * action.
+     * action (in the EDT).
      */
     protected void startPlayback()
     {
-        // TODO implementation
-        throw new UnsupportedOperationException("Not yet implemented!");
+        getAudioPlayer().startPlayback();
+        updatePlayerActionStates();
+    }
+
+    /**
+     * Stops the audio player. This method is called in reaction of the stop
+     * action (in the EDT).
+     */
+    protected void stopPlayback()
+    {
+        getAudioPlayer().stopPlayback();
+        updatePlayerActionStates();
+    }
+
+    /**
+     * Skips directly to the next song in the playlist. This method is called in
+     * reaction of the next song action (in the EDT).
+     */
+    protected void skipToNextSong()
+    {
+        disablePlayerActions();
+        getAudioPlayer().skipStream();
     }
 
     /**
@@ -435,5 +479,24 @@ public class MainWndController implements AudioPlayerListener,
                 (Application) getBeanContext().getBean(
                         Application.BEAN_APPLICATION);
         return app;
+    }
+
+    /**
+     * Disables all actions related to the audio player.
+     */
+    private void disablePlayerActions()
+    {
+        getActionStore().enableGroup(ACTGRP_PLAYER, false);
+    }
+
+    /**
+     * Helper method for enabling or disabling an action.
+     *
+     * @param name the name of the action
+     * @param f the enabled flag
+     */
+    private void enableAction(String name, boolean f)
+    {
+        getActionStore().getAction(name).setEnabled(f);
     }
 }

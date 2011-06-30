@@ -343,6 +343,127 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
+     * Helper method for checking whether the enabled states of player actions
+     * are correctly updated.
+     *
+     * @param playing the playing flag of the audio player
+     * @param enStart the enabled flag of the start action
+     * @param enStop the enabled flag of the stop action
+     * @param enNext the enabled flag of the next action
+     * @param enPrev the enabled flag of the previous action
+     * @param enInit the enabled flag of the initialize action
+     */
+    private void checkUpdatePlayerActionStates(boolean playing,
+            boolean enStart, boolean enStop, boolean enNext, boolean enPrev,
+            boolean enInit)
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        ActionStore actStore = createMock(ActionStore.class);
+        FormAction actStart = createMock(FormAction.class);
+        FormAction actStop = createMock(FormAction.class);
+        FormAction actNext = createMock(FormAction.class);
+        FormAction actPrev = createMock(FormAction.class);
+        FormAction actInit = createMock(FormAction.class);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_PLAYER_START))
+                .andReturn(actStart);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_PLAYER_STOP))
+                .andReturn(actStop);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_PLAYER_NEXT))
+                .andReturn(actNext);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_PLAYER_PREV))
+                .andReturn(actPrev);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
+                .andReturn(actInit);
+        EasyMock.expect(player.isPlaying()).andReturn(playing);
+        actStart.setEnabled(enStart);
+        actStop.setEnabled(enStop);
+        actNext.setEnabled(enNext);
+        actPrev.setEnabled(enPrev);
+        actInit.setEnabled(enInit);
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(player);
+        ctrl.setActionStore(actStore);
+        ctrl.updatePlayerActionStates();
+        verifyAll();
+    }
+
+    /**
+     * Tests whether the player actions are correctly enabled if the player is
+     * playing.
+     */
+    @Test
+    public void testUpdatePlayerActionStatesPlaying()
+    {
+        checkUpdatePlayerActionStates(true, false, true, true, true, false);
+    }
+
+    /**
+     * Tests whether the player actions are correctly enabled if the player is
+     * not playing.
+     */
+    @Test
+    public void testUpdatePlayerActionStatesNotPlaying()
+    {
+        checkUpdatePlayerActionStates(false, true, false, false, false, true);
+    }
+
+    /**
+     * Tests whether playback can be started.
+     */
+    @Test
+    public void testStartPlayback()
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        player.startPlayback();
+        replayAll();
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(player);
+        ctrl.startPlayback();
+        ctrl.verifyUpdateStates();
+        verifyAll();
+    }
+
+    /**
+     * Tests whether playback can be stopped.
+     */
+    @Test
+    public void testStopPlayback()
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        player.stopPlayback();
+        replayAll();
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(player);
+        ctrl.stopPlayback();
+        ctrl.verifyUpdateStates();
+        verifyAll();
+    }
+
+    /**
+     * Tests whether we can skip to the next song in the playlist.
+     */
+    @Test
+    public void testSkipToNextSong()
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        ActionStore actStore = createMock(ActionStore.class);
+        actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
+        player.skipStream();
+        replayAll();
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(player);
+        ctrl.setActionStore(actStore);
+        ctrl.skipToNextSong();
+        verifyAll();
+    }
+
+    /**
      * An interface which combines the data buffer with the audio stream source
      * interface. This is needed because the source of the player is also a data
      * buffer.
@@ -350,5 +471,89 @@ public class TestMainWndController extends EasyMockSupport
     private static interface DataBufferStreamSource extends DataBuffer,
             AudioStreamSource
     {
+    }
+
+    /**
+     * A test implementation of the controller which allows mocking the audio
+     * player.
+     */
+    private class MainWndControllerMockPlayerTestImpl extends MainWndController
+    {
+        /** The mock for the audio player. */
+        private final AudioPlayer mockPlayer;
+
+        /**
+         * Creates a new instance of {@code MainWndControllerMockPlayerTestImpl}
+         * and sets the mock for the audio player.
+         *
+         * @param player the player mock
+         */
+        public MainWndControllerMockPlayerTestImpl(AudioPlayer player)
+        {
+            super(mockContext, store);
+            mockPlayer = player;
+        }
+
+        /**
+         * Returns the mock audio player.
+         */
+        @Override
+        protected AudioPlayer getAudioPlayer()
+        {
+            return mockPlayer;
+        }
+    }
+
+    /**
+     * A test implementation of the controller which allows mocking the audio
+     * player and changing of action states.
+     */
+    private class MainWndControllerMockUpdateStatesTestImpl extends
+            MainWndControllerMockPlayerTestImpl
+    {
+        /** A counter for invocations of the update states method. */
+        private int updateStatesCount;
+
+        /**
+         * Creates a new instance of
+         * {@code MainWndControllerMockUpdateStatesTestImpl} and sets the mock
+         * for the audio player.
+         *
+         * @param player the player mock
+         */
+        public MainWndControllerMockUpdateStatesTestImpl(AudioPlayer player)
+        {
+            super(player);
+        }
+
+        /**
+         * Returns the number of times the method for updating action states was
+         * called.
+         *
+         * @return the count of update states invocations
+         */
+        public int getUpdateStatesCount()
+        {
+            return updateStatesCount;
+        }
+
+        /**
+         * Convenience method which checks whether the update states method was
+         * called exactly once.
+         */
+        public void verifyUpdateStates()
+        {
+            assertEquals("Wrong number of update states invocations", 1,
+                    getUpdateStatesCount());
+        }
+
+        /**
+         * Records this invocation.
+         */
+        @Override
+        protected void updatePlayerActionStates()
+        {
+            updateStatesCount++;
+        }
     }
 }
