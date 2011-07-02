@@ -68,7 +68,7 @@ public class TestInitPlaylistCommand
     @Test
     public void testPerformGUIUpdateSuccess()
     {
-        controller.startPlayback();
+        controller.updatePlayerActionStates();
         EasyMock.replay(controller);
         InitPlaylistCommand cmd = new InitPlaylistCommand(controller);
         cmd.performGUIUpdate();
@@ -82,6 +82,7 @@ public class TestInitPlaylistCommand
     @Test
     public void testPerformGUIUpdateFailure()
     {
+        controller.updatePlayerActionStates();
         Application app = EasyMock.createMock(Application.class);
         ApplicationContext appCtx =
                 EasyMock.createMock(ApplicationContext.class);

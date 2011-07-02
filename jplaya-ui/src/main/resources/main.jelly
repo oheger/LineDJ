@@ -22,6 +22,35 @@
   <a:action name="playerInitPlaylistAction" textres="act_playerinitpl_text"
     tooltipres="act_playerinitpl_tip" mnemonicres="act_playerinitpl_mnemo"
     group="playerActions" taskBean="initPlaylistTask">
+    <f:icon resource="media-eject.png"/>
+  </a:action>
+
+  <!-- Player start playback action -->
+  <a:action name="playerStartPlaybackAction" textres="act_playerstart_text"
+    tooltipres="act_playerstart_tip" mnemonicres="act_playerstart_mnemo"
+    group="playerActions" taskBean="startPlaybackTask">
+    <f:icon resource="media-playback-start.png"/>
+  </a:action>
+
+  <!-- Player stop playback action -->
+  <a:action name="playerStopPlaybackAction" textres="act_playerstop_text"
+    tooltipres="act_playerstop_tip" mnemonicres="act_playerstop_mnemo"
+    group="playerActions" taskBean="stopPlaybackTask">
+    <f:icon resource="media-playback-stop.png"/>
+  </a:action>
+
+  <!-- Player next song action -->
+  <a:action name="playerNextSongAction" textres="act_playernext_text"
+    tooltipres="act_playernext_tip" mnemonicres="act_playernext_mnemo"
+    group="playerActions" taskBean="nextSongTask">
+    <f:icon resource="media-skip-forward.png"/>
+  </a:action>
+
+  <!-- Player previous song action -->
+  <a:action name="playerPrevSongAction" textres="act_playerprev_text"
+    tooltipres="act_playerprev_tip" mnemonicres="act_playerprev_mnemo"
+    group="playerActions" taskBean="nextSongTask">
+    <f:icon resource="media-skip-backward.png"/>
   </a:action>
 
   <!-- The main menu -->
@@ -33,12 +62,30 @@
     </a:menu>
     <a:menu textres="menu_player_text" mnemonicres="menu_player_mnemo">
       <a:menuitem actionName="playerInitPlaylistAction"/>
+      <a:separator/>
+      <a:menuitem actionName="playerStartPlaybackAction"/>
+      <a:menuitem actionName="playerStopPlaybackAction"/>
+      <a:menuitem actionName="playerNextSongAction"/>
+      <a:menuitem actionName="playerPrevSongAction"/>
     </a:menu>
   </a:menubar>
 
   <!-- The main window -->
   <w:frame name="mainFrame" titleres="main_title" menu="mainMenu"
     autoClose="false">
+    <f:panel>
+      <f:borderlayout/>
+      <!-- A tool bar at the top of the window's content -->
+      <a:toolbar>
+        <f:borderconstr name="NORTH"/>
+        <a:toolbutton actionName="playerInitPlaylistAction"/>
+        <a:separator/>
+        <a:toolbutton actionName="playerPrevSongAction"/>
+        <a:toolbutton actionName="playerStartPlaybackAction"/>
+        <a:toolbutton actionName="playerStopPlaybackAction"/>
+        <a:toolbutton actionName="playerNextSongAction"/>
+      </a:toolbar>
+    </f:panel>
 
     <!-- An event listener that delegates the window closing event to the
          application exit action.
@@ -98,5 +145,29 @@
   <di:bean name="initPlaylistTask"
     beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="initPlaylistCommand"/>
+  </di:bean>
+
+  <!-- Task for start playback action -->
+  <di:bean name="startPlaybackTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.StartPlaybackActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for stop playback action -->
+  <di:bean name="stopPlaybackTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.StopPlaybackActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for next song action -->
+  <di:bean name="nextSongTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.NextSongActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
   </di:bean>
 </j:jelly>
