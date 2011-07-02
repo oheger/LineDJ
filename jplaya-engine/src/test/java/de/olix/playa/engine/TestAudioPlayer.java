@@ -311,6 +311,7 @@ public class TestAudioPlayer
         assertEquals("Wrong exception", ex, event.getException());
         assertEquals("Wrong percentual position", 0,
                 event.getRelativePosition());
+        assertFalse("Stream was skipped", event.isSkipped());
         EasyMock.verify(mockData);
     }
 
@@ -404,6 +405,18 @@ public class TestAudioPlayer
                 player.createEvent(AudioPlayerEvent.Type.POSITION_CHANGED, null);
         assertTrue("Timer not running",
                 event2.getPlaybackTime() > event1.getPlaybackTime());
+    }
+
+    /**
+     * Tests whether the skipped flag in the event is set correctly.
+     */
+    @Test
+    public void testCreateEventSkipped()
+    {
+        player.setSkipPosition(AudioPlayer.SKIP_STREAM);
+        AudioPlayerEvent event =
+                player.createEvent(AudioPlayerEvent.Type.END_SONG, null);
+        assertTrue("Wrong skip flag", event.isSkipped());
     }
 
     /**

@@ -283,15 +283,22 @@ public class AudioPlayer extends Thread
     /**
      * Returns a flag whether playback is active at the moment. Playback is
      * active after this thread class was started. Then by calling
-     * <code>{@link #stopPlayback()}</code> and
-     * <code>{@link #startPlayback()}</code> playback can be stopped and
-     * continued.
+     * {@link #stopPlayback()} and {@link #startPlayback()} playback can be
+     * stopped and continued.
      *
      * @return a flag whether a song is currently played
      */
     public boolean isPlaying()
     {
-        return playing;
+        lockLine.lock();
+        try
+        {
+            return playing;
+        }
+        finally
+        {
+            lockLine.unlock();
+        }
     }
 
     /**
@@ -500,7 +507,7 @@ public class AudioPlayer extends Thread
             if (getLine() != null)
             {
                 getLine().stop();
-                playing = false;
+                setPlaying(false);
                 getTimer().suspend();
             }
         }
@@ -523,7 +530,7 @@ public class AudioPlayer extends Thread
             if (getLine() != null)
             {
                 getLine().start();
-                playing = true;
+                setPlaying(true);
                 getTimer().resume();
                 condPausePlayback.signal();
             }
@@ -568,7 +575,7 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Shuts down this audio player. Playback will stop as soon as possible and
+     * Shuts down this audio player. Playback will stop as soon as possible, and
      * the main playback loop will be terminated.
      */
     public void shutdown()
@@ -577,7 +584,7 @@ public class AudioPlayer extends Thread
         skipStream();
         getCommandDispatchThread().exit();
         interrupt();
-        playing = false;
+        setPlaying(false);
     }
 
     /**
@@ -608,7 +615,7 @@ public class AudioPlayer extends Thread
     @Override
     public void run()
     {
-        playing = true;
+        setPlaying(true);
         playback();
     }
 
@@ -1216,6 +1223,24 @@ public class AudioPlayer extends Thread
         }
 
         return AudioPlayerEvent.UNKNOWN_STREAM_LENGTH;
+    }
+
+    /**
+     * Sets a flag whether the player is currently playing.
+     *
+     * @param playing the playing flag
+     */
+    private void setPlaying(boolean playing)
+    {
+        lockLine.lock();
+        try
+        {
+            this.playing = playing;
+        }
+        finally
+        {
+            lockLine.unlock();
+        }
     }
 
     /**
