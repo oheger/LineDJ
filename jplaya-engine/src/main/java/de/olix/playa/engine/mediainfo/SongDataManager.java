@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -44,6 +45,12 @@ import de.olix.playa.engine.AudioReadMonitor;
  */
 public class SongDataManager
 {
+    /**
+     * Constant for the time in seconds the manager waits for the executor
+     * service to shutdown.
+     */
+    static final long SHUTDOWN_TIME = 10;
+
     /** The logger. */
     private final Log log = LogFactory.getLog(getClass());
 
@@ -193,6 +200,22 @@ public class SongDataManager
     {
         log.info("Shutdown of SongDataManager.");
         executor.shutdown();
+        try
+        {
+            if (!executor.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS))
+            {
+                log.warn("Executor service did not shut down. Forcing it now.");
+                executor.shutdownNow();
+            }
+        }
+        catch (InterruptedException iex)
+        {
+            log.warn(
+                    "Waiting for shutdown of executor service was interrupted.",
+                    iex);
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
@@ -268,9 +291,19 @@ public class SongDataManager
         @Override
         public void run()
         {
+            if (executor.isShutdown())
+            {
+                return;
+            }
+
             try
             {
                 monitor.waitForMediumIdle();
+                if (executor.isShutdown())
+                {
+                    return;
+                }
+
                 SongData data = songDataLoader.extractSongData(uri);
                 if (data == null)
                 {

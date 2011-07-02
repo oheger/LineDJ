@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -146,6 +147,7 @@ public class TestSongDataManager
         SongData data = EasyMock.createMock(SongData.class);
         monitor.waitForMediumIdle();
         EasyMock.expect(loader.extractSongData(URI)).andReturn(data);
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.FALSE).times(2);
         EasyMock.replay(exec, loader, monitor, data);
         SongDataListenerTestImpl l = new SongDataListenerTestImpl();
         SongDataManagerTestImpl manager = createManager();
@@ -188,6 +190,7 @@ public class TestSongDataManager
     @Test
     public void testExtractionTaskInterrupted() throws InterruptedException
     {
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.FALSE);
         monitor.waitForMediumIdle();
         EasyMock.expectLastCall().andThrow(new InterruptedException());
         EasyMock.replay(exec, loader, monitor);
@@ -208,6 +211,7 @@ public class TestSongDataManager
     @Test
     public void testExtractionTaskNoData() throws InterruptedException
     {
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.FALSE).times(2);
         monitor.waitForMediumIdle();
         EasyMock.expect(loader.extractSongData(URI)).andReturn(null);
         EasyMock.replay(exec, loader, monitor);
@@ -218,6 +222,39 @@ public class TestSongDataManager
         task.run();
         l.verify();
         assertNull("Got data", manager.getDataForFile(URI));
+        EasyMock.verify(exec, loader, monitor);
+    }
+
+    /**
+     * Tests whether an extraction task checks the shutdown flag at the
+     * beginning of its execution.
+     */
+    @Test
+    public void testExtractionTaskImmediateShutdown()
+    {
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.TRUE);
+        EasyMock.replay(exec, loader, monitor);
+        SongDataManagerTestImpl manager = createManager();
+        Runnable task = manager.createExtractionTask(URI, ID);
+        task.run();
+        EasyMock.verify(exec, loader, monitor);
+    }
+
+    /**
+     * Tests whether an extraction task checks the shutdown flag after waiting
+     * at the monitor.
+     */
+    @Test
+    public void testExtractionTaskShutdownAfterMonitor()
+            throws InterruptedException
+    {
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.FALSE);
+        monitor.waitForMediumIdle();
+        EasyMock.expect(exec.isShutdown()).andReturn(Boolean.TRUE);
+        EasyMock.replay(exec, loader, monitor);
+        SongDataManagerTestImpl manager = createManager();
+        Runnable task = manager.createExtractionTask(URI, ID);
+        task.run();
         EasyMock.verify(exec, loader, monitor);
     }
 
@@ -256,12 +293,51 @@ public class TestSongDataManager
     }
 
     /**
-     * Tests whether the manager can be shut down.
+     * Tests whether the manager can be shut down successfully.
      */
     @Test
-    public void testShutdown()
+    public void testShutdownSuccess() throws InterruptedException
     {
         exec.shutdown();
+        EasyMock.expect(
+                exec.awaitTermination(SongDataManager.SHUTDOWN_TIME,
+                        TimeUnit.SECONDS)).andReturn(Boolean.TRUE);
+        EasyMock.replay(exec, loader, monitor);
+        SongDataManagerTestImpl manager = createManager();
+        manager.shutdown();
+        EasyMock.verify(exec, loader, monitor);
+    }
+
+    /**
+     * Tests shutdown() if waiting for the executor to shut down is interrupted.
+     */
+    @Test
+    public void testShutdownWaitingInterrupted() throws InterruptedException
+    {
+        exec.shutdown();
+        EasyMock.expect(
+                exec.awaitTermination(SongDataManager.SHUTDOWN_TIME,
+                        TimeUnit.SECONDS)).andThrow(
+                new InterruptedException("Test exception!"));
+        EasyMock.expect(exec.shutdownNow()).andReturn(null);
+        EasyMock.replay(exec, loader, monitor);
+        SongDataManagerTestImpl manager = createManager();
+        manager.shutdown();
+        EasyMock.verify(exec, loader, monitor);
+        assertTrue("Not interrupted", Thread.interrupted());
+    }
+
+    /**
+     * Tests shutdown() if waiting for termination times out.
+     */
+    @Test
+    public void testShutdownTimeout() throws InterruptedException
+    {
+        exec.shutdown();
+        EasyMock.expect(
+                exec.awaitTermination(SongDataManager.SHUTDOWN_TIME,
+                        TimeUnit.SECONDS)).andReturn(Boolean.FALSE);
+        EasyMock.expect(exec.shutdownNow()).andReturn(null);
         EasyMock.replay(exec, loader, monitor);
         SongDataManagerTestImpl manager = createManager();
         manager.shutdown();
