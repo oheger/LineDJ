@@ -12,6 +12,7 @@ import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.builder.window.Window;
 
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
 import org.apache.commons.lang3.concurrent.ConcurrentUtils;
 import org.junit.Before;
@@ -168,6 +169,17 @@ public class TestAppBeans
         DataBuffer buffer = getBeanContext().getBean(DataBuffer.class);
         assertNotSame("Same instance", buffer,
                 getBeanContext().getBean(DataBuffer.class));
+    }
+
+    /**
+     * Tests that the thread factory bean is correctly initialized.
+     */
+    @Test
+    public void testBeanThreadFactory()
+    {
+        BasicThreadFactory factory =
+                (BasicThreadFactory) getBeanContext().getBean("threadFactory");
+        assertTrue("Wrong daemon flag", factory.getDaemonFlag().booleanValue());
     }
 
     /**
