@@ -76,7 +76,7 @@ public class TestXMLPlaylistManagerFactory
 
     /** An object managing temporary files. */
     @Rule
-    public TemporaryFolder tempFoler = new TemporaryFolder();
+    public TemporaryFolder tempFolder = new TemporaryFolder();
 
     /** A mock for the scanner. */
     private FSScanner scanner;
@@ -88,7 +88,7 @@ public class TestXMLPlaylistManagerFactory
     public void setUp() throws Exception
     {
         scanner = EasyMock.createMock(FSScanner.class);
-        dataDirectory = tempFoler.newFolder("jplaya-data");
+        dataDirectory = tempFolder.newFolder("jplaya-data");
     }
 
     /**
@@ -598,8 +598,26 @@ public class TestXMLPlaylistManagerFactory
     @Test(expected = IOException.class)
     public void testSaveStateEx() throws IOException
     {
-        XMLPlaylistManagerFactoryTestImpl factory = createFactory();
-        File errFile = new File("<<Invalid*File?~#!>>");
+        @SuppressWarnings("serial")
+        final XMLConfiguration errSaveConfig = new XMLConfiguration()
+        {
+            @Override
+            public void save(File file) throws ConfigurationException
+            {
+                throw new ConfigurationException("Test exception!");
+            }
+        };
+        XMLPlaylistManagerFactoryTestImpl factory =
+                new XMLPlaylistManagerFactoryTestImpl(scanner,
+                        dataDirectory.getAbsolutePath())
+                {
+                    @Override
+                    protected org.apache.commons.configuration.AbstractHierarchicalFileConfiguration createSaveConfig()
+                    {
+                        return errSaveConfig;
+                    };
+                };
+        File errFile = new File("test.xml");
         XMLPlaylistManager manager =
                 new XMLPlaylistManager(createTestURIs(),
                         ImmutablePlaylistSettings.emptyInstance(), null,

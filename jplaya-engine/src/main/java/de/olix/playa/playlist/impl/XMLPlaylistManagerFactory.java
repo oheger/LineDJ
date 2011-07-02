@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.zip.CRC32;
 
+import org.apache.commons.configuration.AbstractHierarchicalFileConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
@@ -230,7 +231,7 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     public void saveState(XMLPlaylistManager manager,
             CurrentPositionInfo posInfo, int currentIndex) throws IOException
     {
-        XMLConfiguration config = new XMLConfiguration();
+        AbstractHierarchicalFileConfiguration config = createSaveConfig();
         if (currentIndex >= 0)
         {
             fillPlaylistConfig(config, manager.getSongURIs(), posInfo,
@@ -309,6 +310,17 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
         }
 
         return playlist;
+    }
+
+    /**
+     * Creates the configuration for saving a playlist. This method is called
+     * by {@link #saveState(XMLPlaylistManager, CurrentPositionInfo, int)}.
+     *
+     * @return the configuration for saving the state of the playlist manager
+     */
+    protected AbstractHierarchicalFileConfiguration createSaveConfig()
+    {
+        return new XMLConfiguration();
     }
 
     /**
