@@ -660,6 +660,36 @@ public class TestAudioBuffer
     }
 
     /**
+     * Helper method for testing a shutdown operation.
+     *
+     * @param ex the exception to be thrown by close()
+     */
+    private void checkShutdown(IOException ex)
+    {
+        buffer.mockShutdownMethods(ex);
+        buffer.shutdown();
+        assertEquals("Wrong methods", "close()clear()", buffer.getMethods());
+    }
+
+    /**
+     * Tests whether the buffer can be shut down.
+     */
+    @Test
+    public void testShutdown()
+    {
+        checkShutdown(null);
+    }
+
+    /**
+     * Tests shutdown() if an IOException is thrown.
+     */
+    @Test
+    public void testShutdownEx()
+    {
+        checkShutdown(new IOException("Test exception!"));
+    }
+
+    /**
      * Creates a test file. Used for setting up a directory structure that can
      * be deleted by clearCacheDirectory().
      *
@@ -725,6 +755,15 @@ public class TestAudioBuffer
         /** Stores a list with the added child streams. */
         private List<Object[]> childStreams;
 
+        /** A buffer for recording method invocations. */
+        private StringBuilder bufMethods;
+
+        /** An exception to be thrown by close(). */
+        private IOException closeException;
+
+        /** A flag whether close() and clear() are to be mocked. */
+        private boolean mockShutdownMethods;
+
         public AudioBufferTestImpl(String dir, long chunkSize, int chunks)
         {
             super(dir, chunkSize, chunks);
@@ -736,6 +775,70 @@ public class TestAudioBuffer
         {
             super(dir, chunkSize, chunks, clearCache);
             childStreams = new ArrayList<Object[]>();
+        }
+
+        /**
+         * Prepares this object to mock the methods related to a shutdown.
+         * Optionally, an exception to be thrown by close() can be specified.
+         *
+         * @param closeEx the exception for close() (can be null)
+         */
+        public void mockShutdownMethods(IOException closeEx)
+        {
+            bufMethods = new StringBuilder();
+            closeException = closeEx;
+            mockShutdownMethods = true;
+        }
+
+        /**
+         * Returns the content of the buffer with method invocations.
+         *
+         * @return the methods that have been invoked
+         */
+        public String getMethods()
+        {
+            return bufMethods.toString();
+        }
+
+        /**
+         * Optionally mocks this method. If an exception has been provided, it
+         * is thrown now.
+         */
+        @Override
+        public void close() throws IOException
+        {
+            final String method = "close()";
+            if (shouldMock(method))
+            {
+                bufMethods.append(method);
+                if (closeException != null)
+                {
+                    IOException ex = closeException;
+                    closeException = null;
+                    throw ex;
+                }
+            }
+            else
+            {
+                super.close();
+            }
+        }
+
+        /**
+         * Optionally mocks this method.
+         */
+        @Override
+        public void clear()
+        {
+            final String method = "clear()";
+            if (shouldMock(method))
+            {
+                bufMethods.append(method);
+            }
+            else
+            {
+                super.clear();
+            }
         }
 
         @Override
@@ -804,6 +907,17 @@ public class TestAudioBuffer
         public InputStream getChildStream(int idx)
         {
             return (InputStream) childStreams.get(idx)[3];
+        }
+
+        /**
+         * Tests whether a method is to be mocked.
+         *
+         * @param method the method
+         * @return a flag whether this method is to be mocked
+         */
+        private boolean shouldMock(String method)
+        {
+            return mockShutdownMethods && !getMethods().contains(method);
         }
     }
 

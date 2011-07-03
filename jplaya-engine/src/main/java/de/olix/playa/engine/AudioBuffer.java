@@ -613,8 +613,27 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     }
 
     /**
+     * Performs a shutdown on this buffer. This implementation calls the methods
+     * {@link #close()} and {@link #clear()}. Exceptions that might be thrown by
+     * {@code close()} are ignored.
+     */
+    @Override
+    public void shutdown()
+    {
+        try
+        {
+            close();
+        }
+        catch (IOException ioex)
+        {
+            log.warn("Exception when closing buffer!", ioex);
+        }
+        clear();
+    }
+
+    /**
      * Clears the buffer. All temporary files will be removed. Before this the
-     * <code>close()</code> method must have been invoked.
+     * {@code close()} method must have been invoked.
      */
     public void clear()
     {

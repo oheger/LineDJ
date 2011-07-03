@@ -28,9 +28,9 @@ public interface DataBuffer
 
     /**
      * Adds a new chunk of data for the current stream to this buffer. This
-     * method can be called after <code>addNewStream()</code> for an arbitrary
-     * number of times. It specifies the data of the stream. If the buffer is
-     * full, this operation may block.
+     * method can be called after {@code addNewStream()} for an arbitrary number
+     * of times. It specifies the data of the stream. If the buffer is full,
+     * this operation may block.
      *
      * @param data the data buffer
      * @param ofs the offset into this buffer
@@ -44,7 +44,7 @@ public interface DataBuffer
     /**
      * Tells the buffer that the data of the current stream has been completely
      * written. With this call a stream is closed. So this method must be
-     * invoked for each stream that was added using <code>addNewStream()</code>.
+     * invoked for each stream that was added using {@code addNewStream()}.
      */
     void streamFinished();
 
@@ -62,4 +62,11 @@ public interface DataBuffer
      * @throws IOException if an IO error occurs
      */
     void close() throws IOException;
+
+    /**
+     * Performs a shutdown of this buffer. This involves a {@code close()}
+     * operation and frees all resources used by this instance. After this the
+     * buffer cannot be used any longer.
+     */
+    void shutdown();
 }
