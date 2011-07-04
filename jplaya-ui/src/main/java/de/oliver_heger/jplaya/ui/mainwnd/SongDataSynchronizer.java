@@ -95,7 +95,7 @@ class SongDataSynchronizer
      * @param uri the URI of the song in question
      * @return the number of times the song has been played
      */
-    public int songDataEventReceived(String uri)
+    public synchronized int songDataEventReceived(String uri)
     {
         availableSongData.add(uri);
 

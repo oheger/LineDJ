@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
+import de.oliver_heger.mediastore.service.SongData;
 import de.olix.playa.engine.AudioPlayer;
 import de.olix.playa.engine.AudioPlayerEvent;
 import de.olix.playa.engine.AudioPlayerListener;
@@ -23,6 +24,7 @@ import de.olix.playa.engine.AudioReader;
 import de.olix.playa.engine.DataBuffer;
 import de.olix.playa.engine.mediainfo.SongDataEvent;
 import de.olix.playa.engine.mediainfo.SongDataListener;
+import de.olix.playa.engine.mediainfo.SongDataManager;
 import de.olix.playa.playlist.CurrentPositionInfo;
 import de.olix.playa.playlist.FSScanner;
 import de.olix.playa.playlist.PlaylistController;
@@ -90,6 +92,9 @@ public class MainWndController implements AudioPlayerListener,
      * started. After that it is not changed any more.
      */
     private SongDataSynchronizer songDataSynchronizer;
+
+    /** The object for retrieving song information. */
+    private SongDataManager songDataManager;
 
     /**
      * Creates a new instance of {@code MainWndController} and initializes it.
@@ -229,10 +234,33 @@ public class MainWndController implements AudioPlayerListener,
         // TODO Auto-generated method stub
     }
 
+    /**
+     * A stream has ended. This implementation checks whether media information
+     * is available for the song. If this is the case, it is passed to the media
+     * store. Note that only songs are stored which have not been skipped.
+     *
+     * @param event the player event
+     */
     @Override
-    public void streamEnds(AudioPlayerEvent arg0)
+    public void streamEnds(AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
+        if (!event.isSkipped())
+        {
+            String songURI = String.valueOf(event.getStreamData().getID());
+            int playCount =
+                    getSongDataSynchronizer().songPlayedEventReceived(songURI);
+
+            if (playCount > 0)
+            {
+                if (log.isInfoEnabled())
+                {
+                    log.info("Storing media information for stream " + songURI);
+                }
+                SongData data = getSongDataManager().getDataForFile(songURI);
+                data.setPlayCount(playCount);
+                getMediaStore().updateSongData(data);
+            }
+        }
     }
 
     @Override
@@ -252,13 +280,21 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
-     * Dummy implementation of this interface method.
+     * The window is closing. This implementation initiates a shutdown.
      *
      * @param event the event
      */
     @Override
     public void windowClosing(WindowEvent event)
     {
+        try
+        {
+            shutdownPlayerAndPlaylist();
+        }
+        catch (IOException ioex)
+        {
+            log.warn("Exception on shutdown!", ioex);
+        }
     }
 
     /**
@@ -338,6 +374,17 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Returns the current {@code SongDataManager}. This object is created when
+     * the audio engine is initialized.
+     *
+     * @return the current {@code SongDataManager}
+     */
+    protected SongDataManager getSongDataManager()
+    {
+        return songDataManager;
+    }
+
+    /**
      * Initializes the audio engine for playing the songs of a playlist. This
      * method is called if a new playlist is setup. It is also called after
      * starting the application, provided that a directory with music files has
@@ -355,7 +402,7 @@ public class MainWndController implements AudioPlayerListener,
                 getPlaylistController().getPlaylistManager()
                         .getInitialPositionInfo();
 
-        songDataSynchronizer = new SongDataSynchronizer();
+        initSongDataManager();
         audioPlayer = getBeanContext().getBean(AudioPlayer.class);
         audioPlayer.setSkipPosition(positionInfo.getPosition());
         audioPlayer.setSkipTime(positionInfo.getTime());
@@ -458,6 +505,39 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Performs cleanup for the audio player and the objects related to the
+     * playlist. This method is called when the application terminates and also
+     * when a new playlist is to be created. If a playlist has already been
+     * initialized and an audio player was created, a graceful shutdown is
+     * performed. The current state of the playlist is also saved.
+     *
+     * @throws IOException if an error occurs when saving the playlist
+     */
+    protected void shutdownPlayerAndPlaylist() throws IOException
+    {
+        if (getAudioPlayer() != null)
+        {
+            log.info("Performing shutdown.");
+            shutdownPlayer();
+            getSongDataManager().shutdown();
+            getPlaylistController().saveState();
+        }
+    }
+
+    /**
+     * Performs a shutdown of the audio player. This method is called by
+     * {@link #shutdownPlayerAndPlaylist()} if an audio player has been created.
+     * It shuts down the player and its audio buffer.
+     */
+    protected void shutdownPlayer()
+    {
+        DataBuffer buffer = (DataBuffer) getAudioPlayer().getAudioSource();
+        buffer.shutdown();
+        getAudioPlayer().shutdown();
+        audioPlayer = null;
+    }
+
+    /**
      * Returns the current {@code SongDataSynchronizer}. This object is created
      * when the audio engine is initialized.
      *
@@ -479,6 +559,18 @@ public class MainWndController implements AudioPlayerListener,
                 (Application) getBeanContext().getBean(
                         Application.BEAN_APPLICATION);
         return app;
+    }
+
+    /**
+     * Initializes the song data manager and related objects. This method
+     * triggers that song information for all songs in the playlist are fetched.
+     */
+    private void initSongDataManager()
+    {
+        songDataSynchronizer = new SongDataSynchronizer();
+        songDataManager = getBeanContext().getBean(SongDataManager.class);
+        songDataManager.addSongDataListener(this);
+        getPlaylistController().fetchAllSongData(songDataManager);
     }
 
     /**

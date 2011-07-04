@@ -14,6 +14,7 @@ import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
 
 import org.apache.commons.configuration.Configuration;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
@@ -21,10 +22,14 @@ import org.junit.Test;
 
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
+import de.oliver_heger.mediastore.service.SongData;
 import de.olix.playa.engine.AudioPlayer;
+import de.olix.playa.engine.AudioPlayerEvent;
 import de.olix.playa.engine.AudioReader;
+import de.olix.playa.engine.AudioStreamData;
 import de.olix.playa.engine.AudioStreamSource;
 import de.olix.playa.engine.DataBuffer;
+import de.olix.playa.engine.mediainfo.SongDataManager;
 import de.olix.playa.playlist.CurrentPositionInfo;
 import de.olix.playa.playlist.FSScanner;
 import de.olix.playa.playlist.PlaylistController;
@@ -39,6 +44,9 @@ import de.olix.playa.playlist.PlaylistOrder;
  */
 public class TestMainWndController extends EasyMockSupport
 {
+    /** Constant for the URI of a test song. */
+    private static final String SONG_URI = "file://PowerSong.mp3";
+
     /** A mock for the bean context. */
     private BeanContext mockContext;
 
@@ -81,20 +89,6 @@ public class TestMainWndController extends EasyMockSupport
         replayAll();
         MainWndController ctrl = new MainWndController(mockContext, store);
         ctrl.windowActivated(event);
-        verifyAll();
-    }
-
-    /**
-     * Tests the window closing event. We can only check that the event is not
-     * touched.
-     */
-    @Test
-    public void testWindowClosing()
-    {
-        WindowEvent event = createMock(WindowEvent.class);
-        replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
-        ctrl.windowClosing(event);
         verifyAll();
     }
 
@@ -302,6 +296,7 @@ public class TestMainWndController extends EasyMockSupport
         Application app = createMock(Application.class);
         Configuration config = createMock(Configuration.class);
         PlaylistManager pm = createMock(PlaylistManager.class);
+        SongDataManager sdm = createMock(SongDataManager.class);
         final DataBufferStreamSource bufferSource =
                 createMock(DataBufferStreamSource.class);
         final AudioReader reader = createMock(AudioReader.class);
@@ -321,6 +316,9 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(pm.getInitialPositionInfo()).andReturn(posInfo);
         player.setSkipPosition(posInfo.getPosition());
         player.setSkipTime(posInfo.getTime());
+        EasyMock.expect(mockContext.getBean(SongDataManager.class)).andReturn(
+                sdm);
+        plc.fetchAllSongData(sdm);
         MainWndController ctrl = new MainWndController(mockContext, store)
         {
             @Override
@@ -330,6 +328,7 @@ public class TestMainWndController extends EasyMockSupport
                 return reader;
             }
         };
+        sdm.addSongDataListener(ctrl);
         EasyMock.expect(reader.start()).andReturn(null);
         player.addAudioPlayerListener(plc);
         player.addAudioPlayerListener(ctrl);
@@ -339,6 +338,7 @@ public class TestMainWndController extends EasyMockSupport
         ctrl.initAudioEngine();
         assertSame("Wrong audio player", player, ctrl.getAudioPlayer());
         assertNotNull("No synchronizer", ctrl.getSongDataSynchronizer());
+        assertSame("Wrong song data manager", sdm, ctrl.getSongDataManager());
         verifyAll();
     }
 
@@ -464,6 +464,155 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
+     * Tests a shutdown if the objects have not been created.
+     */
+    @Test
+    public void testShutdownPlayerAndPlaylistNotInitialized()
+            throws IOException
+    {
+        replayAll();
+        MainWndController ctrl = new MainWndController(mockContext, store);
+        ctrl.shutdownPlayerAndPlaylist();
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a shutdown is performed correctly.
+     */
+    @Test
+    public void testShutdownPlayerAndPlaylist() throws IOException
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        PlaylistController plc = createMock(PlaylistController.class);
+        SongDataManager sdm = createMock(SongDataManager.class);
+        DataBufferStreamSource buffer =
+                createMock(DataBufferStreamSource.class);
+        EasyMock.expect(player.getAudioSource()).andReturn(buffer);
+        buffer.shutdown();
+        player.shutdown();
+        sdm.shutdown();
+        plc.saveState();
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(player);
+        ctrl.setPlaylistController(plc);
+        ctrl.installSongDataManagerMock(sdm);
+        ctrl.shutdownPlayerAndPlaylist();
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a shutdown is performed when the main window is closing.
+     */
+    @Test
+    public void testWindowClosing()
+    {
+        WindowEvent event = createMock(WindowEvent.class);
+        replayAll();
+        final MutableInt shutdownCounter = new MutableInt();
+        MainWndController ctrl = new MainWndController(mockContext, store)
+        {
+            @Override
+            protected void shutdownPlayerAndPlaylist() throws IOException
+            {
+                shutdownCounter.increment();
+            };
+        };
+        ctrl.windowClosing(event);
+        assertEquals("Wrong number of shutdown calls", 1, shutdownCounter
+                .getValue().intValue());
+        verifyAll();
+    }
+
+    /**
+     * Tests the window closing event if the shutdown method throws an
+     * exception. We can only check whether nothing blows up.
+     */
+    @Test
+    public void testWindowClosingShutdownEx()
+    {
+        WindowEvent event = createMock(WindowEvent.class);
+        replayAll();
+        MainWndController ctrl = new MainWndController(mockContext, store)
+        {
+            @Override
+            protected void shutdownPlayerAndPlaylist() throws IOException
+            {
+                throw new IOException("Test exception!");
+            };
+        };
+        ctrl.windowClosing(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether stream end events for skipped songs are ignored.
+     */
+    @Test
+    public void testStreamEndsSkipped()
+    {
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        SongDataSynchronizer sync = createMock(SongDataSynchronizer.class);
+        EasyMock.expect(event.isSkipped()).andReturn(Boolean.TRUE);
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        ctrl.installSongDataSynchronizerMock(sync);
+        ctrl.streamEnds(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests streamEnds() if song information is available.
+     */
+    @Test
+    public void testStreamEndsSongDataAvailable()
+    {
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        SongDataSynchronizer sync = createMock(SongDataSynchronizer.class);
+        SongDataManager sdm = createMock(SongDataManager.class);
+        AudioStreamData streamData = createMock(AudioStreamData.class);
+        SongData data = createMock(SongData.class);
+        final int playCount = 3;
+        EasyMock.expect(event.isSkipped()).andReturn(Boolean.FALSE);
+        EasyMock.expect(event.getStreamData()).andReturn(streamData);
+        EasyMock.expect(streamData.getID()).andReturn(SONG_URI).anyTimes();
+        EasyMock.expect(sync.songPlayedEventReceived(SONG_URI)).andReturn(
+                playCount);
+        EasyMock.expect(sdm.getDataForFile(SONG_URI)).andReturn(data);
+        data.setPlayCount(playCount);
+        store.updateSongData(data);
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        ctrl.installSongDataSynchronizerMock(sync);
+        ctrl.installSongDataManagerMock(sdm);
+        ctrl.streamEnds(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests a stream end event if no song data is available.
+     */
+    @Test
+    public void testStreamEndsNoSongData()
+    {
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        SongDataSynchronizer sync = createMock(SongDataSynchronizer.class);
+        AudioStreamData streamData = createMock(AudioStreamData.class);
+        EasyMock.expect(event.isSkipped()).andReturn(Boolean.FALSE);
+        EasyMock.expect(event.getStreamData()).andReturn(streamData);
+        EasyMock.expect(streamData.getID()).andReturn(SONG_URI).anyTimes();
+        EasyMock.expect(sync.songPlayedEventReceived(SONG_URI)).andReturn(0);
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        ctrl.installSongDataSynchronizerMock(sync);
+        ctrl.streamEnds(event);
+        verifyAll();
+    }
+
+    /**
      * An interface which combines the data buffer with the audio stream source
      * interface. This is needed because the source of the player is also a data
      * buffer.
@@ -475,12 +624,18 @@ public class TestMainWndController extends EasyMockSupport
 
     /**
      * A test implementation of the controller which allows mocking the audio
-     * player.
+     * player. Some other helper objects can also be mocked.
      */
     private class MainWndControllerMockPlayerTestImpl extends MainWndController
     {
         /** The mock for the audio player. */
         private final AudioPlayer mockPlayer;
+
+        /** A mock for the song data manager. */
+        private SongDataManager mockSongManager;
+
+        /** A mock for the song data synchronizer. */
+        private SongDataSynchronizer mockSynchonizer;
 
         /**
          * Creates a new instance of {@code MainWndControllerMockPlayerTestImpl}
@@ -495,12 +650,47 @@ public class TestMainWndController extends EasyMockSupport
         }
 
         /**
+         * Installs a mock for the song data manager.
+         *
+         * @param sdm the mock
+         */
+        public void installSongDataManagerMock(SongDataManager sdm)
+        {
+            mockSongManager = sdm;
+        }
+
+        public void installSongDataSynchronizerMock(SongDataSynchronizer sync)
+        {
+            mockSynchonizer = sync;
+        }
+
+        /**
          * Returns the mock audio player.
          */
         @Override
         protected AudioPlayer getAudioPlayer()
         {
             return mockPlayer;
+        }
+
+        /**
+         * Either returns the mock object or calls the super method.
+         */
+        @Override
+        protected SongDataManager getSongDataManager()
+        {
+            return (mockSongManager != null) ? mockSongManager : super
+                    .getSongDataManager();
+        }
+
+        /**
+         * Either returns the mock object or calls the super method.
+         */
+        @Override
+        SongDataSynchronizer getSongDataSynchronizer()
+        {
+            return (mockSynchonizer != null) ? mockSynchonizer : super
+                    .getSongDataSynchronizer();
         }
     }
 
