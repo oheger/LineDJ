@@ -126,7 +126,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private final EventListenerList listeners;
 
     /** A queue for sending events. */
-    private final BlockingQueue<AudioBufferEvent.Type> events;
+    private final BlockingQueue<DataBufferEvent.Type> events;
 
     /** A reference to the thread for sending events. */
     private final EventThread eventThread;
@@ -219,7 +219,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
         chunksNotFull = chunkLock.newCondition();
 
         listeners = new EventListenerList();
-        events = new LinkedBlockingQueue<AudioBufferEvent.Type>();
+        events = new LinkedBlockingQueue<DataBufferEvent.Type>();
         eventThread = new EventThread();
     }
 
@@ -313,7 +313,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     private void setCurrentChunkCount(int c)
     {
         currentChunkCount = c;
-        fireBufferEvent(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED);
+        fireBufferEvent(DataBufferEvent.Type.CHUNK_COUNT_CHANGED);
     }
 
     /**
@@ -370,7 +370,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             }
         }
 
-        fireBufferEvent(AudioBufferEvent.Type.DATA_ADDED);
+        fireBufferEvent(DataBufferEvent.Type.DATA_ADDED);
     }
 
     /**
@@ -600,7 +600,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
                 chunkLock.unlock();
             }
 
-            fireBufferEvent(AudioBufferEvent.Type.BUFFER_CLOSED);
+            fireBufferEvent(DataBufferEvent.Type.BUFFER_CLOSED);
             try
             {
                 eventThread.join();
@@ -763,14 +763,15 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * @param l the listener to register (must not be <b>null</b>)
      * @throws IllegalArgumentException if the listener is <b>null</b>
      */
-    public void addBufferListener(AudioBufferListener l)
+    @Override
+    public void addBufferListener(DataBufferListener l)
     {
         if (l == null)
         {
             throw new IllegalArgumentException(
                     "Buffer listener must not be null!");
         }
-        listeners.add(AudioBufferListener.class, l);
+        listeners.add(DataBufferListener.class, l);
     }
 
     /**
@@ -778,9 +779,10 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      *
      * @param l the listener to remove
      */
-    public void removeBufferListener(AudioBufferListener l)
+    @Override
+    public void removeBufferListener(DataBufferListener l)
     {
-        listeners.remove(AudioBufferListener.class, l);
+        listeners.remove(DataBufferListener.class, l);
     }
 
     /**
@@ -797,9 +799,9 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      *
      * @param type the event type
      */
-    protected void fireBufferEvent(AudioBufferEvent.Type type)
+    protected void fireBufferEvent(DataBufferEvent.Type type)
     {
-        if (type == AudioBufferEvent.Type.DATA_ADDED)
+        if (type == DataBufferEvent.Type.DATA_ADDED)
         {
             synchronized (getWriteLock())
             {
@@ -936,14 +938,14 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             if (getCurrentChunkCount() == getAllowedChunkCount())
             {
                 full = true;
-                fireBufferEvent(AudioBufferEvent.Type.BUFFER_FULL);
+                fireBufferEvent(DataBufferEvent.Type.BUFFER_FULL);
                 chunksNotFull.await();
             }
 
             if (!isClosed())
             {
                 full = false;
-                fireBufferEvent(AudioBufferEvent.Type.BUFFER_FREE);
+                fireBufferEvent(DataBufferEvent.Type.BUFFER_FREE);
                 createChunkFile();
                 setCurrentChunkCount(getCurrentChunkCount() + 1);
                 currentChunkSize = 0;
@@ -1277,19 +1279,19 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
             {
                 try
                 {
-                    AudioBufferEvent.Type type = events.take();
-                    exit = type == AudioBufferEvent.Type.BUFFER_CLOSED;
-                    AudioBufferEvent event = null;
+                    DataBufferEvent.Type type = events.take();
+                    exit = type == DataBufferEvent.Type.BUFFER_CLOSED;
+                    DataBufferEvent event = null;
                     Object[] lstnrs = listeners.getListenerList();
                     for (int i = lstnrs.length - 2; i >= 0; i -= 2)
                     {
-                        if (lstnrs[i] == AudioBufferListener.class)
+                        if (lstnrs[i] == DataBufferListener.class)
                         {
                             if (event == null)
                                 event =
-                                        new AudioBufferEvent(AudioBuffer.this,
+                                        new DataBufferEvent(AudioBuffer.this,
                                                 type);
-                            ((AudioBufferListener) lstnrs[i + 1])
+                            ((DataBufferListener) lstnrs[i + 1])
                                     .bufferChanged(event);
                         }
                     }

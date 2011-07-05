@@ -12,7 +12,7 @@ import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.olix.playa.engine.AudioBufferEvent.Type;
+import de.olix.playa.engine.DataBufferEvent.Type;
 
 /**
  * Test class for {@code AudioReadMonitorImpl}.
@@ -165,9 +165,9 @@ public class TestAudioReadMonitorImpl
      * @param type the event type
      * @return the event
      */
-    private AudioBufferEvent event(AudioBufferEvent.Type type)
+    private DataBufferEvent event(DataBufferEvent.Type type)
     {
-        return new AudioBufferEvent(buffer, type);
+        return new DataBufferEvent(buffer, type);
     }
 
     /**
@@ -192,7 +192,7 @@ public class TestAudioReadMonitorImpl
         EasyMock.replay(buffer);
         monitor.setWaitingFlag(Boolean.FALSE);
         monitor.associateWithBuffer(buffer);
-        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_CLOSED));
+        monitor.bufferChanged(event(DataBufferEvent.Type.BUFFER_CLOSED));
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
 
@@ -202,7 +202,7 @@ public class TestAudioReadMonitorImpl
      *
      * @param type the event type
      */
-    private void checkMonitorUnlocked(AudioBufferEvent.Type type)
+    private void checkMonitorUnlocked(DataBufferEvent.Type type)
     {
         buffer.addBufferListener(monitor);
         EasyMock.replay(buffer);
@@ -219,7 +219,7 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testBufferChangedClosedEvent()
     {
-        checkMonitorUnlocked(AudioBufferEvent.Type.BUFFER_CLOSED);
+        checkMonitorUnlocked(DataBufferEvent.Type.BUFFER_CLOSED);
     }
 
     /**
@@ -242,7 +242,7 @@ public class TestAudioReadMonitorImpl
         EasyMock.replay(buffer);
         monitor.setWaitingFlag(Boolean.FALSE);
         monitor.associateWithBuffer(buffer);
-        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
+        monitor.bufferChanged(event(DataBufferEvent.Type.BUFFER_FREE));
         checkWaitingFlag(Boolean.TRUE);
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
@@ -256,8 +256,8 @@ public class TestAudioReadMonitorImpl
         buffer.addBufferListener(monitor);
         EasyMock.replay(buffer);
         monitor.associateWithBuffer(buffer);
-        monitor.bufferChanged(event(AudioBufferEvent.Type.DATA_ADDED));
-        monitor.bufferChanged(event(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED));
+        monitor.bufferChanged(event(DataBufferEvent.Type.DATA_ADDED));
+        monitor.bufferChanged(event(DataBufferEvent.Type.CHUNK_COUNT_CHANGED));
         checkWaitingFlag(null);
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
@@ -282,7 +282,7 @@ public class TestAudioReadMonitorImpl
         EasyMock.expect(buffer.isClosed()).andReturn(Boolean.TRUE);
         EasyMock.replay(buffer);
         monitor.associateWithBuffer(buffer);
-        monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
+        monitor.bufferChanged(event(DataBufferEvent.Type.BUFFER_FREE));
         checkWaitingFlag(Boolean.FALSE);
     }
 

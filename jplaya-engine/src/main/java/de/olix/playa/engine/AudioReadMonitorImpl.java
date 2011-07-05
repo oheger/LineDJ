@@ -19,7 +19,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Oliver Heger
  * @version $Id$
  */
-public class AudioReadMonitorImpl implements AudioBufferListener,
+public class AudioReadMonitorImpl implements DataBufferListener,
         AudioReadMonitor
 {
     /** The lock for synchronization. */
@@ -106,7 +106,7 @@ public class AudioReadMonitorImpl implements AudioBufferListener,
      *
      * @param event the audio buffer event
      */
-    public void bufferChanged(AudioBufferEvent event)
+    public void bufferChanged(DataBufferEvent event)
     {
         switch (event.getType())
         {
@@ -176,7 +176,7 @@ public class AudioReadMonitorImpl implements AudioBufferListener,
      * @param newState the new waiting state
      * @param event the event
      */
-    private void changeState(boolean newState, AudioBufferEvent event)
+    private void changeState(boolean newState, DataBufferEvent event)
     {
         lockWait.lock();
         try

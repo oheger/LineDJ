@@ -69,4 +69,19 @@ public interface DataBuffer
      * buffer cannot be used any longer.
      */
     void shutdown();
+
+    /**
+     * Removes the specified listener from this buffer.
+     *
+     * @param l the listener to remove
+     */
+    void removeBufferListener(DataBufferListener l);
+
+    /**
+     * Adds a new data buffer listener to this object. This listener will
+     * receive notifications about changes in the state of this buffer.
+     *
+     * @param l the listener to register
+     */
+    void addBufferListener(DataBufferListener l);
 }

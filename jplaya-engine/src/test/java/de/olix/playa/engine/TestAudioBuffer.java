@@ -509,16 +509,16 @@ public class TestAudioBuffer
         writer.waitForStream(CHUNK_COUNT);
         Thread.sleep(SLEEP_TIME);
         readStreamsFromBuffer(0);
-        l.checkEventType(AudioBufferEvent.Type.BUFFER_FREE, null);
-        l.checkEventType(AudioBufferEvent.Type.BUFFER_FULL, null);
-        l.checkEventType(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED, null);
+        l.checkEventType(DataBufferEvent.Type.BUFFER_FREE, null);
+        l.checkEventType(DataBufferEvent.Type.BUFFER_FULL, null);
+        l.checkEventType(DataBufferEvent.Type.CHUNK_COUNT_CHANGED, null);
         // The CLOSED event may arrive later, so wait
-        while (l.getEventCount(AudioBufferEvent.Type.BUFFER_CLOSED) < 1)
+        while (l.getEventCount(DataBufferEvent.Type.BUFFER_CLOSED) < 1)
         {
             Thread.sleep(SLEEP_TIME);
         }
-        l.checkEventType(AudioBufferEvent.Type.DATA_ADDED, null);
-        l.checkEventType(AudioBufferEvent.Type.BUFFER_CLOSED, 1);
+        l.checkEventType(DataBufferEvent.Type.DATA_ADDED, null);
+        l.checkEventType(DataBufferEvent.Type.BUFFER_CLOSED, 1);
     }
 
     /**
@@ -545,10 +545,10 @@ public class TestAudioBuffer
         writer.start();
         readStreamsFromBuffer(count / 2);
         buffer.removeBufferListener(l);
-        Map<AudioBufferEvent.Type, Integer> oldEvents =
-                new HashMap<AudioBufferEvent.Type, Integer>(l.events);
+        Map<DataBufferEvent.Type, Integer> oldEvents =
+                new HashMap<DataBufferEvent.Type, Integer>(l.events);
         readStreamsFromBuffer(0);
-        for (AudioBufferEvent.Type t : oldEvents.keySet())
+        for (DataBufferEvent.Type t : oldEvents.keySet())
         {
             assertEquals("Event count changed after remove: " + t.name(),
                     oldEvents.get(t), l.events.get(t));
@@ -1053,10 +1053,10 @@ public class TestAudioBuffer
     /**
      * A test buffer listener implementation for testing event notifications.
      */
-    static class AudioBufferListenerTestImpl implements AudioBufferListener
+    static class AudioBufferListenerTestImpl implements DataBufferListener
     {
         /** A map for storing the number of received events. */
-        private Map<AudioBufferEvent.Type, Integer> events;
+        private Map<DataBufferEvent.Type, Integer> events;
 
         /** Stores a reference to the expected event source. */
         private AudioBuffer source;
@@ -1069,7 +1069,7 @@ public class TestAudioBuffer
         public AudioBufferListenerTestImpl(AudioBuffer buf)
         {
             source = buf;
-            events = new HashMap<AudioBufferEvent.Type, Integer>();
+            events = new HashMap<DataBufferEvent.Type, Integer>();
         }
 
         /**
@@ -1077,7 +1077,7 @@ public class TestAudioBuffer
          *
          * @param event the event
          */
-        public synchronized void bufferChanged(AudioBufferEvent event)
+        public synchronized void bufferChanged(DataBufferEvent event)
         {
             assertSame("Wrong event source", source, event.getSource());
             assertSame("Wrong source buffer", source, event.getSourceBuffer());
@@ -1092,7 +1092,7 @@ public class TestAudioBuffer
          * @param t the event type
          * @return the number of received events of this type
          */
-        public synchronized int getEventCount(AudioBufferEvent.Type t)
+        public synchronized int getEventCount(DataBufferEvent.Type t)
         {
             Integer count = events.get(t);
             return (count != null) ? count.intValue() : 0;
@@ -1106,7 +1106,7 @@ public class TestAudioBuffer
          * @param t the event type
          * @param expectedCount the number of expected events
          */
-        public void checkEventType(AudioBufferEvent.Type t,
+        public void checkEventType(DataBufferEvent.Type t,
                 Integer expectedCount)
         {
             int count = getEventCount(t);
