@@ -2,15 +2,13 @@ package de.olix.playa.engine;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.locks.Condition;
 
 import org.easymock.EasyMock;
 import org.easymock.IAnswer;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -24,11 +22,8 @@ import de.olix.playa.engine.AudioBufferEvent.Type;
  */
 public class TestAudioReadMonitorImpl
 {
-    /** Constant for the cache directory. */
-    private static final File CACHE_DIR = new File("target/cache");
-
-    /** Stores the test audio buffer. */
-    private AudioBufferTestImpl buffer;
+    /** A mock for the audio buffer. */
+    private AudioBuffer buffer;
 
     /** Stores the monitor under test. */
     private AudioReadMonitorTestImpl monitor;
@@ -36,42 +31,51 @@ public class TestAudioReadMonitorImpl
     @Before
     public void setUp() throws Exception
     {
-        buffer = new AudioBufferTestImpl(CACHE_DIR.getAbsolutePath(), 1024, 2);
-        buffer.initialize();
-        monitor = new AudioReadMonitorTestImpl(buffer);
+        buffer = EasyMock.createMock(AudioBuffer.class);
+        monitor = new AudioReadMonitorTestImpl();
     }
 
     /**
-     * Clears any used resources. Ensures that the cache directory is cleared
-     * and removed.
-     */
-    @After
-    public void tearDown() throws Exception
-    {
-        buffer.close();
-        buffer.clear();
-        if (CACHE_DIR.exists())
-        {
-            assertTrue("Cache directory cannot be removed", CACHE_DIR.delete());
-        }
-    }
-
-    /**
-     * Tests whether the monitor registers itself as buffer listener.
+     * Tests a call of the wait operation if no buffer has been set. We can only
+     * check that the method returns immediately.
      */
     @Test
-    public void testRegisterListener()
+    public void testWaitForMediumIdleNoBuffer() throws InterruptedException
     {
-        buffer.verifyListener(monitor);
+        monitor.waitForMediumIdle();
     }
 
     /**
-     * Tries to initialize an object without a buffer.
+     * Tests whether the monitor can be associated with another buffer.
      */
-    @Test(expected = IllegalArgumentException.class)
-    public void testInitNullBuffer()
+    @Test
+    public void testAssociateWithBufferNew()
     {
-        new AudioReadMonitorImpl(null);
+        AudioBuffer buf2 = EasyMock.createMock(AudioBuffer.class);
+        buffer.addBufferListener(monitor);
+        buffer.removeBufferListener(monitor);
+        EasyMock.expect(buffer.isFull()).andReturn(Boolean.TRUE);
+        buf2.addBufferListener(monitor);
+        EasyMock.replay(buffer, buf2);
+        monitor.associateWithBuffer(buffer);
+        monitor.bufferChanged(event(Type.BUFFER_FULL));
+        monitor.associateWithBuffer(buf2);
+        assertNull("Wrong flag", monitor.getWaitingFlag());
+        EasyMock.verify(buffer, buf2);
+    }
+
+    /**
+     * Tests whether the monitor can be associated with a null buffer.
+     */
+    @Test
+    public void testAssociateWithBufferNull()
+    {
+        buffer.addBufferListener(monitor);
+        buffer.removeBufferListener(monitor);
+        EasyMock.replay(buffer);
+        monitor.associateWithBuffer(buffer);
+        monitor.associateWithBuffer(null);
+        EasyMock.verify(buffer);
     }
 
     /**
@@ -81,14 +85,13 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testFetchWaitingFlagInitialize()
     {
-        AudioBuffer buf = EasyMock.createMock(AudioBuffer.class);
-        buf.addBufferListener(EasyMock.anyObject(AudioBufferListener.class));
-        EasyMock.expect(buf.isFull()).andReturn(Boolean.FALSE);
-        EasyMock.replay(buf);
-        monitor = new AudioReadMonitorTestImpl(buf);
+        buffer.addBufferListener(monitor);
+        EasyMock.expect(buffer.isFull()).andReturn(Boolean.FALSE);
+        EasyMock.replay(buffer);
+        monitor.associateWithBuffer(buffer);
         assertEquals("Wrong result", Boolean.TRUE,
                 monitor.fetchAndInitWaitingFlag());
-        EasyMock.verify(buf);
+        EasyMock.verify(buffer);
     }
 
     /**
@@ -121,10 +124,12 @@ public class TestAudioReadMonitorImpl
     public void testWaitForMediumIdleDirect() throws InterruptedException
     {
         Condition cond = monitor.installMockCondition();
-        EasyMock.replay(cond);
+        buffer.addBufferListener(monitor);
+        EasyMock.replay(cond, buffer);
         monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.associateWithBuffer(buffer);
         monitor.waitForMediumIdle();
-        EasyMock.verify(cond);
+        EasyMock.verify(cond, buffer);
     }
 
     /**
@@ -134,6 +139,7 @@ public class TestAudioReadMonitorImpl
     public void testWaitForMediumIdleWait() throws InterruptedException
     {
         Condition cond = monitor.installMockCondition();
+        buffer.addBufferListener(monitor);
         cond.await();
         EasyMock.expectLastCall().times(10);
         cond.await();
@@ -146,10 +152,11 @@ public class TestAudioReadMonitorImpl
                 return null;
             }
         });
-        EasyMock.replay(cond);
+        EasyMock.replay(cond, buffer);
         monitor.setWaitingFlag(Boolean.TRUE);
+        monitor.associateWithBuffer(buffer);
         monitor.waitForMediumIdle();
-        EasyMock.verify(cond);
+        EasyMock.verify(cond, buffer);
     }
 
     /**
@@ -181,7 +188,10 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testBufferChangedNoStatusChange()
     {
+        buffer.addBufferListener(monitor);
+        EasyMock.replay(buffer);
         monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.associateWithBuffer(buffer);
         monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_CLOSED));
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
     }
@@ -194,7 +204,10 @@ public class TestAudioReadMonitorImpl
      */
     private void checkMonitorUnlocked(AudioBufferEvent.Type type)
     {
+        buffer.addBufferListener(monitor);
+        EasyMock.replay(buffer);
         monitor.setWaitingFlag(Boolean.TRUE);
+        monitor.associateWithBuffer(buffer);
         monitor.bufferChanged(event(type));
         assertEquals("Threads not unlocked", 1, monitor.getUnlockCount());
         checkWaitingFlag(Boolean.FALSE);
@@ -224,7 +237,11 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testBufferChangedFreeEvent()
     {
+        buffer.addBufferListener(monitor);
+        EasyMock.expect(buffer.isClosed()).andReturn(Boolean.FALSE);
+        EasyMock.replay(buffer);
         monitor.setWaitingFlag(Boolean.FALSE);
+        monitor.associateWithBuffer(buffer);
         monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
         checkWaitingFlag(Boolean.TRUE);
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
@@ -236,10 +253,23 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testBufferChangedOtherEvents()
     {
+        buffer.addBufferListener(monitor);
+        EasyMock.replay(buffer);
+        monitor.associateWithBuffer(buffer);
         monitor.bufferChanged(event(AudioBufferEvent.Type.DATA_ADDED));
         monitor.bufferChanged(event(AudioBufferEvent.Type.CHUNK_COUNT_CHANGED));
         checkWaitingFlag(null);
         assertEquals("Threads were unlocked", 0, monitor.getUnlockCount());
+    }
+
+    /**
+     * Tests whether the source buffer of the event is taken into account.
+     */
+    @Test
+    public void testBufferChangedOtherBuffer()
+    {
+        monitor.bufferChanged(event(Type.BUFFER_FULL));
+        assertNull("Flag was set", monitor.getWaitingFlag());
     }
 
     /**
@@ -248,50 +278,12 @@ public class TestAudioReadMonitorImpl
     @Test
     public void testBufferChangedClosed() throws IOException
     {
-        buffer.close();
+        buffer.addBufferListener(monitor);
+        EasyMock.expect(buffer.isClosed()).andReturn(Boolean.TRUE);
+        EasyMock.replay(buffer);
+        monitor.associateWithBuffer(buffer);
         monitor.bufferChanged(event(AudioBufferEvent.Type.BUFFER_FREE));
         checkWaitingFlag(Boolean.FALSE);
-    }
-
-    /**
-     * A test implementation of AudioBuffer for testing whether the event
-     * listener is registered.
-     */
-    private static class AudioBufferTestImpl extends AudioBuffer
-    {
-        /** The event listener registered at this buffer. */
-        private AudioBufferListener listener;
-
-        /** Stores the number of registered event listeners. */
-        private int listenerCount;
-
-        public AudioBufferTestImpl(String dir, long chunkSize, int chunks)
-        {
-            super(dir, chunkSize, chunks, true);
-        }
-
-        /**
-         * Verifies whether the expected listener has been registered at this
-         * object.
-         *
-         * @param expected the expected listener
-         */
-        public void verifyListener(AudioBufferListener expected)
-        {
-            assertEquals("Wrong number of listeners", 1, listenerCount);
-            assertEquals("Wrong listener", expected, listener);
-        }
-
-        /**
-         * Records this invocation.
-         */
-        @Override
-        public void addBufferListener(AudioBufferListener l)
-        {
-            super.addBufferListener(l);
-            listenerCount++;
-            listener = l;
-        }
     }
 
     /**
@@ -308,11 +300,6 @@ public class TestAudioReadMonitorImpl
 
         /** Stores the number of calls to unlockWaitingThreads(). */
         private int unlockCount;
-
-        public AudioReadMonitorTestImpl(AudioBuffer buffer)
-        {
-            super(buffer);
-        }
 
         /**
          * Creates and installs a mock object for the wait condition.

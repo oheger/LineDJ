@@ -10,10 +10,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * audio buffer.
  * </p>
  * <p>
- * This class provides a default implementation of the
- * <code>AudioReadMonitor</code> interface. Instances registere themselves as
- * event listeners at the audio buffer to monitor and watche its state. Arriving
- * events are evaluated to find out whether the buffer is in use or not.
+ * This class provides a default implementation of the {@code AudioReadMonitor}
+ * interface. Instances register themselves as event listeners at the audio
+ * buffer to monitor and watch its state. Arriving events are evaluated to find
+ * out whether the buffer is in use or not.
  * </p>
  *
  * @author Oliver Heger
@@ -22,43 +22,63 @@ import java.util.concurrent.locks.ReentrantLock;
 public class AudioReadMonitorImpl implements AudioBufferListener,
         AudioReadMonitor
 {
-    /** Stores the buffer to monitor. */
-    private final AudioBuffer audioBuffer;
-
     /** The lock for synchronization. */
     private final Lock lockWait;
 
     /** The condition for waiting. */
     private final Condition condWait;
 
+    /** Stores the buffer to monitor. */
+    private AudioBuffer audioBuffer;
+
     /** Stores the waiting flag. */
     private Boolean waiting;
 
     /**
-     * Creates a new instance of <code>AudioReadMonitor</code> that will monitor
-     * the specified buffer.
-     *
-     * @param buffer the associated audio buffer
-     * @throws IllegalArgumentException if the passed in buffer is <b>null</b>
+     * Creates a new instance of {@code AudioReadMonitorImpl}. The monitor does
+     * not yet watch an audio buffer. {@code associateWithBuffer()} has to be
+     * called to establish the connection.
      */
-    public AudioReadMonitorImpl(AudioBuffer buffer)
+    public AudioReadMonitorImpl()
     {
-        if (buffer == null)
-        {
-            throw new IllegalArgumentException("Buffer must not be null!");
-        }
-
-        audioBuffer = buffer;
         lockWait = new ReentrantLock();
         condWait = lockWait.newCondition();
-        buffer.addBufferListener(this);
+    }
+
+    /**
+     * Associates this monitor with the given {@code AudioBuffer}. If the buffer
+     * is not <b>null</b>, the monitor registers itself as event listener. It
+     * then watches the state of the buffer.
+     *
+     * @param buf the buffer to be controller (may be <b>null</b>)
+     */
+    public void associateWithBuffer(AudioBuffer buf)
+    {
+        lockWait.lock();
+        try
+        {
+            if (audioBuffer != null)
+            {
+                audioBuffer.removeBufferListener(this);
+            }
+            audioBuffer = buf;
+            if (buf != null)
+            {
+                buf.addBufferListener(this);
+            }
+        }
+        finally
+        {
+            lockWait.unlock();
+        }
     }
 
     /**
      * Waits until it is safe to access the source medium. This method must be
      * called before operations on the source medium are performed. If the
      * buffer is currently in use, it will block until it is full or closed.
-     * Then the source medium can be accessed.
+     * Then the source medium can be accessed. If the monitor has not yet been
+     * associated with a buffer, this operation does not block.
      *
      * @throws InterruptedException if waiting was interrupted
      */
@@ -67,7 +87,8 @@ public class AudioReadMonitorImpl implements AudioBufferListener,
         lockWait.lock();
         try
         {
-            while (fetchAndInitWaitingFlag().booleanValue())
+            while (audioBuffer != null
+                    && fetchAndInitWaitingFlag().booleanValue())
             {
                 getWaitingCondition().await();
             }
@@ -91,13 +112,10 @@ public class AudioReadMonitorImpl implements AudioBufferListener,
         {
         case BUFFER_CLOSED:
         case BUFFER_FULL:
-            changeState(false);
+            changeState(false, event);
             break;
         case BUFFER_FREE:
-            if (!event.getSourceBuffer().isClosed())
-            {
-                changeState(true);
-            }
+            changeState(true, event);
             break;
         }
     }
@@ -152,15 +170,29 @@ public class AudioReadMonitorImpl implements AudioBufferListener,
     /**
      * Changes the waiting state. This method checks whether the new waiting
      * state differs from the old state. If this is the case, and the buffer is
-     * free now, waiting threads are notified.
+     * free now, waiting threads are notified. This method also checks whether
+     * the event is related to the current audio buffer. If not, it is ignored.
      *
      * @param newState the new waiting state
+     * @param event the event
      */
-    private void changeState(boolean newState)
+    private void changeState(boolean newState, AudioBufferEvent event)
     {
         lockWait.lock();
         try
         {
+            if (event.getSourceBuffer() != audioBuffer)
+            {
+                return;
+            }
+
+            if (newState && audioBuffer.isClosed())
+            {
+                // if the buffer is closed, waiting is not necessary
+                waiting = Boolean.FALSE;
+                return;
+            }
+
             if (newState != fetchAndInitWaitingFlag())
             {
                 waiting = newState;
