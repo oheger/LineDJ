@@ -5,14 +5,16 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import junit.framework.TestCase;
+
 import org.easymock.EasyMock;
 
 import de.olix.playa.engine.AudioReadMonitor;
+import de.olix.playa.engine.DataBuffer;
 import de.olix.playa.playlist.PlaylistException;
 import de.olix.playa.playlist.SongInfo;
 import de.olix.playa.playlist.SongInfoCallBack;
 import de.olix.playa.playlist.SongInfoProvider;
-import junit.framework.TestCase;
 
 /**
  * Test class for SongInfoLoader.
@@ -378,6 +380,13 @@ public class TestSongInfoLoader extends TestCase
         public void waitForMediumIdle()
         {
             count++;
+        }
+
+        @Override
+        public void associateWithBuffer(DataBuffer buf)
+        {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Not yet implemented!");
         }
     }
 

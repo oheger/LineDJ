@@ -29,7 +29,7 @@ public class AudioReadMonitorImpl implements DataBufferListener,
     private final Condition condWait;
 
     /** Stores the buffer to monitor. */
-    private AudioBuffer audioBuffer;
+    private DataBuffer audioBuffer;
 
     /** Stores the waiting flag. */
     private Boolean waiting;
@@ -52,7 +52,8 @@ public class AudioReadMonitorImpl implements DataBufferListener,
      *
      * @param buf the buffer to be controller (may be <b>null</b>)
      */
-    public void associateWithBuffer(AudioBuffer buf)
+    @Override
+    public void associateWithBuffer(DataBuffer buf)
     {
         lockWait.lock();
         try

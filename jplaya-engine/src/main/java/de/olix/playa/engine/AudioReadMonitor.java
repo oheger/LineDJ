@@ -23,6 +23,13 @@ package de.olix.playa.engine;
 public interface AudioReadMonitor
 {
     /**
+     * Allows associating this monitor with a {@code DataBuffer}. The monitor will
+     * watch this buffer and only grant access to the medium if it is full.
+     * @param buf
+     */
+    void associateWithBuffer(DataBuffer buf);
+
+    /**
      * Waits until it is safe to access the source medium. This method must be
      * called before (short) operations on the source medium are performed. If
      * the audio engine is currently reading data, it will block until this read

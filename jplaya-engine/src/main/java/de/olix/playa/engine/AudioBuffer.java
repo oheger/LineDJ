@@ -291,6 +291,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      *
      * @return a flag whether the buffer is full
      */
+    @Override
     public boolean isFull()
     {
         chunkLock.lock();

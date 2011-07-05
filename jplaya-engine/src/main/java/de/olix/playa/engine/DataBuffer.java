@@ -57,6 +57,13 @@ public interface DataBuffer
     boolean isClosed();
 
     /**
+     * Tests whether the buffer is currently full.
+     *
+     * @return a flag whether the buffer is full
+     */
+    boolean isFull();
+
+    /**
      * Closes this buffer. This means that no more data will be added.
      *
      * @throws IOException if an IO error occurs
