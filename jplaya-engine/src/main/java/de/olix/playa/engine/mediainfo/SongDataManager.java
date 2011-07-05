@@ -112,6 +112,17 @@ public class SongDataManager
     }
 
     /**
+     * Returns the {@code AudioReadMonitor} which controls access to the source
+     * medium.
+     *
+     * @return the monitor
+     */
+    public AudioReadMonitor getMonitor()
+    {
+        return monitor;
+    }
+
+    /**
      * Adds the specified {@code SongDataListener} to this object. It will be
      * notified when new media information about a song becomes available.
      *
@@ -298,7 +309,7 @@ public class SongDataManager
 
             try
             {
-                monitor.waitForMediumIdle();
+                getMonitor().waitForMediumIdle();
                 if (executor.isShutdown())
                 {
                     return;
