@@ -192,6 +192,7 @@ public class TestAppBeans
         SongDataManager manager =
                 getBeanContext().getBean(SongDataManager.class);
         assertNotNull("No song data manager", manager);
+        assertNotNull("No monitor", manager.getMonitor());
     }
 
     /**

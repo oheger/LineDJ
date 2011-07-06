@@ -25,6 +25,7 @@ import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.service.SongData;
 import de.olix.playa.engine.AudioPlayer;
 import de.olix.playa.engine.AudioPlayerEvent;
+import de.olix.playa.engine.AudioReadMonitor;
 import de.olix.playa.engine.AudioReader;
 import de.olix.playa.engine.AudioStreamData;
 import de.olix.playa.engine.AudioStreamSource;
@@ -297,6 +298,7 @@ public class TestMainWndController extends EasyMockSupport
         Configuration config = createMock(Configuration.class);
         PlaylistManager pm = createMock(PlaylistManager.class);
         SongDataManager sdm = createMock(SongDataManager.class);
+        AudioReadMonitor monitor = createMock(AudioReadMonitor.class);
         final DataBufferStreamSource bufferSource =
                 createMock(DataBufferStreamSource.class);
         final AudioReader reader = createMock(AudioReader.class);
@@ -329,6 +331,8 @@ public class TestMainWndController extends EasyMockSupport
             }
         };
         sdm.addSongDataListener(ctrl);
+        EasyMock.expect(sdm.getMonitor()).andReturn(monitor);
+        monitor.associateWithBuffer(bufferSource);
         EasyMock.expect(reader.start()).andReturn(null);
         player.addAudioPlayerListener(plc);
         player.addAudioPlayerListener(ctrl);

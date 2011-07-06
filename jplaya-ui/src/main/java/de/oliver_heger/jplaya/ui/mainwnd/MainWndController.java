@@ -204,7 +204,6 @@ public class MainWndController implements AudioPlayerListener,
     public void songDataLoaded(SongDataEvent arg0)
     {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
     }
 
     @Override
@@ -403,16 +402,7 @@ public class MainWndController implements AudioPlayerListener,
                         .getInitialPositionInfo();
 
         initSongDataManager();
-        audioPlayer = getBeanContext().getBean(AudioPlayer.class);
-        audioPlayer.setSkipPosition(positionInfo.getPosition());
-        audioPlayer.setSkipTime(positionInfo.getTime());
-        audioPlayer.addAudioPlayerListener(getPlaylistController());
-        audioPlayer.addAudioPlayerListener(this);
-
-        AudioReader reader =
-                createAudioReader((DataBuffer) audioPlayer.getAudioSource());
-        reader.start();
-        audioPlayer.start();
+        setUpAudioPlayer(positionInfo.getPosition(), positionInfo.getTime());
     }
 
     /**
@@ -425,6 +415,29 @@ public class MainWndController implements AudioPlayerListener,
     protected AudioReader createAudioReader(DataBuffer buffer)
     {
         return new AudioReader(buffer, getPlaylistController());
+    }
+
+    /**
+     * Initializes the audio player and related objects. The skip position is
+     * set, and the player is started. The audio reader is also created and
+     * started.
+     *
+     * @param skipPos the skip position
+     * @param skipTime the skip time
+     */
+    protected void setUpAudioPlayer(long skipPos, long skipTime)
+    {
+        audioPlayer = getBeanContext().getBean(AudioPlayer.class);
+        DataBuffer buffer = (DataBuffer) audioPlayer.getAudioSource();
+        getSongDataManager().getMonitor().associateWithBuffer(buffer);
+        audioPlayer.setSkipPosition(skipPos);
+        audioPlayer.setSkipTime(skipTime);
+        audioPlayer.addAudioPlayerListener(getPlaylistController());
+        audioPlayer.addAudioPlayerListener(this);
+
+        AudioReader reader = createAudioReader(buffer);
+        reader.start();
+        audioPlayer.start();
     }
 
     /**

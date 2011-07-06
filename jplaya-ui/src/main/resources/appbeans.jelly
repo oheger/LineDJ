@@ -105,11 +105,8 @@
   </di:bean>
 
   <!-- The audio read monitor for synchronizing with the audio buffer -->
-  <di:bean name="audioReadMonitor" singleton="false"
+  <di:bean name="audioReadMonitor"
     beanClass="de.olix.playa.engine.AudioReadMonitorImpl">
-    <di:constructor>
-      <di:param refName="audioBuffer"/>
-    </di:constructor>
   </di:bean>
 
   <!-- The song data loader -->
