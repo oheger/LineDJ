@@ -61,12 +61,15 @@ public class AudioReadMonitorImpl implements DataBufferListener,
             if (audioBuffer != null)
             {
                 audioBuffer.removeBufferListener(this);
+                unlockWaitingThreads();
             }
             audioBuffer = buf;
             if (buf != null)
             {
                 buf.addBufferListener(this);
             }
+
+            waiting = null;
         }
         finally
         {
@@ -133,6 +136,7 @@ public class AudioReadMonitorImpl implements DataBufferListener,
         if (result == null)
         {
             result = Boolean.valueOf(!audioBuffer.isFull());
+            waiting = result;
         }
         return result;
     }

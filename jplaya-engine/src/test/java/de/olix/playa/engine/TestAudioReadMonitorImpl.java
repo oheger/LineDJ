@@ -61,6 +61,7 @@ public class TestAudioReadMonitorImpl
         monitor.bufferChanged(event(Type.BUFFER_FULL));
         monitor.associateWithBuffer(buf2);
         assertNull("Wrong flag", monitor.getWaitingFlag());
+        assertEquals("Not unlocked", 1, monitor.getUnlockCount());
         EasyMock.verify(buffer, buf2);
     }
 
@@ -91,6 +92,7 @@ public class TestAudioReadMonitorImpl
         monitor.associateWithBuffer(buffer);
         assertEquals("Wrong result", Boolean.TRUE,
                 monitor.fetchAndInitWaitingFlag());
+        assertEquals("Flag not set", Boolean.TRUE, monitor.getWaitingFlag());
         EasyMock.verify(buffer);
     }
 
