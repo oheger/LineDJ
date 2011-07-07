@@ -474,12 +474,20 @@ public class MainWndController implements AudioPlayerListener,
      */
     protected void updatePlayerActionStates()
     {
-        boolean playing = getAudioPlayer().isPlaying();
-        enableAction(ACTION_PLAYER_START, !playing);
-        enableAction(ACTION_PLAYER_STOP, playing);
-        enableAction(ACTION_PLAYER_NEXT, playing);
-        enableAction(ACTION_PLAYER_PREV, playing);
-        enableAction(ACTION_INIT_PLAYLIST, !playing);
+        if (getAudioPlayer() == null)
+        {
+            disablePlayerActions();
+            enableAction(ACTION_INIT_PLAYLIST, true);
+        }
+        else
+        {
+            boolean playing = getAudioPlayer().isPlaying();
+            enableAction(ACTION_PLAYER_START, !playing);
+            enableAction(ACTION_PLAYER_STOP, playing);
+            enableAction(ACTION_PLAYER_NEXT, playing);
+            enableAction(ACTION_PLAYER_PREV, playing);
+            enableAction(ACTION_INIT_PLAYLIST, !playing);
+        }
     }
 
     /**

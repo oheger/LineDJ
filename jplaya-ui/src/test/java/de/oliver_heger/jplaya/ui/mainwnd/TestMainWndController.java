@@ -365,20 +365,19 @@ public class TestMainWndController extends EasyMockSupport
 
     /**
      * Helper method for checking whether the enabled states of player actions
-     * are correctly updated.
+     * are correctly updated based on the given player mock object.
      *
-     * @param playing the playing flag of the audio player
+     * @param player the mock audio player
      * @param enStart the enabled flag of the start action
      * @param enStop the enabled flag of the stop action
      * @param enNext the enabled flag of the next action
      * @param enPrev the enabled flag of the previous action
      * @param enInit the enabled flag of the initialize action
      */
-    private void checkUpdatePlayerActionStates(boolean playing,
+    private void checkUpdatePlayerActionStates(AudioPlayer player,
             boolean enStart, boolean enStop, boolean enNext, boolean enPrev,
             boolean enInit)
     {
-        AudioPlayer player = createMock(AudioPlayer.class);
         ActionStore actStore = createMock(ActionStore.class);
         FormAction actStart = createMock(FormAction.class);
         FormAction actStop = createMock(FormAction.class);
@@ -400,7 +399,6 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(
                 actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
                 .andReturn(actInit);
-        EasyMock.expect(player.isPlaying()).andReturn(playing);
         actStart.setEnabled(enStart);
         actStop.setEnabled(enStop);
         actNext.setEnabled(enNext);
@@ -412,6 +410,29 @@ public class TestMainWndController extends EasyMockSupport
         ctrl.setActionStore(actStore);
         ctrl.updatePlayerActionStates();
         verifyAll();
+    }
+
+    /**
+     * Helper method for checking whether the enabled states of player actions
+     * are correctly updated based on the given playing flag. This
+     * implementation initializes an audio player mock and delegates to the
+     * method with the same name.
+     *
+     * @param playing the playing flag of the audio player
+     * @param enStart the enabled flag of the start action
+     * @param enStop the enabled flag of the stop action
+     * @param enNext the enabled flag of the next action
+     * @param enPrev the enabled flag of the previous action
+     * @param enInit the enabled flag of the initialize action
+     */
+    private void checkUpdatePlayerActionStates(boolean playing,
+            boolean enStart, boolean enStop, boolean enNext, boolean enPrev,
+            boolean enInit)
+    {
+        AudioPlayer player = createMock(AudioPlayer.class);
+        EasyMock.expect(player.isPlaying()).andReturn(playing);
+        checkUpdatePlayerActionStates(player, enStart, enStop, enNext, enPrev,
+                enInit);
     }
 
     /**
@@ -432,6 +453,27 @@ public class TestMainWndController extends EasyMockSupport
     public void testUpdatePlayerActionStatesNotPlaying()
     {
         checkUpdatePlayerActionStates(false, true, false, false, false, true);
+    }
+
+    /**
+     * Tests whether updatePlayerActiionStates() can handle a non-existing
+     * player.
+     */
+    @Test
+    public void testUpdatePlayerActionStatesNoPlayer()
+    {
+        ActionStore actStore = createMock(ActionStore.class);
+        FormAction act = createMock(FormAction.class);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
+                .andReturn(act);
+        act.setEnabled(true);
+        actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
+        replayAll();
+        MainWndController ctrl = new MainWndControllerMockPlayerTestImpl(null);
+        ctrl.setActionStore(actStore);
+        ctrl.updatePlayerActionStates();
+        verifyAll();
     }
 
     /**
