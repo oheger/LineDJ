@@ -18,7 +18,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.engine.AudioInfo;
 
 /**
  * Test class for {@code SongDataLoaderImpl}.
@@ -80,11 +79,11 @@ public class TestSongDataLoaderImpl
     public void testGetProperties() throws IOException
     {
         Map<String, Object> props = loader.getProperties(TEST1);
-        assertEquals("Wrong title", TITLE, props.get(AudioInfo.KEY_TITLE));
+        assertEquals("Wrong title", TITLE, props.get(SongDataLoaderImpl.KEY_TITLE));
         assertEquals("Wrong interpret", INTERPRET,
-                props.get(AudioInfo.KEY_INTERPRET));
+                props.get(SongDataLoaderImpl.KEY_INTERPRET));
         assertEquals("Wrong duration", DURATION,
-                ((Long) props.get(AudioInfo.KEY_DURATION)).intValue());
+                ((Long) props.get(SongDataLoaderImpl.KEY_DURATION)).intValue());
         assertTrue("Too few properties found", props.size() > 3);
     }
 
@@ -96,7 +95,7 @@ public class TestSongDataLoaderImpl
     public void testGetPropertiesUndefined() throws IOException
     {
         Map<String, Object> props = loader.getProperties(TEST2);
-        Long duration = (Long) props.get(AudioInfo.KEY_DURATION);
+        Long duration = (Long) props.get(SongDataLoaderImpl.KEY_DURATION);
         assertTrue("Wrong duration: " + duration, duration.intValue() > 6000
                 && duration.intValue() < 7000);
     }
