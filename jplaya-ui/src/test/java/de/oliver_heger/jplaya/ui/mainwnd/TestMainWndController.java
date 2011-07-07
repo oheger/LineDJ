@@ -3,6 +3,7 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -108,6 +109,20 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
+     * Tests the window closing event. We can only check that the event is not
+     * touched.
+     */
+    @Test
+    public void testWindowClosing()
+    {
+        WindowEvent event = createMock(WindowEvent.class);
+        replayAll();
+        MainWndController ctrl = new MainWndController(mockContext, store);
+        ctrl.windowClosing(event);
+        verifyAll();
+    }
+
+    /**
      * Tests the window deactivated event. We can only check that the event is
      * not touched.
      */
@@ -166,7 +181,6 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
                 .andReturn(null);
         actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
-        replayAll();
         MainWndController ctrl = new MainWndController(mockContext, store)
         {
             @Override
@@ -176,6 +190,8 @@ public class TestMainWndController extends EasyMockSupport
                         "Unexpected method call!");
             }
         };
+        app.addShutdownListener(ctrl);
+        replayAll();
         ctrl.setActionStore(actStore);
         ctrl.windowOpened(event);
         verifyAll();
@@ -207,8 +223,9 @@ public class TestMainWndController extends EasyMockSupport
                 actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
                 .andReturn(action);
         action.execute(event);
-        replayAll();
         MainWndController ctrl = new MainWndController(mockContext, store);
+        app.addShutdownListener(ctrl);
+        replayAll();
         ctrl.setScanner(scanner);
         ctrl.setActionStore(actStore);
         ctrl.windowOpened(event);
@@ -506,12 +523,12 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
-     * Tests whether a shutdown is performed when the main window is closing.
+     * Tests the implementation of the shutdown listener.
      */
     @Test
-    public void testWindowClosing()
+    public void testShutdownListener()
     {
-        WindowEvent event = createMock(WindowEvent.class);
+        Application app = createMock(Application.class);
         replayAll();
         final MutableInt shutdownCounter = new MutableInt();
         MainWndController ctrl = new MainWndController(mockContext, store)
@@ -522,20 +539,20 @@ public class TestMainWndController extends EasyMockSupport
                 shutdownCounter.increment();
             };
         };
-        ctrl.windowClosing(event);
+        ctrl.shutdown(app);
         assertEquals("Wrong number of shutdown calls", 1, shutdownCounter
                 .getValue().intValue());
         verifyAll();
     }
 
     /**
-     * Tests the window closing event if the shutdown method throws an
-     * exception. We can only check whether nothing blows up.
+     * Tests the shutdown listener implementation if the shutdown method throws
+     * an exception. We can only check whether nothing blows up.
      */
     @Test
-    public void testWindowClosingShutdownEx()
+    public void testShutdownListenerEx()
     {
-        WindowEvent event = createMock(WindowEvent.class);
+        Application app = createMock(Application.class);
         replayAll();
         MainWndController ctrl = new MainWndController(mockContext, store)
         {
@@ -545,7 +562,20 @@ public class TestMainWndController extends EasyMockSupport
                 throw new IOException("Test exception!");
             };
         };
-        ctrl.windowClosing(event);
+        ctrl.shutdown(app);
+        verifyAll();
+    }
+
+    /**
+     * Tests the canShutdown() implementation.
+     */
+    @Test
+    public void testCanShutdown()
+    {
+        Application app = createMock(Application.class);
+        replayAll();
+        MainWndController ctrl = new MainWndController(mockContext, store);
+        assertTrue("Wrong result", ctrl.canShutdown(app));
         verifyAll();
     }
 

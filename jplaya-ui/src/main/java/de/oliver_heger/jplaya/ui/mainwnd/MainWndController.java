@@ -5,6 +5,7 @@ import java.util.Locale;
 
 import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
+import net.sf.jguiraffe.gui.app.ApplicationShutdownListener;
 import net.sf.jguiraffe.gui.builder.action.ActionStore;
 import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
@@ -44,7 +45,7 @@ import de.olix.playa.playlist.PlaylistOrder;
  * @version $Id: $
  */
 public class MainWndController implements AudioPlayerListener,
-        SongDataListener, WindowListener
+        SongDataListener, WindowListener, ApplicationShutdownListener
 {
     /** Constant for the action group for media player actions. */
     static final String ACTGRP_PLAYER = "playerActions";
@@ -279,21 +280,13 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
-     * The window is closing. This implementation initiates a shutdown.
+     * Dummy implementation of this interface method.
      *
      * @param event the event
      */
     @Override
     public void windowClosing(WindowEvent event)
     {
-        try
-        {
-            shutdownPlayerAndPlaylist();
-        }
-        catch (IOException ioex)
-        {
-            log.warn("Exception on shutdown!", ioex);
-        }
     }
 
     /**
@@ -348,6 +341,7 @@ public class MainWndController implements AudioPlayerListener,
     {
         disablePlayerActions();
         Application app = getApplication();
+        app.addShutdownListener(this);
         Configuration config = app.getUserConfiguration();
 
         String mediaDir =
@@ -358,6 +352,39 @@ public class MainWndController implements AudioPlayerListener,
             FormAction action =
                     getActionStore().getAction(ACTION_INIT_PLAYLIST);
             action.execute(event);
+        }
+    }
+
+    /**
+     * Checks whether the application can shutdown. This implementation always
+     * returns <b>true</b>.
+     *
+     * @param app the current {@code Application}
+     * @return a flag whether shutdown is allowed
+     */
+    @Override
+    public boolean canShutdown(Application app)
+    {
+        return true;
+    }
+
+    /**
+     * Notifies this listener that the application is going to shutdown. This
+     * implementation ensures that the audio is properly closed. Also the state
+     * of the playlist is saved.
+     *
+     * @param app the current {@code Application}
+     */
+    @Override
+    public void shutdown(Application app)
+    {
+        try
+        {
+            shutdownPlayerAndPlaylist();
+        }
+        catch (IOException ioex)
+        {
+            log.warn("Exception on shutdown!", ioex);
         }
     }
 
