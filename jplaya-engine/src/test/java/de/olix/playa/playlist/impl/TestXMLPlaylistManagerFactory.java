@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.configuration.AbstractHierarchicalFileConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.easymock.EasyMock;
@@ -510,6 +511,19 @@ public class TestXMLPlaylistManagerFactory
                     ioex.getCause() instanceof ConfigurationException);
         }
         EasyMock.verify(scanner);
+    }
+
+    /**
+     * Tests whether the correct encoding is used for configurations that are
+     * saved.
+     */
+    @Test
+    public void testCreateSaveConfigEncoding()
+    {
+        XMLPlaylistManagerFactoryTestImpl factory = createFactory();
+        AbstractHierarchicalFileConfiguration config =
+                factory.createSaveConfig();
+        assertEquals("Wrong encoding", "iso-8859-1", config.getEncoding());
     }
 
     /**

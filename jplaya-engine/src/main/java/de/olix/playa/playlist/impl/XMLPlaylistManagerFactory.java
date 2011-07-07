@@ -132,6 +132,9 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     /** Constant for a reserved URI representing a keep group. */
     private static final String URI_KEEP_GROUP = "keepgroup://";
 
+    /** Constant for the encoding of configurations which are saved. */
+    private static final String ENCODING = "iso-8859-1";
+
     /** The scanner for scanning the media directory. */
     private final FSScanner scanner;
 
@@ -313,14 +316,16 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     }
 
     /**
-     * Creates the configuration for saving a playlist. This method is called
-     * by {@link #saveState(XMLPlaylistManager, CurrentPositionInfo, int)}.
+     * Creates the configuration for saving a playlist. This method is called by
+     * {@link #saveState(XMLPlaylistManager, CurrentPositionInfo, int)}.
      *
      * @return the configuration for saving the state of the playlist manager
      */
     protected AbstractHierarchicalFileConfiguration createSaveConfig()
     {
-        return new XMLConfiguration();
+        XMLConfiguration config = new XMLConfiguration();
+        config.setEncoding(ENCODING);
+        return config;
     }
 
     /**
