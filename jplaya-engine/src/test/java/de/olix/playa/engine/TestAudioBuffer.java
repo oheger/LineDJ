@@ -660,6 +660,33 @@ public class TestAudioBuffer
     }
 
     /**
+     * Tests whether the properties of an audio stream data object are correctly
+     * copied.
+     */
+    @Test
+    public void testAudioStreamDataProperties() throws InterruptedException,
+            IOException
+    {
+        AudioStreamData orgData = EasyMock.createMock(AudioStreamData.class);
+        final int index = 11;
+        EasyMock.expect(orgData.getID()).andReturn(CHUNK_SIZE).anyTimes();
+        EasyMock.expect(orgData.getName()).andReturn(NAME_PREFIX).anyTimes();
+        EasyMock.expect(orgData.getIndex()).andReturn(index);
+        EasyMock.expect(orgData.size()).andReturn(
+                Long.valueOf(NAME_PREFIX.length()));
+        EasyMock.replay(orgData);
+        buffer.addNewStream(orgData);
+        buffer.addChunk(NAME_PREFIX.getBytes(), 0, NAME_PREFIX.length());
+        buffer.streamFinished();
+        buffer.close();
+        AudioStreamData data = buffer.nextAudioStream();
+        assertEquals("Wrong ID", Long.valueOf(CHUNK_SIZE), data.getID());
+        assertEquals("Wrong name", NAME_PREFIX, data.getName());
+        assertEquals("Wrong index", index, data.getIndex());
+        EasyMock.verify(orgData);
+    }
+
+    /**
      * Helper method for testing a shutdown operation.
      *
      * @param ex the exception to be thrown by close()
@@ -1106,8 +1133,7 @@ public class TestAudioBuffer
          * @param t the event type
          * @param expectedCount the number of expected events
          */
-        public void checkEventType(DataBufferEvent.Type t,
-                Integer expectedCount)
+        public void checkEventType(DataBufferEvent.Type t, Integer expectedCount)
         {
             int count = getEventCount(t);
             assertTrue("No events received of type " + t.name(), count > 0);

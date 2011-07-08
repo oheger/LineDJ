@@ -339,7 +339,8 @@ public class PlaylistController implements AudioStreamSource,
 
         AudioStreamDataImpl data =
                 AudioStreamDataImpl.newInstance(getFileSystemManager(),
-                        manager.getCurrentSongURI());
+                        manager.getCurrentSongURI(),
+                        manager.getCurrentSongIndex());
         manager.nextSong();
         return data;
     }
@@ -660,6 +661,9 @@ public class PlaylistController implements AudioStreamSource,
         /** The file size. */
         private final long size;
 
+        /** The index in the playlist. */
+        private final int index;
+
         /**
          * Creates a new instance of {@code AudioStreamDataImpl} and initializes
          * it with the audio file to wrap.
@@ -667,13 +671,15 @@ public class PlaylistController implements AudioStreamSource,
          * @param audioUri the URI of the underlying audio file
          * @param fileContent the content object of the file
          * @param streamSize the size of the stream
+         * @param idx the index in the playlist
          */
         private AudioStreamDataImpl(String audioUri, FileContent fileContent,
-                long streamSize)
+                long streamSize, int idx)
         {
             uri = audioUri;
             content = fileContent;
             size = streamSize;
+            index = idx;
         }
 
         /**
@@ -682,15 +688,16 @@ public class PlaylistController implements AudioStreamSource,
          *
          * @param fsm the file system manager
          * @param uri the URI of the audio file to wrap
+         * @param idx the index in the playlist
          * @return the newly created instance
          * @throws IOException if an IO error occurs
          */
         public static AudioStreamDataImpl newInstance(FileSystemManager fsm,
-                String uri) throws IOException
+                String uri, int idx) throws IOException
         {
             FileObject file = fsm.resolveFile(uri);
             FileContent content = file.getContent();
-            return new AudioStreamDataImpl(uri, content, content.getSize());
+            return new AudioStreamDataImpl(uri, content, content.getSize(), idx);
         }
 
         /**
@@ -750,6 +757,17 @@ public class PlaylistController implements AudioStreamSource,
         public long getPosition()
         {
             return 0;
+        }
+
+        /**
+         * Returns the index of this stream in the current playlist.
+         *
+         * @return the index in the playlist
+         */
+        @Override
+        public int getIndex()
+        {
+            return index;
         }
     }
 }

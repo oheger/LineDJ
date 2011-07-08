@@ -50,6 +50,9 @@ public class TestPlaylistController extends EasyMockSupport
     /** Constant for the skip backwards limit. */
     private static final long SKIP_BACK_LIMIT = 5000L;
 
+    /** Constant for the index in the playlist. */
+    private static final int PLAYLIST_INDEX = 22;
+
     /** The index for the playlist manager for the currently played song. */
     private static final int IDX_PM_PLAYED = 0;
 
@@ -538,6 +541,8 @@ public class TestPlaylistController extends EasyMockSupport
         EasyMock.expect(pms[IDX_PM_SOURCE].isFinished()).andReturn(
                 Boolean.FALSE);
         EasyMock.expect(pms[IDX_PM_SOURCE].getCurrentSongURI()).andReturn(uri);
+        EasyMock.expect(pms[IDX_PM_SOURCE].getCurrentSongIndex()).andReturn(
+                PLAYLIST_INDEX);
         EasyMock.expect(pms[IDX_PM_SOURCE].nextSong()).andReturn(Boolean.TRUE);
         replayAll();
         return uri;
@@ -570,6 +575,21 @@ public class TestPlaylistController extends EasyMockSupport
         PlaylistController controller = createInitializedController();
         AudioStreamData data = controller.nextAudioStream();
         assertEquals("Wrong name", uri, data.getName());
+        verifyAll();
+    }
+
+    /**
+     * Tests the index of an audio stream returned by the source implementation.
+     */
+    @Test
+    public void testNextAudioStreamIndex() throws InterruptedException,
+            IOException
+    {
+        PlaylistManager[] pms = prepareInitPlaylist();
+        prepareNextStream(pms);
+        PlaylistController controller = createInitializedController();
+        AudioStreamData data = controller.nextAudioStream();
+        assertEquals("Wrong index", PLAYLIST_INDEX, data.getIndex());
         verifyAll();
     }
 

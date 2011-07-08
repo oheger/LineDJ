@@ -386,9 +386,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
         {
             if (!isClosed())
             {
-                currentPart =
-                        new ChunkDataPart(data.getName(), data.getID(),
-                                data.size());
+                currentPart = new ChunkDataPart(data);
             }
         }
         finally
@@ -988,8 +986,8 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
                 part.getAppendStream(in, callBack, callBackParam);
         if (stream != null)
         {
-            availableStreams.put(new AudioStreamDataImpl(part.getName(), part
-                    .getID(), stream));
+            availableStreams.put(new AudioStreamDataImpl(
+                    part.getOriginalData(), stream));
         }
     }
 
@@ -1072,32 +1070,40 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
     }
 
     /**
-     * A default implementation of the <code>AudioStreamDataImpl</code>
-     * interface.
+     * A default implementation of the {@code AudioStreamData} interface.
      */
-    static class AudioStreamDataImpl implements AudioStreamData
+    private static class AudioStreamDataImpl implements AudioStreamData
     {
-        /** Stores the name of this stream. */
-        private String name;
-
-        /** Stores the ID of this stream. */
-        private Object streamID;
+        /** Stores a reference to the wrapped audio stream data object. */
+        private final AudioStreamData originalData;
 
         /** Stores the stream itself. */
-        private ChainedInputStream stream;
+        private final ChainedInputStream stream;
 
         /**
-         * Creates a new instance of <code>AudioStreamDataImpl</code>.
+         * Creates a new instance of {@code AudioStreamDataImpl} and initializes
+         * it with the data object of the underlying stream and the chained data
+         * stream.
          *
-         * @param n the name
-         * @param id the stream's ID
+         * @param orgData the original {@code AudioStreamData} object
          * @param str the stream
          */
-        public AudioStreamDataImpl(String n, Object id, ChainedInputStream str)
+        public AudioStreamDataImpl(AudioStreamData orgData,
+                ChainedInputStream str)
         {
-            name = n;
-            streamID = id;
+            originalData = orgData;
             stream = str;
+        }
+
+        /**
+         * Returns a reference to the {@code AudioStreamData} object that is
+         * wrapped by this object.
+         *
+         * @return the wrapped {@code AudioStreamData} object
+         */
+        public AudioStreamData getOriginalData()
+        {
+            return originalData;
         }
 
         /**
@@ -1107,7 +1113,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
          */
         public String getName()
         {
-            return name;
+            return getOriginalData().getName();
         }
 
         /**
@@ -1147,7 +1153,18 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
          */
         public Object getID()
         {
-            return streamID;
+            return getOriginalData().getID();
+        }
+
+        /**
+         * Returns the index of this stream in the current playlist.
+         *
+         * @return the index of this stream in the playlist
+         */
+        @Override
+        public int getIndex()
+        {
+            return getOriginalData().getIndex();
         }
     }
 
@@ -1155,54 +1172,37 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * A simple helper class used for storing data of streams that were added to
      * the buffer's chunks.
      */
-    class ChunkDataPart
+    private class ChunkDataPart
     {
+        /** A reference to the original stream data object. */
+        private final AudioStreamData originalData;
+
         /** Stores the chained stream for that data part. */
         private ChainedInputStream stream;
-
-        /** Stores the name of the stream. */
-        private String name;
-
-        /** Stores the stream's ID. */
-        private Object id;
 
         /** Stores the number of bytes to read. */
         private long bytesToRead;
 
-        /** Stores the total size of the stream. */
-        private long size;
-
         /**
-         * Creates a new instance of <code>ChunkDataPart</code>
+         * Creates a new instance of {@code ChunkDataPart} and sets the original
+         * stream data object.
          *
-         * @param n the name of the stream
-         * @param strId the ID of the stream
+         * @param orgData the original {@code AudioStreamData} object
          */
-        public ChunkDataPart(String n, Object strId, long streamSize)
+        public ChunkDataPart(AudioStreamData orgData)
         {
-            name = n;
-            id = strId;
-            size = streamSize;
+            originalData = orgData;
         }
 
         /**
-         * Returns the name of this stream.
+         * Returns the {@code AudioStreamData} object that was passed to the
+         * constructor.
          *
-         * @return the name
+         * @return the original {@code AudioStreamData}
          */
-        public String getName()
+        public AudioStreamData getOriginalData()
         {
-            return name;
-        }
-
-        /**
-         * Returns the ID of this stream.
-         *
-         * @return the stream's ID
-         */
-        public Object getID()
-        {
-            return id;
+            return originalData;
         }
 
         /**
@@ -1244,7 +1244,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
 
             if (stream == null)
             {
-                stream = new ChainedInputStream(size);
+                stream = new ChainedInputStream(getOriginalData().size());
                 result = stream;
             }
             appendStream(stream, child, bytesToRead, callBack, param);
@@ -1267,7 +1267,7 @@ public class AudioBuffer implements DataBuffer, AudioStreamSource,
      * This is done in a separate thread to avoid potential deadlocks when event
      * listeners query properties of the buffer that need synchronization.
      */
-    class EventThread extends Thread
+    private class EventThread extends Thread
     {
         /**
          * Monitors the event queue and sends events to registered listeners.
