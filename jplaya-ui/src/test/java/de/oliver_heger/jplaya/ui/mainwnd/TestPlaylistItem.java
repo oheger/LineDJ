@@ -197,11 +197,13 @@ public class TestPlaylistItem
     public void testGetPlaybackIndex()
     {
         PlaylistInfo info = EasyMock.createMock(PlaylistInfo.class);
-        EasyMock.expect(info.getNumberOfSongs()).andReturn(COUNT);
+        EasyMock.expect(info.getNumberOfSongs()).andReturn(COUNT).anyTimes();
         EasyMock.replay(info);
         context.setPlaylistInfo(info);
         item.setIndex(11);
-        assertEquals("Wrong index", "11 / 111", item.getPlaybackIndex());
+        assertEquals("Wrong index (1)", "12 / 111", item.getPlaybackIndex());
+        item.setIndex(0);
+        assertEquals("Wrong index (1)", "1 / 111", item.getPlaybackIndex());
         EasyMock.verify(info);
     }
 

@@ -43,6 +43,9 @@ public class PlaylistModel
     /** A factory for creating song data objects. */
     private static final ObjectFactory DATA_FACTORY = new ObjectFactory();
 
+    /** A special item object that is used for clearing the form. */
+    private static final PlaylistItem CLEAR_ITEM;
+
     /** The current playlist context. */
     private final PlaylistContext playlistContext;
 
@@ -60,6 +63,9 @@ public class PlaylistModel
 
     /** The list with the data of the model. */
     private List<PlaylistItem> modelData;
+
+    /** A flag whether an update operation is pending. */
+    private boolean updatePending;
 
     /**
      * Creates a new instance of {@code PlaylistModel} and initializes it.
@@ -130,7 +136,7 @@ public class PlaylistModel
         }
         else
         {
-            initializePending();
+            updatePending = true;
         }
     }
 
@@ -207,7 +213,7 @@ public class PlaylistModel
     void updateForm()
     {
         int index = getPlaylistContext().getCurrentSongIndex();
-        PlaylistItem item = modelData.get(index);
+        PlaylistItem item = (index >= 0) ? modelData.get(index) : CLEAR_ITEM;
         form.initFields(item);
     }
 
@@ -249,13 +255,13 @@ public class PlaylistModel
     }
 
     /**
-     * Returns a flag whether operations are pending. When {@code initialize()}
-     * is called it has to be checked whether operations were requested before
+     * Returns a flag whether events are pending. When {@code initialize()} is
+     * called it has to be checked whether song data events were received before
      * the playlist was fully initialized. This is done through this method.
      *
      * @return a flag whether there are pending operations
      */
-    private boolean isPending()
+    private boolean isEventsPending()
     {
         return pendingEvents != null;
     }
@@ -270,7 +276,6 @@ public class PlaylistModel
         if (pendingEvents == null)
         {
             pendingEvents = new LinkedList<SongDataEvent>();
-            getPlaylistContext().setCurrentSongIndex(-1);
         }
     }
 
@@ -279,18 +284,25 @@ public class PlaylistModel
      */
     private void processPendingOperations()
     {
-        if (isPending())
+        if (isEventsPending())
         {
             for (SongDataEvent event : pendingEvents)
             {
                 handleEvent(event);
             }
-            if (getPlaylistContext().getCurrentSongIndex() >= 0)
-            {
-                updateForm();
-            }
-
             pendingEvents = null;
         }
+
+        if (updatePending)
+        {
+            updateForm();
+            updatePending = false;
+        }
+    }
+
+    static
+    {
+        CLEAR_ITEM = new PlaylistItem();
+        CLEAR_ITEM.setSongData(DATA_FACTORY.createSongData());
     }
 }

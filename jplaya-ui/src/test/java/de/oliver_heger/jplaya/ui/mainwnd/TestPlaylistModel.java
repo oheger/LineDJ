@@ -3,6 +3,7 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -14,8 +15,10 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
 import net.sf.jguiraffe.gui.forms.Form;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
+import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -229,6 +232,37 @@ public class TestPlaylistModel extends EasyMockSupport
     }
 
     /**
+     * Tests whether the content of the form can be reset if an invalid index is
+     * provided.
+     */
+    @Test
+    public void testUpdateFormReset()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        handler.tableDataChanged();
+        final MutableObject<Object> formBean = new MutableObject<Object>();
+        form.initFields(EasyMock.anyObject());
+        EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
+        {
+            @Override
+            public Object answer() throws Throwable
+            {
+                formBean.setValue(EasyMock.getCurrentArguments()[0]);
+                return null;
+            }
+        });
+        replayAll();
+        PlaylistModel model = new PlaylistModel(form, handler);
+        initItems(model, sdm);
+        model.getPlaylistContext().setCurrentSongIndex(-1);
+        model.updateForm();
+        verifyAll();
+        PlaylistItem item = (PlaylistItem) formBean.getValue();
+        assertEquals("Got a valid index", -1, item.getIndex());
+        assertNull("Got a URI", item.getUri());
+    }
+
+    /**
      * Helper method for creating a mock event.
      *
      * @param sdm the song data manager
@@ -302,6 +336,27 @@ public class TestPlaylistModel extends EasyMockSupport
         model.verifyEvents(ev1, ev2);
         model.verifyAllEvents();
         model.verifyUpdateForm(1);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether events can be processed separately from form updates before
+     * the playlist is fully initialized.
+     */
+    @Test
+    public void testEventsButNoFormUpdateBeforeInitialize()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        SongDataEvent event = createEvent(sdm);
+        handler.tableDataChanged();
+        replayAll();
+        PlaylistModelTestImpl model = new PlaylistModelTestImpl(form, handler);
+        model.processSongDataEvent(event);
+        model.getPlaylistContext().setCurrentSongIndex(5);
+        initItems(model, sdm);
+        model.verifyEvents(event);
+        model.verifyAllEvents();
+        model.verifyUpdateForm(0);
         verifyAll();
     }
 

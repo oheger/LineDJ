@@ -68,7 +68,7 @@ public class PlaylistItem
     private String name = UNDEF;
 
     /** The index of this song in the playlist. */
-    private int index;
+    private int index = -1;
 
     /**
      * Returns the underlying {@code SongData} object.
@@ -259,15 +259,16 @@ public class PlaylistItem
 
     /**
      * Returns the index of this song in relation to the size of the playlist.
-     * This is something like {@code 10 / 100}.
+     * This is something like {@code 10 / 100}. Note: While the index is
+     * 0-based, the display starts with 1.
      *
      * @return the playlist index
      */
     public String getPlaybackIndex()
     {
-        return (getIndex() > 0) ? String.format(FMT_PLINDEX, getIndex(),
-                getPlaylistContext().getPlaylistInfo().getNumberOfSongs())
-                : UNDEF;
+        int idx = getIndex() + 1;
+        return (idx > 0) ? String.format(FMT_PLINDEX, idx, getPlaylistContext()
+                .getPlaylistInfo().getNumberOfSongs()) : UNDEF;
     }
 
     /**
