@@ -12,12 +12,14 @@ import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.builder.action.ActionStore;
 import net.sf.jguiraffe.gui.builder.action.FormAction;
+import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
 
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
+import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -31,6 +33,7 @@ import de.olix.playa.engine.AudioReader;
 import de.olix.playa.engine.AudioStreamData;
 import de.olix.playa.engine.AudioStreamSource;
 import de.olix.playa.engine.DataBuffer;
+import de.olix.playa.engine.mediainfo.SongDataEvent;
 import de.olix.playa.engine.mediainfo.SongDataManager;
 import de.olix.playa.playlist.CurrentPositionInfo;
 import de.olix.playa.playlist.FSScanner;
@@ -55,11 +58,45 @@ public class TestMainWndController extends EasyMockSupport
     /** A mock for the media store. */
     private MediaStore store;
 
+    /** A mock for the playlist model. */
+    private PlaylistModel model;
+
+    /** The context for the model. */
+    private PlaylistContext context;
+
     @Before
     public void setUp() throws Exception
     {
         mockContext = createMock(BeanContext.class);
         store = createMock(MediaStore.class);
+        model = createMock(PlaylistModel.class);
+        context = new PlaylistContext();
+        EasyMock.expect(model.getPlaylistContext()).andReturn(context)
+                .anyTimes();
+    }
+
+    /**
+     * Creates an installs a mock for the GUI synchronizer. This mock expects an
+     * asynchronous invocation with an arbitrary Runnable. The Runnable is
+     * invoked.
+     *
+     * @param ctrl the main controller
+     */
+    private void setUpSynchronizer(MainWndController ctrl)
+    {
+        GUISynchronizer sync = createMock(GUISynchronizer.class);
+        sync.asyncInvoke(EasyMock.anyObject(Runnable.class));
+        EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
+        {
+            @Override
+            public Object answer() throws Throwable
+            {
+                Runnable r = (Runnable) EasyMock.getCurrentArguments()[0];
+                r.run();
+                return null;
+            }
+        });
+        ctrl.setSynchronizer(sync);
     }
 
     /**
@@ -68,7 +105,7 @@ public class TestMainWndController extends EasyMockSupport
     @Test(expected = NullPointerException.class)
     public void testInitNoContext()
     {
-        new MainWndController(null, store);
+        new MainWndController(null, store, model);
     }
 
     /**
@@ -77,7 +114,16 @@ public class TestMainWndController extends EasyMockSupport
     @Test(expected = NullPointerException.class)
     public void testInitNoStore()
     {
-        new MainWndController(mockContext, null);
+        new MainWndController(mockContext, null, model);
+    }
+
+    /**
+     * Tries to create an instance without a playlist model.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testInitNoModel()
+    {
+        new MainWndController(mockContext, store, null);
     }
 
     /**
@@ -89,7 +135,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowActivated(event);
         verifyAll();
     }
@@ -103,7 +150,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowClosed(event);
         verifyAll();
     }
@@ -117,7 +165,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowClosing(event);
         verifyAll();
     }
@@ -131,7 +180,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowDeactivated(event);
         verifyAll();
     }
@@ -145,7 +195,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowDeiconified(event);
         verifyAll();
     }
@@ -159,7 +210,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         WindowEvent event = createMock(WindowEvent.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.windowIconified(event);
         verifyAll();
     }
@@ -181,15 +233,16 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
                 .andReturn(null);
         actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
-        MainWndController ctrl = new MainWndController(mockContext, store)
-        {
-            @Override
-            protected void initAudioEngine()
-            {
-                throw new UnsupportedOperationException(
-                        "Unexpected method call!");
-            }
-        };
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model)
+                {
+                    @Override
+                    protected void initAudioEngine()
+                    {
+                        throw new UnsupportedOperationException(
+                                "Unexpected method call!");
+                    }
+                };
         app.addShutdownListener(ctrl);
         replayAll();
         ctrl.setActionStore(actStore);
@@ -223,7 +276,8 @@ public class TestMainWndController extends EasyMockSupport
                 actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
                 .andReturn(action);
         action.execute(event);
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         app.addShutdownListener(ctrl);
         replayAll();
         ctrl.setScanner(scanner);
@@ -247,7 +301,8 @@ public class TestMainWndController extends EasyMockSupport
                 config.getString(ConfigurationConstants.PROP_DEF_PLAYLIST_ORDER))
                 .andReturn(propValue);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         assertEquals("Wrong default order", expOrder,
                 ctrl.getDefaultPlaylistOrder(config));
         verifyAll();
@@ -295,7 +350,8 @@ public class TestMainWndController extends EasyMockSupport
         PlaylistController plc = createMock(PlaylistController.class);
         DataBuffer buffer = createMock(DataBuffer.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.setPlaylistController(plc);
         AudioReader reader = ctrl.createAudioReader(buffer);
         assertSame("Wrong buffer", buffer, reader.getAudioBuffer());
@@ -338,15 +394,16 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(mockContext.getBean(SongDataManager.class)).andReturn(
                 sdm);
         plc.fetchAllSongData(sdm);
-        MainWndController ctrl = new MainWndController(mockContext, store)
-        {
-            @Override
-            protected AudioReader createAudioReader(DataBuffer buffer)
-            {
-                assertSame("Wrong buffer", bufferSource, buffer);
-                return reader;
-            }
-        };
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model)
+                {
+                    @Override
+                    protected AudioReader createAudioReader(DataBuffer buffer)
+                    {
+                        assertSame("Wrong buffer", bufferSource, buffer);
+                        return reader;
+                    }
+                };
         sdm.addSongDataListener(ctrl);
         EasyMock.expect(sdm.getMonitor()).andReturn(monitor);
         monitor.associateWithBuffer(bufferSource);
@@ -534,7 +591,8 @@ public class TestMainWndController extends EasyMockSupport
             throws IOException
     {
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         ctrl.shutdownPlayerAndPlaylist();
         verifyAll();
     }
@@ -573,14 +631,16 @@ public class TestMainWndController extends EasyMockSupport
         Application app = createMock(Application.class);
         replayAll();
         final MutableInt shutdownCounter = new MutableInt();
-        MainWndController ctrl = new MainWndController(mockContext, store)
-        {
-            @Override
-            protected void shutdownPlayerAndPlaylist() throws IOException
-            {
-                shutdownCounter.increment();
-            };
-        };
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model)
+                {
+                    @Override
+                    protected void shutdownPlayerAndPlaylist()
+                            throws IOException
+                    {
+                        shutdownCounter.increment();
+                    };
+                };
         ctrl.shutdown(app);
         assertEquals("Wrong number of shutdown calls", 1, shutdownCounter
                 .getValue().intValue());
@@ -596,14 +656,16 @@ public class TestMainWndController extends EasyMockSupport
     {
         Application app = createMock(Application.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store)
-        {
-            @Override
-            protected void shutdownPlayerAndPlaylist() throws IOException
-            {
-                throw new IOException("Test exception!");
-            };
-        };
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model)
+                {
+                    @Override
+                    protected void shutdownPlayerAndPlaylist()
+                            throws IOException
+                    {
+                        throw new IOException("Test exception!");
+                    };
+                };
         ctrl.shutdown(app);
         verifyAll();
     }
@@ -616,7 +678,8 @@ public class TestMainWndController extends EasyMockSupport
     {
         Application app = createMock(Application.class);
         replayAll();
-        MainWndController ctrl = new MainWndController(mockContext, store);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
         assertTrue("Wrong result", ctrl.canShutdown(app));
         verifyAll();
     }
@@ -689,6 +752,139 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
+     * Tests whether a song data loaded event is correctly processed if the
+     * media store does not have to be updated.
+     */
+    @Test
+    public void testSongDataLoadedNoMediaStoreUpdate()
+    {
+        SongDataEvent event = createMock(SongDataEvent.class);
+        SongDataSynchronizer sync = createMock(SongDataSynchronizer.class);
+        model.processSongDataEvent(event);
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        setUpSynchronizer(ctrl);
+        EasyMock.expect(event.getMediaFileURI()).andReturn(SONG_URI);
+        EasyMock.expect(sync.songDataEventReceived(SONG_URI)).andReturn(0);
+        replayAll();
+        ctrl.installSongDataSynchronizerMock(sync);
+        ctrl.songDataLoaded(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a song data loaded event is correctly processed if the
+     * media store has to be updated.
+     */
+    @Test
+    public void testSongDataLoadedWithMediaStoreUpdate()
+    {
+        SongDataEvent event = createMock(SongDataEvent.class);
+        SongDataSynchronizer sync = createMock(SongDataSynchronizer.class);
+        SongData data = createMock(SongData.class);
+        SongDataManager manager = createMock(SongDataManager.class);
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        final int playCount = 2;
+        model.processSongDataEvent(event);
+        setUpSynchronizer(ctrl);
+        EasyMock.expect(event.getMediaFileURI()).andReturn(SONG_URI);
+        EasyMock.expect(sync.songDataEventReceived(SONG_URI)).andReturn(
+                playCount);
+        EasyMock.expect(manager.getDataForFile(SONG_URI)).andReturn(data);
+        data.setPlayCount(playCount);
+        store.updateSongData(data);
+        replayAll();
+        ctrl.installSongDataManagerMock(manager);
+        ctrl.installSongDataSynchronizerMock(sync);
+        ctrl.songDataLoaded(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a playlist end event is correctly processed.
+     */
+    @Test
+    public void testPlaylistEnds()
+    {
+        ActionStore actStore = createMock(ActionStore.class);
+        FormAction action = createMock(FormAction.class);
+        SongDataManager sdm = createMock(SongDataManager.class);
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
+                .andReturn(action);
+        action.setEnabled(true);
+        model.updateUI(sdm);
+        EasyMock.expectLastCall().andAnswer(new CheckContextAnswer(-1, 0));
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        setUpSynchronizer(ctrl);
+        replayAll();
+        ctrl.setActionStore(actStore);
+        ctrl.installSongDataManagerMock(sdm);
+        ctrl.playListEnds(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a position changed event is correctly processed.
+     */
+    @Test
+    public void testPositionChanged()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        AudioStreamData data = createMock(AudioStreamData.class);
+        final long time = 20110713221414L;
+        final int index = 42;
+        final int relpos = 75;
+        EasyMock.expect(event.getPlaybackTime()).andReturn(time);
+        EasyMock.expect(event.getRelativePosition()).andReturn(relpos);
+        EasyMock.expect(event.getStreamData()).andReturn(data);
+        EasyMock.expect(data.getIndex()).andReturn(index);
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        setUpSynchronizer(ctrl);
+        model.updateUI(sdm);
+        EasyMock.expectLastCall()
+                .andAnswer(new CheckContextAnswer(index, time));
+        replayAll();
+        ctrl.installSongDataManagerMock(sdm);
+        ctrl.positionChanged(event);
+        assertEquals("Wrong relative position", relpos,
+                context.getPlaybackRatio());
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a stream start event is correctly processed.
+     */
+    @Test
+    public void testStreamStarts()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        AudioStreamData data = createMock(AudioStreamData.class);
+        final int index = 42;
+        EasyMock.expect(event.getStreamData()).andReturn(data);
+        EasyMock.expect(data.getIndex()).andReturn(index);
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(null);
+        setUpSynchronizer(ctrl);
+        model.updateUI(sdm);
+        EasyMock.expectLastCall().andAnswer(new CheckContextAnswer(index, 0));
+        replayAll();
+        ctrl.installSongDataManagerMock(sdm);
+        context.setPlaybackRatio(100);
+        ctrl.streamStarts(event);
+        assertEquals("Wrong relative position", 0, context.getPlaybackRatio());
+        assertEquals("Wrong update calls", 1, ctrl.getUpdateStatesCount());
+        verifyAll();
+    }
+
+    /**
      * An interface which combines the data buffer with the audio stream source
      * interface. This is needed because the source of the player is also a data
      * buffer.
@@ -721,7 +917,7 @@ public class TestMainWndController extends EasyMockSupport
          */
         public MainWndControllerMockPlayerTestImpl(AudioPlayer player)
         {
-            super(mockContext, store);
+            super(mockContext, store, model);
             mockPlayer = player;
         }
 
@@ -820,6 +1016,46 @@ public class TestMainWndController extends EasyMockSupport
         protected void updatePlayerActionStates()
         {
             updateStatesCount++;
+        }
+    }
+
+    /**
+     * A specialized answer implementation that is used for testing whether
+     * correct properties are set in the context when the playlist model is
+     * invoked.
+     */
+    private class CheckContextAnswer implements IAnswer<Object>
+    {
+        /** The expected index. */
+        private final int expIndex;
+
+        /** The expected time. */
+        private final long expTime;
+
+        /**
+         * Creates a new instance of {@code CheckContextAnswer} and initializes
+         * it with the properties to check.
+         *
+         * @param idx the expected index
+         * @param time the expected time position
+         */
+        public CheckContextAnswer(int idx, long time)
+        {
+            expIndex = idx;
+            expTime = time;
+        }
+
+        /**
+         * This implementation checks whether the context contains the expected
+         * values.
+         */
+        @Override
+        public Object answer() throws Throwable
+        {
+            assertEquals("Wrong current index", expIndex,
+                    context.getCurrentSongIndex());
+            assertEquals("Wrong time", expTime, context.getPlaybackTime());
+            return null;
         }
     }
 }

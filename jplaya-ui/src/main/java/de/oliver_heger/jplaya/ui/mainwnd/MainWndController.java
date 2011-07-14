@@ -8,6 +8,7 @@ import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationShutdownListener;
 import net.sf.jguiraffe.gui.builder.action.ActionStore;
 import net.sf.jguiraffe.gui.builder.action.FormAction;
+import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
 import net.sf.jguiraffe.gui.builder.window.WindowListener;
 
@@ -74,8 +75,14 @@ public class MainWndController implements AudioPlayerListener,
     /** The media store. */
     private final MediaStore mediaStore;
 
+    /** The playlist model. */
+    private final PlaylistModel playlistModel;
+
     /** The action store. */
     private ActionStore actionStore;
+
+    /** The synchronizer. */
+    private GUISynchronizer synchronizer;
 
     /** The file system scanner. */
     private FSScanner scanner;
@@ -103,9 +110,11 @@ public class MainWndController implements AudioPlayerListener,
      * @param ctx the current bean context providing access to all beans defined
      *        by the current builder script (must not be <b>null</b>)
      * @param store the {@code MediaStore} (must not be <b>null</b>)
+     * @param model the {@code PlaylistModel} (must not be <b>null</b>)
      * @throws NullPointerException if a required parameter is missing
      */
-    public MainWndController(BeanContext ctx, MediaStore store)
+    public MainWndController(BeanContext ctx, MediaStore store,
+            PlaylistModel model)
     {
         if (ctx == null)
         {
@@ -115,9 +124,14 @@ public class MainWndController implements AudioPlayerListener,
         {
             throw new NullPointerException("Media store must not be null!");
         }
+        if (model == null)
+        {
+            throw new NullPointerException("Playlist model must not be null!");
+        }
 
         beanContext = ctx;
         mediaStore = store;
+        playlistModel = model;
     }
 
     /**
@@ -138,6 +152,27 @@ public class MainWndController implements AudioPlayerListener,
     public void setActionStore(ActionStore actionStore)
     {
         this.actionStore = actionStore;
+    }
+
+    /**
+     * Returns the synchronizer object for synchronizing with the EDT.
+     *
+     * @return the {@code GUISynchronizer}
+     */
+    public GUISynchronizer getSynchronizer()
+    {
+        return synchronizer;
+    }
+
+    /**
+     * Sets the {@code GUISynchronizer}. This property is set by the DI
+     * framework.
+     *
+     * @param synchronizer the {@code GUISynchronizer}
+     */
+    public void setSynchronizer(GUISynchronizer synchronizer)
+    {
+        this.synchronizer = synchronizer;
     }
 
     /**
@@ -201,10 +236,29 @@ public class MainWndController implements AudioPlayerListener,
         this.playlistController = playlistController;
     }
 
+    /**
+     * Notifies this object that media information for a song has been loaded.
+     * This implementation delegates to the playlist model which will initiate
+     * the necessary UI updates. In addition, it has to be checked whether the
+     * local media store has to be updated.
+     *
+     * @param event the event
+     */
     @Override
-    public void songDataLoaded(SongDataEvent arg0)
+    public void songDataLoaded(final SongDataEvent event)
     {
-        // TODO Auto-generated method stub
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                getPlaylistModel().processSongDataEvent(event);
+            }
+        });
+
+        String uri = event.getMediaFileURI();
+        int playCount = getSongDataSynchronizer().songDataEventReceived(uri);
+        updateLocalMediaStore(uri, playCount);
     }
 
     @Override
@@ -221,17 +275,45 @@ public class MainWndController implements AudioPlayerListener,
         throw new UnsupportedOperationException("Not yet implemented!");
     }
 
+    /**
+     * Notifies this object that the playlist is finished. This method updates
+     * the UI correspondingly and sets the states of some actions.
+     *
+     * @param event the event
+     */
     @Override
-    public void playListEnds(AudioPlayerEvent arg0)
+    public void playListEnds(AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                disablePlayerActions();
+                enableAction(ACTION_INIT_PLAYLIST, true);
+                resetModel();
+            }
+        });
     }
 
+    /**
+     * Notifies this object that the position in the currently played song has
+     * changed. This implementation delegates to the model to update the UI.
+     *
+     * @param event the event
+     */
     @Override
-    public void positionChanged(AudioPlayerEvent arg0)
+    public void positionChanged(final AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                initModel(event.getStreamData().getIndex(),
+                        event.getPlaybackTime(), event.getRelativePosition());
+            }
+        });
     }
 
     /**
@@ -249,24 +331,31 @@ public class MainWndController implements AudioPlayerListener,
             String songURI = String.valueOf(event.getStreamData().getID());
             int playCount =
                     getSongDataSynchronizer().songPlayedEventReceived(songURI);
-
-            if (playCount > 0)
-            {
-                if (log.isInfoEnabled())
-                {
-                    log.info("Storing media information for stream " + songURI);
-                }
-                SongData data = getSongDataManager().getDataForFile(songURI);
-                data.setPlayCount(playCount);
-                getMediaStore().updateSongData(data);
-            }
+            updateLocalMediaStore(songURI, playCount);
         }
     }
 
+    /**
+     * A stream has just started. This implementation delegates to the playlist
+     * model so that the UI is updated. The state of player-related actions has
+     * to be updated, too.
+     */
     @Override
-    public void streamStarts(AudioPlayerEvent arg0)
+    public void streamStarts(final AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                updatePlayerActionStates();
+                getPlaylistContext().setCurrentSongIndex(
+                        event.getStreamData().getIndex());
+                getPlaylistContext().setPlaybackRatio(0);
+                getPlaylistContext().setPlaybackTime(0);
+                getPlaylistModel().updateUI(getSongDataManager());
+            }
+        });
     }
 
     /**
@@ -586,6 +675,27 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Returns the {@code PlaylistModel}.
+     *
+     * @return the {@code PlaylistModel}
+     */
+    protected PlaylistModel getPlaylistModel()
+    {
+        return playlistModel;
+    }
+
+    /**
+     * Returns the {@code PlaylistContext}. This is a convenience method which
+     * just delegates to the model.
+     *
+     * @return the {@code PlaylistContext}
+     */
+    protected PlaylistContext getPlaylistContext()
+    {
+        return getPlaylistModel().getPlaylistContext();
+    }
+
+    /**
      * Returns the current {@code SongDataSynchronizer}. This object is created
      * when the audio engine is initialized.
      *
@@ -638,5 +748,52 @@ public class MainWndController implements AudioPlayerListener,
     private void enableAction(String name, boolean f)
     {
         getActionStore().getAction(name).setEnabled(f);
+    }
+
+    /**
+     * Updates the local media store with media information about a song if
+     * available. This method is called when a stream was played or if new media
+     * information becomes available. If all information for a database update
+     * is available, the media store is invoked.
+     *
+     * @param songURI the URI of the song in question
+     * @param playCount the number of times the song has been played
+     */
+    private void updateLocalMediaStore(String songURI, int playCount)
+    {
+        if (playCount > 0)
+        {
+            if (log.isInfoEnabled())
+            {
+                log.info("Storing media information for stream " + songURI);
+            }
+            SongData data = getSongDataManager().getDataForFile(songURI);
+            data.setPlayCount(playCount);
+            getMediaStore().updateSongData(data);
+        }
+    }
+
+    /**
+     * Resets the playlist model. This causes the UI to be cleared.
+     */
+    private void resetModel()
+    {
+        initModel(-1, 0, 0);
+    }
+
+    /**
+     * Helper method for setting properties of the playlist context and then
+     * updating the model.
+     *
+     * @param songIdx the current song index
+     * @param time the playback time
+     * @param relpos the relative position
+     */
+    private void initModel(int songIdx, long time, int relpos)
+    {
+        getPlaylistContext().setCurrentSongIndex(songIdx);
+        getPlaylistContext().setPlaybackRatio(relpos);
+        getPlaylistContext().setPlaybackTime(time);
+        getPlaylistModel().updateUI(getSongDataManager());
     }
 }
