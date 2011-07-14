@@ -25,6 +25,7 @@ import org.junit.Test;
 import de.oliver_heger.mediastore.service.SongData;
 import de.olix.playa.engine.mediainfo.SongDataEvent;
 import de.olix.playa.engine.mediainfo.SongDataManager;
+import de.olix.playa.playlist.PlaylistInfo;
 
 /**
  * Test class for {@code PlaylistModel}.
@@ -111,6 +112,22 @@ public class TestPlaylistModel extends EasyMockSupport
     public void testInitNoTabHandler()
     {
         new PlaylistModel(form, null);
+    }
+
+    /**
+     * Tests whether the context of a newly created instance contains default
+     * values.
+     */
+    @Test
+    public void testInitDefaultContextValues()
+    {
+        PlaylistModel model = new PlaylistModel(form, handler);
+        PlaylistContext ctx = model.getPlaylistContext();
+        assertTrue("Got a valid song index", ctx.getCurrentSongIndex() < 0);
+        PlaylistInfo info = ctx.getPlaylistInfo();
+        assertEquals("Wrong name", "", info.getName());
+        assertEquals("Wrong description", "", info.getDescription());
+        assertEquals("Wrong number of songs", 0, info.getNumberOfSongs());
     }
 
     /**

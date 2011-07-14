@@ -89,7 +89,7 @@ public class PlaylistModel
 
         form = frm;
         tableHandler = tab;
-        playlistContext = new PlaylistContext();
+        playlistContext = initPlaylistContext();
     }
 
     /**
@@ -225,6 +225,19 @@ public class PlaylistModel
     SongDataManager getCurrentSongDataManager()
     {
         return songDataManager;
+    }
+
+    /**
+     * Initializes the playlist context.
+     *
+     * @return the fully initialized context
+     */
+    private PlaylistContext initPlaylistContext()
+    {
+        PlaylistContext ctx = new PlaylistContext();
+        ctx.setCurrentSongIndex(-1);
+        ctx.setPlaylistInfo(NullPlaylistInfo.INSTANCE);
+        return ctx;
     }
 
     /**
