@@ -70,6 +70,9 @@
     </a:menu>
   </a:menubar>
 
+  <!-- The model of the playlist table. This is a plain array list.-->
+  <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
+
   <!-- The main window -->
   <w:frame name="mainFrame" titleres="main_title" menu="mainMenu"
     autoClose="false">
@@ -85,6 +88,15 @@
         <a:toolbutton actionName="playerStopPlaybackAction"/>
         <a:toolbutton actionName="playerNextSongAction"/>
       </a:toolbar>
+
+      <f:panel>
+        <f:borderconstr name="CENTER"/>
+        <f:table name="playlistTable" model="playlistTableModel">
+          <f:column name="index" width="20px" columnClass="Number"/>
+          <f:column name="name" percentWidth="50" headerres="plcol_name"
+            columnClass="String"/>
+        </f:table>
+      </f:panel>
     </f:panel>
 
     <!-- An event listener that delegates the window closing event to the
@@ -96,12 +108,22 @@
     </w:windowEvent>
   </w:frame>
 
+  <!-- The playlist model object -->
+  <di:bean name="playlistModel"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlaylistModel">
+    <di:constructor>
+      <di:param refName="CURRENT_FORM"/>
+      <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The main controller -->
   <di:bean name="controller"
     beanClass="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
     <di:constructor>
       <di:param refName="CURRENT_CONTEXT"/>
       <di:param refName="mediaStore"/>
+      <di:param refName="playlistModel"/>
     </di:constructor>
     <di:setProperty property="actionStore" refName="ACTION_STORE"/>
     <di:setProperty property="playlistController" refName="playlistController"/>

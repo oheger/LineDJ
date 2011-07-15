@@ -6,6 +6,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 import net.sf.jguiraffe.di.BeanContext;
@@ -38,6 +40,7 @@ import de.olix.playa.engine.mediainfo.SongDataManager;
 import de.olix.playa.playlist.CurrentPositionInfo;
 import de.olix.playa.playlist.FSScanner;
 import de.olix.playa.playlist.PlaylistController;
+import de.olix.playa.playlist.PlaylistInfo;
 import de.olix.playa.playlist.PlaylistManager;
 import de.olix.playa.playlist.PlaylistOrder;
 
@@ -881,6 +884,76 @@ public class TestMainWndController extends EasyMockSupport
         ctrl.streamStarts(event);
         assertEquals("Wrong relative position", 0, context.getPlaybackRatio());
         assertEquals("Wrong update calls", 1, ctrl.getUpdateStatesCount());
+        verifyAll();
+    }
+
+    /**
+     * Tests whether the playlist UI can be reset.
+     */
+    @Test
+    public void testResetPlaylistUI()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(null);
+        setUpSynchronizer(ctrl);
+        model.updateUI(sdm);
+        EasyMock.expectLastCall().andAnswer(new CheckContextAnswer(-1, 0));
+        replayAll();
+        ctrl.installSongDataManagerMock(sdm);
+        context.setPlaybackRatio(100);
+        ctrl.resetPlaylistUI();
+        assertSame("Wrong playlist info", NullPlaylistInfo.INSTANCE,
+                context.getPlaylistInfo());
+        assertEquals("Wrong relative position", 0, context.getPlaybackRatio());
+        verifyAll();
+    }
+
+    /**
+     * Tests whether the playlist items for the playlist model can be created.
+     */
+    @Test
+    public void testSetupPlaylistItems()
+    {
+        PlaylistController plc = createMock(PlaylistController.class);
+        PlaylistManager plman = createMock(PlaylistManager.class);
+        List<String> songUris = Collections.singletonList(SONG_URI);
+        List<PlaylistItem> items =
+                Collections.singletonList(new PlaylistItem());
+        EasyMock.expect(plc.getPlaylistManager()).andReturn(plman);
+        EasyMock.expect(plman.getSongURIs()).andReturn(songUris);
+        EasyMock.expect(model.createModelItems(songUris)).andReturn(items);
+        replayAll();
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
+        ctrl.setPlaylistController(plc);
+        assertSame("Wrong item list", items, ctrl.setUpPlaylistItems());
+        verifyAll();
+    }
+
+    /**
+     * Tests whether the playlist model is correctly initialized for a new
+     * playlist.
+     */
+    @Test
+    public void testInitializePlaylistModel()
+    {
+        PlaylistController plc = createMock(PlaylistController.class);
+        SongDataManager sdm = createMock(SongDataManager.class);
+        PlaylistManager plm = createMock(PlaylistManager.class);
+        PlaylistInfo info = createMock(PlaylistInfo.class);
+        List<PlaylistItem> items =
+                Collections.singletonList(new PlaylistItem());
+        EasyMock.expect(plc.getPlaylistManager()).andReturn(plm);
+        EasyMock.expect(plm.getPlaylistInfo()).andReturn(info);
+        model.initialize(sdm, items);
+        replayAll();
+        MainWndControllerMockPlayerTestImpl ctrl =
+                new MainWndControllerMockPlayerTestImpl(null);
+        ctrl.setPlaylistController(plc);
+        ctrl.installSongDataManagerMock(sdm);
+        ctrl.initializePlaylistModel(items);
+        assertSame("Playlist info not set", info, context.getPlaylistInfo());
         verifyAll();
     }
 

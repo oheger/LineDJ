@@ -1,6 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import net.sf.jguiraffe.di.BeanContext;
@@ -693,6 +694,58 @@ public class MainWndController implements AudioPlayerListener,
     protected PlaylistContext getPlaylistContext()
     {
         return getPlaylistModel().getPlaylistContext();
+    }
+
+    /**
+     * Clears the model for the playlist, so that the UI displays only empty
+     * fields. This method is called before the playlist is newly initialized.
+     * This is done in background, so the UI has to be updated before. This
+     * method can be invoked from an arbitrary thread; it synchronizes with the
+     * EDT.
+     */
+    protected void resetPlaylistUI()
+    {
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                resetModel();
+                getPlaylistContext().setPlaylistInfo(NullPlaylistInfo.INSTANCE);
+            }
+        });
+    }
+
+    /**
+     * Constructs the item objects for the playlist model. This method is called
+     * from a background thread when a new playlist is set up. It obtains the
+     * URIs for the songs in the playlist from the current
+     * {@code PlaylistManager} (which must already have been initialized) and
+     * creates corresponding {@code PlaylistItem} objects.
+     *
+     * @return the list with {@code PlaylistItem} objects for the playlist model
+     */
+    protected List<PlaylistItem> setUpPlaylistItems()
+    {
+        List<String> songURIs =
+                getPlaylistController().getPlaylistManager().getSongURIs();
+        return getPlaylistModel().createModelItems(songURIs);
+    }
+
+    /**
+     * Initializes the {@code PlaylistModel} with the items for the current
+     * playlist. This method is called after a new playlist has been set up.
+     * First all preparations have been done in a background thread, then this
+     * method is called in the EDT. The UI is updated to display information
+     * about the new playlist.
+     *
+     * @param items the items of the model
+     */
+    protected void initializePlaylistModel(List<PlaylistItem> items)
+    {
+        getPlaylistContext().setPlaylistInfo(
+                getPlaylistController().getPlaylistManager().getPlaylistInfo());
+        getPlaylistModel().initialize(getSongDataManager(), items);
     }
 
     /**

@@ -1,8 +1,10 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.List;
 
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationContext;
@@ -30,6 +32,18 @@ public class TestInitPlaylistCommand
     }
 
     /**
+     * Creates a mock for the list of playlist items.
+     *
+     * @return the mock list
+     */
+    private List<PlaylistItem> createItemListMock()
+    {
+        @SuppressWarnings("unchecked")
+        List<PlaylistItem> items = EasyMock.createMock(List.class);
+        return items;
+    }
+
+    /**
      * Tries to create an instance without a controller.
      */
     @Test(expected = NullPointerException.class)
@@ -54,11 +68,15 @@ public class TestInitPlaylistCommand
     @Test
     public void testExecute() throws Exception
     {
+        List<PlaylistItem> items = createItemListMock();
+        controller.resetPlaylistUI();
         controller.initAudioEngine();
-        EasyMock.replay(controller);
+        EasyMock.expect(controller.setUpPlaylistItems()).andReturn(items);
+        EasyMock.replay(controller, items);
         InitPlaylistCommand cmd = new InitPlaylistCommand(controller);
         cmd.execute();
-        EasyMock.verify(controller);
+        assertSame("Wrong playlist items", items, cmd.getPlaylistItems());
+        EasyMock.verify(controller, items);
     }
 
     /**
@@ -68,11 +86,20 @@ public class TestInitPlaylistCommand
     @Test
     public void testPerformGUIUpdateSuccess()
     {
+        final List<PlaylistItem> items = createItemListMock();
         controller.updatePlayerActionStates();
-        EasyMock.replay(controller);
-        InitPlaylistCommand cmd = new InitPlaylistCommand(controller);
+        controller.initializePlaylistModel(items);
+        EasyMock.replay(controller, items);
+        InitPlaylistCommand cmd = new InitPlaylistCommand(controller)
+        {
+            @Override
+            List<PlaylistItem> getPlaylistItems()
+            {
+                return items;
+            }
+        };
         cmd.performGUIUpdate();
-        EasyMock.verify(controller);
+        EasyMock.verify(controller, items);
     }
 
     /**

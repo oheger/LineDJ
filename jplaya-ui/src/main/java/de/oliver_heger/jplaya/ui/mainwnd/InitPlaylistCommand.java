@@ -1,5 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import java.util.List;
+
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
 import net.sf.jguiraffe.gui.cmd.CommandBase;
 
@@ -27,6 +29,9 @@ public class InitPlaylistCommand extends CommandBase
     /** Stores a reference to the main controller. */
     private final MainWndController controller;
 
+    /** Stores the content of the playlist model. */
+    private List<PlaylistItem> playlistItems;
+
     /**
      * Creates a new instance of {@code InitPlaylistCommand} and sets the
      * reference to the controller.
@@ -52,7 +57,9 @@ public class InitPlaylistCommand extends CommandBase
     @Override
     public void execute() throws Exception
     {
+        controller.resetPlaylistUI();
         controller.initAudioEngine();
+        playlistItems = controller.setUpPlaylistItems();
     }
 
     /**
@@ -74,5 +81,19 @@ public class InitPlaylistCommand extends CommandBase
                     .messageBox(RES_ERR_INIT_MSG, RES_ERR_INIT_TITLE,
                             MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK);
         }
+        else
+        {
+            controller.initializePlaylistModel(getPlaylistItems());
+        }
+    }
+
+    /**
+     * Returns the list with items of the current playlist.
+     *
+     * @return the playlist items
+     */
+    List<PlaylistItem> getPlaylistItems()
+    {
+        return playlistItems;
     }
 }
