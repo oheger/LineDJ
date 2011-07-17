@@ -237,6 +237,7 @@ public class TestPlaylistModel extends EasyMockSupport
     {
         SongDataManager sdm = createMock(SongDataManager.class);
         handler.tableDataChanged();
+        handler.setSelectedIndex(INDEX);
         replayAll();
         PlaylistModel model = new PlaylistModel(form, handler);
         List<PlaylistItem> items = initItems(model, sdm);
@@ -244,6 +245,29 @@ public class TestPlaylistModel extends EasyMockSupport
         form.initFields(items.get(INDEX.intValue()));
         EasyMock.replay(form);
         model.getPlaylistContext().setCurrentSongIndex(INDEX);
+        model.updateForm();
+        verifyAll();
+    }
+
+    /**
+     * Tests multiple updateForm() invocations with the same current song index.
+     * In this case the table index should not be changed.
+     */
+    @Test
+    public void testUpdateFormNoIndexChange()
+    {
+        SongDataManager sdm = createMock(SongDataManager.class);
+        handler.tableDataChanged();
+        handler.setSelectedIndex(INDEX);
+        replayAll();
+        PlaylistModel model = new PlaylistModel(form, handler);
+        List<PlaylistItem> items = initItems(model, sdm);
+        EasyMock.reset(form);
+        form.initFields(items.get(INDEX.intValue()));
+        EasyMock.expectLastCall().times(2);
+        EasyMock.replay(form);
+        model.getPlaylistContext().setCurrentSongIndex(INDEX);
+        model.updateForm();
         model.updateForm();
         verifyAll();
     }
@@ -277,6 +301,7 @@ public class TestPlaylistModel extends EasyMockSupport
         PlaylistItem item = (PlaylistItem) formBean.getValue();
         assertEquals("Got a valid index", -1, item.getIndex());
         assertNull("Got a URI", item.getUri());
+        assertEquals("Wrong playlist name", "", item.getPlaylistName());
     }
 
     /**

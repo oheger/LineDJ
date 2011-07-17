@@ -44,7 +44,7 @@ public class PlaylistModel
     private static final ObjectFactory DATA_FACTORY = new ObjectFactory();
 
     /** A special item object that is used for clearing the form. */
-    private static final PlaylistItem CLEAR_ITEM;
+    private final PlaylistItem clearItem;
 
     /** The current playlist context. */
     private final PlaylistContext playlistContext;
@@ -63,6 +63,9 @@ public class PlaylistModel
 
     /** The list with the data of the model. */
     private List<PlaylistItem> modelData;
+
+    /** The last current song index. */
+    private int lastCurrentSongIndex;
 
     /** A flag whether an update operation is pending. */
     private boolean updatePending;
@@ -90,6 +93,8 @@ public class PlaylistModel
         form = frm;
         tableHandler = tab;
         playlistContext = initPlaylistContext();
+        clearItem = initClearItem();
+        lastCurrentSongIndex = -1;
     }
 
     /**
@@ -208,13 +213,23 @@ public class PlaylistModel
     }
 
     /**
-     * Updates the form with the data of the current song.
+     * Updates the form with the data of the current song. The selected index of
+     * the table is also updated if the index of the current song has changed.
      */
     void updateForm()
     {
         int index = getPlaylistContext().getCurrentSongIndex();
-        PlaylistItem item = (index >= 0) ? modelData.get(index) : CLEAR_ITEM;
+        PlaylistItem item = (index >= 0) ? modelData.get(index) : clearItem;
         form.initFields(item);
+
+        if (index != lastCurrentSongIndex)
+        {
+            lastCurrentSongIndex = index;
+            if (index >= 0)
+            {
+                tableHandler.setSelectedIndex(index);
+            }
+        }
     }
 
     /**
@@ -238,6 +253,19 @@ public class PlaylistModel
         ctx.setCurrentSongIndex(-1);
         ctx.setPlaylistInfo(NullPlaylistInfo.INSTANCE);
         return ctx;
+    }
+
+    /**
+     * Initializes the special {@code PlaylistItem} for clearing the UI.
+     *
+     * @return the clear playlist item
+     */
+    private PlaylistItem initClearItem()
+    {
+        PlaylistItem cli = new PlaylistItem();
+        cli.setSongData(DATA_FACTORY.createSongData());
+        cli.setPlaylistContext(playlistContext);
+        return cli;
     }
 
     /**
@@ -311,11 +339,5 @@ public class PlaylistModel
             updateForm();
             updatePending = false;
         }
-    }
-
-    static
-    {
-        CLEAR_ITEM = new PlaylistItem();
-        CLEAR_ITEM.setSongData(DATA_FACTORY.createSongData());
     }
 }

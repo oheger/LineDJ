@@ -70,6 +70,11 @@
     </a:menu>
   </a:menubar>
 
+  <!-- A transformer for simplifying usage of static text elements -->
+  <di:bean name="staticTextTransformer"
+    beanClass="net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataTransformer">
+  </di:bean>
+
   <!-- The model of the playlist table. This is a plain array list.-->
   <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
 
@@ -91,9 +96,74 @@
 
       <f:panel>
         <f:borderconstr name="CENTER"/>
+        <f:percentlayout
+          columns="4dlu end/preferred 2dlu full/preferred(10dlu)/50 2dlu end/preferred 2dlu full/preferred(10dlu)/50 2dlu end/preferred 2dlu full/preferred(4dlu) 4dlu"
+          rows="4dlu preferred 2dlu preferred 2dlu preferred 4dlu preferred 4dlu full/preferred(10dlu)/100 4dlu"
+          canShrink="true">
+          <f:colgroup indices="1, 5, 9"/>
+        </f:percentlayout>
+        <f:label textres="main_lab_artist">
+          <f:percentconstr col="1" row="1"/>
+        </f:label>
+        <f:statictext name="artist" noField="false">
+          <f:percentconstr col="3" row="1"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+        <f:label textres="main_lab_title">
+          <f:percentconstr col="5" row="1"/>
+        </f:label>
+        <f:statictext name="songName" noField="false">
+          <f:percentconstr col="7" row="1" spanx="5"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+
+        <f:label textres="main_lab_playlist">
+          <f:percentconstr col="1" row="3"/>
+        </f:label>
+        <f:statictext name="playlistName" noField="false">
+          <f:percentconstr col="3" row="3"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+        <f:label textres="main_lab_album">
+          <f:percentconstr col="5" row="3"/>
+        </f:label>
+        <f:statictext name="album" noField="false">
+          <f:percentconstr col="7" row="3" spanx="5"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+
+        <f:label textres="main_lab_playbacktime">
+          <f:percentconstr col="1" row="5"/>
+        </f:label>
+        <f:statictext name="playbackTime" noField="false">
+          <f:percentconstr col="3" row="5"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+        <f:label textres="main_lab_index">
+          <f:percentconstr col="5" row="5"/>
+        </f:label>
+        <f:statictext name="playbackIndex" noField="false">
+          <f:percentconstr col="7" row="5"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+        <f:label textres="main_lab_track">
+          <f:percentconstr col="9" row="5"/>
+        </f:label>
+        <f:statictext name="trackNo" noField="false">
+          <f:percentconstr col="11" row="5"/>
+          <f:transformer type="write" beanName="staticTextTransformer"/>
+        </f:statictext>
+
+        <f:progressbar name="playbackRatio" min="0" max="100" noField="false">
+          <f:percentconstr col="1" row="7" spanx="11" colconstr="full/preferred"/>
+        </f:progressbar>
+
         <f:table name="playlistTable" model="playlistTableModel">
-          <f:column name="index" width="20px" columnClass="Number"/>
-          <f:column name="name" percentWidth="50" headerres="plcol_name"
+          <f:percentconstr col="1" row="9" spanx="11" colconstr="full/preferred"/>
+          <f:column name="index" width="25px" columnClass="Number"/>
+          <f:column name="songName" percentWidth="75" headerres="plcol_name"
+            columnClass="String"/>
+          <f:column name="duration" percentWidth="25" headerres="plcol_duration"
             columnClass="String"/>
         </f:table>
       </f:panel>
@@ -128,6 +198,7 @@
     <di:setProperty property="actionStore" refName="ACTION_STORE"/>
     <di:setProperty property="playlistController" refName="playlistController"/>
     <di:setProperty property="scanner" refName="fsScanner"/>
+    <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
   </di:bean>
 
   <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>

@@ -38,7 +38,7 @@ public class PlaylistItem
     private static final String FMT_PLINDEX = "%d / %d";
 
     /** Constant for the number of milliseconds per second. */
-    private static final double MILLIS = 1000;
+    private static final long MILLIS = 1000;
 
     /** Constant for the number of seconds per hour. */
     private static final int SECS_PER_HOUR = 60 * 60;
@@ -234,7 +234,7 @@ public class PlaylistItem
         {
             return UNDEF;
         }
-        return formatDuration(duration.longValue());
+        return formatDuration(duration.longValue() * MILLIS);
     }
 
     /**
@@ -291,7 +291,7 @@ public class PlaylistItem
     private static String formatDuration(long duration)
     {
         StringBuilder buf = new StringBuilder(DURATION_BUF_SIZE);
-        long secs = Math.round(duration / MILLIS);
+        long secs = Math.round(duration / (double) MILLIS);
         long hours = secs / SECS_PER_HOUR;
         if (hours > 0)
         {

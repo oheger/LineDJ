@@ -25,7 +25,7 @@ public class TestPlaylistItem
     private static final String DURATION_STR = "5:25";
 
     /** Constant for a duration. */
-    private static final long DURATION = (5 * 60 + 25) * 1000;
+    private static final long DURATION = 5 * 60 + 25;
 
     /** Constant for the number of songs in the playlist. */
     private static final int COUNT = 111;
@@ -130,9 +130,8 @@ public class TestPlaylistItem
     @Test
     public void testGetDurationLeading0()
     {
-        songData.setDuration(BigInteger
-                .valueOf((1 * 60 * 60 + 2 * 60 + 8) * 1000 + 555));
-        assertEquals("Wrong duration", "1:02:09", item.getDuration());
+        songData.setDuration(BigInteger.valueOf(1 * 60 * 60 + 2 * 60 + 8));
+        assertEquals("Wrong duration", "1:02:08", item.getDuration());
     }
 
     /**
@@ -153,7 +152,7 @@ public class TestPlaylistItem
     @Test
     public void testGetPlaybackTimeNoDuration()
     {
-        context.setPlaybackTime(DURATION);
+        context.setPlaybackTime(DURATION * 1000);
         assertEquals("Wrong playback time", DURATION_STR,
                 item.getPlaybackTime());
     }
