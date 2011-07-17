@@ -42,8 +42,11 @@ public class TestSongDataLoaderImpl
     /** Constant for the title. */
     private static final String TITLE = "Testtitle";
 
-    /** Constant for the duration of the audio file. */
+    /** Constant for the original duration of the audio file. */
     private static final long DURATION = 10842;
+
+    /** Constant for the duration of the audio file in seconds. */
+    private static final long DURATION_SEC = 11;
 
     /** The file system manager. */
     private static FileSystemManager manager;
@@ -79,7 +82,8 @@ public class TestSongDataLoaderImpl
     public void testGetProperties() throws IOException
     {
         Map<String, Object> props = loader.getProperties(TEST1);
-        assertEquals("Wrong title", TITLE, props.get(SongDataLoaderImpl.KEY_TITLE));
+        assertEquals("Wrong title", TITLE,
+                props.get(SongDataLoaderImpl.KEY_TITLE));
         assertEquals("Wrong interpret", INTERPRET,
                 props.get(SongDataLoaderImpl.KEY_INTERPRET));
         assertEquals("Wrong duration", DURATION,
@@ -118,7 +122,8 @@ public class TestSongDataLoaderImpl
         SongData data = loader.extractSongData(TEST1);
         assertEquals("Wrong title", TITLE, data.getName());
         assertEquals("Wrong interpret", INTERPRET, data.getArtistName());
-        assertEquals("Wrong duration", DURATION, data.getDuration().longValue());
+        assertEquals("Wrong duration", DURATION_SEC, data.getDuration()
+                .longValue());
         assertEquals("Wrong year", 2006, data.getInceptionYear().intValue());
         assertEquals("Wrong track", 1, data.getTrackNo().intValue());
         assertEquals("Wrong album", "A Test Collection", data.getAlbumName());

@@ -62,6 +62,9 @@ public class SongDataLoaderImpl implements SongDataLoader
     /** Constant for the duration property if it is stored in an ID3 tag. */
     private static final String KEY_ID3_DURATION = "mp3.id3tag.length";
 
+    /** Constant for the milliseconds factor. */
+    private static final double MILLIS = 1000;
+
     /** The logger. */
     private Log log = LogFactory.getLog(getClass());
 
@@ -237,7 +240,8 @@ public class SongDataLoaderImpl implements SongDataLoader
         Long dur = (Long) props.get(KEY_DURATION);
         if (dur != null)
         {
-            data.setDuration(BigInteger.valueOf(dur.longValue()));
+            data.setDuration(BigInteger.valueOf(Math.round(dur.longValue()
+                    / MILLIS)));
         }
         data.setInceptionYear(parseNumericProperty(props.get(KEY_YEAR)));
         data.setTrackNo(parseNumericProperty(props.get(KEY_TRACK)));
