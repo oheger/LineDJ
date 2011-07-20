@@ -28,8 +28,9 @@ public interface MediaStore
      * added now.
      *
      * @param songData the data object describing the song
+     * @param playCount the number of times the song has been played
      */
-    void updateSongData(SongData songData);
+    void updateSongData(SongData songData, int playCount);
 
     /**
      * Synchronizes the local database with the server. Synchronization happens

@@ -244,6 +244,24 @@ public class TestSongEntity
     }
 
     /**
+     * Tests incrementPlayCount() with a delta.
+     */
+    @Test
+    public void testIncrementPlaycountDelta()
+    {
+        final int currentCount = 10;
+        final int totalCount = 100;
+        final int delta = 5;
+        song.setCurrentPlayCount(currentCount);
+        song.setTotalPlayCount(totalCount);
+        song.incrementPlayCount(delta);
+        assertEquals("Wrong current count", currentCount + delta,
+                song.getCurrentPlayCount());
+        assertEquals("Wrong total count", totalCount + delta, song
+                .getTotalPlayCount().intValue());
+    }
+
+    /**
      * Tests whether the current count can be reset.
      */
     @Test

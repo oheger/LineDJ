@@ -98,12 +98,14 @@ public class MediaStoreImpl implements MediaStore
      * specialized command object in the command queue worker thread.
      *
      * @param songData the data object describing the song
+     * @param playCount the number of times the song has been played
      * @throws NullPointerException if the song data object is <b>null</b>
+     * @throws IllegalArgumentException if the play count is invalid
      */
     @Override
-    public void updateSongData(SongData songData)
+    public void updateSongData(SongData songData, int playCount)
     {
-        execute(createUpdateSongDataCommand(songData));
+        execute(createUpdateSongDataCommand(songData, playCount));
     }
 
     /**
@@ -132,12 +134,15 @@ public class MediaStoreImpl implements MediaStore
      * Creates a command for updating a song data object.
      *
      * @param songData the song data object in question
+     * @param playCount the number of times the song has been played
      * @return the command for performing the update
      * @throws NullPointerException if the song data object is <b>null</b>
+     * @throws IllegalArgumentException if the play count is invalid
      */
-    Command createUpdateSongDataCommand(SongData songData)
+    Command createUpdateSongDataCommand(SongData songData, int playCount)
     {
-        return new UpdateLocalStoreCommand(factoryInitializer, songData);
+        return new UpdateLocalStoreCommand(factoryInitializer, songData,
+                playCount);
     }
 
     /**

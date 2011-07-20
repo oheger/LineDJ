@@ -347,16 +347,29 @@ public class SongEntity implements Serializable
     }
 
     /**
-     * Increments the counters managed by this entity. This method should be
-     * called when the song has been played.
+     * Increments the counters managed by this entity. This is a convenience
+     * method which calls {@link #incrementPlayCount(int)} with a delta of 1.
      */
     public void incrementPlayCount()
     {
-        setCurrentPlayCount(getCurrentPlayCount() + 1);
+        incrementPlayCount(1);
+    }
+
+    /**
+     * Increments the counters managed by this entity by the given delta value.
+     * This method should be called when the song has been played a number of
+     * times.
+     *
+     * @param delta the delta value (i.e. the number of times the song has been
+     *        played in the mean time)
+     */
+    public void incrementPlayCount(int delta)
+    {
+        setCurrentPlayCount(getCurrentPlayCount() + delta);
 
         if (totalPlayCount != null)
         {
-            setTotalPlayCount(Integer.valueOf(totalPlayCount + 1));
+            setTotalPlayCount(Integer.valueOf(totalPlayCount + delta));
         }
     }
 

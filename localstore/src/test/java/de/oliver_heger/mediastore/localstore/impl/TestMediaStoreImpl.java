@@ -150,11 +150,13 @@ public class TestMediaStoreImpl
         MediaStoreTestImpl store = createStore();
         store.setMockCommandExecution(true);
         SongData data = factory.createSongData();
-        store.updateSongData(data);
+        final int playCount = 2;
+        store.updateSongData(data, playCount);
         UpdateLocalStoreCommand cmd =
                 (UpdateLocalStoreCommand) store.getExecutedCommand();
         assertSame("Wrong song data", data, cmd.getSongData());
         assertSame("Wrong EMF", emf, cmd.getEntityManagerFactory());
+        assertEquals("Wrong play count", playCount, cmd.getPlayCount());
     }
 
     /**
@@ -164,7 +166,18 @@ public class TestMediaStoreImpl
     public void testUpdateSongDataNull()
     {
         MediaStoreTestImpl store = createStore();
-        store.updateSongData(null);
+        store.updateSongData(null, 1);
+    }
+
+    /**
+     * Tries to update a song with an invalid play count.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testUpdateSongDataInvalidPlayCount()
+    {
+        MediaStoreTestImpl store = createStore();
+        SongData data = factory.createSongData();
+        store.updateSongData(data, -1);
     }
 
     /**

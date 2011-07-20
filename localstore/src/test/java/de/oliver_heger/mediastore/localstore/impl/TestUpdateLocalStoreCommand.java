@@ -70,13 +70,26 @@ public class TestUpdateLocalStoreCommand
      * Helper method for creating a test command object.
      *
      * @param data the object with song data
+     * @param playCount the play count
+     * @return the test command object
+     */
+    private UpdateLocalStoreCommand createCommand(SongData data, int playCount)
+    {
+        return new UpdateLocalStoreCommand(
+                new ConstantInitializer<EntityManagerFactory>(helper.getEMF()),
+                data, playCount);
+    }
+
+    /**
+     * Helper method for creating a test command object with a default play
+     * count.
+     *
+     * @param data the object with song data
      * @return the test command object
      */
     private UpdateLocalStoreCommand createCommand(SongData data)
     {
-        return new UpdateLocalStoreCommand(
-                new ConstantInitializer<EntityManagerFactory>(helper.getEMF()),
-                data);
+        return createCommand(data, 1);
     }
 
     /**
@@ -196,6 +209,15 @@ public class TestUpdateLocalStoreCommand
     }
 
     /**
+     * Tries to create an instance with an invalid counter value.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testInitInvalidPlayCount()
+    {
+        createCommand(createSongData(), 0);
+    }
+
+    /**
      * Tests the command if a new song entity has to be added which has no
      * references.
      */
@@ -208,6 +230,22 @@ public class TestUpdateLocalStoreCommand
         UpdateLocalStoreCommand cmd = createCommand(data);
         cmd.execute();
         checkSyncedSong(1);
+    }
+
+    /**
+     * Tests the command for a new song entity that has already been played
+     * multiple times.
+     */
+    @Test
+    public void testUpdateNewSongPlayCount() throws Exception
+    {
+        final int count = 8;
+        SongData data = createSongData();
+        data.setAlbumName(null);
+        data.setArtistName(null);
+        UpdateLocalStoreCommand cmd = createCommand(data, count);
+        cmd.execute();
+        checkSyncedSong(count);
     }
 
     /**
@@ -309,8 +347,10 @@ public class TestUpdateLocalStoreCommand
      * Checks an update operation if the song already exists.
      *
      * @param songName the name of the song
+     * @param playCount the number of times the song has been played
      */
-    private void checkUpdateExistingSong(String songName) throws Exception
+    private void checkUpdateExistingSong(String songName, int playCount)
+            throws Exception
     {
         SongEntity song = new SongEntity();
         song.setName(SONG_NAME);
@@ -321,12 +361,12 @@ public class TestUpdateLocalStoreCommand
         data.setArtistName(null);
         data.setAlbumName(null);
         data.setName(songName);
-        UpdateLocalStoreCommand cmd = createCommand(data);
+        UpdateLocalStoreCommand cmd = createCommand(data, playCount);
         cmd.execute();
         helper.closeEM();
         checkCount(SongEntity.class, 1);
         song = helper.getEM().find(SongEntity.class, song.getId());
-        assertEquals("Wrong play count", PLAY_COUNT + 1,
+        assertEquals("Wrong play count", PLAY_COUNT + playCount,
                 song.getCurrentPlayCount());
     }
 
@@ -337,7 +377,7 @@ public class TestUpdateLocalStoreCommand
     @Test
     public void testUpdateExistingSong() throws Exception
     {
-        checkUpdateExistingSong(SONG_NAME);
+        checkUpdateExistingSong(SONG_NAME, 1);
     }
 
     /**
@@ -346,6 +386,16 @@ public class TestUpdateLocalStoreCommand
     @Test
     public void testUpdateExistingSongCase() throws Exception
     {
-        checkUpdateExistingSong(SONG_NAME.toLowerCase(Locale.ENGLISH));
+        checkUpdateExistingSong(SONG_NAME.toLowerCase(Locale.ENGLISH), 1);
+    }
+
+    /**
+     * Tests an update operation for an existing song which has been played
+     * frequently.
+     */
+    @Test
+    public void testUpdateExistingSongPlayCount() throws Exception
+    {
+        checkUpdateExistingSong(SONG_NAME, 42);
     }
 }

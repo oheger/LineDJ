@@ -30,6 +30,9 @@ class UpdateLocalStoreCommand extends JPACommand
     /** Stores the song data object defining the song to be updated. */
     private final SongData songData;
 
+    /** The number of times the song has been played. */
+    private final int playCount;
+
     /**
      * Creates a new instance of {@code UpdateLocalStoreCommand} and initializes
      * it with the {@code EntityManagerFactory} and the object with the song
@@ -39,17 +42,28 @@ class UpdateLocalStoreCommand extends JPACommand
      *        not be <b>null</b>)
      * @param data the data object for the song to be updated (must not be
      *        <b>null</b>)
+     * @param playcnt the number of times the song has been played (must be &gt;
+     *        0)
      * @throws NullPointerException if a required parameter is missing
+     * @throws IllegalArgumentException if the play count is invalid
      */
     public UpdateLocalStoreCommand(
-            ConcurrentInitializer<EntityManagerFactory> emfInit, SongData data)
+            ConcurrentInitializer<EntityManagerFactory> emfInit, SongData data,
+            int playcnt)
     {
         super(emfInit, false);
         if (data == null)
         {
             throw new NullPointerException("SongData must not be null!");
         }
+        if (playcnt <= 0)
+        {
+            throw new IllegalArgumentException(
+                    "Play count must be greater than 0!");
+        }
+
         songData = data;
+        playCount = playcnt;
     }
 
     /**
@@ -60,6 +74,17 @@ class UpdateLocalStoreCommand extends JPACommand
     public SongData getSongData()
     {
         return songData;
+    }
+
+    /**
+     * Returns the number of times the song has been played. This value is added
+     * to the counters of the entity object.
+     *
+     * @return the play count
+     */
+    public int getPlayCount()
+    {
+        return playCount;
     }
 
     /**
@@ -75,8 +100,8 @@ class UpdateLocalStoreCommand extends JPACommand
     {
         SongEntity song =
                 Finders.findSong(em, getSongData().getName(),
-                        toInteger(getSongData().getDuration()),
-                        getSongData().getArtistName());
+                        toInteger(getSongData().getDuration()), getSongData()
+                                .getArtistName());
 
         if (song == null)
         {
@@ -91,7 +116,7 @@ class UpdateLocalStoreCommand extends JPACommand
             em.persist(song);
         }
 
-        song.incrementPlayCount();
+        song.incrementPlayCount(getPlayCount());
     }
 
     /**
@@ -133,7 +158,8 @@ class UpdateLocalStoreCommand extends JPACommand
      */
     private ArtistEntity fetchOrCreateArtist(EntityManager em)
     {
-        ArtistEntity artist = Finders.findArtist(em, getSongData().getArtistName());
+        ArtistEntity artist =
+                Finders.findArtist(em, getSongData().getArtistName());
 
         if (artist == null)
         {
