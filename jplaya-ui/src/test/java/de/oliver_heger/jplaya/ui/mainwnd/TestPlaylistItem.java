@@ -251,6 +251,58 @@ public class TestPlaylistItem
     }
 
     /**
+     * Tests whether the list index can be queried.
+     */
+    @Test
+    public void testGetListIndex()
+    {
+        assertEquals("Wrong initial index", 0, item.getListIndex());
+        item.setIndex(1);
+        assertEquals("Wrong list index", 2, item.getListIndex());
+    }
+
+    /**
+     * Tests getAlbumAndTrack() if neither is defined.
+     */
+    @Test
+    public void testGetAlbumAndTrackUndefined()
+    {
+        assertEquals("Wrong value", "", item.getAlbumAndTrack());
+    }
+
+    /**
+     * Tests getAlbumAndTrack() if only the album is defined.
+     */
+    @Test
+    public void testGetAlbumAndTrackAlbumOnly()
+    {
+        songData.setAlbumName("Hounds of Love");
+        assertEquals("Wrong value", item.getAlbum(), item.getAlbumAndTrack());
+    }
+
+    /**
+     * Tests getAlbumAndTrack() if only the album is defined.
+     */
+    @Test
+    public void testGetAlbumAndTrackTrackOnly()
+    {
+        songData.setTrackNo(BigInteger.valueOf(10));
+        assertEquals("Wrong value", "", item.getAlbumAndTrack());
+    }
+
+    /**
+     * Tests getAlbumAndTrack() if both values are defined.
+     */
+    @Test
+    public void testGetAlbumAndTrackBothValues()
+    {
+        songData.setAlbumName("Lost in Space");
+        songData.setTrackNo(BigInteger.valueOf(5));
+        assertEquals("Wrong value", "Lost in Space (5)",
+                item.getAlbumAndTrack());
+    }
+
+    /**
      * Tests the behavior for undefined properties.
      */
     @Test

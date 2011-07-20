@@ -37,6 +37,12 @@ public class PlaylistItem
     /** Constant for the format pattern for the index in the playlist. */
     private static final String FMT_PLINDEX = "%d / %d";
 
+    /**
+     * Constant for the format pattern for the album and track number
+     * combination.
+     */
+    private static final String FMT_ALBUM_TRACK = "%s (%s)";
+
     /** Constant for the number of milliseconds per second. */
     private static final long MILLIS = 1000;
 
@@ -177,6 +183,17 @@ public class PlaylistItem
     }
 
     /**
+     * Returns the index of this song as it has to be displayed in the playlist
+     * table. In contrast to the normal index, this index is 1-based.
+     *
+     * @return the display index in the playlist table
+     */
+    public int getListIndex()
+    {
+        return getIndex() + 1;
+    }
+
+    /**
      * Returns the name of the represented song.
      *
      * @return the name of this song
@@ -248,6 +265,25 @@ public class PlaylistItem
     }
 
     /**
+     * Returns the name of the album and the track number. This information is
+     * displayed in combination. The combination is only constructed if both
+     * values are defined.
+     *
+     * @return the combination of album and track number
+     */
+    public String getAlbumAndTrack()
+    {
+        String album = getAlbum();
+        if (StringUtils.isEmpty(album))
+        {
+            return album;
+        }
+        String track = getTrackNo();
+        return (StringUtils.isEmpty(track)) ? album : String.format(
+                FMT_ALBUM_TRACK, album, track);
+    }
+
+    /**
      * Returns the playback ratio in percent. The value lies between 0 and 100.
      *
      * @return the playback ratio
@@ -266,7 +302,7 @@ public class PlaylistItem
      */
     public String getPlaybackIndex()
     {
-        int idx = getIndex() + 1;
+        int idx = getListIndex();
         return (idx > 0) ? String.format(FMT_PLINDEX, idx, getPlaylistContext()
                 .getPlaylistInfo().getNumberOfSongs()) : UNDEF;
     }
