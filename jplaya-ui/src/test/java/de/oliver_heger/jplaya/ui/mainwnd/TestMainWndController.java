@@ -722,8 +722,7 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(sync.songPlayedEventReceived(SONG_URI)).andReturn(
                 playCount);
         EasyMock.expect(sdm.getDataForFile(SONG_URI)).andReturn(data);
-        data.setPlayCount(playCount);
-        store.updateSongData(data);
+        store.updateSongData(data, playCount);
         replayAll();
         MainWndControllerMockPlayerTestImpl ctrl =
                 new MainWndControllerMockPlayerTestImpl(null);
@@ -795,8 +794,7 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(sync.songDataEventReceived(SONG_URI)).andReturn(
                 playCount);
         EasyMock.expect(manager.getDataForFile(SONG_URI)).andReturn(data);
-        data.setPlayCount(playCount);
-        store.updateSongData(data);
+        store.updateSongData(data, playCount);
         replayAll();
         ctrl.installSongDataManagerMock(manager);
         ctrl.installSongDataSynchronizerMock(sync);

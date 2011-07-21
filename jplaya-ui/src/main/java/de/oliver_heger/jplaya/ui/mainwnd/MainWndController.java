@@ -821,8 +821,7 @@ public class MainWndController implements AudioPlayerListener,
                 log.info("Storing media information for stream " + songURI);
             }
             SongData data = getSongDataManager().getDataForFile(songURI);
-            data.setPlayCount(playCount);
-            getMediaStore().updateSongData(data);
+            getMediaStore().updateSongData(data, playCount);
         }
     }
 
