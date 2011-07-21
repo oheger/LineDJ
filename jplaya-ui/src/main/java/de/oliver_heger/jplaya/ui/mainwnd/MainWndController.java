@@ -749,6 +749,14 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Disables all actions related to the audio player.
+     */
+    protected void disablePlayerActions()
+    {
+        getActionStore().enableGroup(ACTGRP_PLAYER, false);
+    }
+
+    /**
      * Returns the current {@code SongDataSynchronizer}. This object is created
      * when the audio engine is initialized.
      *
@@ -782,14 +790,6 @@ public class MainWndController implements AudioPlayerListener,
         songDataManager = getBeanContext().getBean(SongDataManager.class);
         songDataManager.addSongDataListener(this);
         getPlaylistController().fetchAllSongData(songDataManager);
-    }
-
-    /**
-     * Disables all actions related to the audio player.
-     */
-    private void disablePlayerActions()
-    {
-        getActionStore().enableGroup(ACTGRP_PLAYER, false);
     }
 
     /**
