@@ -64,8 +64,11 @@ public class MainWndController implements AudioPlayerListener,
     /** Constant for the action for moving to the next song. */
     static final String ACTION_PLAYER_NEXT = "playerNextSongAction";
 
-    /** Constant for the action for moving the previous song. */
+    /** Constant for the action for moving to the previous song. */
     static final String ACTION_PLAYER_PREV = "playerPrevSongAction";
+
+    /** Constant for the action for moving to a specific song. */
+    static final String ACTION_PLAYER_SPEC = "playerSpecificSongAction";
 
     /** The logger. */
     private final Log log = LogFactory.getLog(getClass());
@@ -576,6 +579,7 @@ public class MainWndController implements AudioPlayerListener,
             enableAction(ACTION_PLAYER_STOP, playing);
             enableAction(ACTION_PLAYER_NEXT, playing);
             enableAction(ACTION_PLAYER_PREV, playing);
+            enableAction(ACTION_PLAYER_SPEC, playing);
             enableAction(ACTION_INIT_PLAYLIST, !playing);
         }
     }

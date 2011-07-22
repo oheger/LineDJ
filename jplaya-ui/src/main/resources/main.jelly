@@ -53,6 +53,11 @@
     <f:icon resource="media-skip-backward.png"/>
   </a:action>
 
+  <!-- An action for moving to a specific song -->
+  <a:action name="playerSpecificSongAction" textres="act_playerspec_text"
+    group="playerActions" taskBean="specificSongTask">
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -173,6 +178,12 @@
               columnClass="String"/>
             <f:column name="duration" percentWidth="15" headerres="plcol_duration"
               columnClass="String"/>
+
+            <!-- Connects double clicks to the action for selecting a specific song -->
+            <a:mouseEvent actionName="playerSpecificSongAction">
+              <a:eventFilter eventType="MOUSE_DOUBLE_CLICKED"
+                class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
+            </a:mouseEvent>
           </f:table>
         </f:panel>
       </f:panel>
@@ -278,6 +289,15 @@
     beanClass="de.oliver_heger.jplaya.ui.mainwnd.MovePreviousActionTask">
     <di:constructor>
       <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for move to specific song action -->
+  <di:bean name="specificSongTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.MoveToIndexActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+      <di:param refName="comp:playlistTable"/>
     </di:constructor>
   </di:bean>
 </j:jelly>
