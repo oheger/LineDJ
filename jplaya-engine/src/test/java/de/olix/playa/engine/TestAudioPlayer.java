@@ -608,6 +608,9 @@ public class TestAudioPlayer
     @Test
     public void testError()
     {
+        SourceDataLine line = startPlayback();
+        EasyMock.reset(line);
+        line.stop();
         Exception ex = new Exception("Test exception");
         AudioPlayerEvent event =
                 player.createEvent(AudioPlayerEvent.Type.EXCEPTION, ex);
@@ -615,57 +618,12 @@ public class TestAudioPlayer
         AudioPlayerListener listener =
                 EasyMock.createMock(AudioPlayerListener.class);
         listener.error(event);
-        EasyMock.replay(listener);
+        EasyMock.replay(listener, line);
         player.addAudioPlayerListener(listener);
         player.error(ex);
+        assertFalse("Still playing", player.isPlaying());
         player.executeAllCommands();
-        EasyMock.verify(listener);
-    }
-
-    /**
-     * Tests raising a fatal error and then waiting until recover() is called.
-     */
-    @Test
-    public void testFatalError() throws InterruptedException
-    {
-        Exception ex = new Exception("Test exception");
-        AudioPlayerEvent event =
-                player.createEvent(AudioPlayerEvent.Type.EXCEPTION, ex);
-        player.setTestEvent(event);
-        AudioPlayerListener listener =
-                EasyMock.createMock(AudioPlayerListener.class);
-        listener.fatalError(event);
-        EasyMock.replay(listener);
-        player.addAudioPlayerListener(listener);
-        WaitFatalErrorThread thread = new WaitFatalErrorThread();
-        thread.start();
-        assertTrue("Thread is not waiting", thread.waiting);
-        assertTrue("Not waiting after fatal error",
-                player.isWaitAfterFatalError());
-        player.recover();
-        assertFalse("Still wait after fatal error",
-                player.isWaitAfterFatalError());
-        thread.join();
-        assertFalse("Thread is still waiting", thread.waiting);
-        player.executeAllCommands();
-        EasyMock.verify(listener);
-    }
-
-    /**
-     * Tests waiting after a fatal error when the waiting is interrupted.
-     */
-    @Test
-    public void testFatalErrorInterrupted() throws InterruptedException
-    {
-        WaitFatalErrorThread thread = new WaitFatalErrorThread();
-        thread.start();
-        assertTrue("Thread is not waiting", thread.waiting);
-        assertTrue("Not waiting after fatal error",
-                player.isWaitAfterFatalError());
-        thread.interrupt();
-        thread.join();
-        assertFalse("Thread is still waiting", thread.waiting);
-        assertTrue("Fatal error was reset", player.isWaitAfterFatalError());
+        EasyMock.verify(listener, line);
     }
 
     /**
@@ -828,19 +786,17 @@ public class TestAudioPlayer
         checkPlaybackWithException(new IllegalArgumentException(
                 "Unknown audio format!"));
         assertEquals("Wrong number of errors", 1, player.errorCount);
-        assertEquals("Wrong number of fatal errors", 0, player.fatalErrorCount);
     }
 
     /**
-     * Tests the playback method when a fatal error occurs.
+     * Tests the playback method when an error related to the line occurs.
      */
     @Test
-    public void testPlaybackWithFatalError() throws Exception
+    public void testPlaybackWithLineError() throws Exception
     {
         checkPlaybackWithException(new LineUnavailableException(
                 "Unknown audio format!"));
-        assertEquals("Wrong number of errors", 0, player.errorCount);
-        assertEquals("Wrong number of fatal errors", 1, player.fatalErrorCount);
+        assertEquals("Wrong number of errors", 1, player.errorCount);
     }
 
     /**
@@ -908,6 +864,18 @@ public class TestAudioPlayer
     @Test
     public void testStartPlayback()
     {
+        startPlayback();
+        assertTrue("Playing flag not set", player.isPlaying());
+    }
+
+    /**
+     * Starts the player. This method can be used to set the player in playing
+     * state.
+     *
+     * @return a mock for the line
+     */
+    private SourceDataLine startPlayback()
+    {
         SourceDataLine mockLine = EasyMock.createMock(SourceDataLine.class);
         mockLine.start();
         EasyMock.replay(mockLine);
@@ -916,7 +884,7 @@ public class TestAudioPlayer
         player.getTimer().suspend();
         player.startPlayback();
         EasyMock.verify(mockLine);
-        assertTrue("Playing flag not set", player.isPlaying());
+        return mockLine;
     }
 
     /**
@@ -969,6 +937,7 @@ public class TestAudioPlayer
     {
         AudioStreamSource source = new AudioStreamSource()
         {
+            @Override
             public AudioStreamData nextAudioStream()
                     throws InterruptedException
             {
@@ -1023,9 +992,6 @@ public class TestAudioPlayer
     {
         /** The number of invocations of the error method. */
         public int errorCount;
-
-        /** the number of invocations of the fatalError method. */
-        public int fatalErrorCount;
 
         /** Stores a test event. */
         private AudioPlayerEvent testEvent;
@@ -1150,22 +1116,12 @@ public class TestAudioPlayer
             }
             errorCount++;
         }
-
-        @Override
-        protected void fatalError(Throwable exception)
-        {
-            if (!isIgnoreErrors())
-            {
-                super.fatalError(exception);
-            }
-            fatalErrorCount++;
-        }
     }
 
     /**
      * A helper thread class that allows to test the player's wait methods.
      */
-    abstract class WaitThread extends Thread
+    private abstract class WaitThread extends Thread
     {
         /** Stores the waiting flag. */
         public boolean waiting;
@@ -1217,24 +1173,12 @@ public class TestAudioPlayer
     /**
      * A specific wait thread that waits for the end of playback.
      */
-    class WaitPlaybackEndThread extends WaitThread
+    private class WaitPlaybackEndThread extends WaitThread
     {
         @Override
         protected void callWaitMethod() throws InterruptedException
         {
             player.waitForPlaybackEnd();
-        }
-    }
-
-    /**
-     * A specific wait thread that simulates waiting after a fatal error.
-     */
-    class WaitFatalErrorThread extends WaitThread
-    {
-        @Override
-        protected void callWaitMethod() throws InterruptedException
-        {
-            player.fatalError(new Exception("Test exception"));
         }
     }
 }

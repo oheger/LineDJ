@@ -306,16 +306,6 @@ public class PlaylistController implements AudioStreamSource,
     }
 
     /**
-     * Dummy implementation of this interface method.
-     *
-     * @param event the event
-     */
-    @Override
-    public void fatalError(AudioPlayerEvent event)
-    {
-    }
-
-    /**
      * Returns a data object describing the next audio stream. This
      * implementation returns audio streams in the order determined by the
      * internal playlist manager. If the end of the playlist is reached, a

@@ -272,13 +272,6 @@ public class MainWndController implements AudioPlayerListener,
         throw new UnsupportedOperationException("Not yet implemented!");
     }
 
-    @Override
-    public void fatalError(AudioPlayerEvent arg0)
-    {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
-    }
-
     /**
      * Notifies this object that the playlist is finished. This method updates
      * the UI correspondingly and sets the states of some actions.

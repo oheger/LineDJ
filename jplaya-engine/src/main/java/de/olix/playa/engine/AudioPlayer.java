@@ -77,12 +77,6 @@ public class AudioPlayer extends Thread
     /** A condition for stopping and continuing playback. */
     private final Condition condPausePlayback;
 
-    /** A lock for the fatal error waiting. */
-    private final Lock lockFatalError;
-
-    /** A condition variable for the fatal error waiting. */
-    private final Condition condFatalError;
-
     /** A lock for modifications of the skip position. */
     private final Lock lockSkip;
 
@@ -116,9 +110,6 @@ public class AudioPlayer extends Thread
     /** A flag whether the stream should terminate. */
     private volatile boolean terminate;
 
-    /** A flag whether a fatal error has currently occurred. */
-    private boolean waitAfterFatalError;
-
     /** A flag whether playback is running at the moment. */
     private boolean playing;
 
@@ -142,8 +133,6 @@ public class AudioPlayer extends Thread
         commandDispatchThread = createCommandThread();
         lockLine = new ReentrantLock();
         condPausePlayback = lockLine.newCondition();
-        lockFatalError = new ReentrantLock();
-        condFatalError = lockFatalError.newCondition();
         lockSkip = new ReentrantLock();
         timer = new StopWatch();
         setChunkSize(DEFAULT_CHUNK_SIZE);
@@ -518,9 +507,8 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Restarts playback after it was stopped using
-     * <code>{@link #stopPlayback()}</code>. With these two methods a pause
-     * function can be implemented.
+     * Restarts playback after it was stopped using {@link #stopPlayback()}.
+     * With these two methods a pause function can be implemented.
      */
     public void startPlayback()
     {
@@ -588,28 +576,6 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Recovers from a fatal error. When during playback of the play list a
-     * fatal error occurs, a corresponding event is sent to the registered
-     * listeners, and the playback thread will go to sleep. With this method it
-     * can be awaked. Background is that the GUI might present a message box to
-     * the user asking how to proceed. Depending on the user's choice the GUI
-     * can either abort the playback or try to continue.
-     */
-    public void recover()
-    {
-        lockFatalError.lock();
-        try
-        {
-            waitAfterFatalError = false;
-            condFatalError.signal();
-        }
-        finally
-        {
-            lockFatalError.unlock();
-        }
-    }
-
-    /**
      * The main method of this thread. Enters the playback loop.
      */
     @Override
@@ -659,7 +625,7 @@ public class AudioPlayer extends Thread
                         lockLine.unlock();
                         locked = false;
                     }
-                    fatalError(luex);
+                    error(luex);
                 }
                 catch (IllegalStateException istex)
                 {
@@ -787,14 +753,15 @@ public class AudioPlayer extends Thread
     }
 
     /**
-     * Creates a new event object reporting the specified throwable and sends it
-     * to the registered listeners. This method will be called whenever a non
-     * fatal error occurs.
+     * An exception has occurred while playing a song. This method creates a new
+     * event object referring to the specified exception and sends it to the
+     * registered listeners. It also stops playback immediately.
      *
      * @param exection the exception that caused this error event
      */
     protected void error(Throwable exception)
     {
+        stopPlayback();
         getCommandDispatchThread().execute(
                 new FireEventCommand(createEvent(
                         AudioPlayerEvent.Type.EXCEPTION, exception))
@@ -806,68 +773,6 @@ public class AudioPlayer extends Thread
                         listener.error(ev);
                     }
                 });
-    }
-
-    /**
-     * Creates a new event object reporting a fatal error caused by the passed
-     * in throwable. This event will be send to all registered listeners. Then
-     * playback will stop, and the thread will wait until it is either
-     * interrupted or the <code>recover()</code> method is called.
-     *
-     * @param exception the exception that indicates this fatal error
-     */
-    protected void fatalError(Throwable exception)
-    {
-        getCommandDispatchThread().execute(
-                new FireEventCommand(createEvent(
-                        AudioPlayerEvent.Type.FATAL_EXCEPTION, exception))
-                {
-                    @Override
-                    protected void fireEvent(AudioPlayerListener listener,
-                            AudioPlayerEvent ev)
-                    {
-                        listener.fatalError(ev);
-                    }
-                });
-
-        lockFatalError.lock();
-        try
-        {
-            waitAfterFatalError = true;
-            while (isWaitAfterFatalError())
-            {
-                condFatalError.await();
-            }
-        }
-        catch (InterruptedException iex)
-        {
-            log.info("Waiting after fatal error was interrupted.");
-        }
-        finally
-        {
-            lockFatalError.unlock();
-        }
-    }
-
-    /**
-     * Returns a flag whether this thread is currently waiting after a fatal
-     * error has occurred.
-     *
-     * @return the wait after fatal error flag
-     * @see #recover()
-     * @see #fatalError(Throwable)
-     */
-    public boolean isWaitAfterFatalError()
-    {
-        lockFatalError.lock();
-        try
-        {
-            return waitAfterFatalError;
-        }
-        finally
-        {
-            lockFatalError.unlock();
-        }
     }
 
     /**

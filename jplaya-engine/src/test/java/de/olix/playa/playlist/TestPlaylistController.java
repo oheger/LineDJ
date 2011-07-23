@@ -182,17 +182,6 @@ public class TestPlaylistController extends EasyMockSupport
     }
 
     /**
-     * Tests the fatalError() implementation. We can only test that the event is
-     * not touched.
-     */
-    @Test
-    public void testFatalError()
-    {
-        AudioPlayerEvent event = mockEvent();
-        createController().fatalError(event);
-    }
-
-    /**
      * Tests the streamStarts() implementation. We can only test that the event
      * is not touched.
      */
