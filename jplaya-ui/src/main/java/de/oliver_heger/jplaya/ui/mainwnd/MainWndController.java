@@ -7,11 +7,13 @@ import java.util.Locale;
 import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationShutdownListener;
+import net.sf.jguiraffe.gui.app.OpenWindowCommand;
 import net.sf.jguiraffe.gui.builder.action.ActionStore;
 import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
 import net.sf.jguiraffe.gui.builder.window.WindowListener;
+import net.sf.jguiraffe.locators.ClassPathLocator;
 
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.logging.Log;
@@ -69,6 +71,9 @@ public class MainWndController implements AudioPlayerListener,
 
     /** Constant for the action for moving to a specific song. */
     static final String ACTION_PLAYER_SPEC = "playerSpecificSongAction";
+
+    /** Constant for the name of the error script. */
+    private static final String SCRIPT_ERROR = "playbackerror.jelly";
 
     /** The logger. */
     private final Log log = LogFactory.getLog(getClass());
@@ -265,11 +270,29 @@ public class MainWndController implements AudioPlayerListener,
         updateLocalMediaStore(uri, playCount);
     }
 
+    /**
+     * Notifies this object that an error has occurred while playing audio. This
+     * implementation updates the states of player-related actions. Then it
+     * opens a window with an error message to the user.
+     *
+     * @param event the player event
+     */
     @Override
-    public void error(AudioPlayerEvent arg0)
+    public void error(AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
+        getSynchronizer().asyncInvoke(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                disablePlayerActions();
+                enableAction(ACTION_INIT_PLAYLIST, true);
+                enableAction(ACTION_PLAYER_SPEC, true);
+            }
+        });
+        getApplication().execute(
+                new OpenWindowCommand(ClassPathLocator
+                        .getInstance(SCRIPT_ERROR)));
     }
 
     /**

@@ -7,15 +7,19 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
 import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
+import net.sf.jguiraffe.gui.app.OpenWindowCommand;
 import net.sf.jguiraffe.gui.builder.action.ActionStore;
 import net.sf.jguiraffe.gui.builder.action.FormAction;
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
+import net.sf.jguiraffe.gui.cmd.Command;
+import net.sf.jguiraffe.locators.ClassPathLocator;
 
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -961,6 +965,53 @@ public class TestMainWndController extends EasyMockSupport
         ctrl.installSongDataManagerMock(sdm);
         ctrl.initializePlaylistModel(items);
         assertSame("Playlist info not set", info, context.getPlaylistInfo());
+        verifyAll();
+    }
+
+    /**
+     * Tests error handling.
+     */
+    @Test
+    public void testError()
+    {
+        Application app = createMock(Application.class);
+        ActionStore actStore = createMock(ActionStore.class);
+        FormAction actInitPL = createMock(FormAction.class);
+        FormAction specSong = createMock(FormAction.class);
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        MainWndController ctrl =
+                new MainWndController(mockContext, store, model);
+        setUpSynchronizer(ctrl);
+        EasyMock.expect(mockContext.getBean(Application.BEAN_APPLICATION))
+                .andReturn(app);
+        actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_INIT_PLAYLIST))
+                .andReturn(actInitPL);
+        actInitPL.setEnabled(true);
+        EasyMock.expect(
+                actStore.getAction(MainWndController.ACTION_PLAYER_SPEC))
+                .andReturn(specSong);
+        specSong.setEnabled(true);
+        final List<Command> cmds = new LinkedList<Command>();
+        app.execute(EasyMock.anyObject(Command.class));
+        EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
+        {
+            @Override
+            public Object answer() throws Throwable
+            {
+                cmds.add((Command) EasyMock.getCurrentArguments()[0]);
+                return null;
+            }
+        });
+        replayAll();
+        ctrl.setActionStore(actStore);
+        ctrl.error(event);
+        assertEquals("Wrong number of commands", 1, cmds.size());
+        OpenWindowCommand openCmd = (OpenWindowCommand) cmds.get(0);
+        ClassPathLocator loc = (ClassPathLocator) openCmd.getLocator();
+        assertEquals("Wrong resource name", "playbackerror.jelly",
+                loc.getResourceName());
         verifyAll();
     }
 

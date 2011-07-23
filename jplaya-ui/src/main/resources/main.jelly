@@ -55,7 +55,8 @@
 
   <!-- An action for moving to a specific song -->
   <a:action name="playerSpecificSongAction" textres="act_playerspec_text"
-    group="playerActions" taskBean="specificSongTask">
+    tooltipres="act_playerspec_tip" group="playerActions"
+    taskBean="specificSongTask">
   </a:action>
 
   <!-- The main menu -->
@@ -72,6 +73,7 @@
       <a:menuitem actionName="playerStopPlaybackAction"/>
       <a:menuitem actionName="playerNextSongAction"/>
       <a:menuitem actionName="playerPrevSongAction"/>
+      <a:menuitem actionName="playerSpecificSongAction"/>
     </a:menu>
   </a:menubar>
 
