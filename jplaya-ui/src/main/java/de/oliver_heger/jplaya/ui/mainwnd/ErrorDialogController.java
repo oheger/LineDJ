@@ -80,20 +80,6 @@ public class ErrorDialogController extends FormController
     }
 
     /**
-     * The dialog window is closing. This implementation calls
-     * {@code handleClose()} to ensure that the recover action is executed if
-     * necessary and that necessary cleanup is done.
-     *
-     * @param event the window event
-     */
-    @Override
-    public void windowClosing(WindowEvent event)
-    {
-        super.windowClosing(event);
-        handleClose();
-    }
-
-    /**
      * The dialog window is opened. This implementation performs initialization
      * of this controller.
      *
@@ -104,6 +90,18 @@ public class ErrorDialogController extends FormController
     {
         super.windowOpened(event);
         initializeController();
+    }
+
+    /**
+     * The dialog window is closing. This implementation calls
+     * {@code handleClose()} to ensure that the recover action is executed if
+     * necessary and that necessary cleanup is done.
+     */
+    @Override
+    protected void closeForm()
+    {
+        handleClose();
+        super.closeForm();
     }
 
     /**

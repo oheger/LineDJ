@@ -59,6 +59,11 @@
     taskBean="specificSongTask">
   </a:action>
 
+  <!-- An action for recovering from an error -->
+  <a:action name="playerRecoverErrorAction" textres="act_playererr_text"
+    taskBean="recoverFromErrorTask">
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -300,6 +305,14 @@
     <di:constructor>
       <di:param refName="controller"/>
       <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for recover from error action -->
+  <di:bean name="recoverFromErrorTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.RecoverFromErrorActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
     </di:constructor>
   </di:bean>
 </j:jelly>

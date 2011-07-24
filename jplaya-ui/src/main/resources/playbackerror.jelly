@@ -5,21 +5,29 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
-  <!-- The action for recovering playback -->
-  <a:action name="recoverAction" textres="act_playerrecover_text"
-    taskBean="recoverTask"/>
+  <!-- The dialog controller -->
+  <di:bean name="controller"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.ErrorDialogController">
+    <di:constructor>
+      <di:param refName="jguiraffe.guiSynchronizer"/>
+      <di:param refName="action:playerRecoverErrorAction"/>
+      <di:param refName="comp:countdown"/>
+    </di:constructor>
+    <di:setProperty property="btnOkName" value="btnRecover"/>
+    <di:setProperty property="btnCancelName" value="btnCancel"/>
+  </di:bean>
 
   <!-- The main window -->
   <w:dialog titleres="pberr_dialog_title" center="true">
     <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="4dlu"/>
     <f:label>
-      <f:borderconstr name="WEST/>"
+      <f:borderconstr name="WEST"/>
       <f:icon resource="dialog-error.png"/>
     </f:label>
     <f:panel>
       <f:borderconstr name="CENTER"/>
       <f:percentlayout
-        columns="full/preferred/100" rows="preferred preferred preferred">
+        columns="full/preferred/100" rows="preferred preferred preferred(1cm)">
       </f:percentlayout>
       <f:label textres="pberr_lab_errtxt1">
         <f:percentconstr col="0" row="0"/>
@@ -41,24 +49,7 @@
       <f:button name="btnCancel" textres="pberr_btn_cancel"
         mnemonicres="pberr_btn_cancel_mnemo"/>
     </f:panel>
+
+    <w:formController beanName="controller"/>
   </w:dialog>
-
-  <!-- The dialog controller -->
-  <di:bean name="controller"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.ErrorDialogController">
-    <di:constructor>
-      <di:param refName="jguiraffe.guiSynchronizer"/>
-      <di:param refName="action:recoverAction"/>
-      <di:param refName="comp:countdown"/>
-    </di:constructor>
-    <di:setProperty property="btnOkName" value="btnRecover"/>
-    <di:setProperty property="btnCancelName" value="btnCancel"/>
-  </di:bean>
-
-  <w:formController beanName="controller"/>
-
-  <!-- The action task for a recover operation -->
-  <di:bean name="recoverTask"
-    beanClass="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
-  </di:bean>
 </j:jelly>
