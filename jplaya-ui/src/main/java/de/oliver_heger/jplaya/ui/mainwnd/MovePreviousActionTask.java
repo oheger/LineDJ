@@ -27,11 +27,14 @@ public class MovePreviousActionTask extends AbstractChangeCurrentSongActionTask
      * Updates the index in the playlist. This implementation obtains the
      * {@code PlaylistController} and the current {@code PlaylistManager}. This
      * object is asked to move to the previous song.
+     *
+     * @return a flag whether the index could be updated successfully
      */
     @Override
-    protected void updatePlaylistIndex()
+    protected boolean updatePlaylistIndex()
     {
         getController().getPlaylistController().getPlaylistManager()
                 .previousSong();
+        return true;
     }
 }

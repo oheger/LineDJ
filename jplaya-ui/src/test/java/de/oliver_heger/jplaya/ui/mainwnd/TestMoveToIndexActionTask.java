@@ -1,5 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
 
 import org.easymock.EasyMock;
@@ -56,7 +58,7 @@ public class TestMoveToIndexActionTask extends EasyMockSupport
         replayAll();
         MoveToIndexActionTask task =
                 new MoveToIndexActionTask(controller, handler);
-        task.updatePlaylistIndex();
+        assertTrue("Wrong result", task.updatePlaylistIndex());
         verifyAll();
     }
 
@@ -71,7 +73,7 @@ public class TestMoveToIndexActionTask extends EasyMockSupport
         replayAll();
         MoveToIndexActionTask task =
                 new MoveToIndexActionTask(controller, handler);
-        task.updatePlaylistIndex();
+        assertFalse("Wrong result", task.updatePlaylistIndex());
         verifyAll();
     }
 }

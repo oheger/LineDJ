@@ -33,7 +33,7 @@ public class TestAbstractChangeCurrentSongActionTask extends EasyMockSupport
     @Test(expected = NullPointerException.class)
     public void testInitNoCtrl()
     {
-        new ChangeCurrentSongActionTaskTestImpl(null);
+        new ChangeCurrentSongActionTaskTestImpl(null, true);
     }
 
     /**
@@ -44,23 +44,39 @@ public class TestAbstractChangeCurrentSongActionTask extends EasyMockSupport
     {
         replayAll();
         ChangeCurrentSongActionTaskTestImpl task =
-                new ChangeCurrentSongActionTaskTestImpl(ctrl);
+                new ChangeCurrentSongActionTaskTestImpl(ctrl, true);
         assertSame("Wrong controller", ctrl, task.getController());
         assertFalse("GUI updates", task.isUpdateGUI());
     }
 
     /**
-     * Tests the execution of the action task.
+     * Tests the execution of the action task if the playlist could be updated.
      */
     @Test
-    public void testRun()
+    public void testRunUpdateSuccessful()
     {
         Application app = createMock(Application.class);
         ChangeCurrentSongActionTaskTestImpl task =
-                new ChangeCurrentSongActionTaskTestImpl(ctrl);
+                new ChangeCurrentSongActionTaskTestImpl(ctrl, true);
         ctrl.disablePlayerActions();
         EasyMock.expect(ctrl.getApplication()).andReturn(app);
         app.execute(task);
+        replayAll();
+        task.run();
+        assertEquals("Wrong number of calls", 1,
+                task.getUpdatePlaylistIndexCalls());
+        verifyAll();
+    }
+
+    /**
+     * Tests the execution of the action task if the playlist index could not be
+     * updated.
+     */
+    @Test
+    public void testRunUpdateNotSuccessful()
+    {
+        ChangeCurrentSongActionTaskTestImpl task =
+                new ChangeCurrentSongActionTaskTestImpl(ctrl, false);
         replayAll();
         task.run();
         assertEquals("Wrong number of calls", 1,
@@ -78,7 +94,7 @@ public class TestAbstractChangeCurrentSongActionTask extends EasyMockSupport
         ctrl.setUpAudioPlayer(0, 0);
         replayAll();
         ChangeCurrentSongActionTaskTestImpl task =
-                new ChangeCurrentSongActionTaskTestImpl(ctrl);
+                new ChangeCurrentSongActionTaskTestImpl(ctrl, true);
         task.execute();
         verifyAll();
     }
@@ -89,12 +105,25 @@ public class TestAbstractChangeCurrentSongActionTask extends EasyMockSupport
     private static class ChangeCurrentSongActionTaskTestImpl extends
             AbstractChangeCurrentSongActionTask
     {
+        /** A flag whether updating of the playlist index was successful. */
+        private final boolean updateResult;
+
         /** The number of invocations of the updatePlaylistIndex() method. */
         private int updateCalls;
 
-        public ChangeCurrentSongActionTaskTestImpl(MainWndController ctrl)
+        /**
+         * Creates a new instance of {@code ChangeCurrentSongActionTaskTestImpl}
+         * .
+         *
+         * @param ctrl the controller
+         * @param updateSuccessFlag the flag to be returned by
+         *        {@code updatePlaylistIndex()}
+         */
+        public ChangeCurrentSongActionTaskTestImpl(MainWndController ctrl,
+                boolean updateSuccessFlag)
         {
             super(ctrl);
+            updateResult = updateSuccessFlag;
         }
 
         /**
@@ -109,12 +138,14 @@ public class TestAbstractChangeCurrentSongActionTask extends EasyMockSupport
         }
 
         /**
-         * Records this invocation.
+         * Records this invocation and returns the flag passed to the
+         * constructor.
          */
         @Override
-        protected void updatePlaylistIndex()
+        protected boolean updatePlaylistIndex()
         {
             updateCalls++;
+            return updateResult;
         }
     }
 }

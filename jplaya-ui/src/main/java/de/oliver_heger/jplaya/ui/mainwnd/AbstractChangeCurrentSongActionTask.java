@@ -85,14 +85,22 @@ public abstract class AbstractChangeCurrentSongActionTask extends CommandBase
     @Override
     public void run()
     {
-        getController().disablePlayerActions();
-        updatePlaylistIndex();
-        getController().getApplication().execute(this);
+        if (updatePlaylistIndex())
+        {
+            getController().disablePlayerActions();
+            getController().getApplication().execute(this);
+        }
     }
 
     /**
      * Sets the new current song index in the playlist. This method is called
-     * (in the EDT) at the beginning of the execution of the action task.
+     * (in the EDT) at the beginning of the execution of the action task. The
+     * return value indicates whether the index was changed successfully. A
+     * value of <b>true</b> means that background processing is started to
+     * update the audio player. If the method returns <b>false</b>, this step is
+     * skipped.
+     *
+     * @return a flag whether the playlist index was changed
      */
-    protected abstract void updatePlaylistIndex();
+    protected abstract boolean updatePlaylistIndex();
 }

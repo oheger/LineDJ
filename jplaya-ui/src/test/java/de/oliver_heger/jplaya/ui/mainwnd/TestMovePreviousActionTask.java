@@ -1,5 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import static org.junit.Assert.assertTrue;
+
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
@@ -41,7 +43,7 @@ public class TestMovePreviousActionTask extends EasyMockSupport
         EasyMock.expect(plc.getPlaylistManager()).andReturn(pm);
         EasyMock.expect(pm.previousSong()).andReturn(Boolean.TRUE);
         replayAll();
-        task.updatePlaylistIndex();
+        assertTrue("Wrong result", task.updatePlaylistIndex());
         verifyAll();
     }
 }

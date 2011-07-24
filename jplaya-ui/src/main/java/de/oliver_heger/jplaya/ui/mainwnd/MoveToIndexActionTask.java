@@ -43,15 +43,19 @@ public class MoveToIndexActionTask extends AbstractChangeCurrentSongActionTask
     /**
      * Updates the current index of the playlist. This implementation obtains
      * the new current index from the playlist table.
+     *
+     * @return a flag whether the index could be updated successfully
      */
     @Override
-    protected void updatePlaylistIndex()
+    protected boolean updatePlaylistIndex()
     {
         int selIdx = tabHandler.getSelectedIndex();
         if (selIdx >= 0)
         {
             getController().getPlaylistController().getPlaylistManager()
                     .setCurrentSongIndex(selIdx);
+            return true;
         }
+        return false;
     }
 }
