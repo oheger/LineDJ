@@ -278,7 +278,7 @@ public class MainWndController implements AudioPlayerListener,
      * @param event the player event
      */
     @Override
-    public void error(AudioPlayerEvent event)
+    public void error(final AudioPlayerEvent event)
     {
         getSynchronizer().asyncInvoke(new Runnable()
         {
@@ -288,6 +288,7 @@ public class MainWndController implements AudioPlayerListener,
                 disablePlayerActions();
                 enableAction(ACTION_INIT_PLAYLIST, true);
                 enableAction(ACTION_PLAYER_SPEC, true);
+                updatePlaylistModelForNewSong(event);
             }
         });
         getApplication().execute(
@@ -369,11 +370,7 @@ public class MainWndController implements AudioPlayerListener,
             public void run()
             {
                 updatePlayerActionStates();
-                getPlaylistContext().setCurrentSongIndex(
-                        event.getStreamData().getIndex());
-                getPlaylistContext().setPlaybackRatio(0);
-                getPlaylistContext().setPlaybackTime(0);
-                getPlaylistModel().updateUI(getSongDataManager());
+                updatePlaylistModelForNewSong(event);
             }
         });
     }
@@ -867,5 +864,15 @@ public class MainWndController implements AudioPlayerListener,
         getPlaylistContext().setPlaybackRatio(relpos);
         getPlaylistContext().setPlaybackTime(time);
         getPlaylistModel().updateUI(getSongDataManager());
+    }
+
+    /**
+     * Updates the playlist model for a newly started song.
+     *
+     * @param event the event related to the song
+     */
+    private void updatePlaylistModelForNewSong(AudioPlayerEvent event)
+    {
+        initModel(event.getStreamData().getIndex(), 0, 0);
     }
 }

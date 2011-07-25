@@ -979,9 +979,16 @@ public class TestMainWndController extends EasyMockSupport
         FormAction actInitPL = createMock(FormAction.class);
         FormAction specSong = createMock(FormAction.class);
         AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
-        MainWndController ctrl =
-                new MainWndController(mockContext, store, model);
+        SongDataManager sdm = createMock(SongDataManager.class);
+        AudioStreamData data = createMock(AudioStreamData.class);
+        final int index = 42;
+        EasyMock.expect(event.getStreamData()).andReturn(data);
+        EasyMock.expect(data.getIndex()).andReturn(index);
+        MainWndControllerMockUpdateStatesTestImpl ctrl =
+                new MainWndControllerMockUpdateStatesTestImpl(null);
         setUpSynchronizer(ctrl);
+        model.updateUI(sdm);
+        EasyMock.expectLastCall().andAnswer(new CheckContextAnswer(index, 0));
         EasyMock.expect(mockContext.getBean(Application.BEAN_APPLICATION))
                 .andReturn(app);
         actStore.enableGroup(MainWndController.ACTGRP_PLAYER, false);
@@ -1006,12 +1013,17 @@ public class TestMainWndController extends EasyMockSupport
         });
         replayAll();
         ctrl.setActionStore(actStore);
+        ctrl.installSongDataManagerMock(sdm);
+        context.setPlaybackRatio(100);
         ctrl.error(event);
         assertEquals("Wrong number of commands", 1, cmds.size());
         OpenWindowCommand openCmd = (OpenWindowCommand) cmds.get(0);
         ClassPathLocator loc = (ClassPathLocator) openCmd.getLocator();
         assertEquals("Wrong resource name", "playbackerror.jelly",
                 loc.getResourceName());
+        assertEquals("Wrong playback ratio", 0, context.getPlaybackRatio());
+        assertEquals("Wrong number of update calls", 0,
+                ctrl.getUpdateStatesCount());
         verifyAll();
     }
 
