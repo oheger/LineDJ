@@ -622,6 +622,7 @@ public class TestAudioPlayer
         player.addAudioPlayerListener(listener);
         player.error(ex);
         assertFalse("Still playing", player.isPlaying());
+        assertTrue("Not terminated", player.isTerminate());
         player.executeAllCommands();
         EasyMock.verify(listener, line);
     }

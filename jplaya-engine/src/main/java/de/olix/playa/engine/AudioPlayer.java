@@ -755,13 +755,18 @@ public class AudioPlayer extends Thread
     /**
      * An exception has occurred while playing a song. This method creates a new
      * event object referring to the specified exception and sends it to the
-     * registered listeners. It also stops playback immediately.
+     * registered listeners. It also stops playback immediately and terminates
+     * the player. This means that the player object cannot be used any longer.
+     * (It has shown in practice that most exceptions leave the player or the
+     * audio buffer in a corrupt state; so it is not possible to recover in a
+     * reliable way.)
      *
      * @param exection the exception that caused this error event
      */
     protected void error(Throwable exception)
     {
         stopPlayback();
+        terminate();
         getCommandDispatchThread().execute(
                 new FireEventCommand(createEvent(
                         AudioPlayerEvent.Type.EXCEPTION, exception))
