@@ -527,6 +527,21 @@ public class TestXMLPlaylistManagerFactory
     }
 
     /**
+     * Tests whether some internal settings of the configuration used for saving
+     * the playlist are correctly initialized.
+     */
+    @Test
+    public void testCreateSaveConfigSettings()
+    {
+        XMLPlaylistManagerFactoryTestImpl factory = createFactory();
+        XMLConfiguration config = (XMLConfiguration) factory.createSaveConfig();
+        assertTrue("Delimiter parsing not disabled",
+                config.isDelimiterParsingDisabled());
+        assertTrue("Attribute splitting not disabled",
+                config.isAttributeSplittingDisabled());
+    }
+
+    /**
      * Tests whether the state of a manager can be saved.
      */
     @Test

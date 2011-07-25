@@ -325,6 +325,8 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     {
         XMLConfiguration config = new XMLConfiguration();
         config.setEncoding(ENCODING);
+        config.setDelimiterParsingDisabled(true);
+        config.setAttributeSplittingDisabled(true);
         return config;
     }
 
