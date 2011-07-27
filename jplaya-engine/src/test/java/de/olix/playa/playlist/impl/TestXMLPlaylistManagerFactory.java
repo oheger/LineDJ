@@ -205,6 +205,8 @@ public class TestXMLPlaylistManagerFactory
     private static XMLConfiguration createPlaylistConfig(List<String> uris)
     {
         XMLConfiguration config = new XMLConfiguration();
+        config.setAttributeSplittingDisabled(true);
+        config.setDelimiterParsingDisabled(true);
         for (String uri : uris)
         {
             config.addProperty(KEY_ADDFILE, uri);
@@ -394,6 +396,28 @@ public class TestXMLPlaylistManagerFactory
                 .getInitialPositionInfo().getPosition());
         assertEquals("Wrong song count", 1, manager.getPlaylistInfo()
                 .getNumberOfSongs());
+        EasyMock.verify(scanner);
+    }
+
+    /**
+     * Tests that list delimiters in the playlist configuration do not cause
+     * problems.
+     */
+    @Test
+    public void testCreatePlaylistManagerExistingWithDelimiters()
+            throws IOException
+    {
+        List<String> uris = prepareScannerMock();
+        final String testURI = "file:///La, La, La.mp3";
+        uris.add(testURI);
+        XMLConfiguration config = createPlaylistConfig(uris);
+        saveConfig(config, EXT_PLIST);
+        XMLPlaylistManagerFactoryTestImpl factory = createFactory();
+        factory.installMockChecksum(CHECKSUM, uris);
+        PlaylistManager manager = factory.createPlaylistManager(DEF_ORDER);
+        List<String> songURIs = manager.getSongURIs();
+        assertEquals("Wrong song count", SONG_COUNT + 1, songURIs.size());
+        assertEquals("Wrong special URI", testURI, songURIs.get(SONG_COUNT));
         EasyMock.verify(scanner);
     }
 

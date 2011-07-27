@@ -480,6 +480,8 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
             throws ConfigurationException
     {
         XMLConfiguration config = new XMLConfiguration();
+        config.setAttributeSplittingDisabled(true);
+        config.setDelimiterParsingDisabled(true);
         config.setFile(f);
         config.load();
         return config;
