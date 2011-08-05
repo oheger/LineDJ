@@ -13,6 +13,8 @@ import com.sun.jersey.api.client.UniformInterface;
 import com.sun.jersey.api.client.WebResource;
 
 import de.oliver_heger.mediastore.localstore.SyncController;
+import de.oliver_heger.mediastore.localstore.model.AlbumEntity;
+import de.oliver_heger.mediastore.localstore.model.ArtistEntity;
 import de.oliver_heger.mediastore.localstore.model.SongEntity;
 import de.oliver_heger.mediastore.oauth.NotAuthorizedException;
 import de.oliver_heger.mediastore.oauth.OAuthTemplate;
@@ -148,8 +150,8 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
         boolean albumResult = syncAlbum(resource);
         boolean songResult = syncSong(resource, fetchSongData());
 
-        getController().afterSongSync(fetchSongData(), songResult, artistResult,
-                albumResult);
+        getController().afterSongSync(fetchSongData(), songResult,
+                artistResult, albumResult);
         return null;
     }
 
@@ -196,7 +198,8 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
         if (getController().beforeSongSync(data))
         {
             executed = true;
-            if (!getOAuthTemplate().execute(this, getController().getOAuthCallback()))
+            if (!getOAuthTemplate().execute(this,
+                    getController().getOAuthCallback()))
             {
                 getController().authorizationFailed(data);
                 executed = false;
@@ -221,8 +224,8 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
         data.setPlayCount(getSong().getCurrentPlayCount());
         if (getSong().getDuration() != null)
         {
-            data.setDuration(BigInteger.valueOf(getSong().getDuration().intValue()
-                    * MILLIS));
+            data.setDuration(BigInteger.valueOf(getSong().getDuration()
+                    .intValue() * MILLIS));
         }
         if (getSong().getAlbum() != null)
         {
@@ -254,29 +257,41 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
 
     /**
      * Creates an {@link ArtistData} object for the synchronization of the
-     * artist of the current song. This object is sent to the server. This
-     * implementation expects that an artist entity is available.
+     * artist of the current song. This object is sent to the server. If there
+     * is no artist, result is <b>null</b>.
      *
      * @return the {@link ArtistData} object
      */
     ArtistData createArtistData()
     {
+        ArtistEntity artist = song.getArtist();
+        if (artist == null)
+        {
+            return null;
+        }
+
         ArtistData data = factory.createArtistData();
-        DTOTransformer.transform(getSong().getArtist(), data);
+        DTOTransformer.transform(artist, data);
         return data;
     }
 
     /**
      * Creates an {@link AlbumData} object for the synchronization of the album
-     * of the current song. This object is sent to the server. This
-     * implementation expects that an album entity is available.
+     * of the current song. This object is sent to the server. If there is no
+     * album, result is <b>null</b>.
      *
      * @return the {@link AlbumData} object
      */
     AlbumData createAlbumData()
     {
+        AlbumEntity album = song.getAlbum();
+        if (album == null)
+        {
+            return null;
+        }
+
         AlbumData data = factory.createAlbumData();
-        DTOTransformer.transform(getSong().getAlbum(), data);
+        DTOTransformer.transform(album, data);
         return data;
     }
 
@@ -324,7 +339,8 @@ class SyncSongCommand extends JPACommand implements ResourceProcessor
      *
      * @param resource the fully initialized resource object
      * @param path the sub-path of the resource this request is about
-     * @param data the data object to be sent
+     * @param data the data object to be sent (may be <b>null</b>, then no
+     *        action is performed)
      * @return a flag whether a new object was created on the server
      * @throws NotAuthorizedException if the call was not authorized
      */

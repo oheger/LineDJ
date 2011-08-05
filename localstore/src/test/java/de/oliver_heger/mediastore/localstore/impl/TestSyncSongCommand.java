@@ -135,6 +135,17 @@ public class TestSyncSongCommand
     }
 
     /**
+     * Tests createAlbumData() if the song does not reference an album.
+     */
+    @Test
+    public void testCreateAlbumDataNoAlbum()
+    {
+        song.setAlbum(null);
+        SyncSongCommand cmd = createTestCommand();
+        assertNull("Got an album data object", cmd.createAlbumData());
+    }
+
+    /**
      * Tests whether a correct artist data object is created.
      */
     @Test
@@ -144,6 +155,18 @@ public class TestSyncSongCommand
         ArtistData data = cmd.createArtistData();
         ArtistEntity artist = song.getArtist();
         assertEquals("Wrong artist name", artist.getName(), data.getName());
+    }
+
+    /**
+     * Tests createArtistData() if the song does not contain an artist
+     * reference.
+     */
+    @Test
+    public void testCreateArtistDataNoArtist()
+    {
+        song.setArtist(null);
+        SyncSongCommand cmd = createTestCommand();
+        assertNull("Got an artist data object", cmd.createArtistData());
     }
 
     /**
