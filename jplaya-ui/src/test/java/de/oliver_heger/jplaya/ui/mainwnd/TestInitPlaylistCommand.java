@@ -87,7 +87,6 @@ public class TestInitPlaylistCommand
     public void testPerformGUIUpdateSuccess()
     {
         final List<PlaylistItem> items = createItemListMock();
-        controller.updatePlayerActionStates();
         controller.initializePlaylistModel(items);
         EasyMock.replay(controller, items);
         InitPlaylistCommand cmd = new InitPlaylistCommand(controller)

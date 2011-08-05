@@ -66,15 +66,17 @@ public class InitPlaylistCommand extends CommandBase
      * Updates the UI after background processing. This implementation checks
      * whether the playlist could be initialized successfully. If this is the
      * case, the player is already playing. Otherwise a message box with an
-     * error message is displayed. In any case the states of actions have to be
-     * updated.
+     * error message is displayed. Also, it has to ensured that actions related
+     * to the player are updated. This is done automatically if the player was
+     * started successfully (when the first events from the player arrive).
+     * Otherwise, an update has to be performed manually.
      */
     @Override
     protected void performGUIUpdate()
     {
-        controller.updatePlayerActionStates();
         if (getException() != null)
         {
+            controller.updatePlayerActionStates();
             controller
                     .getApplication()
                     .getApplicationContext()
