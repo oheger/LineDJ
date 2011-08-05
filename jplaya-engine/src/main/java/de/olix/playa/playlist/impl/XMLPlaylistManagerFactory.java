@@ -553,7 +553,7 @@ public class XMLPlaylistManagerFactory implements PlaylistManagerFactory
     private List<String> createDirectoriesPlaylist(Collection<String> songURIs)
     {
         List<String> playlist = new ArrayList<String>(songURIs);
-        Collections.sort(playlist);
+        Collections.sort(playlist, String.CASE_INSENSITIVE_ORDER);
         return playlist;
     }
 

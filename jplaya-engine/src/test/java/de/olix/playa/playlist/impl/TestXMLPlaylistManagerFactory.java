@@ -727,6 +727,34 @@ public class TestXMLPlaylistManagerFactory
     }
 
     /**
+     * Tests that case does not matter when sorting the directories playlist.
+     */
+    @Test
+    public void testSetupPlaylistDirectoriesOrderCaseInsensitive()
+    {
+        String[] songs =
+                {
+                        "Marillion - Grendel", "zZ Top - Texas",
+                        "abba - Waterloo", "ABBA - lay all your love on me",
+                        "marillion - lady Nina"
+                };
+        int[] expOrder = {
+                3, 2, 0, 4, 1
+        };
+        XMLPlaylistManagerFactoryTestImpl factory = createFactory();
+        PlaylistSettingsDTO settings = new PlaylistSettingsDTO();
+        settings.setOrder(PlaylistOrder.DIRECTORIES);
+        List<String> playlist =
+                factory.setUpPlaylist(Arrays.asList(songs), settings,
+                        PlaylistOrder.UNDEFINED);
+        for (int i = 0; i < expOrder.length; i++)
+        {
+            assertEquals("Wrong element at " + i + ": " + playlist,
+                    songs[expOrder[i]], playlist.get(i));
+        }
+    }
+
+    /**
      * Tests whether the default order is used when constructing a playlist if
      * no order is defined in the settings.
      */
