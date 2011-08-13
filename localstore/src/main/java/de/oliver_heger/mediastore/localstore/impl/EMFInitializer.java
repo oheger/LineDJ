@@ -41,6 +41,12 @@ public class EMFInitializer extends BackgroundInitializer<EntityManagerFactory>
     /** Constant for the format pattern for the DB connection string. */
     private static final String FMT_CONNSTR = "jdbc:hsqldb:%s";
 
+    /** Constant for the backslash character. */
+    private static final char BACK_SLASH = '\\';
+
+    /** Constant for the slash character. */
+    private static final char SLASH = '/';
+
     /** The path of the database connection. */
     private final String dbSubPath;
 
@@ -88,6 +94,7 @@ public class EMFInitializer extends BackgroundInitializer<EntityManagerFactory>
     {
         File homeDir = new File(System.getProperty(PROP_USER_HOME));
         File dbFile = new File(homeDir, subPath);
-        return String.format(FMT_CONNSTR, dbFile.toURI().toString());
+        return String.format(FMT_CONNSTR,
+                dbFile.getAbsolutePath().replace(BACK_SLASH, SLASH));
     }
 }
