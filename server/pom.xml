@@ -257,7 +257,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>gwt-maven-plugin</artifactId>
-        <version>2.1.0-1</version>
+        <version>2.3.0-1</version>
         <configuration>
           <logLevel>INFO</logLevel>
 
@@ -308,7 +308,7 @@
       <plugin>
         <groupId>net.kindleit</groupId>
         <artifactId>maven-gae-plugin</artifactId>
-        <version>0.7.3</version>
+        <version>0.9.0</version>
         <dependencies>
           <dependency>
             <groupId>net.kindleit</groupId>
@@ -342,10 +342,10 @@
 
     <!-- Specify AppEngine version for your project. It should match SDK version pointed to
       by ${gae.home} property (Typically, one used by your Eclipse plug-in) -->
-    <gae.version>1.4.0</gae.version>
+    <gae.version>1.5.2</gae.version>
 
     <!-- GWT version -->
-    <gwt.version>2.1.0</gwt.version>
+    <gwt.version>2.3.0</gwt.version>
 
     <!-- Upload to http://test.latest.<applicationName>.appspot.com by default -->
     <gae.application.version>test</gae.application.version>
