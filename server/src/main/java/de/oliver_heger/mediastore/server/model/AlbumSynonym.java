@@ -25,6 +25,9 @@ public class AlbumSynonym extends AbstractSynonym
     @ManyToOne
     private AlbumEntity album;
 
+    /** The inception year of the synonym album. */
+    private Integer inceptionYear;
+
     /**
      * Returns the album this synonym belongs to.
      *
@@ -46,9 +49,29 @@ public class AlbumSynonym extends AbstractSynonym
     }
 
     /**
+     * Returns the inception year of the synonym album.
+     *
+     * @return the inception year
+     */
+    public Integer getInceptionYear()
+    {
+        return inceptionYear;
+    }
+
+    /**
+     * Sets the inception year of the synonym album.
+     *
+     * @param inceptionYear the inception year
+     */
+    public void setInceptionYear(Integer inceptionYear)
+    {
+        this.inceptionYear = inceptionYear;
+    }
+
+    /**
      * Compares this object with another one. In addition to the checks
      * performed by the base class, this implementation tests whether the
-     * synonyms belong to the same album.
+     * synonyms belong to the same album and have the same inception year.
      *
      * @param obj the object to compare to
      * @return a flag whether these objects are equal
@@ -66,6 +89,7 @@ public class AlbumSynonym extends AbstractSynonym
         }
 
         AlbumSynonym c = (AlbumSynonym) obj;
-        return ObjectUtils.equals(getAlbum(), c.getAlbum());
+        return ObjectUtils.equals(getInceptionYear(), c.getInceptionYear())
+                && ObjectUtils.equals(getAlbum(), c.getAlbum());
     }
 }

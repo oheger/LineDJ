@@ -42,6 +42,9 @@ public class TestAlbumSynonym
         synonym.setAlbum(album);
         syn2.setAlbum(album);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
+        synonym.setInceptionYear(1999);
+        syn2.setInceptionYear(synonym.getInceptionYear());
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
     }
 
     /**
@@ -61,6 +64,11 @@ public class TestAlbumSynonym
         AlbumEntity a = new AlbumEntity();
         a.setName("Fugazzi");
         syn2.setAlbum(a);
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        syn2.setAlbum(synonym.getAlbum());
+        synonym.setInceptionYear(1988);
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        syn2.setInceptionYear(1987);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
     }
 
