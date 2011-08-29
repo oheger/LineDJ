@@ -677,7 +677,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (String syn : syns)
         {
-            AlbumSynonym albumSynonym = album.findSynonym(syn);
+            AlbumSynonym albumSynonym = album.findSynonym(syn, null);
             if (albumSynonym != null)
             {
                 album.removeSynonym(albumSynonym);
@@ -715,9 +715,9 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (AlbumSynonym as : src.getSynonyms())
         {
-            dest.addSynonymName(as.getName());
+            dest.addSynonymName(as.getName(), null);
         }
-        dest.addSynonymName(src.getName());
+        dest.addSynonymName(src.getName(), null);
     }
 
     /**

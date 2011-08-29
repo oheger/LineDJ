@@ -221,7 +221,7 @@ public class TestBasicMediaServiceImpl
     {
         for (String syn : ALBUM_SYNONYMS)
         {
-            e.addSynonymName(syn);
+            e.addSynonymName(syn, null);
         }
     }
 
@@ -918,13 +918,13 @@ public class TestBasicMediaServiceImpl
     public void testUpdateAlbumSynonymsNewSyns()
     {
         AlbumEntity album = createBasicAlbum();
-        album.addSynonymName(ALBUM_SYNONYMS[0]);
+        album.addSynonymName(ALBUM_SYNONYMS[0], null);
         helper.persist(album);
         AlbumEntity albSyn = createBasicAlbum();
         albSyn.setName(ALBUM_SYNONYMS[1]);
         for (int i = 2; i < ALBUM_SYNONYMS.length; i++)
         {
-            albSyn.addSynonymName(ALBUM_SYNONYMS[i]);
+            albSyn.addSynonymName(ALBUM_SYNONYMS[i], null);
         }
         helper.persist(albSyn);
         SynonymUpdateData ud =

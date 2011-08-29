@@ -257,13 +257,13 @@ public class AlbumEntity implements Serializable
      * delegates to {@link #addSynonym(AlbumSynonym)}.
      *
      * @param synName the name of the synonym to be added
+     * @param synYear the inception year of the synonym album
      * @return a flag whether the synonym could be added
      * @throws NullPointerException if the name is <b>null</b>
      */
-    public boolean addSynonymName(String synName)
+    public boolean addSynonymName(String synName, Integer synYear)
     {
-        AlbumSynonym syn = new AlbumSynonym();
-        syn.setName(synName);
+        AlbumSynonym syn = createAlbumSynonym(synName, synYear);
         return addSynonym(syn);
     }
 
@@ -288,24 +288,35 @@ public class AlbumEntity implements Serializable
      * Removes the specified synonym name from this entity if it can be found.
      *
      * @param synName the synonym name to be removed
+     * @param inceptionYear the inception year of the synonym album
      * @return a flag whether this operation was successful
      */
-    public boolean removeSynonymName(String synName)
+    public boolean removeSynonymName(String synName, Integer inceptionYear)
     {
-        return removeSynonym(findSynonym(synName));
+        return removeSynonym(findSynonym(synName, inceptionYear));
     }
 
     /**
      * Returns the {@link AlbumSynonym} entity with the specified synonym name
-     * if it can be found.
+     * and inception year if it can be found.
      *
      * @param synName the synonym name
+     * @param inceptionYear the inception year of the synonym
      * @return the corresponding {@link AlbumEntity} object or <b>null</b> if
      *         the synonym cannot be resolved
      */
-    public AlbumSynonym findSynonym(String synName)
+    public AlbumSynonym findSynonym(String synName, Integer inceptionYear)
     {
-        return AbstractSynonym.findSynonym(synonyms, synName);
+        AlbumSynonym syn = createAlbumSynonym(synName, inceptionYear);
+        syn.setAlbum(this);
+        for (AlbumSynonym as : getSynonyms())
+        {
+            if (syn.equals(as))
+            {
+                return as;
+            }
+        }
+        return null;
     }
 
     /**
@@ -425,6 +436,21 @@ public class AlbumEntity implements Serializable
     String getSearchName()
     {
         return searchName;
+    }
+
+    /**
+     * Creates and initializes a synonym object for an album.
+     *
+     * @param synName the synonym name
+     * @param synYear the inception year
+     * @return the entity object
+     */
+    private AlbumSynonym createAlbumSynonym(String synName, Integer synYear)
+    {
+        AlbumSynonym syn = new AlbumSynonym();
+        syn.setName(synName);
+        syn.setInceptionYear(synYear);
+        return syn;
     }
 
     /**

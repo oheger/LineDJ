@@ -206,7 +206,7 @@ public class TestAlbumEntity
         {
             String synName = SYNONYM_PREFIX + i;
             expSynNames.add(synName);
-            assertTrue("Could not add synonym", a.addSynonymName(synName));
+            assertTrue("Could not add synonym", a.addSynonymName(synName, null));
         }
         helper.persist(a);
         helper.closeEM();
@@ -229,7 +229,7 @@ public class TestAlbumEntity
     @Test(expected = NullPointerException.class)
     public void testAddSynonymNameNull()
     {
-        new AlbumEntity().addSynonymName(null);
+        new AlbumEntity().addSynonymName(null, null);
     }
 
     /**
@@ -248,9 +248,23 @@ public class TestAlbumEntity
     public void testAddSynonymDuplicate()
     {
         AlbumEntity a = new AlbumEntity();
-        assertTrue("Wrong result 1", a.addSynonymName(SYNONYM_PREFIX));
-        assertFalse("Wrong result 2", a.addSynonymName(SYNONYM_PREFIX));
+        assertTrue("Wrong result 1", a.addSynonymName(SYNONYM_PREFIX, null));
+        assertFalse("Wrong result 2", a.addSynonymName(SYNONYM_PREFIX, null));
         assertEquals("Wrong number of synonyms", 1, a.getSynonyms().size());
+    }
+
+    /**
+     * Tests whether the inception year is taken into account for synonym names.
+     */
+    @Test
+    public void testAddSynonymNameWithYear()
+    {
+        AlbumEntity a = new AlbumEntity();
+        assertTrue("Wrong result 1", a.addSynonymName(SYNONYM_PREFIX, YEAR));
+        assertFalse("Duplicate not detected",
+                a.addSynonymName(SYNONYM_PREFIX, YEAR));
+        assertTrue("Wrong result 2", a.addSynonymName(SYNONYM_PREFIX, YEAR + 1));
+        assertEquals("Wrong number of synonyms", 2, a.getSynonyms().size());
     }
 
     /**
@@ -264,11 +278,32 @@ public class TestAlbumEntity
         syn.setName(SYNONYM_PREFIX);
         assertTrue("Wrong result 1", a.addSynonym(syn));
         final String synName = SYNONYM_PREFIX + "_other";
-        assertTrue("Wrong result 2", a.addSynonymName(synName));
+        assertTrue("Wrong result 2", a.addSynonymName(synName, null));
         assertTrue("Could not remove synonym", a.removeSynonym(syn));
         assertEquals("Wrong number of synonyms", 1, a.getSynonyms().size());
         assertEquals("Wrong synonym name", synName, a.getSynonyms().iterator()
                 .next().getName());
+    }
+
+    /**
+     * Tests whether the synonym year is taken into account when removing
+     * synonym names.
+     */
+    @Test
+    public void testRemoveSynonymNameWithYear()
+    {
+        AlbumEntity a = new AlbumEntity();
+        a.addSynonymName(SYNONYM_PREFIX, null);
+        assertTrue("Wrong result 1", a.addSynonymName(SYNONYM_PREFIX, YEAR));
+        assertTrue("Wrong result 2", a.removeSynonymName(SYNONYM_PREFIX, YEAR));
+        Set<AlbumSynonym> synonyms = a.getSynonyms();
+        assertEquals("Wrong number of synonyms", 1, synonyms.size());
+        AlbumSynonym syn = synonyms.iterator().next();
+        assertNull("Got an inception year", syn.getInceptionYear());
+        assertFalse("Could remove synonym with wrong year",
+                a.removeSynonymName(SYNONYM_PREFIX, YEAR + 1));
+        assertTrue("Wrong result 3", a.removeSynonymName(SYNONYM_PREFIX, null));
+        assertTrue("Still got synonyms", a.getSynonyms().isEmpty());
     }
 
     /**
@@ -278,8 +313,8 @@ public class TestAlbumEntity
     public void testRemoveSynonymNonExisting()
     {
         AlbumEntity a = new AlbumEntity();
-        a.addSynonymName(SYNONYM_PREFIX);
-        assertFalse("Wrong result", a.removeSynonymName(TEST_NAME));
+        a.addSynonymName(SYNONYM_PREFIX, null);
+        assertFalse("Wrong result", a.removeSynonymName(TEST_NAME, null));
         assertEquals("Wrong number of synonyms", 1, a.getSynonyms().size());
     }
 
@@ -329,12 +364,14 @@ public class TestAlbumEntity
     public void testRemovePersistentSynonyms()
     {
         AlbumEntity a = createAlbum();
-        a.addSynonymName(SYNONYM_PREFIX);
+        a.addSynonymName(SYNONYM_PREFIX, null);
+        a.addSynonymName(SYNONYM_PREFIX, YEAR);
         helper.persist(a);
         helper.closeEM();
         helper.begin();
         a = helper.getEM().find(AlbumEntity.class, a.getId());
-        assertTrue("Wrong result", a.removeSynonymName(SYNONYM_PREFIX));
+        assertTrue("Wrong result 1", a.removeSynonymName(SYNONYM_PREFIX, null));
+        assertTrue("Wrong result 2", a.removeSynonymName(SYNONYM_PREFIX, YEAR));
         helper.commit();
         helper.closeEM();
         a = helper.getEM().find(AlbumEntity.class, a.getId());
@@ -352,7 +389,7 @@ public class TestAlbumEntity
         AlbumEntity a = createAlbum();
         for (int i = 0; i < synCount; i++)
         {
-            a.addSynonymName(SYNONYM_PREFIX + i);
+            a.addSynonymName(SYNONYM_PREFIX + i, null);
         }
         helper.persist(a);
         assertEquals("Wrong number of synonyms (1)", synCount,
@@ -379,7 +416,7 @@ public class TestAlbumEntity
                             : PersistenceTestHelper
                                     .getUser(PersistenceTestHelper.OTHER_USER);
             ae.setUser(usr);
-            ae.addSynonymName(SYNONYM_PREFIX + i);
+            ae.addSynonymName(SYNONYM_PREFIX + i, null);
             helper.persist(ae);
         }
     }
@@ -447,15 +484,15 @@ public class TestAlbumEntity
     {
         Set<Long> expAlbumIDs = new HashSet<Long>();
         AlbumEntity album = createAlbum();
-        album.addSynonymName(SYNONYM_PREFIX);
+        album.addSynonymName(SYNONYM_PREFIX, null);
         helper.persist(album);
         expAlbumIDs.add(album.getId());
         persistTestAlbums();
         album = new AlbumEntity();
         album.setName("Another album");
         album.setUser(PersistenceTestHelper.getTestUser());
-        album.addSynonymName(SYNONYM_PREFIX);
-        album.addSynonymName(SYNONYM_PREFIX + 11);
+        album.addSynonymName(SYNONYM_PREFIX, null);
+        album.addSynonymName(SYNONYM_PREFIX + 11, null);
         helper.persist(album);
         expAlbumIDs.add(album.getId());
         helper.closeEM();
@@ -472,7 +509,7 @@ public class TestAlbumEntity
     public void testFindBySynonymNoMatch()
     {
         AlbumEntity album = createAlbum();
-        album.addSynonymName(SYNONYM_PREFIX);
+        album.addSynonymName(SYNONYM_PREFIX, null);
         helper.persist(album);
         assertTrue(
                 "Got results",
@@ -492,14 +529,14 @@ public class TestAlbumEntity
     {
         Set<Long> expAlbumIDs = new HashSet<Long>();
         AlbumEntity album = createAlbum();
-        album.addSynonymName("some synonym");
+        album.addSynonymName("some synonym", null);
         helper.persist(album);
         expAlbumIDs.add(album.getId());
         persistTestAlbums();
         album = new AlbumEntity();
         album.setName("Another test album...");
         album.setUser(PersistenceTestHelper.getTestUser());
-        album.addSynonymName(TEST_NAME);
+        album.addSynonymName(TEST_NAME, null);
         helper.persist(album);
         expAlbumIDs.add(album.getId());
         helper.closeEM();
@@ -519,7 +556,7 @@ public class TestAlbumEntity
         AlbumEntity album = new AlbumEntity();
         album.setName(SYNONYM_PREFIX);
         album.setUser(PersistenceTestHelper.getTestUser());
-        album.addSynonymName(TEST_NAME);
+        album.addSynonymName(TEST_NAME, null);
         helper.persist(album);
         persistTestAlbums();
         assertTrue(
@@ -539,7 +576,7 @@ public class TestAlbumEntity
     public void testFindByNameAndSynonymNoDuplicates()
     {
         AlbumEntity album = createAlbum();
-        album.addSynonymName(TEST_NAME);
+        album.addSynonymName(TEST_NAME, null);
         helper.persist(album);
         persistTestAlbums();
         helper.closeEM();
