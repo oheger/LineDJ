@@ -1,13 +1,14 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,12 +33,32 @@ public class TestArtistDetailInfo
     }
 
     /**
-     * Tests whether an empty set is returned if there are no synonyms.
+     * Tests whether a string representation of the ID can be queried.
      */
     @Test
-    public void testGetSynonymsEmpty()
+    public void testGetIDAsString()
     {
-        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        final Long id = 20110831211610L;
+        info.setArtistID(id);
+        assertEquals("Wrong ID", id.toString(), info.getIDAsString());
+    }
+
+    /**
+     * Tests getIDAsString() if there is no ID.
+     */
+    @Test
+    public void testGetIDAsStringUndefined()
+    {
+        assertNull("Got an ID", info.getIDAsString());
+    }
+
+    /**
+     * Tests whether an empty map is returned if there are no synonyms.
+     */
+    @Test
+    public void testGetSynonymDataEmpty()
+    {
+        assertTrue("Got synonyms", info.getSynonymData().isEmpty());
     }
 
     /**
@@ -59,14 +80,30 @@ public class TestArtistDetailInfo
     }
 
     /**
+     * Creates a map with some test synonyms.
+     *
+     * @return the map with synonym data
+     */
+    private static Map<String, String> createSynonyms()
+    {
+        final String[] synonyms = {
+                "Art1", "The Artist"
+        };
+        final String key = "synKey";
+        Map<String, String> syns = new HashMap<String, String>();
+        for (int i = 0; i < synonyms.length; i++)
+        {
+            syns.put(key + i, synonyms[i]);
+        }
+        return syns;
+    }
+
+    /**
      * Tests whether an instance can be serialized.
      */
     @Test
     public void testSerialization() throws IOException
     {
-        final String[] synonyms = {
-                "Art1", "The Artist"
-        };
         final String[] songNames = {
                 "Song1", "Another Song", "The new song"
         };
@@ -74,7 +111,7 @@ public class TestArtistDetailInfo
             "MyAlbum"
         };
         info.setName("Artist");
-        info.setSynonyms(new HashSet<String>(Arrays.asList(synonyms)));
+        info.setSynonymData(createSynonyms());
         List<SongInfo> songs = new ArrayList<SongInfo>(songNames.length);
         for (String songName : songNames)
         {
@@ -92,9 +129,7 @@ public class TestArtistDetailInfo
         }
         info.setAlbums(albums);
         ArtistDetailInfo info2 = RemoteMediaStoreTestHelper.serialize(info);
-        assertEquals("Wrong synonyms",
-                new HashSet<String>(Arrays.asList(synonyms)),
-                info2.getSynonyms());
+        assertEquals("Wrong synonyms", createSynonyms(), info2.getSynonymData());
         assertEquals("Wrong number of songs", songNames.length, info2
                 .getSongs().size());
         for (int i = 0; i < songNames.length; i++)

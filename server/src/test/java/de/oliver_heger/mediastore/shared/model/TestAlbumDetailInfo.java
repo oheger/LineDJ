@@ -1,14 +1,15 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -33,12 +34,33 @@ public class TestAlbumDetailInfo
     }
 
     /**
-     * Tests whether an empty set is returned if there are no synonyms.
+     * Tests whether the ID can be queried as string.
      */
     @Test
-    public void testGetSynonymsEmpty()
+    public void testGetIDAsString()
     {
-        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        final Long albumID = 20110831205604L;
+        info.setAlbumID(albumID);
+        assertEquals("Wrong string ID", albumID.toString(),
+                info.getIDAsString());
+    }
+
+    /**
+     * Tests getIDAsString() if no album ID is available.
+     */
+    @Test
+    public void testGetIDAsStringUndefined()
+    {
+        assertNull("Got an ID string", info.getIDAsString());
+    }
+
+    /**
+     * Tests whether an empty map is returned if there are no synonyms.
+     */
+    @Test
+    public void testGetSynonymDataEmpty()
+    {
+        assertTrue("Got synonyms", info.getSynonymData().isEmpty());
     }
 
     /**
@@ -65,10 +87,10 @@ public class TestAlbumDetailInfo
     @Test
     public void testSerialization() throws IOException
     {
-        Set<String> synonyms = new HashSet<String>();
-        synonyms.add("syn1");
-        synonyms.add("syn2");
-        info.setSynonyms(synonyms);
+        Map<String, String> synonyms = new HashMap<String, String>();
+        synonyms.put("key1", "syn1");
+        synonyms.put("key2", "syn2");
+        info.setSynonymData(synonyms);
         List<SongInfo> songs = new ArrayList<SongInfo>();
         SongInfo song = new SongInfo();
         song.setName("LaLa1");
@@ -86,7 +108,7 @@ public class TestAlbumDetailInfo
         artists.add(art);
         info.setArtists(artists);
         AlbumDetailInfo info2 = RemoteMediaStoreTestHelper.serialize(info);
-        assertEquals("Wrong synonyms", synonyms, info2.getSynonyms());
+        assertEquals("Wrong synonyms", synonyms, info2.getSynonymData());
         assertEquals("Wrong number of songs", songs.size(), info2.getSongs()
                 .size());
         Iterator<SongInfo> songIt = info2.getSongs().iterator();

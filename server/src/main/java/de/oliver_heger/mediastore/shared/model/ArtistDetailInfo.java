@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import de.oliver_heger.mediastore.shared.ObjectUtils;
@@ -23,10 +24,10 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
     /**
      * The serial version UID.
      */
-    private static final long serialVersionUID = 20101201L;
+    private static final long serialVersionUID = 20110831L;
 
-    /** A collection with the synonyms defined for this artist. */
-    private Set<String> synonyms;
+    /** A map with the synonyms defined for this artist. */
+    private Map<String, String> synonyms;
 
     /** A list with info objects for the songs associated with this artist. */
     private List<SongInfo> songs;
@@ -35,23 +36,59 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
     private List<AlbumInfo> albums;
 
     /**
+     * Returns a string representation of this artist's ID.
+     *
+     * @return the ID of this artist as string
+     */
+    @Override
+    public String getIDAsString()
+    {
+        Long id = getArtistID();
+        return (id != null) ? id.toString() : null;
+    }
+
+    /**
      * Returns a collection with the synonyms of this artist.
      *
      * @return the synonyms of this artist
      */
+    @Override
     public Set<String> getSynonyms()
     {
-        return ObjectUtils.nonNullSet(synonyms);
+        return null;
     }
 
     /**
      * Sets a collection with the synonyms of this artist.
      *
      * @param synonyms the synonyms of this artist
+     * @deprecated use {@link #setSynonymData(Map)}
      */
+    @Deprecated
     public void setSynonyms(Set<String> synonyms)
     {
-        this.synonyms = synonyms;
+    }
+
+    /**
+     * Returns a map with information about the synonyms of this artist. Return
+     * value is never <b>null</b>.
+     *
+     * @return a map with synonym data
+     */
+    @Override
+    public Map<String, String> getSynonymData()
+    {
+        return ObjectUtils.nonNullMap(synonyms);
+    }
+
+    /**
+     * Sets the map with information about the synonyms of this artist.
+     *
+     * @param data the map with synonym data
+     */
+    public void setSynonymData(Map<String, String> data)
+    {
+        synonyms = data;
     }
 
     /**

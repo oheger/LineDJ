@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import de.oliver_heger.mediastore.shared.ObjectUtils;
@@ -23,10 +24,10 @@ public class AlbumDetailInfo extends AlbumInfo implements HasSynonyms
     /**
      * The serial version UID.
      */
-    private static final long serialVersionUID = 20110127L;
+    private static final long serialVersionUID = 20110831L;
 
-    /** A set with the synonyms of this album. */
-    private Set<String> synonyms;
+    /** A map with information about the synonyms of this album. */
+    private Map<String, String> synonyms;
 
     /** A list with the songs associated for this album. */
     private List<SongInfo> songs;
@@ -35,23 +36,59 @@ public class AlbumDetailInfo extends AlbumInfo implements HasSynonyms
     private List<ArtistInfo> artists;
 
     /**
+     * Returns a string representation of this object's ID.
+     *
+     * @return a string with the album ID
+     */
+    @Override
+    public String getIDAsString()
+    {
+        Long id = getAlbumID();
+        return (id != null) ? id.toString() : null;
+    }
+
+    /**
      * Returns a set with the synonyms of this album.
      *
      * @return the synonyms of this album
      */
+    @Override
     public Set<String> getSynonyms()
     {
-        return ObjectUtils.nonNullSet(synonyms);
+        return null;
     }
 
     /**
      * Sets the synonyms of this album.
      *
      * @param synonyms the synonyms
+     * @deprecated use {@link #setSynonymData(Map)}
      */
+    @Deprecated
     public void setSynonyms(Set<String> synonyms)
     {
-        this.synonyms = synonyms;
+    }
+
+    /**
+     * Returns a map with information about the synonyms of this album. This
+     * method never returns <b>null</b>.
+     *
+     * @return a map with synonym data
+     */
+    @Override
+    public Map<String, String> getSynonymData()
+    {
+        return ObjectUtils.nonNullMap(synonyms);
+    }
+
+    /**
+     * Sets synonym data for this album.
+     *
+     * @param data the map with synonym data
+     */
+    public void setSynonymData(Map<String, String> data)
+    {
+        synonyms = data;
     }
 
     /**
