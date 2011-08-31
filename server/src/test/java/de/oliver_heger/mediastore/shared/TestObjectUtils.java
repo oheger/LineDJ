@@ -5,8 +5,11 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.Test;
@@ -55,6 +58,26 @@ public class TestObjectUtils
     public void testNonNullSetNull()
     {
         assertTrue("No empty set", ObjectUtils.nonNullSet(null).isEmpty());
+    }
+
+    /**
+     * Tests nonNullMap() for a defined map.
+     */
+    @Test
+    public void testNonNullMapNotNull()
+    {
+        Map<Object, Object> map =
+                Collections.unmodifiableMap(new HashMap<Object, Object>());
+        assertSame("Wrong map", map, ObjectUtils.nonNullMap(map));
+    }
+
+    /**
+     * Tests nonNullMap() for a null map.
+     */
+    @Test
+    public void testNonNullMapNull()
+    {
+        assertTrue("No empty map", ObjectUtils.nonNullMap(null).isEmpty());
     }
 
     /**

@@ -2,6 +2,7 @@ package de.oliver_heger.mediastore.shared;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -184,6 +185,25 @@ public final class ObjectUtils
         if (src == null)
         {
             return Collections.emptySet();
+        }
+        return src;
+    }
+
+    /**
+     * Returns a map which is guaranteed to be not <b>null</b>. If the specified
+     * source map is defined, it is returned directly. Otherwise, an empty map
+     * is returned.
+     *
+     * @param <K> the type of the map's keys
+     * @param <V> the type of the map's values
+     * @param src the source map
+     * @return a map that is not <b>null</b>
+     */
+    public static <K, V> Map<K, V> nonNullMap(Map<K, V> src)
+    {
+        if (src == null)
+        {
+            return Collections.emptyMap();
         }
         return src;
     }
