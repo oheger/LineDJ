@@ -8,6 +8,7 @@ import java.util.Set;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityNotFoundException;
 
+import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 
 import de.oliver_heger.mediastore.server.convert.AlbumEntityConverter;
@@ -15,6 +16,7 @@ import de.oliver_heger.mediastore.server.convert.ArtistEntityConverter;
 import de.oliver_heger.mediastore.server.convert.ConvertUtils;
 import de.oliver_heger.mediastore.server.convert.SongEntityConverter;
 import de.oliver_heger.mediastore.server.db.JPATemplate;
+import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
@@ -334,7 +336,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
         ArtistEntityConverter.INSTANCE.convert(e, info);
-        info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
+        info.setSynonymData(ConvertUtils.extractSynonymData(e.getSynonyms()));
         List<SongEntity> songs = fetchSongsForArtist(em, e, info);
         fetchAlbumsForArtist(em, e, info, songs);
 
@@ -407,7 +409,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (String syn : removeSyns)
         {
-            ArtistSynonym as = e.findSynonym(syn);
+            ArtistSynonym as = findSynonym(e.getSynonyms(), syn);
 
             if (as != null)
             {
@@ -544,7 +546,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
 
         SongDetailInfo info = new SongDetailInfo();
         converter.convert(song, info);
-        info.setSynonyms(ConvertUtils.extractSynonymNames(song.getSynonyms()));
+        info.setSynonymData(ConvertUtils.extractSynonymData(song.getSynonyms()));
 
         return info;
     }
@@ -561,7 +563,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (String syn : removeSyns)
         {
-            SongSynonym ssyn = song.findSynonym(syn);
+            SongSynonym ssyn = findSynonym(song.getSynonyms(), syn);
 
             if (ssyn != null)
             {
@@ -620,7 +622,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         AlbumEntityConverter converter = new AlbumEntityConverter();
         List<SongEntity> songs = fetchSongsForAlbum(em, e, info);
         converter.convert(e, info, songs);
-        info.setSynonyms(ConvertUtils.extractSynonymNames(e.getSynonyms()));
+        info.setSynonymData(ConvertUtils.extractSynonymData(e.getSynonyms()));
         fetchArtistsForAlbum(em, e, info, songs);
 
         return info;
@@ -677,7 +679,7 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (String syn : syns)
         {
-            AlbumSynonym albumSynonym = album.findSynonym(syn, null);
+            AlbumSynonym albumSynonym = findSynonym(album.getSynonyms(), syn);
             if (albumSynonym != null)
             {
                 album.removeSynonym(albumSynonym);
@@ -771,5 +773,27 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
         }
 
         return entity;
+    }
+
+    /**
+     * Helper method for searching for a synonym entity with the given key.
+     *
+     * @param syns the collection with all synonyms
+     * @param key the key of the desired synonym
+     * @return the corresponding synonym entity (or <b>null</b> if not found)
+     */
+    private static <T extends AbstractSynonym> T findSynonym(
+            Collection<T> syns, String key)
+    {
+        Key synKey = KeyFactory.stringToKey(key);
+        for (T syn : syns)
+        {
+            if (synKey.equals(syn.getId()))
+            {
+                return syn;
+            }
+        }
+
+        return null;
     }
 }

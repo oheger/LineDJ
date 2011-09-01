@@ -3,9 +3,11 @@ package de.oliver_heger.mediastore.server.convert;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Map;
+
+import com.google.appengine.api.datastore.KeyFactory;
 
 import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 
@@ -66,25 +68,26 @@ public final class ConvertUtils
     }
 
     /**
-     * Extracts the synonym names from the given collection of synonym entities.
-     * The extracted names are returned as a set of strings.
+     * Extracts the synonym data from the given collection of synonym entities.
+     * Result is a map with the IDs of the synonym entities as keys and their
+     * names as values.
      *
      * @param synonyms the collection with synonym entities (may be <b>null</b>)
-     * @return a set with the synonym names that have been extracted
+     * @return a map with synonym data
      */
-    public static Set<String> extractSynonymNames(
+    public static Map<String, String> extractSynonymData(
             Collection<? extends AbstractSynonym> synonyms)
     {
-        Set<String> names = new TreeSet<String>();
+        Map<String, String> data = new HashMap<String, String>();
 
         if (synonyms != null)
         {
             for (AbstractSynonym as : synonyms)
             {
-                names.add(as.getName());
+                data.put(KeyFactory.keyToString(as.getId()), as.getName());
             }
         }
 
-        return names;
+        return data;
     }
 }

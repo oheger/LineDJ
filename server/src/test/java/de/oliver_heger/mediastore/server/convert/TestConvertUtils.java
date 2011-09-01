@@ -4,14 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.easymock.EasyMock;
 import org.junit.Test;
-
-import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 
 /**
  * Test class for {@code ConvertUtils}.
@@ -73,40 +69,12 @@ public class TestConvertUtils
     }
 
     /**
-     * Tests whether the names of synonym entities can be extracted.
+     * Tests extractSynonymData() if a null collection is passed in.
      */
     @Test
-    public void testExtractSynonymNames()
+    public void testExtractSynonymDataNull()
     {
-        final String synPrefix = "ThisIsSynonym_";
-        final int synCount = 8;
-        Collection<ArtistSynonym> syns = new ArrayList<ArtistSynonym>(synCount);
-        for (int i = 0; i < synCount; i++)
-        {
-            ArtistSynonym syn = new ArtistSynonym();
-            syn.setName(synPrefix + i);
-            syns.add(syn);
-        }
-        ArtistSynonym syn = new ArtistSynonym();
-        syn.setName(synPrefix + 0);
-        syns.add(syn);
-        Set<String> synNames = ConvertUtils.extractSynonymNames(syns);
-        assertEquals("Wrong number of synonyms", synCount, synNames.size());
-        for (int i = 0; i < synCount; i++)
-        {
-            String name = synPrefix + i;
-            assertTrue("Synonym name not found: " + name,
-                    synNames.contains(name));
-        }
-    }
-
-    /**
-     * Tests extractSynonymNames() if a null collection is passed in.
-     */
-    @Test
-    public void testExtractSynonymNamesNull()
-    {
-        assertTrue("Got synonym names", ConvertUtils.extractSynonymNames(null)
+        assertTrue("Got synonym data", ConvertUtils.extractSynonymData(null)
                 .isEmpty());
     }
 }

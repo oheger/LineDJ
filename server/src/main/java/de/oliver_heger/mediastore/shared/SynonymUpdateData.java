@@ -20,7 +20,8 @@ import java.util.Set;
  * <p>
  * Basically the data of an instance consists of the following parts:
  * <ul>
- * <li>A set with the names of existing synonyms which are to be removed.</li>
+ * <li>A set with the keys (as strings) of existing synonyms which are to be
+ * removed.</li>
  * <li>A set with the primary keys of entities to become new synonyms. Such an
  * update removes the referenced synonym entity. All its dependent data is
  * assigned to the currently manipulated entity.</li>

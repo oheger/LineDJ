@@ -26,11 +26,14 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 
+import de.oliver_heger.mediastore.server.model.AbstractSynonym;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
+import de.oliver_heger.mediastore.server.model.ArtistSynonym;
 import de.oliver_heger.mediastore.server.model.Finders;
 import de.oliver_heger.mediastore.server.model.SongEntity;
+import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.shared.SynonymUpdateData;
 import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
@@ -238,9 +241,29 @@ public class TestBasicMediaServiceImpl
         assertEquals("Wrong artist name", TEST_ARTIST, info.getName());
         assertEquals("Wrong creation date", e.getCreationDate(),
                 info.getCreationDate());
-        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        assertTrue("Got synonyms", info.getSynonymData().isEmpty());
         assertTrue("Got songs", info.getSongs().isEmpty());
         assertTrue("Got albums", info.getAlbums().isEmpty());
+    }
+
+    /**
+     * Determines the key of the synonym entity with the given name.
+     *
+     * @param syns the set with synonyms
+     * @param name the name of the synonym in question
+     * @return the key of the synonym as string
+     */
+    private static String synonymKey(Set<? extends AbstractSynonym> syns,
+            String name)
+    {
+        for (AbstractSynonym syn : syns)
+        {
+            if (syn.getName().equals(name))
+            {
+                return KeyFactory.keyToString(syn.getId());
+            }
+        }
+        throw new IllegalArgumentException("Synonym not found: " + name);
     }
 
     /**
@@ -253,10 +276,12 @@ public class TestBasicMediaServiceImpl
         appendArtistSynonyms(e);
         helper.persist(e);
         ArtistDetailInfo info = service.fetchArtistDetails(e.getId());
-        Set<String> synonyms = new HashSet<String>(info.getSynonyms());
+        Map<String, String> synonyms =
+                new HashMap<String, String>(info.getSynonymData());
         for (String s : ARTIST_SYNONYMS)
         {
-            assertTrue("Synonym not found: " + s, synonyms.remove(s));
+            String key = synonymKey(e.getSynonyms(), s);
+            assertTrue("Synonym not found: " + s, synonyms.remove(key) != null);
         }
         assertTrue("Remaining synonyms: " + synonyms, synonyms.isEmpty());
     }
@@ -367,16 +392,16 @@ public class TestBasicMediaServiceImpl
         appendArtistSynonyms(e);
         helper.persist(e);
         SynonymUpdateData ud =
-                new SynonymUpdateData(
-                        Collections.singleton(ARTIST_SYNONYMS[0]), null);
+                new SynonymUpdateData(Collections.singleton(synonymKey(
+                        e.getSynonyms(), ARTIST_SYNONYMS[0])), null);
         service.updateArtistSynonyms(e.getId(), ud);
         ArtistDetailInfo info = service.fetchArtistDetails(e.getId());
         assertEquals("Wrong number of synonyms", ARTIST_SYNONYMS.length - 1,
-                info.getSynonyms().size());
+                info.getSynonymData().size());
         for (int i = 1; i < ARTIST_SYNONYMS.length; i++)
         {
             assertTrue("Synonym not found: " + ARTIST_SYNONYMS[i], info
-                    .getSynonyms().contains(ARTIST_SYNONYMS[i]));
+                    .getSynonymData().values().contains(ARTIST_SYNONYMS[i]));
         }
     }
 
@@ -389,18 +414,24 @@ public class TestBasicMediaServiceImpl
     {
         ArtistEntity e = createBasicArtist();
         appendArtistSynonyms(e);
+        ArtistSynonym asyn = new ArtistSynonym();
+        asyn.setName("Another synonym!");
+        e.addSynonym(asyn);
         helper.persist(e);
+        helper.begin();
+        String synKey = KeyFactory.keyToString(asyn.getId());
+        e.removeSynonym(asyn);
+        helper.commit();
         SynonymUpdateData ud =
-                new SynonymUpdateData(
-                        Collections.singleton("non existing synonym!"), null);
+                new SynonymUpdateData(Collections.singleton(synKey), null);
         service.updateArtistSynonyms(e.getId(), ud);
         helper.begin();
         e = helper.getEM().find(ArtistEntity.class, e.getId());
         assertEquals("Wrong number of synonyms", ARTIST_SYNONYMS.length, e
                 .getSynonyms().size());
-        for (String syn : ARTIST_SYNONYMS)
+        for (String name : ARTIST_SYNONYMS)
         {
-            assertNotNull("Synonym not found: " + syn, e.findSynonym(syn));
+            assertNotNull("Synonym not found: " + name, e.findSynonym(name));
         }
         helper.commit();
     }
@@ -427,11 +458,11 @@ public class TestBasicMediaServiceImpl
         service.updateArtistSynonyms(e.getId(), ud);
         ArtistDetailInfo info = service.fetchArtistDetails(e.getId());
         assertEquals("Wrong number of synonyms", ARTIST_SYNONYMS.length, info
-                .getSynonyms().size());
+                .getSynonymData().size());
         for (String syn : ARTIST_SYNONYMS)
         {
-            assertTrue("Synonym not found: " + syn, info.getSynonyms()
-                    .contains(syn));
+            assertTrue("Synonym not found: " + syn, info.getSynonymData()
+                    .values().contains(syn));
         }
         assertNull("Synonym entity still exists",
                 helper.getEM().find(ArtistEntity.class, eSyn.getId()));
@@ -559,7 +590,7 @@ public class TestBasicMediaServiceImpl
         assertEquals("Wrong duration", e.getDuration(), info.getDuration());
         assertNull("Got an artist ID", info.getArtistID());
         assertNull("Got an artist name", info.getArtistName());
-        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        assertTrue("Got synonyms", info.getSynonymData().isEmpty());
     }
 
     /**
@@ -578,11 +609,12 @@ public class TestBasicMediaServiceImpl
         SongDetailInfo info = service.fetchSongDetails(key);
         assertEquals("Wrong ID", key, info.getSongID());
         assertEquals("Wrong number of synonyms", SONG_SYNONYMS.length, info
-                .getSynonyms().size());
+                .getSynonymData().size());
         for (String syn : SONG_SYNONYMS)
         {
-            assertTrue("Synonym not found: " + syn, info.getSynonyms()
-                    .contains(syn));
+            String synkey = synonymKey(e.getSynonyms(), syn);
+            assertEquals("Wrong synonym data: ", syn, info.getSynonymData()
+                    .get(synkey));
         }
         assertEquals("Wrong artist ID", art.getId(), info.getArtistID());
         assertEquals("Wrong artist name", art.getName(), info.getArtistName());
@@ -649,8 +681,8 @@ public class TestBasicMediaServiceImpl
         helper.persist(song);
         String key = KeyFactory.keyToString(song.getId());
         SynonymUpdateData upData =
-                new SynonymUpdateData(Collections.singleton(SONG_SYNONYMS[0]),
-                        null);
+                new SynonymUpdateData(Collections.singleton(synonymKey(
+                        song.getSynonyms(), SONG_SYNONYMS[0])), null);
         service.updateSongSynonyms(key, upData);
         checkSongSynonyms(song,
                 Arrays.asList(SONG_SYNONYMS).subList(1, SONG_SYNONYMS.length));
@@ -668,11 +700,14 @@ public class TestBasicMediaServiceImpl
     public void testUpdateSongSynonymsRemoveSynsUnknown()
     {
         SongEntity song = createTestSong(true);
+        SongSynonym ssyn = new SongSynonym();
+        ssyn.setName("Another Song Synonym");
+        song.addSynonym(ssyn);
         helper.persist(song);
         String key = KeyFactory.keyToString(song.getId());
+        String synKey = KeyFactory.keyToString(ssyn.getId());
         SynonymUpdateData upData =
-                new SynonymUpdateData(
-                        Collections.singleton("non existing synonym!"), null);
+                new SynonymUpdateData(Collections.singleton(synKey), null);
         service.updateSongSynonyms(key, upData);
         checkSongSynonyms(song, Arrays.asList(SONG_SYNONYMS));
     }
@@ -736,7 +771,7 @@ public class TestBasicMediaServiceImpl
         AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
         assertEquals("Wrong albumID", album.getId(), info.getAlbumID());
         assertEquals("Wrong name", TEST_ALBUM, info.getName());
-        assertTrue("Got synonyms", info.getSynonyms().isEmpty());
+        assertTrue("Got synonyms", info.getSynonymData().isEmpty());
         assertEquals("Got songs", 0, info.getNumberOfSongs());
         assertTrue("Got song entities", info.getSongs().isEmpty());
         assertNull("Got a duration", info.getDuration());
@@ -756,11 +791,12 @@ public class TestBasicMediaServiceImpl
         helper.closeEM();
         AlbumDetailInfo info = service.fetchAlbumDetails(album.getId());
         assertEquals("Wrong number of synonyms", ALBUM_SYNONYMS.length, info
-                .getSynonyms().size());
+                .getSynonymData().size());
         for (String syn : ALBUM_SYNONYMS)
         {
-            assertTrue("Synonym not found: " + syn, info.getSynonyms()
-                    .contains(syn));
+            String key = synonymKey(album.getSynonyms(), syn);
+            assertEquals("Wring synonym data", syn,
+                    info.getSynonymData().get(key));
         }
     }
 
@@ -888,8 +924,8 @@ public class TestBasicMediaServiceImpl
         appendAlbumSynonyms(album);
         helper.persist(album);
         SynonymUpdateData ud =
-                new SynonymUpdateData(Collections.singleton(ALBUM_SYNONYMS[0]),
-                        null);
+                new SynonymUpdateData(Collections.singleton(synonymKey(
+                        album.getSynonyms(), ALBUM_SYNONYMS[0])), null);
         service.updateAlbumSynonyms(album.getId(), ud);
         checkAlbumSynonyms(album,
                 Arrays.asList(ALBUM_SYNONYMS).subList(1, ALBUM_SYNONYMS.length));
@@ -903,10 +939,16 @@ public class TestBasicMediaServiceImpl
     {
         AlbumEntity album = createBasicAlbum();
         appendAlbumSynonyms(album);
+        AlbumSynonym asyn = new AlbumSynonym();
+        asyn.setName("Another album synonym");
+        album.addSynonym(asyn);
         helper.persist(album);
+        String synKey = KeyFactory.keyToString(asyn.getId());
+        helper.begin();
+        album.removeSynonym(asyn);
+        helper.commit();
         SynonymUpdateData ud =
-                new SynonymUpdateData(Collections.singleton("unknown synoyn"),
-                        null);
+                new SynonymUpdateData(Collections.singleton(synKey), null);
         service.updateAlbumSynonyms(album.getId(), ud);
         checkAlbumSynonyms(album, Arrays.asList(ALBUM_SYNONYMS));
     }
