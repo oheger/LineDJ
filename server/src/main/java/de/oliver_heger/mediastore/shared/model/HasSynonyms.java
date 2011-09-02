@@ -1,7 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * <p>
@@ -31,15 +30,6 @@ public interface HasSynonyms
      * @return a string representation of this object's ID
      */
     String getIDAsString();
-
-    /**
-     * Returns a set with the synonyms of this object.
-     *
-     * @return a set with all synonyms
-     * @deprecated use {@link #getSynonymData()} instead
-     */
-    @Deprecated
-    Set<String> getSynonyms();
 
     /**
      * Returns a map with information about the synonyms associated with this

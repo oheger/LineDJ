@@ -2,7 +2,6 @@ package de.oliver_heger.mediastore.shared.model;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import de.oliver_heger.mediastore.shared.ObjectUtils;
 
@@ -45,28 +44,6 @@ public class ArtistDetailInfo extends ArtistInfo implements HasSynonyms
     {
         Long id = getArtistID();
         return (id != null) ? id.toString() : null;
-    }
-
-    /**
-     * Returns a collection with the synonyms of this artist.
-     *
-     * @return the synonyms of this artist
-     */
-    @Override
-    public Set<String> getSynonyms()
-    {
-        return null;
-    }
-
-    /**
-     * Sets a collection with the synonyms of this artist.
-     *
-     * @param synonyms the synonyms of this artist
-     * @deprecated use {@link #setSynonymData(Map)}
-     */
-    @Deprecated
-    public void setSynonyms(Set<String> synonyms)
-    {
     }
 
     /**

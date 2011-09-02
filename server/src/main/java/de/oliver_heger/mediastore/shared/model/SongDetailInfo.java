@@ -1,7 +1,6 @@
 package de.oliver_heger.mediastore.shared.model;
 
 import java.util.Map;
-import java.util.Set;
 
 import de.oliver_heger.mediastore.shared.ObjectUtils;
 
@@ -38,28 +37,6 @@ public class SongDetailInfo extends SongInfo implements HasSynonyms
     public String getIDAsString()
     {
         return getSongID();
-    }
-
-    /**
-     * Returns the synonyms of the song.
-     *
-     * @return the synonyms of the song
-     */
-    @Override
-    public Set<String> getSynonyms()
-    {
-        return null;
-    }
-
-    /**
-     * Sets the synonyms of this song.
-     *
-     * @param syns the new synonyms
-     * @deprecated use {@link #setSynonymData(Map)}
-     */
-    @Deprecated
-    public void setSynonyms(Set<String> syns)
-    {
     }
 
     /**
