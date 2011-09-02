@@ -1,12 +1,11 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.user.client.ui.DisclosurePanel;
@@ -215,13 +214,14 @@ public class GwtTestAlbumDetailsPage extends AbstractTestDetailsPage
         AlbumDetailsPage page = new AlbumDetailsPage();
         initializePage(page);
         AlbumDetailInfo info = createBasicInfo();
-        Set<String> synonyms =
-                new HashSet<String>(Arrays.asList("AlbumSyn1", "Cool album",
-                        "Total cool album"));
-        info.setSynonyms(synonyms);
+        Map<String, String> synonyms = new HashMap<String, String>();
+        synonyms.put("k1", "AlbumSyn1");
+        synonyms.put("k2", "Cool album");
+        synonyms.put("k3", "Total cool album");
+        info.setSynonymData(synonyms);
         page.fillPage(info);
         String synTxt = page.spanSynonyms.getInnerText();
-        for (String syn : synonyms)
+        for (String syn : synonyms.values())
         {
             assertTrue("Synonym not found: " + syn, synTxt.contains(syn));
         }

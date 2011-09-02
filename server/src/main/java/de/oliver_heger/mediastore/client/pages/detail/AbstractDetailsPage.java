@@ -1,6 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
-import java.util.Set;
+import java.util.Map;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ClickEvent;
@@ -236,14 +236,14 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
      * @param synonyms the set of synonyms (may be <b>null</b>)
      * @return the formatted synonyms as string
      */
-    protected String formatSynonyms(Set<String> synonyms)
+    protected String formatSynonyms(Map<String, String> synonyms)
     {
         StringBuilder buf = new StringBuilder();
 
         if (synonyms != null)
         {
             boolean first = true;
-            for (String syn : synonyms)
+            for (String syn : synonyms.values())
             {
                 if (first)
                 {

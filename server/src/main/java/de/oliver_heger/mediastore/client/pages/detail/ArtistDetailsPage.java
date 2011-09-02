@@ -129,7 +129,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
         spanArtistName.setInnerText(data.getName());
         spanCreationDate.setInnerText(getFormatter().formatDate(
                 data.getCreationDate()));
-        spanSynonyms.setInnerText(formatSynonyms(data.getSynonyms()));
+        spanSynonyms.setInnerText(formatSynonyms(data.getSynonymData()));
 
         fillSongsTable(data);
         fillAlbumsTable(data);

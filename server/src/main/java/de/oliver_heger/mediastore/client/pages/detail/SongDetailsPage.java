@@ -105,7 +105,7 @@ public class SongDetailsPage extends AbstractDetailsPage<SongDetailInfo>
         spanPlayCount.setInnerText(String.valueOf(data.getPlayCount()));
         spanTrack.setInnerText(formatObject(data.getTrackNo()));
         spanYear.setInnerText(formatObject(data.getInceptionYear()));
-        spanSynonyms.setInnerText(formatSynonyms(data.getSynonyms()));
+        spanSynonyms.setInnerText(formatSynonyms(data.getSynonymData()));
 
         initializeArtistLink(data);
         initializeAlbumLink(data);

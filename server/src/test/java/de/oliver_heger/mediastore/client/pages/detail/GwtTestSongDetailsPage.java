@@ -1,8 +1,8 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.google.gwt.core.client.GWT;
 
@@ -88,12 +88,12 @@ public class GwtTestSongDetailsPage extends AbstractTestDetailsPage
         info.setPlayCount(28);
         info.setTrackNo(5);
         final int synCount = 3;
-        Set<String> syns = new HashSet<String>();
+        Map<String, String> syns = new HashMap<String, String>();
         for (int i = 0; i < synCount; i++)
         {
-            syns.add("testSynonym" + i);
+            syns.put("key" + i, "testSynonym" + i);
         }
-        info.setSynonyms(syns);
+        info.setSynonymData(syns);
         MockPageManager pm = createPMForInitialize();
         pm.expectCreatePageSpecification(Pages.ARTISTDETAILS, null)
                 .withParameter(info.getArtistID()).toToken();
@@ -115,7 +115,7 @@ public class GwtTestSongDetailsPage extends AbstractTestDetailsPage
         assertEquals("Wrong play count", String.valueOf(info.getPlayCount()),
                 page.spanPlayCount.getInnerText());
         String synContent = page.spanSynonyms.getInnerText();
-        for (String syn : syns)
+        for (String syn : syns.values())
         {
             assertTrue("Synonym not found: " + syn, synContent.contains(syn));
         }

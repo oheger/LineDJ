@@ -1,15 +1,12 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Grid;
@@ -55,7 +52,12 @@ public class GwtTestArtistDetailsPage extends AbstractTestDetailsPage
         ArtistDetailInfo info = new ArtistDetailInfo();
         info.setArtistID(ARTIST_ID);
         info.setName(NAME);
-        info.setSynonyms(new HashSet<String>(Arrays.asList(SYNONYMS)));
+        Map<String, String> synonyms = new LinkedHashMap<String, String>();
+        for(int i = 0; i < SYNONYMS.length; i++)
+        {
+            synonyms.put("key" + i, SYNONYMS[i]);
+        }
+        info.setSynonymData(synonyms);
         info.setCreationDate(new Date());
         return info;
     }
@@ -219,7 +221,7 @@ public class GwtTestArtistDetailsPage extends AbstractTestDetailsPage
      */
     public void testFormatSynonymsSingle()
     {
-        Set<String> syns = Collections.singleton(SYNONYMS[0]);
+        Map<String, String> syns = Collections.singletonMap("key", SYNONYMS[0]);
         assertEquals("Wrong formatted synonyms", SYNONYMS[0],
                 new ArtistDetailsPage().formatSynonyms(syns));
     }
@@ -229,9 +231,9 @@ public class GwtTestArtistDetailsPage extends AbstractTestDetailsPage
      */
     public void testFormatSynonymsMultiple()
     {
-        Set<String> syns = new LinkedHashSet<String>();
-        syns.add(SYNONYMS[0]);
-        syns.add(SYNONYMS[1]);
+        Map<String, String> syns = new LinkedHashMap<String, String>();
+        syns.put("k1", SYNONYMS[0]);
+        syns.put("k2", SYNONYMS[1]);
         ArtistDetailsPage page = new ArtistDetailsPage();
         assertEquals("Wrong formatted synonyms", SYNONYMS[0] + ", "
                 + SYNONYMS[1], page.formatSynonyms(syns));

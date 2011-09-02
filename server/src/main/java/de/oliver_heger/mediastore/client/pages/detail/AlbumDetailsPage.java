@@ -158,7 +158,7 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
         spanName.setInnerText(data.getName());
         spanYear.setInnerText((data.getInceptionYear() != null) ? String
                 .valueOf(data.getInceptionYear()) : null);
-        spanSynonyms.setInnerText(formatSynonyms(data.getSynonyms()));
+        spanSynonyms.setInnerText(formatSynonyms(data.getSynonymData()));
 
         initArtistLink(data.getArtists());
 
