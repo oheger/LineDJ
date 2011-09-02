@@ -4,8 +4,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +33,9 @@ public class GwtTestSynonymEditor extends GWTTestCase
     /** Constant for a synonym prefix. */
     private static final String SYN = "TestSynonym_";
 
+    /** Constant for a synonym key prefix. */
+    private static final String SYN_KEY = "SynKey_";
+
     /** Constant for the default number of test synonyms. */
     private static final int SYN_COUNT = 4;
 
@@ -46,11 +49,17 @@ public class GwtTestSynonymEditor extends GWTTestCase
      * Creates the given number of test synonyms.
      *
      * @param count the number of synonyms to create
-     * @return a set with the test synonyms
+     * @return a map with the test synonyms and their keys
      */
-    private static Set<String> createSyns(int count)
+    private static Map<String, String> createSyns(int count)
     {
-        Set<String> result = new LinkedHashSet<String>(createSynList(count));
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        int idx = 0;
+        for (String syn : createSynList(count))
+        {
+            result.put(SYN_KEY + idx, syn);
+            idx++;
+        }
         return result;
     }
 
@@ -236,7 +245,7 @@ public class GwtTestSynonymEditor extends GWTTestCase
     public void testEdit()
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
-        info.setSynonyms(createSyns(SYN_COUNT));
+        info.setSynonymData(createSyns(SYN_COUNT));
         SynonymEditor editor = new SynonymEditor();
         editor.lstExistingSyns.addItem(SYN);
         editor.lstNewSyns.addItem(SYN);
@@ -245,8 +254,14 @@ public class GwtTestSynonymEditor extends GWTTestCase
         editor.txtSearch.setText(SYN);
         editor.edit(info);
         assertTrue("Dialog not visible", editor.editDlg.isVisible());
+        List<String> synList = createSynList(SYN_COUNT);
         assertEquals("Wrong number of existing items", SYN_COUNT,
                 editor.lstExistingSyns.getItemCount());
+        for (int i = 0; i < SYN_COUNT; i++)
+        {
+            assertEquals("Wrong synonym name at " + i, synList.get(i),
+                    editor.lstExistingSyns.getItemText(i));
+        }
         assertEquals("Got a selection", 0,
                 getSelectionCount(editor.lstExistingSyns));
         assertEquals("Got removed items", 0,
@@ -552,12 +567,12 @@ public class GwtTestSynonymEditor extends GWTTestCase
     public void testAddResultsCurrentName()
     {
         ArtistDetailInfo info = new ArtistDetailInfo();
-        info.setName(SYN);
-        info.setSynonyms(new HashSet<String>());
+        Long artistID = 20110901205748L;
+        info.setArtistID(artistID);
         SynonymEditor editor = new SynonymEditor();
         editor.edit(info);
         Map<Object, String> map = new HashMap<Object, String>();
-        map.put(1, SYN);
+        map.put(artistID.toString(), SYN);
         editor.addResults(map, false);
         assertEquals("Got search results", 0,
                 editor.lstSearchSyns.getItemCount());
@@ -635,14 +650,16 @@ public class GwtTestSynonymEditor extends GWTTestCase
         SynonymEditResultsProcessorTestImpl proc =
                 new SynonymEditResultsProcessorTestImpl();
         editor.setResultsProcessor(proc);
-        List<String> syns = createSynList(SYN_COUNT);
-        fillList(editor.lstExistingSyns, syns, true);
+        ArtistDetailInfo info = new ArtistDetailInfo();
+        info.setSynonymData(createSyns(SYN_COUNT));
+        editor.edit(info);
         editor.lstExistingSyns.setItemSelected(0, true);
         editor.lstExistingSyns.setItemSelected(1, true);
         editor.onBtnRemoveExistingClick(null);
         editor.onBtnSaveClick(null);
         assertTrue("Got new synonyms", proc.getAddedSynonyms().isEmpty());
-        checkSet(proc.getRemovedSynonyms(), syns.get(0), syns.get(1));
+        Iterator<String> it = info.getSynonymData().keySet().iterator();
+        checkSet(proc.getRemovedSynonyms(), it.next(), it.next());
     }
 
     /**

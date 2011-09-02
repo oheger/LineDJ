@@ -211,9 +211,9 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
         currentEntity = entity;
 
         lstExistingSyns.clear();
-        for (String syn : entity.getSynonyms())
+        for (Map.Entry<String, String> e : entity.getSynonymData().entrySet())
         {
-            lstExistingSyns.addItem(syn);
+            lstExistingSyns.addItem(e.getValue(), e.getKey());
         }
         lstNewSyns.clear();
         lstRemovedSyns.clear();
@@ -577,7 +577,7 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
         Set<String> removedSyns = new LinkedHashSet<String>();
         for (int i = 0; i < lstRemovedSyns.getItemCount(); i++)
         {
-            removedSyns.add(lstRemovedSyns.getItemText(i));
+            removedSyns.add(lstRemovedSyns.getValue(i));
         }
         return removedSyns;
     }
@@ -594,8 +594,8 @@ public class SynonymEditor extends Composite implements SynonymSearchResultView
     private boolean hasNewSynonym(String synID, String synName)
     {
         return newSynIDs.containsKey(synID)
-                || (getCurrentEntity() != null && getCurrentEntity().getName()
-                        .equals(synName));
+                || (getCurrentEntity() != null && getCurrentEntity()
+                        .getIDAsString().equals(synID));
     }
 
     /**
