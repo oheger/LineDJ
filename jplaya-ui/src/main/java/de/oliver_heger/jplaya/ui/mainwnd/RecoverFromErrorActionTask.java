@@ -1,6 +1,6 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
-import de.olix.playa.playlist.PlaylistManager;
+import de.oliver_heger.jplaya.playlist.PlaylistManager;
 
 /**
  * <p>

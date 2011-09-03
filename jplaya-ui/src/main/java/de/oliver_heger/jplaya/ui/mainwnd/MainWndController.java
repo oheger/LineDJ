@@ -19,21 +19,21 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import de.oliver_heger.jplaya.engine.AudioPlayer;
+import de.oliver_heger.jplaya.engine.AudioPlayerEvent;
+import de.oliver_heger.jplaya.engine.AudioPlayerListener;
+import de.oliver_heger.jplaya.engine.AudioReader;
+import de.oliver_heger.jplaya.engine.DataBuffer;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataEvent;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataListener;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
+import de.oliver_heger.jplaya.playlist.CurrentPositionInfo;
+import de.oliver_heger.jplaya.playlist.FSScanner;
+import de.oliver_heger.jplaya.playlist.PlaylistController;
+import de.oliver_heger.jplaya.playlist.PlaylistOrder;
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.engine.AudioPlayer;
-import de.olix.playa.engine.AudioPlayerEvent;
-import de.olix.playa.engine.AudioPlayerListener;
-import de.olix.playa.engine.AudioReader;
-import de.olix.playa.engine.DataBuffer;
-import de.olix.playa.engine.mediainfo.SongDataEvent;
-import de.olix.playa.engine.mediainfo.SongDataListener;
-import de.olix.playa.engine.mediainfo.SongDataManager;
-import de.olix.playa.playlist.CurrentPositionInfo;
-import de.olix.playa.playlist.FSScanner;
-import de.olix.playa.playlist.PlaylistController;
-import de.olix.playa.playlist.PlaylistOrder;
 
 /**
  * <p>

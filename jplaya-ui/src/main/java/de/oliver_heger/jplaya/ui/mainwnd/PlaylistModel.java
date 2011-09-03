@@ -7,10 +7,10 @@ import java.util.List;
 
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
 import net.sf.jguiraffe.gui.forms.Form;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataEvent;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
 import de.oliver_heger.mediastore.service.ObjectFactory;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.engine.mediainfo.SongDataEvent;
-import de.olix.playa.engine.mediainfo.SongDataManager;
 
 /**
  * <p>

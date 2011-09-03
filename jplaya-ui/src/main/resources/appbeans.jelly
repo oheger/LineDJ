@@ -46,7 +46,7 @@
 
   <!-- The file system scanner -->
   <di:bean name="fsScanner"
-    beanClass="de.olix.playa.playlist.impl.FSScannerImpl">
+    beanClass="de.oliver_heger.jplaya.playlist.impl.FSScannerImpl">
     <di:constructor>
       <di:param refName="fileSystemManager"/>
     </di:constructor>
@@ -54,7 +54,7 @@
 
   <!-- The playlist manager factory -->
   <di:bean name="playlistManagerFactory"
-    beanClass="de.olix.playa.playlist.impl.XMLPlaylistManagerFactory">
+    beanClass="de.oliver_heger.jplaya.playlist.impl.XMLPlaylistManagerFactory">
     <di:constructor>
       <di:param refName="fsScanner"/>
       <di:param value="${user.home}/.jplaya"/>
@@ -63,7 +63,7 @@
 
   <!-- The playlist controller -->
   <di:bean name="playlistController"
-    beanClass="de.olix.playa.playlist.PlaylistController">
+    beanClass="de.oliver_heger.jplaya.playlist.PlaylistController">
     <di:constructor>
       <di:param refName="fileSystemManager"/>
       <di:param refName="playlistManagerFactory"/>
@@ -74,7 +74,7 @@
 
   <!-- The audio buffer -->
   <di:bean name="audioBuffer" singleton="false"
-    beanClass="de.olix.playa.engine.AudioBuffer">
+    beanClass="de.oliver_heger.jplaya.engine.AudioBuffer">
     <di:constructor>
       <di:param value="${java.io.tmpdir}/.jplaya"/>
       <di:param value="10485760"/>
@@ -106,12 +106,12 @@
 
   <!-- The audio read monitor for synchronizing with the audio buffer -->
   <di:bean name="audioReadMonitor"
-    beanClass="de.olix.playa.engine.AudioReadMonitorImpl">
+    beanClass="de.oliver_heger.jplaya.engine.AudioReadMonitorImpl">
   </di:bean>
 
   <!-- The song data loader -->
   <di:bean name="songDataLoader"
-    beanClass="de.olix.playa.engine.mediainfo.SongDataLoaderImpl">
+    beanClass="de.oliver_heger.jplaya.engine.mediainfo.SongDataLoaderImpl">
     <di:constructor>
       <di:param refName="fileSystemManager"/>
     </di:constructor>
@@ -119,7 +119,7 @@
 
   <!-- The song data manager, the object managing media information -->
   <di:bean name="songDataManager" singleton="false"
-    beanClass="de.olix.playa.engine.mediainfo.SongDataManager">
+    beanClass="de.oliver_heger.jplaya.engine.mediainfo.SongDataManager">
     <di:constructor>
       <di:param refName="dataManagerExecutor"/>
       <di:param refName="songDataLoader"/>
@@ -128,7 +128,7 @@
   </di:bean>
 
   <!-- The audio player -->
-  <di:bean name="audioPlayer" beanClass="de.olix.playa.engine.AudioPlayer"
+  <di:bean name="audioPlayer" beanClass="de.oliver_heger.jplaya.engine.AudioPlayer"
     singleton="false">
     <di:constructor>
       <di:param refName="audioBuffer"/>

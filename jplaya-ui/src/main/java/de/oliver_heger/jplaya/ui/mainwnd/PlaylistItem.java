@@ -2,8 +2,8 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 
 import org.apache.commons.lang3.StringUtils;
 
+import de.oliver_heger.jplaya.playlist.PlaylistInfo;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.playlist.PlaylistInfo;
 
 /**
  * <p>

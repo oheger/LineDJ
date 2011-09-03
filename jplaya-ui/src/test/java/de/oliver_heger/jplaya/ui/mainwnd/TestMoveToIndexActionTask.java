@@ -9,8 +9,8 @@ import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.olix.playa.playlist.PlaylistController;
-import de.olix.playa.playlist.PlaylistManager;
+import de.oliver_heger.jplaya.playlist.PlaylistController;
+import de.oliver_heger.jplaya.playlist.PlaylistManager;
 
 /**
  * Test class for {@code MoveToIndexActionTask}.

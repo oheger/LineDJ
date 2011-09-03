@@ -29,24 +29,24 @@ import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.oliver_heger.jplaya.engine.AudioPlayer;
+import de.oliver_heger.jplaya.engine.AudioPlayerEvent;
+import de.oliver_heger.jplaya.engine.AudioReadMonitor;
+import de.oliver_heger.jplaya.engine.AudioReader;
+import de.oliver_heger.jplaya.engine.AudioStreamData;
+import de.oliver_heger.jplaya.engine.AudioStreamSource;
+import de.oliver_heger.jplaya.engine.DataBuffer;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataEvent;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
+import de.oliver_heger.jplaya.playlist.CurrentPositionInfo;
+import de.oliver_heger.jplaya.playlist.FSScanner;
+import de.oliver_heger.jplaya.playlist.PlaylistController;
+import de.oliver_heger.jplaya.playlist.PlaylistInfo;
+import de.oliver_heger.jplaya.playlist.PlaylistManager;
+import de.oliver_heger.jplaya.playlist.PlaylistOrder;
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.engine.AudioPlayer;
-import de.olix.playa.engine.AudioPlayerEvent;
-import de.olix.playa.engine.AudioReadMonitor;
-import de.olix.playa.engine.AudioReader;
-import de.olix.playa.engine.AudioStreamData;
-import de.olix.playa.engine.AudioStreamSource;
-import de.olix.playa.engine.DataBuffer;
-import de.olix.playa.engine.mediainfo.SongDataEvent;
-import de.olix.playa.engine.mediainfo.SongDataManager;
-import de.olix.playa.playlist.CurrentPositionInfo;
-import de.olix.playa.playlist.FSScanner;
-import de.olix.playa.playlist.PlaylistController;
-import de.olix.playa.playlist.PlaylistInfo;
-import de.olix.playa.playlist.PlaylistManager;
-import de.olix.playa.playlist.PlaylistOrder;
 
 /**
  * Test class for {@code MainWndController}.

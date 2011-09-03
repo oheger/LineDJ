@@ -9,9 +9,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import de.oliver_heger.jplaya.playlist.PlaylistInfo;
 import de.oliver_heger.mediastore.service.ObjectFactory;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.playlist.PlaylistInfo;
 
 /**
  * Test class for {@code PlaylistItem}.

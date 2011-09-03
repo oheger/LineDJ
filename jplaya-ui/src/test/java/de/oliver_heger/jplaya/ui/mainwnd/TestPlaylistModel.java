@@ -22,10 +22,10 @@ import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataEvent;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
+import de.oliver_heger.jplaya.playlist.PlaylistInfo;
 import de.oliver_heger.mediastore.service.SongData;
-import de.olix.playa.engine.mediainfo.SongDataEvent;
-import de.olix.playa.engine.mediainfo.SongDataManager;
-import de.olix.playa.playlist.PlaylistInfo;
 
 /**
  * Test class for {@code PlaylistModel}.

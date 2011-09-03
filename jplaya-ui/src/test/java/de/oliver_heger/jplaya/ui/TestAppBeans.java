@@ -18,17 +18,17 @@ import org.apache.commons.lang3.concurrent.ConcurrentUtils;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.oliver_heger.jplaya.engine.AudioBuffer;
+import de.oliver_heger.jplaya.engine.AudioPlayer;
+import de.oliver_heger.jplaya.engine.AudioStreamSource;
+import de.oliver_heger.jplaya.engine.DataBuffer;
+import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
+import de.oliver_heger.jplaya.playlist.FSScanner;
+import de.oliver_heger.jplaya.playlist.PlaylistController;
+import de.oliver_heger.jplaya.playlist.PlaylistManagerFactory;
+import de.oliver_heger.jplaya.playlist.impl.XMLPlaylistManagerFactory;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
-import de.olix.playa.engine.AudioBuffer;
-import de.olix.playa.engine.AudioPlayer;
-import de.olix.playa.engine.AudioStreamSource;
-import de.olix.playa.engine.DataBuffer;
-import de.olix.playa.engine.mediainfo.SongDataManager;
-import de.olix.playa.playlist.FSScanner;
-import de.olix.playa.playlist.PlaylistController;
-import de.olix.playa.playlist.PlaylistManagerFactory;
-import de.olix.playa.playlist.impl.XMLPlaylistManagerFactory;
 
 /**
  * A test class for the global bean definition file of the application.
