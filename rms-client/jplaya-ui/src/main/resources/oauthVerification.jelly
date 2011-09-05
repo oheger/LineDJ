@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- A Jelly script defining a dialog box for entering the OAuth verification
+     code.
+     $Id:$
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- A validator for required input fields.-->
+  <di:bean name="requiredValidator"
+    beanClass="net.sf.jguiraffe.transform.RequiredValidator">
+  </di:bean>
+
+  <!-- The bean for the form controller.-->
+  <di:bean name="controller"
+    beanClass="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
+    <di:setProperty property="btnOkName" value="btnOk"/>
+    <di:setProperty property="btnCancelName" value="btnCancel"/>
+  </di:bean>
+
+  <!-- The dialog window -->
+  <w:dialog titleres="auth_title" center="true" resizable="true">
+    <f:borderlayout canShrink="true"/>
+    <f:panel>
+      <f:borderconstr name="NORTH"/>
+      <f:percentlayout columns="4dlu start/preferred 4dlu"
+        rows="4dlu preferred preferred preferred" canShrink="true"/>
+      <f:label textres="auth_prompt1">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+      <f:label textres="auth_prompt2">
+        <f:percentconstr col="1" row="2"/>
+      </f:label>
+      <f:label textres="auth_prompt3">
+        <f:percentconstr col="1" row="3"/>
+      </f:label>
+    </f:panel>
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:percentlayout columns="4dlu start/preferred 3dlu full/preferred/100 4dlu"
+        rows="4dlu preferred 4dlu" canShrink="true"/>
+      <f:label textres="auth_labcode" mnemonicres="auth_labcode_mnemo"
+        componentref="code">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+      <f:textfield name="code" displayNameres="auth_disp_code"
+        propertyName="value">
+        <f:percentconstr col="3" row="1"/>
+        <f:validators phase="syntax">
+          <f:validator beanName="requiredValidator"/>
+        </f:validators>
+      </f:textfield>
+    </f:panel>
+
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:buttonlayout/>
+      <f:button name="btnOk" textres="auth_btn_ok"
+        mnemonicres="auth_btn_ok_mnemo" command="ok"/>
+      <f:button name="btnCancel" textres="auth_btn_cancel"
+        mnemonicres="auth_btn_cancel_mnemo"/>
+    </f:panel>
+
+    <w:formController beanName="controller" formBeanName="modelBean">
+    </w:formController>
+  </w:dialog>
+</j:jelly>
