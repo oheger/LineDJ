@@ -17,5 +17,9 @@
       <g:header>Albums</g:header>
       <rms:OverviewTable ui:field="tabAlbums"/>
     </g:tab>
+    <g:tab>
+      <g:header>Albums (2)</g:header>
+      <rms:OverviewCellTable/>
+    </g:tab>
   </g:TabLayoutPanel>
 </ui:UiBinder>
