@@ -1,7 +1,10 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
-import com.google.gwt.cell.client.TextCell;
+import com.google.gwt.cell.client.Cell.Context;
+import com.google.gwt.cell.client.ClickableTextCell;
+import com.google.gwt.cell.client.FieldUpdater;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.cellview.client.CellTable;
@@ -16,6 +19,8 @@ import com.google.gwt.view.client.HasData;
 import com.google.gwt.view.client.ProvidesKey;
 import com.google.gwt.view.client.Range;
 
+import de.oliver_heger.mediastore.client.pageman.PageManager;
+import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
@@ -47,11 +52,23 @@ public class OverviewCellTable extends Composite
     /** The search service.*/
     private MediaSearchServiceAsync searchService;
 
+    /** The page manager.*/
+    private PageManager pageManager;
+
     public OverviewCellTable()
     {
         initCellTable();
         initDataProvider();
         initWidget(uiBinder.createAndBindUi(this));
+    }
+
+    /**
+     * Initializes this page with the page manager.
+     * @param pm the page manager
+     */
+    public void initialize(PageManager pm)
+    {
+        pageManager = pm;
     }
 
     /**
@@ -104,14 +121,36 @@ public class OverviewCellTable extends Composite
         pager = new SimplePager(TextLocation.CENTER, pagerResources, false, 0, true);
         pager.setDisplay(cellTable);
 
-        Column<SongInfo, String> nameCol = new Column<SongInfo, String>(new TextCell())
+        Column<SongInfo, String> nameCol = new Column<SongInfo, String>(new ClickableTextCell())
         {
+            @Override
+            public void render(Context context, SongInfo object,
+                    SafeHtmlBuilder sb)
+            {
+                if(object == null)
+                {
+                    return;
+                }
+
+                sb.appendHtmlConstant("<div class=\"gwt-Hyperlink\">");
+                sb.appendEscaped(object.getName());
+                sb.appendHtmlConstant("</div>");
+            }
+
             @Override
             public String getValue(SongInfo object)
             {
                 return object.getName();
             }
         };
+        nameCol.setFieldUpdater(new FieldUpdater<SongInfo, String>()
+        {
+            @Override
+            public void update(int index, SongInfo object, String value)
+            {
+                pageManager.createPageSpecification(Pages.SONGDETAILS).withParameter(object.getSongID()).open();
+            }
+        });
         cellTable.addColumn(nameCol, "Title");
     }
 
