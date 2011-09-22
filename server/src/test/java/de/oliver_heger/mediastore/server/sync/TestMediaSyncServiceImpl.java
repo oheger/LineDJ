@@ -24,6 +24,7 @@ import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestC
 
 import de.oliver_heger.mediastore.server.NotLoggedInException;
 import de.oliver_heger.mediastore.server.model.AlbumEntity;
+import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
 import de.oliver_heger.mediastore.service.AlbumData;
@@ -181,8 +182,25 @@ public class TestMediaSyncServiceImpl
     }
 
     /**
-     * Creates an album entity and associates it with a song with the given
-     * inception year.
+     * Helper method for creating an album entity with test data.
+     *
+     * @param name the album name
+     * @param user the user (can be <b>null</b>, then the default user is used)
+     * @param year the year
+     * @return the album entity
+     */
+    private static AlbumEntity createAlbum(String name, User user, Integer year)
+    {
+        AlbumEntity album = new AlbumEntity();
+        album.setName(name);
+        album.setUser((user != null) ? user : PersistenceTestHelper
+                .getTestUser());
+        album.setInceptionYear(year);
+        return album;
+    }
+
+    /**
+     * Creates an album entity with the given properties and persists it.
      *
      * @param name the album name
      * @param user the user (can be <b>null</b>, then the default user is used)
@@ -191,11 +209,7 @@ public class TestMediaSyncServiceImpl
      */
     private AlbumEntity persistAlbum(String name, User user, Integer year)
     {
-        AlbumEntity album = new AlbumEntity();
-        album.setName(name);
-        album.setUser((user != null) ? user : PersistenceTestHelper
-                .getTestUser());
-        album.setInceptionYear(year);
+        AlbumEntity album = createAlbum(name, user, year);
         helper.persist(album);
         return album;
     }
@@ -255,6 +269,25 @@ public class TestMediaSyncServiceImpl
         AlbumData data = factory.createAlbumData();
         data.setName(ENTITY_NAME);
         data.setInceptionYear(INCEPTION_YEAR);
+        SyncResult<Long> result = service.syncAlbum(data);
+        assertFalse("Imported", result.imported());
+        assertEquals("Wrong ID", album.getId(), result.getKey());
+    }
+
+    /**
+     * Tests a sync operation if there is a matching synonym.
+     */
+    @Test
+    public void testSyncAlbumExistingSynonym() throws NotLoggedInException
+    {
+        AlbumEntity album = createAlbum(ENTITY_NAME, null, INCEPTION_YEAR);
+        AlbumSynonym syn = new AlbumSynonym();
+        final String synName = ENTITY_NAME + "_another";
+        syn.setName(synName);
+        album.addSynonym(syn);
+        helper.persist(album);
+        AlbumData data = factory.createAlbumData();
+        data.setName(synName);
         SyncResult<Long> result = service.syncAlbum(data);
         assertFalse("Imported", result.imported());
         assertEquals("Wrong ID", album.getId(), result.getKey());

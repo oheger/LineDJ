@@ -269,7 +269,7 @@ public class MediaSyncServiceImpl implements MediaSyncService
                 && album == null;)
         {
             AlbumEntity e = it.next();
-            if (ObjectUtils.equals(e.getInceptionYear(), inceptionYear))
+            if (e.matches(name, inceptionYear))
             {
                 album = e;
             }

@@ -320,6 +320,22 @@ public class AlbumEntity implements Serializable
     }
 
     /**
+     * Tests whether this album entity matches the given combination of
+     * identifying properties. This is the case if either the properties of the
+     * album entity are matched or one of the synonyms has these properties.
+     *
+     * @param name the album name
+     * @param inceptionYear the inception year
+     * @return a flag whether this album entity matches these properties
+     */
+    public boolean matches(String name, Integer inceptionYear)
+    {
+        return (ObjectUtils.equalsIgnoreCase(getName(), name) && ObjectUtils
+                .equals(getInceptionYear(), inceptionYear))
+                || findSynonym(name, inceptionYear) != null;
+    }
+
+    /**
      * Returns a hash code for this object.
      *
      * @return a hash code
