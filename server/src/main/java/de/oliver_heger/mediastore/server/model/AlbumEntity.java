@@ -309,14 +309,7 @@ public class AlbumEntity implements Serializable
     {
         AlbumSynonym syn = createAlbumSynonym(synName, inceptionYear);
         syn.setAlbum(this);
-        for (AlbumSynonym as : getSynonyms())
-        {
-            if (syn.equals(as))
-            {
-                return as;
-            }
-        }
-        return null;
+        return AbstractSynonym.findSynonym(getSynonyms(), syn);
     }
 
     /**

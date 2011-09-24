@@ -27,6 +27,7 @@ import de.oliver_heger.mediastore.server.model.AlbumEntity;
 import de.oliver_heger.mediastore.server.model.AlbumSynonym;
 import de.oliver_heger.mediastore.server.model.ArtistEntity;
 import de.oliver_heger.mediastore.server.model.SongEntity;
+import de.oliver_heger.mediastore.server.model.SongSynonym;
 import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 import de.oliver_heger.mediastore.service.ObjectFactory;
@@ -300,8 +301,25 @@ public class TestMediaSyncServiceImpl
      * @param user the user (<b>null</b> for the default user)
      * @param duration the duration (may be <b>null</b>)
      * @param art the associated artist (may be <b>null</b>)
+     * @return the song entity
      */
     private SongEntity persistSong(String name, User user, Long duration,
+            ArtistEntity art)
+    {
+        SongEntity song = createSong(name, user, duration, art);
+        helper.persist(song);
+        return song;
+    }
+
+    /**
+     * Creates a song entity with test data.
+     * @param name the song name
+     * @param user the user (<b>null</b> for the default user)
+     * @param duration the duration (may be <b>null</b>)
+     * @param art the associated artist (may be <b>null</b>)
+     * @return the song entity
+     */
+    private static SongEntity createSong(String name, User user, Long duration,
             ArtistEntity art)
     {
         SongEntity song = new SongEntity();
@@ -313,7 +331,6 @@ public class TestMediaSyncServiceImpl
         {
             song.setArtistID(art.getId());
         }
-        helper.persist(song);
         return song;
     }
 
@@ -456,6 +473,53 @@ public class TestMediaSyncServiceImpl
                 helper.getEM().find(SongEntity.class, expSong.getId());
         assertEquals("Play count not increased", data.getPlayCount(),
                 song2.getPlayCount());
+    }
+
+    /**
+     * Tests whether a song's synonyms are correctly checked when synchronizing.
+     */
+    @Test
+    public void testSyncSongExistingSynonym() throws NotLoggedInException
+    {
+        ArtistEntity art = new ArtistEntity();
+        art.setName("Art Garfunkel");
+        helper.persist(art);
+        SongEntity song = createSong(ENTITY_NAME, null, DURATION, art);
+        song.setPlayCount(2);
+        final String synName = ENTITY_NAME + "_synonym";
+        final Long synDuration = Long.valueOf(DURATION.longValue() + 100);
+        SongSynonym syn = new SongSynonym();
+        syn.setName(synName);
+        syn.setDuration(synDuration);
+        song.addSynonym(syn);
+        helper.persist(song);
+        SongData data = factory.createSongData();
+        data.setDuration(BigInteger.valueOf(synDuration.longValue()));
+        data.setName(synName);
+        data.setPlayCount(1);
+        SyncResult<String> result = service.syncSong(data);
+        assertFalse("Imported", result.imported());
+        assertEquals("Wrong key", song.getId(),
+                KeyFactory.stringToKey(result.getKey()));
+        SongEntity song2 =
+                helper.getEM().find(SongEntity.class, song.getId());
+        assertEquals("Play count not increased", 3,
+                song2.getPlayCount());
+    }
+
+    /**
+     * Tests a sync operation for a song if the artist name is invalid.
+     */
+    @Test
+    public void testSyncSongInvalidArtistName() throws NotLoggedInException
+    {
+        persistSong(ENTITY_NAME, null, DURATION, null);
+        SongData data = factory.createSongData();
+        data.setName(ENTITY_NAME);
+        data.setDuration(BigInteger.valueOf(DURATION));
+        data.setArtistName("A non existing artist!");
+        SyncResult<String> result = service.syncSong(data);
+        assertFalse("Imported", result.imported());
     }
 
     /**

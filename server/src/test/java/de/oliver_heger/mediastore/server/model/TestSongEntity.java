@@ -303,7 +303,7 @@ public class TestSongEntity
         {
             String synName = SYN_PREFIX + i;
             expSynonyms.add(synName);
-            assertTrue("Wrong result", song.addSynonymName(synName));
+            assertTrue("Wrong result", song.addSynonymName(synName, null, null));
         }
         helper.persist(song);
         helper.closeEM();
@@ -326,7 +326,7 @@ public class TestSongEntity
     @Test(expected = NullPointerException.class)
     public void testAddSynonymNameNull()
     {
-        createSong().addSynonymName(null);
+        createSong().addSynonymName(null, ARTIST_ID, DURATION);
     }
 
     /**
@@ -345,9 +345,17 @@ public class TestSongEntity
     public void testAddSynonymDuplicate()
     {
         SongEntity song = createSong();
-        assertTrue("Wrong result (1)", song.addSynonymName(SYN_PREFIX));
-        assertFalse("Wrong result (2)", song.addSynonymName(SYN_PREFIX));
+        assertTrue("Wrong result (1)",
+                song.addSynonymName(SYN_PREFIX, ARTIST_ID, DURATION));
+        assertFalse("Wrong result (2)",
+                song.addSynonymName(SYN_PREFIX, ARTIST_ID, DURATION));
         assertEquals("Wrong number of synonyms", 1, song.getSynonyms().size());
+        assertTrue("Wrong result (3)",
+                song.addSynonymName(SYN_PREFIX, null, DURATION));
+        assertTrue("Wrong result (4)",
+                song.addSynonymName(SYN_PREFIX, ARTIST_ID, null));
+        assertEquals("Wrong number of synonyms (2)", 3, song.getSynonyms()
+                .size());
     }
 
     /**
@@ -361,7 +369,7 @@ public class TestSongEntity
         ssym.setName(SYN_PREFIX);
         song.addSynonym(ssym);
         final String otherSyn = SYN_PREFIX + "other";
-        song.addSynonymName(otherSyn);
+        song.addSynonymName(otherSyn, null, null);
         assertTrue("Wrong result", song.removeSynonym(ssym));
         assertEquals("Wrong number of synonyms", 1, song.getSynonyms().size());
         assertEquals("Wrong name", otherSyn, song.getSynonyms().iterator()
@@ -375,8 +383,17 @@ public class TestSongEntity
     public void testRemoveSynonymNonExisting()
     {
         SongEntity song = createSong();
-        song.addSynonymName(SYN_PREFIX);
-        assertFalse("Wrong result", song.removeSynonymName(SONG_NAME));
+        song.addSynonymName(SYN_PREFIX, ARTIST_ID, DURATION);
+        assertFalse("Wrong result (1)",
+                song.removeSynonymName(SONG_NAME, ARTIST_ID, DURATION));
+        assertFalse("Wrong result (2)",
+                song.removeSynonymName(SYN_PREFIX, null, DURATION));
+        assertFalse("Wrong result (3)",
+                song.removeSynonymName(SYN_PREFIX, ARTIST_ID + 1, DURATION));
+        assertFalse("Wrong result (4)",
+                song.removeSynonymName(SYN_PREFIX, ARTIST_ID, null));
+        assertFalse("Wrong result (5)",
+                song.removeSynonymName(SYN_PREFIX, ARTIST_ID, DURATION - 1));
         assertEquals("Wrong number of synonyms", 1, song.getSynonyms().size());
     }
 
@@ -429,12 +446,13 @@ public class TestSongEntity
         helper.persist(art);
         SongEntity song = createSong();
         song.setArtistID(art.getId());
-        song.addSynonymName(SYN_PREFIX);
+        song.addSynonymName(SYN_PREFIX, null, null);
         helper.persist(song);
         helper.closeEM();
         helper.begin();
         song = helper.getEM().find(SongEntity.class, song.getId());
-        assertTrue("Wrong result", song.removeSynonymName(SYN_PREFIX));
+        assertTrue("Wrong result",
+                song.removeSynonymName(SYN_PREFIX, null, null));
         helper.commit();
         helper.closeEM();
         song = helper.getEM().find(SongEntity.class, song.getId());
@@ -452,7 +470,7 @@ public class TestSongEntity
         SongEntity song = createSong();
         for (int i = 0; i < synCount; i++)
         {
-            song.addSynonymName(SYN_PREFIX + i);
+            song.addSynonymName(SYN_PREFIX + i, ARTIST_ID, DURATION);
         }
         helper.persist(song);
         assertEquals("Wrong number of synonyms (1)", synCount,
@@ -470,7 +488,7 @@ public class TestSongEntity
     private void createSongsAndSynonyms()
     {
         SongEntity song1 = createSong();
-        song1.addSynonymName(SYN_PREFIX);
+        song1.addSynonymName(SYN_PREFIX, ARTIST_ID, DURATION + 1000);
         helper.persist(song1);
         SongEntity song2 = createSong();
         song2.setName(SONG_NAME + "_other");
@@ -479,12 +497,14 @@ public class TestSongEntity
         song3.setUser(PersistenceTestHelper
                 .getUser(PersistenceTestHelper.OTHER_USER));
         song3.setName("another song");
-        song3.addSynonymName(SONG_NAME);
+        song3.addSynonymName(SONG_NAME, null, null);
         helper.persist(song3);
     }
 
     /**
-     * Helper method for checking results of a song query that expects a single result.
+     * Helper method for checking results of a song query that expects a single
+     * result.
+     *
      * @param songs the query results
      * @return the single result entity
      */
@@ -571,10 +591,10 @@ public class TestSongEntity
         createSongsAndSynonyms();
         SongEntity song = createSong();
         song.setName("Completely different name");
-        song.addSynonymName(SONG_NAME);
+        song.addSynonymName(SONG_NAME, null, null);
         helper.persist(song);
         song = createSong();
-        song.addSynonymName(SONG_NAME);
+        song.addSynonymName(SONG_NAME, null, null);
         song.setDuration(Long.valueOf(DURATION + 10000));
         helper.persist(song);
         List<SongEntity> songs =

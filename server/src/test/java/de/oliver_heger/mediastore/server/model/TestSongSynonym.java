@@ -37,6 +37,11 @@ public class TestSongSynonym
         synonym.setSong(song);
         syn2.setSong(song);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
+        synonym.setArtistID(20110923211753L);
+        synonym.setDuration(10000L);
+        syn2.setArtistID(synonym.getArtistID());
+        syn2.setDuration(synonym.getDuration());
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, true);
     }
 
     /**
@@ -55,6 +60,17 @@ public class TestSongSynonym
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
         syn2.setSong(synonym.getSong());
         syn2.setName("aSynonym");
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        syn2.setName(synonym.getName());
+        syn2.setSong(synonym.getSong());
+        syn2.setArtistID(20110923212038L);
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        synonym.setArtistID(20110923212055L);
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        syn2.setArtistID(synonym.getArtistID());
+        syn2.setDuration(10000L);
+        RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
+        synonym.setDuration(20000L);
         RemoteMediaStoreTestHelper.checkEquals(synonym, syn2, false);
     }
 

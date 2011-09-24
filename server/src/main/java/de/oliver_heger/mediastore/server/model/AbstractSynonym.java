@@ -184,6 +184,29 @@ public abstract class AbstractSynonym implements Serializable
     }
 
     /**
+     * Searches for the specified synonym object in the given set. If a match is
+     * found, the found synonym entity is returned. Otherwise, result is
+     * <b>null</b>.
+     *
+     * @param <T> the type of the synonyms processed by this method
+     * @param synonyms the set with the synonyms to be searched
+     * @param syn the synonym object to be searched
+     * @return the synonym object with this name or <b>null</b>
+     */
+    public static <T extends AbstractSynonym> T findSynonym(Set<T> synonyms,
+            T syn)
+    {
+        for (T s : synonyms)
+        {
+            if (s.equals(syn))
+            {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Helper method for implementing a concrete equals() method. This
      * implementation already checks whether the passed in object has the same
      * class as this object and whether the names are equal (ignoring case).

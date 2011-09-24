@@ -583,9 +583,11 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
     {
         for (SongSynonym syn : src.getSynonyms())
         {
-            dest.addSynonymName(syn.getName());
+            dest.addSynonymName(syn.getName(), syn.getArtistID(),
+                    syn.getDuration());
         }
-        dest.addSynonymName(src.getName());
+        dest.addSynonymName(src.getName(), src.getArtistID(), src.getDuration());
+        ;
     }
 
     /**

@@ -417,13 +417,14 @@ public class SongEntity implements Serializable
      * Adds the specified synonym name to this song if it does not yet exist.
      *
      * @param syn the synonym name to be added
+     * @param artistID the ID of the artist for the synonym
+     * @param duration the duration of the synonym
      * @return a flag whether the synonym name was added
      * @throws NullPointerException if the name is <b>null</b>
      */
-    public boolean addSynonymName(String syn)
+    public boolean addSynonymName(String syn, Long artistID, Long duration)
     {
-        SongSynonym ssyn = new SongSynonym();
-        ssyn.setName(syn);
+        SongSynonym ssyn = createSynonym(syn, artistID, duration);
         return addSynonym(ssyn);
     }
 
@@ -448,11 +449,13 @@ public class SongEntity implements Serializable
      * Removes the specified synonym name from this song if it can be found.
      *
      * @param syn the synonym name to be removed
+     * @param artistID the ID of the artist for the synonym
+     * @param duration the duration of the synonym
      * @return a flag whether the synonym could be removed
      */
-    public boolean removeSynonymName(String syn)
+    public boolean removeSynonymName(String syn, Long artistID, Long duration)
     {
-        return removeSynonym(findSynonym(syn));
+        return removeSynonym(findSynonym(syn, null, null));
     }
 
     /**
@@ -460,12 +463,34 @@ public class SongEntity implements Serializable
      * be found.
      *
      * @param syn the synonym name
+     * @param artistID the ID of the artist for the synonym
+     * @param duration the duration of the synonym
      * @return the corresponding synonym object or <b>null</b> if there is no
      *         such synonym name
      */
-    public SongSynonym findSynonym(String syn)
+    public SongSynonym findSynonym(String syn, Long artistID, Long duration)
     {
-        return AbstractSynonym.findSynonym(synonyms, syn);
+        SongSynonym ssyn = createSynonym(syn, artistID, duration);
+        ssyn.setSong(this);
+        return AbstractSynonym.findSynonym(synonyms, ssyn);
+    }
+
+    /**
+     * Tests whether this song entity matches the given combination of
+     * identifying properties. This is the case if either the properties of the
+     * song entity are matched or one of the synonyms has these properties.
+     *
+     * @param name the name of the song
+     * @param artistID the ID of the performing artist
+     * @param duration the duration
+     * @return a flag whether this song entity matches these properties
+     */
+    public boolean matches(String name, Long artistID, Long duration)
+    {
+        return (ObjectUtils.equalsIgnoreCase(getName(), name)
+                && ObjectUtils.equals(getArtistID(), artistID) && ObjectUtils
+                    .equals(getDuration(), duration))
+                || findSynonym(name, artistID, duration) != null;
     }
 
     /**
@@ -730,6 +755,23 @@ public class SongEntity implements Serializable
     String getSearchName()
     {
         return searchName;
+    }
+
+    /**
+     * Helper method for creating a synonym object for a song.
+     *
+     * @param syn the synonym's name
+     * @param artistID the artist ID of the synonym
+     * @param duration the duration
+     * @return the newly created synonym object
+     */
+    private SongSynonym createSynonym(String syn, Long artistID, Long duration)
+    {
+        SongSynonym ssyn = new SongSynonym();
+        ssyn.setName(syn);
+        ssyn.setArtistID(artistID);
+        ssyn.setDuration(duration);
+        return ssyn;
     }
 
     /**

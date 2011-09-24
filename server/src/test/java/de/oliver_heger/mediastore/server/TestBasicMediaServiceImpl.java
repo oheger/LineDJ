@@ -148,7 +148,7 @@ public class TestBasicMediaServiceImpl
         {
             for (String syn : SONG_SYNONYMS)
             {
-                e.addSynonymName(syn);
+                e.addSynonymName(syn, null, DURATION);
             }
         }
         return e;
@@ -666,7 +666,8 @@ public class TestBasicMediaServiceImpl
                 .getSynonyms().size());
         for (String syn : expSyns)
         {
-            assertNotNull("Synonym not found: " + syn, song.findSynonym(syn));
+            assertNotNull("Synonym not found: " + syn,
+                    song.findSynonym(syn, null, DURATION));
         }
         helper.commit();
     }
@@ -723,12 +724,13 @@ public class TestBasicMediaServiceImpl
         Set<String> expSyns = new HashSet<String>();
         SongEntity song = createTestSong(true);
         SongEntity synSong = createTestSong(false);
+        synSong.setDuration(DURATION + 1);
         synSong.setName(synonymPrefix);
         expSyns.add(synonymPrefix);
         for (int i = 0; i < synCount; i++)
         {
             String syn = synonymPrefix + i;
-            synSong.addSynonymName(syn);
+            synSong.addSynonymName(syn, null, DURATION);
             expSyns.add(syn);
         }
         expSyns.addAll(Arrays.asList(SONG_SYNONYMS));
@@ -738,10 +740,26 @@ public class TestBasicMediaServiceImpl
                 new SynonymUpdateData(null, Collections.singleton(KeyFactory
                         .keyToString(synSong.getId())));
         service.updateSongSynonyms(KeyFactory.keyToString(song.getId()), upData);
-        checkSongSynonyms(song, expSyns);
         assertNull("Synonym song still exists",
                 helper.getEM().find(SongEntity.class, synSong.getId()));
-        List<?> allSynonyms =
+        song = helper.getEM().find(SongEntity.class, song.getId());
+        assertEquals("Wrong number of synonyms", expSyns.size(), song
+                .getSynonyms().size());
+        boolean found = false;
+        for (SongSynonym ssyn : song.getSynonyms())
+        {
+            assertTrue("Unexpected synonym: " + ssyn,
+                    expSyns.remove(ssyn.getName()));
+            if (synonymPrefix.equals(ssyn.getName()))
+            {
+                assertEquals("Duration not stored", Long.valueOf(DURATION + 1),
+                        ssyn.getDuration());
+                found = true;
+            }
+        }
+        assertTrue("New song synonym not found", found);
+        @SuppressWarnings("unchecked")
+        List<SongSynonym> allSynonyms =
                 helper.getEM().createQuery("select syn from SongSynonym syn")
                         .getResultList();
         assertEquals("Wrong number of all synonyms", SONG_SYNONYMS.length

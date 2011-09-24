@@ -22,7 +22,6 @@ import de.oliver_heger.mediastore.service.AlbumData;
 import de.oliver_heger.mediastore.service.ArtistData;
 import de.oliver_heger.mediastore.service.SongData;
 import de.oliver_heger.mediastore.service.utils.DTOTransformer;
-import de.oliver_heger.mediastore.shared.ObjectUtils;
 
 /**
  * <p>
@@ -380,13 +379,15 @@ public class MediaSyncServiceImpl implements MediaSyncService
     {
         SongEntity syncSong = new SongEntity();
         DTOTransformer.transform(data, syncSong);
+        Long duration =
+                (data.getDuration() == null) ? null : Long.valueOf(data
+                        .getDuration().longValue());
+        Long artistID = fetchSongArtistID(em, user, data);
 
         for (SongEntity song : SongEntity.findByNameAndSynonym(em, user,
                 data.getName()))
         {
-            if (ObjectUtils.equals(syncSong.getDuration(), song.getDuration())
-                    && checkSongArtist(em, song.getArtistID(),
-                            data.getArtistName()))
+            if (song.matches(data.getName(), artistID, duration))
             {
                 return song;
             }
@@ -397,32 +398,30 @@ public class MediaSyncServiceImpl implements MediaSyncService
     }
 
     /**
-     * Checks the artist of a song. This method checks whether the artist has
-     * the expected name. This is needed for comparing potential candidates for
-     * songs to be synchronized.
+     * Returns the ID of the artist of a song to be synchronized. Result may be
+     * <b>null</b> if the song is not associated with an artist.
      *
      * @param em the entity manager
-     * @param artistID the artist ID
-     * @param artistName the expected artist name
-     * @return a flag whether the artist is a match
+     * @param user the current user
+     * @param data the song data object
+     * @return the ID of the song's artist
      */
-    private boolean checkSongArtist(EntityManager em, Long artistID,
-            String artistName)
+    private Long fetchSongArtistID(EntityManager em, User user, SongData data)
     {
-        if (artistID == null)
+        if (data.getArtistName() == null)
         {
-            return artistName == null;
+            return null;
+        }
+        ArtistEntity artist = findArtist(em, user, data.getArtistName());
+        if (artist == null)
+        {
+            LOG.warning("Synchronization of a song with an invalid artist: "
+                    + data.getArtistName());
+            return null;
         }
         else
         {
-            if (artistName == null)
-            {
-                return false;
-            }
+            return artist.getId();
         }
-
-        // both are defined
-        ArtistEntity art = em.find(ArtistEntity.class, artistID);
-        return artistName.equalsIgnoreCase(art.getName());
     }
 }
