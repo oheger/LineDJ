@@ -45,7 +45,8 @@ import de.oliver_heger.mediastore.shared.ObjectUtils;
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_SYNONYM, query = SongEntity.QUERY_FIND_BY_SYNONYM_DEF),
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_ARTIST, query = SongEntity.QUERY_FIND_BY_ARTIST_DEF),
         @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUM, query = SongEntity.QUERY_FIND_BY_ALBUM_DEF),
-        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUMLIST, query = SongEntity.QUERY_FIND_BY_ALBUMLIST_DEF)
+        @NamedQuery(name = SongEntity.QUERY_FIND_BY_ALBUMLIST, query = SongEntity.QUERY_FIND_BY_ALBUMLIST_DEF),
+        @NamedQuery(name = SongEntity.QUERY_FIND_SYNONYMS_FOR_ARTIST, query = SongEntity.QUERY_FIND_SYNONYMS_FOR_ARTIST_DEF)
 })
 public class SongEntity implements Serializable
 {
@@ -122,6 +123,17 @@ public class SongEntity implements Serializable
     static final String QUERY_FIND_BY_ALBUMLIST_DEF =
             "select e from SongEntity" + " e where e.albumID in (:"
                     + PARAM_ALBUM + ")";
+
+    /**
+     * Constant for the name of the query for the song synonyms associated with
+     * a specific artist.
+     */
+    static final String QUERY_FIND_SYNONYMS_FOR_ARTIST = SONG_QUERY_PREFIX
+            + "QUERY_FIND_SYNONYMS_FOR_ARTIST";
+
+    /** The query definition for the synonyms for artist query. */
+    static final String QUERY_FIND_SYNONYMS_FOR_ARTIST_DEF =
+            "select s from SongSynonym s where s.artistID = :" + PARAM_ARTIST;
 
     /**
      * The serial version UID.
@@ -669,10 +681,30 @@ public class SongEntity implements Serializable
     public static void updateArtistID(EntityManager em, Long destID, Long srcID)
     {
         List<SongEntity> songs = findByArtist(em, srcID);
-
         for (SongEntity song : songs)
         {
             song.setArtistID(destID);
+        }
+    }
+
+    /**
+     * Updates the IDs of artists in song synonyms. This method is called when
+     * songs of one artist are moved to another one.
+     *
+     * @param em the {@code EntityManager}
+     * @param destID the ID of the destination artist
+     * @param srcID the ID of the source artist
+     */
+    public static void updateArtistIDInSynonyms(EntityManager em, Long destID,
+            Long srcID)
+    {
+        @SuppressWarnings("unchecked")
+        List<SongSynonym> syns =
+                em.createNamedQuery(QUERY_FIND_SYNONYMS_FOR_ARTIST)
+                        .setParameter(PARAM_ARTIST, srcID).getResultList();
+        for (SongSynonym syn : syns)
+        {
+            syn.setArtistID(destID);
         }
     }
 

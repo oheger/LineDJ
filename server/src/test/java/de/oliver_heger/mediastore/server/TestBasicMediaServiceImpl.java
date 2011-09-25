@@ -489,6 +489,11 @@ public class TestBasicMediaServiceImpl
         helper.persist(eSyn);
         SongEntity song = createTestSong(true);
         song.setArtistID(eSyn.getId());
+        SongSynonym ssyn = new SongSynonym();
+        ssyn.setName(TEST_SONG + "_syn");
+        ssyn.setDuration(DURATION);
+        ssyn.setArtistID(eSyn.getId());
+        song.addSynonym(ssyn);
         helper.persist(song);
         SongEntity song2 = createTestSong(false);
         song2.setName("Another Song");
@@ -510,6 +515,10 @@ public class TestBasicMediaServiceImpl
         assertTrue("Song 2 not found", songNames.contains(song2.getName()));
         assertTrue("Got songs for synonym",
                 SongEntity.findByArtist(helper.getEM(), eSyn).isEmpty());
+        SongSynonym ssyn2 =
+                helper.getEM().find(SongSynonym.class, ssyn.getId());
+        assertEquals("Artist of synonym not changed", e.getId(),
+                ssyn2.getArtistID());
     }
 
     /**
@@ -1220,6 +1229,14 @@ public class TestBasicMediaServiceImpl
         appendArtistSynonyms(artist);
         helper.persist(artist);
         Set<String> songNames = createTestSongs(32, artist, null);
+        SongEntity song = createTestSong(false);
+        song.setArtistID(artist.getId());
+        SongSynonym ssyn = new SongSynonym();
+        ssyn.setArtistID(artist.getId());
+        ssyn.setName(song.getName());
+        song.addSynonym(ssyn);
+        helper.persist(song);
+        songNames.add(song.getName());
         assertTrue("Wrong result", service.removeArtist(artist.getId()));
         helper.closeEM();
         List<?> syns =
@@ -1228,12 +1245,15 @@ public class TestBasicMediaServiceImpl
         assertTrue("Still got synonyms", syns.isEmpty());
         List<SongEntity> songs = loadAllSongs();
         assertEquals("Wrong number of songs", songNames.size(), songs.size());
-        for (SongEntity song : songs)
+        for (SongEntity se : songs)
         {
-            assertTrue("Unexpected song name: " + song,
-                    songNames.remove(song.getName()));
-            assertNull("Still got an artist ID", song.getArtistID());
+            assertTrue("Unexpected song name: " + se,
+                    songNames.remove(se.getName()));
+            assertNull("Still got an artist ID", se.getArtistID());
         }
+        SongEntity se = helper.getEM().find(SongEntity.class, song.getId());
+        ssyn = se.getSynonyms().iterator().next();
+        assertNull("Song synonym still got an artist ID", ssyn.getArtistID());
     }
 
     /**

@@ -466,6 +466,20 @@ public class BasicMediaServiceImpl extends RemoteMediaServiceServlet implements
             }
         };
         templ.execute();
+
+        templ = new JPATemplate<Void>(false)
+        {
+            @Override
+            protected Void performOperation(EntityManager em)
+            {
+                for (Long synArtID : srcIDs)
+                {
+                    SongEntity.updateArtistIDInSynonyms(em, artistID, synArtID);
+                }
+                return null;
+            }
+        };
+        templ.execute();
     }
 
     /**
