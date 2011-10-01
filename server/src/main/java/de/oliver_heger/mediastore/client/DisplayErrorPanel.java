@@ -25,7 +25,7 @@ import com.google.gwt.user.client.ui.Widget;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class DisplayErrorPanel extends Composite implements HasText
+public class DisplayErrorPanel extends Composite implements HasText, ErrorIndicator
 {
     /** Constant for an HTML line break. */
     private static final String BR = "<br/>";
@@ -78,13 +78,10 @@ public class DisplayErrorPanel extends Composite implements HasText
         return labHeader.getText();
     }
 
-    /**
-     * Notifies this component that an error occurred. The panel will be
-     * displayed, and the detail component will be initialized with the content
-     * of the exception.
-     *
-     * @param ex the exception (must not be <b>null</b>)
+    /* (non-Javadoc)
+     * @see de.oliver_heger.mediastore.client.ErrorIndicator#displayError(java.lang.Throwable)
      */
+    @Override
     public void displayError(Throwable ex)
     {
         error = ex;
@@ -92,10 +89,10 @@ public class DisplayErrorPanel extends Composite implements HasText
         panel.setVisible(true);
     }
 
-    /**
-     * Notifies this component that there is no error. This makes the component
-     * invisible. This is also the initial state.
+    /* (non-Javadoc)
+     * @see de.oliver_heger.mediastore.client.ErrorIndicator#clearError()
      */
+    @Override
     public void clearError()
     {
         panel.setVisible(false);
