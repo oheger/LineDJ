@@ -42,20 +42,6 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
 
     /**
      * Creates a new instance of {@code OverviewDataProvider} and initializes it
-     * with the media search service and the query handler.
-     *
-     * @param service the media search service
-     * @param handler the query handler
-     */
-    public OverviewDataProvider(MediaSearchServiceAsync service,
-            OverviewQueryHandler<T> handler)
-    {
-        // TODO implementation
-        throw new UnsupportedOperationException("Not yet implemented!");
-    }
-
-    /**
-     * Creates a new instance of {@code OverviewDataProvider} and initializes it
      * with the media search service, the query handler, and the callback
      * factory.
      *
@@ -69,6 +55,16 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
         searchService = service;
         queryHandler = handler;
         callbackFactory = factory;
+    }
+
+    /**
+     * Returns the {@code OverviewCallbackFactory} used by this data provider.
+     *
+     * @return the callback factory
+     */
+    public OverviewCallbackFactory<T> getCallbackFactory()
+    {
+        return callbackFactory;
     }
 
     /**
@@ -129,7 +125,7 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());
         AsyncCallback<SearchResult<T>> callback =
-                callbackFactory.createSimpleSearchCallback(display);
+                getCallbackFactory().createSimpleSearchCallback(display);
         invokeQueryHandler(params, callback);
     }
 
@@ -143,8 +139,8 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
         MediaSearchParameters params = new MediaSearchParameters();
         params.setSearchText(getSearchText());
         AsyncCallback<SearchResult<T>> callback =
-                callbackFactory.createParameterSearchCallback(searchService,
-                        queryHandler, display);
+                getCallbackFactory().createParameterSearchCallback(
+                        searchService, queryHandler, display);
         invokeQueryHandler(params, callback);
     }
 
