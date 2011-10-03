@@ -178,9 +178,8 @@ public class TestOverviewDataProvider
         AsyncCallback<SearchResult<ArtistInfo>> callback = createCallback();
         Range range = new Range(10, 20);
         EasyMock.expect(data.getVisibleRange()).andReturn(range);
-        EasyMock.expect(
-                getCallbackFactory().createSimpleSearchCallback(
-                        getQueryHandler(), data)).andReturn(callback);
+        EasyMock.expect(getCallbackFactory().createSimpleSearchCallback(data))
+                .andReturn(callback);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());

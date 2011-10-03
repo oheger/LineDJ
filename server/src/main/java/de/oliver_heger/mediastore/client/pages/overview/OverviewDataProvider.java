@@ -129,8 +129,7 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());
         AsyncCallback<SearchResult<T>> callback =
-                callbackFactory.createSimpleSearchCallback(queryHandler,
-                        display);
+                callbackFactory.createSimpleSearchCallback(display);
         invokeQueryHandler(params, callback);
     }
 

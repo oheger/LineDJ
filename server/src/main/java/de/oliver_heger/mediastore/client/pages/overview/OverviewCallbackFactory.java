@@ -27,12 +27,10 @@ public interface OverviewCallbackFactory<T>
      * returns and the callback is invoked all data can be written into the
      * widget.
      *
-     * @param queryHandler the {@code OverviewQueryHandler}
      * @param widget the cell widget to be populated with data
      * @return the callback object
      */
-    AsyncCallback<SearchResult<T>> createSimpleSearchCallback(
-            OverviewQueryHandler<T> queryHandler, HasData<T> widget);
+    AsyncCallback<SearchResult<T>> createSimpleSearchCallback(HasData<T> widget);
 
     /**
      * Creates a callback object for a search operation with parameters. Such a
