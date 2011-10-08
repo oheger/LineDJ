@@ -43,6 +43,16 @@ public class OverviewCallbackFactoryImpl<T> implements
     }
 
     /**
+     * Returns the {@code ErrorIndicator} used by this factory.
+     *
+     * @return the {@code ErrorIndicator}
+     */
+    public ErrorIndicator getErrorIndicator()
+    {
+        return errorIndicator;
+    }
+
+    /**
      * {@inheritDoc} This implementation returns a simple callback object which
      * directly passes the data received from the service call to the widget
      * object.
@@ -70,7 +80,7 @@ public class OverviewCallbackFactoryImpl<T> implements
      */
     private void errorCaught(Throwable err)
     {
-        errorIndicator.displayError(err);
+        getErrorIndicator().displayError(err);
     }
 
     /**
@@ -78,7 +88,7 @@ public class OverviewCallbackFactoryImpl<T> implements
      */
     private void clearError()
     {
-        errorIndicator.clearError();
+        getErrorIndicator().clearError();
     }
 
     /**
