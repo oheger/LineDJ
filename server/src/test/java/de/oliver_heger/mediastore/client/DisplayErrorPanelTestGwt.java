@@ -8,7 +8,7 @@ import com.google.gwt.junit.client.GWTTestCase;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestDisplayErrorPanel extends GWTTestCase
+public class DisplayErrorPanelTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

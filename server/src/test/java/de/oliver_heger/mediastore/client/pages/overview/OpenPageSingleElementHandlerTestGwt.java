@@ -11,7 +11,7 @@ import de.oliver_heger.mediastore.client.pages.Pages;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestOpenPageSingleElementHandler extends GWTTestCase
+public class OpenPageSingleElementHandlerTestGwt extends GWTTestCase
 {
     /** Constant for the ID of the element. */
     private static final Long ELEM_ID = 20101213222945L;

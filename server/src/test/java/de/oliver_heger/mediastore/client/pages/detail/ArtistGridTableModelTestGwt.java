@@ -19,7 +19,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestArtistGridTableModel extends GWTTestCase
+public class ArtistGridTableModelTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

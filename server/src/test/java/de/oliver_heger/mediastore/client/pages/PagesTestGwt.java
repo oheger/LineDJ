@@ -15,7 +15,7 @@ import de.oliver_heger.mediastore.client.pages.overview.OverviewPage;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestPages extends GWTTestCase
+public class PagesTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

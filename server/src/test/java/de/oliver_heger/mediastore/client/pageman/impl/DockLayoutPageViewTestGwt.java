@@ -12,7 +12,7 @@ import com.google.gwt.user.client.ui.Widget;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestDockLayoutPageView extends GWTTestCase
+public class DockLayoutPageViewTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

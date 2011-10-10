@@ -17,7 +17,7 @@ import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestRemoveController extends GWTTestCase
+public class RemoveControllerTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

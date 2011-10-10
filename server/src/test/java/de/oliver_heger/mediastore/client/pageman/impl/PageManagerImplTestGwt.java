@@ -23,7 +23,7 @@ import de.oliver_heger.mediastore.client.pageman.PageView;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestPageManagerImpl extends GWTTestCase
+public class PageManagerImplTestGwt extends GWTTestCase
 {
     /** Constant for a name of a test page. */
     private static final String NAME = "TestPageName";

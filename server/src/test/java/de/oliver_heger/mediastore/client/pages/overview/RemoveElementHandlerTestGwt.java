@@ -17,7 +17,7 @@ import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestRemoveElementHandler extends GWTTestCase
+public class RemoveElementHandlerTestGwt extends GWTTestCase
 {
     /** Constant for a dummy service handler. */
     private static final RemoveServiceHandler SERVICE_HANDLER =

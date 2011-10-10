@@ -23,7 +23,7 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestOverviewPage extends GWTTestCase
+public class OverviewPageTestGwt extends GWTTestCase
 {
     /** Constant for a stub callback for remove operations. */
     private static final AsyncCallback<Boolean> REMOVE_CALLBACK =

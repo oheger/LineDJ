@@ -11,7 +11,7 @@ import com.google.gwt.junit.client.GWTTestCase;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestI18NFormatter extends GWTTestCase
+public class I18NFormatterTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()

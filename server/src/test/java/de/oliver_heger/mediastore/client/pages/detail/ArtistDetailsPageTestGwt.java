@@ -29,7 +29,7 @@ import de.oliver_heger.mediastore.shared.model.SongInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestArtistDetailsPage extends AbstractTestDetailsPage
+public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
 {
     /** Constant for the ID of the test artist. */
     private static final Long ARTIST_ID = 20101216075421L;

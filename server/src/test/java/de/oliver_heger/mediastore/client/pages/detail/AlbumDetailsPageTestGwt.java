@@ -24,7 +24,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class GwtTestAlbumDetailsPage extends AbstractTestDetailsPage
+public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
 {
     /**
      * Creates an info object with some basic properties.
