@@ -297,6 +297,7 @@
             you will have mysterious errors -->
           <gwtVersion>${gwt.version}</gwtVersion>
           <mode>htmlunit</mode>
+          <testTimeOut>300</testTimeOut>
         </configuration>
         <executions>
           <!-- <execution> <id>generateAsynch</id> <phase>generate-sources</phase> <goals>
@@ -304,7 +305,7 @@
           <execution>
             <goals>
               <goal>compile</goal>
-              <!-- <goal>test</goal> -->
+              <goal>test</goal>
             </goals>
           </execution>
         </executions>
