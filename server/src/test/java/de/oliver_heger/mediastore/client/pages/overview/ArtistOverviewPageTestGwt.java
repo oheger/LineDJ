@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -96,6 +97,20 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         assertEquals("Wrong value", info.getName(), col.getValue(info));
         LinkColumn<ArtistInfo> lcol = (LinkColumn<ArtistInfo>) col;
         assertEquals("Wrong ID", info.getArtistID(), lcol.getID(info));
+    }
+
+    /**
+     * Tests the column for the creation date.
+     */
+    public void testCreateDateColumn()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        Column<ArtistInfo, String> col = page.createDateColumn();
+        ArtistInfo info = new ArtistInfo();
+        info.setCreationDate(new Date(20111011081556L));
+        assertEquals("Wrong value",
+                page.getFormatter().formatDate(info.getCreationDate()),
+                col.getValue(info));
     }
 
     /**

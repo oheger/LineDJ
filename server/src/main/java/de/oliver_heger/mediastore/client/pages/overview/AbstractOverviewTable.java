@@ -17,6 +17,7 @@ import com.google.gwt.view.client.ProvidesKey;
 import com.google.gwt.view.client.Range;
 
 import de.oliver_heger.mediastore.client.DisplayErrorPanel;
+import de.oliver_heger.mediastore.client.I18NFormatter;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
@@ -82,6 +83,9 @@ public abstract class AbstractOverviewTable<T> extends Composite
     /** The data provider. */
     private OverviewDataProvider<T> dataProvider;
 
+    /** A formatter to be used by subclasses. */
+    private final I18NFormatter formatter;
+
     /**
      * Creates a new instance of {@code AbstractOverviewTable} and initializes
      * it. Some important helper objects must be provided. Before the object can
@@ -100,6 +104,8 @@ public abstract class AbstractOverviewTable<T> extends Composite
                 new SimplePager(TextLocation.CENTER, pagerResources, false, 0,
                         true);
         pager.setDisplay(cellTable);
+
+        formatter = new I18NFormatter();
         queryHandler = handler;
         initWidget(uiBinder.createAndBindUi(this));
     }
@@ -116,6 +122,16 @@ public abstract class AbstractOverviewTable<T> extends Composite
         dataProvider = initDataProvider();
         getDataProvider().addDataDisplay(cellTable);
         initCellTableColumns(cellTable);
+    }
+
+    /**
+     * Returns the formatter provided by this class.
+     *
+     * @return the formatter
+     */
+    public I18NFormatter getFormatter()
+    {
+        return formatter;
     }
 
     /**

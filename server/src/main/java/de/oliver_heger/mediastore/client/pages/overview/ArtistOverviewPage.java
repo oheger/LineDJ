@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import com.google.gwt.cell.client.TextCell;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.view.client.ProvidesKey;
@@ -43,6 +44,7 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
     protected void initCellTableColumns(CellTable<ArtistInfo> table)
     {
         table.addColumn(createArtistNameColumn(), "Name");
+        table.addColumn(createDateColumn(), "Created at");
     }
 
     /**
@@ -64,6 +66,23 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
             public String getValue(ArtistInfo obj)
             {
                 return obj.getName();
+            }
+        };
+    }
+
+    /**
+     * Creates the column for displaying the creation date.
+     *
+     * @return the created-at column
+     */
+    Column<ArtistInfo, String> createDateColumn()
+    {
+        return new Column<ArtistInfo, String>(new TextCell())
+        {
+            @Override
+            public String getValue(ArtistInfo object)
+            {
+                return getFormatter().formatDate(object.getCreationDate());
             }
         };
     }
