@@ -10,4 +10,5 @@ remotemediastore.launch
 .classpath
 .project
 .gwt
+gwt-unitCache
 
