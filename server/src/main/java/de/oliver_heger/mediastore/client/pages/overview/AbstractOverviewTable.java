@@ -1,11 +1,15 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import com.google.gwt.cell.client.CheckboxCell;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.safehtml.shared.SafeHtmlUtils;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.cellview.client.CellTable;
+import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.cellview.client.SimplePager;
 import com.google.gwt.user.cellview.client.SimplePager.TextLocation;
 import com.google.gwt.user.client.ui.Button;
@@ -13,6 +17,8 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
+import com.google.gwt.view.client.DefaultSelectionEventManager;
+import com.google.gwt.view.client.MultiSelectionModel;
 import com.google.gwt.view.client.ProvidesKey;
 import com.google.gwt.view.client.Range;
 
@@ -43,17 +49,20 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  */
 public abstract class AbstractOverviewTable<T> extends Composite
 {
+    /** Constant for the HTML br tag. */
+    private static final String HTML_BR = "<br/>";
+
     /** The binder instance. */
     private static OverviewTableUiBinder uiBinder = GWT
             .create(OverviewTableUiBinder.class);
 
     /** The main table widget. */
     @UiField(provided = true)
-    CellTable<T> cellTable;
+    final CellTable<T> cellTable;
 
     /** The pager providing paging functionality. */
     @UiField(provided = true)
-    SimplePager pager;
+    final SimplePager pager;
 
     /** The text component with the search text. */
     @UiField
@@ -70,6 +79,9 @@ public abstract class AbstractOverviewTable<T> extends Composite
     /** The panel showing an error message. */
     @UiField
     DisplayErrorPanel pnlError;
+
+    /** The selection model. */
+    private final MultiSelectionModel<T> selectionModel;
 
     /** The search service. */
     private MediaSearchServiceAsync searchService;
@@ -104,6 +116,7 @@ public abstract class AbstractOverviewTable<T> extends Composite
                 new SimplePager(TextLocation.CENTER, pagerResources, false, 0,
                         true);
         pager.setDisplay(cellTable);
+        selectionModel = initSelectionModel(keyProvider);
 
         formatter = new I18NFormatter();
         queryHandler = handler;
@@ -121,7 +134,7 @@ public abstract class AbstractOverviewTable<T> extends Composite
         pageManager = pm;
         dataProvider = initDataProvider();
         getDataProvider().addDataDisplay(cellTable);
-        initCellTableColumns(cellTable);
+        initCellTable();
     }
 
     /**
@@ -201,6 +214,24 @@ public abstract class AbstractOverviewTable<T> extends Composite
     protected abstract void initCellTableColumns(CellTable<T> table);
 
     /**
+     * Creates the column for the row selection. This is the first column in the
+     * cell table. It is connected to the cell table's selection model.
+     *
+     * @return the selection column
+     */
+    Column<T, Boolean> createSelectionColumn()
+    {
+        return new Column<T, Boolean>(new CheckboxCell(true, false))
+        {
+            @Override
+            public Boolean getValue(T object)
+            {
+                return selectionModel.isSelected(object);
+            }
+        };
+    }
+
+    /**
      * Reacts on a click of the search button.
      *
      * @param e the click event
@@ -235,6 +266,34 @@ public abstract class AbstractOverviewTable<T> extends Composite
         OverviewCallbackFactory<T> factory = createCallbackFactory();
         return new OverviewDataProvider<T>(getSearchService(),
                 getQueryHandler(), factory);
+    }
+
+    /**
+     * Initializes the selection model for the cell table.
+     *
+     * @param keyProvider the key provider
+     * @return the selection model
+     */
+    private MultiSelectionModel<T> initSelectionModel(ProvidesKey<T> keyProvider)
+    {
+        MultiSelectionModel<T> model = new MultiSelectionModel<T>(keyProvider);
+        cellTable.setSelectionModel(model,
+                DefaultSelectionEventManager.<T> createCheckboxManager(0));
+        return model;
+    }
+
+    /**
+     * Initializes the cell table. This includes adding the columns. This
+     * implementation already adds the column for the row selection. Then it
+     * calls the abstract method for adding the other columns.
+     */
+    private void initCellTable()
+    {
+        Column<T, Boolean> checkColumn = createSelectionColumn();
+        cellTable.addColumn(checkColumn,
+                SafeHtmlUtils.fromSafeConstant(HTML_BR));
+        cellTable.setColumnWidth(checkColumn, 40, Unit.PX);
+        initCellTableColumns(cellTable);
     }
 
     /**

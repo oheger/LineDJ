@@ -4,9 +4,13 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.google.gwt.cell.client.CheckboxCell;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.view.client.MultiSelectionModel;
+import com.google.gwt.view.client.ProvidesKey;
+import com.google.gwt.view.client.SelectionModel;
 
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
@@ -48,10 +52,20 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     public void testInitKeyProvider()
     {
         ArtistOverviewPage page = new ArtistOverviewPage();
+        ProvidesKey<ArtistInfo> keyProvider = page.cellTable.getKeyProvider();
+        checkKeyProvider(keyProvider);
+    }
+
+    /**
+     * Helper method for testing a key provider for artists.
+     *
+     * @param keyProvider the key provider to be tested
+     */
+    private void checkKeyProvider(ProvidesKey<? super ArtistInfo> keyProvider)
+    {
         ArtistInfo info = new ArtistInfo();
         info.setArtistID(20111007220914L);
-        assertEquals("Wrong key", info.getArtistID(), page.cellTable
-                .getKeyProvider().getKey(info));
+        assertEquals("Wrong key", info.getArtistID(), keyProvider.getKey(info));
     }
 
     /**
@@ -77,7 +91,8 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         MockPageManager pm = new MockPageManager();
         page.initialize(pm);
         assertSame("Page manager not set", pm, page.getPageManager());
-        assertTrue("No columns in table", page.cellTable.getColumnCount() > 0);
+        assertTrue("Too few columns in table",
+                page.cellTable.getColumnCount() > 1);
         page.getSearchService().checkNumberOfRequests(1);
         assertNull("Got a search text", page.getSearchService().nextRequest()
                 .getSearchText());
@@ -183,6 +198,49 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         MediaSearchParameters params = service.nextRequest();
         assertEquals("Wrong search text", searchText, params.getSearchText());
         assertEquals("Wrong first position", 0, params.getFirstResult());
+    }
+
+    /**
+     * Tests the selection model created for the cell table.
+     */
+    public void testSelectionModel()
+    {
+        ArtistOverviewPage page = createInitializedPage();
+        SelectionModel<? super ArtistInfo> selectionModel =
+                page.cellTable.getSelectionModel();
+        assertTrue("No multi selection",
+                selectionModel instanceof MultiSelectionModel);
+        checkKeyProvider(selectionModel);
+    }
+
+    /**
+     * Tests whether a column for the row selection has been added.
+     */
+    public void testSelectionColumn()
+    {
+        ArtistOverviewPage page = createInitializedPage();
+        Column<ArtistInfo, ?> column = page.cellTable.getColumn(0);
+        assertTrue("Wrong cell", column.getCell() instanceof CheckboxCell);
+    }
+
+    /**
+     * Tests whether the selection column is created correctly.
+     */
+    public void testCreateSelectionColumn()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        Column<ArtistInfo, Boolean> column = page.createSelectionColumn();
+        @SuppressWarnings("unchecked")
+        MultiSelectionModel<ArtistInfo> model =
+                (MultiSelectionModel<ArtistInfo>) page.cellTable
+                        .getSelectionModel();
+        ArtistInfo info = new ArtistInfo();
+        info.setArtistID(20111012222856L);
+        assertEquals("Wrong value for not selected", Boolean.FALSE,
+                column.getValue(info));
+        model.setSelected(info, true);
+        assertEquals("Wrong value for selected", Boolean.TRUE,
+                column.getValue(info));
     }
 
     /**
