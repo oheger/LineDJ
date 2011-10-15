@@ -1,17 +1,27 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import com.google.gwt.cell.client.CheckboxCell;
+import com.google.gwt.core.client.GWT;
+import com.google.gwt.dom.client.Document;
+import com.google.gwt.dom.client.NativeEvent;
+import com.google.gwt.event.dom.client.DomEvent;
+import com.google.gwt.event.shared.HasHandlers;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.view.client.MultiSelectionModel;
 import com.google.gwt.view.client.ProvidesKey;
+import com.google.gwt.view.client.SelectionChangeEvent;
 import com.google.gwt.view.client.SelectionModel;
 
+import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
@@ -30,10 +40,29 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class ArtistOverviewPageTestGwt extends GWTTestCase
 {
+    /** Constant for a label for multiple element handlers. */
+    private static final String LABEL = "Action_";
+
+    /** Constant for the number of test element handlers. */
+    private static final int HANDLER_COUNT = 4;
+
     @Override
     public String getModuleName()
     {
         return "de.oliver_heger.mediastore.RemoteMediaStore";
+    }
+
+    /**
+     * Creates a test artist info instance with a given ID.
+     *
+     * @param id the ID of the artist
+     * @return the test instance
+     */
+    private static ArtistInfo createArtistInfo(Long id)
+    {
+        ArtistInfo info = new ArtistInfo();
+        info.setArtistID(id);
+        return info;
     }
 
     /**
@@ -63,8 +92,7 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
      */
     private void checkKeyProvider(ProvidesKey<? super ArtistInfo> keyProvider)
     {
-        ArtistInfo info = new ArtistInfo();
-        info.setArtistID(20111007220914L);
+        ArtistInfo info = createArtistInfo(20111007220914L);
         assertEquals("Wrong key", info.getArtistID(), keyProvider.getKey(info));
     }
 
@@ -106,9 +134,8 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         ArtistOverviewPage page = new ArtistOverviewPage();
         Column<ArtistInfo, String> col = page.createArtistNameColumn();
         assertTrue("Not a link column", col instanceof LinkColumn<?>);
-        ArtistInfo info = new ArtistInfo();
+        ArtistInfo info = createArtistInfo(20111008173410L);
         info.setName("Pink Floyd");
-        info.setArtistID(20111008173410L);
         assertEquals("Wrong value", info.getName(), col.getValue(info));
         LinkColumn<ArtistInfo> lcol = (LinkColumn<ArtistInfo>) col;
         assertEquals("Wrong ID", info.getArtistID(), lcol.getID(info));
@@ -214,6 +241,20 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     }
 
     /**
+     * Tests whether selection is cleared on a refresh operation.
+     */
+    public void testClearSelectionOnRefresh()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        ArtistInfo info = createArtistInfo(20111015173640L);
+        SelectionModel<? super ArtistInfo> selectionModel =
+                page.cellTable.getSelectionModel();
+        selectionModel.setSelected(info, true);
+        page.refresh();
+        assertFalse("Still selected", selectionModel.isSelected(info));
+    }
+
+    /**
      * Tests whether a column for the row selection has been added.
      */
     public void testSelectionColumn()
@@ -234,13 +275,140 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         MultiSelectionModel<ArtistInfo> model =
                 (MultiSelectionModel<ArtistInfo>) page.cellTable
                         .getSelectionModel();
-        ArtistInfo info = new ArtistInfo();
-        info.setArtistID(20111012222856L);
+        ArtistInfo info = createArtistInfo(20111012222856L);
         assertEquals("Wrong value for not selected", Boolean.FALSE,
                 column.getValue(info));
         model.setSelected(info, true);
         assertEquals("Wrong value for selected", Boolean.TRUE,
                 column.getValue(info));
+    }
+
+    /**
+     * Adds a number of test handlers for multiple elements.
+     *
+     * @param table the target table
+     * @return an array with the handlers that have been added
+     */
+    private MultiElementHandlerTestImpl[] addMultiElementHandlers(
+            AbstractOverviewTable<?> table)
+    {
+        MultiElementHandlerTestImpl[] result =
+                new MultiElementHandlerTestImpl[HANDLER_COUNT];
+        ImageResources res = GWT.create(ImageResources.class);
+        for (int i = 0; i < HANDLER_COUNT; i++)
+        {
+            result[i] = new MultiElementHandlerTestImpl();
+            table.addMultiElementHandler(res.removeItem(), LABEL + i, result[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Retrieves the button for the multiple element handler with the given
+     * index.
+     *
+     * @param table the table
+     * @param i the index
+     * @return the button associated with this multiple element handler
+     */
+    private PushButton fetchMultiHandlerButton(AbstractOverviewTable<?> table,
+            int i)
+    {
+        return (PushButton) table.pnlMultiHandlers.getWidget(i);
+    }
+
+    /**
+     * Tests whether multiple element handlers can be added.
+     */
+    public void testAddMultiElementHandler()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        addMultiElementHandlers(page);
+        assertEquals("Wrong number of buttons", HANDLER_COUNT,
+                page.pnlMultiHandlers.getWidgetCount());
+        for (int i = 0; i < HANDLER_COUNT; i++)
+        {
+            PushButton btn = fetchMultiHandlerButton(page, i);
+            assertEquals("Wrong label", LABEL + i, btn.getText());
+            assertFalse("Enabled", btn.isEnabled());
+        }
+    }
+
+    /**
+     * Helper method for checking the enabled state of the table's multiple
+     * element handlers.
+     *
+     * @param table the overview table
+     * @param expFlag the expected enabled flag
+     */
+    private void checkMultiHandlerEnabled(AbstractOverviewTable<?> table,
+            boolean expFlag)
+    {
+        for (int i = 0; i < HANDLER_COUNT; i++)
+        {
+            assertEquals("Wrong enabled flag at " + i, expFlag,
+                    fetchMultiHandlerButton(table, i).isEnabled());
+        }
+    }
+
+    /**
+     * Tests whether the buttons for multiple element handlers are enabled or
+     * disabled based on the current selection.
+     */
+    public void testMultiElementHandlersEnabled()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        addMultiElementHandlers(page);
+        SelectionChangeEvent.Handler handler =
+                page.createSelectionChangeHandler();
+        SelectionModel<? super ArtistInfo> model =
+                page.cellTable.getSelectionModel();
+        checkMultiHandlerEnabled(page, false);
+        ArtistInfo info = createArtistInfo(20111014212420L);
+        model.setSelected(info, true);
+        handler.onSelectionChange(null);
+        checkMultiHandlerEnabled(page, true);
+        model.setSelected(info, false);
+        handler.onSelectionChange(null);
+        checkMultiHandlerEnabled(page, false);
+    }
+
+    /**
+     * Helper method for firing a click event on a widget.
+     *
+     * @param btn the widget
+     */
+    private static void fireClickEvent(HasHandlers btn)
+    {
+        NativeEvent clickEvent =
+                Document.get().createClickEvent(0, 0, 0, 0, 0, false, false,
+                        false, false);
+        DomEvent.fireNativeEvent(clickEvent, btn);
+    }
+
+    /**
+     * Tests whether handlers for multiple elements are correctly invoked.
+     */
+    public void testMultiElementHandlerExecute()
+    {
+        ArtistOverviewPage table = new ArtistOverviewPage();
+        MultiElementHandlerTestImpl[] handlers = addMultiElementHandlers(table);
+        List<ArtistInfo> selArtists = new ArrayList<ArtistInfo>();
+        selArtists.add(createArtistInfo(20111015174921L));
+        selArtists.add(createArtistInfo(20111015174946L));
+        selArtists.add(createArtistInfo(20111015175001L));
+        for (ArtistInfo info : selArtists)
+        {
+            table.cellTable.getSelectionModel().setSelected(info, true);
+        }
+        fireClickEvent(fetchMultiHandlerButton(table, 0));
+        assertEquals("Wrong number of IDs", selArtists.size(), handlers[0]
+                .getElementIDs().size());
+        for (ArtistInfo info : selArtists)
+        {
+            assertTrue("Element ID not found: " + info, handlers[0]
+                    .getElementIDs().contains(info.getArtistID()));
+        }
     }
 
     /**
@@ -325,6 +493,36 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         protected SearchServiceTestImpl getSearchService()
         {
             return searchService;
+        }
+    }
+
+    /**
+     * A tests implementation of a multiple element handler which is used to
+     * check whether the expected IDs are passed.
+     */
+    private static class MultiElementHandlerTestImpl implements
+            MultiElementHandler
+    {
+        /** Stores the passed in element IDs. */
+        private Set<Object> ids;
+
+        /**
+         * Returns the set with the IDs that was passed to this handler.
+         *
+         * @return the set with element IDs
+         */
+        public Set<Object> getElementIDs()
+        {
+            return ids;
+        }
+
+        /**
+         * Records this invocation and stores the IDs.
+         */
+        @Override
+        public void handleElements(Set<Object> elemIDs)
+        {
+            ids = elemIDs;
         }
     }
 }

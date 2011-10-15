@@ -1,9 +1,16 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import com.google.gwt.cell.client.CheckboxCell;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.safehtml.shared.SafeHtmlUtils;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
@@ -14,6 +21,8 @@ import com.google.gwt.user.cellview.client.SimplePager;
 import com.google.gwt.user.cellview.client.SimplePager.TextLocation;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
+import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
@@ -21,6 +30,7 @@ import com.google.gwt.view.client.DefaultSelectionEventManager;
 import com.google.gwt.view.client.MultiSelectionModel;
 import com.google.gwt.view.client.ProvidesKey;
 import com.google.gwt.view.client.Range;
+import com.google.gwt.view.client.SelectionChangeEvent;
 
 import de.oliver_heger.mediastore.client.DisplayErrorPanel;
 import de.oliver_heger.mediastore.client.I18NFormatter;
@@ -52,6 +62,10 @@ public abstract class AbstractOverviewTable<T> extends Composite
     /** Constant for the HTML br tag. */
     private static final String HTML_BR = "<br/>";
 
+    /** Constant for an empty array of multiple handlers. */
+    private static final MultiElementHandler[] EMPTY_MULTI_HANDLERS =
+            new MultiElementHandler[0];
+
     /** The binder instance. */
     private static OverviewTableUiBinder uiBinder = GWT
             .create(OverviewTableUiBinder.class);
@@ -80,6 +94,10 @@ public abstract class AbstractOverviewTable<T> extends Composite
     @UiField
     DisplayErrorPanel pnlError;
 
+    /** The panel with handlers for multiple elements. */
+    @UiField
+    HorizontalPanel pnlMultiHandlers;
+
     /** The selection model. */
     private final MultiSelectionModel<T> selectionModel;
 
@@ -97,6 +115,9 @@ public abstract class AbstractOverviewTable<T> extends Composite
 
     /** A formatter to be used by subclasses. */
     private final I18NFormatter formatter;
+
+    /** A list with the handlers for multiple elements registered at this table. */
+    private final List<MultiElementHandler> multiHandlers;
 
     /**
      * Creates a new instance of {@code AbstractOverviewTable} and initializes
@@ -120,6 +141,7 @@ public abstract class AbstractOverviewTable<T> extends Composite
 
         formatter = new I18NFormatter();
         queryHandler = handler;
+        multiHandlers = new ArrayList<MultiElementHandler>();
         initWidget(uiBinder.createAndBindUi(this));
     }
 
@@ -181,6 +203,17 @@ public abstract class AbstractOverviewTable<T> extends Composite
     }
 
     /**
+     * Returns an array with all {@code MultiElementHandler} objects registered
+     * at this table.
+     *
+     * @return an array with all {@code MultiElementHandler} objects
+     */
+    public MultiElementHandler[] getMultiElementHandlers()
+    {
+        return multiHandlers.toArray(EMPTY_MULTI_HANDLERS);
+    }
+
+    /**
      * Returns the search service.
      *
      * @return the search service
@@ -202,6 +235,34 @@ public abstract class AbstractOverviewTable<T> extends Composite
     {
         Range r = new Range(0, cellTable.getPageSize());
         cellTable.setVisibleRangeAndClearData(r, true);
+        selectionModel.clear();
+    }
+
+    /**
+     * Adds a {@code MultiElementHandler} implementation to this table. This
+     * method adds a new button with the specified image and label to the tool
+     * bar. When the button is clicked the handler is invoked with the currently
+     * selected element IDs as argument.
+     *
+     * @param imgres the image resource for the handler's button
+     * @param label the label for the handler's button
+     * @param handler the handler
+     */
+    protected void addMultiElementHandler(ImageResource imgres, String label,
+            final MultiElementHandler handler)
+    {
+        PushButton btn = new PushButton(new Image(imgres), new ClickHandler()
+        {
+            @Override
+            public void onClick(ClickEvent event)
+            {
+                handler.handleElements(fetchSelectedIDs());
+            }
+        });
+        multiHandlers.add(handler);
+        pnlMultiHandlers.add(btn);
+        btn.setText(label);
+        btn.setEnabled(false);
     }
 
     /**
@@ -227,6 +288,24 @@ public abstract class AbstractOverviewTable<T> extends Composite
             public Boolean getValue(T object)
             {
                 return selectionModel.isSelected(object);
+            }
+        };
+    }
+
+    /**
+     * Creates the handler for changes on the selection model.
+     *
+     * @return the handler
+     */
+    SelectionChangeEvent.Handler createSelectionChangeHandler()
+    {
+        return new SelectionChangeEvent.Handler()
+        {
+            @Override
+            public void onSelectionChange(SelectionChangeEvent event)
+            {
+                enableMultiHandlerButtons(!selectionModel.getSelectedSet()
+                        .isEmpty());
             }
         };
     }
@@ -279,6 +358,7 @@ public abstract class AbstractOverviewTable<T> extends Composite
         MultiSelectionModel<T> model = new MultiSelectionModel<T>(keyProvider);
         cellTable.setSelectionModel(model,
                 DefaultSelectionEventManager.<T> createCheckboxManager(0));
+        model.addSelectionChangeHandler(createSelectionChangeHandler());
         return model;
     }
 
@@ -304,6 +384,35 @@ public abstract class AbstractOverviewTable<T> extends Composite
     private OverviewCallbackFactory<T> createCallbackFactory()
     {
         return new OverviewCallbackFactoryImpl<T>(pnlError);
+    }
+
+    /**
+     * Sets the enabled flag for all buttons for multiple element handlers. This
+     * method is called when the selection of the table changes.
+     *
+     * @param enabled the enabled flag
+     */
+    private void enableMultiHandlerButtons(boolean enabled)
+    {
+        for (int i = 0; i < pnlMultiHandlers.getWidgetCount(); i++)
+        {
+            ((PushButton) pnlMultiHandlers.getWidget(i)).setEnabled(enabled);
+        }
+    }
+
+    /**
+     * Returns a set with the IDs of the elements which are currently selected.
+     *
+     * @return a set with the IDs of the selected elements
+     */
+    private Set<Object> fetchSelectedIDs()
+    {
+        Set<Object> ids = new HashSet<Object>();
+        for (T item : selectionModel.getSelectedSet())
+        {
+            ids.add(selectionModel.getKey(item));
+        }
+        return ids;
     }
 
     /**
