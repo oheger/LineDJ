@@ -43,7 +43,7 @@ import de.oliver_heger.mediastore.shared.search.SearchIterator;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class OverviewTable extends Composite implements SearchResultView
+public class OverviewTable extends Composite implements SearchResultView, Refreshable
 {
     /** Constant for the initial list size. */
     private static final int LIST_SIZE = 50;
@@ -284,6 +284,7 @@ public class OverviewTable extends Composite implements SearchResultView
      * Reloads the data displayed in this table. This method can be called to
      * make changes on the server-sided database visible.
      */
+    @Override
     public void refresh()
     {
         MediaSearchParameters params = getLatestSearchParameters();

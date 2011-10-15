@@ -12,12 +12,12 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 
 /**
- * Test class for {@code RemoveController}.
+ * Test class for {@code RemoveControllerDlg}.
  *
  * @author Oliver Heger
  * @version $Id: $
  */
-public class RemoveControllerTestGwt extends GWTTestCase
+public class RemoveControllerDlgTestGwt extends GWTTestCase
 {
     @Override
     public String getModuleName()
@@ -61,7 +61,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      * @param ctrl the controller
      * @param expIDs the expected IDs
      */
-    private static void checkIDsToRemove(RemoveController ctrl,
+    private static void checkIDsToRemove(RemoveControllerDlg ctrl,
             Collection<Object> expIDs)
     {
         Set<Object> removeIDs = ctrl.getIDsToBeRemoved();
@@ -75,7 +75,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testInit()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         assertNotNull("No remove button", ctrl.btnRemove);
         assertNotNull("No count span", ctrl.spanCount);
         assertNotNull("No dialog", ctrl.removeDlg);
@@ -92,7 +92,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testPerformRemove()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         Collection<Object> elementIDs = createElementIDs(16);
         RemoveServiceHandlerTestImpl handler =
@@ -113,7 +113,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testPerformRemoveNoIDs()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         try
         {
             ctrl.performRemove(new RemoveServiceHandlerTestImpl(null, null),
@@ -131,7 +131,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testPerformRemoveNoTable()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         try
         {
             ctrl.performRemove(new RemoveServiceHandlerTestImpl(null, null),
@@ -149,7 +149,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testPerformRemoveNoHandler()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         try
         {
             ctrl.performRemove(null, new OverviewTableTestImpl(),
@@ -167,7 +167,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testPerformRemoveEmptyIDSet()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         try
         {
             ctrl.performRemove(new RemoveServiceHandlerTestImpl(null, null),
@@ -186,7 +186,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testGetIDsToBeRemovedBeforeInit()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         assertTrue("Got IDs", ctrl.getIDsToBeRemoved().isEmpty());
     }
 
@@ -196,7 +196,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testCancelBeforeStart()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         Collection<Object> elementIDs = createElementIDs(16);
         RemoveServiceHandlerTestImpl handler =
@@ -214,7 +214,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
     public void testRemoveSingleStep()
     {
         final int count = 8;
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         RemoveServiceHandlerTestImpl handler =
                 new RemoveServiceHandlerTestImpl(createElementIDs(1),
@@ -236,7 +236,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
     public void testRemoveSuccess()
     {
         final int count = 32;
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         Collection<Object> elemIDs = createElementIDs(count);
         RemoveServiceHandlerTestImpl handler =
@@ -258,7 +258,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testRemoveCancel()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         RemoveServiceHandlerTestImpl handler =
                 new RemoveServiceHandlerTestImpl(createElementIDs(2),
@@ -280,7 +280,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testRemoveError()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         OverviewTableTestImpl table = new OverviewTableTestImpl();
         RemoveServiceHandlerTestImpl handler =
                 new RemoveServiceHandlerTestImpl(createElementIDs(1),
@@ -304,7 +304,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testInitOperationAfterCancel()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         ctrl.setCanceled(true);
         ctrl.performRemove(new RemoveServiceHandlerTestImpl(null, null),
                 new OverviewTableTestImpl(), createElementIDs(64));
@@ -316,7 +316,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testGenerateCountTextSingle()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         assertEquals("Wrong text", "1 item", ctrl.generateCountText(1));
     }
 
@@ -325,7 +325,7 @@ public class RemoveControllerTestGwt extends GWTTestCase
      */
     public void testGenerateCountTextMulti()
     {
-        RemoveController ctrl = new RemoveController();
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
         assertEquals("Wrong text", "8 items", ctrl.generateCountText(8));
     }
 

@@ -194,11 +194,11 @@ public class OverviewPage extends Composite implements SearchListener
 
         RemoveElementHandler removeArtistHandler =
                 new RemoveElementHandler(createRemoveArtistHandler(),
-                        tabArtists);
+                        tabArtists, null);
         RemoveElementHandler removeAlbumHandler =
-                new RemoveElementHandler(createRemoveAlbumHandler(), tabAlbums);
+                new RemoveElementHandler(createRemoveAlbumHandler(), tabAlbums, null);
         RemoveElementHandler removeSongHander =
-                new RemoveElementHandler(createRemoveSongHandler(), tabSongs);
+                new RemoveElementHandler(createRemoveSongHandler(), tabSongs, null);
         tabArtists.addSingleElementHandler(getImageResources().removeItem(),
                 removeArtistHandler);
         tabArtists.addMultiElementHandler(getImageResources().removeItem(),

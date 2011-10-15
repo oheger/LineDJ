@@ -291,7 +291,7 @@ public class OverviewPageTestGwt extends GWTTestCase
             if (h instanceof RemoveElementHandler)
             {
                 RemoveElementHandler rh = (RemoveElementHandler) h;
-                assertSame("Wrong overview table", tab, rh.getOverviewTable());
+                assertSame("Wrong overview table", tab, rh.getInitiatingControl());
                 return rh;
             }
         }

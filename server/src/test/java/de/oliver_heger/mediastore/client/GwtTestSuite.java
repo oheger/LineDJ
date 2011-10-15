@@ -19,8 +19,7 @@ import de.oliver_heger.mediastore.client.pages.overview.ArtistOverviewPageTestGw
 import de.oliver_heger.mediastore.client.pages.overview.OpenPageSingleElementHandlerTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewTableTestGwt;
-import de.oliver_heger.mediastore.client.pages.overview.RemoveControllerTestGwt;
-import de.oliver_heger.mediastore.client.pages.overview.RemoveElementHandlerTestGwt;
+import de.oliver_heger.mediastore.client.pages.overview.RemoveControllerDlgTestGwt;
 
 /**
  * <p>The main test suite class for all GWT tests.</p>
@@ -53,8 +52,7 @@ public class GwtTestSuite extends TestCase
         suite.addTestSuite(OpenPageSingleElementHandlerTestGwt.class);
         suite.addTestSuite(OverviewPageTestGwt.class);
         suite.addTestSuite(OverviewTableTestGwt.class);
-        suite.addTestSuite(RemoveControllerTestGwt.class);
-        suite.addTestSuite(RemoveElementHandlerTestGwt.class);
+        suite.addTestSuite(RemoveControllerDlgTestGwt.class);
 
         return suite;
     }

@@ -27,21 +27,27 @@ class RemoveElementHandler implements SingleElementHandler, MultiElementHandler
     /** The service handler. */
     private final RemoveServiceHandler serviceHandler;
 
-    /** The associated overview table. */
-    private final OverviewTable overviewTable;
+    /** The associated control. */
+    private final Refreshable control;
+
+    /** The remove controller. */
+    private final RemoveController removeController;
 
     /**
      * Creates a new instance of {@code RemoveElementHandler} and initializes it
-     * with the service handler and the associated overview table.
+     * with the service handler and the associated control.
      *
      * @param svcHandler the service handler
-     * @param tab the overview table
+     * @param ctrl the associated control; it is refreshed after the remove
+     *        operation completes
+     * @param removeCtrl the controller for the remove operation
      */
     public RemoveElementHandler(RemoveServiceHandler svcHandler,
-            OverviewTable tab)
+            Refreshable ctrl, RemoveController removeCtrl)
     {
         serviceHandler = svcHandler;
-        overviewTable = tab;
+        control = ctrl;
+        removeController = removeCtrl;
     }
 
     /**
@@ -55,13 +61,24 @@ class RemoveElementHandler implements SingleElementHandler, MultiElementHandler
     }
 
     /**
-     * Returns the {@code OverviewTable} this handler operates on.
+     * Returns the {@code Refreshable} this handler is associated with.
      *
-     * @return the overview table
+     * @return the associated control
      */
-    public OverviewTable getOverviewTable()
+    public Refreshable getInitiatingControl()
     {
-        return overviewTable;
+        return control;
+    }
+
+    /**
+     * Returns the {@code RemoveController} which handles the actual remove
+     * operation.
+     *
+     * @return the {@code RemoveController}
+     */
+    public RemoveController getRemoveController()
+    {
+        return removeController;
     }
 
     /**
@@ -89,17 +106,6 @@ class RemoveElementHandler implements SingleElementHandler, MultiElementHandler
     }
 
     /**
-     * Creates a new {@code RemoveController} to be used for a remove operation.
-     * This method is called each time this handler is invoked.
-     *
-     * @return the new remove controller
-     */
-    RemoveController createRemoveController()
-    {
-        return new RemoveController();
-    }
-
-    /**
      * Actually processes the element IDs. This method creates and invokes the
      * remove controller.
      *
@@ -107,8 +113,7 @@ class RemoveElementHandler implements SingleElementHandler, MultiElementHandler
      */
     private void doHandleElements(Set<Object> elemIDs)
     {
-        RemoveController controller = createRemoveController();
-        controller.performRemove(getServiceHandler(), getOverviewTable(),
-                elemIDs);
+        getRemoveController().performRemove(getServiceHandler(),
+                getInitiatingControl(), elemIDs);
     }
 }
