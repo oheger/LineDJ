@@ -8,7 +8,6 @@ import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.BasicMediaServiceTestImpl;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
@@ -25,25 +24,6 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class OverviewPageTestGwt extends GWTTestCase
 {
-    /** Constant for a stub callback for remove operations. */
-    private static final AsyncCallback<Boolean> REMOVE_CALLBACK =
-            new AsyncCallback<Boolean>()
-            {
-                @Override
-                public void onFailure(Throwable caught)
-                {
-                    throw new UnsupportedOperationException(
-                            "Unexpected method call!");
-                }
-
-                @Override
-                public void onSuccess(Boolean result)
-                {
-                    throw new UnsupportedOperationException(
-                            "Unexpected method call!");
-                }
-            };
-
     @Override
     public String getModuleName()
     {
@@ -350,7 +330,7 @@ public class OverviewPageTestGwt extends GWTTestCase
         RemoveElementHandler handler = findRemoveSingleHandler(page.tabArtists);
         final Long artistID = 20110522183023L;
         handler.getServiceHandler().removeElement(service, artistID,
-                REMOVE_CALLBACK);
+                RemoveMediaServiceMock.getRemoveCallback());
         assertEquals("Wrong artist ID", artistID, service.getRemoveArtistID());
     }
 
@@ -376,7 +356,7 @@ public class OverviewPageTestGwt extends GWTTestCase
         RemoveElementHandler handler = findRemoveSingleHandler(page.tabAlbums);
         final Long albumID = 20110522221401L;
         handler.getServiceHandler().removeElement(service, albumID,
-                REMOVE_CALLBACK);
+                RemoveMediaServiceMock.getRemoveCallback());
         assertEquals("Wrong album ID", albumID, service.getRemoveAlbumID());
     }
 
@@ -402,7 +382,7 @@ public class OverviewPageTestGwt extends GWTTestCase
         RemoveElementHandler handler = findRemoveSingleHandler(page.tabSongs);
         final String songID = "SONG_" + 20110522221610L;
         handler.getServiceHandler().removeElement(service, songID,
-                REMOVE_CALLBACK);
+                RemoveMediaServiceMock.getRemoveCallback());
         assertEquals("Wrong song ID", songID, service.getRemoveSongID());
     }
 
@@ -472,87 +452,6 @@ public class OverviewPageTestGwt extends GWTTestCase
         protected ResultData createResult(SearchResult<Object> result)
         {
             throw new UnsupportedOperationException("Unexpected method call!");
-        }
-    }
-
-    /**
-     * A mock service implementation which allows mocking the remove methods.
-     */
-    private static class RemoveMediaServiceMock extends
-            BasicMediaServiceTestImpl
-    {
-        /** The ID of the artist to be removed. */
-        private Long removeArtistID;
-
-        /** The ID of the album to be removed. */
-        private Long removeAlbumID;
-
-        /** The ID of the song to be removed. */
-        private String removeSongID;
-
-        /**
-         * Returns the ID of the artist to be removed.
-         *
-         * @return the artist ID
-         */
-        public Long getRemoveArtistID()
-        {
-            return removeArtistID;
-        }
-
-        /**
-         * Returns the ID of the album to be removed.
-         *
-         * @return the album ID
-         */
-        public Long getRemoveAlbumID()
-        {
-            return removeAlbumID;
-        }
-
-        /**
-         * Returns the ID of the song to be removed.
-         *
-         * @return the song ID
-         */
-        public String getRemoveSongID()
-        {
-            return removeSongID;
-        }
-
-        @Override
-        public void removeArtist(long artistID, AsyncCallback<Boolean> callback)
-        {
-            checkRemoveInvocation(callback);
-            removeArtistID = artistID;
-        }
-
-        @Override
-        public void removeSong(String songID, AsyncCallback<Boolean> callback)
-        {
-            checkRemoveInvocation(callback);
-            removeSongID = songID;
-        }
-
-        @Override
-        public void removeAlbum(long albumID, AsyncCallback<Boolean> callback)
-        {
-            checkRemoveInvocation(callback);
-            removeAlbumID = albumID;
-        }
-
-        /**
-         * Checks whether a remove invocation is valid. The callback is checked
-         * and whether no other element has been removed before.
-         *
-         * @param callback the callback
-         */
-        private void checkRemoveInvocation(AsyncCallback<Boolean> callback)
-        {
-            assertNull("Already an artist removed", removeArtistID);
-            assertNull("Already an album removed", removeAlbumID);
-            assertNull("Already a song removed", removeSongID);
-            assertSame("Wrong callback", REMOVE_CALLBACK, callback);
         }
     }
 }
