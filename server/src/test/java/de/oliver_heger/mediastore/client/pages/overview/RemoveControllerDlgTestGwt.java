@@ -88,6 +88,28 @@ public class RemoveControllerDlgTestGwt extends GWTTestCase
     }
 
     /**
+     * Tests whether the UI can be reset for another remove operation.
+     */
+    public void testResetUI()
+    {
+        RemoveControllerDlg ctrl = new RemoveControllerDlg();
+        ctrl.progressIndicator.setVisible(true);
+        ctrl.setCanceled(true);
+        ctrl.setInRemoveOperation(true);
+        ctrl.btnRemove.setEnabled(false);
+        ctrl.pnlError.displayError(new RuntimeException());
+        ctrl.labProgress.setText("Some text");
+        ctrl.resetUI();
+        assertFalse("Progress indicator visible",
+                ctrl.progressIndicator.isVisible());
+        assertFalse("Already an error", ctrl.pnlError.isInErrorState());
+        assertTrue("Remove button not enabled", ctrl.btnRemove.isEnabled());
+        assertFalse("Canceled", ctrl.isCanceled());
+        assertFalse("In remove operation", ctrl.isInRemoveOperation());
+        assertEquals("Got progress text", "", ctrl.labProgress.getText());
+    }
+
+    /**
      * Tests whether a remove operation can be initialized.
      */
     public void testPerformRemove()

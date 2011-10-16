@@ -56,6 +56,9 @@ public class OverviewPage extends Composite implements SearchListener
     @UiField
     OverviewTable tabAlbums;
 
+    /** The controller for remove operations. */
+    private final RemoveController removeController;
+
     /** A map with handlers for processing search queries. */
     private Map<OverviewTable, OverviewData> overviewTables;
 
@@ -71,6 +74,7 @@ public class OverviewPage extends Composite implements SearchListener
     public OverviewPage()
     {
         initWidget(binder.createAndBindUi(this));
+        removeController = new RemoveControllerDlg();
     }
 
     /**
@@ -194,11 +198,13 @@ public class OverviewPage extends Composite implements SearchListener
 
         RemoveElementHandler removeArtistHandler =
                 new RemoveElementHandler(createRemoveArtistHandler(),
-                        tabArtists, null);
+                        tabArtists, removeController);
         RemoveElementHandler removeAlbumHandler =
-                new RemoveElementHandler(createRemoveAlbumHandler(), tabAlbums, null);
+                new RemoveElementHandler(createRemoveAlbumHandler(), tabAlbums,
+                        removeController);
         RemoveElementHandler removeSongHander =
-                new RemoveElementHandler(createRemoveSongHandler(), tabSongs, null);
+                new RemoveElementHandler(createRemoveSongHandler(), tabSongs,
+                        removeController);
         tabArtists.addSingleElementHandler(getImageResources().removeItem(),
                 removeArtistHandler);
         tabArtists.addMultiElementHandler(getImageResources().removeItem(),

@@ -147,7 +147,7 @@ public class RemoveControllerDlg extends Composite implements RemoveController
         control = ctrl;
         idsToBeRemoved = new LinkedHashSet<Object>(elemIDs);
         removeCount = idsToBeRemoved.size();
-        setCanceled(false);
+        resetUI();
 
         spanCount.setInnerText(generateCountText(removeCount));
         removeDlg.center();
@@ -291,6 +291,20 @@ public class RemoveControllerDlg extends Composite implements RemoveController
             buf.append("s");
         }
         return buf.toString();
+    }
+
+    /**
+     * Resets the UI so that this object can be reused for another remove
+     * operation.
+     */
+    void resetUI()
+    {
+        progressIndicator.setVisible(false);
+        btnRemove.setEnabled(true);
+        pnlError.clearError();
+        setCanceled(false);
+        setInRemoveOperation(false);
+        labProgress.setText("");
     }
 
     /**
