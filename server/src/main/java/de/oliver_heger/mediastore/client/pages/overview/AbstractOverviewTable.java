@@ -34,6 +34,7 @@ import com.google.gwt.view.client.SelectionChangeEvent;
 
 import de.oliver_heger.mediastore.client.DisplayErrorPanel;
 import de.oliver_heger.mediastore.client.I18NFormatter;
+import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
@@ -57,8 +58,12 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @version $Id: $
  * @param <T> the type of data objects this page deals with
  */
-public abstract class AbstractOverviewTable<T> extends Composite
+public abstract class AbstractOverviewTable<T> extends Composite implements
+        Refreshable
 {
+    /** Constant for the label of the remove action. */
+    protected static final String ACTION_REMOVE = "Remove";
+
     /** Constant for the HTML br tag. */
     private static final String HTML_BR = "<br/>";
 
@@ -107,6 +112,9 @@ public abstract class AbstractOverviewTable<T> extends Composite
     /** The page manager. */
     private PageManager pageManager;
 
+    /** The image resources. */
+    private ImageResources imageResources;
+
     /** The query handler. */
     private final OverviewQueryHandler<T> queryHandler;
 
@@ -118,6 +126,9 @@ public abstract class AbstractOverviewTable<T> extends Composite
 
     /** A list with the handlers for multiple elements registered at this table. */
     private final List<MultiElementHandler> multiHandlers;
+
+    /** The remove controller managed by this object. */
+    private final RemoveController removeController;
 
     /**
      * Creates a new instance of {@code AbstractOverviewTable} and initializes
@@ -143,6 +154,8 @@ public abstract class AbstractOverviewTable<T> extends Composite
         queryHandler = handler;
         multiHandlers = new ArrayList<MultiElementHandler>();
         initWidget(uiBinder.createAndBindUi(this));
+
+        removeController = createRemoveController();
     }
 
     /**
@@ -154,9 +167,12 @@ public abstract class AbstractOverviewTable<T> extends Composite
     public void initialize(PageManager pm)
     {
         pageManager = pm;
+        imageResources = GWT.create(ImageResources.class);
+
         dataProvider = initDataProvider();
         getDataProvider().addDataDisplay(cellTable);
         initCellTable();
+        initMultiElementHandlers();
     }
 
     /**
@@ -214,6 +230,18 @@ public abstract class AbstractOverviewTable<T> extends Composite
     }
 
     /**
+     * Performs a refresh. This method causes the cell table to wipe out its
+     * data and contact the data provider again.
+     */
+    @Override
+    public void refresh()
+    {
+        Range r = new Range(0, cellTable.getPageSize());
+        cellTable.setVisibleRangeAndClearData(r, true);
+        selectionModel.clear();
+    }
+
+    /**
      * Returns the search service.
      *
      * @return the search service
@@ -228,14 +256,24 @@ public abstract class AbstractOverviewTable<T> extends Composite
     }
 
     /**
-     * Performs a refresh. This method causes the cell table to wipe out its
-     * data and contact the data provider again.
+     * Returns the object for accessing image resources.
+     *
+     * @return the object with image resources
      */
-    protected void refresh()
+    protected ImageResources getImageResources()
     {
-        Range r = new Range(0, cellTable.getPageSize());
-        cellTable.setVisibleRangeAndClearData(r, true);
-        selectionModel.clear();
+        return imageResources;
+    }
+
+    /**
+     * Returns the {@code RemoveController} managed by this class. It can be
+     * used by derived classes which have to perform remove operations.
+     *
+     * @return the {@code RemoveController}
+     */
+    protected RemoveController getRemoveController()
+    {
+        return removeController;
     }
 
     /**
@@ -263,6 +301,15 @@ public abstract class AbstractOverviewTable<T> extends Composite
         pnlMultiHandlers.add(btn);
         btn.setText(label);
         btn.setEnabled(false);
+    }
+
+    /**
+     * Initializes the handlers for multiple elements for this overview table.
+     * This method is called during initialization. It allows derived classes to
+     * hook in their specific handlers. This base implementation is empty.
+     */
+    protected void initMultiElementHandlers()
+    {
     }
 
     /**
@@ -384,6 +431,18 @@ public abstract class AbstractOverviewTable<T> extends Composite
     private OverviewCallbackFactory<T> createCallbackFactory()
     {
         return new OverviewCallbackFactoryImpl<T>(pnlError);
+    }
+
+    /**
+     * Creates the remove controller managed by this object. This controller is
+     * created once when the object is constructed. Then it can be reused for
+     * all kinds of remove operations.
+     *
+     * @return the newly created {@code RemoveController}
+     */
+    private RemoveController createRemoveController()
+    {
+        return new RemoveControllerDlg();
     }
 
     /**

@@ -412,6 +412,46 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     }
 
     /**
+     * Tests whether a handler for removing elements has been installed.
+     */
+    public void testRemoveElementHandler()
+    {
+        ArtistOverviewPage page = createInitializedPage();
+        RemoveElementHandler handler = null;
+        for (MultiElementHandler meh : page.getMultiElementHandlers())
+        {
+            if (meh instanceof RemoveElementHandler)
+            {
+                assertNull("Got multiple remove handlers", handler);
+                handler = (RemoveElementHandler) meh;
+            }
+        }
+        assertNotNull("No remove handler found", handler);
+        assertEquals("Wrong control", page, handler.getInitiatingControl());
+        assertSame("Wrong remove controller", page.getRemoveController(),
+                handler.getRemoveController());
+        assertNotNull("No remove controller", handler.getRemoveController());
+        assertEquals("Wrong service handler class", page
+                .createRemoveArtistHandler().getClass(), handler
+                .getServiceHandler().getClass());
+    }
+
+    /**
+     * Tests the service handler for removing artists.
+     */
+    public void testRemoveArtistServiceHandler()
+    {
+        ArtistOverviewPage page = new ArtistOverviewPage();
+        RemoveServiceHandler handler = page.createRemoveArtistHandler();
+        RemoveMediaServiceMock service = new RemoveMediaServiceMock();
+        final Long elemID = 20111018080335L;
+        handler.removeElement(service, elemID,
+                RemoveMediaServiceMock.getRemoveCallback());
+        assertEquals("Wrong removed artist", elemID,
+                service.getRemoveArtistID());
+    }
+
+    /**
      * A special search service mock implementation.
      */
     private static class SearchServiceTestImpl implements
