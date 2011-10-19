@@ -1,6 +1,10 @@
 package de.oliver_heger.mediastore.shared.search;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+
+import de.oliver_heger.mediastore.shared.ObjectUtils;
 
 /**
  * <p>
@@ -40,6 +44,9 @@ public class MediaSearchParameters implements Serializable
 
     /** The number of results to be retrieved. */
     private int maxResults;
+
+    /** A list with the order definitions for the query. */
+    private List<OrderDef> orderDefinition;
 
     /**
      * Returns the text to be searched for.
@@ -136,6 +143,52 @@ public class MediaSearchParameters implements Serializable
     }
 
     /**
+     * Returns a list with {@code OrderDef} objects defining the sort order of
+     * the query represented by this object. Result may be <b>null</b> if no
+     * sort order is defined.
+     *
+     * @return a list with {@code OrderDef} objects defining the sort order
+     */
+    public List<OrderDef> getOrderDefinition()
+    {
+        return orderDefinition;
+    }
+
+    /**
+     * Returns a list with {@code OrderDef} objects defining the sort order of
+     * the query represented by this object or returns the default sort order if
+     * there is no order definition. Note that an empty list is considered a
+     * valid order definition; so in this case, the default order definition is
+     * not returned.
+     *
+     * @param defaultOrder the {@code OrderDef} objects defining the default
+     *        order
+     * @return the order definition stored in this parameters object or the
+     *         default order definition
+     * @throws NullPointerException if the default order definition is
+     *         <b>null</b> and this object does not contain an order definition
+     */
+    public List<OrderDef> getOrderDefinitionDefault(OrderDef... defaultOrder)
+    {
+        if (orderDefinition != null)
+        {
+            return orderDefinition;
+        }
+        return Arrays.asList(defaultOrder);
+    }
+
+    /**
+     * Sets a list with {@code OrderDef} objects defining the sort order of the
+     * query represented by this object.
+     *
+     * @param orderDefinition the order definition for this query
+     */
+    public void setOrderDefinition(List<OrderDef> orderDefinition)
+    {
+        this.orderDefinition = orderDefinition;
+    }
+
+    /**
      * Returns a hash code for this object.
      *
      * @return a hash code
@@ -143,20 +196,12 @@ public class MediaSearchParameters implements Serializable
     @Override
     public int hashCode()
     {
-        final int factor = 31;
-        final int seed = 17;
-
-        int result = seed;
-        if (getSearchText() != null)
-        {
-            result = factor * result + getSearchText().hashCode();
-        }
-        result = factor * result + getFirstResult();
-        result = factor * result + getMaxResults();
-        if (getClientParameter() != null)
-        {
-            result = factor * result + getClientParameter().hashCode();
-        }
+        int result = ObjectUtils.HASH_SEED;
+        result = ObjectUtils.hash(getSearchText(), result);
+        result = ObjectUtils.HASH_FACTOR * result + getFirstResult();
+        result = ObjectUtils.HASH_FACTOR * result + getMaxResults();
+        result = ObjectUtils.hash(getClientParameter(), result);
+        result = ObjectUtils.hash(getOrderDefinition(), result);
         return result;
     }
 
@@ -181,12 +226,13 @@ public class MediaSearchParameters implements Serializable
         }
 
         MediaSearchParameters c = (MediaSearchParameters) obj;
-        return ((getSearchText() == null) ? c.getSearchText() == null
-                : getSearchText().equals(c.getSearchText()))
+        return ObjectUtils.equals(getSearchText(), c.getSearchText())
                 && getFirstResult() == c.getFirstResult()
                 && getMaxResults() == c.getMaxResults()
-                && ((getClientParameter() == null) ? c.getClientParameter() == null
-                        : getClientParameter().equals(c.getClientParameter()));
+                && ObjectUtils.equals(getClientParameter(),
+                        c.getClientParameter())
+                && ObjectUtils.equals(getOrderDefinition(),
+                        c.getOrderDefinition());
     }
 
     /**
@@ -198,18 +244,21 @@ public class MediaSearchParameters implements Serializable
     @Override
     public String toString()
     {
-        StringBuilder buf = new StringBuilder("MediaSearchParameters");
-        buf.append(" [ searchText = ").append(getSearchText());
-        buf.append(" firstResult = ").append(getFirstResult());
+        StringBuilder buf = ObjectUtils.prepareToStringBuffer(this);
+        ObjectUtils.appendToStringField(buf, "searchText", getSearchText(),
+                true);
+        ObjectUtils.appendToStringField(buf, "firstResult", getFirstResult(),
+                true);
         if (getMaxResults() > 0)
         {
-            buf.append(" maxResults = ").append(getMaxResults());
+            ObjectUtils.appendToStringField(buf, "maxResults", getMaxResults(),
+                    false);
         }
-        if (getClientParameter() != null)
-        {
-            buf.append(" clientParameter = ").append(getClientParameter());
-        }
-        buf.append(" ]");
+        ObjectUtils.appendToStringField(buf, "clientParameter",
+                getClientParameter(), false);
+        ObjectUtils.appendToStringField(buf, "orderDefinition",
+                getOrderDefinition(), false);
+        buf.append(ObjectUtils.TOSTR_DATA_SUFFIX);
         return buf.toString();
     }
 }
