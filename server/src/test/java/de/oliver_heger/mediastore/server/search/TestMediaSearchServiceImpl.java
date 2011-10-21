@@ -11,7 +11,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +36,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.persistence.PersistenceTestHelper;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
 import de.oliver_heger.mediastore.shared.search.SearchIteratorImpl;
 import de.oliver_heger.mediastore.shared.search.SearchResult;
@@ -732,6 +735,79 @@ public class TestMediaSearchServiceImpl
         assertEquals("Wrong number of search results", ALBUM_NAMES.length,
                 result.getResults().size());
         checkSongData(result);
+    }
+
+    /**
+     * Tests appendOrder() if the parameters contain an order definition.
+     */
+    @Test
+    public void testAppendOrderDefined()
+    {
+        OrderDef od1 = new OrderDef();
+        od1.setFieldName("field1");
+        OrderDef od2 = new OrderDef();
+        od2.setFieldName("field2");
+        od2.setDescending(true);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setOrderDefinition(Arrays.asList(od1, od2));
+        String query = "select e from Entity e";
+        String queryOrder = MediaSearchServiceImpl.appendOrder(query, params);
+        assertEquals("Wrong query with order", query
+                + " order by e.field1, e.field2 DESC", queryOrder);
+    }
+
+    /**
+     * Tests appendOrder() if the default order is to be used.
+     */
+    @Test
+    public void testAppendOrderUndefined()
+    {
+        MediaSearchParameters params = new MediaSearchParameters();
+        String query = "select e from Entity e";
+        String queryOrder = MediaSearchServiceImpl.appendOrder(query, params);
+        assertEquals("Wrong query with order", query + " order by e.name",
+                queryOrder);
+    }
+
+    /**
+     * Tests whether the order definition is taken into account when doing a
+     * chunk search.
+     */
+    @Test
+    public void testChunkSizeOrdered()
+    {
+        createSongs(true);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setSearchText("u");
+        OrderDef od = new OrderDef();
+        od.setFieldName("inceptionYear");
+        od.setDescending(true);
+        params.setOrderDefinition(Collections.singletonList(od));
+        List<SongInfo> foundSongs = new LinkedList<SongInfo>();
+        SearchResult<SongInfo> result = service.searchSongs(params, null);
+        boolean moreResults = true;
+        do
+        {
+            foundSongs.addAll(result.getResults());
+            SearchIterator it = result.getSearchIterator();
+            if (!it.hasNext())
+            {
+                moreResults = false;
+            }
+            else
+            {
+                result = service.searchSongs(params, it);
+            }
+        } while (moreResults);
+        assertTrue("Too few results", foundSongs.size() > 1);
+        Iterator<SongInfo> it = foundSongs.iterator();
+        int year = it.next().getInceptionYear().intValue();
+        while (it.hasNext())
+        {
+            int currentYear = it.next().getInceptionYear().intValue();
+            assertTrue("Wrong sort order", year > currentYear);
+            year = currentYear;
+        }
     }
 
     /**

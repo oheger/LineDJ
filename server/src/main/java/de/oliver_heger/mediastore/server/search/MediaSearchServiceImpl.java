@@ -29,6 +29,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
 import de.oliver_heger.mediastore.shared.search.SearchIteratorImpl;
 import de.oliver_heger.mediastore.shared.search.SearchResult;
@@ -87,30 +88,38 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     private static final String WHERE_USER = " e where e.user = :"
             + PARAM_USRID;
 
+    /** Constant for the entity prefix. */
+    private static final String ENTITY_PREFIX = "e.";
+
     /** Constant for the ORDER BY clause. */
-    private static final String ORDER_BY = " order by e.";
-
-    /** Constant for the prefix of the query for artists. */
-    private static final String QUERY_ARTISTS_PREFIX = SELECT_PREFIX
-            + "ArtistEntity" + WHERE_USER;
-
-    /** Constant for the order part of an artist query. */
-    private static final String ARTIST_ORDER = ORDER_BY + "name";
+    private static final String ORDER_BY = " order by ";
 
     /** Constant for the query for artists. */
-    private static final String QUERY_ARTISTS = QUERY_ARTISTS_PREFIX
-            + ARTIST_ORDER;
+    private static final String QUERY_ARTISTS = SELECT_PREFIX + "ArtistEntity"
+            + WHERE_USER;
 
     /** Constant for the query string for songs. */
     private static final String QUERY_SONGS = SELECT_PREFIX + "SongEntity"
-            + WHERE_USER + ORDER_BY + "name";
+            + WHERE_USER;
 
     /** Constant for the query string for albums. */
     private static final String QUERY_ALBUMS = SELECT_PREFIX + "AlbumEntity"
-            + WHERE_USER + ORDER_BY + "name";
+            + WHERE_USER;
+
+    /** Constant for the property for the default order. */
+    private static final String DEFAULT_ORDER_PROPERTY = "name";
+
+    /** Constant for the separator used in the ORDER BY clause. */
+    private static final Object ORDER_SEPARATOR = ", ";
+
+    /** Constant for the default order definition. */
+    private static final OrderDef DEFAULT_ORDER;
 
     /** Constant for the default chunk size for search operations. */
     private static final int DEFAULT_CHUNK_SIZE = 50;
+
+    /** Constant for the default buffer size for string generation. */
+    private static final int BUF_SIZE = 256;
 
     /** Stores the chunk size used for search operations. */
     private int chunkSize = DEFAULT_CHUNK_SIZE;
@@ -366,8 +375,9 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
      * @return the list with the results
      */
     <D> List<D> executeFullSearch(final MediaSearchParameters params,
-            final SearchIteratorImpl sit, final String queryStr)
+            final SearchIteratorImpl sit, String queryStr)
     {
+        final String orderedQuery = appendOrder(queryStr, params);
         JPATemplate<List<D>> template = new JPATemplate<List<D>>()
         {
             @Override
@@ -375,12 +385,13 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             {
                 Number count =
                         (Number) prepareUserQuery(em,
-                                createCountQuery(queryStr)).getSingleResult();
+                                createCountQuery(orderedQuery))
+                                .getSingleResult();
                 sit.setCurrentPosition(params.getFirstResult());
                 sit.setRecordCount(count.longValue());
                 sit.setHasNext(false);
 
-                Query query = prepareUserQuery(em, queryStr);
+                Query query = prepareUserQuery(em, orderedQuery);
                 if (params.getFirstResult() > 0)
                 {
                     query.setFirstResult(params.getFirstResult());
@@ -425,8 +436,9 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
     <E, D> SearchResult<D> executeChunkSearch(
             final MediaSearchParameters params,
             final SearchIterator searchIterator, final SearchFilter<E> filter,
-            final EntityConverter<E, D> converter, final String queryStr)
+            final EntityConverter<E, D> converter, String queryStr)
     {
+        final String orderedQuery = appendOrder(queryStr, params);
         JPATemplate<SearchResult<D>> templ =
                 new JPATemplate<SearchResult<D>>(false)
                 {
@@ -442,10 +454,10 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                         List<D> resultList = new LinkedList<D>();
 
                         SearchIteratorImpl sit =
-                                initializeSearchIterator(em, queryStr,
+                                initializeSearchIterator(em, orderedQuery,
                                         searchIterator);
                         Query query =
-                                prepareSearchQuery(em, queryStr,
+                                prepareSearchQuery(em, orderedQuery,
                                         sit.getCurrentPosition());
                         // the query string should result objects of the correct
                         // type
@@ -559,6 +571,38 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
                     }
                 };
         return templ.execute();
+    }
+
+    /**
+     * Appends the ORDER BY clause to the given query string. We always use an
+     * order definition. If no order is specified in the parameters object, per
+     * default query results are sorted by the entity name.
+     *
+     * @param queryStr the query string
+     * @param params the search parameters object
+     * @return the query with the appended order definition
+     */
+    static String appendOrder(String queryStr, MediaSearchParameters params)
+    {
+        StringBuilder buf = new StringBuilder(BUF_SIZE);
+        buf.append(queryStr).append(ORDER_BY);
+        boolean first = true;
+
+        for (OrderDef od : params.getOrderDefinitionDefault(DEFAULT_ORDER))
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                buf.append(ORDER_SEPARATOR);
+            }
+            buf.append(ENTITY_PREFIX);
+            od.appendOrderDefinition(buf);
+        }
+
+        return buf.toString();
     }
 
     /**
@@ -692,5 +736,11 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             countQuery = countQuery.substring(0, pos);
         }
         return countQuery;
+    }
+
+    static
+    {
+        DEFAULT_ORDER = new OrderDef();
+        DEFAULT_ORDER.setFieldName(DEFAULT_ORDER_PROPERTY);
     }
 }
