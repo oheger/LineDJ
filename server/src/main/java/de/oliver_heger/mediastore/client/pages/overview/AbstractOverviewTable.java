@@ -390,8 +390,9 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     private OverviewDataProvider<T> initDataProvider()
     {
         OverviewCallbackFactory<T> factory = createCallbackFactory();
+        //TODO initialize order provider correctly
         return new OverviewDataProvider<T>(getSearchService(),
-                getQueryHandler(), factory);
+                getQueryHandler(), factory, null);
     }
 
     /**

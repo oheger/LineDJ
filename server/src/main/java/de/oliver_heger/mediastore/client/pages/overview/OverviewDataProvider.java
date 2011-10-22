@@ -37,24 +37,30 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     /** The callback factory. */
     private final OverviewCallbackFactory<T> callbackFactory;
 
+    /** The order definition provider. */
+    private final OrderDefinitionProvider orderProvider;
+
     /** The current search text. */
     private String searchText;
 
     /**
      * Creates a new instance of {@code OverviewDataProvider} and initializes it
-     * with the media search service, the query handler, and the callback
-     * factory.
+     * with all required dependencies.
      *
      * @param service the media search service
      * @param handler the query handler
      * @param factory the callback factory
+     * @param odProvider the provider for order definitions
      */
     public OverviewDataProvider(MediaSearchServiceAsync service,
-            OverviewQueryHandler<T> handler, OverviewCallbackFactory<T> factory)
+            OverviewQueryHandler<T> handler,
+            OverviewCallbackFactory<T> factory,
+            OrderDefinitionProvider odProvider)
     {
         searchService = service;
         queryHandler = handler;
         callbackFactory = factory;
+        orderProvider = odProvider;
     }
 
     /**
@@ -121,7 +127,7 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     private void simpleSearch(HasData<T> display)
     {
         Range range = display.getVisibleRange();
-        MediaSearchParameters params = new MediaSearchParameters();
+        MediaSearchParameters params = createAndInitSearchParameters();
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());
         AsyncCallback<SearchResult<T>> callback =
@@ -136,12 +142,26 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
      */
     private void parameterSearch(HasData<T> display)
     {
-        MediaSearchParameters params = new MediaSearchParameters();
+        MediaSearchParameters params = createAndInitSearchParameters();
         params.setSearchText(getSearchText());
         AsyncCallback<SearchResult<T>> callback =
                 getCallbackFactory().createParameterSearchCallback(
                         searchService, queryHandler, display);
         invokeQueryHandler(params, callback);
+    }
+
+    /**
+     * Creates the parameters object for a search operation. This method creates
+     * a parameters object and performs some initializations common to all query
+     * kinds.
+     *
+     * @return the {@code MediaSearchParameters} object
+     */
+    private MediaSearchParameters createAndInitSearchParameters()
+    {
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setOrderDefinition(orderProvider.getOrderDefinitions());
+        return params;
     }
 
     /**

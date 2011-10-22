@@ -1,6 +1,11 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.easymock.EasyMock;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -10,6 +15,7 @@ import com.google.gwt.view.client.Range;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 import de.oliver_heger.mediastore.shared.search.SearchResult;
 
 /**
@@ -20,6 +26,9 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class TestOverviewDataProvider
 {
+    /** A list with order definition objects. */
+    private static List<OrderDef> orderDefinitions;
+
     /** A mock for the search service. */
     private MediaSearchServiceAsync service;
 
@@ -28,6 +37,20 @@ public class TestOverviewDataProvider
 
     /** A mock for the query handler. */
     private OverviewQueryHandler<ArtistInfo> queryHandler;
+
+    /** A mock for the order definition provider. */
+    private OrderDefinitionProvider orderProvider;
+
+    @BeforeClass
+    public static void setUpBeforeClass()
+    {
+        List<OrderDef> defs = new ArrayList<OrderDef>();
+        OrderDef od = new OrderDef();
+        od.setFieldName("testfield");
+        od.setDescending(true);
+        defs.add(od);
+        orderDefinitions = Collections.unmodifiableList(defs);
+    }
 
     /**
      * Returns a mock for the search service. It is created on demand.
@@ -78,6 +101,20 @@ public class TestOverviewDataProvider
     }
 
     /**
+     * Returns a mock for the order provider. It is created on demand.
+     *
+     * @return the mock order provider
+     */
+    private OrderDefinitionProvider getOrderProvider()
+    {
+        if (orderProvider == null)
+        {
+            orderProvider = EasyMock.createMock(OrderDefinitionProvider.class);
+        }
+        return orderProvider;
+    }
+
+    /**
      * Replays the specified mock object if it is not <b>null</b>.
      *
      * @param mock the mock to be replayed
@@ -115,6 +152,7 @@ public class TestOverviewDataProvider
         replayMock(service);
         replayMock(factory);
         replayMock(queryHandler);
+        replayMock(orderProvider);
     }
 
     /**
@@ -128,6 +166,7 @@ public class TestOverviewDataProvider
         verifyMock(service);
         verifyMock(factory);
         verifyMock(queryHandler);
+        verifyMock(orderProvider);
         EasyMock.verify(mocks);
     }
 
@@ -164,7 +203,7 @@ public class TestOverviewDataProvider
     private OverviewDataProvider<ArtistInfo> createProvider()
     {
         return new OverviewDataProvider<ArtistInfo>(getSearchService(),
-                getQueryHandler(), getCallbackFactory());
+                getQueryHandler(), getCallbackFactory(), getOrderProvider());
     }
 
     /**
@@ -180,9 +219,12 @@ public class TestOverviewDataProvider
         EasyMock.expect(data.getVisibleRange()).andReturn(range);
         EasyMock.expect(getCallbackFactory().createSimpleSearchCallback(data))
                 .andReturn(callback);
+        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
+                orderDefinitions);
         MediaSearchParameters params = new MediaSearchParameters();
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());
+        params.setOrderDefinition(orderDefinitions);
         getQueryHandler().executeQuery(getSearchService(), params, null,
                 callback);
         replay(data, callback);
@@ -220,11 +262,14 @@ public class TestOverviewDataProvider
         AsyncCallback<SearchResult<ArtistInfo>> callback = createCallback();
         final String searchText = "Hello";
         MediaSearchParameters params = new MediaSearchParameters();
+        params.setOrderDefinition(orderDefinitions);
         params.setSearchText(searchText);
         EasyMock.expect(
                 getCallbackFactory().createParameterSearchCallback(
                         getSearchService(), getQueryHandler(), data))
                 .andReturn(callback);
+        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
+                orderDefinitions);
         getQueryHandler().executeQuery(getSearchService(), params, null,
                 callback);
         replay(data, callback);
