@@ -14,6 +14,7 @@ import com.google.gwt.event.dom.client.DomEvent;
 import com.google.gwt.event.shared.HasHandlers;
 import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.cellview.client.Column;
+import com.google.gwt.user.cellview.client.ColumnSortList;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.view.client.MultiSelectionModel;
@@ -28,6 +29,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 import de.oliver_heger.mediastore.shared.search.SearchIterator;
 import de.oliver_heger.mediastore.shared.search.SearchResult;
 
@@ -179,6 +181,8 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
                         .getCallbackFactory();
         assertEquals("Wrong error indicator", page.pnlError,
                 factory.getErrorIndicator());
+        assertSame("Wrong order provider", page,
+                dataProvider.getOrderDefinitionProvider());
     }
 
     /**
@@ -449,6 +453,50 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
                 RemoveMediaServiceMock.getRemoveCallback());
         assertEquals("Wrong removed artist", elemID,
                 service.getRemoveArtistID());
+    }
+
+    /**
+     * Helper method for checking the content of an order definition.
+     *
+     * @param defs the list with all order definition objects
+     * @param idx the index of the object to check
+     * @param field the expected field name
+     * @param descending the expected descending flag
+     */
+    private static void checkOrderDef(List<OrderDef> defs, int idx,
+            String field, boolean descending)
+    {
+        OrderDef od = defs.get(idx);
+        assertEquals("Wrong order definition", field, od.getFieldName());
+        assertEquals("Wrong descending flag", descending, od.isDescending());
+    }
+
+    /**
+     * Tests the default order definition set for the artist table.
+     */
+    public void testGetOrderDefinitionDefault()
+    {
+        ArtistOverviewPageTestImpl page = createInitializedPage();
+        List<OrderDef> defs = page.getOrderDefinitions();
+        assertEquals("Wrong number of definitions", 1, defs.size());
+        checkOrderDef(defs, 0, "searchName", false);
+    }
+
+    /**
+     * Tests whether a specific order definition can be retrieved.
+     */
+    public void testGetOrderDefinitionSpecific()
+    {
+        ArtistOverviewPageTestImpl page = createInitializedPage();
+        ColumnSortList sortList = page.cellTable.getColumnSortList();
+        sortList.clear();
+        sortList.push(page.cellTable.getColumn(1));
+        sortList.push(new ColumnSortList.ColumnSortInfo(page.cellTable
+                .getColumn(2), false));
+        List<OrderDef> defs = page.getOrderDefinitions();
+        assertEquals("Wrong number of definitions", 2, defs.size());
+        checkOrderDef(defs, 0, "creationDate", true);
+        checkOrderDef(defs, 1, "searchName", false);
     }
 
     /**

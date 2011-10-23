@@ -1,8 +1,10 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.gwt.cell.client.CheckboxCell;
@@ -17,6 +19,9 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
+import com.google.gwt.user.cellview.client.ColumnSortList;
+import com.google.gwt.user.cellview.client.ColumnSortList.ColumnSortInfo;
 import com.google.gwt.user.cellview.client.SimplePager;
 import com.google.gwt.user.cellview.client.SimplePager.TextLocation;
 import com.google.gwt.user.client.ui.Button;
@@ -38,6 +43,7 @@ import de.oliver_heger.mediastore.client.ImageResources;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.shared.search.MediaSearchService;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 
 /**
  * <p>
@@ -59,7 +65,7 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @param <T> the type of data objects this page deals with
  */
 public abstract class AbstractOverviewTable<T> extends Composite implements
-        Refreshable
+        Refreshable, OrderDefinitionProvider
 {
     /** Constant for the label of the remove action. */
     protected static final String ACTION_REMOVE = "Remove";
@@ -124,6 +130,12 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     /** A formatter to be used by subclasses. */
     private final I18NFormatter formatter;
 
+    /**
+     * A map for the columns managed by the cell table and the corresponding
+     * property names.
+     */
+    private final Map<Column<T, ?>, String> columnProperties;
+
     /** A list with the handlers for multiple elements registered at this table. */
     private final List<MultiElementHandler> multiHandlers;
 
@@ -153,6 +165,7 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
         formatter = new I18NFormatter();
         queryHandler = handler;
         multiHandlers = new ArrayList<MultiElementHandler>();
+        columnProperties = new HashMap<Column<T, ?>, String>();
         initWidget(uiBinder.createAndBindUi(this));
 
         removeController = createRemoveController();
@@ -242,6 +255,26 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     }
 
     /**
+     * Returns the list with order definitions for the current search query.
+     * This implementation queries the order definitions from the cell table. By
+     * clicking on column headers the user can change the sort order.
+     *
+     * @return the current order definitions
+     */
+    @Override
+    public List<OrderDef> getOrderDefinitions()
+    {
+        ColumnSortList sortList = cellTable.getColumnSortList();
+        int count = sortList.size();
+        List<OrderDef> orderDefs = new ArrayList<OrderDef>(count);
+        for (int i = 0; i < count; i++)
+        {
+            orderDefs.add(convertToOrderDef(sortList.get(i)));
+        }
+        return orderDefs;
+    }
+
+    /**
      * Returns the search service.
      *
      * @return the search service
@@ -310,6 +343,32 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
      */
     protected void initMultiElementHandlers()
     {
+    }
+
+    /**
+     * Adds a column to the cell table managed by this class and associates this
+     * column with the given property name. This association is mainly used to
+     * implement the {@link OrderDefinitionProvider} interface: the cell table
+     * reports which columns are currently used to order the displayed results.
+     * These columns have to be transformed to property names which can be
+     * interpreted by the search service.
+     *
+     * @param column the column to be added
+     * @param header the header of the column
+     * @param propertyName the corresponding property name
+     * @param defaultOrder a flag whether this column should be sorted by
+     *        default
+     */
+    protected void addColumn(Column<T, ?> column, String header,
+            String propertyName, boolean defaultOrder)
+    {
+        cellTable.addColumn(column, header);
+        columnProperties.put(column, propertyName);
+
+        if (defaultOrder)
+        {
+            cellTable.getColumnSortList().push(column);
+        }
     }
 
     /**
@@ -390,9 +449,8 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     private OverviewDataProvider<T> initDataProvider()
     {
         OverviewCallbackFactory<T> factory = createCallbackFactory();
-        //TODO initialize order provider correctly
         return new OverviewDataProvider<T>(getSearchService(),
-                getQueryHandler(), factory, null);
+                getQueryHandler(), factory, this);
     }
 
     /**
@@ -417,10 +475,13 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
      */
     private void initCellTable()
     {
+        cellTable.setWidth("100%", true);
         Column<T, Boolean> checkColumn = createSelectionColumn();
         cellTable.addColumn(checkColumn,
                 SafeHtmlUtils.fromSafeConstant(HTML_BR));
         cellTable.setColumnWidth(checkColumn, 40, Unit.PX);
+        cellTable.addColumnSortHandler(new ColumnSortEvent.AsyncHandler(
+                cellTable));
         initCellTableColumns(cellTable);
     }
 
@@ -473,6 +534,23 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
             ids.add(selectionModel.getKey(item));
         }
         return ids;
+    }
+
+    /**
+     * Converts a {@code ColumnSortInfo} object to an {@code OrderDef} object.
+     * This is done with the help of the mapping from columns to property names.
+     *
+     * @param columnSortInfo the object to be converted
+     * @return the resulting {@code OrderDef}
+     */
+    private OrderDef convertToOrderDef(ColumnSortInfo columnSortInfo)
+    {
+        OrderDef od = new OrderDef();
+        String property = columnProperties.get(columnSortInfo.getColumn());
+        assert property != null : "Cannot resolve property for column!";
+        od.setFieldName(property);
+        od.setDescending(!columnSortInfo.isAscending());
+        return od;
     }
 
     /**

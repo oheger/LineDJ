@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
 import com.google.gwt.cell.client.TextCell;
+import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -45,8 +46,12 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
     @Override
     protected void initCellTableColumns(CellTable<ArtistInfo> table)
     {
-        table.addColumn(createArtistNameColumn(), "Name");
-        table.addColumn(createDateColumn(), "Created at");
+        Column<ArtistInfo, String> colName = createArtistNameColumn();
+        addColumn(colName, "Name", "searchName", true);
+        cellTable.setColumnWidth(colName, 75, Unit.PCT);
+        Column<ArtistInfo, String> colDate = createDateColumn();
+        addColumn(colDate, "Created at", "creationDate", false);
+        cellTable.setColumnWidth(colDate, 25, Unit.PCT);
     }
 
     /**
@@ -67,20 +72,24 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
      */
     Column<ArtistInfo, String> createArtistNameColumn()
     {
-        return new LinkColumn<ArtistInfo>(getPageManager(), Pages.ARTISTDETAILS)
-        {
-            @Override
-            protected Object getID(ArtistInfo obj)
-            {
-                return obj.getArtistID();
-            }
+        Column<ArtistInfo, String> col =
+                new LinkColumn<ArtistInfo>(getPageManager(),
+                        Pages.ARTISTDETAILS)
+                {
+                    @Override
+                    protected Object getID(ArtistInfo obj)
+                    {
+                        return obj.getArtistID();
+                    }
 
-            @Override
-            public String getValue(ArtistInfo obj)
-            {
-                return obj.getName();
-            }
-        };
+                    @Override
+                    public String getValue(ArtistInfo obj)
+                    {
+                        return obj.getName();
+                    }
+                };
+        col.setSortable(true);
+        return col;
     }
 
     /**
@@ -90,14 +99,18 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
      */
     Column<ArtistInfo, String> createDateColumn()
     {
-        return new Column<ArtistInfo, String>(new TextCell())
-        {
-            @Override
-            public String getValue(ArtistInfo object)
-            {
-                return getFormatter().formatDate(object.getCreationDate());
-            }
-        };
+        Column<ArtistInfo, String> col =
+                new Column<ArtistInfo, String>(new TextCell())
+                {
+                    @Override
+                    public String getValue(ArtistInfo object)
+                    {
+                        return getFormatter().formatDate(
+                                object.getCreationDate());
+                    }
+                };
+        col.setSortable(true);
+        return col;
     }
 
     /**

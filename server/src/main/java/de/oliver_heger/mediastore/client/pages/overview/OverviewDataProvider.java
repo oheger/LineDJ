@@ -74,6 +74,16 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     }
 
     /**
+     * Returns the {@code OrderDefinitionProvider} used by this object.
+     *
+     * @return the {@code OrderDefinitionProvider}
+     */
+    public OrderDefinitionProvider getOrderDefinitionProvider()
+    {
+        return orderProvider;
+    }
+
+    /**
      * Returns the current search text. The search text is trimmed before it is
      * returned. Result is never <b>null</b>; if no search text has been set, an
      * empty string is returned.
@@ -160,7 +170,8 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     private MediaSearchParameters createAndInitSearchParameters()
     {
         MediaSearchParameters params = new MediaSearchParameters();
-        params.setOrderDefinition(orderProvider.getOrderDefinitions());
+        params.setOrderDefinition(getOrderDefinitionProvider()
+                .getOrderDefinitions());
         return params;
     }
 
