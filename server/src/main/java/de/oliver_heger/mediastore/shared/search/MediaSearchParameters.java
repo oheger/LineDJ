@@ -170,7 +170,7 @@ public class MediaSearchParameters implements Serializable
      */
     public List<OrderDef> getOrderDefinitionDefault(OrderDef... defaultOrder)
     {
-        if (orderDefinition != null)
+        if (orderDefinition != null && !orderDefinition.isEmpty())
         {
             return orderDefinition;
         }

@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.junit.Before;
@@ -124,17 +125,37 @@ public class TestMediaSearchParameters
     }
 
     /**
-     * Tests whether the default order definition is returned if no order
-     * definition is contained in the object.
+     * Helper method for checking whether the default order definition is
+     * returned if the object does not contain a definition.
      */
-    @Test
-    public void testGetOrderDefinitionDefaultUndefined()
+    private void checkGetOrderDefinitionDefaultUndefined()
     {
         OrderDef od = new OrderDef();
         od.setFieldName("other field");
         List<OrderDef> order = params.getOrderDefinitionDefault(od);
         assertEquals("Wrong number of order definitions", 1, order.size());
         assertEquals("Wrong order definition", od, order.get(0));
+    }
+
+    /**
+     * Tests whether the default order definition is returned if no order
+     * definition is contained in the object.
+     */
+    @Test
+    public void testGetOrderDefinitionDefaultNull()
+    {
+        checkGetOrderDefinitionDefaultUndefined();
+    }
+
+    /**
+     * Tests whether the default order definition is returned if an empty order
+     * definition is contained in the object.
+     */
+    @Test
+    public void testGetOrderDefinitionDefaultEmpty()
+    {
+        params.setOrderDefinition(new LinkedList<OrderDef>());
+        checkGetOrderDefinitionDefaultUndefined();
     }
 
     /**
