@@ -765,7 +765,7 @@ public class TestMediaSearchServiceImpl
         MediaSearchParameters params = new MediaSearchParameters();
         String query = "select e from Entity e";
         String queryOrder = MediaSearchServiceImpl.appendOrder(query, params);
-        assertEquals("Wrong query with order", query + " order by e.name",
+        assertEquals("Wrong query with order", query + " order by e.searchName",
                 queryOrder);
     }
 

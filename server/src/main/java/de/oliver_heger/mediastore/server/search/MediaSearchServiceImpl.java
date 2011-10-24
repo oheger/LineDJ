@@ -107,7 +107,7 @@ public class MediaSearchServiceImpl extends RemoteMediaServiceServlet implements
             + WHERE_USER;
 
     /** Constant for the property for the default order. */
-    private static final String DEFAULT_ORDER_PROPERTY = "name";
+    private static final String DEFAULT_ORDER_PROPERTY = "searchName";
 
     /** Constant for the separator used in the ORDER BY clause. */
     private static final Object ORDER_SEPARATOR = ", ";
