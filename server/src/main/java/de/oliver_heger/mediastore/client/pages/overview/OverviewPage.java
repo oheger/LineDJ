@@ -126,6 +126,7 @@ public class OverviewPage extends Composite implements SearchListener
         initQueryHandlers();
         initElementHandlers();
         ((AbstractOverviewTable<?>) getTableWidget(3)).initialize(pm);
+        ((AbstractOverviewTable<?>) getTableWidget(4)).initialize(pm);
         ensureOverviewTableInitialized(tabPanel.getSelectedIndex());
     }
 

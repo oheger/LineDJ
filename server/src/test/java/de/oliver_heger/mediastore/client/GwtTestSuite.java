@@ -15,6 +15,7 @@ import de.oliver_heger.mediastore.client.pages.detail.ArtistGridTableModelTestGw
 import de.oliver_heger.mediastore.client.pages.detail.SongDetailsPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.SongGridTableModelTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.SynonymEditorTestGwt;
+import de.oliver_heger.mediastore.client.pages.overview.AlbumOverviewPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.ArtistOverviewPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OpenPageSingleElementHandlerTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPageTestGwt;
@@ -53,6 +54,7 @@ public class GwtTestSuite extends TestCase
         suite.addTestSuite(OverviewPageTestGwt.class);
         suite.addTestSuite(OverviewTableTestGwt.class);
         suite.addTestSuite(RemoveControllerDlgTestGwt.class);
+        suite.addTestSuite(AlbumOverviewPageTestGwt.class);
 
         return suite;
     }
