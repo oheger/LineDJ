@@ -69,20 +69,20 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
         addColumn(colDuration, "Duration", "duration", false);
         cellTable.setColumnWidth(colDuration, 8, Unit.PCT);
         Column<SongInfo, String> colYear = createYearColumn();
-        addColumn(colYear, "year", "inceptionYear", false);
+        addColumn(colYear, "Year", "inceptionYear", false);
         cellTable.setColumnWidth(colYear, 8, Unit.PCT);
         Column<SongInfo, String> colAlbum = createAlbumColumn();
         addColumn(colAlbum, "Album", null, false);
         cellTable.setColumnWidth(colAlbum, 20, Unit.PCT);
         Column<SongInfo, String> colTrack = createTrackColumn();
-        addColumn(colTrack, "Track", "track", false);
-        cellTable.setColumnWidth(colTrack, 8, Unit.PCT);
+        addColumn(colTrack, "Track", "trackNo", false);
+        cellTable.setColumnWidth(colTrack, 5, Unit.PCT);
         Column<SongInfo, String> colPlayCount = createPlayCountColumn();
         addColumn(colPlayCount, "Played", "playCount", false);
-        cellTable.setColumnWidth(colPlayCount, 8, Unit.PCT);
+        cellTable.setColumnWidth(colPlayCount, 5, Unit.PCT);
         Column<SongInfo, String> colDate = createDateColumn();
         addColumn(colDate, "Date", "creationDate", false);
-        cellTable.setColumnWidth(colDate, 8, Unit.PCT);
+        cellTable.setColumnWidth(colDate, 14, Unit.PCT);
     }
 
     /**
