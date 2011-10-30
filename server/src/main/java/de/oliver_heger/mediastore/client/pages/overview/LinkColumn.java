@@ -93,9 +93,13 @@ public abstract class LinkColumn<T> extends Column<T, String>
     {
         if (object != null)
         {
-            sb.appendHtmlConstant(DIV_OPEN);
-            sb.appendEscaped(getValue(object));
-            sb.appendHtmlConstant(DIV_CLOSE);
+            String value = getValue(object);
+            if (value != null)
+            {
+                sb.appendHtmlConstant(DIV_OPEN);
+                sb.appendEscaped(value);
+                sb.appendHtmlConstant(DIV_CLOSE);
+            }
         }
     }
 
@@ -121,8 +125,12 @@ public abstract class LinkColumn<T> extends Column<T, String>
             @Override
             public void update(int index, T object, String value)
             {
-                getPageManager().createPageSpecification(getPage())
-                        .withParameter(getID(object)).open();
+                Object id = getID(object);
+                if (id != null)
+                {
+                    getPageManager().createPageSpecification(getPage())
+                            .withParameter(id).open();
+                }
             }
         });
     }

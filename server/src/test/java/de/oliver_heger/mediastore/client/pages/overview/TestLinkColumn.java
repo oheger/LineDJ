@@ -128,6 +128,22 @@ public class TestLinkColumn
     }
 
     /**
+     * Tests the render() method if no data is available. In this case nothing
+     * should be output.
+     */
+    @Test
+    public void testRenderNoValue()
+    {
+        Context ctx = EasyMock.createMock(Context.class);
+        SafeHtmlBuilder builder = new SafeHtmlBuilder();
+        EasyMock.replay(ctx);
+        SongInfo info = new SongInfo();
+        column.render(ctx, info, builder);
+        assertEquals("Got data", "", builder.toSafeHtml().asString());
+        EasyMock.verify(ctx);
+    }
+
+    /**
      * Tests whether the column sets an updater which opens the link on
      * clicking.
      */
@@ -138,6 +154,18 @@ public class TestLinkColumn
                 .withParameter(ART_ID).open();
         FieldUpdater<SongInfo, String> updater = column.getFieldUpdater();
         updater.update(0, createSongInfo(), null);
+        pm.verify();
+    }
+
+    /**
+     * Tests whether the field updater does not perform an action if there is no
+     * column value.
+     */
+    @Test
+    public void testFieldUpdaterNoValue()
+    {
+        FieldUpdater<SongInfo, String> updater = column.getFieldUpdater();
+        updater.update(0, new SongInfo(), null);
         pm.verify();
     }
 
