@@ -19,7 +19,6 @@ import de.oliver_heger.mediastore.client.pages.overview.AlbumOverviewPageTestGwt
 import de.oliver_heger.mediastore.client.pages.overview.ArtistOverviewPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OpenPageSingleElementHandlerTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.OverviewPageTestGwt;
-import de.oliver_heger.mediastore.client.pages.overview.OverviewTableTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.RemoveControllerDlgTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.SongOverviewPageTestGwt;
 
@@ -53,7 +52,6 @@ public class GwtTestSuite extends TestCase
         suite.addTestSuite(ArtistOverviewPageTestGwt.class);
         suite.addTestSuite(OpenPageSingleElementHandlerTestGwt.class);
         suite.addTestSuite(OverviewPageTestGwt.class);
-        suite.addTestSuite(OverviewTableTestGwt.class);
         suite.addTestSuite(RemoveControllerDlgTestGwt.class);
         suite.addTestSuite(AlbumOverviewPageTestGwt.class);
         suite.addTestSuite(SongOverviewPageTestGwt.class);

@@ -354,7 +354,7 @@ public class RemoveControllerDlgTestGwt extends GWTTestCase
     /**
      * A specialized overview table implementation with some mocking facilities.
      */
-    private static class OverviewTableTestImpl extends OverviewTable
+    private static class OverviewTableTestImpl implements Refreshable
     {
         /** Stores the number of invocations of the refresh() method. */
         private int refreshCount;
