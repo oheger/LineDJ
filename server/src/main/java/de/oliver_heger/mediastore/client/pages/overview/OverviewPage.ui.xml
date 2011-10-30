@@ -7,26 +7,14 @@
   <g:TabLayoutPanel ui:field="tabPanel" barHeight="20">
     <g:tab>
       <g:header>Artists</g:header>
-      <rms:OverviewTable ui:field="tabArtists"/>
-    </g:tab>
-    <g:tab>
-      <g:header>Songs</g:header>
-      <rms:OverviewTable ui:field="tabSongs"/>
-    </g:tab>
-    <g:tab>
-      <g:header>Albums</g:header>
-      <rms:OverviewTable ui:field="tabAlbums"/>
-    </g:tab>
-    <g:tab>
-      <g:header>Artists (2)</g:header>
       <rms:ArtistOverviewPage/>
     </g:tab>
     <g:tab>
-      <g:header>Albums (2)</g:header>
+      <g:header>Albums</g:header>
       <rms:AlbumOverviewPage/>
     </g:tab>
     <g:tab>
-      <g:header>Songs (2)</g:header>
+      <g:header>Songs</g:header>
       <rms:SongOverviewPage/>
     </g:tab>
   </g:TabLayoutPanel>
