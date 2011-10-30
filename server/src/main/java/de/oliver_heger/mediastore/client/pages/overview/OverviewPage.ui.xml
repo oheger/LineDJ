@@ -17,13 +17,17 @@
       <g:header>Albums</g:header>
       <rms:OverviewTable ui:field="tabAlbums"/>
     </g:tab>
-     <g:tab>
+    <g:tab>
       <g:header>Artists (2)</g:header>
       <rms:ArtistOverviewPage/>
     </g:tab>
-     <g:tab>
+    <g:tab>
       <g:header>Albums (2)</g:header>
       <rms:AlbumOverviewPage/>
+    </g:tab>
+    <g:tab>
+      <g:header>Songs (2)</g:header>
+      <rms:SongOverviewPage/>
     </g:tab>
   </g:TabLayoutPanel>
 </ui:UiBinder>

@@ -21,9 +21,6 @@ import de.oliver_heger.mediastore.shared.model.AlbumInfo;
  */
 public class AlbumOverviewPage extends AbstractOverviewTable<AlbumInfo>
 {
-    /** Constant for an empty string. */
-    private static final String EMPTY = "";
-
     /** The key provider. */
     private static final ProvidesKey<AlbumInfo> KEY_PROVIDER =
             new ProvidesKey<AlbumInfo>()
@@ -201,16 +198,5 @@ public class AlbumOverviewPage extends AbstractOverviewTable<AlbumInfo>
                 service.removeAlbum((Long) elemID, callback);
             }
         };
-    }
-
-    /**
-     * Null-safe string transformation method.
-     *
-     * @param obj the object to be converted
-     * @return the string representation for this object
-     */
-    private static String toString(Object obj)
-    {
-        return (obj != null) ? obj.toString() : EMPTY;
     }
 }
