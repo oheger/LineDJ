@@ -186,6 +186,22 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     }
 
     /**
+     * Obtains the test search service and skips and number of requests.
+     * @param page the test page
+     * @param skip the number of initial requests to skip
+     * @return the test search service
+     */
+    private SearchServiceTestImpl fetchSearchServiceAndSkipRequests(ArtistOverviewPageTestImpl page, int skip)
+    {
+        SearchServiceTestImpl searchService = page.getSearchService();
+        searchService.checkNumberOfRequests(1+skip);
+        for(int i = 0; i < skip; i++) {
+        searchService.nextRequest();
+        }
+        return searchService;
+    }
+
+    /**
      * Obtains the test search service and skips the initial search request.
      *
      * @param page the test page
@@ -194,10 +210,7 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     private SearchServiceTestImpl fetchSearchServiceAndSkipInitialRequest(
             ArtistOverviewPageTestImpl page)
     {
-        SearchServiceTestImpl searchService = page.getSearchService();
-        searchService.checkNumberOfRequests(2);
-        searchService.nextRequest(); // skip first
-        return searchService;
+        return fetchSearchServiceAndSkipRequests(page, 1);
     }
 
     /**
@@ -232,6 +245,18 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
     }
 
     /**
+     * Tests whether a request is enforced by a click of the refresh button.
+     */
+    public void testHandleRefreshClickForceRequest()
+    {
+        ArtistOverviewPageTestImpl page = createInitializedPage();
+        page.txtSearch.setText("test search");
+        page.handleSearchClick(null);
+        page.handleRefreshClick(null);
+        fetchSearchServiceAndSkipRequests(page, 2);
+    }
+
+    /**
      * Tests the selection model created for the cell table.
      */
     public void testSelectionModel()
@@ -249,7 +274,7 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
      */
     public void testClearSelectionOnRefresh()
     {
-        ArtistOverviewPage page = new ArtistOverviewPage();
+        ArtistOverviewPage page = createInitializedPage();
         ArtistInfo info = createArtistInfo(20111015173640L);
         SelectionModel<? super ArtistInfo> selectionModel =
                 page.cellTable.getSelectionModel();

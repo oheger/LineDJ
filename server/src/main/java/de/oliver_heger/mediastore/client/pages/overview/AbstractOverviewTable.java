@@ -252,6 +252,7 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     @Override
     public void refresh()
     {
+        dataProvider.refresh();
         Range r = new Range(0, cellTable.getPageSize());
         cellTable.setVisibleRangeAndClearData(r, true);
         selectionModel.clear();
