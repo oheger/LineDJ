@@ -1,5 +1,8 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -219,8 +222,7 @@ public class TestOverviewDataProvider
         EasyMock.expect(data.getVisibleRange()).andReturn(range);
         EasyMock.expect(getCallbackFactory().createSimpleSearchCallback(data))
                 .andReturn(callback);
-        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
-                orderDefinitions);
+        prepareOrderProvider();
         MediaSearchParameters params = new MediaSearchParameters();
         params.setFirstResult(range.getStart());
         params.setMaxResults(range.getLength());
@@ -253,10 +255,11 @@ public class TestOverviewDataProvider
     }
 
     /**
-     * Tests a search if a search text has been entered.
+     * Helper method for testing a search operation with a search text.
+     *
+     * @return the provider test object
      */
-    @Test
-    public void testSearchWithText()
+    private OverviewDataProvider<ArtistInfo> checkSearchWithText()
     {
         HasData<ArtistInfo> data = createHasData();
         AsyncCallback<SearchResult<ArtistInfo>> callback = createCallback();
@@ -268,8 +271,7 @@ public class TestOverviewDataProvider
                 getCallbackFactory().createParameterSearchCallback(
                         getSearchService(), getQueryHandler(), data))
                 .andReturn(callback);
-        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
-                orderDefinitions);
+        prepareOrderProvider();
         getQueryHandler().executeQuery(getSearchService(), params, null,
                 callback);
         replay(data, callback);
@@ -277,5 +279,78 @@ public class TestOverviewDataProvider
         provider.setSearchText(" " + searchText + "  ");
         provider.onRangeChanged(data);
         verify(data, callback);
+        return provider;
+    }
+
+    /**
+     * Prepares the order provider mock to return the default order definitions.
+     */
+    private void prepareOrderProvider()
+    {
+        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
+                orderDefinitions);
+    }
+
+    /**
+     * Tests a search if a search text has been entered.
+     */
+    @Test
+    public void testSearchWithText()
+    {
+        checkSearchWithText();
+    }
+
+    /**
+     * Tests that a new search is started only if search parameters were changed
+     * in the meantime.
+     */
+    @Test
+    public void testRefreshRequiredNoChanges()
+    {
+        OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
+        EasyMock.reset(getOrderProvider());
+        prepareOrderProvider();
+        EasyMock.replay(getOrderProvider());
+        assertFalse("Wrong result", provider.refreshRequired());
+        EasyMock.verify(getOrderProvider());
+    }
+
+    /**
+     * Tests whether a new search is started if the order definition changes.
+     */
+    @Test
+    public void testRefreshRequiredNewOrderDef()
+    {
+        OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
+        EasyMock.reset(getOrderProvider());
+        OrderDef od = new OrderDef();
+        od.setFieldName("AnotherField");
+        EasyMock.expect(getOrderProvider().getOrderDefinitions()).andReturn(
+                Collections.singletonList(od));
+        EasyMock.replay(getOrderProvider());
+        assertTrue("Wrong result", provider.refreshRequired());
+        EasyMock.verify(getOrderProvider());
+    }
+
+    /**
+     * Tests whether a new search is started if the search text has changed.
+     */
+    @Test
+    public void testRefreshRequiredNewText()
+    {
+        OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
+        provider.setSearchText("new search Text!");
+        assertTrue("Wrong result", provider.refreshRequired());
+    }
+
+    /**
+     * Tests whether a new search can be enforced by calling refresh().
+     */
+    @Test
+    public void testRefresh()
+    {
+        OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
+        provider.refresh();
+        assertTrue("Wrong result", provider.refreshRequired());
     }
 }

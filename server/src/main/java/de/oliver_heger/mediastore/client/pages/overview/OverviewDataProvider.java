@@ -1,12 +1,16 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.util.List;
+
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.view.client.AsyncDataProvider;
 import com.google.gwt.view.client.HasData;
 import com.google.gwt.view.client.Range;
 
+import de.oliver_heger.mediastore.shared.ObjectUtils;
 import de.oliver_heger.mediastore.shared.search.MediaSearchParameters;
 import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
+import de.oliver_heger.mediastore.shared.search.OrderDef;
 import de.oliver_heger.mediastore.shared.search.SearchResult;
 
 /**
@@ -42,6 +46,12 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
 
     /** The current search text. */
     private String searchText;
+
+    /** The current search order. */
+    private List<OrderDef> currentOrder;
+
+    /** The refresh flag. */
+    private boolean refreshFlag;
 
     /**
      * Creates a new instance of {@code OverviewDataProvider} and initializes it
@@ -105,6 +115,16 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     public void setSearchText(String searchText)
     {
         this.searchText = searchText;
+        refresh();
+    }
+
+    /**
+     * Enforces a refresh. After this method was called, data will be loaded
+     * anew even if the search text did no change.
+     */
+    public void refresh()
+    {
+        refreshFlag = true;
     }
 
     /**
@@ -130,6 +150,24 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
     }
 
     /**
+     * Tests whether a new text search has to be performed. Normally, a search
+     * is only started if some search parameters have changed. It is also
+     * possible to enforce a new search by calling the {@code refresh()} method.
+     *
+     * @return a flag whether a new search has to be performed
+     */
+    boolean refreshRequired()
+    {
+        if (refreshFlag)
+        {
+            return true;
+        }
+
+        return !ObjectUtils.equals(currentOrder, getOrderDefinitionProvider()
+                .getOrderDefinitions());
+    }
+
+    /**
      * Performs a simple search.
      *
      * @param display the widget to be updated
@@ -152,12 +190,17 @@ public class OverviewDataProvider<T> extends AsyncDataProvider<T>
      */
     private void parameterSearch(HasData<T> display)
     {
-        MediaSearchParameters params = createAndInitSearchParameters();
-        params.setSearchText(getSearchText());
-        AsyncCallback<SearchResult<T>> callback =
-                getCallbackFactory().createParameterSearchCallback(
-                        searchService, queryHandler, display);
-        invokeQueryHandler(params, callback);
+        if (refreshRequired())
+        {
+            MediaSearchParameters params = createAndInitSearchParameters();
+            currentOrder = params.getOrderDefinition();
+            params.setSearchText(getSearchText());
+            AsyncCallback<SearchResult<T>> callback =
+                    getCallbackFactory().createParameterSearchCallback(
+                            searchService, queryHandler, display);
+            invokeQueryHandler(params, callback);
+            refreshFlag = false;
+        }
     }
 
     /**
