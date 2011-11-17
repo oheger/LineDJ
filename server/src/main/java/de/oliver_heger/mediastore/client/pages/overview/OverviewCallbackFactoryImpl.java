@@ -64,12 +64,19 @@ public class OverviewCallbackFactoryImpl<T> implements
         return new SimpleSearchCallback(widget);
     }
 
+    /**
+     * {@inheritDoc} This implementation returns a callback which can perform a
+     * search in multiple chunks if desired. Every time a chunk is received from
+     * the server, the consumer gets notified.
+     */
     @Override
     public AsyncCallback<SearchResult<T>> createParameterSearchCallback(
             MediaSearchServiceAsync searchService,
-            OverviewQueryHandler<T> queryHandler, HasData<T> widget)
+            OverviewQueryHandler<T> queryHandler, HasData<T> widget,
+            SearchResultConsumer<T> consumer)
     {
-        return new ParameterSearchCallback(widget, searchService, queryHandler);
+        return new ParameterSearchCallback(widget, searchService, queryHandler,
+                consumer);
     }
 
     /**
@@ -150,6 +157,9 @@ public class OverviewCallbackFactoryImpl<T> implements
     private class ParameterSearchCallback implements
             AsyncCallback<SearchResult<T>>
     {
+        /** The consumer of the search results. */
+        private final SearchResultConsumer<T> consumer;
+
         /** The widget to be initialized. */
         private final HasData<T> widget;
 
@@ -159,9 +169,6 @@ public class OverviewCallbackFactoryImpl<T> implements
         /** The query handler. */
         private final OverviewQueryHandler<T> queryHandler;
 
-        /** A counter for the number of results retrieved so far. */
-        private int resultCount;
-
         /**
          * Creates a new instance of {@code ParameterSearchCallback} and
          * initializes it.
@@ -169,13 +176,16 @@ public class OverviewCallbackFactoryImpl<T> implements
          * @param w the widget to be updated
          * @param svc the search service
          * @param handler the query handler
+         * @param resConsumer the consumer of search results
          */
         public ParameterSearchCallback(HasData<T> w,
-                MediaSearchServiceAsync svc, OverviewQueryHandler<T> handler)
+                MediaSearchServiceAsync svc, OverviewQueryHandler<T> handler,
+                SearchResultConsumer<T> resConsumer)
         {
             widget = w;
             searchService = svc;
             queryHandler = handler;
+            consumer = resConsumer;
         }
 
         /**
@@ -201,13 +211,11 @@ public class OverviewCallbackFactoryImpl<T> implements
         public void onSuccess(SearchResult<T> result)
         {
             List<T> resultList = result.getResults();
-            int count = resultList.size();
-            if (count > 0)
+            if (!resultList.isEmpty())
             {
-                widget.setRowData(resultCount, resultList);
-                resultCount += count;
+                consumer.searchResultsReceived(resultList, widget, result
+                        .getSearchParameters().getClientParameter());
             }
-            widget.setRowCount(resultCount);
             clearError();
             checkForMoreResults(result);
         }

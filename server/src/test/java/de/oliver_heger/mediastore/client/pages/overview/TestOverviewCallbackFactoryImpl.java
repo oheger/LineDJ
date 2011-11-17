@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.easymock.EasyMock;
@@ -24,6 +25,9 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class TestOverviewCallbackFactoryImpl
 {
+    /** Constant for the search parameter. */
+    private static final Serializable SEARCH_PARAM = 20111114223208L;
+
     /** A mock for the error indicator. */
     private ErrorIndicator errorIndicator;
 
@@ -88,6 +92,19 @@ public class TestOverviewCallbackFactoryImpl
     }
 
     /**
+     * Creates a mock for a search result consumer.
+     *
+     * @return the consumer mock
+     */
+    private static SearchResultConsumer<ArtistInfo> createConsumer()
+    {
+        @SuppressWarnings("unchecked")
+        SearchResultConsumer<ArtistInfo> consumer =
+                EasyMock.createMock(SearchResultConsumer.class);
+        return consumer;
+    }
+
+    /**
      * Tests the simple callback if an error occurs.
      */
     @Test
@@ -112,15 +129,18 @@ public class TestOverviewCallbackFactoryImpl
         HasData<ArtistInfo> widget = createCallback();
         MediaSearchServiceAsync searchService =
                 EasyMock.createMock(MediaSearchServiceAsync.class);
+        SearchResultConsumer<ArtistInfo> consumer = createConsumer();
         OverviewQueryHandler<ArtistInfo> queryHandler = createQueryHandler();
         Throwable err = new RuntimeException();
         errorIndicator.displayError(err);
-        EasyMock.replay(errorIndicator, widget, searchService, queryHandler);
+        EasyMock.replay(errorIndicator, widget, searchService, queryHandler,
+                consumer);
         AsyncCallback<SearchResult<ArtistInfo>> callback =
                 factory.createParameterSearchCallback(searchService,
-                        queryHandler, widget);
+                        queryHandler, widget, consumer);
         callback.onFailure(err);
-        EasyMock.verify(errorIndicator, widget, searchService, queryHandler);
+        EasyMock.verify(errorIndicator, widget, searchService, queryHandler,
+                consumer);
     }
 
     /**
@@ -158,6 +178,7 @@ public class TestOverviewCallbackFactoryImpl
     @Test
     public void testParameterCallbackNoDataInLastChunk()
     {
+        SearchResultConsumer<ArtistInfo> consumer = createConsumer();
         HasData<ArtistInfo> widget = createCallback();
         SearchResult<ArtistInfo> result = createSearchResult();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
@@ -166,18 +187,17 @@ public class TestOverviewCallbackFactoryImpl
                 EasyMock.createMock(MediaSearchServiceAsync.class);
         OverviewQueryHandler<ArtistInfo> queryHandler = createQueryHandler();
         EasyMock.expect(result.getResults()).andReturn(resList);
-        EasyMock.expect(resList.size()).andReturn(0);
-        widget.setRowCount(0);
+        EasyMock.expect(resList.isEmpty()).andReturn(Boolean.TRUE);
         EasyMock.expect(result.getSearchIterator()).andReturn(sit);
         EasyMock.expect(sit.hasNext()).andReturn(Boolean.FALSE);
         EasyMock.replay(widget, result, sit, resList, searchService,
-                queryHandler);
+                queryHandler, consumer);
         AsyncCallback<SearchResult<ArtistInfo>> callback =
                 factory.createParameterSearchCallback(searchService,
-                        queryHandler, widget);
+                        queryHandler, widget, consumer);
         callback.onSuccess(result);
         EasyMock.verify(widget, result, sit, resList, searchService,
-                queryHandler);
+                queryHandler, consumer);
     }
 
     /**
@@ -187,6 +207,7 @@ public class TestOverviewCallbackFactoryImpl
     @Test
     public void testParameterCallbackGotDataAndMoreChunks()
     {
+        SearchResultConsumer<ArtistInfo> consumer = createConsumer();
         HasData<ArtistInfo> widget = createCallback();
         SearchResult<ArtistInfo> result = createSearchResult();
         SearchIterator sit = EasyMock.createMock(SearchIterator.class);
@@ -196,36 +217,34 @@ public class TestOverviewCallbackFactoryImpl
         OverviewQueryHandler<ArtistInfo> queryHandler = createQueryHandler();
         AsyncCallback<SearchResult<ArtistInfo>> callback =
                 factory.createParameterSearchCallback(searchService,
-                        queryHandler, widget);
+                        queryHandler, widget, consumer);
 
         // First invocation
-        final int resultCount1 = 12;
         EasyMock.expect(result.getResults()).andReturn(resList);
-        EasyMock.expect(resList.size()).andReturn(resultCount1);
-        widget.setRowCount(resultCount1);
-        widget.setRowData(0, resList);
+        EasyMock.expect(resList.isEmpty()).andReturn(Boolean.FALSE);
+        MediaSearchParameters params = new MediaSearchParameters();
+        params.setClientParameter(SEARCH_PARAM);
+        EasyMock.expect(result.getSearchParameters()).andReturn(params)
+                .anyTimes();
+        consumer.searchResultsReceived(resList, widget, SEARCH_PARAM);
         errorIndicator.clearError();
         EasyMock.expect(result.getSearchIterator()).andReturn(sit);
         EasyMock.expect(sit.hasNext()).andReturn(Boolean.TRUE);
-        MediaSearchParameters params = new MediaSearchParameters();
-        EasyMock.expect(result.getSearchParameters()).andReturn(params);
         queryHandler.executeQuery(searchService, params, sit, callback);
 
         // Second invocation
-        final int resultCount2 = 8;
         EasyMock.expect(result.getResults()).andReturn(resList);
-        EasyMock.expect(resList.size()).andReturn(resultCount2);
-        widget.setRowCount(resultCount1 + resultCount2);
-        widget.setRowData(resultCount1, resList);
+        EasyMock.expect(resList.isEmpty()).andReturn(Boolean.FALSE);
+        consumer.searchResultsReceived(resList, widget, SEARCH_PARAM);
         errorIndicator.clearError();
         EasyMock.expect(result.getSearchIterator()).andReturn(sit);
         EasyMock.expect(sit.hasNext()).andReturn(Boolean.FALSE);
 
         EasyMock.replay(widget, result, sit, resList, searchService,
-                queryHandler);
+                queryHandler, consumer);
         callback.onSuccess(result);
         callback.onSuccess(result);
         EasyMock.verify(widget, result, sit, resList, searchService,
-                queryHandler);
+                queryHandler, consumer);
     }
 }

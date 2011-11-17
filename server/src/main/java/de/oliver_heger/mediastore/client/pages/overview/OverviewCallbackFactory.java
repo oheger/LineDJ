@@ -40,9 +40,11 @@ public interface OverviewCallbackFactory<T>
      * @param searchService the media search service
      * @param queryHandler the {@code OverviewQueryHandler}
      * @param widget the cell widget to be populated with data
+     * @param consumer the object which consumes the search results
      * @return the callback object
      */
     AsyncCallback<SearchResult<T>> createParameterSearchCallback(
             MediaSearchServiceAsync searchService,
-            OverviewQueryHandler<T> queryHandler, HasData<T> widget);
+            OverviewQueryHandler<T> queryHandler, HasData<T> widget,
+            SearchResultConsumer<T> consumer);
 }

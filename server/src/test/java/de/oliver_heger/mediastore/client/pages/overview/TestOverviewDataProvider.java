@@ -1,13 +1,16 @@
 package de.oliver_heger.mediastore.client.pages.overview;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import org.easymock.EasyMock;
+import org.easymock.IAnswer;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -29,6 +32,9 @@ import de.oliver_heger.mediastore.shared.search.SearchResult;
  */
 public class TestOverviewDataProvider
 {
+    /** Constant for the number of test results of a search. */
+    private static final int RESULT_COUNT = 16;
+
     /** A list with order definition objects. */
     private static List<OrderDef> orderDefinitions;
 
@@ -267,15 +273,17 @@ public class TestOverviewDataProvider
         MediaSearchParameters params = new MediaSearchParameters();
         params.setOrderDefinition(orderDefinitions);
         params.setSearchText(searchText);
+        params.setClientParameter(Long.valueOf(1));
+        OverviewDataProvider<ArtistInfo> provider = createProvider();
+        data.setRowCount(0);
         EasyMock.expect(
                 getCallbackFactory().createParameterSearchCallback(
-                        getSearchService(), getQueryHandler(), data))
+                        getSearchService(), getQueryHandler(), data, provider))
                 .andReturn(callback);
         prepareOrderProvider();
         getQueryHandler().executeQuery(getSearchService(), params, null,
                 callback);
         replay(data, callback);
-        OverviewDataProvider<ArtistInfo> provider = createProvider();
         provider.setSearchText(" " + searchText + "  ");
         provider.onRangeChanged(data);
         verify(data, callback);
@@ -352,5 +360,153 @@ public class TestOverviewDataProvider
         OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
         provider.refresh();
         assertTrue("Wrong result", provider.refreshRequired());
+    }
+
+    /**
+     * Creates a list with the given number of artists that can be used as
+     * search result.
+     *
+     * @param startIdx the index of the first artist to create
+     * @param count the number of result objects
+     * @return the list with artist objects
+     */
+    private static List<ArtistInfo> createSearchResults(int startIdx, int count)
+    {
+        List<ArtistInfo> result = new ArrayList<ArtistInfo>(count);
+        for (int i = 0; i < count; i++)
+        {
+            ArtistInfo info = new ArtistInfo();
+            info.setArtistID(Long.valueOf(startIdx + i));
+            result.add(info);
+        }
+        return result;
+    }
+
+    /**
+     * Helper method for testing the standard use case of receiving data from
+     * the server and updating the widget's data. The range of a widget request
+     * for new data can be specified. It is possible that this request has to be
+     * corrected if indices are out of range.
+     *
+     * @param visibleRange the visible range of the widget
+     * @param expectedEndIdx the expected corrected end index
+     */
+    @SuppressWarnings("unchecked")
+    private void checkSearchResultsReceivedAndAccessCachedData(
+            Range visibleRange, int expectedEndIdx)
+    {
+        OverviewDataProvider<ArtistInfo> provider = checkSearchWithText();
+        HasData<ArtistInfo> widget = createHasData();
+        widget.setRowCount(RESULT_COUNT);
+        widget.setRowData(EasyMock.eq(0), EasyMock.anyObject(List.class));
+        EasyMock.expectLastCall().andAnswer(
+                new RowDataAnswer(0, RESULT_COUNT - 1));
+        widget.setRowCount(2 * RESULT_COUNT);
+        widget.setRowData(EasyMock.eq(RESULT_COUNT),
+                EasyMock.anyObject(List.class));
+        EasyMock.expectLastCall().andAnswer(
+                new RowDataAnswer(RESULT_COUNT, 2 * RESULT_COUNT - 1));
+        EasyMock.expect(widget.getVisibleRange()).andReturn(visibleRange);
+        widget.setRowData(EasyMock.eq(visibleRange.getStart()),
+                EasyMock.anyObject(List.class));
+        EasyMock.expectLastCall().andAnswer(
+                new RowDataAnswer(visibleRange.getStart(), expectedEndIdx));
+        EasyMock.reset(getOrderProvider());
+        prepareOrderProvider();
+        EasyMock.replay(getOrderProvider(), widget);
+        Object param = 1L;
+        provider.searchResultsReceived(createSearchResults(0, RESULT_COUNT),
+                widget, param);
+        provider.searchResultsReceived(
+                createSearchResults(RESULT_COUNT, RESULT_COUNT), widget, param);
+        provider.onRangeChanged(widget);
+        EasyMock.verify(getOrderProvider(), widget);
+    }
+
+    /**
+     * Tests whether data passed to searchResultsReceived() is correctly
+     * processed and stored so that it can be used to populate a widget later.
+     */
+    @Test
+    public void testSearchResultsReceivedAndAccessCachedData()
+    {
+        checkSearchResultsReceivedAndAccessCachedData(new Range(
+                RESULT_COUNT / 2, RESULT_COUNT), RESULT_COUNT / 2
+                + RESULT_COUNT - 1);
+    }
+
+    /**
+     * Tests whether the visible range of the widget is corrected if necessary
+     * when display data is queried.
+     */
+    @Test
+    public void testAccessCachedDataInvalidRange()
+    {
+        checkSearchResultsReceivedAndAccessCachedData(new Range(10,
+                10 * RESULT_COUNT), 2 * RESULT_COUNT - 1);
+    }
+
+    /**
+     * Tests that the client parameter of a search is taken into account when
+     * results are retrieved from the server.
+     */
+    @Test
+    public void testSearchResultsRecivedWrongParameter()
+    {
+        HasData<ArtistInfo> widget = createHasData();
+        OverviewDataProvider<ArtistInfo> provider = createProvider();
+        replay(widget);
+        provider.searchResultsReceived(createSearchResults(0, RESULT_COUNT),
+                widget, "wrong parameter");
+        verify(widget);
+    }
+
+    /**
+     * A special answer implementation for testing whether the widget is
+     * populated with the expected data. An instance is initialized with a range
+     * of artist IDs. The object checks whether the data list passed to the
+     * widget contains exactly these IDs.
+     */
+    private static class RowDataAnswer implements IAnswer<Void>
+    {
+        /** The start of the range. */
+        private final int from;
+
+        /** The end of the range. */
+        private final int to;
+
+        /**
+         * Creates a new instance of {@code RowDataAnswer} and initializes it
+         * with the expected range.
+         *
+         * @param expFrom the expected start range
+         * @param expTo the expected end range
+         */
+        public RowDataAnswer(int expFrom, int expTo)
+        {
+            from = expFrom;
+            to = expTo;
+        }
+
+        /**
+         * Checks the range.
+         */
+        @Override
+        public Void answer() throws Throwable
+        {
+            @SuppressWarnings("unchecked")
+            List<ArtistInfo> data =
+                    (List<ArtistInfo>) EasyMock.getCurrentArguments()[1];
+            Iterator<ArtistInfo> it = data.iterator();
+            for (int i = from; i <= to; i++)
+            {
+                ArtistInfo info = it.next();
+                assertEquals("Wrong artist", Long.valueOf(i),
+                        info.getArtistID());
+            }
+            assertFalse("Too many items", it.hasNext());
+            return null;
+        }
+
     }
 }
