@@ -261,7 +261,13 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     /**
      * Returns the list with order definitions for the current search query.
      * This implementation queries the order definitions from the cell table. By
-     * clicking on column headers the user can change the sort order.
+     * clicking on column headers the user can change the sort order. Note that
+     * only the first sort column is evaluated. This is due to the fact that the
+     * column sort list records all columns the user has clicked on. While this
+     * allows for a fine-grained specification of the search order, it causes a
+     * combinatoric explosion of indices required by the AppEngine persistence
+     * implementations. Therefore we limit the order definitions just to a
+     * single field.
      *
      * @return the current order definitions
      */
@@ -269,7 +275,7 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     public List<OrderDef> getOrderDefinitions()
     {
         ColumnSortList sortList = cellTable.getColumnSortList();
-        int count = sortList.size();
+        int count = Math.min(1, sortList.size());
         List<OrderDef> orderDefs = new ArrayList<OrderDef>(count);
         for (int i = 0; i < count; i++)
         {

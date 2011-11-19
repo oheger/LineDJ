@@ -515,13 +515,27 @@ public class ArtistOverviewPageTestGwt extends GWTTestCase
         ArtistOverviewPageTestImpl page = createInitializedPage();
         ColumnSortList sortList = page.cellTable.getColumnSortList();
         sortList.clear();
-        sortList.push(page.cellTable.getColumn(1));
         sortList.push(new ColumnSortList.ColumnSortInfo(page.cellTable
                 .getColumn(2), false));
         List<OrderDef> defs = page.getOrderDefinitions();
-        assertEquals("Wrong number of definitions", 2, defs.size());
+        assertEquals("Wrong number of definitions", 1, defs.size());
         checkOrderDef(defs, 0, "creationDate", true);
-        checkOrderDef(defs, 1, "searchName", false);
+    }
+
+    /**
+     * Tests whether only a single order definition is evaluated.
+     */
+    public void testGetOrderDefinitionMulti()
+    {
+        ArtistOverviewPageTestImpl page = createInitializedPage();
+        ColumnSortList sortList = page.cellTable.getColumnSortList();
+        sortList.clear();
+        sortList.push(new ColumnSortList.ColumnSortInfo(page.cellTable
+                .getColumn(2), false));
+        sortList.push(page.cellTable.getColumn(1));
+        List<OrderDef> defs = page.getOrderDefinitions();
+        assertEquals("Wrong number of definitions", 1, defs.size());
+        checkOrderDef(defs, 0, "searchName", false);
     }
 
     /**
