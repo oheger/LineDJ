@@ -3,6 +3,7 @@
 test-classes
 tomcat
 WEB-INF
+!src/main/webapp/WEB-INF
 www-test
 target
 war
