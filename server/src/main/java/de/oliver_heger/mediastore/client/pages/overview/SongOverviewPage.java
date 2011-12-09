@@ -7,6 +7,7 @@ import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.view.client.ProvidesKey;
 
+import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
@@ -96,7 +97,7 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
                 new LinkColumn<SongInfo>(getPageManager(), Pages.SONGDETAILS)
                 {
                     @Override
-                    protected Object getID(SongInfo obj)
+                    public Object getID(SongInfo obj)
                     {
                         return obj.getSongID();
                     }
@@ -122,7 +123,7 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
                 new LinkColumn<SongInfo>(getPageManager(), Pages.ARTISTDETAILS)
                 {
                     @Override
-                    protected Object getID(SongInfo obj)
+                    public Object getID(SongInfo obj)
                     {
                         return obj.getArtistID();
                     }
@@ -188,7 +189,7 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
                 new LinkColumn<SongInfo>(getPageManager(), Pages.ALBUMDETAILS)
                 {
                     @Override
-                    protected Object getID(SongInfo obj)
+                    public Object getID(SongInfo obj)
                     {
                         return obj.getAlbumID();
                     }

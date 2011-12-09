@@ -7,6 +7,7 @@ import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.view.client.ProvidesKey;
 
+import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
@@ -77,7 +78,7 @@ public class ArtistOverviewPage extends AbstractOverviewTable<ArtistInfo>
                         Pages.ARTISTDETAILS)
                 {
                     @Override
-                    protected Object getID(ArtistInfo obj)
+                    public Object getID(ArtistInfo obj)
                     {
                         return obj.getArtistID();
                     }

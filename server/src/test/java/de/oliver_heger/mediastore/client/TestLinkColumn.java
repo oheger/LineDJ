@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client.pages.overview;
+package de.oliver_heger.mediastore.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
@@ -183,7 +183,7 @@ public class TestLinkColumn
          * Returns the artist ID.
          */
         @Override
-        protected Object getID(SongInfo obj)
+        public Object getID(SongInfo obj)
         {
             return obj.getArtistID();
         }

@@ -1,4 +1,4 @@
-package de.oliver_heger.mediastore.client.pages.overview;
+package de.oliver_heger.mediastore.client;
 
 import com.google.gwt.cell.client.Cell.Context;
 import com.google.gwt.cell.client.ClickableTextCell;
@@ -112,7 +112,7 @@ public abstract class LinkColumn<T> extends Column<T, String>
      * @param obj the current data object
      * @return the ID defining the link represented by this column
      */
-    protected abstract Object getID(T obj);
+    public abstract Object getID(T obj);
 
     /**
      * Initializes the column with a field updater which causes the link to be

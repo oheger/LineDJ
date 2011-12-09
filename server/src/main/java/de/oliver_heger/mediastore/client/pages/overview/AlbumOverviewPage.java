@@ -7,6 +7,7 @@ import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.view.client.ProvidesKey;
 
+import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
@@ -87,7 +88,7 @@ public class AlbumOverviewPage extends AbstractOverviewTable<AlbumInfo>
                 new LinkColumn<AlbumInfo>(getPageManager(), Pages.ALBUMDETAILS)
                 {
                     @Override
-                    protected Object getID(AlbumInfo obj)
+                    public Object getID(AlbumInfo obj)
                     {
                         return obj.getAlbumID();
                     }
