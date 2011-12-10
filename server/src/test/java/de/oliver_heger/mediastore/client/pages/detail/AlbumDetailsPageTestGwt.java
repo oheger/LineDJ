@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -114,18 +115,14 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     }
 
     /**
-     * Tests whether the grid with the albums and its model are correctly set
-     * up.
+     * Tests whether the table for the artists is correctly set up.
      */
-    public void testInitAlbumGridModel()
+    public void testInitArtistTable()
     {
         AlbumDetailsPage page = new AlbumDetailsPage();
-        MockPageManager pm = initializePage(page);
-        ArtistGridTableModel model = page.getArtistTableModel();
-        assertEquals("Wrong number of columns", 1, model.getColumnCount());
-        assertEquals("Wrong property (1)", "name", model.getProperty(0));
-        assertSame("Wrong page manager", pm, model.getPageManager());
-        assertSame("Wrong grid", page.tabArtists, model.getGrid());
+        initializePage(page);
+        assertEquals("Wrong number of columns", 1,
+                page.tabArtists.cellTable.getColumnCount());
     }
 
     /**
@@ -169,6 +166,8 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     private void checkArtistTable(AlbumDetailsPage page, int count, boolean open)
     {
         checkDisclosurePanel(page.pnlArtists, "Artists", count, open);
+        assertEquals("Wrong number of artists", count, page.tabArtists
+                .getDataProvider().getList().size());
     }
 
     /**
@@ -181,6 +180,20 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     private void checkSongTable(AlbumDetailsPage page, int count, boolean open)
     {
         checkDisclosurePanel(page.pnlSongs, "Songs", count, open);
+    }
+
+    /**
+     * Tests whether the specified table contains the expected data.
+     *
+     * @param expContent a collection with the data expected
+     * @param table the table component to be checked
+     */
+    private static <T> void checkTableContent(Collection<T> expContent,
+            AbstractDetailsTable<T> table)
+    {
+        List<T> list = table.getDataProvider().getList();
+        assertEquals("Wrong number of entries", expContent.size(), list.size());
+        assertTrue("Wrong content: " + list, expContent.containsAll(list));
     }
 
     /**
@@ -251,7 +264,7 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
         assertFalse("Got label for multiple artists",
                 page.labMultiArtists.isVisible());
         pm.verify();
-        assertSame("Wrong artist list", info.getArtists(), page.getArtists());
+        checkTableContent(info.getArtists(), page.tabArtists);
     }
 
     /**
@@ -278,7 +291,7 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
         assertTrue("Label for multiple artists not visible",
                 page.labMultiArtists.isVisible());
         assertNull("Got a target", page.lnkArtist.getTargetHistoryToken());
-        assertSame("Wrong artist list", info.getArtists(), page.getArtists());
+        checkTableContent(info.getArtists(), page.tabArtists);
     }
 
     /**
@@ -328,21 +341,8 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
      */
     private static class AlbumDetailsPageTestImpl extends AlbumDetailsPage
     {
-        /** A list with the artists passed to the artists table. */
-        private List<ArtistInfo> artists;
-
         /** A list with the songs passed to the songs table. */
         private List<SongInfo> songs;
-
-        /**
-         * Returns the artists to be displayed by the artists table.
-         *
-         * @return the artists
-         */
-        public List<ArtistInfo> getArtists()
-        {
-            return artists;
-        }
 
         /**
          * Returns the songs to be displayed by the songs table.
@@ -352,25 +352,6 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
         public List<SongInfo> getSongs()
         {
             return songs;
-        }
-
-        /**
-         * Returns a mock table model which stores the passed in artists in an
-         * internal member field.
-         *
-         * @return the mock table model
-         */
-        @Override
-        ArtistGridTableModel getArtistTableModel()
-        {
-            return new ArtistGridTableModel(tabArtists, new MockPageManager())
-            {
-                @Override
-                public void initData(List<ArtistInfo> data)
-                {
-                    artists = data;
-                }
-            };
         }
 
         /**

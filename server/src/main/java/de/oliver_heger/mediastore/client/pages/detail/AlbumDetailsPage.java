@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.google.gwt.core.client.GWT;
@@ -87,7 +88,7 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
     /** The table for the artists of this album. */
     @UiField
-    Grid tabArtists;
+    ArtistDetailsTable tabArtists;
 
     /** The panel for displaying the associated songs. */
     @UiField
@@ -102,9 +103,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
     /** The table model for the songs of this album. */
     private SongGridTableModel songModel;
-
-    /** The table model for the artists of this album. */
-    private ArtistGridTableModel artistModel;
 
     /**
      * Creates a new instance of {@code AlbumDetailsPage}.
@@ -126,7 +124,7 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
         super.initialize(pm);
 
         songModel = new SongGridTableModel(tabSongs, pm);
-        artistModel = new ArtistGridTableModel(tabArtists, pm);
+        tabArtists.initialize(pm);
     }
 
     /**
@@ -164,8 +162,8 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
         fillTabPanel(pnlSongs, getSongTableModel(), SONG_TABLE_NAME,
                 data.getSongs(), 1);
-        fillTabPanel(pnlArtists, getArtistTableModel(), ARTIST_TABLE_NAME,
-                data.getArtists(), 2);
+        fillTable(pnlArtists, tabArtists, ARTIST_TABLE_NAME, data.getArtists(),
+                2);
     }
 
     /**
@@ -188,16 +186,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
             MediaSearchServiceAsync searchService)
     {
         return new AlbumSynonymQueryHandler(searchService);
-    }
-
-    /**
-     * Returns the table model for the artist table.
-     *
-     * @return the artists table model
-     */
-    ArtistGridTableModel getArtistTableModel()
-    {
-        return artistModel;
     }
 
     /**
@@ -268,6 +256,27 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
         pnl.getHeaderTextAccessor().setText(
                 generateTableHeader(tabName, data.size()));
         model.initData(data);
+        pnl.setOpen(data.size() >= openThreshold);
+    }
+
+    /**
+     * Fills a disclosure panel with a table with data. This method can handle
+     * both the artists and the songs table.
+     *
+     * @param <T> the type of the data
+     * @param pnl the disclosure panel
+     * @param table the table component
+     * @param tabName the name of the table
+     * @param data the list with the content of the table
+     * @param openThreshold the threshold when the panel should be open
+     */
+    private static <T> void fillTable(DisclosurePanel pnl,
+            AbstractDetailsTable<T> table, String tabName,
+            Collection<? extends T> data, int openThreshold)
+    {
+        pnl.getHeaderTextAccessor().setText(
+                generateTableHeader(tabName, data.size()));
+        table.setData(data);
         pnl.setOpen(data.size() >= openThreshold);
     }
 

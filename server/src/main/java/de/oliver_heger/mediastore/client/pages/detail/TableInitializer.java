@@ -2,6 +2,8 @@ package de.oliver_heger.mediastore.client.pages.detail;
 
 import com.google.gwt.user.cellview.client.CellTable;
 
+import de.oliver_heger.mediastore.client.pageman.PageManager;
+
 /**
  * <p>
  * Definition of an interface for initializing a cell table widget.
@@ -25,6 +27,7 @@ public interface TableInitializer<T>
      * implementation has to perform the setup of the table.
      *
      * @param table the {@code CellTable} to be initialized
+     * @param pageManager the {@code PageManager}
      */
-    void initializeTable(CellTable<T> table);
+    void initializeTable(CellTable<T> table, PageManager pageManager);
 }
