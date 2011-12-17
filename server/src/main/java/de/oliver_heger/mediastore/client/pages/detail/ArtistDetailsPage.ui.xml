@@ -92,13 +92,7 @@
 
           <g:DisclosurePanel ui:field="pnlAlbums" styleName="{style.attribute}">
             <g:header></g:header>
-            <g:Grid ui:field="tabAlbums" styleName="{style.detailGrid}">
-              <g:row>
-                <g:customCell>
-                  <rms:SortableTableHeader propertyName="name" initiallySorted="true">Name</rms:SortableTableHeader>
-                </g:customCell>
-              </g:row>
-            </g:Grid>
+            <rmsdet:AlbumDetailsTable ui:field="tabAlbums"/>
           </g:DisclosurePanel>
         </g:HorizontalPanel>
       </g:VerticalPanel>

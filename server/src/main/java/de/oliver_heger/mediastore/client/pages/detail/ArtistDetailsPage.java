@@ -72,16 +72,13 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 
     /** The table for the albums related to the artist. */
     @UiField
-    Grid tabAlbums;
+    AlbumDetailsTable tabAlbums;
 
     /** The entity handler for fetching artist details. */
     private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
 
     /** The model for the table with the songs of this artist. */
     private SongGridTableModel songModel;
-
-    /** The model for the table with the albums of this artist. */
-    private AlbumGridTableModel albumModel;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -102,7 +99,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
         super.initialize(pm);
 
         songModel = new SongGridTableModel(tabSongs, pm);
-        albumModel = new AlbumGridTableModel(tabAlbums, pm);
+        tabAlbums.initialize(pm);
     }
 
     /**
@@ -181,7 +178,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     protected void fillAlbumsTable(ArtistDetailInfo data)
     {
         updateTableHeader(data.getAlbums(), HEADER_ALBUM_PANEL, pnlAlbums);
-        getAlbumTableModel().initData(data.getAlbums());
+        tabAlbums.setData(data.getAlbums());
     }
 
     /**
@@ -192,16 +189,6 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     SongGridTableModel getSongTableModel()
     {
         return songModel;
-    }
-
-    /**
-     * Returns the model for the table with the albums related to this artist.
-     *
-     * @return the album table model
-     */
-    AlbumGridTableModel getAlbumTableModel()
-    {
-        return albumModel;
     }
 
     /**

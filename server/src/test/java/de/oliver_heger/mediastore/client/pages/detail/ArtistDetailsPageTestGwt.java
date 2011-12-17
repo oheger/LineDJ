@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -9,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
-import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.Hyperlink;
 
 import de.oliver_heger.mediastore.client.pages.MockPageConfiguration;
@@ -53,13 +53,27 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
         info.setArtistID(ARTIST_ID);
         info.setName(NAME);
         Map<String, String> synonyms = new LinkedHashMap<String, String>();
-        for(int i = 0; i < SYNONYMS.length; i++)
+        for (int i = 0; i < SYNONYMS.length; i++)
         {
             synonyms.put("key" + i, SYNONYMS[i]);
         }
         info.setSynonymData(synonyms);
         info.setCreationDate(new Date());
         return info;
+    }
+
+    /**
+     * Tests whether the specified table contains the expected data.
+     *
+     * @param expContent a collection with the data expected
+     * @param table the table component to be checked
+     */
+    private static <T> void checkTableContent(Collection<T> expContent,
+            AbstractDetailsTable<T> table)
+    {
+        List<T> list = table.getDataProvider().getList();
+        assertEquals("Wrong number of entries", expContent.size(), list.size());
+        assertTrue("Wrong content: " + list, expContent.containsAll(list));
     }
 
     /**
@@ -178,7 +192,8 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
         assertEquals("Wrong song count", "Songs (0)", page.pnlSongs
                 .getHeaderTextAccessor().getText());
         assertFalse("Songs panel is open", page.pnlSongs.isOpen());
-        assertEquals("Got albums", 1, page.tabAlbums.getRowCount());
+        assertEquals("Got albums", 0, page.tabAlbums.getDataProvider()
+                .getList().size());
         assertEquals("Wrong album count", "Albums (0)", page.pnlAlbums
                 .getHeaderTextAccessor().getText());
         assertFalse("Albums panel is open", page.pnlAlbums.isOpen());
@@ -440,15 +455,12 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
      * Tests whether the grid with the albums and its model are correctly set
      * up.
      */
-    public void testInitAlbumGridModel()
+    public void testInitAlbumTable()
     {
         ArtistDetailsPage page = new ArtistDetailsPage();
-        MockPageManager pm = initializePage(page);
-        AlbumGridTableModel model = page.getAlbumTableModel();
-        assertEquals("Wrong number of columns", 1, model.getColumnCount());
-        assertEquals("Wrong property (1)", "name", model.getProperty(0));
-        assertSame("Wrong page manager", pm, model.getPageManager());
-        assertSame("Wrong grid", page.tabAlbums, model.getGrid());
+        initializePage(page);
+        assertEquals("Wrong number of columns", 4,
+                page.tabAlbums.cellTable.getColumnCount());
     }
 
     /**
@@ -456,34 +468,14 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
      */
     public void testFillPageWithAlbums()
     {
-        final List<List<AlbumInfo>> dataLists =
-                new ArrayList<List<AlbumInfo>>();
-        final AlbumGridTableModel model =
-                new AlbumGridTableModel(new Grid(), new MockPageManager())
-                {
-                    @Override
-                    public void initData(List<AlbumInfo> data)
-                    {
-                        dataLists.add(data);
-                    }
-                };
-        ArtistDetailsPage page = new ArtistDetailsPage()
-        {
-            @Override
-            AlbumGridTableModel getAlbumTableModel()
-            {
-                return model;
-            }
-        };
+        ArtistDetailsPage page = new ArtistDetailsPage();
         initializePage(page);
         AlbumInfo ai = new AlbumInfo();
         ai.setName("TestAlbum");
         ArtistDetailInfo info = new ArtistDetailInfo();
         info.setAlbums(Collections.singletonList(ai));
         page.fillPage(info);
-        assertEquals("Wrong number of initData() calls for albums", 1,
-                dataLists.size());
-        assertSame("Albums not initialized", info.getAlbums(), dataLists.get(0));
+        checkTableContent(info.getAlbums(), page.tabAlbums);
         assertTrue("Album panel not open", page.pnlAlbums.isOpen());
         assertEquals("Wrong album count", "Albums (1)", page.pnlAlbums
                 .getHeaderTextAccessor().getText());
