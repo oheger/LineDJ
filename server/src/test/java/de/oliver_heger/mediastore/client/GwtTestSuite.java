@@ -57,6 +57,7 @@ public class GwtTestSuite extends TestCase
         suite.addTestSuite(AlbumOverviewPageTestGwt.class);
         suite.addTestSuite(SongOverviewPageTestGwt.class);
         suite.addTestSuite(ArtistDetailsTableTestGwt.class);
+        suite.addTestSuite(AlbumDetailsPageTestGwt.class);
 
         return suite;
     }
