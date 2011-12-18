@@ -77,9 +77,6 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
     private static final MultiElementHandler[] EMPTY_MULTI_HANDLERS =
             new MultiElementHandler[0];
 
-    /** Constant for an empty string. */
-    private static final String EMPTY = "";
-
     /** The binder instance. */
     private static OverviewTableUiBinder uiBinder = GWT
             .create(OverviewTableUiBinder.class);
@@ -389,17 +386,6 @@ public abstract class AbstractOverviewTable<T> extends Composite implements
      * @param table the table to be initialized
      */
     protected abstract void initCellTableColumns(CellTable<T> table);
-
-    /**
-     * Null-safe string transformation method.
-     *
-     * @param obj the object to be converted
-     * @return the string representation for this object
-     */
-    protected static String toString(Object obj)
-    {
-        return (obj != null) ? obj.toString() : EMPTY;
-    }
 
     /**
      * Creates the column for the row selection. This is the first column in the

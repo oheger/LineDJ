@@ -9,6 +9,7 @@ import com.google.gwt.view.client.ProvidesKey;
 import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.shared.ObjectUtils;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 
 /**
@@ -33,9 +34,6 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                 }
             };
 
-    /** Constant for an empty string. */
-    private static final String EMPTY = "";
-
     /**
      * Creates a new instance of {@code AlbumDetailsTable} with default
      * settings.
@@ -55,17 +53,6 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
     private static Object extractAlbumKey(AlbumInfo item)
     {
         return item.getAlbumID();
-    }
-
-    /**
-     * Null-safe string transformation method.
-     *
-     * @param obj the object to be converted
-     * @return the string representation for this object
-     */
-    private static String toString(Object obj)
-    {
-        return (obj != null) ? obj.toString() : EMPTY;
     }
 
     /**
@@ -126,7 +113,7 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                         @Override
                         public String getValue(AlbumInfo object)
                         {
-                            return AlbumDetailsTable.toString(object
+                            return ObjectUtils.toString(object
                                     .getInceptionYear());
                         }
                     };

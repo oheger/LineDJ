@@ -10,6 +10,7 @@ import com.google.gwt.view.client.ProvidesKey;
 import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.BasicMediaServiceAsync;
+import de.oliver_heger.mediastore.shared.ObjectUtils;
 import de.oliver_heger.mediastore.shared.model.SongInfo;
 
 /**
@@ -170,7 +171,7 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
                     @Override
                     public String getValue(SongInfo object)
                     {
-                        return AbstractOverviewTable.toString(object
+                        return ObjectUtils.toString(object
                                 .getInceptionYear());
                     }
                 };
@@ -216,7 +217,7 @@ public class SongOverviewPage extends AbstractOverviewTable<SongInfo>
                     @Override
                     public String getValue(SongInfo object)
                     {
-                        return AbstractOverviewTable.toString(object
+                        return ObjectUtils.toString(object
                                 .getTrackNo());
                     }
                 };
