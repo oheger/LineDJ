@@ -79,7 +79,7 @@ public abstract class AbstractDetailsTable<T> extends Composite
      */
     public void initialize(PageManager pm)
     {
-        tableInitializer.initializeTable(cellTable, pm);
+        tableInitializer.initializeTable(cellTable, null, pm);
     }
 
     /**

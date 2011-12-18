@@ -4,6 +4,7 @@ import com.google.gwt.cell.client.TextCell;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
 import com.google.gwt.view.client.ProvidesKey;
 
 import de.oliver_heger.mediastore.client.LinkColumn;
@@ -63,6 +64,7 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
     {
         @Override
         public void initializeTable(CellTable<AlbumInfo> table,
+                ColumnSortEvent.ListHandler<AlbumInfo> sortHandler,
                 PageManager pageManager)
         {
             Column<AlbumInfo, String> colName =

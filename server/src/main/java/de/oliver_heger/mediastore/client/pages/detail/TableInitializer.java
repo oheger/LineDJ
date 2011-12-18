@@ -1,6 +1,7 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import com.google.gwt.user.cellview.client.CellTable;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
 
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 
@@ -27,7 +28,9 @@ public interface TableInitializer<T>
      * implementation has to perform the setup of the table.
      *
      * @param table the {@code CellTable} to be initialized
+     * @param sortHandler the object for registering comparators
      * @param pageManager the {@code PageManager}
      */
-    void initializeTable(CellTable<T> table, PageManager pageManager);
+    void initializeTable(CellTable<T> table,
+            ColumnSortEvent.ListHandler<T> sortHandler, PageManager pageManager);
 }

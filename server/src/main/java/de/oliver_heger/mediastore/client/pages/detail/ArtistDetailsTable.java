@@ -3,6 +3,7 @@ package de.oliver_heger.mediastore.client.pages.detail;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
 import com.google.gwt.view.client.ListDataProvider;
 import com.google.gwt.view.client.ProvidesKey;
 
@@ -61,7 +62,9 @@ public class ArtistDetailsTable extends AbstractDetailsTable<ArtistInfo>
             TableInitializer<ArtistInfo>
     {
         @Override
-        public void initializeTable(CellTable<ArtistInfo> table, PageManager pm)
+        public void initializeTable(CellTable<ArtistInfo> table,
+                ColumnSortEvent.ListHandler<ArtistInfo> sortHandler,
+                PageManager pm)
         {
             Column<ArtistInfo, String> col =
                     new LinkColumn<ArtistInfo>(pm, Pages.ARTISTDETAILS)
