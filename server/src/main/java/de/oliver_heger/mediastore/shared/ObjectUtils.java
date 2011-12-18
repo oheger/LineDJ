@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-
 /**
  * <p>
  * An utility class providing common functionality for implementing default
@@ -33,6 +32,9 @@ public final class ObjectUtils
 
     /** Constant for the suffix of the data for a toString() implementation. */
     public static final String TOSTR_DATA_SUFFIX = " ]";
+
+    /** Constant for an empty string. */
+    public static final String EMPTY = "";
 
     /** Constant for the field value separator. */
     private static final String VALUE_SEPARATOR = " = ";
@@ -232,5 +234,33 @@ public final class ObjectUtils
             return 1;
         }
         return obj1.compareTo(obj2);
+    }
+
+    /**
+     * A <b>null</b>-safe string conversion method. If the passed in object is
+     * not <b>null</b>, its {@code toString()} method is invoked. Otherwise, the
+     * default string is returned.
+     *
+     * @param obj the object to be transformed to a string
+     * @param defStr the default string
+     * @return a string for this object
+     */
+    public static String toString(Object obj, String defStr)
+    {
+        return (obj != null) ? obj.toString() : defStr;
+    }
+
+    /**
+     * Returns a string representation for the specified object or an empty
+     * string if the object is <b>null</b>. Calls the method with the same name
+     * passing in an empty string as default value.
+     *
+     * @param obj the object to be transformed to a string
+     * @return a string for this object
+     * @see #toString(Object, String)
+     */
+    public static String toString(Object obj)
+    {
+        return toString(obj, EMPTY);
     }
 }

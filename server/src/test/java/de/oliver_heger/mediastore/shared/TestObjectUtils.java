@@ -111,4 +111,34 @@ public class TestObjectUtils
         assertEquals("Wrong result 2", 1,
                 ObjectUtils.compareTo(20110112223424L, 1L));
     }
+
+    /**
+     * Tests the empty string constant.
+     */
+    @Test
+    public void testEmptyString()
+    {
+        assertEquals("Wrong string length", 0, ObjectUtils.EMPTY.length());
+    }
+
+    /**
+     * Tests toString() for null input.
+     */
+    @Test
+    public void testToStringNull()
+    {
+        assertEquals("Wrong result", ObjectUtils.EMPTY,
+                ObjectUtils.toString(null));
+    }
+
+    /**
+     * Tests toString() for non-null input.
+     */
+    @Test
+    public void testToStringNotNull()
+    {
+        Long obj = 20111218194412L;
+        assertEquals("Wrong result", obj.toString(),
+                ObjectUtils.toString(obj, "some default"));
+    }
 }
