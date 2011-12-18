@@ -1,7 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -60,20 +59,6 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
         info.setSynonymData(synonyms);
         info.setCreationDate(new Date());
         return info;
-    }
-
-    /**
-     * Tests whether the specified table contains the expected data.
-     *
-     * @param expContent a collection with the data expected
-     * @param table the table component to be checked
-     */
-    private static <T> void checkTableContent(Collection<T> expContent,
-            AbstractDetailsTable<T> table)
-    {
-        List<T> list = table.getDataProvider().getList();
-        assertEquals("Wrong number of entries", expContent.size(), list.size());
-        assertTrue("Wrong content: " + list, expContent.containsAll(list));
     }
 
     /**
@@ -194,9 +179,7 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
         assertFalse("Songs panel is open", page.pnlSongs.isOpen());
         assertEquals("Got albums", 0, page.tabAlbums.getDataProvider()
                 .getList().size());
-        assertEquals("Wrong album count", "Albums (0)", page.pnlAlbums
-                .getHeaderTextAccessor().getText());
-        assertFalse("Albums panel is open", page.pnlAlbums.isOpen());
+        checkDisclosurePanel(page.pnlAlbums, "Albums", 0, false);
     }
 
     /**
@@ -476,8 +459,6 @@ public class ArtistDetailsPageTestGwt extends AbstractTestDetailsPage
         info.setAlbums(Collections.singletonList(ai));
         page.fillPage(info);
         checkTableContent(info.getAlbums(), page.tabAlbums);
-        assertTrue("Album panel not open", page.pnlAlbums.isOpen());
-        assertEquals("Wrong album count", "Albums (1)", page.pnlAlbums
-                .getHeaderTextAccessor().getText());
+        checkDisclosurePanel(page.pnlAlbums, "Albums", 1, true);
     }
 }

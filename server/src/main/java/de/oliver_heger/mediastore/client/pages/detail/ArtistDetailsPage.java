@@ -177,8 +177,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
      */
     protected void fillAlbumsTable(ArtistDetailInfo data)
     {
-        updateTableHeader(data.getAlbums(), HEADER_ALBUM_PANEL, pnlAlbums);
-        tabAlbums.setData(data.getAlbums());
+        fillTable(pnlAlbums, tabAlbums, HEADER_ALBUM_PANEL, data.getAlbums(), 1);
     }
 
     /**

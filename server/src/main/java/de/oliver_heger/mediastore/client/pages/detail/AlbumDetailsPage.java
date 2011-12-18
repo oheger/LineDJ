@@ -1,6 +1,5 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
-import java.util.Collection;
 import java.util.List;
 
 import com.google.gwt.core.client.GWT;
@@ -44,15 +43,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
     /** The name of the artists table. */
     private static final String ARTIST_TABLE_NAME = "Artists";
-
-    /** Constant for the opening bracket. */
-    private static final String BRACK_OPEN = " (";
-
-    /** Constant for the closing bracket. */
-    private static final String BRACK_CLOSE = ")";
-
-    /** Constant of the initial buffer size. */
-    private static final int BUF_SIZE = 16;
 
     /** The span for the album name. */
     @UiField
@@ -223,22 +213,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
     }
 
     /**
-     * Generates the header text for a table. This text consists of the table
-     * name and the number of rows.
-     *
-     * @param name the name of the table
-     * @param rows the number of rows
-     * @return the complete text
-     */
-    private static String generateTableHeader(String name, int rows)
-    {
-        StringBuilder buf = new StringBuilder(BUF_SIZE);
-        buf.append(name);
-        buf.append(BRACK_OPEN).append(rows).append(BRACK_CLOSE);
-        return buf.toString();
-    }
-
-    /**
      * Fills a disclosure panel with a table with data. This method can handle
      * both the artists and the songs table.
      *
@@ -256,27 +230,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
         pnl.getHeaderTextAccessor().setText(
                 generateTableHeader(tabName, data.size()));
         model.initData(data);
-        pnl.setOpen(data.size() >= openThreshold);
-    }
-
-    /**
-     * Fills a disclosure panel with a table with data. This method can handle
-     * both the artists and the songs table.
-     *
-     * @param <T> the type of the data
-     * @param pnl the disclosure panel
-     * @param table the table component
-     * @param tabName the name of the table
-     * @param data the list with the content of the table
-     * @param openThreshold the threshold when the panel should be open
-     */
-    private static <T> void fillTable(DisclosurePanel pnl,
-            AbstractDetailsTable<T> table, String tabName,
-            Collection<? extends T> data, int openThreshold)
-    {
-        pnl.getHeaderTextAccessor().setText(
-                generateTableHeader(tabName, data.size()));
-        table.setData(data);
         pnl.setOpen(data.size() >= openThreshold);
     }
 

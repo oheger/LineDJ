@@ -1,7 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -9,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.gwt.core.client.GWT;
-import com.google.gwt.user.client.ui.DisclosurePanel;
 
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
@@ -126,37 +124,6 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     }
 
     /**
-     * Generates a header text.
-     *
-     * @param txt the text
-     * @param count the number
-     * @return the header text
-     */
-    private static String generateHeaderString(String txt, int count)
-    {
-        StringBuilder buf = new StringBuilder();
-        buf.append(txt);
-        buf.append(" (").append(count).append(")");
-        return buf.toString();
-    }
-
-    /**
-     * Helper method for testing the state of a disclosure panel.
-     *
-     * @param pnl the panel
-     * @param txt the expected header text
-     * @param count the number of elements
-     * @param open the open flag
-     */
-    private void checkDisclosurePanel(DisclosurePanel pnl, String txt,
-            int count, boolean open)
-    {
-        assertEquals("Wrong header text", generateHeaderString(txt, count), pnl
-                .getHeaderTextAccessor().getText());
-        assertEquals("Wrong open state", open, pnl.isOpen());
-    }
-
-    /**
      * Helper method for checking the panel of the artists table.
      *
      * @param page the page
@@ -180,20 +147,6 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     private void checkSongTable(AlbumDetailsPage page, int count, boolean open)
     {
         checkDisclosurePanel(page.pnlSongs, "Songs", count, open);
-    }
-
-    /**
-     * Tests whether the specified table contains the expected data.
-     *
-     * @param expContent a collection with the data expected
-     * @param table the table component to be checked
-     */
-    private static <T> void checkTableContent(Collection<T> expContent,
-            AbstractDetailsTable<T> table)
-    {
-        List<T> list = table.getDataProvider().getList();
-        assertEquals("Wrong number of entries", expContent.size(), list.size());
-        assertTrue("Wrong content: " + list, expContent.containsAll(list));
     }
 
     /**

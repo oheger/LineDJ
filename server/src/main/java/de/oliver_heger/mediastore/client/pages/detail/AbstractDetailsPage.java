@@ -1,5 +1,6 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
+import java.util.Collection;
 import java.util.Map;
 
 import com.google.gwt.core.client.GWT;
@@ -9,6 +10,7 @@ import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
+import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.Hyperlink;
 import com.google.gwt.user.client.ui.Image;
 
@@ -46,10 +48,20 @@ import de.oliver_heger.mediastore.shared.search.MediaSearchServiceAsync;
  * @param <T> the type of data objects this page is about
  */
 public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
-        Composite implements PageConfigurationSupport, SynonymEditResultsProcessor
+        Composite implements PageConfigurationSupport,
+        SynonymEditResultsProcessor
 {
     /** Constant for the synonym separator. */
     private static final String SYN_SEPARATOR = ", ";
+
+    /** Constant for the opening bracket. */
+    private static final String BRACK_OPEN = " (";
+
+    /** Constant for the closing bracket. */
+    private static final String BRACK_CLOSE = ")";
+
+    /** Constant of the initial buffer size. */
+    private static final int BUF_SIZE = 16;
 
     /** The image with the progress indicator. */
     @UiField
@@ -273,6 +285,43 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
+     * Fills a disclosure panel with a table with data. This method can handle
+     * both the artists and the songs table.
+     *
+     * @param <T> the type of the data
+     * @param pnl the disclosure panel
+     * @param table the table component
+     * @param tabName the name of the table
+     * @param data the list with the content of the table
+     * @param openThreshold the threshold when the panel should be open
+     */
+    protected static <T> void fillTable(DisclosurePanel pnl,
+            AbstractDetailsTable<T> table, String tabName,
+            Collection<? extends T> data, int openThreshold)
+    {
+        pnl.getHeaderTextAccessor().setText(
+                generateTableHeader(tabName, data.size()));
+        table.setData(data);
+        pnl.setOpen(data.size() >= openThreshold);
+    }
+
+    /**
+     * Generates the header text for a table. This text consists of the table
+     * name and the number of rows.
+     *
+     * @param name the name of the table
+     * @param rows the number of rows
+     * @return the complete text
+     */
+    protected static String generateTableHeader(String name, int rows)
+    {
+        StringBuilder buf = new StringBuilder(BUF_SIZE);
+        buf.append(name);
+        buf.append(BRACK_OPEN).append(rows).append(BRACK_CLOSE);
+        return buf.toString();
+    }
+
+    /**
      * Returns the {@link DetailsEntityHandler} object to be used for this page.
      *
      * @return the details entity handler
@@ -364,8 +413,8 @@ public abstract class AbstractDetailsPage<T extends HasSynonyms> extends
     }
 
     /**
-     * The server call is complete. This method disables the progress
-     * indicator and updates the current state of this object.
+     * The server call is complete. This method disables the progress indicator
+     * and updates the current state of this object.
      *
      * @param current the new current object of this page
      */

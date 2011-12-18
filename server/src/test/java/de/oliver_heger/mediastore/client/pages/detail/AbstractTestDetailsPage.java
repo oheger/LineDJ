@@ -1,14 +1,18 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
+import java.util.Collection;
+import java.util.List;
+
 import com.google.gwt.junit.client.GWTTestCase;
+import com.google.gwt.user.client.ui.DisclosurePanel;
 
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 
 /**
  * An abstract base class for test classes for detail pages. This base class
- * provides some functionality which is used by all tests for concrete detail page
- * implementations.
+ * provides some functionality which is used by all tests for concrete detail
+ * page implementations.
  *
  * @author Oliver Heger
  * @version $Id: $
@@ -35,9 +39,10 @@ public abstract class AbstractTestDetailsPage extends GWTTestCase
 
     /**
      * Creates a mock page manager for the initialization of a details page.
-     * During initialization the page accesses the page manager to construct some
-     * tokens needed by hyper links. This method prepares the mock page manager
-     * correspondingly.
+     * During initialization the page accesses the page manager to construct
+     * some tokens needed by hyper links. This method prepares the mock page
+     * manager correspondingly.
+     *
      * @return the mock page manager
      */
     protected static MockPageManager createPMForInitialize()
@@ -62,7 +67,9 @@ public abstract class AbstractTestDetailsPage extends GWTTestCase
     }
 
     /**
-     * Tests whether the fields defined by the base class have been created correctly.
+     * Tests whether the fields defined by the base class have been created
+     * correctly.
+     *
      * @param page the page
      */
     protected static void checkBaseFields(AbstractDetailsPage<?> page)
@@ -71,5 +78,50 @@ public abstract class AbstractTestDetailsPage extends GWTTestCase
         assertNotNull("No error panel", page.pnlError);
         assertNotNull("No overview link", page.lnkOverview);
         assertNotNull("No edit synonyms button", page.btnEditSynonyms);
+    }
+
+    /**
+     * Tests whether the specified table contains the expected data.
+     *
+     * @param expContent a collection with the data expected
+     * @param table the table component to be checked
+     */
+    protected static <T> void checkTableContent(Collection<T> expContent,
+            AbstractDetailsTable<T> table)
+    {
+        List<T> list = table.getDataProvider().getList();
+        assertEquals("Wrong number of entries", expContent.size(), list.size());
+        assertTrue("Wrong content: " + list, expContent.containsAll(list));
+    }
+
+    /**
+     * Helper method for testing the state of a disclosure panel.
+     *
+     * @param pnl the panel
+     * @param txt the expected header text
+     * @param count the number of elements
+     * @param open the open flag
+     */
+    protected static void checkDisclosurePanel(DisclosurePanel pnl, String txt,
+            int count, boolean open)
+    {
+        assertEquals("Wrong header text", generateHeaderString(txt, count), pnl
+                .getHeaderTextAccessor().getText());
+        assertEquals("Wrong open state", open, pnl.isOpen());
+    }
+
+    /**
+     * Generates a header text for a disclosure panel.
+     *
+     * @param txt the text
+     * @param count the number
+     * @return the header text
+     */
+    private static String generateHeaderString(String txt, int count)
+    {
+        StringBuilder buf = new StringBuilder();
+        buf.append(txt);
+        buf.append(" (").append(count).append(")");
+        return buf.toString();
     }
 }
