@@ -47,4 +47,66 @@ public class TestAlbumComparators
         checkNameComparator("a script for a Jester's tear", "ZODIAC");
         checkNameComparator("A SCRIPT for a Jester's tear", "zodiac");
     }
+
+    /**
+     * Tests the duration comparator if both durations are defined.
+     */
+    @Test
+    public void testDurationComparator()
+    {
+        AlbumInfo album1 = new AlbumInfo();
+        AlbumInfo album2 = new AlbumInfo();
+        album1.setDuration(100L);
+        album2.setDuration(200L);
+        checkComparator(album1, album2, AlbumComparators.DURATION_COMPARATOR);
+    }
+
+    /**
+     * Tests the duration comparator if a duration is undefined.
+     */
+    @Test
+    public void testDurationComparatorWithNull()
+    {
+        AlbumInfo album1 = new AlbumInfo();
+        AlbumInfo album2 = new AlbumInfo();
+        album2.setDuration(200L);
+        checkComparator(album1, album2, AlbumComparators.DURATION_COMPARATOR);
+    }
+
+    /**
+     * Tests the comparator for the number of songs.
+     */
+    @Test
+    public void testSongCountComparator()
+    {
+        AlbumInfo album1 = new AlbumInfo();
+        AlbumInfo album2 = new AlbumInfo();
+        album1.setNumberOfSongs(10);
+        album2.setNumberOfSongs(12);
+        checkComparator(album1, album2, AlbumComparators.SONGCOUNT_COMPARATOR);
+    }
+
+    /**
+     * Tests the year comparator if both years are defined.
+     */
+    @Test
+    public void testYearComparator()
+    {
+        AlbumInfo album1 = new AlbumInfo();
+        AlbumInfo album2 = new AlbumInfo();
+        album1.setInceptionYear(1980);
+        album2.setInceptionYear(1990);
+        checkComparator(album1, album2, AlbumComparators.YEAR_COMPARATOR);
+    }
+
+    /**
+     * Tests the year comparator if a year is undefined.
+     */
+    public void testYearComparatorWithNull()
+    {
+        AlbumInfo album1 = new AlbumInfo();
+        AlbumInfo album2 = new AlbumInfo();
+        album2.setInceptionYear(1990);
+        checkComparator(album1, album2, AlbumComparators.YEAR_COMPARATOR);
+    }
 }
