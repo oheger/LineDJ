@@ -4,12 +4,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.cellview.client.Column;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
 import com.google.gwt.view.client.ListDataProvider;
 
 import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
+import de.oliver_heger.mediastore.shared.model.ArtistComparators;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 
 /**
@@ -19,7 +20,7 @@ import de.oliver_heger.mediastore.shared.model.ArtistInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class ArtistDetailsTableTestGwt extends GWTTestCase
+public class ArtistDetailsTableTestGwt extends AbstractTestDetailsTable
 {
     /** Constant for the name of a test artist. */
     private static final String ARTIST_NAME = "TestArtist";
@@ -29,12 +30,6 @@ public class ArtistDetailsTableTestGwt extends GWTTestCase
 
     /** Stores the mock page manager passed to the test instance. */
     private MockPageManager pageManager;
-
-    @Override
-    public String getModuleName()
-    {
-        return "de.oliver_heger.mediastore.RemoteMediaStore";
-    }
 
     /**
      * Creates a test artist. Based on the given index unique property values
@@ -133,6 +128,28 @@ public class ArtistDetailsTableTestGwt extends GWTTestCase
         ArtistDetailsTable table = new ArtistDetailsTable(provider);
         table.setData(null);
         assertTrue("List not cleared", provider.getList().isEmpty());
+    }
+
+    /**
+     * Tests whether a correct list sort handler is created.
+     */
+    public void testCreateSortHandler()
+    {
+        ListDataProviderTestImpl provider = new ListDataProviderTestImpl();
+        ArtistDetailsTable table = new ArtistDetailsTable(provider);
+        ColumnSortEvent.ListHandler<ArtistInfo> handler =
+                table.createSortHandler();
+        assertSame("Wrong list for sort handler", provider.getList(),
+                handler.getList());
+    }
+
+    /**
+     * Tests whether the correct comparators have been configured.
+     */
+    public void testColumnComparatorMapping()
+    {
+        ArtistDetailsTable table = new ArtistDetailsTable();
+        checkComparatorMapping(table, ArtistComparators.NAME_COMPARATOR);
     }
 
     /**

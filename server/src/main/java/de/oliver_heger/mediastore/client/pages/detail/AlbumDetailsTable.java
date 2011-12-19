@@ -11,6 +11,7 @@ import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.ObjectUtils;
+import de.oliver_heger.mediastore.shared.model.AlbumComparators;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 
 /**
@@ -84,6 +85,9 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                     };
             table.addColumn(colName, "Name");
             table.setColumnWidth(colName, 50, Unit.PCT);
+            colName.setSortable(true);
+            sortHandler
+                    .setComparator(colName, AlbumComparators.NAME_COMPARATOR);
 
             Column<AlbumInfo, String> colDuration =
                     new Column<AlbumInfo, String>(new TextCell())
@@ -96,6 +100,9 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                     };
             table.addColumn(colDuration, "Duration");
             table.setColumnWidth(colDuration, 25, Unit.PCT);
+            colDuration.setSortable(true);
+            sortHandler.setComparator(colDuration,
+                    AlbumComparators.DURATION_COMPARATOR);
 
             Column<AlbumInfo, String> colCount =
                     new Column<AlbumInfo, String>(new TextCell())
@@ -108,6 +115,9 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                     };
             table.addColumn(colCount, "Songs");
             table.setColumnWidth(colCount, 10, Unit.PCT);
+            colCount.setSortable(true);
+            sortHandler.setComparator(colCount,
+                    AlbumComparators.SONGCOUNT_COMPARATOR);
 
             Column<AlbumInfo, String> colYear =
                     new Column<AlbumInfo, String>(new TextCell())
@@ -121,6 +131,9 @@ public class AlbumDetailsTable extends AbstractDetailsTable<AlbumInfo>
                     };
             table.addColumn(colYear, "Year");
             table.setColumnWidth(colYear, 15, Unit.PCT);
+            colYear.setSortable(true);
+            sortHandler
+                    .setComparator(colYear, AlbumComparators.YEAR_COMPARATOR);
         }
     }
 }

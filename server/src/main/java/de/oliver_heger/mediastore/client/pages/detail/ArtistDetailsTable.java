@@ -10,6 +10,7 @@ import com.google.gwt.view.client.ProvidesKey;
 import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.shared.model.ArtistComparators;
 import de.oliver_heger.mediastore.shared.model.ArtistInfo;
 
 /**
@@ -81,8 +82,10 @@ public class ArtistDetailsTable extends AbstractDetailsTable<ArtistInfo>
                             return object.getName();
                         }
                     };
-            table.addColumn(col);
+            table.addColumn(col, "Name");
             table.setColumnWidth(col, 100, Unit.PX);
+            col.setSortable(true);
+            sortHandler.setComparator(col, ArtistComparators.NAME_COMPARATOR);
         }
     }
 }

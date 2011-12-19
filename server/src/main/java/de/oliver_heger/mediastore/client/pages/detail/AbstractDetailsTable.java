@@ -6,6 +6,8 @@ import com.google.gwt.core.client.GWT;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.cellview.client.CellTable;
+import com.google.gwt.user.cellview.client.ColumnSortEvent;
+import com.google.gwt.user.cellview.client.ColumnSortEvent.ListHandler;
 import com.google.gwt.user.cellview.client.SimplePager;
 import com.google.gwt.user.cellview.client.SimplePager.TextLocation;
 import com.google.gwt.user.client.ui.Composite;
@@ -72,6 +74,16 @@ public abstract class AbstractDetailsTable<T> extends Composite
     }
 
     /**
+     * Returns the {@code TableInitializer} used by this table.
+     *
+     * @return the {@code TableInitializer}
+     */
+    public TableInitializer<T> getTableInitializer()
+    {
+        return tableInitializer;
+    }
+
+    /**
      * Initializes this component. This method must be called once before the
      * table can be used.
      *
@@ -79,7 +91,9 @@ public abstract class AbstractDetailsTable<T> extends Composite
      */
     public void initialize(PageManager pm)
     {
-        tableInitializer.initializeTable(cellTable, null, pm);
+        ListHandler<T> listHandler = createSortHandler();
+        cellTable.addColumnSortHandler(listHandler);
+        tableInitializer.initializeTable(cellTable, listHandler , pm);
     }
 
     /**
@@ -106,6 +120,16 @@ public abstract class AbstractDetailsTable<T> extends Composite
     protected ListDataProvider<T> getDataProvider()
     {
         return dataProvider;
+    }
+
+    /**
+     * Creates the handler responsible for sorting support.
+     *
+     * @return the list handler
+     */
+    protected ColumnSortEvent.ListHandler<T> createSortHandler()
+    {
+        return new ColumnSortEvent.ListHandler<T>(getDataProvider().getList());
     }
 
     /**

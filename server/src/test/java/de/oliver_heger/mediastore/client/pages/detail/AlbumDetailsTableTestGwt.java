@@ -1,12 +1,12 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
-import com.google.gwt.junit.client.GWTTestCase;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.view.client.ProvidesKey;
 
 import de.oliver_heger.mediastore.client.LinkColumn;
 import de.oliver_heger.mediastore.client.pages.MockPageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
+import de.oliver_heger.mediastore.shared.model.AlbumComparators;
 import de.oliver_heger.mediastore.shared.model.AlbumInfo;
 
 /**
@@ -15,14 +15,8 @@ import de.oliver_heger.mediastore.shared.model.AlbumInfo;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class AlbumDetailsTableTestGwt extends GWTTestCase
+public class AlbumDetailsTableTestGwt extends AbstractTestDetailsTable
 {
-    @Override
-    public String getModuleName()
-    {
-        return "de.oliver_heger.mediastore.RemoteMediaStore";
-    }
-
     /**
      * Creates a test instance of the album table.
      *
@@ -114,5 +108,17 @@ public class AlbumDetailsTableTestGwt extends GWTTestCase
                 String.valueOf(info.getInceptionYear()), col.getValue(info));
         info.setInceptionYear(null);
         assertEquals("Wrong null inception year", "", col.getValue(info));
+    }
+
+    /**
+     * Tests whether the correct comparators have been configured.
+     */
+    public void testColumnComparatorMapping()
+    {
+        AlbumDetailsTable table = new AlbumDetailsTable();
+        checkComparatorMapping(table, AlbumComparators.NAME_COMPARATOR,
+                AlbumComparators.DURATION_COMPARATOR,
+                AlbumComparators.SONGCOUNT_COMPARATOR,
+                AlbumComparators.YEAR_COMPARATOR);
     }
 }
