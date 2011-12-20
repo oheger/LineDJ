@@ -14,6 +14,7 @@ import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsPageTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.ArtistDetailsTableTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.ArtistGridTableModelTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.SongDetailsPageTestGwt;
+import de.oliver_heger.mediastore.client.pages.detail.SongDetailsTableTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.SongGridTableModelTestGwt;
 import de.oliver_heger.mediastore.client.pages.detail.SynonymEditorTestGwt;
 import de.oliver_heger.mediastore.client.pages.overview.AlbumOverviewPageTestGwt;
@@ -58,6 +59,7 @@ public class GwtTestSuite extends TestCase
         suite.addTestSuite(SongOverviewPageTestGwt.class);
         suite.addTestSuite(ArtistDetailsTableTestGwt.class);
         suite.addTestSuite(AlbumDetailsPageTestGwt.class);
+        suite.addTestSuite(SongDetailsTableTestGwt.class);
 
         return suite;
     }
