@@ -7,12 +7,10 @@ import com.google.gwt.dom.client.SpanElement;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.DisclosurePanel;
-import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.Hyperlink;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Widget;
 
-import de.oliver_heger.mediastore.client.GridTableModel;
 import de.oliver_heger.mediastore.client.pageman.PageManager;
 import de.oliver_heger.mediastore.client.pages.Pages;
 import de.oliver_heger.mediastore.shared.model.AlbumDetailInfo;
@@ -74,7 +72,7 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
     /** The table for the songs of this album. */
     @UiField
-    Grid tabSongs;
+    SongDetailsTable tabSongs;
 
     /** The table for the artists of this album. */
     @UiField
@@ -113,8 +111,8 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
     {
         super.initialize(pm);
 
-        songModel = new SongGridTableModel(tabSongs, pm);
         tabArtists.initialize(pm);
+        tabSongs.initialize(pm);
     }
 
     /**
@@ -150,10 +148,9 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
 
         initArtistLink(data.getArtists());
 
-        fillTabPanel(pnlSongs, getSongTableModel(), SONG_TABLE_NAME,
-                data.getSongs(), 1);
         fillTable(pnlArtists, tabArtists, ARTIST_TABLE_NAME, data.getArtists(),
                 2);
+        fillTable(pnlSongs, tabSongs, SONG_TABLE_NAME, data.getSongs(), 1);
     }
 
     /**
@@ -210,27 +207,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
         }
 
         labMultiArtists.setVisible(artists.size() > 1);
-    }
-
-    /**
-     * Fills a disclosure panel with a table with data. This method can handle
-     * both the artists and the songs table.
-     *
-     * @param <T> the type of the data
-     * @param pnl the disclosure panel
-     * @param model the table model
-     * @param tabName the name of the table
-     * @param data the list with the content of the table
-     * @param openThreshold the threshold when the panel should be open
-     */
-    private static <T> void fillTabPanel(DisclosurePanel pnl,
-            GridTableModel<T> model, String tabName, List<T> data,
-            int openThreshold)
-    {
-        pnl.getHeaderTextAccessor().setText(
-                generateTableHeader(tabName, data.size()));
-        model.initData(data);
-        pnl.setOpen(data.size() >= openThreshold);
     }
 
     /**

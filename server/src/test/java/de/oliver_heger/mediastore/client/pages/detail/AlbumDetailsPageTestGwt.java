@@ -97,19 +97,14 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     }
 
     /**
-     * Tests whether the grid with the songs and its model are correctly set up.
+     * Tests whether the table for the songs is correctly set up.
      */
-    public void testInitSongGridModel()
+    public void testInitSongTable()
     {
         AlbumDetailsPage page = new AlbumDetailsPage();
-        MockPageManager pm = initializePage(page);
-        SongGridTableModel model = page.getSongTableModel();
-        assertEquals("Wrong number of columns", 3, model.getColumnCount());
-        assertSame("Wrong page manager", pm, model.getPageManager());
-        assertEquals("Wrong property (1)", "name", model.getProperty(0));
-        assertEquals("Wrong property (2)", "duration", model.getProperty(1));
-        assertEquals("Wrong property (3)", "playCount", model.getProperty(2));
-        assertSame("Wrong grid", page.tabSongs, model.getGrid());
+        initializePage(page);
+        assertEquals("Wrong number of columns", 3,
+                page.tabSongs.cellTable.getColumnCount());
     }
 
     /**
@@ -147,6 +142,8 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
     private void checkSongTable(AlbumDetailsPage page, int count, boolean open)
     {
         checkDisclosurePanel(page.pnlSongs, "Songs", count, open);
+        assertEquals("Wrong number of songs", count, page.tabSongs
+                .getDataProvider().getList().size());
     }
 
     /**
@@ -203,7 +200,7 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
         art.setArtistID(20110202223020L);
         art.setName("Harry Hirsch");
         info.setArtists(Collections.singletonList(art));
-        AlbumDetailsPageTestImpl page = new AlbumDetailsPageTestImpl();
+        AlbumDetailsPage page = new AlbumDetailsPage();
         MockPageManager pm = initializePage(page);
         pm.expectCreatePageSpecification(Pages.ARTISTDETAILS, null)
                 .withParameter(art.getArtistID()).toToken();
@@ -236,7 +233,7 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
             artists.add(ai);
         }
         info.setArtists(artists);
-        AlbumDetailsPageTestImpl page = new AlbumDetailsPageTestImpl();
+        AlbumDetailsPage page = new AlbumDetailsPage();
         initializePage(page);
         page.fillPage(info);
         checkArtistTable(page, artistCount, true);
@@ -263,11 +260,11 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
             songs.add(song);
         }
         info.setSongs(songs);
-        AlbumDetailsPageTestImpl page = new AlbumDetailsPageTestImpl();
+        AlbumDetailsPage page = new AlbumDetailsPage();
         initializePage(page);
         page.fillPage(info);
         checkSongTable(page, songCount, true);
-        assertSame("Wrong song list", songs, page.getSongs());
+        checkTableContent(songs, page.tabSongs);
     }
 
     /**
@@ -286,44 +283,5 @@ public class AlbumDetailsPageTestGwt extends AbstractTestDetailsPage
         assertEmpty("Got synonyms", page.spanSynonyms.getInnerText());
         checkArtistTable(page, 0, false);
         checkSongTable(page, 0, false);
-    }
-
-    /**
-     * A test implementation of the details page class which supports mocking
-     * the artist and song tables.
-     */
-    private static class AlbumDetailsPageTestImpl extends AlbumDetailsPage
-    {
-        /** A list with the songs passed to the songs table. */
-        private List<SongInfo> songs;
-
-        /**
-         * Returns the songs to be displayed by the songs table.
-         *
-         * @return the songs
-         */
-        public List<SongInfo> getSongs()
-        {
-            return songs;
-        }
-
-        /**
-         * Returns a mock table model which stores the passed in songs in an
-         * internal member field.
-         *
-         * @return the mock table model
-         */
-        @Override
-        SongGridTableModel getSongTableModel()
-        {
-            return new SongGridTableModel(tabSongs, new MockPageManager())
-            {
-                @Override
-                public void initData(List<SongInfo> data)
-                {
-                    songs = data;
-                }
-            };
-        }
     }
 }
