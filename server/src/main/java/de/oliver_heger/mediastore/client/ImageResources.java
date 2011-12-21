@@ -35,20 +35,6 @@ public interface ImageResources extends ClientBundle
     ImageResource viewRefresh();
 
     /**
-     * Returns the icon representing ascending sort order.
-     *
-     * @return the icon for ascending sort order
-     */
-    ImageResource sortUp();
-
-    /**
-     * Returns the icon representing descending sort order.
-     *
-     * @return the icon for descending sort order
-     */
-    ImageResource sortDown();
-
-    /**
      * Returns the icon for removing an item.
      *
      * @return the remove icon

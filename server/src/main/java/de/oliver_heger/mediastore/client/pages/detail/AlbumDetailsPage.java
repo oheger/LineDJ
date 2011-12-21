@@ -89,9 +89,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
     /** The details handler used by this page. */
     private final DetailsEntityHandler<AlbumDetailInfo> detailsHandler;
 
-    /** The table model for the songs of this album. */
-    private SongGridTableModel songModel;
-
     /**
      * Creates a new instance of {@code AlbumDetailsPage}.
      */
@@ -173,16 +170,6 @@ public class AlbumDetailsPage extends AbstractDetailsPage<AlbumDetailInfo>
             MediaSearchServiceAsync searchService)
     {
         return new AlbumSynonymQueryHandler(searchService);
-    }
-
-    /**
-     * Returns the table model for the song table.
-     *
-     * @return the songs table model
-     */
-    SongGridTableModel getSongTableModel()
-    {
-        return songModel;
     }
 
     /**
