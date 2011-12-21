@@ -1,13 +1,10 @@
 package de.oliver_heger.mediastore.client.pages.detail;
 
-import java.util.Collection;
-
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.SpanElement;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.DisclosurePanel;
-import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.Widget;
 
 import de.oliver_heger.mediastore.client.pageman.PageManager;
@@ -36,12 +33,6 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     /** Constant for the header for the album panel. */
     private static final String HEADER_ALBUM_PANEL = "Albums";
 
-    /** Constant for the opening bracket. */
-    private static final String OPENING_BRACKET = " (";
-
-    /** Constant for the closing bracket. */
-    private static final String CLOSING_BRACKET = ")";
-
     /** Our binder. */
     private static ArtistDetailsPageUiBinder uiBinder = GWT
             .create(ArtistDetailsPageUiBinder.class);
@@ -64,7 +55,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 
     /** The table which displays the songs of the artist. */
     @UiField
-    Grid tabSongs;
+    SongDetailsTable tabSongs;
 
     /** The panel for the albums related to the artist. */
     @UiField
@@ -76,9 +67,6 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
 
     /** The entity handler for fetching artist details. */
     private final DetailsEntityHandler<ArtistDetailInfo> entityHandler;
-
-    /** The model for the table with the songs of this artist. */
-    private SongGridTableModel songModel;
 
     /**
      * Creates a new instance of {@code ArtistDetailsPage}.
@@ -98,8 +86,8 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     {
         super.initialize(pm);
 
-        songModel = new SongGridTableModel(tabSongs, pm);
         tabAlbums.initialize(pm);
+        tabSongs.initialize(pm);
     }
 
     /**
@@ -164,8 +152,7 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
      */
     protected void fillSongsTable(ArtistDetailInfo data)
     {
-        updateTableHeader(data.getSongs(), HEADER_SONG_PANEL, pnlSongs);
-        getSongTableModel().initData(data.getSongs());
+        fillTable(pnlSongs, tabSongs, HEADER_SONG_PANEL, data.getSongs(), 1);
     }
 
     /**
@@ -178,36 +165,6 @@ public class ArtistDetailsPage extends AbstractDetailsPage<ArtistDetailInfo>
     protected void fillAlbumsTable(ArtistDetailInfo data)
     {
         fillTable(pnlAlbums, tabAlbums, HEADER_ALBUM_PANEL, data.getAlbums(), 1);
-    }
-
-    /**
-     * Returns the model for the table with the songs of this artist.
-     *
-     * @return the song table model
-     */
-    SongGridTableModel getSongTableModel()
-    {
-        return songModel;
-    }
-
-    /**
-     * Updates the text of a disclosure panel containing a table with the number
-     * of items which are currently displayed. If there are items, the panel is
-     * opened.
-     *
-     * @param items the collection with items
-     * @param text the prefix text for the header message
-     * @param pnl the {@code DisclosurePanel}
-     */
-    private void updateTableHeader(Collection<?> items, String text,
-            DisclosurePanel pnl)
-    {
-        int count = items.size();
-        StringBuilder buf = new StringBuilder();
-        buf.append(text).append(OPENING_BRACKET);
-        buf.append(count).append(CLOSING_BRACKET);
-        pnl.getHeaderTextAccessor().setText(buf.toString());
-        pnl.setOpen(count > 0);
     }
 
     /**
