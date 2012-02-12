@@ -6,6 +6,8 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.concurrent.ThreadFactory;
+
 import javax.persistence.EntityManagerFactory;
 
 import net.sf.jguiraffe.di.BeanContext;
@@ -178,7 +180,8 @@ public class TestAppBeans
     public void testBeanThreadFactory()
     {
         BasicThreadFactory factory =
-                (BasicThreadFactory) getBeanContext().getBean("threadFactory");
+                (BasicThreadFactory) getBeanContext().getBean(
+                        ThreadFactory.class);
         assertTrue("Wrong daemon flag", factory.getDaemonFlag().booleanValue());
     }
 
