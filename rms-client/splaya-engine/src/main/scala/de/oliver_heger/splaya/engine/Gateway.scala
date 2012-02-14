@@ -55,18 +55,60 @@ object Gateway {
   }
 
   /**
+   * Registers the specified actor at this object. It will be notified for each
+   * events passed to the ''publish()'' method.
+   * @param listener the actor to register
+   */
+  def register(listener: Actor) {
+    actor ! MsgRegister(listener)
+  }
+
+  /**
+   * Unregisters the specified actor. It will no longer receive any events.
+   */
+  def unregister(listener: Actor) {
+    actor ! MsgUnregister(listener)
+  }
+
+  /**
+   * Publishes the specified message to all actors that have been registered at
+   * this object. This is a very simple event mechanism.
+   * @param msg the message to be published to all registered actors
+   */
+  def publish(msg: Any) {
+    actor ! MsgDelegate(null, msg)
+  }
+
+  /**
    * An internally used message class for adding a new actor.
    */
   private case class MsgAddActor(actorData: Tuple2[String, Actor])
 
   /**
    * An internally used message class for delegating a message to another actor.
+   * If no actor name is specified, the message is published to all registered
+   * actors.
    */
   private case class MsgDelegate(actorName: String, msg: Any)
+
+  /**
+   * An internally used message class for registering an actor at the event
+   * system.
+   */
+  private case class MsgRegister(actor: Actor)
+
+  /**
+   * An internally used message class for unregistering an actor from the event
+   * system.
+   */
+  private case class MsgUnregister(actor: Actor)
 
   private class WrappedActor extends Actor {
     /** The map with the actors known to this application. */
     private var actors = Map.empty[String, Actor]
+
+    /** A list with the actors registered at the event system. */
+    private var listeners = List[Actor]()
 
     /**
      * The main method of this actor. Handles all messages. Internal messages are
@@ -79,13 +121,32 @@ object Gateway {
           actors += actorData
           act()
 
+        case MsgRegister(actor) =>
+          listeners = actor :: listeners
+          act()
+
+        case MsgUnregister(actor) =>
+          listeners = listeners filter (_ != actor)
+          act()
+
         case MsgDelegate(actorName, msg) =>
-          actors(actorName) ! msg
+          if (actorName != null) {
+            actors(actorName) ! msg
+          } else {
+            publish(msg)
+          }
           act()
 
         case Exit =>
           actors = Map.empty
       }
+    }
+
+    /**
+     * Publishes a message to all actors registered at the event system.
+     */
+    private def publish(msg: Any) {
+      listeners foreach (_ ! msg)
     }
   }
 }
