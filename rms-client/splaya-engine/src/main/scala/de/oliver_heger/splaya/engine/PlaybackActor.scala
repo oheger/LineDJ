@@ -103,7 +103,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def preparePlayback() {
     val source = queue.dequeue()
-    println("Playing " + source.name)
+    println("Playing " + source.uri)
 
     val sourceStream = if (stream != null) stream.currentStream else null
     stream = new SourceStreamWrapper(tempFileFactory, sourceStream,

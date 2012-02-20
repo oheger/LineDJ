@@ -36,5 +36,5 @@ trait StreamSource {
    * @return the input stream
    * @throws IOException if an error occurs
    */
-  def openStream: InputStream
+  def openStream(): InputStream
 }

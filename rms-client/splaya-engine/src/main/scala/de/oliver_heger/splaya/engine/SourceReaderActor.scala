@@ -9,54 +9,110 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.BufferedOutputStream
 import java.io.InputStream
+import java.io.Closeable
+import org.slf4j.LoggerFactory
+import java.io.IOException
 
 /**
  *
  * @author hacker
  * @version $Id: $
  */
-class SourceReaderActor(tempFileFactory : TempFileFactory,
-    bufferManager : SourceBufferManager)
+class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFactory,
+  bufferManager: SourceBufferManager, chunkSize: Int)
   extends Actor {
-  /** Constant for the chunk size.*/
-  private val ChunkSize = 1 * 1024 * 1024
-
   /** Constant of the size of a copy buffer.*/
   private val BufSize = 16 * 1024;
 
+  /** The logger. */
+  val log = LoggerFactory.getLogger(classOf[SourceReaderActor])
+
   /** The queue of the files to read.*/
-  private val sourceFiles = Queue[String]()
+  private val sourceStreams = Queue[AddSourceStream]()
 
   /** The current stream to the audio file to be copied.*/
-  private var stream: InputStream = _
+  private var currentInputStream: InputStream = _
 
+  /** The current temporary file. */
+  private var currentTempFile: TempFile = _
+
+  /** The current output stream. */
+  private var currentOutputStream: OutputStream = _
+
+  /** The number of bytes to write until the buffer is full. */
+  private var bytesToWrite = 2 * chunkSize
+
+  /** The number of bytes written in the current chunk. */
+  private var chunkBytes = 0
+
+  /**
+   * The main method of this actor.
+   */
   def act() {
     var running = true
 
     while (running) {
       receive {
-        case Exit =>
-          closeCurrentStream()
+        case ex: Exit =>
+          closeCurrentInputStream()
+          closeCurrentOutputStream(true)
           running = false
+          ex.confirmed(this)
 
-        case AddSourceFile(file) =>
-          sourceFiles += file
-          println("Added file " + file)
+        case strm: AddSourceStream =>
+          sourceStreams += strm
+          copy()
 
-        case ReadChunk => copyChunk
+        case ReadChunk =>
+          bytesToWrite += chunkSize
+          copy()
       }
     }
+  }
 
-    println("Exit ReadActor")
+  /**
+   * Returns a string representation for this object. This implementation just
+   * returns a symbolic name for this actor.
+   * @return a string for this object
+   */
+  override def toString = "SourceReaderActor"
+
+  /**
+   * Helper method for closing an object ignoring all exceptions.
+   * @param cls the object to be closed
+   */
+  private def closeSilent(cls: Closeable) {
+    try {
+      cls.close()
+    } catch {
+      case ioex: IOException =>
+        log.warn("Error when closing stream!", ioex)
+    }
   }
 
   /**
    * Closes the current input stream if it is open.
    */
-  private def closeCurrentStream() {
-    if (stream != null) {
-      stream.close()
-      stream = null
+  private def closeCurrentInputStream() {
+    if (currentInputStream != null) {
+      closeSilent(currentInputStream)
+      currentInputStream = null
+    }
+  }
+
+  /**
+   * Closes the current output stream if it is open. If specified, the temporary
+   * file is deleted.
+   * @param deleteTemp a flag whether the temporary file is to be closed
+   */
+  private def closeCurrentOutputStream(deleteTemp: Boolean) {
+    if (currentTempFile != null) {
+      closeSilent(currentOutputStream)
+      currentOutputStream = null
+      if (deleteTemp) {
+        currentTempFile.delete()
+      }
+      currentTempFile = null
     }
   }
 
@@ -66,38 +122,60 @@ class SourceReaderActor(tempFileFactory : TempFileFactory,
    * reached.
    */
   private def nextInputStream() {
-    if (stream == null && !sourceFiles.isEmpty) {
-      val file = new File(sourceFiles.dequeue())
-      val msg = AudioSource(file.getAbsolutePath(), file.length())
-      stream = new BufferedInputStream(new FileInputStream(file))
+    if (currentInputStream == null && !sourceStreams.isEmpty) {
+      val srcStream = sourceStreams.dequeue()
+      val resolvedStream = resolver.resolve(srcStream.uri)
+      val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
+      currentInputStream = new BufferedInputStream(resolvedStream.openStream())
       Gateway ! Gateway.ActorPlayback -> msg
     }
   }
 
   /**
-   * Copies a chunk of data to newly created temporary files.
+   * Obtains the next output stream if necessary. After this method was
+   * executed, data can safely be written into the output stream.
+   */
+  private def nextOutputStream() {
+    if (currentTempFile == null) {
+      currentTempFile = tempFileFactory.createFile()
+      currentOutputStream = new BufferedOutputStream(currentTempFile.outputStream())
+      chunkBytes = 0
+    }
+  }
+
+  /**
+   * Closes the current temporary file if a complete chunk has been written.
+   */
+  private def closeChunk() {
+    if (chunkBytes >= chunkSize) {
+      bufferManager += currentTempFile
+      closeCurrentOutputStream(false)
+    }
+  }
+
+  /**
+   * Checks whether more audio data is available which can be copied.
+   */
+  private def hasMoreData = currentInputStream != null || !sourceStreams.isEmpty
+
+  /**
+   * Copies a chunk of data to a temporary file. This method expects that the
+   * input and output files have already been initialized. It stops when the
+   * output file has been written completely.
    */
   private def copyChunk() {
-    val file = tempFileFactory.createFile()
-    val out = new BufferedOutputStream(file.outputStream())
-    try {
-      var written = 0
-      do {
-        nextInputStream()
-        if (stream != null) {
-          val remaining = ChunkSize - written
-          val count = copyStream(out, stream, remaining)
-          if (count < remaining) {
-            closeCurrentStream()
-          }
-          written += count
+    do {
+      nextInputStream()
+      if (currentInputStream != null) {
+        val remaining = chunkSize - chunkBytes
+        val count = copyStream(currentOutputStream, currentInputStream, remaining)
+        if (count < remaining) {
+          closeCurrentInputStream()
         }
-      } while (written < ChunkSize && (stream != null || !sourceFiles.isEmpty))
-    } finally {
-      out.close()
-    }
-    bufferManager += file
-    println("Copied chunk.")
+        chunkBytes += count
+        bytesToWrite -= count
+      }
+    } while (chunkBytes < chunkSize && hasMoreData)
   }
 
   /**
@@ -114,7 +192,7 @@ class SourceReaderActor(tempFileFactory : TempFileFactory,
     var continue = true
     var written = 0
     while (continue) {
-      val read = stream.read(buf, 0, Math.min(count, buf.length))
+      val read = stream.read(buf, 0, Math.min(count - written, buf.length))
       if (read > 0) {
         out.write(buf, 0, read)
         written += read
@@ -122,5 +200,17 @@ class SourceReaderActor(tempFileFactory : TempFileFactory,
       continue = read != -1 && written < count
     }
     written
+  }
+
+  /**
+   * Copies data from input sources to temporary files. This method copies
+   * single chunks until the temporary buffer is full.
+   */
+  private def copy() {
+    while (bytesToWrite > 0 && hasMoreData) {
+      nextOutputStream()
+      copyChunk()
+      closeChunk()
+    }
   }
 }

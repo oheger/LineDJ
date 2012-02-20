@@ -20,8 +20,10 @@ class QueuingActor extends Actor {
    * Stores the message in the queue.
    */
   def act() {
-    while (true) {
+    var running = true
+    while (running) {
       receive {
+        case Exit => running = false
         case msg => queue.put(msg)
       }
     }
@@ -44,5 +46,12 @@ class QueuingActor extends Actor {
    */
   def expectMessage(msg: Any) {
     assertEquals("Wrong message", msg, nextMessage())
+  }
+
+  /**
+   * Causes this actor to stop.
+   */
+  def shutdown() {
+    this ! Exit
   }
 }
