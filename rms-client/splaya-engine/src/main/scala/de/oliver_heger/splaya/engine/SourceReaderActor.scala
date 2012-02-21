@@ -45,6 +45,9 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
   /** The number of bytes written in the current chunk. */
   private var chunkBytes = 0
 
+  /** The number of bytes read from the current file. */
+  private var fileBytes = 0L
+
   /**
    * The main method of this actor.
    */
@@ -122,12 +125,19 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * reached.
    */
   private def nextInputStream() {
-    if (currentInputStream == null && !sourceStreams.isEmpty) {
+    while (currentInputStream == null && !sourceStreams.isEmpty) {
       val srcStream = sourceStreams.dequeue()
-      val resolvedStream = resolver.resolve(srcStream.uri)
-      val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
-      currentInputStream = new BufferedInputStream(resolvedStream.openStream())
-      Gateway ! Gateway.ActorPlayback -> msg
+      fileBytes = 0
+      try {
+        val resolvedStream = resolver.resolve(srcStream.uri)
+        val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
+        currentInputStream = new BufferedInputStream(resolvedStream.openStream())
+        Gateway ! Gateway.ActorPlayback -> msg
+      } catch {
+        case ex: Exception =>
+          Gateway.publish(PlaybackError("Error opening source " + srcStream,
+            ex, false))
+      }
     }
   }
 
@@ -168,7 +178,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
       nextInputStream()
       if (currentInputStream != null) {
         val remaining = chunkSize - chunkBytes
-        val count = copyStream(currentOutputStream, currentInputStream, remaining)
+        val count = copyStream(remaining)
         if (count < remaining) {
           closeCurrentInputStream()
         }
@@ -182,24 +192,40 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * Copies data from the given input stream to the output stream. The maximum
    * number of bytes to copy is specified by the {@code count} parameter. If
    * the end of the input stream is reached before, the method returns.
-   * @param out the target output stream
-   * @param stream the source stream to be copied
    * @param count the maximum number of bytes to copy
    * @return the number of bytes copied
    */
-  private def copyStream(out: OutputStream, stream: InputStream, count: Int): Int = {
+  private def copyStream(count: Int): Int = {
     val buf = new Array[Byte](BufSize)
     var continue = true
     var written = 0
     while (continue) {
-      val read = stream.read(buf, 0, Math.min(count - written, buf.length))
+      val read = readSource(buf, Math.min(count - written, buf.length))
       if (read > 0) {
-        out.write(buf, 0, read)
+        currentOutputStream.write(buf, 0, read)
         written += read
+        fileBytes += read
       }
       continue = read != -1 && written < count
     }
     written
+  }
+
+  /**
+   * Reads a number of bytes from the current input stream. Handles exceptions.
+   * @param buf the target buffer
+   * @param count the number of bytes to read
+   * @return the number of bytes actually read
+   */
+  private def readSource(buf: Array[Byte], count: Int): Int = {
+    var read: Int = 0;
+    try {
+      read = currentInputStream.read(buf, 0, count)
+    } catch {
+      case ioex: IOException =>
+        throw new IOReadException(ioex)
+    }
+    read
   }
 
   /**
@@ -208,9 +234,28 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    */
   private def copy() {
     while (bytesToWrite > 0 && hasMoreData) {
-      nextOutputStream()
-      copyChunk()
-      closeChunk()
+      try {
+        nextOutputStream()
+        copyChunk()
+        closeChunk()
+      } catch {
+        case iorex: IOReadException =>
+          Gateway ! Gateway.ActorPlayback -> SourceReadError(fileBytes)
+          Gateway.publish(PlaybackError("Error when reading audio source!",
+            iorex.getCause(), false))
+          closeCurrentInputStream()
+        case ex: Exception =>
+          Gateway.publish(PlaybackError("Error when copying audio source!",
+            ex, true))
+          bytesToWrite = 0
+      }
     }
   }
 }
+
+/**
+ * A specialized IO exception class for reporting exceptions which occurred
+ * during a read operation. Such exceptions can typically be handled by just
+ * skipping the problematic stream; so they are not fatal.
+ */
+private class IOReadException(cause: Throwable) extends IOException(cause)

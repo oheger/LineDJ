@@ -10,6 +10,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import org.junit.BeforeClass
 import org.junit.Before
+import java.io.IOException
+import java.io.OutputStream
 
 /**
  * Test class for ''SourceReaderActor''.
@@ -119,15 +121,16 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   private def streamURI(index: Int): String = URIPrefix + index
 
   /**
-   * Prepares the resolver mock to resolve a new test source stream. The length
-   * of the stream can be specified. The corresponding data object is returned.
+   * Prepares the resolver mock to resolve a source stream. The stream and its
+   * length are specified. The corresponding data object is returned.
+   * @param stream the stream
    * @param length the length of the stream
    * @return the data object for the next source stream
    */
-  private def prepareStream(length: Int): AddSourceStream = {
+  private def prepareStream(stream: InputStream, length: Int): AddSourceStream = {
     val ssrc = mock[StreamSource]
     EasyMock.expect(ssrc.size).andReturn(length).anyTimes()
-    EasyMock.expect(ssrc.openStream).andReturn(nextStream(length)).anyTimes()
+    EasyMock.expect(ssrc.openStream).andReturn(stream).anyTimes()
     EasyMock.replay(ssrc)
     val plIdx = playlistIndex
     playlistIndex += 1
@@ -135,6 +138,16 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(resolver.resolve(uri)).andReturn(ssrc)
     AddSourceStream(uri, plIdx)
   }
+
+  /**
+   * Prepares the resolver mock to resolve a new test source stream. The length
+   * of the stream can be specified. A new test stream with this length is
+   * generated.
+   * @param length the length of the stream
+   * @return the data object for the next source stream
+   */
+  private def prepareStream(length: Int): AddSourceStream =
+    prepareStream(nextStream(length), length)
 
   /**
    * Prepares a mock for a temporary file. The mock is assigned an output stream
@@ -181,7 +194,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Checks whether the specified stream contains the expected data.
+   * Checks whether the specified stream contains the expected test data.
    * @param bos the stream to check
    * @param startIdx the start index in the test stream
    * @param length the length
@@ -191,6 +204,17 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     assert(length === content.length)
     val strContent = new String(content)
     assert(generateStreamContent(startIdx, length) === strContent)
+  }
+
+  /**
+   * Checks whether the specified stream has the expected content.
+   * @param bos the stream to check
+   * @param expContent the expected content
+   */
+  private def checkStream(bos: ByteArrayOutputStream, expContent: String) {
+    val content = bos.toByteArray()
+    assert(expContent.length === content.length)
+    assert(expContent === new String(content))
   }
 
   /**
@@ -268,5 +292,132 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
         checkStream(tempData2._2, ChunkSize, ChunkSize)
         checkStream(tempData3._2, 2 * ChunkSize, len1 + len2 - 2 * ChunkSize)
       }
+  }
+
+  /**
+   * Tests whether an error when opening an audio source is detected.
+   */
+  @Test def testErrorWhenResolving() {
+    setUpActor()
+    val qa = new QueuingActor
+    qa.start()
+    Gateway.register(qa)
+    val uri = streamURI(1)
+    val addsrc = AddSourceStream(uri, 1)
+    val ioex = new RuntimeException("Testexception")
+    EasyMock.expect(resolver.resolve(uri)).andThrow(ioex)
+    val tempData = prepareTempFile(false)
+    EasyMock.expect(tempData._1.delete()).andReturn(true)
+    actor.start()
+    whenExecuting(bufferMan, factory, resolver, tempData._1) {
+      actor ! addsrc
+      qa.nextMessage() match {
+        case err: PlaybackError =>
+          assert(ioex === err.exception)
+          assert(err.fatal === false)
+        case _ => fail("Unexpected message!")
+      }
+      qa.shutdown()
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether a read error is handled correctly.
+   */
+  @Test def testErrorWhenReading() {
+    setUpActor()
+    val playback = installPlaybackActor()
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    val len = 222
+    val stream = new ExceptionInputStream(generateStreamContent(0, len))
+    val src = prepareStream(stream, len + 10)
+    val len2 = 333
+    val src2 = prepareStream(len2)
+    val tempData = prepareTempFile(false)
+    EasyMock.expect(tempData._1.delete()).andReturn(true)
+    actor.start()
+    whenExecuting(bufferMan, factory, resolver, tempData._1) {
+      actor ! src
+      actor ! src2
+      playback.expectMessage(AudioSource(streamURI(0), 0, len + 10))
+      playback.expectMessage(SourceReadError(len))
+      listener.nextMessage() match {
+        case err: PlaybackError =>
+          assert(err.fatal === false)
+        case _ => fail("Unexpected message!")
+      }
+      playback.expectMessage(AudioSource(streamURI(1), 1, len2))
+      val expContent =
+        generateStreamContent(0, len) + generateStreamContent(0, len2)
+      listener.shutdown()
+      playback.shutdown()
+      shutdownActor()
+      checkStream(tempData._2, expContent)
+    }
+    Gateway.unregister(listener)
+  }
+
+  /**
+   * Tests whether a write error (which is a fatal error) is handled correctly.
+   */
+  @Test def testWriteError() {
+    setUpActor()
+    val playback = installPlaybackActor()
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    val len = ChunkSize
+    val src = prepareStream(len)
+    val tempFile = mock[TempFile]
+    EasyMock.expect(tempFile.outputStream()).andReturn(new OutputStream {
+      override def write(x: Int) {
+        throw new IOException("Test exception from temp file.")
+      }
+    })
+    EasyMock.expect(factory.createFile()).andReturn(tempFile)
+    EasyMock.expect(tempFile.delete()).andReturn(true)
+    actor.start()
+    whenExecuting(bufferMan, factory, resolver, tempFile) {
+      actor ! src
+      playback.expectMessage(AudioSource(streamURI(0), 0, len))
+      listener.nextMessage() match {
+        case err: PlaybackError =>
+          assert(err.fatal === true)
+        case _ => fail("Unexpected message!")
+      }
+      listener.shutdown()
+      playback.shutdown()
+      shutdownActor()
+    }
+    Gateway.unregister(listener)
+  }
+}
+
+/**
+ * A helper stream class which throws an exception after the full content was
+ * read.
+ * @param content the content of the stream
+ */
+private class ExceptionInputStream(content: String) extends InputStream {
+  /** The content of the stream as an array. */
+  private val contentArray = content.getBytes()
+
+  /** The number of bytes read. */
+  private var readCount = 0
+
+  /**
+   * Reads the next byte from the stream. If the stream's content has already
+   * been read fully, an exception is thrown.
+   */
+  override def read(): Int = {
+    if (readCount >= contentArray.length) {
+      throw new IOException("Exception from ExceptionInputStream!");
+    }
+    val res = contentArray(readCount)
+    readCount += 1
+    res
   }
 }
