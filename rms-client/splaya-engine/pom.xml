@@ -27,6 +27,24 @@
     </dependency>
 
     <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>jl</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>tritonus_share</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>mp3spi</artifactId>
+      <version>1.9.4</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>

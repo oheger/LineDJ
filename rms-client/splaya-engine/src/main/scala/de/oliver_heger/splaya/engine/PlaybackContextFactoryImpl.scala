@@ -8,7 +8,7 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
 
 /**
- * <p>A default implementation of the {@code PlaybackContextFactory} interface.</p>
+ * A default implementation of the ''PlaybackContextFactory'' interface.
  */
 class PlaybackContextFactoryImpl extends PlaybackContextFactory {
 

@@ -3,6 +3,7 @@ import javax.sound.sampled.SourceDataLine
 import javax.sound.sampled.AudioInputStream
 import java.io.IOException
 import javax.sound.sampled.AudioFormat
+import org.slf4j.LoggerFactory
 
 /**
  * <p>A class that manages the objects required during audio playback.</p>
@@ -12,11 +13,14 @@ import javax.sound.sampled.AudioFormat
  */
 case class PlaybackContext(line: SourceDataLine, audioStream: AudioInputStream,
   streamSize: Long) {
+  /** The logger. */
+  val log = LoggerFactory.getLogger(classOf[SourceReaderActor])
+
   /**
    * Returns the format of the wrapped audio stream.
    * @return the audio format
    */
-  def format : AudioFormat = audioStream.getFormat
+  def format: AudioFormat = audioStream.getFormat
 
   /**
    * Closes all involved objects, freeing all resources. This method must be
@@ -27,7 +31,7 @@ case class PlaybackContext(line: SourceDataLine, audioStream: AudioInputStream,
     try {
       audioStream.close()
     } catch {
-      case ioex: IOException => ioex.printStackTrace
+      case ioex: IOException => log.warn("Error when closing audio stream!", ioex)
     }
   }
 }
