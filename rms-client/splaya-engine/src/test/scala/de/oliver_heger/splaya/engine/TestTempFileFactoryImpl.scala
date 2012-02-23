@@ -81,6 +81,7 @@ class TestTempFileFactoryImpl extends JUnitSuite {
     }
     in.close()
     assert(content === new String(buf.toArray))
+    assert(content.length === temp.length)
     assert(temp.delete() === true)
   }
 }

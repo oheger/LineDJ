@@ -3,12 +3,13 @@ import java.io.OutputStream
 import java.io.InputStream
 
 /**
- * <p>A trait that represents a temporary file.</p>
- * <p>This trait defines some methods for the interaction with a temporary
+ * A trait that represents a temporary file.
+ *
+ * This trait defines some methods for the interaction with a temporary
  * file. It is possible to open both input and output streams, and to remove the
  * whole file. The idea behind this treat is that there could be multiple
  * different implementations, not only file-based, but also in-memory or
- * whatever.</p>
+ * whatever.
  */
 trait TempFile {
   /**
@@ -29,4 +30,10 @@ trait TempFile {
    * @return a flag whether the file could be removed
    */
   def delete(): Boolean
+
+  /**
+   * Returns length of this temporary file.
+   * @return the length of this file
+   */
+  def length: Long
 }

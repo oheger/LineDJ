@@ -5,10 +5,11 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 
 /**
- * <p>A default implementation of the {@code TempFileFactory} interface.</p>
- * <p>This implementation uses the standard functionality provided by the
- * {@code java.io.File} class to create temporary files in the current user's
- * temporary directory.</p>
+ * A default implementation of the {@code TempFileFactory} interface.
+ *
+ * This implementation uses the standard functionality provided by the
+ * `java.io.File` class to create temporary files in the current user's
+ * temporary directory.
  */
 class TempFileFactoryImpl(prefix: String, suffix: String)
   extends TempFileFactory {
@@ -54,6 +55,8 @@ private case class TempFileImpl(file: File) extends TempFile {
   def inputStream() = new FileInputStream(file)
 
   def outputStream() = new FileOutputStream(file)
+
+  def length = file.length
 
   def delete() = file.delete()
 }
