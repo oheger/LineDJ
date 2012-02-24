@@ -1,31 +1,57 @@
 package de.oliver_heger.splaya.engine
 import scala.actors.Actor
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
+import scala.collection.mutable.Queue
 
 /**
- * <p>A default implementation of the {@code SourceBufferManager} interface.</p>
- * <p>This implementation is backed by a blocking queue. Also, when temporary
+ * A default implementation of the ''SourceBufferManager'' interface.
+ *
+ * This implementation is backed by a queue. Also, when temporary
  * files are fetched from the buffer exhausted files are removed, and a
  * notification message can be sent. This can cause another actor to fill the
- * buffer again.</p>
+ * buffer again.
+ *
+ * Implementation note: This class is not thread-safe!
  */
 class SourceBufferManagerImpl extends SourceBufferManager {
   /** The underlying queue.*/
-  private val queue: BlockingQueue[TempFile] = new LinkedBlockingQueue
+  private val queue = Queue.empty[TempFile]
 
   /** The current temporary file.*/
   private var currentFile: TempFile = _
+
+  /** The read position in the current input stream. */
+  private var streamPosition = 0L
+
+  /** The size of the temporary files in total. */
+  private var tempFileSize = 0L
+
+  /**
+   * Returns the current read position in the current stream.
+   */
+  def currentStreamReadPosition: Long = streamPosition
+
+  /**
+   * Updates the read position of the current input stream.
+   */
+  def updateCurrentStreamReadPosition(pos: Long) {
+    streamPosition = pos
+  }
+
+  /**
+   * Notifies this object that the current input stream has been fully read.
+   * This implementation updates the buffer size.
+   */
+  def streamRead(length:Long) {
+    tempFileSize -= length
+    updateCurrentStreamReadPosition(0)
+  }
 
   /**
    * Closes this manager. This implementation iterates over all remaining files
    * in the queue and deletes them.
    */
   def close() {
-    val it = queue.iterator()
-    while (it.hasNext()) {
-      it.next().delete()
-    }
+    queue foreach (_.delete())
   }
 
   /**
@@ -39,7 +65,7 @@ class SourceBufferManagerImpl extends SourceBufferManager {
       Gateway ! Gateway.ActorSourceRead -> ReadChunk
     }
 
-    currentFile = queue.take()
+    currentFile = queue.dequeue()
     currentFile
   }
 
@@ -48,6 +74,13 @@ class SourceBufferManagerImpl extends SourceBufferManager {
    * @param file the file to add
    */
   def append(file: TempFile): Unit = {
-    queue.put(file)
+    queue += file
+    tempFileSize += file.length
   }
+
+  /**
+   * Returns the size of the temporary buffer in bytes.
+   * @return the current size of the temporary buffer
+   */
+  def bufferSize: Long = tempFileSize - streamPosition
 }

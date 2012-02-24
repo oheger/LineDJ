@@ -1,17 +1,20 @@
 package de.oliver_heger.splaya.engine
 
 import java.io.InputStream
-import java.util.concurrent.BlockingQueue
 
 /**
- * <p>A specialized stream implementation which wraps temporary files streamed
- * from the source medium.</p>
- * <p>During streaming data from the source medium is copied to a bunch of
+ * A specialized stream implementation which wraps temporary files streamed
+ * from the source medium.
+ *
+ * During streaming data from the source medium is copied to a bunch of
  * temporary files. In order to further process this data and to extract the
  * original data, a stream has to be provided. This stream implementation is
  * initialized with a queue of temporary files which contain the data of the
  * represented stream (depending on the size of the represented stream the data
  * may be spread over multiple temporary files.)
+ *
+ * Implementation note: This class is not thread-safe. It can only be accessed
+ * from a single thread.
  */
 class SourceStreamWrapper(resetHelper: StreamResetHelper,
   wrappedStream: InputStream, val length: Int,
@@ -61,7 +64,7 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @return the number of bytes read
    */
   override def read(buf: Array[Byte], ofs: Int, len: Int): Int = {
-    val maxlen = Math.min(len, length - currentPosition)
+    val maxlen = scala.math.min(len, length - currentPosition)
     var read = resetHelper.read(buf, ofs, maxlen)
 
     if (read < len) {
