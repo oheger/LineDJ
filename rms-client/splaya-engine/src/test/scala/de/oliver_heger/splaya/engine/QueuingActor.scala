@@ -49,6 +49,16 @@ class QueuingActor extends Actor {
   }
 
   /**
+   * Ensures that no messages have been received by this actor. We send a dummy
+   * message to ourselves and expect that this is the next message received.
+   */
+  def ensureNoMessages() {
+    val dummy = "DummyCheckEmptyMessage!"
+    this ! dummy
+    expectMessage(dummy)
+  }
+
+  /**
    * Causes this actor to stop.
    */
   def shutdown() {

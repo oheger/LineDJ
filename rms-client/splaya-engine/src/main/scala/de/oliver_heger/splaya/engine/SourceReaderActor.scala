@@ -14,13 +14,21 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 
 /**
+ * An actor which reads files from a source directory and copies them to a
+ * temporary buffer.
  *
- * @author hacker
- * @version $Id: $
+ * This actor mainly processes two kinds of messages:
+ * - Messages which add new source files to be streamed.
+ * - Messages which indicate that more data needs to be copied to the temporary
+ * buffer.
+ *
+ * The actor communicates with the actor managing playback of audio data. This
+ * actor is notified when copying of new audio streams starts and when a chunk
+ * of temporary data has been written. When the playback actor has played a
+ * chunk of audio data it sends back a message and requests new data.
  */
 class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFactory,
-  bufferManager: SourceBufferManager, chunkSize: Int)
-  extends Actor {
+  chunkSize: Int) extends Actor {
   /** Constant of the size of a copy buffer.*/
   private val BufSize = 16 * 1024;
 
@@ -48,6 +56,9 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
   /** The number of bytes read from the current file. */
   private var fileBytes = 0L
 
+  /** A flag whether the end of the playlist has been reported. */
+  private var playlistEnd = false
+
   /**
    * The main method of this actor.
    */
@@ -63,12 +74,14 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           ex.confirmed(this)
 
         case strm: AddSourceStream =>
-          sourceStreams += strm
-          copy()
+          appendSource(strm)
 
         case ReadChunk =>
           bytesToWrite += chunkSize
           copy()
+
+        case PlaylistEnd =>
+          appendSource(new AddSourceStream)
       }
     }
   }
@@ -79,6 +92,21 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * @return a string for this object
    */
   override def toString = "SourceReaderActor"
+
+  /**
+   * Adds another source to the playlist of this actor.
+   */
+  private def appendSource(strm: AddSourceStream) {
+    if (playlistEnd) {
+      log.warn("Adding a source after end of playlist! Ignoring...");
+    } else {
+      sourceStreams += strm
+      if (!strm.isDefined) {
+        playlistEnd = true
+      }
+      copy()
+    }
+  }
 
   /**
    * Helper method for closing an object ignoring all exceptions.
@@ -127,17 +155,34 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
   private def nextInputStream() {
     while (currentInputStream == null && !sourceStreams.isEmpty) {
       val srcStream = sourceStreams.dequeue()
-      fileBytes = 0
-      try {
-        val resolvedStream = resolver.resolve(srcStream.uri)
-        val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
-        currentInputStream = new BufferedInputStream(resolvedStream.openStream())
-        Gateway ! Gateway.ActorPlayback -> msg
-      } catch {
-        case ex: Exception =>
-          Gateway.publish(PlaybackError("Error opening source " + srcStream,
-            ex, false))
+      if (srcStream.isDefined) {
+        fileBytes = 0
+        try {
+          val resolvedStream = resolver.resolve(srcStream.uri)
+          val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
+          currentInputStream = new BufferedInputStream(resolvedStream.openStream())
+          Gateway ! Gateway.ActorPlayback -> msg
+        } catch {
+          case ex: Exception =>
+            Gateway.publish(PlaybackError("Error opening source " + srcStream,
+              ex, false))
+        }
       }
+    }
+
+    checkPlaylistEnd()
+  }
+
+  /**
+   * Checks whether the end of the playlist has been reached. If so, the
+   * playback actor is informed.
+   */
+  private def checkPlaylistEnd() {
+    if (playlistEnd && currentInputStream == null) {
+      if (chunkBytes > 0) {
+        sendChunkToPlayback()
+      }
+      Gateway ! Gateway.ActorPlayback -> PlaylistEnd
     }
   }
 
@@ -158,9 +203,17 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    */
   private def closeChunk() {
     if (chunkBytes >= chunkSize) {
-      bufferManager += currentTempFile
-      closeCurrentOutputStream(false)
+      sendChunkToPlayback()
     }
+  }
+
+  /**
+   * Sends a message with the current temporary file to the playback actor so
+   * it can be played.
+   */
+  private def sendChunkToPlayback() {
+    Gateway ! Gateway.ActorPlayback -> currentTempFile
+    closeCurrentOutputStream(false)
   }
 
   /**
@@ -200,7 +253,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
     var continue = true
     var written = 0
     while (continue) {
-      val read = readSource(buf, Math.min(count - written, buf.length))
+      val read = readSource(buf, scala.math.min(count - written, buf.length))
       if (read > 0) {
         currentOutputStream.write(buf, 0, read)
         written += read

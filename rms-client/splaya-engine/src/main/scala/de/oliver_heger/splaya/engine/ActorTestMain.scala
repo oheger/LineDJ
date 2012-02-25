@@ -19,7 +19,7 @@ object ActorTestMain {
     val bufferManager : SourceBufferManager = new SourceBufferManagerImpl
     val ctxFactory : PlaybackContextFactory = new PlaybackContextFactoryImpl
 
-    val readActor = new SourceReaderActor(null, tempFileFactory, bufferManager, 1024)
+    val readActor = new SourceReaderActor(null, tempFileFactory, 1024)
     val playbackActor = new PlaybackActor(ctxFactory, bufferManager, tempFileFactory)
     val lineActor = new LineWriteActor
     readActor.start()

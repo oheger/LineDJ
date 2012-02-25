@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 /**
  * A message that indicates that processing should be aborted.
  */
-case class Exit {
+case class Exit() {
   /** The logger. */
   val log = LoggerFactory.getLogger(classOf[Exit])
 
@@ -22,13 +22,31 @@ case class Exit {
 /**
  * A message for adding a stream to be played to the source reader actor.
  */
-case class AddSourceStream(uri: String, index: Int)
+case class AddSourceStream(uri: String, index: Int) {
+  /**
+   * A specialized constructor for creating an instance that does not contain
+   * any real data. Such an instance can be used to indicate the end of a
+   * playlist.
+   */
+  def this() = this(null, -1)
+
+  /**
+   * A flag whether this instance contains actual data.
+   */
+  val isDefined = uri != null && index >= 0
+}
 
 /**
  * A message which instructs the reader actor to read another chunk copy it to
  * the target location.
  */
-case class ReadChunk
+case object ReadChunk
+
+/**
+ * A message indicating the end of the playlist. After this message was sent to
+ * an actor, no more audio streams are accepted.
+ */
+case object PlaylistEnd
 
 /**
  * A message for playing an audio file. The message contains some information
@@ -44,7 +62,7 @@ case class PlayChunk(line: SourceDataLine, chunk: Array[Byte], len: Int)
 /**
  * A message which indicates that a full chunk of audio data was played.
  */
-case class ChunkPlayed
+case object ChunkPlayed
 
 /**
  * A message sent out by the source reader actor if reading from a source
