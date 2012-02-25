@@ -18,7 +18,7 @@ import java.io.InputStream
  */
 class SourceStreamWrapper(resetHelper: StreamResetHelper,
   wrappedStream: InputStream, val length: Int,
-  tempFiles: SourceBufferManager) extends InputStream {
+  bufferManager: SourceBufferManager) extends InputStream {
   /** Stores the reset helper object.*/
   private[engine] val streamResetHelper = resetHelper
 
@@ -36,11 +36,11 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @param factory the factory for temporary files
    * @param wrappedStream the wrapped input stream
    * @param length the length of the wrapped stream
-   * @param tempFiles the queue for obtaining temporary files
+   * @param bufferManager the queue for obtaining temporary files
    */
   def this(factory: TempFileFactory, wrappedStream: InputStream, length: Int,
-    tempFiles: SourceBufferManager) = this(new StreamResetHelper(factory),
-    wrappedStream, length, tempFiles)
+    bufferManager: SourceBufferManager) = this(new StreamResetHelper(factory),
+    wrappedStream, length, bufferManager)
 
   /**
    * Returns the current position in this stream.
@@ -132,7 +132,7 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    */
   private def fetchCurrentStream() {
     if (currentStream == null) {
-      val temp = tempFiles.next()
+      val temp = bufferManager.next()
       stream = temp.inputStream()
     }
   }
