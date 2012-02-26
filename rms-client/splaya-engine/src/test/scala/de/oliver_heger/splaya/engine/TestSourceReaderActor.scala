@@ -17,20 +17,14 @@ import java.io.OutputStream
  * Test class for ''SourceReaderActor''.
  */
 class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
-  /** Constant for a test string for generating test streams. */
-  private val StreamText = "TestStreamContent_";
-
   /** Constant for the prefix of a URI. */
   private val URIPrefix = "file:testFile"
-
-  /** Constant for the number of digits in indices. */
-  private val Digits = 5
-
-  /** Constant for the length of a block of the test stream. */
-  private val BlockLen = StreamText.length + Digits
+    
+  /** The stream generator. */
+  private val streamGenerator = StreamDataGenerator()
 
   /** Constant for the chunk size used by the tests. */
-  private val ChunkSize = 1000 * BlockLen
+  private val ChunkSize = 1000 * streamGenerator.blockLen
 
   /** A mock for the source resolver. */
   private var resolver: SourceResolver = _
@@ -69,48 +63,6 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Generates content of a test stream. This method is able to generate a
-   * stream of (almost) arbitrary length consisting of constant blocks followed
-   * by indices. A substring of this stream can be returned.
-   * @param pos the start position of the substring
-   * @param length the length of the fragment
-   * @return the specified substring of the test stream
-   */
-  private def generateStreamContent(pos: Int, length: Int): String = {
-    val startIdx = pos / BlockLen
-    val count = length / BlockLen + 2
-    val buf = new StringBuilder(count * BlockLen)
-    for (i <- 0 until count) {
-      buf.append(StreamText)
-      val idx = (i + startIdx).toString()
-      buf.append("0" * (Digits - idx.length)).append(idx)
-    }
-    val startPos = pos % BlockLen
-    buf.substring(startPos, startPos + length)
-  }
-
-  /**
-   * Generates an input stream with the specified test content.
-   * @param pos the start position of the stream
-   * @param length the length of the stream
-   * @return the input stream with this content
-   */
-  private def generateStream(pos: Int, length: Int): InputStream =
-    new ByteArrayInputStream(generateStreamContent(pos, length).getBytes())
-
-  /**
-   * Returns the next input stream from the test sequence. Each method
-   * invocation obtains the next portion of the test stream.
-   * @param length the length of the next stream
-   * @return the input stream
-   */
-  private def nextStream(length: Int): InputStream = {
-    val startPos = streamPosition
-    streamPosition += length
-    generateStream(startPos, length)
-  }
-
-  /**
    * Generates a URI for the test stream with the given index.
    * @param index the index
    * @return the URI for this stream
@@ -144,7 +96,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
    * @return the data object for the next source stream
    */
   private def prepareStream(length: Int): AddSourceStream =
-    prepareStream(nextStream(length), length)
+    prepareStream(streamGenerator.nextStream(length), length)
 
   /**
    * Prepares a mock for a temporary file. The mock is assigned an output stream
@@ -194,7 +146,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     val content = bos.toByteArray()
     assert(length === content.length)
     val strContent = new String(content)
-    assert(generateStreamContent(startIdx, length) === strContent)
+    assert(streamGenerator.generateStreamContent(startIdx, length) === strContent)
   }
 
   /**
@@ -327,7 +279,8 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     listener.start()
     Gateway.register(listener)
     val len = 222
-    val stream = new ExceptionInputStream(generateStreamContent(0, len))
+    val stream = new ExceptionInputStream(
+        streamGenerator.generateStreamContent(0, len))
     val src = prepareStream(stream, len + 10)
     val len2 = 333
     val src2 = prepareStream(len2)
@@ -345,8 +298,8 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
         case _ => fail("Unexpected message!")
       }
       playback.expectMessage(AudioSource(streamURI(1), 1, len2))
-      val expContent =
-        generateStreamContent(0, len) + generateStreamContent(0, len2)
+      val expContent = streamGenerator.generateStreamContent(0, len) +
+        streamGenerator.generateStreamContent(0, len2)
       listener.shutdown()
       playback.shutdown()
       shutdownActor()
