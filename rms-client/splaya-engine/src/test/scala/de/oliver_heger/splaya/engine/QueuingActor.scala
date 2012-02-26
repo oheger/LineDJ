@@ -9,12 +9,31 @@ import org.junit.Assert._
 /**
  * A test implementation of an actor which stores all messages received in a
  * blocking queue. Clients can query this queue to retrieve the messages in a
- * thread-safe way. This class should be used by unit tests rather than
- * {@code ActorTestImpl} if messages are sent by different threads.
+ * thread-safe way. This class can be used by unit tests if messages are sent
+ * by different threads.
+ *
+ * It is possible to pass in a partial function which is evaluated before the
+ * message is stored in the internal queue. This makes it possible to handle
+ * certain messages in a specific way while others are just stored as they are.
  */
-class QueuingActor extends Actor {
+class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
+  extends Actor {
   /** The queue for storing messages. */
   val queue: BlockingQueue[Any] = new LinkedBlockingQueue
+
+  /** The handler function. A default is used if not specified. */
+  private val handler =
+    if (messageHandler != null) messageHandler
+    else new PartialFunction[Any, Unit] {
+      def isDefinedAt(x: Any) = false
+
+      def apply(msg: Any) {}
+    }
+
+  /**
+   * Creates a new ''QueuingActor'' without a specific message handler function.
+   */
+  def this() = this(null)
 
   /**
    * Stores the message in the queue.
@@ -24,7 +43,12 @@ class QueuingActor extends Actor {
     while (running) {
       receive {
         case Exit => running = false
-        case msg => queue.put(msg)
+        case msg =>
+          if (handler.isDefinedAt(msg)) {
+            handler(msg)
+          } else {
+            queue.put(msg)
+          }
       }
     }
   }
