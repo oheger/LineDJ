@@ -9,6 +9,7 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.SourceDataLine
 import org.easymock.EasyMock
 import java.io.IOException
+import javax.sound.sampled.AudioFormat
 
 /**
  * Test class of ''PlaybackContextFactoryImpl''.
@@ -39,6 +40,8 @@ class TestPlaybackContextFactoryImpl extends JUnitSuite with EasyMockSugar {
     val ctx = createContext(TestFile1)
     assertNotNull("No line", ctx.line)
     assertNotNull("No audio stream", ctx.audioStream)
+    val buffer = ctx.createPlaybackBuffer()
+    assert(4096 === buffer.length)
     ctx.close()
   }
 
@@ -54,8 +57,17 @@ class TestPlaybackContextFactoryImpl extends JUnitSuite with EasyMockSugar {
       line.close()
     }
     whenExecuting(line, stream) {
-      val ctx = PlaybackContext(line, stream, 0)
+      val ctx = PlaybackContext(line, stream, 0, 4096)
       ctx.close()
     }
+  }
+
+  /**
+   * Tests the algorithm for determining the size of the playback buffer.
+   */
+  @Test def testCalculateBufferSize() {
+    val format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f, 16,
+        2, 17, 10, true)
+    assert(4097 === factory.calculateBufferSize(format))
   }
 }

@@ -11,6 +11,8 @@ import javax.sound.sampled.SourceDataLine
  * A default implementation of the ''PlaybackContextFactory'' interface.
  */
 class PlaybackContextFactoryImpl extends PlaybackContextFactory {
+  /** Constant for the default buffer size. */
+  private val BufferSize = 4096
 
   def createPlaybackContext(stream: InputStream): PlaybackContext = {
     val sourceStream = AudioSystem.getAudioInputStream(stream)
@@ -23,7 +25,8 @@ class PlaybackContextFactoryImpl extends PlaybackContextFactory {
     val lineInfo = new DataLine.Info(classOf[SourceDataLine], decodedFormat);
     val line = AudioSystem.getLine(lineInfo).asInstanceOf[SourceDataLine];
 
-    PlaybackContext(line, decodedStream, calculateStreamSize(decodedStream))
+    PlaybackContext(line, decodedStream, calculateStreamSize(decodedStream),
+      calculateBufferSize(decodedFormat))
   }
 
   /**
@@ -46,5 +49,17 @@ class PlaybackContextFactoryImpl extends PlaybackContextFactory {
     }
 
     result
+  }
+
+  /**
+   * Determines the size of an audio playback buffer based on the given format
+   * object.
+   * @param format the audio format
+   * @return the size of a suitable playback buffer
+   */
+  private[engine] def calculateBufferSize(format: AudioFormat) = {
+    if (BufferSize % format.getFrameSize != 0)
+      ((BufferSize / format.getFrameSize) + 1) * format.getFrameSize
+    else BufferSize
   }
 }
