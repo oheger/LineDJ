@@ -15,12 +15,12 @@ object ActorTestMain {
 
   def main(args: Array[String]) {
     Gateway.start()
-    val tempFileFactory : TempFileFactory = new TempFileFactoryImpl
-    val bufferManager : SourceBufferManager = new SourceBufferManagerImpl
-    val ctxFactory : PlaybackContextFactory = new PlaybackContextFactoryImpl
+    val tempFileFactory: TempFileFactory = new TempFileFactoryImpl
+    val bufferManager: SourceBufferManager = new SourceBufferManagerImpl
+    val ctxFactory: PlaybackContextFactory = new PlaybackContextFactoryImpl
 
     val readActor = new SourceReaderActor(null, tempFileFactory, 1024)
-    val playbackActor = new PlaybackActor(ctxFactory, bufferManager, tempFileFactory)
+    val playbackActor = new PlaybackActor(ctxFactory, null, 0)
     val lineActor = new LineWriteActor
     readActor.start()
     playbackActor.start()
@@ -34,22 +34,22 @@ object ActorTestMain {
     readActor ! ReadChunk
   }
 
-  private def populatePlaylist(readActor : Actor) {
+  private def populatePlaylist(readActor: Actor) {
     populateFromDir(MusicDir, 0, readActor)
   }
 
-  private def populateFromDir(dir : File, count : Int, readActor : Actor) : Int = {
+  private def populateFromDir(dir: File, count: Int, readActor: Actor): Int = {
     val files = dir listFiles
     var found = count
 
-    for(f <- files) {
-      if(found < MaxFiles) {
-        if(f.isDirectory) {
+    for (f <- files) {
+      if (found < MaxFiles) {
+        if (f.isDirectory) {
           found = populateFromDir(f, found, readActor)
         } else {
-          if(f.getName().toLowerCase(Locale.ENGLISH).endsWith(".mp3")
-              && f.length <= MaxSize) {
-            found+= 1
+          if (f.getName().toLowerCase(Locale.ENGLISH).endsWith(".mp3")
+            && f.length <= MaxSize) {
+            found += 1
             readActor ! AddSourceStream(f.getAbsolutePath, 1)
           }
         }

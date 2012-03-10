@@ -39,7 +39,7 @@ class TestPlaybackContextFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testCreatePlaybackContext() {
     val ctx = createContext(TestFile1)
     assertNotNull("No line", ctx.line)
-    assertNotNull("No audio stream", ctx.audioStream)
+    assertNotNull("No audio stream", ctx.stream)
     val buffer = ctx.createPlaybackBuffer()
     assert(4096 === buffer.length)
     ctx.close()

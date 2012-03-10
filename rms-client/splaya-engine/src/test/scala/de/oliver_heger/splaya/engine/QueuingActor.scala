@@ -15,6 +15,8 @@ import org.junit.Assert._
  * It is possible to pass in a partial function which is evaluated before the
  * message is stored in the internal queue. This makes it possible to handle
  * certain messages in a specific way while others are just stored as they are.
+ * Note that all messages are stored, even if they could be handled by the
+ * partial function.
  */
 class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
   extends Actor {
@@ -46,9 +48,8 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
         case msg =>
           if (handler.isDefinedAt(msg)) {
             handler(msg)
-          } else {
-            queue.put(msg)
           }
+          queue.put(msg)
       }
     }
   }
@@ -73,10 +74,24 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
   }
 
   /**
+   * Skips the given number of messages. This method requires that at least
+   * this number of messages has been received.
+   * @param count the number of messages to skip
+   */
+  def skipMessages(count: Int) {
+    for (i <- 1 to count) {
+      nextMessage()
+    }
+  }
+
+  /**
    * Ensures that no messages have been received by this actor. We send a dummy
    * message to ourselves and expect that this is the next message received.
+   * @param skip the number of messages to skip before the queue is expected to
+   * be empty
    */
-  def ensureNoMessages() {
+  def ensureNoMessages(skip: Int = 0) {
+    skipMessages(skip)
     val dummy = "DummyCheckEmptyMessage!"
     this ! dummy
     expectMessage(dummy)

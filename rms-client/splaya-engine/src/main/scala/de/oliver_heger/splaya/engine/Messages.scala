@@ -56,8 +56,14 @@ case class AudioSource(uri: String, index: Int, length: Long)
 
 /**
  * A message for writing a chunk of audio data into the specified line.
+ * @param line the line
+ * @param chunk the array with the data to be played
+ * @param len the length of the array (the number of valid bytes)
+ * @param currentPos the current position in the source stream
+ * @param skipPos the skip position for the current stream
  */
-case class PlayChunk(line: SourceDataLine, chunk: Array[Byte], len: Int)
+case class PlayChunk(line: SourceDataLine, chunk: Array[Byte], len: Int,
+  currentPos: Long, skipPos: Long)
 
 /**
  * A message which indicates that a full chunk of audio data was played.
@@ -80,3 +86,33 @@ case class SourceReadError(bytesRead: Long)
  * playback to be aborted.
  */
 case class PlaybackError(msg: String, exception: Throwable, fatal: Boolean)
+
+/**
+ * A message which tells the playback actor that playback should start now.
+ */
+case object StartPlayback
+
+/**
+ * A message which tells the playback actor that playback should pause.
+ */
+case object StopPlayback
+
+/**
+ * A message which tells the playback actor to skip the currently played audio
+ * stream.
+ */
+case object SkipCurrentSource
+
+/**
+ * A message sent by the playback actor to all registered listeners if playback
+ * of a new audio source starts.
+ * @param source the source which is now played
+ */
+case class PlaybackSourceStart(source: AudioSource)
+
+/**
+ * A message sent by the playback actor to all registered listeners if a source
+ * has been played completely.
+ * @param source the source whose playback has finished
+ */
+case class PlaybackSourceEnd(source: AudioSource)

@@ -20,7 +20,7 @@ class LineWriteActor extends Actor {
       receive {
         case Exit => running = false
 
-        case PlayChunk(line, buf, len) =>
+        case PlayChunk(line, buf, len, pos, skip) =>
           playAudioChunk(line, buf, len)
       }
     }

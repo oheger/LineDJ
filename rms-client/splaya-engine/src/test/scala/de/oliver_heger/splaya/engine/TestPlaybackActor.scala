@@ -1,0 +1,419 @@
+package de.oliver_heger.splaya.engine
+
+import org.scalatest.junit.JUnitSuite
+import org.scalatest.mock.EasyMockSugar
+import org.junit.Before
+import org.junit.Test
+import org.junit.After
+import org.easymock.EasyMock
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.SourceDataLine
+import org.easymock.IAnswer
+import java.io.InputStream
+import scala.actors.Actor
+
+/**
+ * Test class for ''PlaybackActor''.
+ */
+class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
+  /** Constant for a test audio format. */
+  private val Format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f,
+    16, 2, 17, 10, true)
+
+  /** Constant for a buffer size.*/
+  private val BufferSize = 1024
+
+  /** Constant for the length of the first test stream. */
+  private val StreamLen1 = BufferSize + 100
+
+  /** Constant for the length of the 2nd test stream. */
+  private val StreamLen2 = 10 * BufferSize
+
+  /** The mock for playback context factory. */
+  private var ctxFactory: PlaybackContextFactory = _
+
+  /** The mock for the source buffer manager. */
+  private var bufMan: SourceBufferManager = _
+
+  /** The mock for the stream factory. */
+  private var streamFactory: SourceStreamWrapperFactory = _
+
+  /** The stream generator. */
+  private lazy val streamGen = StreamDataGenerator()
+
+  /** The actor to be tested. */
+  private var actor: PlaybackActor = _
+
+  @Before def setUp() {
+    ctxFactory = mock[PlaybackContextFactory]
+    bufMan = mock[SourceBufferManager]
+    streamFactory = mock[SourceStreamWrapperFactory]
+    EasyMock.expect(streamFactory.bufferManager).andReturn(bufMan).anyTimes()
+    Gateway.start()
+  }
+
+  @After def tearDown {
+    if (actor != null) {
+      actor ! Exit
+    }
+  }
+
+  /**
+   * Creates a test actor instance.
+   * @param skip the initial skip position
+   */
+  private def setUpActor(skip: Long) {
+    actor = new PlaybackActor(ctxFactory, streamFactory, skip)
+    actor.start()
+  }
+
+  /**
+   * Causes the test actor to exit and waits until its shutdown is complete.
+   */
+  private def shutdownActor() {
+    val exitCmd = new WaitForExit
+    if (!exitCmd.shutdownActor(actor, Long.MaxValue)) {
+      fail("Actor did not exit!")
+    }
+    actor = null
+  }
+
+  /**
+   * Creates a test actor for writing the line and installs it at the Gateway.
+   * @param handler an optional handler for intercepting messages
+   * @return the test actor
+   */
+  private def installLineWriterActor(handler: PartialFunction[Any, Unit]): QueuingActor = {
+    val lineActor = new QueuingActor(handler)
+    lineActor.start()
+    Gateway += Gateway.ActorLineWrite -> lineActor
+    lineActor
+  }
+
+  /**
+   * Creates a mock for the playback context.
+   * @param line the line
+   * @param streamSize the size of the input stream
+   * @return the context object
+   */
+  private def createContext(line: SourceDataLine, streamSize: Int): PlaybackContext = {
+    val ctx = mock[PlaybackContext]
+    EasyMock.expect(ctx.format).andReturn(Format).anyTimes()
+    EasyMock.expect(ctx.stream)
+      .andReturn(streamGen.generateStream(0, streamSize)).anyTimes()
+    EasyMock.expect(ctx.line).andReturn(line).anyTimes()
+    EasyMock.expect(ctx.createPlaybackBuffer()).andAnswer(new IAnswer[Array[Byte]]() {
+      def answer() = new Array[Byte](BufferSize)
+    }).anyTimes()
+    ctx
+  }
+
+  /**
+   * Tests whether the actor exits gracefully.
+   */
+  @Test def testStartAndExit() {
+    setUpActor(0)
+    shutdownActor()
+  }
+
+  /**
+   * Tests that nothing is done if no audio source is available.
+   */
+  @Test def testPlayChunkNoSource() {
+    setUpActor(0)
+    val lineActor = installLineWriterActor(null)
+    EasyMock.expect(bufMan.bufferSize).andReturn(10 * BufferSize).anyTimes()
+    whenExecuting(bufMan, ctxFactory, streamFactory) {
+      actor ! ChunkPlayed
+      lineActor.ensureNoMessages()
+      lineActor.shutdown()
+    }
+  }
+
+  /**
+   * Executes a standard test for reading multiple sources with multiple chunks
+   * and passing them to the line actor.
+   * @param line the line
+   * @param lineActor the mock line actor
+   * @param bufSize the buffer size to be returned by the buffer manager
+   */
+  private def executePlaybackTestWithMultipleChunksAndSources(
+    line: SourceDataLine, lineActor: Actor, bufSize: Int = 2 * 4096) {
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor,
+      bufSize)(null);
+  }
+
+  /**
+   * Executes a standard test for reading multiple sources with multiple chunks
+   * and allows performing additional checks.
+   * @param line the line
+   * @param lineActor the mock line actor
+   * @param bufSize the buffer size to be returned by the buffer manager
+   * @param f an (optional) function which is called to execute additional test
+   * steps
+   */
+  private def executePlaybackTestWithMultipleChunksAndSourcesEnhanced(
+    line: SourceDataLine, lineActor: Actor, bufSize: Int = 2 * 4096)(f: Unit => Unit) {
+    val streamWrapper1 = mock[SourceStreamWrapper]
+    val streamWrapper2 = mock[SourceStreamWrapper]
+    val dataStream = mock[InputStream]
+    val context1 = createContext(line, StreamLen1)
+    EasyMock.expect(streamFactory.createStream(null, StreamLen1)).andReturn(streamWrapper1)
+    EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper1)).andReturn(context1)
+    EasyMock.expect(bufMan.bufferSize).andReturn(bufSize).anyTimes()
+    line.open(Format).times(2)
+    line.start().times(2)
+    context1.close()
+    EasyMock.expect(streamWrapper1.currentStream).andReturn(dataStream)
+    val context2 = createContext(line, StreamLen2)
+    EasyMock.expect(streamFactory.createStream(dataStream, StreamLen2)).andReturn(streamWrapper2)
+    EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper2)).andReturn(context2)
+    context2.close()
+    whenExecuting(bufMan, ctxFactory, streamFactory, line, streamWrapper1,
+      context1, context2) {
+        actor ! AudioSource("uri1", 1, StreamLen1)
+        actor ! AudioSource("uri2", 2, StreamLen2)
+        actor ! ChunkPlayed
+        actor ! ChunkPlayed
+        if (f != null) f()
+        shutdownActor()
+      }
+  }
+
+  /**
+   * Converts the content of the buffer from the given PlayChunk message into a
+   * string.
+   * @param pc the message
+   * @return the string
+   */
+  private def copyBufferToString(pc: PlayChunk): String = {
+    val bytes = new Array[Byte](pc.len)
+    System.arraycopy(pc.chunk, 0, bytes, 0, pc.len)
+    new String(bytes)
+  }
+
+  /**
+   * Tests collaboration between the test actor and the line actor for playing
+   * some chunks from different sources.
+   */
+  @Test def testPlaybackMultipleChunksAndSources() {
+    val line = mock[SourceDataLine]
+    val strBuffer = new StringBuffer
+    val lineActor = installLineWriterActor {
+      case pc: PlayChunk =>
+        assert(line === pc.line)
+        assert(0 === pc.skipPos)
+        strBuffer append copyBufferToString(pc)
+    }
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
+    lineActor.ensureNoMessages(3)
+    lineActor.shutdown()
+    val expected = streamGen.generateStreamContent(0, StreamLen1) +
+      streamGen.generateStreamContent(0, BufferSize)
+    assert(expected === strBuffer.toString())
+  }
+
+  /**
+   * Extracts the next PlayChunk message from the line actor or fails if none
+   * is found.
+   */
+  private def extractPlayChunkMessage(lineActor: QueuingActor): PlayChunk = {
+    lineActor.nextMessage() match {
+      case pc: PlayChunk => pc
+      case _ => fail("Unexpected message!")
+    }
+  }
+
+  /**
+   * Tests that the skip position is taken into account.
+   */
+  @Test def testPlaybackWithSkip() {
+    val line = mock[SourceDataLine]
+    val initSkip = 10000L
+    setUpActor(initSkip)
+    val lineActor = installLineWriterActor(null)
+    executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
+    val pc1 = extractPlayChunkMessage(lineActor)
+    assert(initSkip === pc1.skipPos)
+    assert(0 === pc1.currentPos)
+    val pc2 = extractPlayChunkMessage(lineActor)
+    assert(initSkip === pc2.skipPos)
+    assert(BufferSize === pc2.currentPos)
+    val pc3 = extractPlayChunkMessage(lineActor)
+    assert(0 === pc3.skipPos)
+    lineActor.shutdown()
+  }
+
+  /**
+   * Tests that no playback is performed if not enough data was streamed into
+   * the buffer.
+   */
+  @Test def testPlaybackNotEnoughDataInBuffer() {
+    setUpActor(0)
+    val lineActor = installLineWriterActor(null)
+    EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
+    whenExecuting(bufMan, ctxFactory, streamFactory) {
+      actor ! AudioSource("uri", 1, 1000)
+      lineActor.ensureNoMessages()
+      lineActor.shutdown()
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether messages for pausing playback are handled correctly.
+   */
+  @Test def testPlaybackPauseAndResume() {
+    val line = mock[SourceDataLine]
+    val lineActor = installLineWriterActor(null)
+    setUpActor(0)
+    line.stop()
+    line.start()
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
+      actor ! StopPlayback
+      actor ! StartPlayback
+      lineActor.nextMessage()
+      lineActor.nextMessage()
+      lineActor.nextMessage()
+      lineActor.ensureNoMessages()
+      lineActor.shutdown()
+    }
+  }
+
+  /**
+   * Tests whether a stop command is handled correctly before the first source
+   * is added.
+   */
+  @Test def testStopPlaybackBeforeStart() {
+    val lineActor = installLineWriterActor(null)
+    setUpActor(0)
+    whenExecuting(bufMan, ctxFactory, streamFactory) {
+      actor ! StopPlayback
+      actor ! AudioSource("uri", 1, 1000)
+      lineActor.ensureNoMessages()
+      lineActor.shutdown()
+    }
+  }
+
+  /**
+   * Tests whether data at the end of the playlist can be played (here the
+   * buffer is almost empty).
+   */
+  @Test def testPlaybackAtEndOfPlaylist() {
+    val line = mock[SourceDataLine]
+    val lineActor = installLineWriterActor(null)
+    setUpActor(0)
+    actor ! PlaylistEnd
+    executePlaybackTestWithMultipleChunksAndSources(line, lineActor, BufferSize)
+    lineActor.nextMessage()
+    lineActor.shutdown()
+  }
+
+  /**
+   * Tests whether a skip message is processed correctly.
+   */
+  @Test def testSkip() {
+    val line = mock[SourceDataLine]
+    val buffer = new StringBuffer
+    val lineActor = installLineWriterActor {
+      case pc: PlayChunk =>
+        if (pc.skipPos == Long.MaxValue) {
+          buffer append copyBufferToString(pc)
+        }
+    }
+    line.stop()
+    line.flush()
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
+      actor ! SkipCurrentSource
+      actor ! ChunkPlayed
+    }
+    lineActor.ensureNoMessages(4)
+    lineActor.shutdown()
+    assert(buffer.toString === streamGen.generateStreamContent(BufferSize, BufferSize))
+  }
+
+  /**
+   * Tests whether a new temporary file is added correctly to the buffer
+   * manager.
+   */
+  @Test def testTempFileAdded() {
+    val temp = mock[TempFile]
+    expecting {
+      bufMan += temp
+      EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
+    }
+    setUpActor(0)
+    whenExecuting(bufMan, ctxFactory, streamFactory, temp) {
+      actor ! temp
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Creates a test actor and installs it as listener at the Gateway.
+   */
+  private def installListener(): QueuingActor = {
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    listener
+  }
+
+  /**
+   * Tests whether the expected events for starting and ending playback of a
+   * source are fired.
+   */
+  @Test def testPlaybackSourceEvents() {
+    val line = mock[SourceDataLine]
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
+    lineActor.shutdown()
+    val src1 = AudioSource("uri1", 1, StreamLen1)
+    val src2 = AudioSource("uri2", 2, StreamLen2)
+    listener.expectMessage(PlaybackSourceStart(src1))
+    listener.expectMessage(PlaybackSourceEnd(src1))
+    listener.expectMessage(PlaybackSourceStart(src2))
+    listener.ensureNoMessages()
+    Gateway.unregister(listener)
+    listener.shutdown()
+  }
+
+  /**
+   * Tests whether an error event is produced if the context for a new source
+   * could not be created. In this case, the affected source should be skipped.
+   */
+  @Test def testErrorCreateContext() {
+    val tempFactory = mock[TempFileFactory]
+    val len = BufferSize + 10
+    val stream = new SourceStreamWrapper(tempFactory,
+      streamGen.generateStream(0, len), len, bufMan)
+    val ex = new RuntimeException("TestException")
+    val src = AudioSource("uri", 1, len)
+    EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andThrow(ex)
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan) {
+      actor ! src
+      actor ! ChunkPlayed
+      listener.expectMessage(
+        PlaybackError("Cannot create PlaybackContext for source " + src,
+          ex, false))
+      val pc = extractPlayChunkMessage(lineActor)
+      assert(Long.MaxValue === pc.skipPos)
+      val content = copyBufferToString(pc)
+      assert(streamGen.generateStreamContent(0, len) === content)
+      shutdownActor()
+    }
+    lineActor.ensureNoMessages()
+    lineActor.shutdown()
+    Gateway.unregister(listener)
+    listener.shutdown()
+  }
+}
