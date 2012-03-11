@@ -5,6 +5,7 @@ import scala.collection.mutable.Queue
 import org.slf4j.LoggerFactory
 import java.util.Arrays
 import javax.sound.sampled.SourceDataLine
+import java.io.IOException
 
 /**
  * An actor for handling audio playback.
@@ -210,7 +211,24 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def readStream(): Int = {
     val is = if (errorStream) stream else context.stream
-    is.read(playbackBuffer)
+    var read: Int = -1
+    try {
+      read = is.read(playbackBuffer)
+    } catch {
+      case ioex: IOException =>
+        val msg = "Error when reading from audio stream for source " + currentSource
+        log.error(msg, ioex)
+        Gateway.publish(
+          PlaybackError(msg, ioex, errorStream))
+        if (errorStream) {
+          playbackEnabled = false
+        } else {
+          errorStream = true
+          skipCurrentSource()
+          read = readStream()
+        }
+    }
+    read
   }
 
   /**
@@ -218,10 +236,10 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * @param len the size of the current chunk
    */
   private def passChunkToLineActor(len: Int) {
-    val line = if(errorStream) null else context.line
+    val line = if (errorStream) null else context.line
     Gateway ! Gateway.ActorLineWrite -> PlayChunk(line,
-        Arrays.copyOf(playbackBuffer, playbackBuffer.length), len,
-        streamPosition, skipPosition)
+      Arrays.copyOf(playbackBuffer, playbackBuffer.length), len,
+      streamPosition, skipPosition)
   }
 
   /**

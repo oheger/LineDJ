@@ -20,6 +20,9 @@ import org.junit.Assert._
  */
 class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
   extends Actor {
+  /** The timeout used by this actor (in seconds). */
+  private val TimeOut = 5
+
   /** The queue for storing messages. */
   val queue: BlockingQueue[Any] = new LinkedBlockingQueue
 
@@ -60,7 +63,7 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
    * @return the next message received by this actor
    */
   def nextMessage(): Any = {
-    val msg = queue.poll(5, java.util.concurrent.TimeUnit.SECONDS)
+    val msg = queue.poll(TimeOut, java.util.concurrent.TimeUnit.SECONDS)
     assertNotNull("No message received!", msg)
     msg
   }

@@ -30,7 +30,7 @@ import java.io.IOException
 class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFactory,
   chunkSize: Int) extends Actor {
   /** Constant of the size of a copy buffer.*/
-  private val BufSize = 16 * 1024;
+  private[engine] val BufSize = 16 * 1024;
 
   /** The logger. */
   val log = LoggerFactory.getLogger(classOf[SourceReaderActor])

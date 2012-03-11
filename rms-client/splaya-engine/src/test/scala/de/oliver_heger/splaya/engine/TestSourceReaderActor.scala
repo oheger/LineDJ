@@ -278,7 +278,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     val listener = new QueuingActor
     listener.start()
     Gateway.register(listener)
-    val len = 222
+    val len = actor.BufSize + 222
     val stream = new ExceptionInputStream(
         streamGenerator.generateStreamContent(0, len))
     val src = prepareStream(stream, len + 10)
@@ -291,14 +291,14 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       actor ! src
       actor ! src2
       playback.expectMessage(AudioSource(streamURI(0), 0, len + 10))
-      playback.expectMessage(SourceReadError(len))
+      playback.expectMessage(SourceReadError(actor.BufSize))
       listener.nextMessage() match {
         case err: PlaybackError =>
           assert(err.fatal === false)
         case _ => fail("Unexpected message!")
       }
       playback.expectMessage(AudioSource(streamURI(1), 1, len2))
-      val expContent = streamGenerator.generateStreamContent(0, len) +
+      val expContent = streamGenerator.generateStreamContent(0, actor.BufSize) +
         streamGenerator.generateStreamContent(0, len2)
       listener.shutdown()
       playback.shutdown()

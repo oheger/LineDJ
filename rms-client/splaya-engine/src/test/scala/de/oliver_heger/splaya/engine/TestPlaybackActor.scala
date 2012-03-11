@@ -91,16 +91,26 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Creates a mock for the playback context.
+   * Creates a mock for the playback context which operates on a test stream
+   * with the given size.
    * @param line the line
    * @param streamSize the size of the input stream
    * @return the context object
    */
   private def createContext(line: SourceDataLine, streamSize: Int): PlaybackContext = {
+    createContext(line, streamGen.generateStream(0, streamSize))
+  }
+
+  /**
+   * Creates a mock for the playback context which operates on the given stream.
+   * @param line the line
+   * @param stream the stream managed by the context
+   * @return the context object
+   */
+  private def createContext(line: SourceDataLine, stream: InputStream): PlaybackContext = {
     val ctx = mock[PlaybackContext]
     EasyMock.expect(ctx.format).andReturn(Format).anyTimes()
-    EasyMock.expect(ctx.stream)
-      .andReturn(streamGen.generateStream(0, streamSize)).anyTimes()
+    EasyMock.expect(ctx.stream).andReturn(stream).anyTimes()
     EasyMock.expect(ctx.line).andReturn(line).anyTimes()
     EasyMock.expect(ctx.createPlaybackBuffer()).andAnswer(new IAnswer[Array[Byte]]() {
       def answer() = new Array[Byte](BufferSize)
@@ -383,14 +393,32 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Creates a ''SourceStreamWrapper'' with test stream content.
+   * @param len the length of the stream
+   * @return the newly created stream wrapper
+   */
+  private def createStreamWrapper(len: Int): SourceStreamWrapper = {
+    createStreamWrapper(streamGen.generateStream(0, len), len)
+  }
+
+  /**
+   * Creates a ''SourceStreamWrapper'' with the given wrapped stream.
+   * @param stream the stream to wrap
+   * @param len the length of the stream
+   * @return the newly created stream wrapper
+   */
+  private def createStreamWrapper(stream: InputStream, len: Int): SourceStreamWrapper = {
+    val tempFactory = mock[TempFileFactory]
+    new SourceStreamWrapper(tempFactory, stream, len, bufMan)
+  }
+
+  /**
    * Tests whether an error event is produced if the context for a new source
    * could not be created. In this case, the affected source should be skipped.
    */
   @Test def testErrorCreateContext() {
-    val tempFactory = mock[TempFileFactory]
     val len = BufferSize + 10
-    val stream = new SourceStreamWrapper(tempFactory,
-      streamGen.generateStream(0, len), len, bufMan)
+    val stream = createStreamWrapper(len)
     val ex = new RuntimeException("TestException")
     val src = AudioSource("uri", 1, len)
     EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
@@ -412,6 +440,94 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       shutdownActor()
     }
     lineActor.ensureNoMessages()
+    lineActor.shutdown()
+    Gateway.unregister(listener)
+    listener.shutdown()
+  }
+
+  /**
+   * Checks whether the next message received by the actor is a ''PlaybackError''.
+   * If yes, it is returned. Otherwise, an error is raised.
+   * @param actor the actor
+   * @return the next ''PlaybackError'' message
+   */
+  private def extractErrorMessage(actor: QueuingActor): PlaybackError = {
+    actor.nextMessage() match {
+      case err: PlaybackError => err
+      case _ => fail("Unexpected message!")
+    }
+  }
+
+  /**
+   * Tests whether an error while reading the audio stream is handled correctly.
+   */
+  @Test def testErrorReadAudioStream() {
+    val line = mock[SourceDataLine]
+    val len = 100
+    val stream = createStreamWrapper(len)
+    val src = AudioSource("uri", 1, len)
+    EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
+    val context = createContext(line, new ExceptionInputStream("Error"))
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    line.stop()
+    line.flush()
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
+      actor ! src
+      listener.skipMessages(1)
+      val err = extractErrorMessage(listener)
+      assert("Error when reading from audio stream for source " + src === err.msg)
+      assert(false === err.fatal)
+      val pc = extractPlayChunkMessage(lineActor)
+      assert(Long.MaxValue === pc.skipPos)
+      val content = copyBufferToString(pc)
+      assert(streamGen.generateStreamContent(0, len) === content)
+      shutdownActor()
+    }
+    lineActor.ensureNoMessages()
+    lineActor.shutdown()
+    Gateway.unregister(listener)
+    listener.shutdown()
+  }
+
+  /**
+   * Tests whether a fatal error is thrown if reading from the original audio
+   * stream causes another error.
+   */
+  @Test def testErrorReadOriginalStream() {
+    val line = mock[SourceDataLine]
+    val len = 100
+    val src = AudioSource("uri", 1, len)
+    val stream = new ExceptionInputStream("Error1")
+    val streamWrapper = createStreamWrapper(stream, BufferSize)
+    EasyMock.expect(streamFactory.createStream(null, len)).andReturn(streamWrapper)
+    val context = createContext(line, new ExceptionInputStream("Error2"))
+    EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    line.stop()
+    line.flush()
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
+      actor ! src
+      listener.skipMessages(1)
+      val err1 = extractErrorMessage(listener)
+      assert(false === err1.fatal)
+      val err2 = extractErrorMessage(listener)
+      assert("Error when reading from audio stream for source " + src === err2.msg)
+      assert(true === err2.fatal)
+      shutdownActor()
+    }
     lineActor.shutdown()
     Gateway.unregister(listener)
     listener.shutdown()
