@@ -15,9 +15,15 @@ import java.io.InputStream
  *
  * Implementation note: This class is not thread-safe. It can only be accessed
  * from a single thread.
+ *
+ * @param resetHelper the helper object for managing ''reset()'' operations
+ * @param wrappedStream the wrapped input stream
+ * @param streamLength the (initial) length of the wrapped input stream (it
+ * can be changed later using the ''changeLength()'' method)
+ * @param bufferManager the object managing temporary files
  */
 class SourceStreamWrapper(resetHelper: StreamResetHelper,
-  wrappedStream: InputStream, val length: Int,
+  wrappedStream: InputStream, private var streamLength: Long,
   bufferManager: SourceBufferManager) extends InputStream {
   /** Stores the reset helper object.*/
   private[engine] val streamResetHelper = resetHelper
@@ -26,10 +32,10 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   private var stream: InputStream = wrappedStream
 
   /** The current read position in the stream.*/
-  private var position = 0
+  private var position = 0L
 
   /** The last mark position. */
-  private var markPosition = 0
+  private var markPosition = 0L
 
   /**
    * Auxiliary constructor which creates a default {@code StreamResetHelper}.
@@ -38,15 +44,21 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @param length the length of the wrapped stream
    * @param bufferManager the queue for obtaining temporary files
    */
-  def this(factory: TempFileFactory, wrappedStream: InputStream, length: Int,
+  def this(factory: TempFileFactory, wrappedStream: InputStream, length: Long,
     bufferManager: SourceBufferManager) = this(new StreamResetHelper(factory),
     wrappedStream, length, bufferManager)
+
+  /**
+   * Returns the length of this stream.
+   * @return the length of this stream
+   */
+  def length = streamLength
 
   /**
    * Returns the current position in this stream.
    * @return the current position
    */
-  def currentPosition: Int = position
+  def currentPosition: Long = position
 
   /**
    * Returns a flag whether mark operations are supported by this stream. This
@@ -64,7 +76,7 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @return the number of bytes read
    */
   override def read(buf: Array[Byte], ofs: Int, len: Int): Int = {
-    val maxlen = scala.math.min(len, length - currentPosition)
+    val maxlen = scala.math.min(len, length - currentPosition).toInt
     var read = resetHelper.read(buf, ofs, maxlen)
 
     if (read < len) {
@@ -115,6 +127,14 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   override def reset() {
     resetHelper.reset()
     position = markPosition
+  }
+
+  /**
+   * Changes the length of this stream. (Usually, the length is decreased.)
+   * @param newLength the new length of this stream
+   */
+  def changeLength(newLength: Long) = {
+    streamLength = newLength
   }
 
   /**

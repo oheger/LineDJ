@@ -76,11 +76,22 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
    * Tests whether the whole stream can be read in a single step.
    */
   @Test def testReadWholeStream() {
-    val helper = createResetHelper
+    val helper = createResetHelper()
     val stream = new SourceStreamWrapper(helper, wrappedStream(), Text.length,
         bufferManager)
     checkReadStream(stream, Text)
     assertNull("Got a current stream", stream.currentStream)
+  }
+
+  /**
+   * Tests whether the stream length can be changed later.
+   */
+  @Test def testChangeLength() {
+    val len = Text.length / 2
+    val stream = new SourceStreamWrapper(createResetHelper(), wrappedStream(),
+        Text.length, bufferManager)
+    stream changeLength len
+    checkReadStream(stream, Text.substring(0, len))
   }
 
   /**

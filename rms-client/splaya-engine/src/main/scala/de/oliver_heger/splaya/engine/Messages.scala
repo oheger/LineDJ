@@ -51,8 +51,19 @@ case object PlaylistEnd
 /**
  * A message for playing an audio file. The message contains some information
  * about the audio file to be played.
+ * @param uri the URI of the source
+ * @param index the index of this source in the current playlist
+ * @param the length of the source (in bytes)
  */
-case class AudioSource(uri: String, index: Int, length: Long)
+case class AudioSource(uri: String, index: Int, length: Long) {
+  /**
+   * Creates a new ''AudioSource'' object based on this instance with the
+   * specified length.
+   * @param newLength the length of the new source
+   * @return the new ''AudioSource''
+   */
+  def resize(newLength: Long): AudioSource = AudioSource(uri, index, newLength)
+}
 
 /**
  * A message for writing a chunk of audio data into the specified line.

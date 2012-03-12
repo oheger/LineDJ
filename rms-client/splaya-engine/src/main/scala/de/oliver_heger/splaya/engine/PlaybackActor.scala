@@ -55,6 +55,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   /** Holds the currently played audio source. */
   private var currentSource: AudioSource = _
 
+  /** The last source that was added. */
+  private var latestSource: AudioSource = _
+
   /** The current position in the audio stream. */
   private var streamPosition = 0L
 
@@ -93,7 +96,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
           ex.confirmed(this)
 
         case src: AudioSource =>
-          enqueue(src)
+          enqueueSource(src)
 
         case temp: TempFile =>
           enqueueTempFile(temp)
@@ -117,6 +120,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
         case PlaylistEnd =>
           endOfPlaylist = true
           playback()
+
+        case SourceReadError(newLength) =>
+          handleSourceReadError(newLength)
       }
     }
   }
@@ -133,8 +139,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * If no song is currently played, playback starts.
    * @param src the audio source
    */
-  private def enqueue(src: AudioSource) {
+  private def enqueueSource(src: AudioSource) {
     queue += src
+    latestSource = src
     if (context == null) {
       playback()
     }
@@ -311,6 +318,37 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       line.flush()
     }
     skipPosition = Long.MaxValue
+  }
+
+  /**
+   * Handles a message that a read error occurred for the latest source which
+   * has been added. In this case the source's length has to be adapted. It
+   * has to be distinguished whether the source is already played or not.
+   * @param newLength the new length of the latest source
+   */
+  private def handleSourceReadError(newLength: Long) {
+    if (queue.isEmpty) {
+      adaptLengthOfCurrentSource(newLength)
+    } else {
+      adaptLengthOfSourceInQueue(newLength)
+    }
+  }
+
+  /**
+   * Adapts the length of the current source.
+   * @param newLength the new length
+   */
+  private def adaptLengthOfCurrentSource(newLength: Long) {
+    stream.changeLength(newLength)
+  }
+
+  /**
+   * Adapts the length of a source which is still in the queue.
+   * @param newLength the new length
+   */
+  private def adaptLengthOfSourceInQueue(newLength: Long) {
+    queue.dequeueFirst(_ eq latestSource)
+    queue += latestSource.resize(newLength)
   }
 
   /**

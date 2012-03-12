@@ -532,4 +532,61 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     Gateway.unregister(listener)
     listener.shutdown()
   }
+
+  /**
+   * Tests whether a SourceReadError message is handled correctly if the source
+   * has not yet been started.
+   */
+  @Test def testSourceReadErrorBeforeStart() {
+    val line = mock[SourceDataLine]
+    val len = 222
+    val src = AudioSource("uri1", 1, 2 * BufferSize)
+    val stream = createStreamWrapper(src.length.toInt)
+    EasyMock.expect(bufMan.bufferSize).andReturn(0)
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
+    val context = createContext(line, src.length.toInt)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    val lineActor = installLineWriterActor(null)
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
+      actor ! src
+      actor ! SourceReadError(len)
+      actor ! AudioSource("uri2", 2, 8888)
+      shutdownActor()
+    }
+    lineActor.ensureNoMessages(1)
+    lineActor.shutdown()
+  }
+
+  /**
+   * Tests whether a SourceReadError message is handled correctly if the current
+   * source is affected.
+   */
+  @Test def testSourceReadErrorForCurrentSource() {
+    val line = mock[SourceDataLine]
+    val stream = mock[SourceStreamWrapper]
+    val orgLength = 5 * BufferSize
+    val newLength = 2 * BufferSize
+    val src = AudioSource("uri1", 1, orgLength)
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    EasyMock.expect(streamFactory.createStream(null, orgLength)).andReturn(stream)
+    val context = createContext(line, orgLength)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    stream.changeLength(newLength)
+    context.close()
+    line.open(Format)
+    line.start()
+    val lineActor = installLineWriterActor(null)
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
+      actor ! src
+      actor ! SourceReadError(newLength)
+      shutdownActor()
+    }
+    lineActor.shutdown()
+  }
 }
