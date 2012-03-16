@@ -134,7 +134,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val lineActor = installLineWriterActor(null)
     EasyMock.expect(bufMan.bufferSize).andReturn(10 * BufferSize).anyTimes()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
-      actor ! ChunkPlayed
+      actor ! ChunkPlayed(BufferSize)
       lineActor.ensureNoMessages()
       lineActor.shutdown()
     }
@@ -183,8 +183,8 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       context1, context2) {
         actor ! AudioSource("uri1", 1, StreamLen1)
         actor ! AudioSource("uri2", 2, StreamLen2)
-        actor ! ChunkPlayed
-        actor ! ChunkPlayed
+        actor ! ChunkPlayed(BufferSize)
+        actor ! ChunkPlayed(BufferSize)
         if (f != null) f()
         shutdownActor()
       }
@@ -337,7 +337,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor(0)
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
       actor ! SkipCurrentSource
-      actor ! ChunkPlayed
+      actor ! ChunkPlayed(BufferSize)
     }
     lineActor.ensureNoMessages(4)
     lineActor.shutdown()
@@ -429,7 +429,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor(0)
     whenExecuting(streamFactory, ctxFactory, bufMan) {
       actor ! src
-      actor ! ChunkPlayed
+      actor ! ChunkPlayed(BufferSize)
       listener.expectMessage(
         PlaybackError("Cannot create PlaybackContext for source " + src,
           ex, false))
@@ -588,5 +588,40 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       shutdownActor()
     }
     lineActor.shutdown()
+  }
+
+  /**
+   * Tests whether a chunk that has not been fully played is handled correctly.
+   */
+  @Test def testChunkPlayedIncomplete() {
+    val line = mock[SourceDataLine]
+    val stream = mock[SourceStreamWrapper]
+    val src = AudioSource("uri1", 1, StreamLen2)
+    val written = 100
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
+    val context = createContext(line, StreamLen2)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    val buffer = new StringBuffer
+    val lineActor = installLineWriterActor {
+      case pc: PlayChunk =>
+        buffer append copyBufferToString(pc)
+    }
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
+      actor ! src
+      actor ! ChunkPlayed(0)
+      actor ! ChunkPlayed(written)
+      shutdownActor()
+    }
+    lineActor.ensureNoMessages(3)
+    lineActor.shutdown()
+    val expected = streamGen.generateStreamContent(0, BufferSize) +
+      streamGen.generateStreamContent(0, BufferSize) +
+      streamGen.generateStreamContent(written, BufferSize)
+    assert(expected === buffer.toString)
   }
 }

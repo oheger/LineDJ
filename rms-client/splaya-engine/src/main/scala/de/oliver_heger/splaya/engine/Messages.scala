@@ -77,9 +77,12 @@ case class PlayChunk(line: SourceDataLine, chunk: Array[Byte], len: Int,
   currentPos: Long, skipPos: Long)
 
 /**
- * A message which indicates that a full chunk of audio data was played.
+ * A message which indicates that a chunk of audio data was played. The chunk
+ * may be written partly; the exact number of bytes written to the data line
+ * is contained in the message.
+ * @param bytesWritten the number of bytes which has been written
  */
-case object ChunkPlayed
+case class ChunkPlayed(bytesWritten: Int)
 
 /**
  * A message sent out by the source reader actor if reading from a source

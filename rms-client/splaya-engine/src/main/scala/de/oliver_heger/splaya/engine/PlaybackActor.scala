@@ -64,6 +64,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   /** The current skip position. */
   private var skipPosition = initialSkip
 
+  /** The number of bytes written by the line writer actor. */
+  private var writtenForLastChunk = -1
+
   /** A flag whether playback is enabled. */
   private var playbackEnabled = true
 
@@ -101,8 +104,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
         case temp: TempFile =>
           enqueueTempFile(temp)
 
-        case ChunkPlayed =>
+        case ChunkPlayed(written) =>
           chunkPlaying = false
+          writtenForLastChunk = written
           playback()
 
         case StopPlayback =>
@@ -218,24 +222,46 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def readStream(): Int = {
     val is = if (errorStream) stream else context.stream
-    var read: Int = -1
-    try {
-      read = is.read(playbackBuffer)
-    } catch {
-      case ioex: IOException =>
-        val msg = "Error when reading from audio stream for source " + currentSource
-        log.error(msg, ioex)
-        Gateway.publish(
-          PlaybackError(msg, ioex, errorStream))
-        if (errorStream) {
-          playbackEnabled = false
-        } else {
-          errorStream = true
-          skipCurrentSource()
-          read = readStream()
-        }
+    val (ofs, len) = handlePartlyWrittenBuffer()
+    var read: Int = 0
+
+    if (len > 0) {
+      try {
+        read = is.read(playbackBuffer, ofs, len)
+      } catch {
+        case ioex: IOException =>
+          val msg = "Error when reading from audio stream for source " + currentSource
+          log.error(msg, ioex)
+          Gateway.publish(
+            PlaybackError(msg, ioex, errorStream))
+          if (errorStream) {
+            playbackEnabled = false
+          } else {
+            errorStream = true
+            skipCurrentSource()
+            read = readStream()
+          }
+      }
     }
-    read
+    read + ofs
+  }
+
+  /**
+   * Handles the case that the last chunk was not played completely. In this
+   * case, the remaining parts have to be played again, and the number of bytes
+   * to read from the input stream has to be adapted.
+   * @return a tuple with the offset in the playback buffer and the number of
+   * bytes to read from the input stream for the next read operation
+   */
+  private def handlePartlyWrittenBuffer(): Tuple2[Int, Int] = {
+    val bufSize = playbackBufferSize
+    val written = if (writtenForLastChunk < 0) bufSize
+    else scala.math.min(writtenForLastChunk, bufSize)
+    val ofs = bufSize - written
+    if (ofs > 0) {
+      System.arraycopy(playbackBuffer, written, playbackBuffer, 0, ofs)
+    }
+    (ofs, written)
   }
 
   /**
@@ -279,6 +305,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       prepareLine()
       Gateway.publish(PlaybackSourceStart(source))
       currentSource = source
+      writtenForLastChunk = playbackBufferSize
     } catch {
       case ex: Exception =>
         handleContextCreationError(source, ex)
