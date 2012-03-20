@@ -64,8 +64,11 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   /** The current skip position. */
   private var skipPosition = initialSkip
 
+  /** The size of the last written chunk. */
+  private var lastChunkSize = 0
+
   /** The number of bytes written by the line writer actor. */
-  private var writtenForLastChunk = -1
+  private var writtenForLastChunk = 0
 
   /** A flag whether playback is enabled. */
   private var playbackEnabled = true
@@ -203,13 +206,15 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * Plays a chunk of the audio data.
    */
   private def playChunk() {
-    val len = readStream()
-    if (len < 0) {
+    val (ofs, len) = handlePartlyWrittenBuffer()
+    val read = if (len > 0) readStream(ofs, len) else 0
+    if (read < 0 && ofs == 0) {
       closeCurrentAudioSource()
       playback()
     } else {
-      passChunkToLineActor(len)
-      streamPosition += len
+      val readFromStream = scala.math.max(read, 0)
+      passChunkToLineActor(ofs, readFromStream)
+      streamPosition += readFromStream
       chunkPlaying = true
     }
   }
@@ -218,32 +223,31 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * Reads data from the current input stream. If the errorStream flag is set,
    * data is read from the original stream, not from the audio stream. The data
    * read is stored in the playback buffer.
+   * @param ofs the offset in the playback buffer
+   * @param len the number of bytes to read from the input stream
    * @return the number of bytes that were read
    */
-  private def readStream(): Int = {
+  private def readStream(ofs: Int, len: Int): Int = {
     val is = if (errorStream) stream else context.stream
-    val (ofs, len) = handlePartlyWrittenBuffer()
     var read: Int = 0
 
-    if (len > 0) {
-      try {
-        read = is.read(playbackBuffer, ofs, len)
-      } catch {
-        case ioex: IOException =>
-          val msg = "Error when reading from audio stream for source " + currentSource
-          log.error(msg, ioex)
-          Gateway.publish(
-            PlaybackError(msg, ioex, errorStream))
-          if (errorStream) {
-            playbackEnabled = false
-          } else {
-            errorStream = true
-            skipCurrentSource()
-            read = readStream()
-          }
-      }
+    try {
+      read = is.read(playbackBuffer, ofs, len)
+    } catch {
+      case ioex: IOException =>
+        val msg = "Error when reading from audio stream for source " + currentSource
+        log.error(msg, ioex)
+        Gateway.publish(
+          PlaybackError(msg, ioex, errorStream))
+        if (errorStream) {
+          playbackEnabled = false
+        } else {
+          errorStream = true
+          skipCurrentSource()
+          read = readStream(ofs, len)
+        }
     }
-    read + ofs
+    read
   }
 
   /**
@@ -254,25 +258,30 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * bytes to read from the input stream for the next read operation
    */
   private def handlePartlyWrittenBuffer(): Tuple2[Int, Int] = {
-    val bufSize = playbackBufferSize
-    val written = if (writtenForLastChunk < 0) bufSize
-    else scala.math.min(writtenForLastChunk, bufSize)
-    val ofs = bufSize - written
-    if (ofs > 0) {
-      System.arraycopy(playbackBuffer, written, playbackBuffer, 0, ofs)
+    if (lastChunkSize == 0) {
+      (0, playbackBufferSize)
+    } else {
+      val ofs = scala.math.max(lastChunkSize - writtenForLastChunk, 0)
+      if (ofs > 0 && writtenForLastChunk > 0) {
+        System.arraycopy(playbackBuffer, writtenForLastChunk, playbackBuffer, 0, ofs)
+      }
+      (ofs, writtenForLastChunk)
     }
-    (ofs, written)
   }
 
   /**
    * Notifies the line actor to play the current chunk.
+   * @param ofs the start position in the playback buffer with newly read data;
+   * this is needed to calculate the correct stream position which corresponds
+   * to the first byte of the buffer
    * @param len the size of the current chunk
    */
-  private def passChunkToLineActor(len: Int) {
+  private def passChunkToLineActor(ofs: Int, len: Int) {
     val line = if (errorStream) null else context.line
-    Gateway ! Gateway.ActorLineWrite -> PlayChunk(line,
-      Arrays.copyOf(playbackBuffer, playbackBuffer.length), len,
-      streamPosition, skipPosition)
+    val msg = PlayChunk(line, Arrays.copyOf(playbackBuffer,
+      playbackBuffer.length), ofs + len, streamPosition - ofs, skipPosition)
+    Gateway ! Gateway.ActorLineWrite -> msg
+    lastChunkSize = msg.len
   }
 
   /**
@@ -305,7 +314,8 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       prepareLine()
       Gateway.publish(PlaybackSourceStart(source))
       currentSource = source
-      writtenForLastChunk = playbackBufferSize
+      writtenForLastChunk = 0
+      lastChunkSize = 0
     } catch {
       case ex: Exception =>
         handleContextCreationError(source, ex)

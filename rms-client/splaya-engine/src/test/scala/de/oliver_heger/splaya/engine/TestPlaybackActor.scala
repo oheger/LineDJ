@@ -11,6 +11,7 @@ import javax.sound.sampled.SourceDataLine
 import org.easymock.IAnswer
 import java.io.InputStream
 import scala.actors.Actor
+import scala.collection.mutable.ListBuffer
 
 /**
  * Test class for ''PlaybackActor''.
@@ -623,5 +624,44 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       streamGen.generateStreamContent(0, BufferSize) +
       streamGen.generateStreamContent(written, BufferSize)
     assert(expected === buffer.toString)
+  }
+
+  /**
+   * Tests whether a partly written chunk is handled correctly if the end of
+   * the audio stream is reached.
+   */
+  @Test def testChunkPlayedIncompleteEOS() {
+    val line = mock[SourceDataLine]
+    val stream = mock[SourceStreamWrapper]
+    val streamLen = BufferSize / 2
+    val src = AudioSource("uri1", 1, streamLen)
+    val written = 100
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    EasyMock.expect(streamFactory.createStream(null, streamLen)).andReturn(stream)
+    val context = createContext(line, streamLen)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    val buffer = new StringBuffer
+    val posList = ListBuffer.empty[Long]
+    val lineActor = installLineWriterActor {
+      case pc: PlayChunk =>
+        buffer append copyBufferToString(pc)
+        posList += pc.currentPos
+    }
+    setUpActor(0)
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
+      actor ! src
+      actor ! ChunkPlayed(written)
+      actor ! ChunkPlayed(streamLen - written)
+      shutdownActor()
+    }
+    lineActor.ensureNoMessages(2)
+    lineActor.shutdown()
+    val expected = streamGen.generateStreamContent(0, streamLen) +
+      streamGen.generateStreamContent(written, streamLen - written)
+    assert(expected === buffer.toString)
+    assert(List(0L, written) === posList.toList)
   }
 }
