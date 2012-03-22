@@ -130,3 +130,28 @@ case class PlaybackSourceStart(source: AudioSource)
  * @param source the source whose playback has finished
  */
 case class PlaybackSourceEnd(source: AudioSource)
+
+/**
+ * A message sent by the playback actor whenever the position in the audio
+ * stream has changed. This information can be used for instance to implement
+ * a progress bar showing the progress in the current audio file.
+ * @param audioStreamPosition the current position in the audio stream
+ * @param audioStreamLength the length of the audio stream (or -1 if unknown)
+ * @param dataStreamPosition the current position in the underlying data stream
+ * @param source the current audio source
+ */
+case class PlaybackPositionChanged(audioStreamPosition: Long,
+  audioStreamLength: Long, dataStreamPosition: Long, source: AudioSource) {
+  /**
+   * Calculates the relative position in the stream (in percent). Depending on
+   * the information about the audio stream available, either the relative
+   * position in the audio stream is calculated or in the underlying data
+   * stream; in the latter case, result may be less exact.
+   * @return the relative position in the stream
+   */
+  def relativePosition: Int = {
+    val pos = if (audioStreamLength > 0) (100 * audioStreamPosition) / audioStreamLength
+    else (100 * dataStreamPosition / source.length)
+    pos.toInt
+  }
+}

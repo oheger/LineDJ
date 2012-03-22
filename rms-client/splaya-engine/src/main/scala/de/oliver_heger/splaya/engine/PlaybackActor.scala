@@ -108,9 +108,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
           enqueueTempFile(temp)
 
         case ChunkPlayed(written) =>
-          chunkPlaying = false
-          writtenForLastChunk = written
-          playback()
+          handleChunkPlayed(written)
 
         case StopPlayback =>
           playbackEnabled = false
@@ -355,7 +353,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       line.flush()
     }
     skipPosition = Long.MaxValue
-    errorStream = true  // now read from source stream
+    errorStream = true // now read from source stream
   }
 
   /**
@@ -416,4 +414,28 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       f(context.line)
     }
   }
+
+  /**
+   * Processes a message that a chunk was played. This method updates some
+   * internal fields, notifies listeners, and triggers the playback of the next
+   * chunk.
+   * @param written the number of bytes that have actually been written for the
+   * last chunk
+   */
+  private def handleChunkPlayed(written: Int): Unit = {
+    chunkPlaying = false
+    writtenForLastChunk = written
+    if (context != null) {
+      Gateway.publish(createPositionChangedMessage())
+    }
+    playback()
+  }
+
+  /**
+   * Creates a message about a change in the current audio stream's position.
+   * @return the change message
+   */
+  private def createPositionChangedMessage() =
+    PlaybackPositionChanged(streamPosition, context.streamSize,
+      stream.currentPosition, currentSource)
 }

@@ -30,6 +30,9 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   /** Constant for the length of the 2nd test stream. */
   private val StreamLen2 = 10 * BufferSize
 
+  /** Constant for the length of the audio stream. */
+  private val AudioStreamLen = 20000
+
   /** The mock for playback context factory. */
   private var ctxFactory: PlaybackContextFactory = _
 
@@ -73,7 +76,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    */
   private def shutdownActor() {
     val exitCmd = new WaitForExit
-    if (!exitCmd.shutdownActor(actor, Long.MaxValue)) {
+    if (!exitCmd.shutdownActor(actor, 5000)) {
       fail("Actor did not exit!")
     }
     actor = null
@@ -112,6 +115,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val ctx = mock[PlaybackContext]
     EasyMock.expect(ctx.format).andReturn(Format).anyTimes()
     EasyMock.expect(ctx.stream).andReturn(stream).anyTimes()
+    EasyMock.expect(ctx.streamSize).andReturn(AudioStreamLen).anyTimes()
     EasyMock.expect(ctx.line).andReturn(line).anyTimes()
     EasyMock.expect(ctx.createPlaybackBuffer()).andAnswer(new IAnswer[Array[Byte]]() {
       def answer() = new Array[Byte](BufferSize)
@@ -170,6 +174,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val dataStream = mock[InputStream]
     val context1 = createContext(line, StreamLen1)
     EasyMock.expect(streamFactory.createStream(null, StreamLen1)).andReturn(streamWrapper1)
+    EasyMock.expect(streamWrapper1.currentPosition).andReturn(StreamLen1 / 2).anyTimes()
     EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper1)).andReturn(context1)
     EasyMock.expect(bufMan.bufferSize).andReturn(bufSize).anyTimes()
     line.open(Format).times(2)
@@ -179,6 +184,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val context2 = createContext(line, StreamLen2)
     EasyMock.expect(streamFactory.createStream(dataStream, StreamLen2)).andReturn(streamWrapper2)
     EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper2)).andReturn(context2)
+    EasyMock.expect(streamWrapper2.currentPosition).andReturn(StreamLen2 / 2).anyTimes()
     context2.close()
     whenExecuting(bufMan, ctxFactory, streamFactory, line, streamWrapper1,
       context1, context2) {
@@ -328,7 +334,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val line = mock[SourceDataLine]
     val ofs = StreamLen2 * 2
     val stream = createStreamWrapper(streamGen.generateStream(ofs, StreamLen2),
-        StreamLen2)
+      StreamLen2)
     val src = AudioSource("uri", 1, StreamLen2)
     EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
     val context = createContext(line, StreamLen2)
@@ -397,11 +403,36 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val src1 = AudioSource("uri1", 1, StreamLen1)
     val src2 = AudioSource("uri2", 2, StreamLen2)
     listener.expectMessage(PlaybackSourceStart(src1))
+    listener.expectMessage(PlaybackPositionChanged(BufferSize, AudioStreamLen,
+      StreamLen1 / 2, src1))
+    listener.expectMessage(PlaybackPositionChanged(StreamLen1, AudioStreamLen,
+      StreamLen1 / 2, src1))
     listener.expectMessage(PlaybackSourceEnd(src1))
     listener.expectMessage(PlaybackSourceStart(src2))
     listener.ensureNoMessages()
     Gateway.unregister(listener)
     listener.shutdown()
+  }
+
+  /**
+   * Tests whether the relative position can be obtained from a position changed
+   * message if the length of the audio stream is known.
+   */
+  @Test def testPositionChangedMsgRelativePositionFromAudioStream() {
+    val src = AudioSource("uri", 1, 200)
+    val msg = PlaybackPositionChanged(750, 1000, 10, src)
+    assert(75 === msg.relativePosition)
+  }
+
+  /**
+   * Tests whether the relative position can be obtained from a position changed
+   * message if the length of the audio stream has to be obtained from the
+   * underlying stream.
+   */
+  @Test def testPositionChangedMsgRelativePositionFromOriginalStream() {
+    val src = AudioSource("uri", 1, 1000)
+    val msg = PlaybackPositionChanged(100, -1, 750, src)
+    assert(75 === msg.relativePosition)
   }
 
   /**
@@ -614,6 +645,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
     val context = createContext(line, StreamLen2)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    EasyMock.expect(stream.currentPosition).andReturn(src.length / 2).anyTimes()
     context.close()
     line.open(Format)
     line.start()
@@ -651,6 +683,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(streamFactory.createStream(null, streamLen)).andReturn(stream)
     val context = createContext(line, streamLen)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    EasyMock.expect(stream.currentPosition).andReturn(src.length / 2).anyTimes()
     context.close()
     line.open(Format)
     line.start()
