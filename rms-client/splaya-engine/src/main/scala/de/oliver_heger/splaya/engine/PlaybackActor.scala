@@ -355,6 +355,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       line.flush()
     }
     skipPosition = Long.MaxValue
+    errorStream = true  // now read from source stream
   }
 
   /**

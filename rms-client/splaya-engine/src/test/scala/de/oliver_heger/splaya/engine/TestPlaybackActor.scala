@@ -326,23 +326,34 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    */
   @Test def testSkip() {
     val line = mock[SourceDataLine]
-    val buffer = new StringBuffer
-    val lineActor = installLineWriterActor {
-      case pc: PlayChunk =>
-        if (pc.skipPos == Long.MaxValue) {
-          buffer append copyBufferToString(pc)
-        }
-    }
+    val ofs = StreamLen2 * 2
+    val stream = createStreamWrapper(streamGen.generateStream(ofs, StreamLen2),
+        StreamLen2)
+    val src = AudioSource("uri", 1, StreamLen2)
+    EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
+    val context = createContext(line, StreamLen2)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
     line.stop()
     line.flush()
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    val lineActor = installLineWriterActor(null)
     setUpActor(0)
-    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
+      actor ! src
       actor ! SkipCurrentSource
       actor ! ChunkPlayed(BufferSize)
+      lineActor.skipMessages(1)
+      val pc = extractPlayChunkMessage(lineActor)
+      assert(Long.MaxValue === pc.skipPos)
+      val content = copyBufferToString(pc)
+      assert(streamGen.generateStreamContent(ofs, BufferSize) === content)
+      shutdownActor()
     }
-    lineActor.ensureNoMessages(4)
+    lineActor.ensureNoMessages()
     lineActor.shutdown()
-    assert(buffer.toString === streamGen.generateStreamContent(BufferSize, BufferSize))
   }
 
   /**
