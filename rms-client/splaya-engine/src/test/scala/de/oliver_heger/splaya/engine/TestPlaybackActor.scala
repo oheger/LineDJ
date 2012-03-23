@@ -187,7 +187,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(streamWrapper2.currentPosition).andReturn(StreamLen2 / 2).anyTimes()
     context2.close()
     whenExecuting(bufMan, ctxFactory, streamFactory, line, streamWrapper1,
-      context1, context2) {
+      streamWrapper2, context1, context2) {
         actor ! AudioSource("uri1", 1, StreamLen1)
         actor ! AudioSource("uri2", 2, StreamLen2)
         actor ! ChunkPlayed(BufferSize)
@@ -310,6 +310,35 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       actor ! AudioSource("uri", 1, 1000)
       lineActor.ensureNoMessages()
       lineActor.shutdown()
+    }
+  }
+
+  /**
+   * Tests that a start playback message is ignored if playback is already
+   * active.
+   */
+  @Test def testStartAlreadyPlaying() {
+    val line = mock[SourceDataLine]
+    val lineaActor = installLineWriterActor(null)
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineaActor) { f =>
+      actor ! StartPlayback
+    }
+  }
+
+  /**
+   * Tests that a stop playback message is ignored if playback is already
+   * paused.
+   */
+  @Test def testStopAlreadyStopped() {
+    val line = mock[SourceDataLine]
+    line.stop()
+    val lineaActor = installLineWriterActor(null)
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineaActor) { f =>
+      actor ! StartPlayback
+      actor ! StopPlayback
+      actor ! StopPlayback
     }
   }
 
@@ -707,5 +736,65 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       streamGen.generateStreamContent(written, streamLen - written)
     assert(expected === buffer.toString)
     assert(List(0L, written) === posList.toList)
+  }
+
+  /**
+   * Tests whether notifications are sent when the playback actor starts and
+   * stops playback.
+   */
+  @Test def testPlaybackStartsAndStopsEvents() {
+    val line = mock[SourceDataLine]
+    line.stop()
+    line.start()
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
+      actor ! StopPlayback
+      actor ! StartPlayback
+    }
+    Gateway.unregister(listener)
+    var foundStart = false
+    var stopCount = 0
+    while (!foundStart) {
+      listener.nextMessage() match {
+        case PlaybackStops =>
+          stopCount += 1
+        case PlaybackStarts =>
+          foundStart = true
+        case _ =>
+      }
+    }
+    listener.ensureNoMessages()
+    assert(1 == stopCount)
+    listener.shutdown()
+  }
+
+  /**
+   * Tests whether a stop playback event is fired when the end of the playlist
+   * is reached.
+   */
+  @Test def testStopEventAtEndOfPlaylist() {
+    val line = mock[SourceDataLine]
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor(0)
+    executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
+      actor ! PlaylistEnd
+      for (i <- 1 until (StreamLen2 / BufferSize + 1)) {
+        actor ! ChunkPlayed(BufferSize)
+      }
+    }
+    Gateway.unregister(listener)
+    var foundStop = false
+    while (!foundStop) {
+      listener.nextMessage() match {
+        case PlaybackStops =>
+          foundStop = true
+        case _ =>
+      }
+    }
+    listener.ensureNoMessages()
+    listener.shutdown()
   }
 }

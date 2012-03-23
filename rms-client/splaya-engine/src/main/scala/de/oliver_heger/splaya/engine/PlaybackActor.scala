@@ -79,6 +79,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   /** A flag whether the end of the playlist is reached. */
   private var endOfPlaylist = false
 
+  /** A flag whether already an end of playlist stop event has been fired. */
+  private var endOfPlaylistMessage = false
+
   /**
    * A flag whether a read error occurred. If this flag is set, data is read
    * from the original data stream rather than from the audio stream because
@@ -111,13 +114,10 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
           handleChunkPlayed(written)
 
         case StopPlayback =>
-          playbackEnabled = false
-          updateLine(_.stop())
+          handleStopPlayback()
 
         case StartPlayback =>
-          playbackEnabled = true
-          updateLine(_.start())
-          playback()
+          handleStartPlayback()
 
         case SkipCurrentSource =>
           skipCurrentSource()
@@ -289,6 +289,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def setUpPlaybackContext(): Boolean = {
     if (queue.isEmpty) {
+      fireStopEventAtEndOfPlaylist()
       false
     } else {
       preparePlayback()
@@ -438,4 +439,39 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def createPositionChangedMessage() =
     PlaybackPositionChanged(streamPosition, context.streamSize,
       stream.currentPosition, currentSource)
+
+  /**
+   * Handles a start playback message. Checks whether playback is already
+   * active.
+   */
+  private def handleStartPlayback() {
+    if (!playbackEnabled) {
+      playbackEnabled = true
+      updateLine(_.start())
+      Gateway.publish(PlaybackStarts)
+      playback()
+    }
+  }
+
+  /**
+   * Handles a stop playback message. An action is only taken if playback is
+   * active.
+   */
+  private def handleStopPlayback() {
+    if (playbackEnabled) {
+      playbackEnabled = false
+      updateLine(_.stop())
+      Gateway.publish(PlaybackStops)
+    }
+  }
+
+  /**
+   * Fires a stop event once when the end of the playlist is reached.
+   */
+  private def fireStopEventAtEndOfPlaylist() {
+    if (endOfPlaylist && !endOfPlaylistMessage) {
+      endOfPlaylistMessage = true
+      Gateway.publish(PlaybackStops)
+    }
+  }
 }

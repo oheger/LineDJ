@@ -112,6 +112,19 @@ case object StartPlayback
 case object StopPlayback
 
 /**
+ * A message indicating that the playback actor starts playback. This message
+ * is sent when the playback actor receives a ''StartPlayback'' message.
+ */
+case object PlaybackStarts
+
+/**
+ * A message indicating that the playback actor stops playback. This message is
+ * sent when the playback actor receives a ''StopPlayback'' message or reaches
+ * the end of the playlist.
+ */
+case object PlaybackStops
+
+/**
  * A message which tells the playback actor to skip the currently played audio
  * stream.
  */
