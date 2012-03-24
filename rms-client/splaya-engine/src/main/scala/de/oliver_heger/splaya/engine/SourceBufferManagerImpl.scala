@@ -47,11 +47,14 @@ class SourceBufferManagerImpl extends SourceBufferManager {
   }
 
   /**
-   * Closes this manager. This implementation iterates over all remaining files
-   * in the queue and deletes them.
+   * Flushes this manager. This implementation resets this manager's state. It
+   * also frees all used space on the local disk by iterating over remaining
+   * files in the queue and deleting them.
    */
-  def close() {
+  def flush() {
     queue foreach (_.delete())
+    updateCurrentStreamReadPosition(0)
+    tempFileSize = 0
   }
 
   /**

@@ -16,11 +16,12 @@ package de.oliver_heger.splaya.engine
  */
 trait SourceBufferManager {
   /**
-   * Closes this manager and the associated buffer. This method should be called
-   * at the end of the application. It ensures that all remaining temporary
-   * files are removed from disk.
+   * Performs a ''flush'' operation on this manager and the associated buffer.
+   * This method clears the state of this manager and ensures that all remaining
+   * temporary files are removed from disk. After calling it, the
+   * ''SourceBufferManager'' can be reused and filled with new content.
    */
-  def close(): Unit
+  def flush(): Unit
 
   /**
    * Returns the next temporary file from the buffer. Note that this operation
