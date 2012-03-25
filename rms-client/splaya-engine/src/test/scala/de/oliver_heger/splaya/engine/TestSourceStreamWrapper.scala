@@ -26,7 +26,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     tincidunt. Cras dapibus."""
 
   /** A mock for the buffer manager.*/
-  var bufferManager : SourceBufferManager = _
+  var bufferManager: SourceBufferManager = _
 
   @Before def setUp() {
     bufferManager = mock[SourceBufferManager]
@@ -53,7 +53,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
    */
   @Test def testDefaultResetHelper() {
     val stream = new SourceStreamWrapper(mock[TempFileFactory], wrappedStream(),
-        Text.length, bufferManager)
+      Text.length, bufferManager)
     assertNotNull("No reset helper", stream.streamResetHelper)
   }
 
@@ -62,10 +62,10 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
    * @param stream the stream to be read
    * @param expText the expected text content
    */
-  private def checkReadStream(stream : SourceStreamWrapper, expText : String) {
+  private def checkReadStream(stream: SourceStreamWrapper, expText: String) {
     val builder = new StringBuilder
     var c = stream.read()
-    while(c != -1) {
+    while (c != -1) {
       builder += c.toChar
       c = stream.read()
     }
@@ -78,7 +78,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
   @Test def testReadWholeStream() {
     val helper = createResetHelper()
     val stream = new SourceStreamWrapper(helper, wrappedStream(), Text.length,
-        bufferManager)
+      bufferManager)
     checkReadStream(stream, Text)
     assertNull("Got a current stream", stream.currentStream)
   }
@@ -89,7 +89,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
   @Test def testChangeLength() {
     val len = Text.length / 2
     val stream = new SourceStreamWrapper(createResetHelper(), wrappedStream(),
-        Text.length, bufferManager)
+      Text.length, bufferManager)
     stream changeLength len
     checkReadStream(stream, Text.substring(0, len))
   }
@@ -101,7 +101,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     val length = 100
     val inputStream = wrappedStream()
     val stream = new SourceStreamWrapper(createResetHelper(), inputStream,
-        length, bufferManager)
+      length, bufferManager)
     checkReadStream(stream, Text.substring(0, length))
     assert(inputStream === stream.currentStream)
   }
@@ -122,7 +122,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
 
     whenExecuting(temp1, temp2, bufferManager) {
       val stream = new SourceStreamWrapper(createResetHelper(), null,
-          2 * Text.length, bufferManager)
+        2 * Text.length, bufferManager)
       checkReadStream(stream, Text + Text)
     }
   }
@@ -132,7 +132,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
    */
   @Test def testMarkSupported() {
     val stream = new SourceStreamWrapper(createResetHelper(), null, Text.length,
-        bufferManager)
+      bufferManager)
     assert(stream.markSupported() === true)
   }
 
@@ -150,7 +150,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
 
     whenExecuting(resetHelper) {
       val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
-          Text.length(), bufferManager)
+        Text.length(), bufferManager)
       assert(stream.read(buf) === buf.length)
       assert(buf.length === stream.currentPosition)
     }
@@ -169,7 +169,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
 
     whenExecuting(resetHelper) {
       val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
-          Text.length(), bufferManager)
+        Text.length(), bufferManager)
       stream.mark(20120106)
     }
   }
@@ -185,8 +185,21 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
 
     whenExecuting(resetHelper) {
       val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
-          Text.length(), bufferManager)
+        Text.length(), bufferManager)
       stream.reset()
     }
+  }
+
+  /**
+   * Tests the close operation.
+   */
+  @Test def testClose() {
+    val helper = createResetHelper()
+    val stream = new SourceStreamWrapper(helper, wrappedStream(), Text.length,
+      bufferManager)
+    stream.read()
+    assertNotNull("No current stream", stream.currentStream)
+    stream.close()
+    assertNull("Still got a current stream", stream.currentStream)
   }
 }

@@ -130,6 +130,13 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   }
 
   /**
+   * Closes this stream. This implementation closes the underlying stream.
+   */
+  override def close() {
+    closeCurrentStream()
+  }
+
+  /**
    * Changes the length of this stream. (Usually, the length is decreased.)
    * @param newLength the new length of this stream
    */
