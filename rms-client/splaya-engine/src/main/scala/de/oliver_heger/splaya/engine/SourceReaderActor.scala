@@ -68,8 +68,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
     while (running) {
       receive {
         case ex: Exit =>
-          closeCurrentInputStream()
-          closeCurrentOutputStream(true)
+          cleanUpStreams()
           running = false
           ex.confirmed(this)
 
@@ -82,6 +81,9 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
 
         case PlaylistEnd =>
           appendSource(new AddSourceStream)
+
+        case FlushPlayer =>
+          flushActor()
       }
     }
   }
@@ -303,6 +305,28 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           bytesToWrite = 0
       }
     }
+  }
+
+  /**
+   * Closes all open streams.
+   */
+  private def cleanUpStreams() {
+    closeCurrentInputStream()
+    closeCurrentOutputStream(true)
+  }
+
+  /**
+   * Flushes this actor. Resets the state so that this actor can be used to
+   * process another playlist.
+   */
+  private def flushActor() {
+    cleanUpStreams()
+    playlistEnd = false
+    bytesToWrite = 2 * chunkSize
+    chunkBytes = 0
+    fileBytes = 0
+    sourceStreams.clear()
+    Gateway ! Gateway.ActorPlayback -> FlushPlayer
   }
 }
 

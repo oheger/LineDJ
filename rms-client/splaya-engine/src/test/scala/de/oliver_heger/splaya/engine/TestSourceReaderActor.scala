@@ -19,7 +19,7 @@ import java.io.OutputStream
 class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   /** Constant for the prefix of a URI. */
   private val URIPrefix = "file:testFile"
-    
+
   /** The stream generator. */
   private val streamGenerator = StreamDataGenerator()
 
@@ -280,7 +280,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     Gateway.register(listener)
     val len = actor.BufSize + 222
     val stream = new ExceptionInputStream(
-        streamGenerator.generateStreamContent(0, len))
+      streamGenerator.generateStreamContent(0, len))
     val src = prepareStream(stream, len + 10)
     val len2 = 333
     val src2 = prepareStream(len2)
@@ -416,6 +416,41 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       playback.ensureNoMessages()
       playback.shutdown()
       shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether the actor can handle a flush operation.
+   */
+  @Test def testFlush() {
+    setUpActor()
+    val qa = installPlaybackActor()
+    val len1 = 3 * ChunkSize
+    val src1 = prepareStream(len1)
+    val len2 = ChunkSize - 5
+    val src2 = prepareStream(len2)
+    val tempData1 = prepareTempFile()
+    val tempData2 = prepareTempFile()
+    val tempData3 = prepareTempFile()
+    EasyMock.expect(tempData3._1.delete()).andReturn(true)
+    actor.start()
+    whenExecuting(factory, resolver, tempData1._1, tempData2._1, tempData3._1) {
+      actor ! src1
+      actor ! AddSourceStream("someUri", 42)
+      actor ! AddSourceStream("anotherUri", 815)
+      actor ! PlaylistEnd
+      actor ! FlushPlayer
+      actor ! src2
+      qa.expectMessage(AudioSource(streamURI(0), 0, len1))
+      qa.expectMessage(tempData1._1)
+      qa.expectMessage(tempData2._1)
+      qa.expectMessage(FlushPlayer)
+      qa.expectMessage(AudioSource(streamURI(1), 1, len2))
+      qa.shutdown()
+      shutdownActor
+      checkStream(tempData1._2, 0, ChunkSize)
+      checkStream(tempData2._2, ChunkSize, ChunkSize)
+      checkStream(tempData3._2, len1, len2)
     }
   }
 }
