@@ -168,3 +168,10 @@ case class PlaybackPositionChanged(audioStreamPosition: Long,
     pos.toInt
   }
 }
+
+/**
+ * A message indicating that the audio player is to be flushed. Flushing means
+ * that all actors wipe out their current state so that playback can start
+ * anew, at a different position in the playlist.
+ */
+case object FlushPlayer

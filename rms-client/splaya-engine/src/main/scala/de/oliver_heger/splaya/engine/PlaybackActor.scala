@@ -99,9 +99,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       receive {
         case ex: Exit =>
           running = false
-          if (context != null) {
-            context.close()
-          }
+          flushActor()
           ex.confirmed(this)
 
         case src: AudioSource =>
@@ -128,6 +126,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
 
         case SourceReadError(newLength) =>
           handleSourceReadError(newLength)
+
+        case FlushPlayer =>
+          flushActor()
       }
     }
   }
@@ -349,10 +350,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * Skips the current audio source.
    */
   private def skipCurrentSource() {
-    updateLine { line =>
-      line.stop()
-      line.flush()
-    }
+    flushLine()
     skipPosition = Long.MaxValue
     errorStream = true // now read from source stream
   }
@@ -473,5 +471,43 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       endOfPlaylistMessage = true
       Gateway.publish(PlaybackStops)
     }
+  }
+
+  /**
+   * Performs a flush on the current line if it is available.
+   */
+  private def flushLine() {
+    updateLine { line =>
+      line.stop()
+      line.flush()
+    }
+  }
+
+  /**
+   * Closes the current context if it is available.
+   */
+  private def closeContext() {
+    if (context != null) {
+      context.close()
+      context = null
+    }
+  }
+
+  /**
+   * Performs a flush operation on this actor. This means that the internal state
+   * is reset so the actor can be used to play another playlist.
+   */
+  private def flushActor() {
+    flushLine()
+    closeContext()
+    queue.clear()
+    streamFactory.bufferManager.flush()
+    if(stream != null) {
+      stream.close()
+    }
+    endOfPlaylist = false
+    endOfPlaylistMessage = false
+    chunkPlaying = false
+    playbackEnabled = true
   }
 }
