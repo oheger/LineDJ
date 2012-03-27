@@ -12,6 +12,8 @@ import java.io.InputStream
 import java.io.Closeable
 import org.slf4j.LoggerFactory
 import java.io.IOException
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.AudioSource
 
 /**
  * An actor which reads files from a source directory and copies them to a

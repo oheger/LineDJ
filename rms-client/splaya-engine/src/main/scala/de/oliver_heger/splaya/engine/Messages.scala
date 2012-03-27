@@ -49,23 +49,6 @@ case object ReadChunk
 case object PlaylistEnd
 
 /**
- * A message for playing an audio file. The message contains some information
- * about the audio file to be played.
- * @param uri the URI of the source
- * @param index the index of this source in the current playlist
- * @param the length of the source (in bytes)
- */
-case class AudioSource(uri: String, index: Int, length: Long) {
-  /**
-   * Creates a new ''AudioSource'' object based on this instance with the
-   * specified length.
-   * @param newLength the length of the new source
-   * @return the new ''AudioSource''
-   */
-  def resize(newLength: Long): AudioSource = AudioSource(uri, index, newLength)
-}
-
-/**
  * A message for writing a chunk of audio data into the specified line.
  * @param line the line
  * @param chunk the array with the data to be played
@@ -93,15 +76,6 @@ case class ChunkPlayed(bytesWritten: Int)
 case class SourceReadError(bytesRead: Long)
 
 /**
- * A message sent out by the player engine if an error occurs during playback.
- * This can be for instance an error caused by a file which cannot be read, or
- * an error when writing a file. Some errors can be handled by the engine
- * itself, e.g. by just skipping the problematic source. Others cause the whole
- * playback to be aborted.
- */
-case class PlaybackError(msg: String, exception: Throwable, fatal: Boolean)
-
-/**
  * A message which tells the playback actor that playback should start now.
  */
 case object StartPlayback
@@ -112,62 +86,10 @@ case object StartPlayback
 case object StopPlayback
 
 /**
- * A message indicating that the playback actor starts playback. This message
- * is sent when the playback actor receives a ''StartPlayback'' message.
- */
-case object PlaybackStarts
-
-/**
- * A message indicating that the playback actor stops playback. This message is
- * sent when the playback actor receives a ''StopPlayback'' message or reaches
- * the end of the playlist.
- */
-case object PlaybackStops
-
-/**
  * A message which tells the playback actor to skip the currently played audio
  * stream.
  */
 case object SkipCurrentSource
-
-/**
- * A message sent by the playback actor to all registered listeners if playback
- * of a new audio source starts.
- * @param source the source which is now played
- */
-case class PlaybackSourceStart(source: AudioSource)
-
-/**
- * A message sent by the playback actor to all registered listeners if a source
- * has been played completely.
- * @param source the source whose playback has finished
- */
-case class PlaybackSourceEnd(source: AudioSource)
-
-/**
- * A message sent by the playback actor whenever the position in the audio
- * stream has changed. This information can be used for instance to implement
- * a progress bar showing the progress in the current audio file.
- * @param audioStreamPosition the current position in the audio stream
- * @param audioStreamLength the length of the audio stream (or -1 if unknown)
- * @param dataStreamPosition the current position in the underlying data stream
- * @param source the current audio source
- */
-case class PlaybackPositionChanged(audioStreamPosition: Long,
-  audioStreamLength: Long, dataStreamPosition: Long, source: AudioSource) {
-  /**
-   * Calculates the relative position in the stream (in percent). Depending on
-   * the information about the audio stream available, either the relative
-   * position in the audio stream is calculated or in the underlying data
-   * stream; in the latter case, result may be less exact.
-   * @return the relative position in the stream
-   */
-  def relativePosition: Int = {
-    val pos = if (audioStreamLength > 0) (100 * audioStreamPosition) / audioStreamLength
-    else (100 * dataStreamPosition / source.length)
-    pos.toInt
-  }
-}
 
 /**
  * A message indicating that the audio player is to be flushed. Flushing means

@@ -12,6 +12,13 @@ import org.easymock.IAnswer
 import java.io.InputStream
 import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaybackStarts
 
 /**
  * Test class for ''PlaybackActor''.

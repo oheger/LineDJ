@@ -6,6 +6,13 @@ import org.slf4j.LoggerFactory
 import java.util.Arrays
 import javax.sound.sampled.SourceDataLine
 import java.io.IOException
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackStarts
+import de.oliver_heger.splaya.PlaybackStops
 
 /**
  * An actor for handling audio playback.

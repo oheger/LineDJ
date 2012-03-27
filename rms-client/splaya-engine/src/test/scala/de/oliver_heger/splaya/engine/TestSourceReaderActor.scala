@@ -12,6 +12,8 @@ import org.junit.BeforeClass
 import org.junit.Before
 import java.io.IOException
 import java.io.OutputStream
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.AudioSource
 
 /**
  * Test class for ''SourceReaderActor''.
