@@ -34,10 +34,9 @@ import de.oliver_heger.splaya.PlaybackStops
  *
  * @param ctxFactory the factory for creating playback context objects
  * @param streamFactory a factory for creating stream objects
- * @param initialSkip the skip position for the first file to be played
  */
 class PlaybackActor(ctxFactory: PlaybackContextFactory,
-  streamFactory: SourceStreamWrapperFactory, initialSkip: Long) extends Actor {
+  streamFactory: SourceStreamWrapperFactory) extends Actor {
   /**
    * Constant for the default buffer size. This size is used if no playback
    * buffer is available.
@@ -69,7 +68,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private var streamPosition = 0L
 
   /** The current skip position. */
-  private var skipPosition = initialSkip
+  private var skipPosition = 0L
 
   /** The size of the last written chunk. */
   private var lastChunkSize = 0
@@ -312,6 +311,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def preparePlayback() {
     val source = queue.dequeue()
     log.info("Starting playback of {}.", source.uri)
+    skipPosition = source.skip
 
     try {
       val sourceStream = if (stream != null) stream.currentStream else null

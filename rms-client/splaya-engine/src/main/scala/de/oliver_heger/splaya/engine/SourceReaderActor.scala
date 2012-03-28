@@ -163,7 +163,8 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
         fileBytes = 0
         try {
           val resolvedStream = resolver.resolve(srcStream.uri)
-          val msg = AudioSource(srcStream.uri, srcStream.index, resolvedStream.size)
+          val msg = AudioSource(srcStream.uri, srcStream.index,
+            resolvedStream.size, srcStream.skip, srcStream.skipTime)
           currentInputStream = new BufferedInputStream(resolvedStream.openStream())
           Gateway ! Gateway.ActorPlayback -> msg
         } catch {

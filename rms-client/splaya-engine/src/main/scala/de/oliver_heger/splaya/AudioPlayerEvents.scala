@@ -32,16 +32,21 @@ case object PlaybackStops
  * in the current playlist.
  * @param uri the URI of the source
  * @param index the index of this source in the current playlist
- * @param the length of the source (in bytes)
+ * @param length the length of the source (in bytes)
+ * @param skip the skip position (i.e. the part of the stream at the beginning
+ * which is to be ignored; actual playback starts after this position)
+ * @param skipTime the skip time
  */
-case class AudioSource(uri: String, index: Int, length: Long) {
+case class AudioSource(uri: String, index: Int, length: Long, skip: Long,
+  skipTime: Long) {
   /**
    * Creates a new ''AudioSource'' object based on this instance with the
    * specified length.
    * @param newLength the length of the new source
    * @return the new ''AudioSource''
    */
-  def resize(newLength: Long): AudioSource = AudioSource(uri, index, newLength)
+  def resize(newLength: Long): AudioSource =
+    AudioSource(uri, index, newLength, skip, skipTime)
 }
 
 /**

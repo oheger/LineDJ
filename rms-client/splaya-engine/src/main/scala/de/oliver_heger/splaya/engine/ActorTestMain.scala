@@ -20,7 +20,7 @@ object ActorTestMain {
     val ctxFactory: PlaybackContextFactory = new PlaybackContextFactoryImpl
 
     val readActor = new SourceReaderActor(null, tempFileFactory, 1024)
-    val playbackActor = new PlaybackActor(ctxFactory, null, 0)
+    val playbackActor = new PlaybackActor(ctxFactory, null)
     val lineActor = new LineWriteActor
     readActor.start()
     playbackActor.start()
@@ -50,7 +50,7 @@ object ActorTestMain {
           if (f.getName().toLowerCase(Locale.ENGLISH).endsWith(".mp3")
             && f.length <= MaxSize) {
             found += 1
-            readActor ! AddSourceStream(f.getAbsolutePath, 1)
+            readActor ! new AddSourceStream(f.getAbsolutePath, 1)
           }
         }
       }

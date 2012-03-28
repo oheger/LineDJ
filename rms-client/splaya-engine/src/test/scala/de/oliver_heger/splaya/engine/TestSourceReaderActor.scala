@@ -87,7 +87,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     playlistIndex += 1
     val uri = streamURI(plIdx)
     EasyMock.expect(resolver.resolve(uri)).andReturn(ssrc)
-    AddSourceStream(uri, plIdx)
+    new AddSourceStream(uri, plIdx)
   }
 
   /**
@@ -176,7 +176,29 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempData._1) {
       actor ! src
-      qa.expectMessage(AudioSource(streamURI(0), 0, len))
+      qa.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
+      qa.shutdown()
+      shutdownActor
+      checkStream(tempData._2, 0, len)
+    }
+  }
+
+  /**
+   * Tests whether skip information is taken into account when sending messages
+   * to the playback actor.
+   */
+  @Test def testAddSingleSourceWithSkip() {
+    setUpActor()
+    val qa = installPlaybackActor()
+    val len = 111
+    val srcOrg = prepareStream(len)
+    val src = AddSourceStream(srcOrg.uri, srcOrg.index, 1000, 2222)
+    val tempData = prepareTempFile()
+    EasyMock.expect(tempData._1.delete()).andReturn(true)
+    actor.start()
+    whenExecuting(factory, resolver, tempData._1) {
+      actor ! src
+      qa.expectMessage(AudioSource(streamURI(0), 0, len, src.skip, src.skipTime))
       qa.shutdown()
       shutdownActor
       checkStream(tempData._2, 0, len)
@@ -199,8 +221,8 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(factory, resolver, tempData1._1, tempData2._1) {
       actor ! src1
       actor ! src2
-      qa.expectMessage(AudioSource(streamURI(0), 0, len1))
-      qa.expectMessage(AudioSource(streamURI(1), 1, len2))
+      qa.expectMessage(AudioSource(streamURI(0), 0, len1, 0, 0))
+      qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
       qa.expectMessage(tempData1._1)
       qa.expectMessage(tempData2._1)
       qa.shutdown()
@@ -231,9 +253,9 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
         actor ! src1
         actor ! src2
         actor ! ReadChunk
-        qa.expectMessage(AudioSource(streamURI(0), 0, len1))
+        qa.expectMessage(AudioSource(streamURI(0), 0, len1, 0, 0))
         qa.expectMessage(tempData1._1)
-        qa.expectMessage(AudioSource(streamURI(1), 1, len2))
+        qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
         qa.expectMessage(tempData2._1)
         qa.shutdown()
         shutdownActor
@@ -252,7 +274,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     qa.start()
     Gateway.register(qa)
     val uri = streamURI(1)
-    val addsrc = AddSourceStream(uri, 1)
+    val addsrc = new AddSourceStream(uri, 1)
     val ioex = new RuntimeException("Testexception")
     EasyMock.expect(resolver.resolve(uri)).andThrow(ioex)
     val tempData = prepareTempFile()
@@ -292,14 +314,14 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(factory, resolver, tempData._1) {
       actor ! src
       actor ! src2
-      playback.expectMessage(AudioSource(streamURI(0), 0, len + 10))
+      playback.expectMessage(AudioSource(streamURI(0), 0, len + 10, 0, 0))
       playback.expectMessage(SourceReadError(actor.BufSize))
       listener.nextMessage() match {
         case err: PlaybackError =>
           assert(err.fatal === false)
         case _ => fail("Unexpected message!")
       }
-      playback.expectMessage(AudioSource(streamURI(1), 1, len2))
+      playback.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
       val expContent = streamGenerator.generateStreamContent(0, actor.BufSize) +
         streamGenerator.generateStreamContent(0, len2)
       listener.shutdown()
@@ -332,7 +354,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempFile) {
       actor ! src
-      playback.expectMessage(AudioSource(streamURI(0), 0, len))
+      playback.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
       listener.nextMessage() match {
         case err: PlaybackError =>
           assert(err.fatal === true)
@@ -358,7 +380,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(factory, resolver, temp._1) {
       actor ! src
       actor ! PlaylistEnd
-      playback.expectMessage(AudioSource(streamURI(0), 0, len))
+      playback.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
       playback.expectMessage(temp._1)
       playback.expectMessage(PlaylistEnd)
       playback.shutdown()
@@ -394,7 +416,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempData._1) {
       actor ! PlaylistEnd
-      actor ! AddSourceStream(streamURI(0), 0)
+      actor ! AddSourceStream(streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
       playback.ensureNoMessages()
       playback.shutdown()
@@ -413,7 +435,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempData._1) {
       actor ! new AddSourceStream
-      actor ! AddSourceStream(streamURI(0), 0)
+      actor ! AddSourceStream(streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
       playback.ensureNoMessages()
       playback.shutdown()
@@ -438,16 +460,16 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempData1._1, tempData2._1, tempData3._1) {
       actor ! src1
-      actor ! AddSourceStream("someUri", 42)
-      actor ! AddSourceStream("anotherUri", 815)
+      actor ! new AddSourceStream("someUri", 42)
+      actor ! new AddSourceStream("anotherUri", 815)
       actor ! PlaylistEnd
       actor ! FlushPlayer
       actor ! src2
-      qa.expectMessage(AudioSource(streamURI(0), 0, len1))
+      qa.expectMessage(AudioSource(streamURI(0), 0, len1, 0, 0))
       qa.expectMessage(tempData1._1)
       qa.expectMessage(tempData2._1)
       qa.expectMessage(FlushPlayer)
-      qa.expectMessage(AudioSource(streamURI(1), 1, len2))
+      qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
       qa.shutdown()
       shutdownActor
       checkStream(tempData1._2, 0, ChunkSize)

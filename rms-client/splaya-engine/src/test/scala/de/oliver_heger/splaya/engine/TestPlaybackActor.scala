@@ -71,10 +71,9 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
 
   /**
    * Creates a test actor instance.
-   * @param skip the initial skip position
    */
-  private def setUpActor(skip: Long) {
-    actor = new PlaybackActor(ctxFactory, streamFactory, skip)
+  private def setUpActor() {
+    actor = new PlaybackActor(ctxFactory, streamFactory)
     actor.start()
   }
 
@@ -135,7 +134,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    */
   @Test def testStartAndExit() {
     EasyMock.replay(streamFactory)
-    setUpActor(0)
+    setUpActor()
     shutdownActor()
   }
 
@@ -143,7 +142,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * Tests that nothing is done if no audio source is available.
    */
   @Test def testPlayChunkNoSource() {
-    setUpActor(0)
+    setUpActor()
     val lineActor = installLineWriterActor(null)
     EasyMock.expect(bufMan.bufferSize).andReturn(10 * BufferSize).anyTimes()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
@@ -169,11 +168,13 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * @param line the line
    * @param lineActor the mock line actor
    * @param bufSize the buffer size to be returned by the buffer manager
+   * @param skip the initial skip position
    */
   private def executePlaybackTestWithMultipleChunksAndSources(
-    line: SourceDataLine, lineActor: Actor, bufSize: Int = 2 * 4096) {
+    line: SourceDataLine, lineActor: Actor, bufSize: Int = 2 * 4096,
+    skip: Long = 0) {
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor,
-      bufSize)(null);
+      bufSize, true, skip)(null);
   }
 
   /**
@@ -183,12 +184,13 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * @param lineActor the mock line actor
    * @param bufSize the buffer size to be returned by the buffer manager
    * @param expFlush a flag whether flush operation is to be expected
+   * @param skip the initial skip position
    * @param f an (optional) function which is called to execute additional test
    * steps
    */
   private def executePlaybackTestWithMultipleChunksAndSourcesEnhanced(
     line: SourceDataLine, lineActor: Actor, bufSize: Int = 2 * 4096,
-    expFlush: Boolean = true)(f: Unit => Unit) {
+    expFlush: Boolean = true, skip: Long = 0)(f: Unit => Unit) {
     val streamWrapper1 = mock[SourceStreamWrapper]
     val streamWrapper2 = mock[SourceStreamWrapper]
     val dataStream = mock[InputStream]
@@ -212,8 +214,8 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     streamWrapper2.close()
     whenExecuting(bufMan, ctxFactory, streamFactory, line, streamWrapper1,
       streamWrapper2, context1, context2) {
-        actor ! AudioSource("uri1", 1, StreamLen1)
-        actor ! AudioSource("uri2", 2, StreamLen2)
+        actor ! AudioSource("uri1", 1, StreamLen1, skip, skip * 60)
+        actor ! AudioSource("uri2", 2, StreamLen2, 0, 0)
         actor ! ChunkPlayed(BufferSize)
         actor ! ChunkPlayed(BufferSize)
         if (f != null) f()
@@ -246,7 +248,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
         assert(0 === pc.skipPos)
         strBuffer append copyBufferToString(pc)
     }
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
     lineActor.ensureNoMessages(3)
     lineActor.shutdown()
@@ -272,9 +274,10 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testPlaybackWithSkip() {
     val line = mock[SourceDataLine]
     val initSkip = 10000L
-    setUpActor(initSkip)
+    setUpActor()
     val lineActor = installLineWriterActor(null)
-    executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
+    executePlaybackTestWithMultipleChunksAndSources(line = line,
+        skip = initSkip, lineActor = lineActor)
     val pc1 = extractPlayChunkMessage(lineActor)
     assert(initSkip === pc1.skipPos)
     assert(0 === pc1.currentPos)
@@ -291,12 +294,12 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * the buffer.
    */
   @Test def testPlaybackNotEnoughDataInBuffer() {
-    setUpActor(0)
+    setUpActor()
     val lineActor = installLineWriterActor(null)
     EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
     bufMan.flush()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
-      actor ! AudioSource("uri", 1, 1000)
+      actor ! AudioSource("uri", 1, 1000, 0, 0)
       lineActor.ensureNoMessages()
       lineActor.shutdown()
       shutdownActor()
@@ -309,7 +312,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testPlaybackPauseAndResume() {
     val line = mock[SourceDataLine]
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     line.stop()
     line.start()
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
@@ -329,10 +332,10 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    */
   @Test def testStopPlaybackBeforeStart() {
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
       actor ! StopPlayback
-      actor ! AudioSource("uri", 1, 1000)
+      actor ! AudioSource("uri", 1, 1000, 0, 0)
       lineActor.ensureNoMessages()
       lineActor.shutdown()
     }
@@ -345,7 +348,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testStartAlreadyPlaying() {
     val line = mock[SourceDataLine]
     val lineaActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineaActor) { f =>
       actor ! StartPlayback
     }
@@ -359,7 +362,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val line = mock[SourceDataLine]
     line.stop()
     val lineaActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineaActor) { f =>
       actor ! StartPlayback
       actor ! StopPlayback
@@ -374,7 +377,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testPlaybackAtEndOfPlaylist() {
     val line = mock[SourceDataLine]
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     actor ! PlaylistEnd
     executePlaybackTestWithMultipleChunksAndSources(line, lineActor, BufferSize)
     lineActor.nextMessage()
@@ -389,7 +392,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val ofs = StreamLen2 * 2
     val stream = createStreamWrapper(streamGen.generateStream(ofs, StreamLen2),
       StreamLen2)
-    val src = AudioSource("uri", 1, StreamLen2)
+    val src = AudioSource("uri", 1, StreamLen2, 0, 0)
     EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
     val context = createContext(line, StreamLen2)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
@@ -401,7 +404,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     expectFlush(line)
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
       actor ! SkipCurrentSource
@@ -428,7 +431,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
       bufMan.flush()
     }
-    setUpActor(0)
+    setUpActor()
     whenExecuting(bufMan, ctxFactory, streamFactory, temp) {
       actor ! temp
       shutdownActor()
@@ -453,11 +456,11 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val line = mock[SourceDataLine]
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSources(line, lineActor)
     lineActor.shutdown()
-    val src1 = AudioSource("uri1", 1, StreamLen1)
-    val src2 = AudioSource("uri2", 2, StreamLen2)
+    val src1 = AudioSource("uri1", 1, StreamLen1, 0, 0)
+    val src2 = AudioSource("uri2", 2, StreamLen2, 0, 0)
     listener.expectMessage(PlaybackSourceStart(src1))
     listener.expectMessage(PlaybackPositionChanged(BufferSize, AudioStreamLen,
       StreamLen1 / 2, src1))
@@ -475,7 +478,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * message if the length of the audio stream is known.
    */
   @Test def testPositionChangedMsgRelativePositionFromAudioStream() {
-    val src = AudioSource("uri", 1, 200)
+    val src = AudioSource("uri", 1, 200, 0, 0)
     val msg = PlaybackPositionChanged(750, 1000, 10, src)
     assert(75 === msg.relativePosition)
   }
@@ -486,7 +489,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * underlying stream.
    */
   @Test def testPositionChangedMsgRelativePositionFromOriginalStream() {
-    val src = AudioSource("uri", 1, 1000)
+    val src = AudioSource("uri", 1, 1000, 0, 0)
     val msg = PlaybackPositionChanged(100, -1, 750, src)
     assert(75 === msg.relativePosition)
   }
@@ -519,14 +522,14 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val len = BufferSize + 10
     val stream = createStreamWrapper(len)
     val ex = new RuntimeException("TestException")
-    val src = AudioSource("uri", 1, len)
+    val src = AudioSource("uri", 1, len, 0, 0)
     EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andThrow(ex)
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     bufMan.flush()
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan) {
       actor ! src
       actor ! ChunkPlayed(BufferSize)
@@ -565,7 +568,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val line = mock[SourceDataLine]
     val len = 100
     val stream = createStreamWrapper(len)
-    val src = AudioSource("uri", 1, len)
+    val src = AudioSource("uri", 1, len, 0, 0)
     EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
     val context = createContext(line, new ExceptionInputStream("Error"))
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
@@ -578,7 +581,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     expectFlush(line)
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
       listener.skipMessages(1)
@@ -604,7 +607,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testErrorReadOriginalStream() {
     val line = mock[SourceDataLine]
     val len = 100
-    val src = AudioSource("uri", 1, len)
+    val src = AudioSource("uri", 1, len, 0, 0)
     val stream = new ExceptionInputStream("Error1")
     val streamWrapper = createStreamWrapper(stream, BufferSize)
     EasyMock.expect(streamFactory.createStream(null, len)).andReturn(streamWrapper)
@@ -619,7 +622,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     expectFlush(line)
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
       listener.skipMessages(1)
@@ -642,7 +645,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testSourceReadErrorBeforeStart() {
     val line = mock[SourceDataLine]
     val len = 222
-    val src = AudioSource("uri1", 1, 2 * BufferSize)
+    val src = AudioSource("uri1", 1, 2 * BufferSize, 0, 0)
     val stream = createStreamWrapper(src.length.toInt)
     EasyMock.expect(bufMan.bufferSize).andReturn(0)
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
@@ -654,11 +657,11 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.start()
     expectFlush(line)
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
       actor ! SourceReadError(len)
-      actor ! AudioSource("uri2", 2, 8888)
+      actor ! AudioSource("uri2", 2, 8888, 0, 0)
       shutdownActor()
     }
     lineActor.ensureNoMessages(1)
@@ -674,7 +677,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val stream = mock[SourceStreamWrapper]
     val orgLength = 5 * BufferSize
     val newLength = 2 * BufferSize
-    val src = AudioSource("uri1", 1, orgLength)
+    val src = AudioSource("uri1", 1, orgLength, 0, 0)
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     EasyMock.expect(streamFactory.createStream(null, orgLength)).andReturn(stream)
     val context = createContext(line, orgLength)
@@ -686,7 +689,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     expectFlush(line)
     stream.close()
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
       actor ! src
       actor ! SourceReadError(newLength)
@@ -701,7 +704,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testChunkPlayedIncomplete() {
     val line = mock[SourceDataLine]
     val stream = mock[SourceStreamWrapper]
-    val src = AudioSource("uri1", 1, StreamLen2)
+    val src = AudioSource("uri1", 1, StreamLen2, 0, 0)
     val written = 100
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     EasyMock.expect(streamFactory.createStream(null, StreamLen2)).andReturn(stream)
@@ -718,7 +721,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       case pc: PlayChunk =>
         buffer append copyBufferToString(pc)
     }
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
       actor ! src
       actor ! ChunkPlayed(0)
@@ -741,7 +744,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val line = mock[SourceDataLine]
     val stream = mock[SourceStreamWrapper]
     val streamLen = BufferSize / 2
-    val src = AudioSource("uri1", 1, streamLen)
+    val src = AudioSource("uri1", 1, streamLen, 0, 0)
     val written = 100
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     EasyMock.expect(streamFactory.createStream(null, streamLen)).andReturn(stream)
@@ -760,7 +763,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
         buffer append copyBufferToString(pc)
         posList += pc.currentPos
     }
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
       actor ! src
       actor ! ChunkPlayed(written)
@@ -785,7 +788,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.start()
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line, lineActor) { f =>
       actor ! StopPlayback
       actor ! StartPlayback
@@ -816,7 +819,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     bufMan.flush()
     val lineActor = installLineWriterActor(null)
     val listener = installListener()
-    setUpActor(0)
+    setUpActor()
     executePlaybackTestWithMultipleChunksAndSourcesEnhanced(line = line,
       lineActor = lineActor, expFlush = false) { f =>
         actor ! PlaylistEnd
@@ -863,15 +866,15 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     stream1.close()
     stream2.close()
     val lineActor = installLineWriterActor(null)
-    setUpActor(0)
+    setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context1, context2, line,
       stream1, stream2) {
-        actor ! AudioSource("uri0", 1, StreamLen1)
+        actor ! AudioSource("uri0", 1, StreamLen1, 0, 0)
         for (i <- 1 until 10) {
-          actor ! AudioSource("uri" + i, i + 1, StreamLen1 + i)
+          actor ! AudioSource("uri" + i, i + 1, StreamLen1 + i, 0, 0)
         }
         actor ! FlushPlayer
-        actor ! AudioSource("uriNext", 2, StreamLen2)
+        actor ! AudioSource("uriNext", 2, StreamLen2, 0, 0)
         shutdownActor()
       }
   }

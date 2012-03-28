@@ -21,8 +21,23 @@ case class Exit() {
 
 /**
  * A message for adding a stream to be played to the source reader actor.
+ * Messages of this type are typically sent by the component which controls the
+ * current playlist.
+ * @param uri the URI of the audio stream to be played
+ * @param index the index of this audio source in the current playlist
+ * @param skip the initial skip position
+ * @param skipTime the time to be skipped in the beginning of this audio stream
  */
-case class AddSourceStream(uri: String, index: Int) {
+case class AddSourceStream(uri: String, index: Int, skip: Long, skipTime: Long) {
+  /**
+   * A specialized constructor for creating an instance that does not contain
+   * any skip information. This means that the referenced audio stream is to
+   * be played directly from start.
+   * @param uri the URI of the audio stream to be played
+   * @param index the index of this audio source in the current playlist
+   */
+  def this(uri: String, index: Int) = this(uri, index, 0, 0)
+
   /**
    * A specialized constructor for creating an instance that does not contain
    * any real data. Such an instance can be used to indicate the end of a
