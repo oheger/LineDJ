@@ -20,6 +20,9 @@ import org.junit.Assert._
  */
 class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
   extends Actor {
+  /** An internally used exit message. */
+  private val ExitMessage = "QueuingActor.ExitMessage"
+
   /** The timeout used by this actor (in seconds). */
   private val TimeOut = 5
 
@@ -47,7 +50,7 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
     var running = true
     while (running) {
       receive {
-        case Exit => running = false
+        case ExitMessage => running = false
         case msg =>
           if (handler.isDefinedAt(msg)) {
             handler(msg)
@@ -104,6 +107,6 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
    * Causes this actor to stop.
    */
   def shutdown() {
-    this ! Exit
+    this ! ExitMessage
   }
 }
