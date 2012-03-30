@@ -85,3 +85,13 @@ case class PlaybackPositionChanged(audioStreamPosition: Long,
     pos.toInt
   }
 }
+
+/**
+ * A message indicating that the playback time has changed. A message of this
+ * type is sent after each ''PlaybackPositionChanged'' message provided that
+ * the skip position is reached and there is a significant difference since the
+ * last ''PlaybackTimeChanged'' message. Client applications can use this
+ * message for instance to display the current playback time.
+ * @param time the playback time (in milliseconds)
+ */
+case class PlaybackTimeChanged(time: Long)

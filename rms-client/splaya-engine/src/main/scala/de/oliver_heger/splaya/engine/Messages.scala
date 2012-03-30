@@ -112,3 +112,13 @@ case object SkipCurrentSource
  * anew, at a different position in the playlist.
  */
 case object FlushPlayer
+
+/**
+ * A message to be evaluated by [[de.oliver_heger.splaya.engine.TimingActor]]
+ * for performing a specific action and passing in the current time. The timing
+ * actor will call the function which is part of the message and passes the
+ * current time as argument. That way the current playback time can be accessed
+ * in a thread-safe fashion.
+ * @param f the function to be invoked with the current playback time
+ */
+case class TimeAction(f: Long => Unit)
