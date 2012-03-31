@@ -29,7 +29,12 @@ trait PlaylistController {
    * Moves to a relative position in the current playlist. The specified delta
    * is added to the current playlist position. After that - as is true for
    * ''moveToSourceAt()'' - the content of the playlist (for the new position
-   * on) must be sent again to the audio player engine.
+   * on) must be sent again to the audio player engine. The delta may be 0,
+   * in which case the current audio source should be played again. It is also
+   * possible that the delta causes the index in the playlist to become
+   * invalid; in this case an implementation should gracefully correct it
+   * appropriately. For instance, if the new current index is -1, it should be
+   * set to 0.
    * @param delta the delta to be added to the current playlist position; it can
    * be positive or negative
    */

@@ -1,6 +1,7 @@
 package de.oliver_heger.splaya.engine
 
 import de.oliver_heger.splaya.AudioPlayer
+import scala.actors.Actor
 
 /**
  * The default implementation of the ''AudioPlayer'' trait.
@@ -27,8 +28,16 @@ import de.oliver_heger.splaya.AudioPlayer
  * - Before the application exists, ''shutdown()'' should be called.
  *
  * @param playlistController the object managing playlist information
+ * @param timingActor the actor responsible for timing
+ * @param moveBackwardThreshold a time (in milliseconds) which controls the
+ * behavior of the ''moveBackward()'' operation: this method checks the current
+ * playback time; if it is less than this value, it moves back in the playlist
+ * to the previous audio source; otherwise, the current audio source is played
+ * again
  */
-class AudioPlayerImpl(val playlistController: PlaylistController) extends AudioPlayer {
+class AudioPlayerImpl(val playlistController: PlaylistController,
+  timingActor: Actor, val moveBackwardThreshold: Long = 5000)
+  extends AudioPlayer {
   /**
    * @inheritdoc This implementation sends a ''StartPlayback'' message to the
    * playback actor.
@@ -53,9 +62,21 @@ class AudioPlayerImpl(val playlistController: PlaylistController) extends AudioP
     Gateway ! Gateway.ActorPlayback -> SkipCurrentSource
   }
 
+  /**
+   * @inheritdoc This implementation interacts with the ''TimingActor'' to
+   * obtain the current playback time. If it is below the
+   * ''moveBackwardThreshold'' value, it moves to the previous audio source in
+   * the playlist. Otherwise, it causes the current audio source to be played
+   * again. In any case the playlist is updated, therefore a flush operation
+   * has to be performed.
+   */
   def moveBackward() {
-    //TODO implementation
-    throw new UnsupportedOperationException("Not yet implemented!");
+    flush()
+    timingActor ! TimeAction { time =>
+      playlistController.moveToSourceRelative(
+        if (time < moveBackwardThreshold) -1
+        else 0)
+    }
   }
 
   /**
