@@ -38,7 +38,7 @@ class FSScannerImpl(manager: FileSystemManager,
    * @inheritdoc This implementation triggers a recursive scan of the given
    * root directory.
    */
-  def scan(rootUri: String): List[String] = {
+  def scan(rootUri: String): Seq[String] = {
     val resultBuffer = ListBuffer.empty[String]
     val root = manager.resolveFile(rootUri)
     val selector = new FileFilterSelector(filter)

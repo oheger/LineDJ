@@ -16,5 +16,5 @@ trait FSScanner {
    * @param rootUri the URI pointing to the directory structure to be scanned
    * @return a list with the media files which have been discovered
    */
-  def scan(rootUri: String): List[String]
+  def scan(rootUri: String): Seq[String]
 }

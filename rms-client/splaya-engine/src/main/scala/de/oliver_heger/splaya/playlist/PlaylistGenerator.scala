@@ -1,5 +1,6 @@
 package de.oliver_heger.splaya.playlist
-import scala.xml.Elem
+
+import scala.xml.NodeSeq
 
 /**
  * Definition of an interface for a component which can generate a playlist.
@@ -11,7 +12,10 @@ import scala.xml.Elem
  * The basic idea is that there is a mode string describing the way the playlist
  * is to be generated (e.g. ordered by directories, random order, specific
  * order, etc.). Depending on the mode, there can be additional arguments
- * which are specified as semi-structured XML data.
+ * which are specified as semi-structured XML data. A concrete implementation
+ * has to interpret the mode string and perform a corresponding ordering.
+ * However, it should be able to handle an unknown mode string gracefully; in
+ * this case a default ordering should be used.
  */
 trait PlaylistGenerator {
   /**
@@ -25,5 +29,5 @@ trait PlaylistGenerator {
    * @param params additional parameters as XML
    * @return the ordered playlist
    */
-  def generatePlaylist(songs: List[String], mode: String, params: Elem): List[String]
+  def generatePlaylist(songs: Seq[String], mode: String, params: NodeSeq): Seq[String]
 }
