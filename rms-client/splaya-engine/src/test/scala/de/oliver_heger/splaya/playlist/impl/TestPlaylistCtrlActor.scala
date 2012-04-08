@@ -14,6 +14,11 @@ import org.junit.Test
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.engine.AddSourceStream
 import scala.xml.Elem
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackTimeChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
 
 /**
  * Test class for ''PlaylistCtrlActor''.
@@ -102,21 +107,26 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
    * @return a sequence with the URIs in the test playlist
    */
   private def createPlaylist(startIdx: Int = 0): Seq[String] =
-    for (i <- startIdx to PlaylistSize) yield playlistURI(i)
+    for (i <- startIdx until PlaylistSize) yield playlistURI(i)
 
   /**
    * Checks whether the correct playlist was sent to the source reader actor.
    * @param startIdx the index of the first URI in the playlist
    * @param skipPos the skip position of the first playlist item
    * @param skipTime the skip time of the first playlist item
+   * @param checkNoMsgs if '''true''', checks whether the line actor did not
+   * receive any more messages
    */
-  private def checkSentPlaylist(startIdx: Int, skipPos: Long, skipTime: Long) {
+  private def checkSentPlaylist(startIdx: Int, skipPos: Long, skipTime: Long,
+    checkNoMsgs: Boolean = true) {
     sourceActor.expectMessage(AddSourceStream(playlistURI(startIdx), startIdx,
       skipPos, skipTime))
-    for (i <- startIdx + 1 to PlaylistSize) {
+    for (i <- startIdx + 1 until PlaylistSize) {
       sourceActor.expectMessage(AddSourceStream(playlistURI(i), i, 0, 0))
     }
-    sourceActor.ensureNoMessages()
+    if (checkNoMsgs) {
+      sourceActor.ensureNoMessages()
+    }
   }
 
   /**
@@ -152,21 +162,35 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     </configuration>
 
   /**
+   * Generates a XML document for a persistent playlist. The current section
+   * contains the specified index and the default skip positions. The list
+   * section lists the whole playlist.
+   * @param pl the current playlist
+   * @param currentIndex the current index in the playlist
+   * @param pos the skip position
+   * @param time the skip time
+   * @return the XML document
+   */
+  private def createPersistentPlaylist(pl: Seq[String], currentIndex: Int,
+    pos: Long = CurrentPos, time: Long = CurrentTime) =
+    <configuration>
+      <current>
+        <index>{ currentIndex }</index>
+        <position>{ pos }</position>
+        <time>{ time }</time>
+      </current>
+      <list>
+        { for (uri <- pl) yield <file name={ uri }/> }
+      </list>
+    </configuration>
+
+  /**
    * Tests whether an already existing playlist is detected if a medium is read.
    */
   @Test def testReadMediumExistingPlaylist() {
     val currentIndex = 8
     val pl = createPlaylist()
-    val playlistData = <configuration>
-                         <current>
-                           <index>{ currentIndex }</index>
-                           <position>{ CurrentPos }</position>
-                           <time>{ CurrentTime }</time>
-                         </current>
-                         <list>
-                           { for (uri <- pl) yield <file name={ uri }/> }
-                         </list>
-                       </configuration>
+    val playlistData = createPersistentPlaylist(pl, currentIndex)
     expectPlaylistProcessing(pl, Some(playlistData), None)
     whenExecuting(scanner, store, generator) {
       actor ! ReadMedium(RootURI)
@@ -259,6 +283,173 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! ReadMedium(RootURI)
       shutdownActor()
       sourceActor.ensureNoMessages()
+    }
+  }
+
+  /**
+   * Prepares a test which requires an existing playlist. The mocks are
+   * initialized to create a new playlist which is sent initially to the source
+   * actor. Current index is 0.
+   */
+  private def prepareTestWithPlaylist() {
+    val pl = createPlaylist()
+    expectPlaylistProcessing(pl, None, None)
+    EasyMock.expect(generator.generatePlaylist(pl, "", xml.NodeSeq.Empty))
+      .andReturn(pl)
+  }
+
+  /**
+   * Tests whether the actor can move to a valid index in the playlist.
+   */
+  @Test def testMoveToValidIndex() {
+    prepareTestWithPlaylist()
+    val newIndex = 12
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! MoveTo(newIndex)
+      sourceActor.skipMessages(PlaylistSize)
+      checkSentPlaylist(newIndex, 0, 0)
+    }
+  }
+
+  /**
+   * Helper method for testing whether the actor can deal with MoveTo messages
+   * with an invalid index.
+   * @param idx the index of the message
+   */
+  private def checkMoveToInvalidIndex(idx: Int) {
+    prepareTestWithPlaylist()
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! MoveTo(idx)
+      shutdownActor()
+      sourceActor.ensureNoMessages(PlaylistSize)
+    }
+  }
+
+  /**
+   * Tries to move to a playlist index less than 0.
+   */
+  @Test def testMoveToIndexTooSmall() {
+    checkMoveToInvalidIndex(-1)
+  }
+
+  /**
+   * Tries to move to a playlist index which is too big.
+   */
+  @Test def testMoveToIndexTooBig() {
+    checkMoveToInvalidIndex(PlaylistSize)
+  }
+
+  /**
+   * Tests whether a message for a relative move is correctly processed.
+   */
+  @Test def testMoveRelativeValidIndex() {
+    prepareTestWithPlaylist()
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! MoveRelative(5)
+      actor ! MoveRelative(-2)
+      sourceActor.skipMessages(PlaylistSize)
+      checkSentPlaylist(5, 0, 0, false)
+      checkSentPlaylist(3, 0, 0)
+    }
+  }
+
+  /**
+   * Tests a relative move which would cause an invalid index.
+   */
+  @Test def testMoveRelativeInvalidIndex() {
+    prepareTestWithPlaylist()
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! MoveRelative(PlaylistSize - 1)
+      actor ! MoveRelative(5)
+      sourceActor.skipMessages(PlaylistSize)
+      checkSentPlaylist(PlaylistSize - 1, 0, 0, false)
+      checkSentPlaylist(PlaylistSize - 1, 0, 0)
+    }
+  }
+
+  /**
+   * Tests a relative move operation if the current playlist is empty.
+   */
+  @Test def testMoveRelativeNoPlaylist() {
+    whenExecuting(scanner, store, generator) {
+      actor ! MoveRelative(5)
+      shutdownActor()
+      sourceActor.ensureNoMessages()
+    }
+  }
+
+  /**
+   * Creates a test audio source with the specified index.
+   * @param idx the index
+   * @return the test audio source
+   */
+  private def createSource(idx: Int): AudioSource =
+    AudioSource(playlistURI(idx), idx, CurrentPos + idx, 0, 0)
+
+  /**
+   * Tests whether the state of the playlist can be saved.
+   */
+  @Test def testSavePlaylist() {
+    prepareTestWithPlaylist()
+    val currentIndex = 16
+    val pl = createPlaylist()
+    store.savePlaylist(PlaylistID, createPersistentPlaylist(pl, currentIndex))
+    val source = createSource(currentIndex)
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! PlaybackSourceStart(source)
+      actor ! PlaybackPositionChanged(CurrentPos, 2000, 500, source)
+      actor ! PlaybackTimeChanged(CurrentTime)
+      actor ! SavePlaylist
+      checkSentPlaylist(0, 0, 0)
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether the playlist state is saved automatically after a number of
+   * sources has been played.
+   */
+  @Test def testAutoSavePlaylist() {
+    def sendSourceMessages(idx: Int) {
+      val source = createSource(idx)
+      actor ! PlaybackSourceStart(source)
+      actor ! PlaybackSourceEnd(source)
+    }
+
+    prepareTestWithPlaylist()
+    store.savePlaylist(PlaylistID, createPersistentPlaylist(createPlaylist(),
+      2, 0, 0))
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      sendSourceMessages(0)
+      sendSourceMessages(1)
+      val source = createSource(2)
+      actor ! PlaybackSourceStart(source)
+      actor ! PlaybackPositionChanged(CurrentPos, 2000, 500, source)
+      actor ! PlaybackTimeChanged(CurrentTime)
+      actor ! PlaybackSourceEnd(source)
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether a playlist can be persisted if it has been fully played.
+   */
+  @Test def testSavePlaylistComplete() {
+    prepareTestWithPlaylist()
+    val source = createSource(PlaylistSize - 1)
+    store.savePlaylist(PlaylistID, PlaylistCtrlActor.EmptyPlaylist)
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      actor ! PlaybackSourceStart(source)
+      actor ! PlaybackSourceEnd(source)
+      actor ! SavePlaylist
+      shutdownActor()
     }
   }
 }

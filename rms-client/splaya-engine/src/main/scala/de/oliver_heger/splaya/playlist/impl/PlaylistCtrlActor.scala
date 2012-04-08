@@ -8,6 +8,11 @@ import scala.xml.Elem
 import scala.collection.mutable.ListBuffer
 import de.oliver_heger.splaya.engine.AddSourceStream
 import de.oliver_heger.splaya.engine.Exit
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackTimeChanged
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -22,20 +27,40 @@ import de.oliver_heger.splaya.engine.Exit
  * [[de.oliver_heger.splaya.engine.AddSourceStream]] messages sent to the actor
  * responsible for audio streaming. It lies also in the responsibility of this
  * actor to persist the current state of the playlist, so that playback can be
- * interrupted and resumed later.
+ * interrupted and resumed later. There is an auto-save functionality which
+ * causes the playlist to be saved automatically after a configurable number of
+ * played audio sources.
  *
  * @param sourceActor the actor to which the playlist has to be communicated
  * @param scanner the ''FSScanner'' for scanning the source medium
  * @param store the ''PlaylistFileStore'' for persisting playlist data
  * @param generator the ''PlaylistGenerator'' for generating a new playlist
+ * @param autoSaveInterval the number of audio sources after which the
+ * current playlist is saved (auto-save)
  */
 private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
-  store: PlaylistFileStore, generator: PlaylistGenerator) extends Actor {
+  store: PlaylistFileStore, generator: PlaylistGenerator,
+  autoSaveInterval: Int = 3) extends Actor {
   /** A sequence with the current playlist. */
   private var playlist: Seq[String] = List.empty
 
   /** The ID of the current playlist. */
   private var playlistID: String = _
+
+  /** The current index in the playlist. */
+  private var currentIndex: Int = _
+
+  /** The current position in the current audio source. */
+  private var currentPos: Long = _
+
+  /** The current time in the current audio source. */
+  private var currentTime: Long = _
+
+  /** A counter for implementing the auto-save feature. */
+  private var autoSaveCount = 0
+
+  /** A flag whether the playlist has been played completely. */
+  private var playlistComplete: Boolean = false
 
   def act() {
     var running = true
@@ -48,6 +73,27 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
 
         case ReadMedium(uri) =>
           handleReadMedium(uri)
+
+        case MoveTo(idx) =>
+          handleMoveTo(idx)
+
+        case MoveRelative(delta) =>
+          handleMoveRelative(delta)
+
+        case SavePlaylist =>
+          savePlaylist()
+
+        case PlaybackSourceStart(source) =>
+          handlePlaybackSourceStart(source)
+
+        case PlaybackSourceEnd(source) =>
+          handlePlaybackSourceEnd(source)
+
+        case PlaybackPositionChanged(pos, _, _, _) =>
+          currentPos = pos
+
+        case PlaybackTimeChanged(time) =>
+          currentTime = time
       }
     }
   }
@@ -96,6 +142,53 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
     } else {
       setUpExistingPlaylist(playlistData.get)
     }
+  }
+
+  /**
+   * Handles a message to move the current index to an absolute position. If
+   * the position is invalid, the message is ignored.
+   * @param idx the new index
+   */
+  private def handleMoveTo(idx: Int) {
+    if (idx >= 0 && idx < playlist.size) {
+      currentIndex = idx
+      sendPlaylist(idx)
+    }
+  }
+
+  /**
+   * Handles a message to move the current index by a given delta. This
+   * implementation ensures that the new index is valid. If there is no
+   * playlist at all, this message is ignored.
+   * @param delta the delta
+   */
+  private def handleMoveRelative(delta: Int) {
+    if (!playlist.isEmpty) {
+      currentIndex = scala.math.min(playlist.size - 1,
+        scala.math.max(0, currentIndex + delta))
+      sendPlaylist(currentIndex)
+    }
+  }
+
+  /**
+   * Handles a message that playback of a new audio source has started.
+   * @param source the audio source
+   */
+  private def handlePlaybackSourceStart(source: AudioSource) {
+    playlistComplete = false
+    currentIndex = source.index
+  }
+
+  /**
+   * Handles a message that a source has been played completely. This method
+   * also is responsible for the auto save feature.
+   * @param source the audio source
+   */
+  private def handlePlaybackSourceEnd(source: AudioSource) {
+    currentPos = 0
+    currentTime = 0
+    playlistComplete = source.index >= playlist.size - 1
+    checkAutoSave()
   }
 
   /**
@@ -187,12 +280,52 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
       settings.orderParams)
     sendPlaylist(0)
   }
+
+  /**
+   * Saves the current playlist including information about the current
+   * position.
+   */
+  private def savePlaylist() {
+    val xml = if (playlistComplete) PlaylistCtrlActor.EmptyPlaylist
+    else createPlaylistXML
+    store.savePlaylist(playlistID, xml)
+  }
+
+  /**
+   * Creates the XML for persisting the current playlist.
+   * @return the XML for the current playlist
+   */
+  private def createPlaylistXML: Elem =
+    <configuration>
+      <current>
+        <index>{ currentIndex }</index>
+        <position>{ currentPos }</position>
+        <time>{ currentTime }</time>
+      </current>
+      <list>
+        { for (uri <- playlist) yield <file name={ uri }/> }
+      </list>
+    </configuration>
+
+  /**
+   * Performs an auto save if necessary.
+   */
+  private def checkAutoSave() {
+    autoSaveCount += 1
+    if (autoSaveCount >= autoSaveInterval) {
+      savePlaylist()
+      autoSaveCount = 0
+    }
+  }
 }
 
 /**
  * The companion object for ''PlaylistCtrlActor''.
  */
 private object PlaylistCtrlActor {
+  /** An XML element representing an empty or completely played playlist. */
+  private[impl] val EmptyPlaylist = <configuration/>
+
   /** Constant for an empty name or description of a playlist. */
   private val EmptyName = ""
 
@@ -255,3 +388,23 @@ private case class PlaylistSettingsData(name: String, description: String,
  * @param uri the URI of the root directory to be scanned
  */
 private case class ReadMedium(uri: String)
+
+/**
+ * A message which causes the ''PlaylistCtrlActor'' to set the current index to
+ * the given position. If the index is valid, the new playlist is sent to the
+ * source reader actor.
+ * @param index the new index in the playlist
+ */
+private case class MoveTo(index: Int)
+
+/**
+ * A message which causes the ''PlaylistCtrlActor'' to move the current index
+ * by a relative delta. It is guaranteed that the new index is valid.
+ */
+private case class MoveRelative(delta: Int)
+
+/**
+ * A message which causes the ''PlaylistCtrlActor'' to save the current state of
+ * its playlist. This is done using the ''PlaylistFileStore''.
+ */
+private case object SavePlaylist
