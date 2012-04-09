@@ -19,7 +19,7 @@ import org.junit.Assert._
  * partial function.
  */
 class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
-  extends Actor {
+  extends Actor with MockActorSupport {
   /** An internally used exit message. */
   private val ExitMessage = "QueuingActor.ExitMessage"
 
@@ -69,38 +69,6 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
     val msg = queue.poll(TimeOut, java.util.concurrent.TimeUnit.SECONDS)
     assertNotNull("No message received!", msg)
     msg
-  }
-
-  /**
-   * Convenience method for checking whether the expected message was received.
-   * @param msg the expected message
-   */
-  def expectMessage(msg: Any) {
-    assertEquals("Wrong message", msg, nextMessage())
-  }
-
-  /**
-   * Skips the given number of messages. This method requires that at least
-   * this number of messages has been received.
-   * @param count the number of messages to skip
-   */
-  def skipMessages(count: Int) {
-    for (i <- 1 to count) {
-      nextMessage()
-    }
-  }
-
-  /**
-   * Ensures that no messages have been received by this actor. We send a dummy
-   * message to ourselves and expect that this is the next message received.
-   * @param skip the number of messages to skip before the queue is expected to
-   * be empty
-   */
-  def ensureNoMessages(skip: Int = 0) {
-    skipMessages(skip)
-    val dummy = "DummyCheckEmptyMessage!"
-    this ! dummy
-    expectMessage(dummy)
   }
 
   /**
