@@ -13,6 +13,7 @@ import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
+import de.oliver_heger.splaya.PlaylistSettings
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -380,7 +381,7 @@ private object PlaylistCtrlActor {
  * @param orderParams additional parameters for ordering the playlist
  */
 private case class PlaylistSettingsData(name: String, description: String,
-  orderMode: String, orderParams: xml.NodeSeq)
+  orderMode: String, orderParams: xml.NodeSeq) extends PlaylistSettings
 
 /**
  * A message which causes the ''PlaylistCtrlActor'' to read the medium with the
