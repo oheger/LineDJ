@@ -84,13 +84,15 @@
   </di:bean>
 
   <!-- A thread factory which produces daemon threads. -->
-  <di:bean name="threadFactory"
+  <di:bean name="threadFactory" resultVar="factory"
     beanClass="java.util.concurrent.ThreadFactory">
-    <di:factory>
-      <di:methodInvocation method="create"
-        targetClass="de.oliver_heger.jplaya.ui.ThreadFactoryCreator">
-      </di:methodInvocation>
-    </di:factory>
+    <di:constructorInvocation result="builder"
+      targetClassName="org.apache.commons.lang3.concurrent.BasicThreadFactory$Builder"/>
+    <di:methodInvocation method="daemon" source="builder">
+      <di:param value="true"/>
+    </di:methodInvocation>
+    <di:methodInvocation method="build" source="builder" result="factory">
+    </di:methodInvocation>
   </di:bean>
 
   <!-- An executor service for the song data manager -->
