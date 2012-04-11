@@ -6,6 +6,7 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.FSScanner
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.engine.QueuingActor
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.After
 import de.oliver_heger.splaya.engine.Exit
@@ -19,6 +20,7 @@ import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.engine.Gateway
 
 /**
  * Test class for ''PlaylistCtrlActor''.
@@ -293,9 +295,10 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
    */
   private def prepareTestWithPlaylist() {
     val pl = createPlaylist()
-    expectPlaylistProcessing(pl, None, None)
-    EasyMock.expect(generator.generatePlaylist(pl, "", xml.NodeSeq.Empty))
-      .andReturn(pl)
+    val settingsData = createSettings()
+    expectPlaylistProcessing(pl, None, Some(settingsData))
+    EasyMock.expect(generator.generatePlaylist(pl, OrderMode,
+      settingsData \\ "params")).andReturn(pl)
   }
 
   /**
@@ -451,5 +454,36 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! SavePlaylist
       shutdownActor()
     }
+  }
+
+  /**
+   * Tests whether a newly created playlist is sent around as an event.
+   */
+  @Test def testPlaylistCreatedEvent() {
+    prepareTestWithPlaylist()
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.start()
+    Gateway.register(listener)
+    whenExecuting(scanner, store, generator) {
+      actor ! ReadMedium(RootURI)
+      shutdownActor()
+    }
+    listener.nextMessage() match {
+      case pl: PlaylistDataImpl =>
+        assert(PlaylistSize === pl.size)
+        assert(0 === pl.startIndex)
+        val settings = pl.settings
+        assert(PlaylistName === settings.name)
+        assert(PlaylistDesc === settings.description)
+        for (i <- 0 until PlaylistSize) {
+          assert(playlistURI(i) === pl.getURI(i))
+          val srcData = pl.getAudioSourceData(i)
+          assert(playlistURI(i) === srcData.title)
+          assertNull("Got an artist", srcData.artistName)
+        }
+      case _ => fail("Unexpected message!")
+    }
+    Gateway.unregister(listener)
   }
 }

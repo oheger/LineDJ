@@ -14,6 +14,9 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaylistSettings
+import de.oliver_heger.splaya.PlaylistData
+import de.oliver_heger.splaya.AudioSourceData
+import de.oliver_heger.splaya.engine.Gateway
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -114,6 +117,7 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
    */
   private def sendPlaylist(startIdx: Int, initSkipPos: Long = 0,
     initSkipTime: Long = 0) {
+    currentIndex = startIdx
     val pl = playlist.drop(startIdx)
     if (!pl.isEmpty) {
       sourceActor ! AddSourceStream(pl.head, startIdx, initSkipPos, initSkipTime)
@@ -143,6 +147,8 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
     } else {
       setUpExistingPlaylist(playlistData.get)
     }
+
+    Gateway.publish(createPlaylistData(settings))
   }
 
   /**
@@ -318,6 +324,17 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
       autoSaveCount = 0
     }
   }
+
+  /**
+   * Creates a ''PlaylistData'' object with information about the current
+   * playlist.
+   * @param settingsData a data object with meta data about the playlist
+   * @return the new ''PlaylistData'' object
+   */
+  private def createPlaylistData(settingsData: PlaylistSettings): PlaylistData =
+    PlaylistDataImpl(settings = settingsData, playlist = playlist,
+      startIndex = currentIndex,
+      sourceDataOrg = new Array[AudioSourceData](playlist.size))
 }
 
 /**
