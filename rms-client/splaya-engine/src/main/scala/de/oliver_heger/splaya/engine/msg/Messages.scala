@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine;
+package de.oliver_heger.splaya.engine.msg
 import javax.sound.sampled.SourceDataLine
 import org.slf4j.LoggerFactory
 

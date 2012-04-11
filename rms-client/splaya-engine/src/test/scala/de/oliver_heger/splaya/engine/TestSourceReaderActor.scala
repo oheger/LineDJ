@@ -14,6 +14,21 @@ import java.io.IOException
 import java.io.OutputStream
 import de.oliver_heger.splaya.PlaybackError
 import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.tsthlp.StreamDataGenerator
+import de.oliver_heger.splaya.engine.io.SourceResolver
+import de.oliver_heger.splaya.engine.io.TempFileFactory
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
+import de.oliver_heger.splaya.engine.io.TempFile
+import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.engine.msg.ReadChunk
+import de.oliver_heger.splaya.tsthlp.ExceptionInputStream
+import de.oliver_heger.splaya.engine.msg.PlaylistEnd
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.engine.io.StreamSource
+import de.oliver_heger.splaya.engine.msg.SourceReadError
 
 /**
  * Test class for ''SourceReaderActor''.

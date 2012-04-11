@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.engine.io
 
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
@@ -7,6 +7,9 @@ import org.junit.Before
 import org.junit.Test
 import org.easymock.EasyMock
 import org.junit.After
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.engine.msg.ReadChunk
 
 /**
  * Test class for ''SourceBufferManagerImpl''.

@@ -1,10 +1,11 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.engine.msg
 
 import org.scalatest.junit.JUnitSuite
 import org.junit.Test
 import org.junit.Before
 import org.junit.After
 import org.junit.Assert.assertTrue
+import de.oliver_heger.splaya.tsthlp.QueuingActor
 
 /**
  * Test class for Gateway.

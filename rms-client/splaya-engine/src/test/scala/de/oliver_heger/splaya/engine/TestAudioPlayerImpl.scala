@@ -7,6 +7,14 @@ import org.junit.After
 import org.junit.Test
 import org.junit.Assert.fail
 import org.easymock.EasyMock
+import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.StartPlayback
+import de.oliver_heger.splaya.engine.msg.StopPlayback
+import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.msg.TimeAction
 
 /**
  * Test class for ''AudioPlayerImpl''.

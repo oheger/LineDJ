@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.engine.io
 
 /**
  * A trait for controlling source data copied to a temporary buffer.

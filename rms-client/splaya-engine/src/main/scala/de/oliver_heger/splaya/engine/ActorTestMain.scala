@@ -2,6 +2,13 @@ package de.oliver_heger.splaya.engine;
 import java.io.File
 import scala.actors.Actor
 import java.util.Locale
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.io.TempFileFactory
+import de.oliver_heger.splaya.engine.io.TempFileFactoryImpl
+import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
+import de.oliver_heger.splaya.engine.io.SourceBufferManager
+import de.oliver_heger.splaya.engine.msg.ReadChunk
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
 
 object ActorTestMain {
   /** Constant for the music directory. */

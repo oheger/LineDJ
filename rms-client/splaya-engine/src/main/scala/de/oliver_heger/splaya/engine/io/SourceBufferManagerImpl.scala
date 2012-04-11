@@ -1,6 +1,8 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.engine.io
 import scala.actors.Actor
 import scala.collection.mutable.Queue
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.ReadChunk
 
 /**
  * A default implementation of the ''SourceBufferManager'' interface.

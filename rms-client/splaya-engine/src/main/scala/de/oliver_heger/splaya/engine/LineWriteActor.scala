@@ -4,6 +4,10 @@ import scala.actors.Actor
 import javax.sound.sampled.SourceDataLine
 import javax.sound.sampled.LineListener
 import javax.sound.sampled.LineEvent
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.msg.PlayChunk
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 
 /**
  * An actor that feeds a line for audio playback.

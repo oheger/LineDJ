@@ -6,8 +6,8 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import scala.xml.Elem
 import scala.collection.mutable.ListBuffer
-import de.oliver_heger.splaya.engine.AddSourceStream
-import de.oliver_heger.splaya.engine.Exit
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
+import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackSourceEnd
@@ -16,7 +16,7 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.AudioSourceData
-import de.oliver_heger.splaya.engine.Gateway
+import de.oliver_heger.splaya.engine.msg.Gateway
 
 /**
  * An actor implementing the major part of the functionality required by a

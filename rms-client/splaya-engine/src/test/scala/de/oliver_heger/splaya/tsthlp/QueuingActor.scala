@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.tsthlp
 
 import scala.actors.Actor
 import java.util.concurrent.BlockingQueue

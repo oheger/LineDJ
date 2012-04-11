@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.engine.io
 import java.io.InputStream
 
 /**

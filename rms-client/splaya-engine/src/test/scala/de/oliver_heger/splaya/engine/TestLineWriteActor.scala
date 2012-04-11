@@ -8,6 +8,12 @@ import org.junit.Test
 import javax.sound.sampled.SourceDataLine
 import org.junit.Ignore
 import org.easymock.EasyMock
+import de.oliver_heger.splaya.engine.msg.PlayChunk
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 
 /**
  * Test class for ''LineWriteActor''.

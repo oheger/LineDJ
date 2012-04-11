@@ -5,22 +5,22 @@ import org.scalatest.mock.EasyMockSugar
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.FSScanner
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import de.oliver_heger.splaya.engine.QueuingActor
+import de.oliver_heger.splaya.tsthlp.QueuingActor
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.After
-import de.oliver_heger.splaya.engine.Exit
-import de.oliver_heger.splaya.engine.WaitForExit
+import de.oliver_heger.splaya.engine.msg.Exit
 import org.junit.Test
 import org.easymock.EasyMock
-import de.oliver_heger.splaya.engine.AddSourceStream
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import scala.xml.Elem
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
-import de.oliver_heger.splaya.engine.Gateway
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.tsthlp.WaitForExit
 
 /**
  * Test class for ''PlaylistCtrlActor''.

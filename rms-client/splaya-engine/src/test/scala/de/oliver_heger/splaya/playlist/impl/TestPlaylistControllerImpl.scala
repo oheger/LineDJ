@@ -1,10 +1,10 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import org.scalatest.junit.JUnitSuite
-import de.oliver_heger.splaya.engine.ActorTestImpl
+import de.oliver_heger.splaya.tsthlp.ActorTestImpl
 import org.junit.Before
 import org.junit.Test
-import de.oliver_heger.splaya.engine.Exit
+import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * Test class for ''PlaylistControllerImpl''.

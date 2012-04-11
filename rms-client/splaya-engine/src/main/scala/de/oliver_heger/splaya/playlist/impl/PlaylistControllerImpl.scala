@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.playlist.impl
 
 import de.oliver_heger.splaya.engine.PlaylistController
 import scala.actors.Actor
-import de.oliver_heger.splaya.engine.Exit
+import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * The default implementation of the ''PlaylistController'' trait.

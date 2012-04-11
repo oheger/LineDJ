@@ -13,6 +13,19 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
+import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.io.TempFile
+import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+import de.oliver_heger.splaya.engine.msg.StopPlayback
+import de.oliver_heger.splaya.engine.msg.StartPlayback
+import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
+import de.oliver_heger.splaya.engine.msg.PlaylistEnd
+import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.PlayChunk
 
 /**
  * An actor for handling audio playback.
@@ -44,7 +57,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private val DefaultBufferSize = 4096
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(classOf[Exit])
+  private val log = LoggerFactory.getLogger(classOf[PlaybackActor])
 
   /** A queue with the audio sources to be played.*/
   private val queue = Queue.empty[AudioSource]

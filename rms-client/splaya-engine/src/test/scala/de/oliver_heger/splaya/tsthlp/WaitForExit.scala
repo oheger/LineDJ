@@ -1,7 +1,8 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.tsthlp
 import java.util.concurrent.CountDownLatch
 import scala.actors.Actor
 import java.util.concurrent.TimeUnit
+import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * A specialized [[de.oliver_heger.splaya.engine.Exit]] implementation which can
