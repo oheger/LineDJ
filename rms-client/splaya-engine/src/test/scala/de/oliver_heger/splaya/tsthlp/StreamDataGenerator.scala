@@ -1,6 +1,7 @@
 package de.oliver_heger.splaya.tsthlp
 import java.io.InputStream
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 /**
  * A class for generating stream data of (almost) arbitrary length. This class
@@ -91,5 +92,23 @@ object StreamDataGenerator {
     new StreamDataGenerator(
       if (pattern == null) DefaultPattern else pattern,
       if (digits <= 0) DefaultDigits else digits)
+  }
+
+  /**
+   * Reads the content of an input stream into a byte array. This is useful for
+   * instance for checking the content of a test file. The input stream is not
+   * closed.
+   * @param stream the stream to be read
+   * @return an array with the content of the stream
+   * @throws IOException if an IO error occurs
+   */
+  def readStream(stream: InputStream): Array[Byte] = {
+    val out = new ByteArrayOutputStream
+    var c = stream.read()
+    while (c != -1) {
+      out.write(c)
+      c = stream.read()
+    }
+    out.toByteArray()
   }
 }
