@@ -122,3 +122,20 @@ case object FlushPlayer
  * @param f the function to be invoked with the current playback time
  */
 case class TimeAction(f: Long => Unit)
+
+/**
+ * A message sent by the ''SourceReaderActor'' whenever it copies data from the
+ * source medium. Messages of this type can be used to avoid parallel accesses
+ * to the source medium. The idea behind this concept is the following:
+ *
+ * Typically audio data is read from a CD ROM drive. If other components access
+ * this data (e.g. for obtaining ID3 tags), the reads are slowed down. To
+ * ensure that playback is not interrupted, the source reader actor must have
+ * priority. Therefore, other components which also need access to the source
+ * medium should observe this messages and interrupt their activities if the
+ * source reader locks the medium (in this case the ''lock'' parameter is set
+ * to '''true'''). After copying a chunk from the source medium, another message
+ * is sent with the ''lock'' parameter set to '''false'''.
+ * @param lock a flag whether the source medium is locked or unlocked
+ */
+case class AccessSourceMedium(lock: Boolean)

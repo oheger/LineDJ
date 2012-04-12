@@ -29,6 +29,7 @@ import de.oliver_heger.splaya.engine.msg.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.io.StreamSource
 import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 
 /**
  * Test class for ''SourceReaderActor''.
@@ -297,15 +298,17 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     actor.start()
     whenExecuting(factory, resolver, tempData._1) {
       actor ! addsrc
-      qa.nextMessage() match {
-        case err: PlaybackError =>
-          assert(ioex === err.exception)
-          assert(err.fatal === false)
-        case _ => fail("Unexpected message!")
-      }
-      qa.shutdown()
       shutdownActor()
     }
+    qa.skipMessages(1)
+    qa.nextMessage() match {
+      case err: PlaybackError =>
+        assert(ioex === err.exception)
+        assert(err.fatal === false)
+      case _ => fail("Unexpected message!")
+    }
+    qa.shutdown()
+    Gateway.unregister(qa)
   }
 
   /**
@@ -331,6 +334,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       actor ! src2
       playback.expectMessage(AudioSource(streamURI(0), 0, len + 10, 0, 0))
       playback.expectMessage(SourceReadError(actor.BufSize))
+      listener.skipMessages(1)
       listener.nextMessage() match {
         case err: PlaybackError =>
           assert(err.fatal === false)
@@ -370,6 +374,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(factory, resolver, tempFile) {
       actor ! src
       playback.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
+      listener.skipMessages(1)
       listener.nextMessage() match {
         case err: PlaybackError =>
           assert(err.fatal === true)
@@ -486,10 +491,37 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       qa.expectMessage(FlushPlayer)
       qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
       qa.shutdown()
-      shutdownActor
+      shutdownActor()
       checkStream(tempData1._2, 0, ChunkSize)
       checkStream(tempData2._2, ChunkSize, ChunkSize)
       checkStream(tempData3._2, len1, len2)
     }
+  }
+
+  /**
+   * Tests whether the actor sends out messages to lock and unlock the source
+   * medium.
+   */
+  @Test def testAccessMediumMessage() {
+    setUpActor()
+    val qa = installPlaybackActor()
+    val len = 111
+    val src = prepareStream(len)
+    val tempData = prepareTempFile()
+    EasyMock.expect(tempData._1.delete()).andReturn(true)
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    actor.start()
+    whenExecuting(factory, resolver, tempData._1) {
+      actor ! src
+      listener.expectMessage(AccessSourceMedium(true))
+      listener.expectMessage(AccessSourceMedium(false))
+      listener.ensureNoMessages()
+      shutdownActor()
+    }
+    qa.shutdown()
+    listener.shutdown()
+    Gateway.unregister(listener)
   }
 }

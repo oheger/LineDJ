@@ -24,6 +24,7 @@ import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 
 /**
  * An actor which reads files from a source directory and copies them to a
@@ -301,6 +302,8 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * single chunks until the temporary buffer is full.
    */
   private def copy() {
+    Gateway.publish(AccessSourceMedium(true))
+
     while (bytesToWrite > 0 && hasMoreData) {
       try {
         nextOutputStream()
@@ -318,6 +321,8 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           bytesToWrite = 0
       }
     }
+
+    Gateway.publish(AccessSourceMedium(false))
   }
 
   /**
