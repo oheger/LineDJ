@@ -10,43 +10,28 @@ import java.io.PrintStream
 import java.io.FileOutputStream
 import org.junit.Test
 import java.io.IOException
+import de.oliver_heger.splaya.tsthlp.TestFileSupport
 
 /**
  * Test class for ''SourceResolverImpl''.
  */
-class TestSourceResolverImpl extends JUnitSuite {
+class TestSourceResolverImpl extends JUnitSuite with TestFileSupport {
   /** Constant for the length of the test data. */
   private val Length = 256
 
   /** A stream generator for generating test data. */
   private lazy val generator: StreamDataGenerator = StreamDataGenerator()
 
-  /** A list with temporary files which have to be removed at test end. */
-  private var tempFiles: List[File] = _
-
   /** The resolver to be tested. */
   private var resolver: SourceResolverImpl = _
 
   @Before def setUp() {
-    tempFiles = List.empty
     val manager = VFS.getManager()
     resolver = new SourceResolverImpl(manager)
   }
 
   @After def tearDown() {
-    tempFiles foreach (_.delete())
-  }
-
-  /**
-   * Creates a new temporary file. It will be automatically removed after the
-   * current test case.
-   * @return the temporary file
-   * @throws IOException if an IO error occurs
-   */
-  private def createTempFile(): File = {
-    val file = File.createTempFile("TestSourceResolver", "tmp")
-    tempFiles = file :: tempFiles
-    file
+    removeTempFiles()
   }
 
   /**
@@ -55,12 +40,9 @@ class TestSourceResolverImpl extends JUnitSuite {
    * @return the data file
    * @throws IOException if an IO error occurs
    */
-  private def createDataFile(): File = {
-    val file = createTempFile()
-    val out = new PrintStream(new FileOutputStream(file))
-    out.print(generator.generateStreamContent(0, Length))
-    out.close()
-    file
+  private def createDataFile(): File =
+    createTempFile { out =>
+      out.print(generator.generateStreamContent(0, Length))
   }
 
   /**
