@@ -17,8 +17,10 @@ import org.junit.Assert._
  * certain messages in a specific way while others are just stored as they are.
  * Note that all messages are stored, even if they could be handled by the
  * partial function.
+ *
+ * @param messageHandler the message handler function
  */
-class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
+class QueuingActor(val messageHandler: PartialFunction[Any, Unit] = null)
   extends Actor with MockActorSupport {
   /** An internally used exit message. */
   private val ExitMessage = "QueuingActor.ExitMessage"
@@ -32,16 +34,7 @@ class QueuingActor(val messageHandler: PartialFunction[Any, Unit])
   /** The handler function. A default is used if not specified. */
   private val handler =
     if (messageHandler != null) messageHandler
-    else new PartialFunction[Any, Unit] {
-      def isDefinedAt(x: Any) = false
-
-      def apply(msg: Any) {}
-    }
-
-  /**
-   * Creates a new ''QueuingActor'' without a specific message handler function.
-   */
-  def this() = this(null)
+    else dummyHandler
 
   /**
    * Stores the message in the queue.

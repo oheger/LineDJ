@@ -10,10 +10,23 @@ import org.junit.Assert.assertFalse
  * synchronous; so this mock implementation cannot be used if messages are sent
  * in a background thread. Just call the {@code messageList()} method in order
  * to retrieve the list with the messages obtained so far.
+ *
+ * It is possible to passe a partial function to the constructor which is
+ * invoked on the messages received. That way behavior can be defined for
+ * specific messages. If no handler function is provided, a default one is used
+ * which does not react on messages.
+ *
+ * @param messageHandler the message handler function
  */
-class ActorTestImpl extends Actor with MockActorSupport {
+class ActorTestImpl(messageHandler: PartialFunction[Any, Unit] = null)
+  extends Actor with MockActorSupport {
   /** The list with the messages received so far. */
   private var messages: Vector[Any] = Vector()
+
+  /** The message handler function actually used by this actor. */
+  private val handler =
+    if (messageHandler != null) messageHandler
+    else dummyHandler
 
   def act() {
     throw new UnsupportedOperationException("Unexpected method call");
@@ -23,6 +36,9 @@ class ActorTestImpl extends Actor with MockActorSupport {
    * Sends a message to this actor. This implementation just stores the message.
    */
   override def !(msg: Any) {
+    if (handler.isDefinedAt(msg)) {
+      handler(msg)
+    }
     messages = messages :+ msg
   }
 

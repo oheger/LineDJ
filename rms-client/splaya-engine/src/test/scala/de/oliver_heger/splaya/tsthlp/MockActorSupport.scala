@@ -50,4 +50,15 @@ trait MockActorSupport extends Actor {
     this ! dummy
     expectMessage(dummy)
   }
+
+  /**
+   * Returns a dummy handler function which does not react on any message.
+   * @return the dummy handler function
+   */
+  val dummyHandler: PartialFunction[Any, Unit] =
+    new PartialFunction[Any, Unit] {
+      def isDefinedAt(x: Any) = false
+
+      def apply(msg: Any) {}
+    }
 }
