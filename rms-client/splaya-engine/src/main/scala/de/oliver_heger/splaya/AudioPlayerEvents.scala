@@ -95,3 +95,17 @@ case class PlaybackPositionChanged(audioStreamPosition: Long,
  * @param time the playback time (in milliseconds)
  */
 case class PlaybackTimeChanged(time: Long)
+
+/**
+ * A message which is sent when information about a playlist has been updated.
+ * Messages of this type are typically sent when new meta data about an audio
+ * source (e.g. ID3 for a song) have become available. The index of the
+ * corresponding audio source in the playlist is specified by the
+ * ''updatedSourceDataIdx'' property. An event listener can update its display
+ * so that the new information about this audio source is shown.
+ * @param playlistData the object with all information about the current
+ * playlist
+ * @param updatedSourceDataIdx the index of the audio source which has been
+ * updated; if the index is -1, the message was sent for other reasons
+ */
+case class PlaylistUpdate(playlistData: PlaylistData, updatedSourceDataIdx: Int)

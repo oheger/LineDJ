@@ -51,7 +51,7 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
    */
   private def handleRequest(req: ExtractSourceDataRequest) {
     val data = extractor.extractAudioSourceData(req.uri)
-    req.sender ! ExtractSourceDataResult(req.index, data)
+    req.sender ! ExtractSourceDataResult(req.playlistID, req.index, data)
   }
 }
 
@@ -60,12 +60,16 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
  * request audio data for a specific audio source. The audio source in question
  * is identified by its URI. The result of the extraction is sent to the
  * specified actor in form of an ''ExtractSourceDataResult'' message.
+ * @param playlistID a unique ID for the current playlist; this value is used
+ * to deal with multiple playlists (for instance, a new playlist can be set
+ * while the former one is still processed)
  * @param uri the URI of the audio source to be processed
  * @param index the index of the audio source affected by this operation in the
  * playlist
  * @param sender the actor to which to sent the result
  */
-case class ExtractSourceDataRequest(uri: String, index: Int, sender: Actor)
+case class ExtractSourceDataRequest(playlistID: Long, uri: String, index: Int,
+  sender: Actor)
 
 /**
  * A message providing the result of a request for extracting audio source data.
@@ -73,7 +77,9 @@ case class ExtractSourceDataRequest(uri: String, index: Int, sender: Actor)
  * [[de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor]] as
  * answer for an ''ExtractSourceDataRequest'' message. This answer is sent in
  * any case, even if data extraction failed.
+ * @param playlistID the ID of the affected playlist
  * @param index the index of the affected audio source in the playlist
  * @param data an ''Option'' with the meta data extracted for the source
  */
-case class ExtractSourceDataResult(index: Int, data: Option[AudioSourceData])
+case class ExtractSourceDataResult(playlistID: Long, index: Int,
+  data: Option[AudioSourceData])
