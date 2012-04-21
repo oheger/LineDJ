@@ -202,4 +202,16 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     stream.close()
     assertNull("Still got a current stream", stream.currentStream)
   }
+
+  /**
+   * Tests whether the presence of a stream is checked before it gets closed.
+   */
+  @Test def testCloseMulti() {
+    val helper = createResetHelper()
+    val stream = new SourceStreamWrapper(helper, wrappedStream(), Text.length,
+      bufferManager)
+    stream.read()
+    stream.close()
+    stream.close()
+  }
 }
