@@ -421,7 +421,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     def sendSourceMessages(idx: Int) {
       val source = createSource(idx)
       actor ! PlaybackSourceStart(source)
-      actor ! PlaybackSourceEnd(source)
+      actor ! PlaybackSourceEnd(source, false)
     }
 
     prepareTestWithPlaylist()
@@ -435,7 +435,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! PlaybackSourceStart(source)
       actor ! PlaybackPositionChanged(CurrentPos, 2000, 500, source)
       actor ! PlaybackTimeChanged(CurrentTime)
-      actor ! PlaybackSourceEnd(source)
+      actor ! PlaybackSourceEnd(source, false)
       shutdownActor()
     }
   }
@@ -450,7 +450,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(scanner, store, generator) {
       actor ! ReadMedium(RootURI)
       actor ! PlaybackSourceStart(source)
-      actor ! PlaybackSourceEnd(source)
+      actor ! PlaybackSourceEnd(source, false)
       actor ! SavePlaylist
       shutdownActor()
     }

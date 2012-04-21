@@ -90,7 +90,7 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
         case PlaybackSourceStart(source) =>
           handlePlaybackSourceStart(source)
 
-        case PlaybackSourceEnd(source) =>
+        case PlaybackSourceEnd(source, _) =>
           handlePlaybackSourceEnd(source)
 
         case PlaybackPositionChanged(pos, _, _, _) =>

@@ -58,8 +58,10 @@ case class PlaybackSourceStart(source: AudioSource)
 /**
  * A message indicating that a source has been played completely.
  * @param source the source whose playback has finished
+ * @param skipped a flag whether the source was skipped; a value of '''true'''
+ * means that the source was not fully played; it has been interrupted
  */
-case class PlaybackSourceEnd(source: AudioSource)
+case class PlaybackSourceEnd(source: AudioSource, skipped: Boolean)
 
 /**
  * A message sent by the audio engine whenever the position in the current audio

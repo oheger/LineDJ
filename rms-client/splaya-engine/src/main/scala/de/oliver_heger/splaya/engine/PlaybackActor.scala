@@ -411,7 +411,8 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def closeCurrentAudioSource() {
     if (currentSource != null) {
-      Gateway.publish(PlaybackSourceEnd(currentSource))
+      Gateway.publish(PlaybackSourceEnd(currentSource,
+        skipPosition == Long.MaxValue))
       currentSource = null
     }
     if (context != null) {
@@ -522,7 +523,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     closeContext()
     queue.clear()
     streamFactory.bufferManager.flush()
-    if(stream != null) {
+    if (stream != null) {
       stream.close()
     }
     endOfPlaylist = false

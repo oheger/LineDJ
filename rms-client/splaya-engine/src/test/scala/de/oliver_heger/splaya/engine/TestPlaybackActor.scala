@@ -38,6 +38,7 @@ import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.tsthlp.ExceptionInputStream
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.PlaybackSourceEnd
 
 /**
  * Test class for ''PlaybackActor''.
@@ -296,7 +297,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor()
     val lineActor = installLineWriterActor(null)
     executePlaybackTestWithMultipleChunksAndSources(line = line,
-        skip = initSkip, lineActor = lineActor)
+      skip = initSkip, lineActor = lineActor)
     val pc1 = extractPlayChunkMessage(lineActor)
     assert(initSkip === pc1.skipPos)
     assert(0 === pc1.currentPos)
@@ -440,6 +441,47 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests the event produced for a fully played source which has been skipped.
+   */
+  @Test def testSkipEndSourceEvent() {
+    val line = mock[SourceDataLine]
+    val stream = createStreamWrapper(streamGen.generateStream(0, 10),
+      10)
+    val src = AudioSource("uri", 1, StreamLen1, 0, 0)
+    EasyMock.expect(streamFactory.createStream(null, StreamLen1)).andReturn(stream)
+    val context = createContext(line, StreamLen1)
+    EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
+    context.close()
+    line.open(Format)
+    line.start()
+    line.stop()
+    line.flush()
+    EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
+    bufMan.flush()
+    val lineActor = installLineWriterActor(null)
+    val listener = installListener()
+    setUpActor()
+    whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
+      actor ! src
+      actor ! ChunkPlayed(BufferSize)
+      actor ! SkipCurrentSource
+      actor ! ChunkPlayed(BufferSize)
+      actor ! ChunkPlayed(BufferSize)
+      shutdownActor()
+    }
+    lineActor.shutdown()
+    var found = false
+    while (!found) {
+      listener.nextMessage() match {
+        case PlaybackSourceEnd(src, true) => found = true
+        case _ =>
+      }
+    }
+    Gateway.unregister(listener)
+    listener.shutdown()
+  }
+
+  /**
    * Tests whether a new temporary file is added correctly to the buffer
    * manager.
    */
@@ -485,7 +527,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       StreamLen1 / 2, src1))
     listener.expectMessage(PlaybackPositionChanged(StreamLen1, AudioStreamLen,
       StreamLen1 / 2, src1))
-    listener.expectMessage(PlaybackSourceEnd(src1))
+    listener.expectMessage(PlaybackSourceEnd(src1, false))
     listener.expectMessage(PlaybackSourceStart(src2))
     listener.ensureNoMessages()
     Gateway.unregister(listener)
