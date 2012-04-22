@@ -12,10 +12,16 @@ public enum AudioPlayerEventType
     START_SOURCE,
 
     /** Playback of an audio source has finished. */
-    END_SONG,
+    END_SOURCE,
 
     /** The playback position in the current audio source has changed. */
     POSITION_CHANGED,
+
+    /** Playback starts or is resumed. */
+    START_PLAYBACK,
+
+    /** Playback is paused. */
+    STOP_PLAYBACK,
 
     /** The playlist has been played completely. */
     PLAYLIST_END,
