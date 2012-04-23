@@ -14,6 +14,11 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackError
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaylistListener
+import de.oliver_heger.splaya.PlaylistEvent
+import de.oliver_heger.splaya.PlaylistData
+import de.oliver_heger.splaya.PlaylistEventType
+import de.oliver_heger.splaya.PlaylistUpdate
 
 /**
  * Implementation of an actor which translates messages sent by the audio player
@@ -45,6 +50,10 @@ class EventTranslatorActor extends Actor {
   private val playerListeners =
     new Listeners[AudioPlayerListener, AudioPlayerEvent]
 
+  /** The playlist listeners. */
+  private val playlistListeners =
+    new Listeners[PlaylistListener, PlaylistEvent]
+
   /** Stores the last position changed event. */
   private var lastPositionEvent: PlaybackPositionChanged = InitPositionChanged
 
@@ -65,6 +74,14 @@ class EventTranslatorActor extends Actor {
 
       case RemoveAudioPlayerEventListener(l) =>
         playerListeners -= l
+        act()
+
+      case AddPlaylistEventListener(l) =>
+        playlistListeners += l
+        act()
+
+      case RemovePlaylistEventListener(l) =>
+        playlistListeners -= l
         act()
 
       case PlaylistEnd =>
@@ -118,6 +135,18 @@ class EventTranslatorActor extends Actor {
         playerListeners.fire(() =>
           createEventWithPosition(AudioPlayerEventType.STOP_PLAYBACK,
             lastPositionEvent.source), _.playbackStops(_))
+        act()
+
+      case pd: PlaylistData =>
+        playlistListeners.fire(() =>
+          PlaylistEventImpl(PlaylistEventType.PLAYLIST_CREATED, pd, -1),
+          _.playlistCreated(_))
+        act()
+
+      case PlaylistUpdate(pd, idx) =>
+        playlistListeners.fire(() =>
+          PlaylistEventImpl(PlaylistEventType.PLAYLIST_UPDATED, pd, idx),
+          _.playlistUpdated(_))
         act()
 
       case _ =>
@@ -214,6 +243,20 @@ case class AddAudioPlayerEventListener(listener: AudioPlayerListener)
 case class RemoveAudioPlayerEventListener(listener: AudioPlayerListener)
 
 /**
+ * A message class for registering a new ''PlaylistListener'' at the
+ * ''EventTranslator'' actor.
+ * @param listener the listener to be registered
+ */
+case class AddPlaylistEventListener(listener: PlaylistListener)
+
+/**
+ * A message class for removing a ''PlaylistListener'' from the
+ * ''EventTranslatorActor''.
+ * @param listener the listener to be removed
+ */
+case class RemovePlaylistEventListener(listener: PlaylistListener)
+
+/**
  * An implementation of the ''AudioPlayerEventTrait''. The event properties
  * are mapped directly to constructor arguments.
  */
@@ -224,3 +267,7 @@ private case class AudioPlayerEventImpl(getType: AudioPlayerEventType,
   @BeanProperty relativePosition: Int = 0,
   @BeanProperty playbackTime: Long = 0,
   @BooleanBeanProperty skipped: Boolean = false) extends AudioPlayerEvent
+
+private case class PlaylistEventImpl(getType: PlaylistEventType,
+  @BeanProperty playlistData: PlaylistData,
+  @BeanProperty updateIndex: Int) extends PlaylistEvent

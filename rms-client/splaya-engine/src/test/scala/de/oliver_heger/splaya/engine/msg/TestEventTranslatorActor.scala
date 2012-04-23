@@ -19,6 +19,13 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackError
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaylistListener
+import de.oliver_heger.splaya.PlaylistEvent
+import de.oliver_heger.splaya.PlaylistEventType
+import de.oliver_heger.splaya.PlaylistData
+import java.util.concurrent.BlockingQueue
+import org.easymock.EasyMock
+import de.oliver_heger.splaya.PlaylistUpdate
 
 /**
  * Test class for ''EventTranslatorActor''.
@@ -27,8 +34,11 @@ class TestEventTranslatorActor extends JUnitSuite {
   /** Constant of a test audio source. */
   private val Source = AudioSource("SomeTestSong", 11, 20120421222632L, 0, 0)
 
-  /** A test message listener. */
+  /** A test audio player event listener. */
   private var listener: AudioPlayerListenerImpl = _
+
+  /** A test playlist event listener. */
+  private var playlistListener: PlaylistListenerImpl = _
 
   /** The actor to be tested. */
   private var actor: EventTranslatorActor = _
@@ -38,6 +48,8 @@ class TestEventTranslatorActor extends JUnitSuite {
     actor.start()
     listener = new AudioPlayerListenerImpl
     actor ! AddAudioPlayerEventListener(listener)
+    playlistListener = new PlaylistListenerImpl
+    actor ! AddPlaylistEventListener(playlistListener)
   }
 
   @After def tearDown() {
@@ -58,13 +70,40 @@ class TestEventTranslatorActor extends JUnitSuite {
   }
 
   /**
-   * Tests whether an event listener can be removed.
+   * Checks whether the queue of a test listener does not contain an event.
+   * @param q the queue to be checked
    */
-  @Test def testRemoveListener() {
+  def checkNoEvent[E](q: BlockingQueue[E]) {
+    val event = q.poll(100, TimeUnit.MILLISECONDS)
+    assertNull("Got an event: " + event, event)
+  }
+
+  /**
+   * Creates a mock playlist.
+   * @return the mock playlist
+   */
+  def createPlaylist(): PlaylistData = {
+    val pl = EasyMock.createMock(classOf[PlaylistData])
+    EasyMock.replay(pl)
+    pl
+  }
+
+  /**
+   * Tests whether an audio player event listener can be removed.
+   */
+  @Test def testRemovePlayerListener() {
     actor ! RemoveAudioPlayerEventListener(listener)
     actor ! PlaylistEnd
-    val event = listener.queue.poll(100, TimeUnit.MILLISECONDS)
-    assertNull("Got an event: " + event, event)
+    checkNoEvent(listener.queue)
+  }
+
+  /**
+   * Tests whether a playlist listener can be removed.
+   */
+  @Test def testRemovePlaylistListener() {
+    actor ! RemovePlaylistEventListener(playlistListener)
+    actor ! createPlaylist()
+    checkNoEvent(playlistListener.queue)
   }
 
   /**
@@ -191,6 +230,34 @@ class TestEventTranslatorActor extends JUnitSuite {
     assert(Source === ev.getSource)
     assertEquals("Wrong position", 400, ev.getPosition)
   }
+
+  /**
+   * Tests whether a playlist creation event is correctly transformed.
+   */
+  @Test def testCreatePlaylistEvent() {
+    val pl = createPlaylist()
+    actor ! pl
+    val ev = playlistListener.expectEvent(PlaylistEventType.PLAYLIST_CREATED)
+    assertSame("Wrong playlist data", pl, ev.getPlaylistData)
+    assertEquals("Wrong update index", -1, ev.getUpdateIndex)
+  }
+
+  /**
+   * Tests whether a playlist update event is correctly transformed.
+   */
+  @Test def testUpdatePlaylistEvent() {
+    val pl = createPlaylist()
+    val idx = 42
+    actor ! PlaylistUpdate(pl, idx)
+    val ev = playlistListener.expectEvent(PlaylistEventType.PLAYLIST_UPDATED)
+    assertSame("Wrong playlist data", pl, ev.getPlaylistData)
+    assertEquals("Wrong update index", idx, ev.getUpdateIndex)
+  }
+}
+
+object TestEventTranslatorActor {
+  /** Constant for the timeout for incoming events (in seconds). */
+  val EventTimeOut = 5
 }
 
 /**
@@ -198,9 +265,6 @@ class TestEventTranslatorActor extends JUnitSuite {
  * a thread-safe way for waiting for an event received from the actor.
  */
 private class AudioPlayerListenerImpl extends AudioPlayerListener {
-  /** Constant for the timeout for incoming events (in seconds). */
-  private val TimeOut = 5
-
   /** A queue for storing received events. */
   val queue = new SynchronousQueue[AudioPlayerEvent]
 
@@ -240,7 +304,7 @@ private class AudioPlayerListenerImpl extends AudioPlayerListener {
    * @return the audio player event
    */
   def expectEvent(expType: AudioPlayerEventType): AudioPlayerEvent = {
-    val ev = queue.poll(TimeOut, TimeUnit.SECONDS)
+    val ev = queue.poll(TestEventTranslatorActor.EventTimeOut, TimeUnit.SECONDS)
     assertNotNull("No event received", ev)
     assertEquals("Wrong event type", expType, ev.getType)
     ev
@@ -254,6 +318,47 @@ private class AudioPlayerListenerImpl extends AudioPlayerListener {
    */
   private def addMessage(ev: AudioPlayerEvent, exTypes: AudioPlayerEventType*) {
     assertTrue("Wrong event type", exTypes.toSet(ev.getType))
+    queue.put(ev)
+  }
+}
+
+/**
+ * A test implementation of the playlist listener interface analogously to
+ * ''AudioPlayerListenerImpl''.
+ */
+private class PlaylistListenerImpl extends PlaylistListener {
+  /** A queue for storing received events. */
+  val queue = new SynchronousQueue[PlaylistEvent]
+
+  def playlistCreated(ev: PlaylistEvent) {
+    addMessage(ev, PlaylistEventType.PLAYLIST_CREATED)
+  }
+
+  def playlistUpdated(ev: PlaylistEvent) {
+    addMessage(ev, PlaylistEventType.PLAYLIST_UPDATED)
+  }
+
+  /**
+   * Waits until an event is received and returns it. The event type is checked.
+   * If no event is received in a specific time interval, this method fails.
+   * @param expType the expected event type
+   * @return the audio player event
+   */
+  def expectEvent(expType: PlaylistEventType): PlaylistEvent = {
+    val ev = queue.poll(TestEventTranslatorActor.EventTimeOut, TimeUnit.SECONDS)
+    assertNotNull("No event received", ev)
+    assertEquals("Wrong event type", expType, ev.getType)
+    ev
+  }
+
+  /**
+   * Adds an event received by one of the listener methods to the internal
+   * queue and checks the event type.
+   * @param ev the event to add
+   * @param expType the expected event type
+   */
+  private def addMessage(ev: PlaylistEvent, expType: PlaylistEventType) {
+    assertEquals("Wrong event type", expType, ev.getType)
     queue.put(ev)
   }
 }
