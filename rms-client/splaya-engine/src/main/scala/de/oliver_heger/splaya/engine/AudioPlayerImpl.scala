@@ -9,6 +9,12 @@ import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
 import de.oliver_heger.splaya.engine.msg.TimeAction
 import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.PlaylistListener
+import de.oliver_heger.splaya.AudioPlayerListener
+import msg.AddAudioPlayerEventListener
+import de.oliver_heger.splaya.engine.msg.RemoveAudioPlayerEventListener
+import msg.AddPlaylistEventListener
+import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
 
 /**
  * The default implementation of the ''AudioPlayer'' trait.
@@ -36,6 +42,7 @@ import de.oliver_heger.splaya.engine.msg.FlushPlayer
  *
  * @param playlistController the object managing playlist information
  * @param timingActor the actor responsible for timing
+ * @param eventActor the actor responsible for event translation
  * @param moveBackwardThreshold a time (in milliseconds) which controls the
  * behavior of the ''moveBackward()'' operation: this method checks the current
  * playback time; if it is less than this value, it moves back in the playlist
@@ -43,7 +50,7 @@ import de.oliver_heger.splaya.engine.msg.FlushPlayer
  * again
  */
 class AudioPlayerImpl(val playlistController: PlaylistController,
-  timingActor: Actor, val moveBackwardThreshold: Long = 5000)
+  timingActor: Actor, eventActor: Actor, val moveBackwardThreshold: Long = 5000)
   extends AudioPlayer {
   /**
    * @inheritdoc This implementation sends a ''StartPlayback'' message to the
@@ -110,14 +117,46 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
   }
 
   /**
+   * @inheritdoc This implementation delegates to the event translation actor.
+   */
+  def addAudioPlayerListener(listener: AudioPlayerListener) {
+    eventActor ! AddAudioPlayerEventListener(listener)
+  }
+
+  /**
+   * @inheritdoc This implementation delegates to the event translation actor.
+   */
+  def removeAudioPlayerListener(listener: AudioPlayerListener) {
+    eventActor ! RemoveAudioPlayerEventListener(listener)
+  }
+
+  /**
+   * @inheritdoc This implementation delegates to the event translation actor.
+   */
+  def addPlaylistListener(listener: PlaylistListener) {
+    eventActor ! AddPlaylistEventListener(listener)
+  }
+
+  /**
+   * @inheritdoc This implementation delegates to the event translation actor.
+   */
+  def removePlaylistListener(listener: PlaylistListener) {
+    eventActor ! RemovePlaylistEventListener(listener)
+  }
+
+  /**
    * @inheritdoc This implementation sends exit messages to the actors
    * comprising the audio engine. Also, the ''PlaylistController'' is told to
    * shutdown.
    */
   def shutdown() {
-    Gateway ! Gateway.ActorSourceRead -> Exit
-    Gateway ! Gateway.ActorPlayback -> Exit
-    Gateway ! Gateway.ActorLineWrite -> Exit
+    val ex = Exit
+    Gateway ! Gateway.ActorSourceRead -> ex
+    Gateway ! Gateway.ActorPlayback -> ex
+    Gateway ! Gateway.ActorLineWrite -> ex
+    timingActor ! ex
+    eventActor ! ex
+
     playlistController.shutdown()
   }
 

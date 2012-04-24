@@ -8,6 +8,7 @@ import org.junit.Test
 import org.junit.Assert.fail
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.tsthlp.ActorTestImpl
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.StartPlayback
 import de.oliver_heger.splaya.engine.msg.StopPlayback
@@ -15,6 +16,13 @@ import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.TimeAction
+import de.oliver_heger.splaya.engine.msg.EventTranslatorActor
+import de.oliver_heger.splaya.AudioPlayerListener
+import de.oliver_heger.splaya.engine.msg.AddAudioPlayerEventListener
+import de.oliver_heger.splaya.engine.msg.RemoveAudioPlayerEventListener
+import de.oliver_heger.splaya.PlaylistListener
+import de.oliver_heger.splaya.engine.msg.AddPlaylistEventListener
+import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
 
 /**
  * Test class for ''AudioPlayerImpl''.
@@ -32,6 +40,9 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
   /** A mock for the timing actor. */
   private var timingActor: QueuingActor = _
 
+  /** A mock for the event translation actor. */
+  private var eventActor: ActorTestImpl = _
+
   /** The player to be tested. */
   private var player: AudioPlayerImpl = _
 
@@ -46,7 +57,8 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     Gateway.start()
     timingActor = new QueuingActor
     timingActor.start()
-    player = new AudioPlayerImpl(plCtrl, timingActor)
+    eventActor = new ActorTestImpl
+    player = new AudioPlayerImpl(plCtrl, timingActor, eventActor)
   }
 
   @After def tearDown() {
@@ -135,6 +147,8 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     readerActor.expectMessage(Exit)
     playbackActor.expectMessage(Exit)
     lineActor.expectMessage(Exit)
+    timingActor.expectMessage(Exit)
+    eventActor.expectMessage(Exit)
     ensureActorsNoMessages()
   }
 
@@ -174,5 +188,41 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     }
     readerActor.expectMessage(FlushPlayer)
     ensureActorsNoMessages()
+  }
+
+  /**
+   * Tests whether an audio player listener can be added.
+   */
+  @Test def testAddAudioPlayerListener() {
+    val listener = mock[AudioPlayerListener]
+    player.addAudioPlayerListener(listener)
+    eventActor.expectMessage(AddAudioPlayerEventListener(listener))
+  }
+
+  /**
+   * Tests whether an audio player listener can be removed.
+   */
+  @Test def testRemoveAudioPlayerListener() {
+    val listener = mock[AudioPlayerListener]
+    player.removeAudioPlayerListener(listener)
+    eventActor.expectMessage(RemoveAudioPlayerEventListener(listener))
+  }
+
+  /**
+   * Tests whether a playlist listener can be added.
+   */
+  @Test def testAddPlaylistListener() {
+    val listener = mock[PlaylistListener]
+    player.addPlaylistListener(listener)
+    eventActor.expectMessage(AddPlaylistEventListener(listener))
+  }
+
+  /**
+   * Tests whether a playlist listener can be removed.
+   */
+  @Test def testRemovePlaylistListener() {
+    val listener = mock[PlaylistListener]
+    player.removePlaylistListener(listener)
+    eventActor.expectMessage(RemovePlaylistEventListener(listener))
   }
 }

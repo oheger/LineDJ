@@ -52,6 +52,32 @@ trait AudioPlayer {
   def readMedium(rootUri: String)
 
   /**
+   * Adds an ''AudioPlayerListener'' to this engine. It will get notified
+   * when state changes of the audio engine occur.
+   * @param listener the listener to be added
+   */
+  def addAudioPlayerListener(listener: AudioPlayerListener)
+
+  /**
+   * Removes the specified ''AudioPlayerListener'' from this engine.
+   * @param listener the listener to be removed
+   */
+  def removeAudioPlayerListener(listener: AudioPlayerListener)
+
+  /**
+   * Adds the specified ''PlaylistListener'' to this engine. It will get
+   * notified when a playlist is created or updated.
+   * @param listener the listener to be added
+   */
+  def addPlaylistListener(listener: PlaylistListener)
+
+  /**
+   * Removes the specified ''PlaylistListener' from this engine.
+   * @param listener the listener to be removed
+   */
+  def removePlaylistListener(listener: PlaylistListener)
+
+  /**
    * Closes this audio player and frees all resources. This method should be
    * called at the end of an audio player application.
    */
