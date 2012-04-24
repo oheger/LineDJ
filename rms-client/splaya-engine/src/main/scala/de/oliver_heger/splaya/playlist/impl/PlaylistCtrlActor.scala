@@ -17,6 +17,7 @@ import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.AudioSourceData
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.PlaylistEnd
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -128,6 +129,7 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
         sourceActor ! AddSourceStream(uri, idx, 0, 0)
         idx += 1
       }
+      sourceActor ! PlaylistEnd
     }
   }
 

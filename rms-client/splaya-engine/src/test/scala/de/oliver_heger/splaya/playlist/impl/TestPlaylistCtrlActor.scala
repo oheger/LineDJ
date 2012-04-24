@@ -20,6 +20,7 @@ import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.PlaylistEnd
 import de.oliver_heger.splaya.tsthlp.WaitForExit
 
 /**
@@ -126,6 +127,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     for (i <- startIdx + 1 until PlaylistSize) {
       sourceActor.expectMessage(AddSourceStream(playlistURI(i), i, 0, 0))
     }
+    sourceActor.expectMessage(PlaylistEnd)
     if (checkNoMsgs) {
       sourceActor.ensureNoMessages()
     }
@@ -310,7 +312,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     whenExecuting(scanner, store, generator) {
       actor ! ReadMedium(RootURI)
       actor ! MoveTo(newIndex)
-      sourceActor.skipMessages(PlaylistSize)
+      sourceActor.skipMessages(PlaylistSize + 1)
       checkSentPlaylist(newIndex, 0, 0)
     }
   }
@@ -326,7 +328,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! ReadMedium(RootURI)
       actor ! MoveTo(idx)
       shutdownActor()
-      sourceActor.ensureNoMessages(PlaylistSize)
+      sourceActor.ensureNoMessages(PlaylistSize + 1)
     }
   }
 
@@ -353,7 +355,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! ReadMedium(RootURI)
       actor ! MoveRelative(5)
       actor ! MoveRelative(-2)
-      sourceActor.skipMessages(PlaylistSize)
+      sourceActor.skipMessages(PlaylistSize + 1)
       checkSentPlaylist(5, 0, 0, false)
       checkSentPlaylist(3, 0, 0)
     }
@@ -368,7 +370,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       actor ! ReadMedium(RootURI)
       actor ! MoveRelative(PlaylistSize - 1)
       actor ! MoveRelative(5)
-      sourceActor.skipMessages(PlaylistSize)
+      sourceActor.skipMessages(PlaylistSize + 1)
       checkSentPlaylist(PlaylistSize - 1, 0, 0, false)
       checkSentPlaylist(PlaylistSize - 1, 0, 0)
     }
