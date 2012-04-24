@@ -85,6 +85,8 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
 
         case TimeAction(f) =>
           handleTimeAction(f)
+
+        case _ =>  // ignore
       }
     }
   }

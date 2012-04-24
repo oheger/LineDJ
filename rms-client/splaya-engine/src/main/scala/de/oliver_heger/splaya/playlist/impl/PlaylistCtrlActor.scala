@@ -98,6 +98,8 @@ private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
 
         case PlaybackTimeChanged(time) =>
           currentTime = time
+
+        case _ => // ignore other messages
       }
     }
   }
