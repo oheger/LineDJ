@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.engine;
 import scala.reflect.BeanProperty
 
 import org.apache.commons.lang3.time.StopWatch
-import org.apache.commons.vfs2.VFS
+import org.apache.commons.vfs2.FileSystemManager
 
 import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
 import de.oliver_heger.splaya.engine.io.SourceResolverImpl
@@ -23,16 +23,20 @@ import de.oliver_heger.splaya.AudioPlayer
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
  * object.
+ *
+ * @param playlistFileStore the file store storing playlist meta data
+ * @param fileSystemManager the VFS file system manager
  */
-class AudioPlayerFactoryImpl {
+class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileStore,
+  @BeanProperty val fileSystemManager: FileSystemManager) {
   /** The size of the temporary buffer used by the streaming actor. */
   @BeanProperty var bufferSize = 10 * 1024 * 1024
 
-  /** The file store for playlist meta data files. */
-  @BeanProperty var playlistFileStore: PlaylistFileStore = _
-
+  /**
+   * Creates a new ''AudioPlayer'' instance.
+   * @return the ''AudioPlayer'' instance
+   */
   def createAudioPlayer(): AudioPlayer = {
-    val fileSystemManager = VFS.getManager()
     val sourceResolver = new SourceResolverImpl(fileSystemManager)
     val tempFileFactory = new TempFileFactoryImpl
     val bufferManager = new SourceBufferManagerImpl
