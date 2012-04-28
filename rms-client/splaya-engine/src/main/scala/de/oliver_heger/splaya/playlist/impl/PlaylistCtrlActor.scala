@@ -43,7 +43,7 @@ import de.oliver_heger.splaya.engine.msg.PlaylistEnd
  * @param autoSaveInterval the number of audio sources after which the
  * current playlist is saved (auto-save)
  */
-private class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
+class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
   store: PlaylistFileStore, generator: PlaylistGenerator,
   autoSaveInterval: Int = 3) extends Actor {
   /** A sequence with the current playlist. */
