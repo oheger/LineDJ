@@ -32,7 +32,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>jplaya-engine</artifactId>
+      <artifactId>splaya-engine</artifactId>
     </dependency>
 
     <dependency>

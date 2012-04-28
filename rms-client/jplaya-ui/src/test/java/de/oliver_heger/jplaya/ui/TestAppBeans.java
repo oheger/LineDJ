@@ -1,12 +1,7 @@
 package de.oliver_heger.jplaya.ui;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-
-import java.util.concurrent.ThreadFactory;
 
 import javax.persistence.EntityManagerFactory;
 
@@ -14,23 +9,15 @@ import net.sf.jguiraffe.di.BeanContext;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.builder.window.Window;
 
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.commons.lang3.concurrent.ConcurrentInitializer;
 import org.apache.commons.lang3.concurrent.ConcurrentUtils;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.oliver_heger.jplaya.engine.AudioBuffer;
-import de.oliver_heger.jplaya.engine.AudioPlayer;
-import de.oliver_heger.jplaya.engine.AudioStreamSource;
-import de.oliver_heger.jplaya.engine.DataBuffer;
-import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
-import de.oliver_heger.jplaya.playlist.FSScanner;
-import de.oliver_heger.jplaya.playlist.PlaylistController;
-import de.oliver_heger.jplaya.playlist.PlaylistManagerFactory;
-import de.oliver_heger.jplaya.playlist.impl.XMLPlaylistManagerFactory;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
+import de.oliver_heger.splaya.AudioPlayer;
+import de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl;
 
 /**
  * A test class for the global bean definition file of the application.
@@ -107,119 +94,25 @@ public class TestAppBeans
     }
 
     /**
-     * Tests whether the file system scanner bean can be obtained.
+     * Tests whether the audio player factory bean can be obtained.
      */
     @Test
-    public void testBeanFSScanner()
+    public void testBeanAudioPlayerFactory()
     {
-        FSScanner scanner = getBeanContext().getBean(FSScanner.class);
-        assertNull("Got a root URI", scanner.getRootURI());
+        AudioPlayerFactoryImpl factory =
+                getBeanContext().getBean(AudioPlayerFactoryImpl.class);
+        assertNotNull("No file system manager", factory.getFileSystemManager());
+        assertNotNull("No file store", factory.getPlaylistFileStore());
     }
 
     /**
-     * Tests whether the bean for the playlist manager factory has been defined
-     * correctly.
-     */
-    @Test
-    public void testBeanPlaylistManagerFactory()
-    {
-        PlaylistManagerFactory factory =
-                getBeanContext().getBean(PlaylistManagerFactory.class);
-        XMLPlaylistManagerFactory xmlFactory =
-                (XMLPlaylistManagerFactory) factory;
-        assertTrue(
-                "Wrong data directory: " + xmlFactory.getDataDirectory(),
-                xmlFactory.getDataDirectory().getAbsolutePath()
-                        .startsWith(System.getProperty("user.home")));
-    }
-
-    /**
-     * Tests whether the bean for the playlist controller has been defined
-     * correctly.
-     */
-    @Test
-    public void testBeanPlaylistController()
-    {
-        PlaylistController ctrl =
-                getBeanContext().getBean(PlaylistController.class);
-        assertTrue("No auto-save interval", ctrl.getAutoSaveInterval() > 0);
-        assertTrue("No skip backwards limit", ctrl.getSkipBackwardsLimit() > 0);
-    }
-
-    /**
-     * Tests whether the bean for the audio buffer has been defined correctly.
-     */
-    @Test
-    public void testBeanAudioBuffer()
-    {
-        AudioBuffer buffer =
-                (AudioBuffer) getBeanContext().getBean(DataBuffer.class);
-        assertEquals("Wrong chunk count", 2, buffer.getChunkCount());
-        assertTrue("Wrong chunk size", buffer.getChunkSize() > 0);
-        assertTrue(
-                "Wrong cache directory: " + buffer.getCacheDirectory(),
-                buffer.getCacheDirectory().getAbsolutePath()
-                        .startsWith(System.getProperty("java.io.tmpdir")));
-    }
-
-    /**
-     * Tests that the audio buffer bean is not a singleton.
-     */
-    @Test
-    public void testBeanAudioBufferNoSingleton()
-    {
-        DataBuffer buffer = getBeanContext().getBean(DataBuffer.class);
-        assertNotSame("Same instance", buffer,
-                getBeanContext().getBean(DataBuffer.class));
-    }
-
-    /**
-     * Tests that the thread factory bean is correctly initialized.
-     */
-    @Test
-    public void testBeanThreadFactory()
-    {
-        BasicThreadFactory factory =
-                (BasicThreadFactory) getBeanContext().getBean(
-                        ThreadFactory.class);
-        assertTrue("Wrong daemon flag", factory.getDaemonFlag().booleanValue());
-    }
-
-    /**
-     * Tests whether the bean for the song data manager has been defined
-     * correctly.
-     */
-    @Test
-    public void testBeanSongDataManager()
-    {
-        SongDataManager manager =
-                getBeanContext().getBean(SongDataManager.class);
-        assertNotNull("No song data manager", manager);
-        assertNotNull("No monitor", manager.getMonitor());
-    }
-
-    /**
-     * Tests whether the bean for the audio player has been defined correctly.
+     * Tests whether the audio player can be obtained.
      */
     @Test
     public void testBeanAudioPlayer()
     {
         AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
-        assertTrue("Wrong source",
-                player.getAudioSource() instanceof AudioBuffer);
-    }
-
-    /**
-     * Tests that each access to the audio player bean creates a new instance.
-     */
-    @Test
-    public void testBeanAudioPlayerNoSingleton()
-    {
-        AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
-        AudioStreamSource source = player.getAudioSource();
-        AudioPlayer player2 = getBeanContext().getBean(AudioPlayer.class);
-        assertNotSame("Same player instance", player, player2);
-        assertNotSame("Same source instance", source, player2.getAudioSource());
+        player.shutdown();
     }
 
     private static class MainTestImpl extends Main
