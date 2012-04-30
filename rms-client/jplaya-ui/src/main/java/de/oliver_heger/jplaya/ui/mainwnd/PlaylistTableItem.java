@@ -99,7 +99,8 @@ public class PlaylistTableItem
      */
     public String getDuration()
     {
-        return formatDuration(fetchSourceData().duration());
+        long duration = fetchSourceData().duration();
+        return (duration > 0) ? formatDuration(duration) : StringUtils.EMPTY;
     }
 
     /**
@@ -135,22 +136,12 @@ public class PlaylistTableItem
     }
 
     /**
-     * Obtains the {@code AudioSourceData} object for this playlist item.
-     *
-     * @return the underlying {@code AudioSourceData} object
-     */
-    private AudioSourceData fetchSourceData()
-    {
-        return getPlaylistData().getAudioSourceData(getIndex());
-    }
-
-    /**
      * Returns a string representation for the specified duration.
      *
      * @param duration the duration (in milliseconds)
      * @return a string for this duration
      */
-    private static String formatDuration(long duration)
+    protected static String formatDuration(long duration)
     {
         StringBuilder buf = new StringBuilder(DURATION_BUF_SIZE);
         long secs = Math.round(duration / (double) MILLIS);
@@ -181,8 +172,18 @@ public class PlaylistTableItem
      * @param value the value
      * @return the value as string
      */
-    private static String fetchProperty(Object value)
+    protected static String fetchProperty(Object value)
     {
         return (value != null) ? value.toString() : StringUtils.EMPTY;
+    }
+
+    /**
+     * Obtains the {@code AudioSourceData} object for this playlist item.
+     *
+     * @return the underlying {@code AudioSourceData} object
+     */
+    private AudioSourceData fetchSourceData()
+    {
+        return getPlaylistData().getAudioSourceData(getIndex());
     }
 }

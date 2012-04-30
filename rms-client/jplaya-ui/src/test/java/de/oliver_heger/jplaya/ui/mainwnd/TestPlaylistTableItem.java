@@ -104,6 +104,15 @@ public class TestPlaylistTableItem
     }
 
     /**
+     * Tests whether an undefined duration is handled correctly.
+     */
+    @Test
+    public void testGetDurationUndefined()
+    {
+        checkDuration(0, "");
+    }
+
+    /**
      * Helper method for checking the getAlbum() method.
      *
      * @param album the album name returned by the source data

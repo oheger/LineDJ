@@ -2,20 +2,24 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 
 import org.apache.commons.lang3.StringUtils;
 
-import de.oliver_heger.jplaya.playlist.PlaylistInfo;
-import de.oliver_heger.mediastore.service.SongData;
+import de.oliver_heger.splaya.PlaylistData;
 
 /**
  * <p>
- * A data class representing a song in the playlist.
+ * A class representing a song in the playlist with all detail information to
+ * populate the form for the current song.
  * </p>
  * <p>
- * This class is used by the UI model for the playlist. An instance contains all
- * information which has to be displayed in the UI for a single song. The major
- * part of this information is obtained from a {@link SongData} object
- * associated with the instance. The idea is that the class defines properties
+ * This class is used as the UI model for the major part of the audio player
+ * application. An instance contains all information which has to be displayed
+ * in the UI for a single song. The idea is that the class defines properties
  * which can directly be bound to UI elements. These properties are already
  * formatted strings.
+ * </p>
+ * <p>
+ * A part of the information provided by this class stems from the base class
+ * which is backed by an {@code AudioSourceData} object. Other parts have to be
+ * set explicitly through properties.
  * </p>
  * <p>
  * Implementation note: This class is not thread-safe. It is expected that
@@ -26,7 +30,7 @@ import de.oliver_heger.mediastore.service.SongData;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class PlaylistItem
+public class PlaylistItem extends PlaylistTableItem
 {
     /** Constant for the string to be returned for an undefined property. */
     private static final String UNDEF = StringUtils.EMPTY;
@@ -43,185 +47,61 @@ public class PlaylistItem
      */
     private static final String FMT_ALBUM_TRACK = "%s (%s)";
 
-    /** Constant for the number of milliseconds per second. */
-    private static final long MILLIS = 1000;
+    /** The current playback time. */
+    private long currentPlaybackTime;
 
-    /** Constant for the number of seconds per hour. */
-    private static final int SECS_PER_HOUR = 60 * 60;
-
-    /** Constant for the seconds per minute. */
-    private static final int SECS_PER_MINUTE = 60;
-
-    /** Constant for the duration buffer size. */
-    private static final int DURATION_BUF_SIZE = 16;
-
-    /** Constant of the path separator for URIs. */
-    private static final char PATH_SEPARATOR = '/';
-
-    /** Constant for the file name extension separator. */
-    private static final char EXT_SEPARATOR = '.';
-
-    /** The underlying {@code SongData} object. */
-    private SongData songData;
-
-    /** The current playlist context. */
-    private PlaylistContext playlistContext;
-
-    /** The URI of this song. */
-    private String uri;
-
-    /** The name extracted from the URI. */
-    private String name = UNDEF;
-
-    /** The index of this song in the playlist. */
-    private int index = -1;
+    /** The playback ratio. */
+    private int playbackRatio;
 
     /**
-     * Returns the underlying {@code SongData} object.
+     * Creates a new instance of {@code PlaylistItem} and initializes it.
      *
-     * @return the object with media information about the associated song
+     * @param data the data object for the whole playlist
+     * @param itemIndex the index of the represented playlist item
      */
-    public SongData getSongData()
+    public PlaylistItem(PlaylistData data, int itemIndex)
     {
-        return songData;
+        super(data, itemIndex);
     }
 
     /**
-     * Sets the underlying {@code SongData} object. Many properties provided to
-     * the UI are derived from the data stored in this object. There should
-     * always be an associated {@code SongData} object, otherwise
-     * {@code NullPointerException} exceptions will occur.
+     * Returns the current playback time in milliseconds.
      *
-     * @param songData the associated {@code SongData} object
+     * @return the current playback time
      */
-    public void setSongData(SongData songData)
+    public long getCurrentPlaybackTime()
     {
-        this.songData = songData;
+        return currentPlaybackTime;
     }
 
     /**
-     * Returns the object with current context information about the playlist.
+     * Sets the current playback time in milliseconds.
      *
-     * @return the playlist context object
+     * @param currentPlaybackTime the current playback time
      */
-    public PlaylistContext getPlaylistContext()
+    public void setCurrentPlaybackTime(long currentPlaybackTime)
     {
-        return playlistContext;
+        this.currentPlaybackTime = currentPlaybackTime;
     }
 
     /**
-     * Sets the object with current context information about the playlist.
+     * Returns the playback ratio in percent. The value lies between 0 and 100.
      *
-     * @param playlistContext the context object
+     * @return the playback ratio
      */
-    public void setPlaylistContext(PlaylistContext playlistContext)
+    public int getPlaybackRatio()
     {
-        this.playlistContext = playlistContext;
+        return playbackRatio;
     }
 
     /**
-     * Returns the URI of the represented song.
+     * Sets the current playback ratio in percent.
      *
-     * @return the URI
+     * @param playbackRatio the current playback ratio
      */
-    public String getUri()
+    public void setPlaybackRatio(int playbackRatio)
     {
-        return uri;
-    }
-
-    /**
-     * Sets the URI of the represented song. If no media information is
-     * available, the URI is used to produce at least a song name.
-     *
-     * @param uri the URI of this song
-     */
-    public void setUri(String uri)
-    {
-        this.uri = uri;
-
-        if (uri == null)
-        {
-            name = UNDEF;
-        }
-        else
-        {
-            int pos = uri.lastIndexOf(PATH_SEPARATOR);
-            if (pos < 0 || pos >= uri.length() - 1)
-            {
-                name = uri;
-            }
-            else
-            {
-                name = uri.substring(pos + 1);
-                pos = name.lastIndexOf(EXT_SEPARATOR);
-                if (pos > 0)
-                {
-                    name = name.substring(0, pos);
-                }
-            }
-        }
-    }
-
-    /**
-     * Returns the index of this song in the playlist.
-     *
-     * @return the index
-     */
-    public int getIndex()
-    {
-        return index;
-    }
-
-    /**
-     * Sets the index of this song in the playlist.
-     *
-     * @param index the index
-     */
-    public void setIndex(int index)
-    {
-        this.index = index;
-    }
-
-    /**
-     * Returns the index of this song as it has to be displayed in the playlist
-     * table. In contrast to the normal index, this index is 1-based.
-     *
-     * @return the display index in the playlist table
-     */
-    public int getListIndex()
-    {
-        return getIndex() + 1;
-    }
-
-    /**
-     * Returns the name of the represented song.
-     *
-     * @return the name of this song
-     */
-    public String getSongName()
-    {
-        String songName = getSongData().getName();
-        return (songName != null) ? songName : name;
-    }
-
-    /**
-     * Returns the name of the artist of the represented song.
-     *
-     * @return the name of the artist
-     */
-    public String getArtist()
-    {
-        return fetchProperty(getSongData().getArtistName());
-    }
-
-    /**
-     * Returns the name of the album the represented song belongs to.
-     *
-     * @return the name of the album
-     */
-    public String getAlbum()
-    {
-        return fetchProperty(getSongData().getAlbumName());
+        this.playbackRatio = playbackRatio;
     }
 
     /**
@@ -232,36 +112,10 @@ public class PlaylistItem
      */
     public String getPlaybackTime()
     {
-        String playback =
-                formatDuration(getPlaylistContext().getPlaybackTime());
+        String playback = formatDuration(getCurrentPlaybackTime());
         String duration = getDuration();
-        return (duration != UNDEF) ? String.format(FMT_PLAYBACK, playback,
+        return (duration.length() > 0) ? String.format(FMT_PLAYBACK, playback,
                 duration) : playback;
-    }
-
-    /**
-     * Returns the formatted duration of the represented song.
-     *
-     * @return the duration
-     */
-    public String getDuration()
-    {
-        Number duration = getSongData().getDuration();
-        if (duration == null)
-        {
-            return UNDEF;
-        }
-        return formatDuration(duration.longValue() * MILLIS);
-    }
-
-    /**
-     * Returns the track number of this song in the album it belongs to.
-     *
-     * @return the track number
-     */
-    public String getTrackNo()
-    {
-        return fetchProperty(getSongData().getTrackNo());
     }
 
     /**
@@ -284,16 +138,6 @@ public class PlaylistItem
     }
 
     /**
-     * Returns the playback ratio in percent. The value lies between 0 and 100.
-     *
-     * @return the playback ratio
-     */
-    public int getPlaybackRatio()
-    {
-        return getPlaylistContext().getPlaybackRatio();
-    }
-
-    /**
      * Returns the index of this song in relation to the size of the playlist.
      * This is something like {@code 10 / 100}. Note: While the index is
      * 0-based, the display starts with 1.
@@ -303,8 +147,8 @@ public class PlaylistItem
     public String getPlaybackIndex()
     {
         int idx = getListIndex();
-        return (idx > 0) ? String.format(FMT_PLINDEX, idx, getPlaylistContext()
-                .getPlaylistInfo().getNumberOfSongs()) : UNDEF;
+        return (idx > 0) ? String.format(FMT_PLINDEX, idx, getPlaylistData()
+                .size()) : UNDEF;
     }
 
     /**
@@ -314,49 +158,6 @@ public class PlaylistItem
      */
     public String getPlaylistName()
     {
-        PlaylistInfo info = getPlaylistContext().getPlaylistInfo();
-        return (info != null) ? info.getName() : UNDEF;
-    }
-
-    /**
-     * Returns a string representation for the specified duration.
-     *
-     * @param duration the duration (in milliseconds)
-     * @return a string for this duration
-     */
-    private static String formatDuration(long duration)
-    {
-        StringBuilder buf = new StringBuilder(DURATION_BUF_SIZE);
-        long secs = Math.round(duration / (double) MILLIS);
-        long hours = secs / SECS_PER_HOUR;
-        if (hours > 0)
-        {
-            buf.append(hours).append(':');
-        }
-        long mins = (secs % SECS_PER_HOUR) / SECS_PER_MINUTE;
-        if (mins < 10 && hours > 0)
-        {
-            buf.append('0');
-        }
-        buf.append(mins).append(':');
-        secs = secs % SECS_PER_MINUTE;
-        if (secs < 10)
-        {
-            buf.append('0');
-        }
-        buf.append(secs);
-        return buf.toString();
-    }
-
-    /**
-     * Obtains the value of a property. If it has a value, it is converted to a
-     * string. Otherwise the undefined value is returned.
-     *
-     * @param value the value
-     * @return the value as string
-     */
-    private static String fetchProperty(Object value)
-    {
-        return (value != null) ? value.toString() : UNDEF;
+        return fetchProperty(getPlaylistData().settings().name());
     }
 }
