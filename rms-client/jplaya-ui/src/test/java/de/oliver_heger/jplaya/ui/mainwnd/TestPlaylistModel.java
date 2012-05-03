@@ -1,31 +1,22 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
 import net.sf.jguiraffe.gui.forms.Form;
 
-import org.apache.commons.lang3.mutable.MutableInt;
-import org.apache.commons.lang3.mutable.MutableObject;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.oliver_heger.jplaya.engine.mediainfo.SongDataEvent;
-import de.oliver_heger.jplaya.engine.mediainfo.SongDataManager;
-import de.oliver_heger.jplaya.playlist.PlaylistInfo;
-import de.oliver_heger.mediastore.service.SongData;
+import de.oliver_heger.splaya.AudioPlayerEvent;
+import de.oliver_heger.splaya.AudioPlayerEventType;
+import de.oliver_heger.splaya.AudioSource;
+import de.oliver_heger.splaya.PlaylistData;
+import de.oliver_heger.splaya.PlaylistEvent;
+import de.oliver_heger.splaya.PlaylistEventType;
 
 /**
  * Test class for {@code PlaylistModel}.
@@ -36,13 +27,11 @@ import de.oliver_heger.mediastore.service.SongData;
 public class TestPlaylistModel extends EasyMockSupport
 {
     /** Constant for the index of a song affected by a test event. */
-    private static final Integer INDEX = 42;
+    private static final int INDEX = 42;
 
-    /** Constant for the URI prefix for test songs. */
-    private static final String URI = "TestSong_";
-
-    /** Constant for the number of test songs. */
-    private static final int COUNT = 128;
+    /** Constant for an audio source used in events. */
+    private static final AudioSource SOURCE = new AudioSource("someURI", INDEX,
+            0, 0, 0);
 
     /** A mock for the form. */
     private Form form;
@@ -50,50 +39,67 @@ public class TestPlaylistModel extends EasyMockSupport
     /** A mock for the table handler. */
     private TableHandler handler;
 
-    /** The collection with the data of the table model. */
-    private List<PlaylistItem> modelData;
+    /** A mock for the playlist data. */
+    private PlaylistData pldata;
 
     @Before
     public void setUp() throws Exception
     {
         form = createMock(Form.class);
         handler = createMock(TableHandler.class);
-        modelData = new ArrayList<PlaylistItem>();
-        handler.getModel();
-        EasyMock.expectLastCall().andReturn(modelData).anyTimes();
+        pldata = createMock(PlaylistData.class);
     }
 
     /**
-     * Creates a list with test URIs for the playlist items.
+     * Creates a mock for a player event of the given type.
      *
-     * @return the list with URIs
+     * @param type the type
+     * @return the mock for the event
      */
-    private static List<String> createPlayistURIs()
+    private AudioPlayerEvent createPlayerEvent(AudioPlayerEventType type)
     {
-        List<String> uris = new ArrayList<String>(COUNT);
-        for (int i = 0; i < COUNT; i++)
-        {
-            uris.add(URI + i);
-        }
-        return uris;
+        AudioPlayerEvent event = createMock(AudioPlayerEvent.class);
+        EasyMock.expect(event.getType()).andReturn(type).anyTimes();
+        EasyMock.expect(event.getSource()).andReturn(SOURCE).anyTimes();
+        return event;
     }
 
     /**
-     * Initializes the test model with items.
+     * Creates a mock for a playlist event of the given type.
      *
-     * @param model the model
-     * @param sdm the song data manager
-     * @param initHandler a flag whether the table handler mock should be
-     *        initialized
-     * @return the list with items
+     * @param type the event type
+     * @return the mock for the event
      */
-    private List<PlaylistItem> initItems(PlaylistModel model,
-            SongDataManager sdm)
+    private PlaylistEvent createPlaylistEvent(PlaylistEventType type)
     {
-        List<String> uris = createPlayistURIs();
-        List<PlaylistItem> items = model.createModelItems(uris);
-        model.initialize(sdm, items);
-        return items;
+        return createPlaylistEvent(type, INDEX);
+    }
+
+    /**
+     * Creates a mock for a playlist event for the given type and update index.
+     *
+     * @param type the event type
+     * @param idx the index of the updated item
+     * @return the mock for the event
+     */
+    private PlaylistEvent createPlaylistEvent(PlaylistEventType type, int idx)
+    {
+        PlaylistEvent event = EasyMock.createMock(PlaylistEvent.class);
+        EasyMock.expect(event.getType()).andReturn(type).anyTimes();
+        EasyMock.expect(event.getPlaylistData()).andReturn(pldata).anyTimes();
+        EasyMock.expect(event.getUpdateIndex()).andReturn(idx).anyTimes();
+        EasyMock.replay(event);
+        return event;
+    }
+
+    /**
+     * Creates a default test instance.
+     *
+     * @return the test model
+     */
+    private PlaylistModel createModel()
+    {
+        return new PlaylistModel(form, handler);
     }
 
     /**
@@ -115,360 +121,175 @@ public class TestPlaylistModel extends EasyMockSupport
     }
 
     /**
-     * Tests whether the context of a newly created instance contains default
-     * values.
+     * Helper method for testing that an audio player event is ignored if there
+     * is not yet a playlist.
+     *
+     * @param type the event type
      */
-    @Test
-    public void testInitDefaultContextValues()
+    private void checkIgnoredPlayerEvent(AudioPlayerEventType type)
     {
-        PlaylistModel model = new PlaylistModel(form, handler);
-        PlaylistContext ctx = model.getPlaylistContext();
-        assertTrue("Got a valid song index", ctx.getCurrentSongIndex() < 0);
-        PlaylistInfo info = ctx.getPlaylistInfo();
-        assertEquals("Wrong name", "", info.getName());
-        assertEquals("Wrong description", "", info.getDescription());
-        assertEquals("Wrong number of songs", 0, info.getNumberOfSongs());
-    }
-
-    /**
-     * Tests whether the data model can be initialized.
-     */
-    @Test
-    public void testInitialize()
-    {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        handler.tableDataChanged();
+        AudioPlayerEvent event = createPlayerEvent(type);
         replayAll();
-        modelData.add(null);
-        PlaylistModel model = new PlaylistModel(form, handler);
-        List<PlaylistItem> items = initItems(model, sdm);
-        assertEquals("Wrong number of items", COUNT, modelData.size());
-        for (int i = 0; i < COUNT; i++)
-        {
-            assertEquals("Wrong item at " + i, items.get(i), modelData.get(i));
-        }
-        assertSame("Wrong current manager", sdm,
-                model.getCurrentSongDataManager());
+        PlaylistModel model = createModel();
+        model.handleAudioPlayerEvent(event);
         verifyAll();
     }
 
     /**
-     * Tests whether item objects can be created.
+     * Tests that a player event is ignored if there is no current item.
      */
     @Test
-    public void testCreateModelItems()
+    public void testPlayerEventNoCurrentItem()
     {
-        PlaylistModel model = new PlaylistModel(form, handler);
-        List<PlaylistItem> items = model.createModelItems(createPlayistURIs());
-        assertEquals("Wrong number of items", COUNT, items.size());
-        assertNotNull("No context", model.getPlaylistContext());
-        int idx = 0;
-        for (PlaylistItem pi : items)
-        {
-            assertSame("Wrong context", model.getPlaylistContext(),
-                    pi.getPlaylistContext());
-            assertEquals("Wrong index", idx, pi.getIndex());
-            assertEquals("Wrong URI", URI + idx, pi.getUri());
-            assertNotNull("No song data", pi.getSongData());
-            idx++;
-        }
+        checkIgnoredPlayerEvent(AudioPlayerEventType.POSITION_CHANGED);
     }
 
     /**
-     * Tests whether a song data event can be processed that is not related to
-     * the current song.
+     * Tests that a start source event is ignored if there is no playlist.
      */
     @Test
-    public void testHandleEventNotCurrentSong()
+    public void testSourceStartEventNoPlaylist()
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        SongDataEvent event = createMock(SongDataEvent.class);
-        SongData data = createMock(SongData.class);
-        EasyMock.expect(event.getMediaFileID()).andReturn(INDEX).anyTimes();
-        EasyMock.expect(sdm.getDataForID(INDEX)).andReturn(data);
-        handler.tableDataChanged();
-        handler.rowsUpdated(INDEX.intValue(), INDEX.intValue());
+        checkIgnoredPlayerEvent(AudioPlayerEventType.START_SOURCE);
+    }
+
+    /**
+     * Tests that a playlist event is ignored if there is no current item.
+     */
+    @Test
+    public void testPlaylistEventNoCurrentItem()
+    {
+        PlaylistEvent event =
+                createPlaylistEvent(PlaylistEventType.PLAYLIST_UPDATED);
         replayAll();
-        PlaylistModel model = new PlaylistModel(form, handler);
-        List<PlaylistItem> items = initItems(model, sdm);
-        model.handleEvent(event);
-        assertSame("Data not set", data, items.get(INDEX.intValue())
-                .getSongData());
+        createModel().handlePlaylistEvent(event);
         verifyAll();
     }
 
     /**
-     * Tests whether a song data event can be processed that also effects the
-     * current song.
+     * Prepares the mocks to expect an update operation for the form. The passed
+     * in bean is checked.
+     *
+     * @param model the model to be tested
      */
-    @Test
-    public void testHandleEventCurrentSong()
+    private void expectUpdateForm(final PlaylistModel model)
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        SongDataEvent event = createMock(SongDataEvent.class);
-        SongData data = createMock(SongData.class);
-        EasyMock.expect(event.getMediaFileID()).andReturn(INDEX).anyTimes();
-        EasyMock.expect(sdm.getDataForID(INDEX)).andReturn(data);
-        handler.tableDataChanged();
-        handler.rowsUpdated(INDEX.intValue(), INDEX.intValue());
-        replayAll();
-        final MutableInt updateFormCounter = new MutableInt();
-        PlaylistModel model = new PlaylistModel(form, handler)
-        {
-            @Override
-            void updateForm()
-            {
-                updateFormCounter.increment();
-            }
-        };
-        initItems(model, sdm);
-        model.getPlaylistContext().setCurrentSongIndex(INDEX);
-        model.handleEvent(event);
-        assertEquals("Wrong update count", 1, updateFormCounter.getValue()
-                .intValue());
-        verifyAll();
-    }
-
-    /**
-     * Tests whether the UI can be updated for the current song.
-     */
-    @Test
-    public void testUpdateForm()
-    {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        handler.tableDataChanged();
-        handler.setSelectedIndex(INDEX);
-        replayAll();
-        PlaylistModel model = new PlaylistModel(form, handler);
-        List<PlaylistItem> items = initItems(model, sdm);
-        EasyMock.reset(form);
-        form.initFields(items.get(INDEX.intValue()));
-        EasyMock.replay(form);
-        model.getPlaylistContext().setCurrentSongIndex(INDEX);
-        model.updateForm();
-        verifyAll();
-    }
-
-    /**
-     * Tests multiple updateForm() invocations with the same current song index.
-     * In this case the table index should not be changed.
-     */
-    @Test
-    public void testUpdateFormNoIndexChange()
-    {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        handler.tableDataChanged();
-        handler.setSelectedIndex(INDEX);
-        replayAll();
-        PlaylistModel model = new PlaylistModel(form, handler);
-        List<PlaylistItem> items = initItems(model, sdm);
-        EasyMock.reset(form);
-        form.initFields(items.get(INDEX.intValue()));
-        EasyMock.expectLastCall().times(2);
-        EasyMock.replay(form);
-        model.getPlaylistContext().setCurrentSongIndex(INDEX);
-        model.updateForm();
-        model.updateForm();
-        verifyAll();
-    }
-
-    /**
-     * Tests whether the content of the form can be reset if an invalid index is
-     * provided.
-     */
-    @Test
-    public void testUpdateFormReset()
-    {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        handler.tableDataChanged();
-        final MutableObject<Object> formBean = new MutableObject<Object>();
         form.initFields(EasyMock.anyObject());
         EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
         {
             @Override
             public Object answer() throws Throwable
             {
-                formBean.setValue(EasyMock.getCurrentArguments()[0]);
+                PlaylistItem item = model.getCurrentPlaylistItem();
+                assertSame("Wrong form bean", item,
+                        EasyMock.getCurrentArguments()[0]);
+                assertEquals("Wrong playlist data", pldata,
+                        item.getPlaylistData());
+                assertEquals("Wrong index", INDEX, item.getIndex());
                 return null;
             }
         });
-        replayAll();
-        PlaylistModel model = new PlaylistModel(form, handler);
-        initItems(model, sdm);
-        model.getPlaylistContext().setCurrentSongIndex(-1);
-        model.updateForm();
-        verifyAll();
-        PlaylistItem item = (PlaylistItem) formBean.getValue();
-        assertEquals("Got a valid index", -1, item.getIndex());
-        assertNull("Got a URI", item.getUri());
-        assertEquals("Wrong playlist name", "", item.getPlaylistName());
     }
 
     /**
-     * Helper method for creating a mock event.
+     * Creates a test model which has already been initialized with a playlist.
      *
-     * @param sdm the song data manager
-     * @return the mock event
+     * @return the test model
      */
-    private SongDataEvent createEvent(SongDataManager sdm)
+    private PlaylistModel createModelWithPlaylist()
     {
-        SongDataEvent event = createMock(SongDataEvent.class);
-        EasyMock.expect(event.getManager()).andReturn(sdm).anyTimes();
-        return event;
+        PlaylistModel model = createModel();
+        model.handlePlaylistEvent(createPlaylistEvent(PlaylistEventType.PLAYLIST_CREATED));
+        return model;
     }
 
     /**
-     * Tests whether a song data event can be processed if the playlist is fully
-     * initialized.
+     * Tests whether an event for starting a new audio source is handled
+     * correctly.
      */
     @Test
-    public void testProcessSongDataEventInitialized()
+    public void testSourceStartsEvent()
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        SongDataEvent event = createEvent(sdm);
-        handler.tableDataChanged();
+        PlaylistModel model = createModelWithPlaylist();
+        expectUpdateForm(model);
+        AudioPlayerEvent event =
+                createPlayerEvent(AudioPlayerEventType.START_SOURCE);
+        handler.setSelectedIndex(INDEX);
         replayAll();
-        PlaylistModelTestImpl model = new PlaylistModelTestImpl(form, handler);
-        initItems(model, sdm);
-        model.verifyAllEvents();
-        model.verifyUpdateForm(0);
-        model.processSongDataEvent(event);
-        model.verifyEvents(event);
-        model.verifyAllEvents();
-        model.verifyUpdateForm(0);
+        model.handleAudioPlayerEvent(event);
+        PlaylistItem item = model.getCurrentPlaylistItem();
+        assertEquals("Wrong position", 0, item.getPlaybackRatio());
+        assertEquals("Wrong time", 0, item.getCurrentPlaybackTime());
         verifyAll();
     }
 
     /**
-     * Tests whether the UI can be updated if the playlist is fully initialized.
+     * Tests whether an event about a changed playback position is handled
+     * correctly.
      */
     @Test
-    public void testUpdateUIInitialized()
+    public void testPositionChangedEvent()
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        handler.tableDataChanged();
+        PlaylistModel model = createModelWithPlaylist();
+        expectUpdateForm(model);
+        expectUpdateForm(model);
+        AudioPlayerEvent event1 =
+                createPlayerEvent(AudioPlayerEventType.START_SOURCE);
+        AudioPlayerEvent event2 =
+                createPlayerEvent(AudioPlayerEventType.POSITION_CHANGED);
+        final int relPos = 55;
+        final long time = 20120503172600L;
+        EasyMock.expect(event2.getRelativePosition()).andReturn(relPos);
+        EasyMock.expect(event2.getPlaybackTime()).andReturn(time);
+        handler.setSelectedIndex(INDEX);
         replayAll();
-        PlaylistModelTestImpl model = new PlaylistModelTestImpl(form, handler);
-        initItems(model, sdm);
-        model.updateUI(sdm);
-        model.verifyUpdateForm(1);
+        model.handleAudioPlayerEvent(event1);
+        model.handleAudioPlayerEvent(event2);
+        PlaylistItem item = model.getCurrentPlaylistItem();
+        assertEquals("Wrong position", relPos, item.getPlaybackRatio());
+        assertEquals("Wrong time", time, item.getCurrentPlaybackTime());
         verifyAll();
     }
 
     /**
-     * Tests whether operations before the initialization of the playlist are
-     * recorded and are processed later.
+     * Tests whether a playlist update event referencing another item is handled
+     * correctly.
      */
     @Test
-    public void testEventsBeforeInitialize()
+    public void testPlaylistUpdateEventOtherIndex()
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        SongDataEvent ev1 = createEvent(sdm);
-        SongDataEvent ev2 = createEvent(sdm);
-        handler.tableDataChanged();
+        PlaylistModel model = createModelWithPlaylist();
+        expectUpdateForm(model);
+        AudioPlayerEvent pevent =
+                createPlayerEvent(AudioPlayerEventType.START_SOURCE);
+        handler.setSelectedIndex(INDEX);
+        PlaylistEvent event =
+                createPlaylistEvent(PlaylistEventType.PLAYLIST_UPDATED,
+                        INDEX - 1);
         replayAll();
-        PlaylistModelTestImpl model = new PlaylistModelTestImpl(form, handler);
-        model.processSongDataEvent(ev1);
-        model.getPlaylistContext().setCurrentSongIndex(5);
-        model.updateUI(sdm);
-        model.processSongDataEvent(ev2);
-        model.verifyUpdateForm(0);
-        model.verifyAllEvents();
-        initItems(model, sdm);
-        model.verifyEvents(ev1, ev2);
-        model.verifyAllEvents();
-        model.verifyUpdateForm(1);
+        model.handleAudioPlayerEvent(pevent);
+        model.handlePlaylistEvent(event);
         verifyAll();
     }
 
     /**
-     * Tests whether events can be processed separately from form updates before
-     * the playlist is fully initialized.
+     * Tests whether a playlist update event referencing the current playlist
+     * item is handled correctly.
      */
     @Test
-    public void testEventsButNoFormUpdateBeforeInitialize()
+    public void testPlaylistUpdateEventCurrentItem()
     {
-        SongDataManager sdm = createMock(SongDataManager.class);
-        SongDataEvent event = createEvent(sdm);
-        handler.tableDataChanged();
+        PlaylistModel model = createModelWithPlaylist();
+        expectUpdateForm(model);
+        expectUpdateForm(model);
+        AudioPlayerEvent pevent =
+                createPlayerEvent(AudioPlayerEventType.START_SOURCE);
+        handler.setSelectedIndex(INDEX);
+        PlaylistEvent event =
+                createPlaylistEvent(PlaylistEventType.PLAYLIST_UPDATED, INDEX);
         replayAll();
-        PlaylistModelTestImpl model = new PlaylistModelTestImpl(form, handler);
-        model.processSongDataEvent(event);
-        model.getPlaylistContext().setCurrentSongIndex(5);
-        initItems(model, sdm);
-        model.verifyEvents(event);
-        model.verifyAllEvents();
-        model.verifyUpdateForm(0);
+        model.handleAudioPlayerEvent(pevent);
+        model.handlePlaylistEvent(event);
         verifyAll();
-    }
-
-    /**
-     * A test implementation of the model with some mocking facilities.
-     */
-    private static class PlaylistModelTestImpl extends PlaylistModel
-    {
-        /** A list with events that have been handled. */
-        private final List<SongDataEvent> events;
-
-        /** A counter for invocations of updateForm(). */
-        private int updateFormCount;
-
-        public PlaylistModelTestImpl(Form frm, TableHandler tab)
-        {
-            super(frm, tab);
-            events = new LinkedList<SongDataEvent>();
-        }
-
-        /**
-         * Checks whether the specified events have been received in this order.
-         *
-         * @param events the expected events
-         */
-        public void verifyEvents(SongDataEvent... expevents)
-        {
-            for (SongDataEvent ev : expevents)
-            {
-                assertFalse("Too few events", events.isEmpty());
-                assertSame("Wrong event", ev, events.remove(0));
-            }
-        }
-
-        /**
-         * Checks whether all events have been processed.
-         */
-        public void verifyAllEvents()
-        {
-            assertTrue("Too many events: " + events, events.isEmpty());
-        }
-
-        /**
-         * Checks whether the expected number of update form invocations
-         * occurred.
-         *
-         * @param expCount the expected count
-         */
-        public void verifyUpdateForm(int expCount)
-        {
-            assertEquals("Wrong number of update form calls", expCount,
-                    updateFormCount);
-        }
-
-        /**
-         * Records this invocation.
-         */
-        @Override
-        void handleEvent(SongDataEvent event)
-        {
-            events.add(event);
-        }
-
-        /**
-         * Records this invocation.
-         */
-        @Override
-        void updateForm()
-        {
-            updateFormCount++;
-        }
     }
 }
