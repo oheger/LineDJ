@@ -59,11 +59,6 @@
     taskBean="specificSongTask">
   </a:action>
 
-  <!-- An action for recovering from an error -->
-  <a:action name="playerRecoverErrorAction" textres="act_playererr_text"
-    taskBean="recoverFromErrorTask">
-  </a:action>
-
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -214,18 +209,30 @@
     </di:constructor>
   </di:bean>
 
+  <!-- The playlist table model object -->
+  <di:bean name="playlistTableModel"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlaylistTableModel">
+    <di:constructor>
+      <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The action model object -->
+  <di:bean name="actionModel"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.ActionModel">
+    <di:constructor>
+      <di:param refName="ACTION_STORE"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The main controller -->
   <di:bean name="controller"
     beanClass="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
-    <di:constructor>
-      <di:param refName="CURRENT_CONTEXT"/>
-      <di:param refName="mediaStore"/>
-      <di:param refName="playlistModel"/>
-    </di:constructor>
-    <di:setProperty property="actionStore" refName="ACTION_STORE"/>
-    <di:setProperty property="playlistController" refName="playlistController"/>
-    <di:setProperty property="scanner" refName="fsScanner"/>
+    <di:setProperty property="playlistModel" refName="playlistModel"/>
+    <di:setProperty property="playlistTableModel" refName="playlistTableModel"/>
+    <di:setProperty property="actionModel" refName="actionModel"/>
     <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
+    <di:setProperty property="audioPlayer" refName="audioPlayer"/>
   </di:bean>
 
   <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>
@@ -254,17 +261,12 @@
     </di:setProperty>
   </di:bean>
 
-  <!-- Player initialize playlist action command and task -->
-  <di:bean name="initPlaylistCommand"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistCommand">
+  <!-- Player initialize playlist action task -->
+  <di:bean name="initPlaylistTask"
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
-  </di:bean>
-
-  <di:bean name="initPlaylistTask"
-    beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
-    <di:setProperty property="commandBeanName" value="initPlaylistCommand"/>
   </di:bean>
 
   <!-- Task for start playback action -->
@@ -305,14 +307,6 @@
     <di:constructor>
       <di:param refName="controller"/>
       <di:param refName="comp:playlistTable"/>
-    </di:constructor>
-  </di:bean>
-
-  <!-- Task for recover from error action -->
-  <di:bean name="recoverFromErrorTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.RecoverFromErrorActionTask">
-    <di:constructor>
-      <di:param refName="controller"/>
     </di:constructor>
   </di:bean>
 </j:jelly>
