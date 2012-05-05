@@ -29,6 +29,6 @@ public class NextSongActionTask extends AbstractControllerActionTask
     @Override
     public void run()
     {
-        getController().skipToNextSong();
+        getController().moveForward();
     }
 }

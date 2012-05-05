@@ -18,7 +18,7 @@ public class TestNextSongActionTask
     public void testRun()
     {
         MainWndController ctrl = EasyMock.createMock(MainWndController.class);
-        ctrl.skipToNextSong();
+        ctrl.moveForward();
         EasyMock.replay(ctrl);
         NextSongActionTask task = new NextSongActionTask(ctrl);
         task.run();
