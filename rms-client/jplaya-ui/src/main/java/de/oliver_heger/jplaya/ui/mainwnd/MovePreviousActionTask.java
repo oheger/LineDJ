@@ -9,7 +9,7 @@ package de.oliver_heger.jplaya.ui.mainwnd;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class MovePreviousActionTask extends AbstractChangeCurrentSongActionTask
+public class MovePreviousActionTask extends AbstractControllerActionTask
 {
     /**
      * Creates a new instance of {@code MovePreviousActionTask} and sets the
@@ -24,17 +24,11 @@ public class MovePreviousActionTask extends AbstractChangeCurrentSongActionTask
     }
 
     /**
-     * Updates the index in the playlist. This implementation obtains the
-     * {@code PlaylistController} and the current {@code PlaylistManager}. This
-     * object is asked to move to the previous song.
-     *
-     * @return a flag whether the index could be updated successfully
+     * Executes this task. This implementation just delegates to the controller.
      */
     @Override
-    protected boolean updatePlaylistIndex()
+    public void run()
     {
-        getController().getPlaylistController().getPlaylistManager()
-                .previousSong();
-        return true;
+        getController().moveBackward();
     }
 }

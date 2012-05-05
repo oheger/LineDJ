@@ -1,14 +1,8 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
-import static org.junit.Assert.assertTrue;
-
-import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
-
-import de.oliver_heger.jplaya.playlist.PlaylistController;
-import de.oliver_heger.jplaya.playlist.PlaylistManager;
 
 /**
  * Test class for {@code MovePreviousActionTask}.
@@ -32,18 +26,14 @@ public class TestMovePreviousActionTask extends EasyMockSupport
     }
 
     /**
-     * Tests whether the index of the playlist is updated correctly.
+     * Tests an execution of the task.
      */
     @Test
-    public void testUpdatePlaylistIndex()
+    public void testRun()
     {
-        PlaylistController plc = createMock(PlaylistController.class);
-        PlaylistManager pm = createMock(PlaylistManager.class);
-        EasyMock.expect(ctrl.getPlaylistController()).andReturn(plc);
-        EasyMock.expect(plc.getPlaylistManager()).andReturn(pm);
-        EasyMock.expect(pm.previousSong()).andReturn(Boolean.TRUE);
+        ctrl.moveBackward();
         replayAll();
-        assertTrue("Wrong result", task.updatePlaylistIndex());
+        task.run();
         verifyAll();
     }
 }
