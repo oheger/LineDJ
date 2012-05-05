@@ -16,7 +16,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
  * @author Oliver Heger
  * @version $Id: $
  */
-public class MoveToIndexActionTask extends AbstractChangeCurrentSongActionTask
+public class MoveToIndexActionTask extends AbstractControllerActionTask
 {
     /** The handler for the playlist table. */
     private final TableHandler tabHandler;
@@ -41,21 +41,17 @@ public class MoveToIndexActionTask extends AbstractChangeCurrentSongActionTask
     }
 
     /**
-     * Updates the current index of the playlist. This implementation obtains
-     * the new current index from the playlist table.
-     *
-     * @return a flag whether the index could be updated successfully
+     * Executes this task. This implementation checks whether there is actually
+     * a selection in the table. If this is the case, the selected index is
+     * passed to the main controller.
      */
     @Override
-    protected boolean updatePlaylistIndex()
+    public void run()
     {
         int selIdx = tabHandler.getSelectedIndex();
         if (selIdx >= 0)
         {
-            getController().getPlaylistController().getPlaylistManager()
-                    .setCurrentSongIndex(selIdx);
-            return true;
+            getController().moveTo(selIdx);
         }
-        return false;
     }
 }

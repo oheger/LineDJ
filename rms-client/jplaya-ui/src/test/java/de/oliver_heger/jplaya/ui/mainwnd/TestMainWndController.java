@@ -412,6 +412,20 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
+     * Tests whether a specific index in the playlist can be selected.
+     */
+    @Test
+    public void testMoveTo()
+    {
+        final int index = 42;
+        actionModel.disablePlayerActions();
+        player.moveToSource(index);
+        replayAll();
+        ctrl.moveTo(index);
+        verifyAll();
+    }
+
+    /**
      * Tests a shutdown notification.
      */
     @Test

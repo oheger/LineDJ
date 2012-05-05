@@ -1,16 +1,11 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler;
 
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
-
-import de.oliver_heger.jplaya.playlist.PlaylistController;
-import de.oliver_heger.jplaya.playlist.PlaylistManager;
 
 /**
  * Test class for {@code MoveToIndexActionTask}.
@@ -48,17 +43,13 @@ public class TestMoveToIndexActionTask extends EasyMockSupport
     @Test
     public void testUpdatePlaylistIndex()
     {
-        PlaylistController plc = createMock(PlaylistController.class);
-        PlaylistManager pm = createMock(PlaylistManager.class);
         final int selIdx = 42;
-        EasyMock.expect(controller.getPlaylistController()).andReturn(plc);
-        EasyMock.expect(plc.getPlaylistManager()).andReturn(pm);
         EasyMock.expect(handler.getSelectedIndex()).andReturn(selIdx);
-        pm.setCurrentSongIndex(selIdx);
+        controller.moveTo(selIdx);
         replayAll();
         MoveToIndexActionTask task =
                 new MoveToIndexActionTask(controller, handler);
-        assertTrue("Wrong result", task.updatePlaylistIndex());
+        task.run();
         verifyAll();
     }
 
@@ -73,7 +64,7 @@ public class TestMoveToIndexActionTask extends EasyMockSupport
         replayAll();
         MoveToIndexActionTask task =
                 new MoveToIndexActionTask(controller, handler);
-        assertFalse("Wrong result", task.updatePlaylistIndex());
+        task.run();
         verifyAll();
     }
 }

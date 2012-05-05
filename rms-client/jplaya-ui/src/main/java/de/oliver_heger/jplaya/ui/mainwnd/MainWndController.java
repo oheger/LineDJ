@@ -446,6 +446,19 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
+     * Moves to the specified index in the playlist. This method is called when
+     * the user selects a specific song (e.g. by double-clicking in the table
+     * with the playlist).
+     *
+     * @param index the index of the audio source to be played
+     */
+    protected void moveTo(int index)
+    {
+        getActionModel().disablePlayerActions();
+        getAudioPlayer().moveToSource(index);
+    }
+
+    /**
      * Initializes a playlist. This method reads asks the audio player to read
      * the source medium.
      */
