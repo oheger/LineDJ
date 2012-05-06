@@ -32,6 +32,8 @@ class AudioSourceDataExtractorImpl(resolver: SourceResolver)
    * output object.
    */
   def extractAudioSourceData(uri: String): Option[AudioSourceData] = {
+    log.info("Extract audio data for {}.", Array(uri))
+
     try {
       val props = getProperties(uri)
       Some(createSourceDataFromProperties(props, uri))
