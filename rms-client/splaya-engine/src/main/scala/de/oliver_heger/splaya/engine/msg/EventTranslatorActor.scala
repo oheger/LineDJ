@@ -64,93 +64,83 @@ class EventTranslatorActor extends Actor {
    * The main message loop of this actor.
    */
   def act() {
-    react {
-      case ex: Exit =>
-        ex.confirmed(this)
+    var running = true
 
-      case AddAudioPlayerEventListener(l) =>
-        playerListeners += l
-        act()
+    while (running) {
+      receive {
+        case ex: Exit =>
+          ex.confirmed(this)
+          running = false
 
-      case RemoveAudioPlayerEventListener(l) =>
-        playerListeners -= l
-        act()
+        case AddAudioPlayerEventListener(l) =>
+          playerListeners += l
 
-      case AddPlaylistEventListener(l) =>
-        playlistListeners += l
-        act()
+        case RemoveAudioPlayerEventListener(l) =>
+          playerListeners -= l
 
-      case RemovePlaylistEventListener(l) =>
-        playlistListeners -= l
-        act()
+        case AddPlaylistEventListener(l) =>
+          playlistListeners += l
 
-      case PlaylistEnd =>
-        playerListeners.fire(() =>
-          AudioPlayerEventImpl(AudioPlayerEventType.PLAYLIST_END),
-          _.playlistEnds(_))
-        act()
+        case RemovePlaylistEventListener(l) =>
+          playlistListeners -= l
 
-      case ps: PlaybackSourceStart =>
-        lastPositionEvent = InitPositionChanged
-        lastPlaybackTime = 0
-        playerListeners.fire(() =>
-          AudioPlayerEventImpl(getType = AudioPlayerEventType.START_SOURCE,
-            source = ps.source), _.sourceStarts(_))
-        act()
-
-      case pe: PlaybackSourceEnd =>
-        playerListeners.fire(() =>
-          createEventWithPosition(AudioPlayerEventType.END_SOURCE, pe.source,
-            pe.skipped), _.sourceEnds(_))
-        act()
-
-      case pc: PlaybackPositionChanged =>
-        lastPositionEvent = pc
-        act()
-
-      case PlaybackTimeChanged(time) =>
-        if (time != lastPlaybackTime) {
-          lastPlaybackTime = time
+        case PlaylistEnd =>
           playerListeners.fire(() =>
-            createEventWithPosition(AudioPlayerEventType.POSITION_CHANGED,
-              lastPositionEvent.source), _.positionChanged(_))
-        }
-        act()
+            AudioPlayerEventImpl(AudioPlayerEventType.PLAYLIST_END),
+            _.playlistEnds(_))
 
-      case pe: PlaybackError =>
-        val evtype = if (pe.fatal) AudioPlayerEventType.FATAL_EXCEPTION
-        else AudioPlayerEventType.EXCEPTION
-        playerListeners.fire(() =>
-          AudioPlayerEventImpl(getType = evtype, exception = pe.exception),
-          _.playbackError(_))
-        act()
+        case ps: PlaybackSourceStart =>
+          lastPositionEvent = InitPositionChanged
+          lastPlaybackTime = 0
+          playerListeners.fire(() =>
+            AudioPlayerEventImpl(getType = AudioPlayerEventType.START_SOURCE,
+              source = ps.source), _.sourceStarts(_))
 
-      case PlaybackStarts =>
-        playerListeners.fire(() =>
-          createEventWithPosition(AudioPlayerEventType.START_PLAYBACK,
-            lastPositionEvent.source), _.playbackStarts(_))
-        act()
+        case pe: PlaybackSourceEnd =>
+          playerListeners.fire(() =>
+            createEventWithPosition(AudioPlayerEventType.END_SOURCE, pe.source,
+              pe.skipped), _.sourceEnds(_))
 
-      case PlaybackStops =>
-        playerListeners.fire(() =>
-          createEventWithPosition(AudioPlayerEventType.STOP_PLAYBACK,
-            lastPositionEvent.source), _.playbackStops(_))
-        act()
+        case pc: PlaybackPositionChanged =>
+          lastPositionEvent = pc
 
-      case pd: PlaylistData =>
-        playlistListeners.fire(() =>
-          PlaylistEventImpl(PlaylistEventType.PLAYLIST_CREATED, pd, -1),
-          _.playlistCreated(_))
-        act()
+        case PlaybackTimeChanged(time) =>
+          if (time != lastPlaybackTime) {
+            lastPlaybackTime = time
+            playerListeners.fire(() =>
+              createEventWithPosition(AudioPlayerEventType.POSITION_CHANGED,
+                lastPositionEvent.source), _.positionChanged(_))
+          }
 
-      case PlaylistUpdate(pd, idx) =>
-        playlistListeners.fire(() =>
-          PlaylistEventImpl(PlaylistEventType.PLAYLIST_UPDATED, pd, idx),
-          _.playlistUpdated(_))
-        act()
+        case pe: PlaybackError =>
+          val evtype = if (pe.fatal) AudioPlayerEventType.FATAL_EXCEPTION
+          else AudioPlayerEventType.EXCEPTION
+          playerListeners.fire(() =>
+            AudioPlayerEventImpl(getType = evtype, exception = pe.exception),
+            _.playbackError(_))
 
-      case _ =>
-        act()
+        case PlaybackStarts =>
+          playerListeners.fire(() =>
+            createEventWithPosition(AudioPlayerEventType.START_PLAYBACK,
+              lastPositionEvent.source), _.playbackStarts(_))
+
+        case PlaybackStops =>
+          playerListeners.fire(() =>
+            createEventWithPosition(AudioPlayerEventType.STOP_PLAYBACK,
+              lastPositionEvent.source), _.playbackStops(_))
+
+        case pd: PlaylistData =>
+          playlistListeners.fire(() =>
+            PlaylistEventImpl(PlaylistEventType.PLAYLIST_CREATED, pd, -1),
+            _.playlistCreated(_))
+
+        case PlaylistUpdate(pd, idx) =>
+          playlistListeners.fire(() =>
+            PlaylistEventImpl(PlaylistEventType.PLAYLIST_UPDATED, pd, idx),
+            _.playlistUpdated(_))
+
+        case _ =>
+      }
     }
   }
 
