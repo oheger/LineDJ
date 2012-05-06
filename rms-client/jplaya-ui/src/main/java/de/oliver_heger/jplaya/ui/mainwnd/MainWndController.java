@@ -376,6 +376,8 @@ public class MainWndController implements AudioPlayerListener,
     @Override
     public void windowOpened(WindowEvent event)
     {
+        getAudioPlayer().addAudioPlayerListener(this);
+        getAudioPlayer().addPlaylistListener(this);
         getApplication().addShutdownListener(this);
         initPlaylist();
     }

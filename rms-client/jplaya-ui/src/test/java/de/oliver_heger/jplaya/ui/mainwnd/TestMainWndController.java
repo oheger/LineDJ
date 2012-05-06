@@ -174,6 +174,8 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
                 .andReturn(null);
         actionModel.disablePlayerActions();
+        player.addAudioPlayerListener(ctrl);
+        player.addPlaylistListener(ctrl);
         app.addShutdownListener(ctrl);
         replayAll();
         ctrl.setApplication(app);
@@ -197,6 +199,8 @@ public class TestMainWndController extends EasyMockSupport
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
                 .andReturn(mediaDir);
         actionModel.disablePlayerActions();
+        player.addAudioPlayerListener(ctrl);
+        player.addPlaylistListener(ctrl);
         app.addShutdownListener(ctrl);
         player.readMedium(mediaDir);
         replayAll();
