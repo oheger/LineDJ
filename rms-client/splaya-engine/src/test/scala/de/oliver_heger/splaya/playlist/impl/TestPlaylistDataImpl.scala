@@ -34,8 +34,7 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
   @Before def setUp() {
     settings = mock[PlaylistSettings]
     EasyMock.replay(settings)
-    data = PlaylistDataImpl(settings, startIdx, createPlaylist(),
-      createSourceDataArray())
+    data = PlaylistDataImpl(settings, startIdx, createPlaylist())
   }
 
   /**
@@ -103,6 +102,7 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
    * Tests whether an audio source data object can be queried if it is defined.
    */
   @Test def testGetAudioDataDefined() {
+    data.setAudioSourceData(2, createSourceData(2))
     val srcData = data.getAudioSourceData(2)
     assert(title(2) === srcData.title)
     assert(2 === srcData.trackNo)
@@ -110,26 +110,18 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
 
   /**
    * Tests whether an audio source data object can be queried if it is
-   * undefined.
+   * undefined. Also, initially all audio data objects should be undefined.
    */
   @Test def testGetAudioDataUndefined() {
-    val srcData = data.getAudioSourceData(1)
-    assert(uri(1) === srcData.title)
-    assert(0 === srcData.trackNo)
-    assert(0 === srcData.duration)
-    assert(0 === srcData.inceptionYear)
-    assertNull("Got an artist", srcData.artistName)
-    assertNull("Got an album", srcData.albumName)
-  }
-
-  /**
-   * Tests whether a copy of the array with audio sources is created.
-   */
-  @Test def testAudioSourceArrayDefensiveCopy() {
-    val array = createSourceDataArray()
-    data = PlaylistDataImpl(settings, 0, createPlaylist(), array)
-    array(1) = createSourceData(1)
-    assert(uri(1) === data.getAudioSourceData(1).title)
+    for (i <- 0 until PlaylistSize) {
+      val srcData = data.getAudioSourceData(i)
+      assert(uri(i) === srcData.title)
+      assert(0 === srcData.trackNo)
+      assert(0 === srcData.duration)
+      assert(0 === srcData.inceptionYear)
+      assertNull("Got an artist", srcData.artistName)
+      assertNull("Got an album", srcData.albumName)
+    }
   }
 
   /**

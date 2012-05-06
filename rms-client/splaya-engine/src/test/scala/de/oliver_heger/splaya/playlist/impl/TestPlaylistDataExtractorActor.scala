@@ -117,7 +117,6 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
     val items =
       for (i <- 0 until PlaylistSize) yield playlistURI(i)
     PlaylistDataImpl(playlist = items, settings = mock[PlaylistSettings],
-      sourceDataOrg = new Array[AudioSourceData](PlaylistSize),
       startIndex = 1)
   }
 
@@ -145,16 +144,6 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Checks whether a source data object for a given index is undefined.
-   * @param upd the playlist update message
-   * @param idx the index of the item to be checked
-   */
-  private def checkDummySourceData(upd: PlaylistUpdate, idx: Int) {
-    val data = upd.playlistData.getAudioSourceData(idx)
-    assert(playlistURI(idx) === data.title)
-  }
-
-  /**
    * Tests whether a complete playlist can be processed.
    */
   @Test def testExtractDataForPlaylist() {
@@ -164,12 +153,9 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
     actor ! createPlaylistData()
     val upd1 = nextUpdateMsg(listener)
     assertEquals("Wrong update index (1)", 1, upd1.updatedSourceDataIdx)
-    checkDummySourceData(upd1, 0)
-    checkDummySourceData(upd1, 2)
     assertEquals("Wrong source data (1)", createSourceData(1),
       upd1.playlistData.getAudioSourceData(1))
     val upd2 = nextUpdateMsg(listener)
-    checkDummySourceData(upd2, 0)
     assertEquals("Wrong source data (2)", createSourceData(2),
       upd2.playlistData.getAudioSourceData(2))
     val upd3 = nextUpdateMsg(listener)

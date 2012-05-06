@@ -30,9 +30,6 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
   /** The playlist to be processed. */
   private var playlistData: PlaylistDataImpl = _
 
-  /** An array with the meta data about the audio sources in the playlist. */
-  private var sourceData: Array[AudioSourceData] = _
-
   /** The current playlist ID. */
   private var playlistID: Long = 0
 
@@ -88,7 +85,6 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
   private def handleNewPlaylist(pld: PlaylistDataImpl) {
     playlistID += 1
     playlistData = pld
-    sourceData = new Array(pld.size)
     index = pld.startIndex
     requestPending = false
     itemsToProcess = pld.size
@@ -102,7 +98,7 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
   private def handleExtractResult(res: ExtractSourceDataResult) {
     if (playlistID == res.playlistID) {
       if (!res.data.isEmpty) {
-        sourceData(res.index) = res.data.get
+        playlistData.setAudioSourceData(res.index, res.data.get)
         Gateway.publish(createPlaylistUpdateMessage(res))
       }
 
@@ -172,10 +168,6 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
    * @param res the result of an extraction
    * @return the playlist update message
    */
-  private def createPlaylistUpdateMessage(res: ExtractSourceDataResult): PlaylistUpdate = {
-    val pld = PlaylistDataImpl(settings = playlistData.settings,
-      playlist = playlistData.playlist, startIndex = playlistData.startIndex,
-      sourceDataOrg = sourceData)
-    PlaylistUpdate(pld, res.index)
-  }
+  private def createPlaylistUpdateMessage(res: ExtractSourceDataResult) =
+    PlaylistUpdate(playlistData, res.index)
 }

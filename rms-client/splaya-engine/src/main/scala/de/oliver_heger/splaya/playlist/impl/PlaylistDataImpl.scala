@@ -11,26 +11,26 @@ import de.oliver_heger.splaya.AudioSourceData
  * can use the data available through the ''PlaylistData'' trait to display
  * information about the current playlist to the end user.
  *
- * This information is more or less straight-forward. Many properties are
- * directly passed to the constructor. Instances are immutable and thus can be
- * shared between multiple threads.
+ * This implementation is more or less straight-forward. Many properties are
+ * directly passed to the constructor. However, ''AudioSourceData'' objects are
+ * set when they become available. So this class is not immutable. This should
+ * not be a problem on client side because updated instances are sent as
+ * messages which means that they are safely published. (Note: It turned out
+ * that immutable objects are inefficient for large playlists.)
  *
  * @param settings the data object for playlist settings
  * @param startIndex the start index of this playlist
  * @param playlist a sequence with the URIs of the audio sources in the playlist
- * @param sourceDataOrg an array with the available ''AudioSourceData'' objects
- * for the sources in the playlist (a defensive copy will be created)
  */
 private case class PlaylistDataImpl(settings: PlaylistSettings, startIndex: Int,
-  playlist: Seq[String], private val sourceDataOrg: Array[AudioSourceData])
-  extends PlaylistData {
+  playlist: Seq[String]) extends PlaylistData {
   /** An array for direct access to playlist URIs. */
   private var playlistArray = playlist.toArray
 
-  /** A defensive copy of the array with source data objects. */
-  private var sourceData = sourceDataOrg.clone()
-
   val size = playlist.size
+
+  /** The array with source data objects. */
+  private var sourceData = new Array[AudioSourceData](size)
 
   def getURI(idx: Int) = playlistArray(idx)
 
@@ -42,6 +42,16 @@ private case class PlaylistDataImpl(settings: PlaylistSettings, startIndex: Int,
    */
   def getAudioSourceData(idx: Int): AudioSourceData =
     if (sourceData(idx) != null) sourceData(idx) else createDummySourceData(idx)
+
+  /**
+   * Sets the ''AudioSourceData'' object for the playlist item with the given
+   * index.
+   * @param idx the index of the playlist item
+   * @param data the data object to be set
+   */
+  def setAudioSourceData(idx: Int, data: AudioSourceData) {
+    sourceData(idx) = data
+  }
 
   /**
    * Creates an ''AudioSourceData'' object for a playlist item for which no

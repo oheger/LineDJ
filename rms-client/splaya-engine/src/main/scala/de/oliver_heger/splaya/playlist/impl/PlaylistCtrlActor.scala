@@ -337,8 +337,7 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
    */
   private def createPlaylistData(settingsData: PlaylistSettings): PlaylistData =
     PlaylistDataImpl(settings = settingsData, playlist = playlist,
-      startIndex = currentIndex,
-      sourceDataOrg = new Array[AudioSourceData](playlist.size))
+      startIndex = currentIndex)
 }
 
 /**
