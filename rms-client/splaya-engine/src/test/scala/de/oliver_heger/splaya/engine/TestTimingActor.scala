@@ -140,6 +140,17 @@ class TestTimingActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests that an initial start playback message does not cause problems.
+   */
+  @Test def testInitialStartPlayback() {
+    val actor = createActor()
+    whenExecuting(clock) {
+      actor ! PlaybackStarts
+      shutdownActor(actor)
+    }
+  }
+
+  /**
    * Tests whether a PlaybackStarts message is ignored if the clock is already
    * running.
    */

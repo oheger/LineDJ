@@ -56,6 +56,13 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private val DefaultBufferSize = 4096
 
+  /**
+   * Constant for the threshold for position changed event. This actor ensures
+   * that in the given time frame (in milliseconds) only a single event of this
+   * type if generated.
+   */
+  private val PositionChangedThreshold = 500L
+
   /** The logger. */
   private val log = LoggerFactory.getLogger(classOf[PlaybackActor])
 
@@ -83,6 +90,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   /** The current skip position. */
   private var skipPosition = 0L
 
+  /** The last time a position changed event was fired. */
+  private var lastPositionChangedTime = 0L
+
   /** The size of the last written chunk. */
   private var lastChunkSize = 0
 
@@ -107,6 +117,12 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * the stream is just skipped.
    */
   private var errorStream = false
+
+  /**
+   * A flag whether playback has already taken part since the last flush
+   * operation.
+   */
+  private var playbackPerformed = false
 
   /**
    * The main message loop of this actor.
@@ -332,10 +348,12 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       context = ctxFactory.createPlaybackContext(stream)
       playbackBuffer = context.createPlaybackBuffer()
       prepareLine()
+      fireInitialPlaybackStartEvent()
       Gateway.publish(PlaybackSourceStart(source))
       currentSource = source
       writtenForLastChunk = 0
       lastChunkSize = 0
+      lastPositionChangedTime = 0
     } catch {
       case ex: Exception =>
         handleContextCreationError(source, ex)
@@ -445,9 +463,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def handleChunkPlayed(written: Int): Unit = {
     chunkPlaying = false
     writtenForLastChunk = written
-    if (context != null) {
-      Gateway.publish(createPositionChangedMessage())
-    }
+    firePositionChangedEvent()
     playback()
   }
 
@@ -495,6 +511,17 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   }
 
   /**
+   * Takes care that a playback start event is fired when audio data is played
+   * for the first time after a flush operation.
+   */
+  private def fireInitialPlaybackStartEvent() {
+    if (!playbackPerformed) {
+      playbackPerformed = true
+      Gateway.publish(PlaybackStarts)
+    }
+  }
+
+  /**
    * Performs a flush on the current line if it is available.
    */
   private def flushLine() {
@@ -522,13 +549,28 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     flushLine()
     closeContext()
     queue.clear()
-    streamFactory.bufferManager.flush()
     if (stream != null) {
       stream.close()
     }
+    streamFactory.bufferManager.flush()
     endOfPlaylist = false
     endOfPlaylistMessage = false
     chunkPlaying = false
     playbackEnabled = true
+    playbackPerformed = false
+  }
+
+  /**
+   * Fires a position changed event if this is possible. This method also takes
+   * the threshold into account.
+   */
+  private def firePositionChangedEvent() {
+    if (context != null) {
+      var now = System.currentTimeMillis()
+      if (now - lastPositionChangedTime > PositionChangedThreshold) {
+        lastPositionChangedTime = now
+        Gateway.publish(createPositionChangedMessage())
+      }
+    }
   }
 }

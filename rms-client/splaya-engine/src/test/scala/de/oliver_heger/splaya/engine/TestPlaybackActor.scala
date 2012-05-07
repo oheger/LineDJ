@@ -522,10 +522,9 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     lineActor.shutdown()
     val src1 = AudioSource("uri1", 1, StreamLen1, 0, 0)
     val src2 = AudioSource("uri2", 2, StreamLen2, 0, 0)
+    listener.expectMessage(PlaybackStarts)
     listener.expectMessage(PlaybackSourceStart(src1))
     listener.expectMessage(PlaybackPositionChanged(BufferSize, AudioStreamLen,
-      StreamLen1 / 2, src1))
-    listener.expectMessage(PlaybackPositionChanged(StreamLen1, AudioStreamLen,
       StreamLen1 / 2, src1))
     listener.expectMessage(PlaybackSourceEnd(src1, false))
     listener.expectMessage(PlaybackSourceStart(src2))
@@ -645,7 +644,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
-      listener.skipMessages(1)
+      listener.skipMessages(2)
       val err = extractErrorMessage(listener)
       assert("Error when reading from audio stream for source " + src === err.msg)
       assert(false === err.fatal)
@@ -686,7 +685,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
-      listener.skipMessages(1)
+      listener.skipMessages(2)
       val err1 = extractErrorMessage(listener)
       assert(false === err1.fatal)
       val err2 = extractErrorMessage(listener)
@@ -855,14 +854,14 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       actor ! StartPlayback
     }
     Gateway.unregister(listener)
-    var foundStart = false
+    var startCount = 0
     var stopCount = 0
-    while (!foundStart) {
+    while (startCount < 2) {
       listener.nextMessage() match {
         case PlaybackStops =>
           stopCount += 1
         case PlaybackStarts =>
-          foundStart = true
+          startCount += 1
         case _ =>
       }
     }

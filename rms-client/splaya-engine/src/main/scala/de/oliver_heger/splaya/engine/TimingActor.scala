@@ -86,7 +86,7 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
         case TimeAction(f) =>
           handleTimeAction(f)
 
-        case _ =>  // ignore
+        case _ => // ignore
       }
     }
   }
@@ -193,7 +193,9 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
    * resumed.
    */
   private def handlePlaybackStart() {
-    startClock(false)
+    if (sourceStarted) {
+      startClock(false)
+    }
   }
 
   /**
