@@ -142,6 +142,16 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests an edge case of a skip operation.
+   */
+  @Test def testPlayChunkSkipTotalEdge() {
+    val data = chunkData(0, BufferLength)
+    val playbackActor = executePlayChunkTestWithPlaybackActor(data)
+    playbackActor.expectMessage(ChunkPlayed(BufferLength))
+    playbackActor.shutdown()
+  }
+
+  /**
    * Tests a play chunk operation if the first byte of the buffer has to be
    * skipped.
    */

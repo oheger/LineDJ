@@ -66,7 +66,7 @@ class LineWriteActor extends Actor {
    * @return a tuple with the adapted offset and length of the data buffer
    */
   private def handleSkip(pc: PlayChunk): Tuple2[Int, Int] = {
-    if (pc.skipPos > pc.currentPos + pc.len) {
+    if (pc.skipPos >= pc.currentPos + pc.len) {
       (0, 0)
     } else {
       val ofs = scala.math.max(pc.skipPos - pc.currentPos, 0).toInt
