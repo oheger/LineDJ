@@ -176,4 +176,20 @@ class TestPlaylistFileStoreImpl extends JUnitSuite {
     }
     assert(None === store.loadPlaylist(TestID))
   }
+
+  /**
+   * Tests whether special characters are encoded correctly.
+   */
+  @Test def testSaveFileWithSpecialCharacters() {
+    val sourceName = "W\u00fcndersch\u00f6ne M\u00fcsic.mp3"
+    val pldata = <playlist>
+                   <name>Test</name>
+                   <list>
+                     <file name={ sourceName }/>
+                   </list>
+                 </playlist>
+    store.savePlaylist(TestID, pldata)
+    val elem = store.loadPlaylist(TestID).get
+    assert(sourceName === (elem \\ "file" \\ "@name").text)
+  }
 }

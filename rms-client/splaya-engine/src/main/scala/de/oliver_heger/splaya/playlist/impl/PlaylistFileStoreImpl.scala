@@ -33,6 +33,9 @@ class PlaylistFileStoreImpl(directoryName: String) extends PlaylistFileStore {
   /** Constant for the file extension for settings files. */
   private val ExtSettings = ".settings"
 
+  /** Constant for the encoding. */
+  private val Encoding = "iso-8859-1"
+
   /** The logger. */
   private val log = LoggerFactory.getLogger(classOf[PlaylistFileStoreImpl])
 
@@ -131,7 +134,8 @@ class PlaylistFileStoreImpl(directoryName: String) extends PlaylistFileStore {
    */
   private def saveFile(playlistID: String, ext: String, root: Elem) {
     val file = dataFile(playlistID, ext)
-    XML.save(file.getAbsolutePath, root)
+    XML.save(filename = file.getAbsolutePath, node = root, enc = Encoding,
+        xmlDecl = true)
   }
 
   /**

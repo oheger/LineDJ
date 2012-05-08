@@ -314,7 +314,10 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
         <time>{ currentTime }</time>
       </current>
       <list>
-        { for (uri <- playlist) yield <file name={ uri }/> }
+        {
+          for (uri <- playlist) yield <file name={ uri }>
+                                      </file>
+        }
       </list>
     </configuration>
 

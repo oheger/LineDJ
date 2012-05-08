@@ -184,7 +184,10 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
         <time>{ time }</time>
       </current>
       <list>
-        { for (uri <- pl) yield <file name={ uri }/> }
+        {
+          for (uri <- pl) yield <file name={ uri }>
+                                      </file>
+        }
       </list>
     </configuration>
 
