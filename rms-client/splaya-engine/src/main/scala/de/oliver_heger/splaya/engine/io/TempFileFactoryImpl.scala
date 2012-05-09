@@ -3,6 +3,7 @@ package de.oliver_heger.splaya.engine.io
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import org.slf4j.LoggerFactory
 
 /**
  * A default implementation of the {@code TempFileFactory} interface.
@@ -25,6 +26,9 @@ class TempFileFactoryImpl(prefix: String, suffix: String)
    */
   val DefaultFileSuffix = ".tmp"
 
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(classOf[TempFileFactoryImpl])
+
   /** The file prefix used by this factory.*/
   val filePrefix = if (prefix == null) DefaultFilePrefix else prefix
 
@@ -43,6 +47,7 @@ class TempFileFactoryImpl(prefix: String, suffix: String)
   def createFile(): TempFile = {
     val file = File.createTempFile(filePrefix, fileSuffix)
     file.deleteOnExit()
+    log.info("Creating temporary file: {}.", file.getAbsolutePath())
     TempFileImpl(file)
   }
 }
@@ -52,11 +57,21 @@ class TempFileFactoryImpl(prefix: String, suffix: String)
  * a File object.
  */
 private case class TempFileImpl(file: File) extends TempFile {
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(classOf[TempFileImpl])
+
   def inputStream() = new FileInputStream(file)
 
   def outputStream() = new FileOutputStream(file)
 
   def length = file.length
 
-  def delete() = file.delete()
+  def delete() = {
+    log.info("Removing temporary file: {}.", file.getAbsolutePath())
+    val success = file.delete()
+    if (!success) {
+      log.warn("Could not remove temporary file!")
+    }
+    success
+  }
 }
