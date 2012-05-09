@@ -462,6 +462,16 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests whether a save message is ignored if there is no playlist.
+   */
+  @Test def testSavePlaylistUndefined() {
+    whenExecuting(scanner, store, generator) {
+      actor ! SavePlaylist
+      shutdownActor()
+    }
+  }
+
+  /**
    * Tests whether a newly created playlist is sent around as an event.
    */
   @Test def testPlaylistCreatedEvent() {

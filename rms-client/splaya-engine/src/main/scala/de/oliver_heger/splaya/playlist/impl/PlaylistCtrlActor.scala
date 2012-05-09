@@ -294,12 +294,14 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
 
   /**
    * Saves the current playlist including information about the current
-   * position.
+   * position. If there is no current playlist, this method has no effect.
    */
   private def savePlaylist() {
-    val xml = if (playlistComplete) PlaylistCtrlActor.EmptyPlaylist
-    else createPlaylistXML
-    store.savePlaylist(playlistID, xml)
+    if (playlistID != null) {
+      val xml = if (playlistComplete) PlaylistCtrlActor.EmptyPlaylist
+      else createPlaylistXML
+      store.savePlaylist(playlistID, xml)
+    }
   }
 
   /**
