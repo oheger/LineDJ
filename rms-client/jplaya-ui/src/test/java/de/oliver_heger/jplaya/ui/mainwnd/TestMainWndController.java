@@ -436,7 +436,7 @@ public class TestMainWndController extends EasyMockSupport
     public void testShutdown()
     {
         Application app = createMock(Application.class);
-        player.shutdown();
+        player.shutdownAndWait();
         replayAll();
         ctrl.shutdown(app);
         verifyAll();

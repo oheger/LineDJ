@@ -407,7 +407,7 @@ public class MainWndController implements AudioPlayerListener,
     public void shutdown(Application app)
     {
         log.info("Performing shutdown.");
-        getAudioPlayer().shutdown();
+        getAudioPlayer().shutdownAndWait();
     }
 
     /**
