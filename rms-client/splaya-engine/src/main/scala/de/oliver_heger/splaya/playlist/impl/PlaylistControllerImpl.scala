@@ -44,7 +44,35 @@ class PlaylistControllerImpl(actor: Actor) extends PlaylistController {
    * playlist. Then an ''Exit'' message is sent.
    */
   def shutdown() {
+    doShutdown()
+  }
+
+  /**
+   * @inheritdoc This implementation works like ''shutdown()'', but then waits
+   * on the ''Exit'' object for the shutdown to complete.
+   * @throws InterruptedException if waiting is interrupted
+   */
+  def shutdownAndWait() {
+    val exit = doShutdown()
+    exit.await()
+  }
+
+  /**
+   * Creates the ''Exit'' message used by the shutdown methods.
+   * @return the ''Exit'' message
+   */
+  private[impl] def createExit() = Exit(1)
+
+  /**
+   * Helper method for performing shutdown. This method does the actual work.
+   * It returns the ''Exit'' object passed to involved actors so that a caller
+   * may decide to wait on it.
+   * @return the ''Exit'' object
+   */
+  private def doShutdown(): Exit = {
     actor ! SavePlaylist
-    actor ! Exit
+    val exit = createExit()
+    actor ! exit
+    exit
   }
 }

@@ -55,4 +55,11 @@ trait PlaylistController {
    * position. (But this is not specified by this interface.)
    */
   def shutdown()
+
+  /**
+   * Performs a shutdown of this ''PlaylistController'' and waits until it is
+   * complete. This method works like ''shutdown()'', however, it does not only
+   * initiate shutdown, but blocks until it is complete.
+   */
+  def shutdownAndWait()
 }

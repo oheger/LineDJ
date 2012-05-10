@@ -5,11 +5,12 @@ import de.oliver_heger.splaya.tsthlp.ActorTestImpl
 import org.junit.Before
 import org.junit.Test
 import de.oliver_heger.splaya.engine.msg.Exit
+import org.scalatest.mock.EasyMockSugar
 
 /**
  * Test class for ''PlaylistControllerImpl''.
  */
-class TestPlaylistControllerImpl extends JUnitSuite {
+class TestPlaylistControllerImpl extends JUnitSuite with EasyMockSugar {
   /** The test actor. */
   private var actor: ActorTestImpl = _
 
@@ -58,7 +59,23 @@ class TestPlaylistControllerImpl extends JUnitSuite {
   @Test def testShutdown() {
     ctrl.shutdown()
     actor.expectMessage(SavePlaylist)
-    actor.expectMessage(Exit)
+    actor.expectMessage(Exit(1))
     actor.ensureNoMessages()
+  }
+
+  /**
+   * Tests the blocking shutdown method.
+   */
+  @Test def testShutdownAndWait() {
+    val ex = mock[Exit]
+    ex.await()
+    ctrl = new PlaylistControllerImpl(actor) {
+      override def createExit() = ex
+    }
+    whenExecuting(ex) {
+      ctrl.shutdownAndWait()
+      actor.expectMessage(SavePlaylist)
+      actor.expectMessage(ex)
+    }
   }
 }
