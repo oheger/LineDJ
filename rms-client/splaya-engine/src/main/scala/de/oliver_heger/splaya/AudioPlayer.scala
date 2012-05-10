@@ -82,4 +82,12 @@ trait AudioPlayer {
    * called at the end of an audio player application.
    */
   def shutdown()
+
+  /**
+   * Closes this audio player, frees all its resources, and waits until shutdown
+   * is complete. This method works like ''shutdown()'', but it blocks until
+   * shutdown is actually complete.
+   * @throws InterruptedException if waiting is interrupted
+   */
+  def shutdownAndWait()
 }
