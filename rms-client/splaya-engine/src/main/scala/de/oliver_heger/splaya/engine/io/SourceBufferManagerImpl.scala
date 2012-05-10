@@ -43,7 +43,7 @@ class SourceBufferManagerImpl extends SourceBufferManager {
    * Notifies this object that the current input stream has been fully read.
    * This implementation updates the buffer size.
    */
-  def streamRead(length:Long) {
+  def streamRead(length: Long) {
     tempFileSize -= length
     updateCurrentStreamReadPosition(0)
   }
@@ -54,6 +54,10 @@ class SourceBufferManagerImpl extends SourceBufferManager {
    * files in the queue and deleting them.
    */
   def flush() {
+    if (currentFile != null) {
+      currentFile.delete()
+      currentFile = null
+    }
     queue foreach (_.delete())
     updateCurrentStreamReadPosition(0)
     tempFileSize = 0

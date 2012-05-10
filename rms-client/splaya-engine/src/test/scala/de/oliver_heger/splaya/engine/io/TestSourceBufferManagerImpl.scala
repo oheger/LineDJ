@@ -92,7 +92,7 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
   /**
    * Tests whether an instance can be flushed before something was added.
    */
-  @Test def testCloseEmpty() {
+  @Test def testFlushEmpty() {
     manager.flush()
   }
 
@@ -100,7 +100,7 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
    * Tests whether a flush operation removes remaining temporary files and
    * clears the state of the manager.
    */
-  @Test def testCloseWithContent() {
+  @Test def testFlushWithContent() {
     val temp1 = mock[TempFile]
     val temp2 = mock[TempFile]
     expecting {
@@ -114,6 +114,7 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
       manager += temp1
       manager += temp2
       manager.updateCurrentStreamReadPosition(222)
+      manager.next()
       manager.flush()
       assert(0 === manager.bufferSize)
       assert(0 === manager.currentStreamReadPosition)
