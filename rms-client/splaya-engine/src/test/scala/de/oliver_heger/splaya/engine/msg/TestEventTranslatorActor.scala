@@ -26,6 +26,7 @@ import de.oliver_heger.splaya.PlaylistData
 import java.util.concurrent.BlockingQueue
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.PlaylistUpdate
+import de.oliver_heger.splaya.PlaylistEnd
 
 /**
  * Test class for ''EventTranslatorActor''.

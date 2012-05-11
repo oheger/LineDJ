@@ -41,12 +41,6 @@ case class AddSourceStream(uri: String, index: Int, skip: Long, skipTime: Long) 
 case object ReadChunk
 
 /**
- * A message indicating the end of the playlist. After this message was sent to
- * an actor, no more audio streams are accepted.
- */
-case object PlaylistEnd
-
-/**
  * A message for writing a chunk of audio data into the specified line.
  * @param line the line
  * @param chunk the array with the data to be played

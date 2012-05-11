@@ -19,8 +19,8 @@ import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.PlaylistEnd
 import de.oliver_heger.splaya.tsthlp.WaitForExit
 
 /**

@@ -27,6 +27,12 @@ case object PlaybackStarts
 case object PlaybackStops
 
 /**
+ * A message indicating the end of the playlist. This message is sent after all
+ * audio sources in the current playlist have been played.
+ */
+case object PlaylistEnd
+
+/**
  * A data class describing an audio source to be played by the audio player
  * engine. This class contains some meta data about the source and its position
  * in the current playlist.

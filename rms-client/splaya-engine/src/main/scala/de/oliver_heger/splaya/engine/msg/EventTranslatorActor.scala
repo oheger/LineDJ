@@ -19,6 +19,7 @@ import de.oliver_heger.splaya.PlaylistEvent
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.PlaylistEventType
 import de.oliver_heger.splaya.PlaylistUpdate
+import de.oliver_heger.splaya.PlaylistEnd
 
 /**
  * Implementation of an actor which translates messages sent by the audio player

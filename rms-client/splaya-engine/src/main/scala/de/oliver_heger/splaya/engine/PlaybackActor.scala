@@ -13,6 +13,7 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
 import de.oliver_heger.splaya.engine.msg.Exit
@@ -21,7 +22,6 @@ import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.msg.StopPlayback
 import de.oliver_heger.splaya.engine.msg.StartPlayback
 import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
-import de.oliver_heger.splaya.engine.msg.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
