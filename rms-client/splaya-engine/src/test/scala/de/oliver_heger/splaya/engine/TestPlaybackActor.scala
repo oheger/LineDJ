@@ -896,6 +896,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
         case _ =>
       }
     }
+    listener.expectMessage(PlaylistEnd)
     listener.ensureNoMessages()
     listener.shutdown()
   }

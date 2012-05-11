@@ -507,6 +507,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     if (endOfPlaylist && !endOfPlaylistMessage) {
       endOfPlaylistMessage = true
       Gateway.publish(PlaybackStops)
+      Gateway.publish(PlaylistEnd)
     }
   }
 
