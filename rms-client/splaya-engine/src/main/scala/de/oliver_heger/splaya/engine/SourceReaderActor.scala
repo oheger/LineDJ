@@ -171,6 +171,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
     while (currentInputStream == null && !sourceStreams.isEmpty) {
       val srcStream = sourceStreams.dequeue()
       if (srcStream.isDefined) {
+        log.info("Copying {}.", srcStream.uri)
         fileBytes = 0
         try {
           val resolvedStream = resolver.resolve(srcStream.uri)

@@ -550,7 +550,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     closeContext()
     queue.clear()
     if (stream != null) {
-      stream.close()
+      stream.closeCurrentStream()
     }
     streamFactory.bufferManager.flush()
     endOfPlaylist = false

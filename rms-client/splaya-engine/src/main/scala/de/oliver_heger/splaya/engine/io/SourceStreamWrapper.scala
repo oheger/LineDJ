@@ -130,13 +130,24 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   }
 
   /**
-   * Closes this stream. This implementation closes the underlying stream.
+   * Closes this stream. This implementation does not close the underlying
+   * stream. This cannot be done here because the underlying stream is shared
+   * between multiple stream wrappers. Use ''closeCurrentStream()'' if really
+   * all resources should be released.
    */
   override def close() {
-    if (currentStream != null) {
-      closeCurrentStream()
-    }
     resetHelper.close()
+  }
+
+  /**
+   * Closes this stream including the underlying stream.
+   */
+  def closeCurrentStream() {
+    if (currentStream != null) {
+      currentStream.close()
+      stream = null
+    }
+    close()
   }
 
   /**
@@ -165,13 +176,5 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
       val temp = bufferManager.next()
       stream = temp.inputStream()
     }
-  }
-
-  /**
-   * Closes the current output stream.
-   */
-  private def closeCurrentStream() {
-    currentStream.close()
-    stream = null
   }
 }

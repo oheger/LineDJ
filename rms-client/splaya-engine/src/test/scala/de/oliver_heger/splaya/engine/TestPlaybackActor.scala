@@ -231,7 +231,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper2)).andReturn(context2)
     EasyMock.expect(streamWrapper2.currentPosition).andReturn(StreamLen2 / 2).anyTimes()
     context2.close()
-    streamWrapper2.close()
+    streamWrapper2.closeCurrentStream()
     whenExecuting(bufMan, ctxFactory, streamFactory, line, streamWrapper1,
       streamWrapper2, context1, context2) {
         actor ! AudioSource("uri1", 1, StreamLen1, skip, skip * 60)
@@ -747,7 +747,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.open(Format)
     line.start()
     expectFlush(line)
-    stream.close()
+    stream.closeCurrentStream()
     val lineActor = installLineWriterActor(null)
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line, stream) {
@@ -775,7 +775,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.open(Format)
     line.start()
     expectFlush(line)
-    stream.close()
+    stream.closeCurrentStream()
     val buffer = new StringBuffer
     val lineActor = installLineWriterActor {
       case pc: PlayChunk =>
@@ -815,7 +815,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.open(Format)
     line.start()
     bufMan.flush()
-    stream.close()
+    stream.closeCurrentStream()
     val buffer = new StringBuffer
     val posList = ListBuffer.empty[Long]
     val lineActor = installLineWriterActor {
@@ -923,8 +923,8 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     line.start().times(2)
     expectFlush(line)
     expectFlush(line)
-    stream1.close()
-    stream2.close()
+    stream1.closeCurrentStream()
+    stream2.closeCurrentStream()
     val lineActor = installLineWriterActor(null)
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context1, context2, line,
