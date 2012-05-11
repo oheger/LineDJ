@@ -41,11 +41,10 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
    * Creates a helper object for reset implementations.
    * @return the helper
    */
-  private def createResetHelper(): StreamResetHelper = {
+  private def createResetHelper(): MyResetHelper = {
     val factory = niceMock[TempFileFactory]
     EasyMock.replay(factory)
-    val helper = new StreamResetHelper(factory)
-    helper
+    new MyResetHelper(factory)
   }
 
   /**
@@ -201,6 +200,7 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     assertNotNull("No current stream", stream.currentStream)
     stream.close()
     assertNull("Still got a current stream", stream.currentStream)
+    assertTrue("Helper not closed", helper.closed)
   }
 
   /**
@@ -213,5 +213,19 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     stream.read()
     stream.close()
     stream.close()
+  }
+
+  /**
+   * A specialized reset helper implementation which can be used to verify that
+   * the helper was closed.
+   */
+  private class MyResetHelper(factory: TempFileFactory)
+    extends StreamResetHelper(factory) {
+    var closed: Boolean = false
+
+    override def close() {
+      super.close()
+      closed = true
+    }
   }
 }

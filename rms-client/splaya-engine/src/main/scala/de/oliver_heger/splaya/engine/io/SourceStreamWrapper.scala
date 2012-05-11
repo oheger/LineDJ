@@ -136,6 +136,7 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
     if (currentStream != null) {
       closeCurrentStream()
     }
+    resetHelper.close()
   }
 
   /**
