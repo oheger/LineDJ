@@ -916,7 +916,6 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(ctxFactory.createPlaybackContext(stream1)).andReturn(context1)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream2)).andReturn(context2)
     EasyMock.expect(stream1.currentPosition).andReturn(StreamLen1 / 2).anyTimes()
-    EasyMock.expect(stream1.currentStream).andReturn(null)
     EasyMock.expect(stream2.currentPosition).andReturn(StreamLen2 / 2).anyTimes()
     context1.close()
     context2.close()

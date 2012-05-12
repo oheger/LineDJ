@@ -341,6 +341,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     val source = queue.dequeue()
     log.info("Starting playback of {}.", source.uri)
     skipPosition = source.skip
+    errorStream = false
 
     try {
       val sourceStream = if (stream != null) stream.currentStream else null
@@ -552,6 +553,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     queue.clear()
     if (stream != null) {
       stream.closeCurrentStream()
+      stream = null
     }
     streamFactory.bufferManager.flush()
     endOfPlaylist = false
