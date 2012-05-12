@@ -68,17 +68,16 @@ class AudioSourceDataExtractorImpl(resolver: SourceResolver)
     props: java.util.Map[String, Object], uri: String): AudioSourceData = {
     import AudioSourceDataExtractorImpl._
     val title = if (props.containsKey(KeyTitle)) strProp(props, KeyTitle) else uri
-    val durSecs =
+    val duration =
       if (props.containsKey(KeyDuration)) {
-        val durLong = props.get(KeyDuration).asInstanceOf[Long]
-        scala.math.round(durLong / Millis)
+        props.get(KeyDuration).asInstanceOf[Long]
       } else 0
     new AudioSourceDataImpl(title = title,
       albumName = strProp(props, KeyAlbum),
       artistName = strProp(props, KeyInterpret),
       inceptionYear = parseNumericProperty(props.get(KeyYear)).toInt,
       trackNo = parseNumericProperty(props.get(KeyTrack)).toInt,
-      duration = durSecs)
+      duration = duration)
   }
 }
 
@@ -110,9 +109,6 @@ object AudioSourceDataExtractorImpl {
 
   /** Constant for the duration property if it is stored in an ID3 tag. */
   val KeyID3Duration = "mp3.id3tag.length";
-
-  /** Constant for the milliseconds factor. */
-  private val Millis = 1000.0;
 
   /**
    * Parses a numeric property in string form. If the property is undefined

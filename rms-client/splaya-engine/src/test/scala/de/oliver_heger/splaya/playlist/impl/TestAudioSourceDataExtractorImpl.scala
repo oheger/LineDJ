@@ -36,7 +36,7 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
     val data = extractor.extractAudioSourceData(Test1).get
     assert(Interpret === data.artistName)
     assert(Title === data.title)
-    assert(DurationInSec === data.duration)
+    assert(Duration === data.duration)
     assert(2006 === data.inceptionYear)
     assert(1 === data.trackNo)
     assert("A Test Collection" === data.albumName)
@@ -50,7 +50,7 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
     val data = extractor.extractAudioSourceData(
       TestAudioSourceDataExtractorImpl.Test2).get
     assert(TestAudioSourceDataExtractorImpl.Test2 === data.title)
-    assert(7 === data.duration)
+    assert(6734 === data.duration)
     assertNull("Got an album", data.albumName)
   }
 
@@ -110,9 +110,6 @@ object TestAudioSourceDataExtractorImpl {
 
   /** Constant for the original duration of the audio file. */
   private val Duration = 10842L;
-
-  /** Constant for the duration of the audio file in seconds. */
-  private val DurationInSec = 11L;
 
   /** The VFS file system manager. */
   private var manager: FileSystemManager = _
