@@ -1,6 +1,7 @@
 package de.oliver_heger.splaya.engine.io
 
 import java.io.InputStream
+import org.slf4j.LoggerFactory
 
 /**
  * A specialized stream implementation which wraps temporary files streamed
@@ -25,6 +26,9 @@ import java.io.InputStream
 class SourceStreamWrapper(resetHelper: StreamResetHelper,
   wrappedStream: InputStream, private var streamLength: Long,
   bufferManager: SourceBufferManager) extends InputStream {
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(classOf[SourceStreamWrapper])
+
   /** Stores the reset helper object.*/
   private[engine] val streamResetHelper = resetHelper
 
@@ -116,13 +120,14 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @param limit the mark limit (ignored)
    */
   override def mark(limit: Int) {
+    log.info("mark() called with limit of {}.", limit)
     markPosition = currentPosition
     resetHelper.mark()
   }
 
   /**
-   * Resets this stream to the last position mark() was called. This implementation delegates
-   * to the helper object.
+   * Resets this stream to the last position mark() was called. This
+   * implementation delegates to the helper object.
    */
   override def reset() {
     resetHelper.reset()

@@ -3,6 +3,7 @@ import scala.actors.Actor
 import scala.collection.mutable.Queue
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.ReadChunk
+import java.io.IOException
 
 /**
  * A default implementation of the ''SourceBufferManager'' interface.
@@ -59,14 +60,16 @@ class SourceBufferManagerImpl extends SourceBufferManager {
       currentFile = null
     }
     queue foreach (_.delete())
+    queue.clear()
     updateCurrentStreamReadPosition(0)
     tempFileSize = 0
   }
 
   /**
-   * Returns the first entry from this buffer. This operation may block until
-   * data becomes available.
+   * Returns the first entry from this buffer. If the buffer is empty, an
+   * exception is thrown.
    * @return the first entry from this buffer
+   * @throws IOException if there is no entry
    */
   def next(): TempFile = {
     if (currentFile != null) {
@@ -74,6 +77,9 @@ class SourceBufferManagerImpl extends SourceBufferManager {
       Gateway ! Gateway.ActorSourceRead -> ReadChunk
     }
 
+    if (queue.isEmpty) {
+      throw new IOException("Buffer is empty!")
+    }
     currentFile = queue.dequeue()
     currentFile
   }

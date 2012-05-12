@@ -10,6 +10,7 @@ import org.junit.After
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ReadChunk
+import java.io.IOException
 
 /**
  * Test class for ''SourceBufferManagerImpl''.
@@ -90,6 +91,26 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Helper method for testing that the buffer is empty and that there is no
+   * next element.
+   */
+  private def checkBufferEmpty() {
+    try {
+      manager.next()
+      fail("Got a next element!")
+    } catch {
+      case ioex: IOException => // ok
+    }
+  }
+
+  /**
+   * Tries to call next() if the buffer is empty.
+   */
+  @Test def testNextEmpty() {
+    checkBufferEmpty()
+  }
+
+  /**
    * Tests whether an instance can be flushed before something was added.
    */
   @Test def testFlushEmpty() {
@@ -119,6 +140,7 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
       assert(0 === manager.bufferSize)
       assert(0 === manager.currentStreamReadPosition)
     }
+    checkBufferEmpty()
   }
 
   /**
