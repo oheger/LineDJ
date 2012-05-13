@@ -47,15 +47,15 @@ import de.oliver_heger.splaya.engine.msg.PlayChunk
  *
  * @param ctxFactory the factory for creating playback context objects
  * @param streamFactory a factory for creating stream objects
+ * @param minimumBufferLimit the minimum amount of data which must be in the
+ * audio buffer before playback can start; this value must correspond to the
+ * mark() and reset() operations performed by the audio engine when setting up
+ * an mp3 audio stream; the default value should be appropriate, but can be
+ * adapted if necessary
  */
 class PlaybackActor(ctxFactory: PlaybackContextFactory,
-  streamFactory: SourceStreamWrapperFactory) extends Actor {
-  /**
-   * Constant for the default buffer size. This size is used if no playback
-   * buffer is available.
-   */
-  private val DefaultBufferSize = 4096
-
+  streamFactory: SourceStreamWrapperFactory,
+  minimumBufferLimit: Int = PlaybackActor.MinimumBufferLimit) extends Actor {
   /**
    * Constant for the threshold for position changed event. This actor ensures
    * that in the given time frame (in milliseconds) only a single event of this
@@ -218,7 +218,8 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * it can be used directly. Otherwise, a default size is assumed.
    */
   private def playbackBufferSize: Int =
-    if (playbackBuffer != null) playbackBuffer.length else DefaultBufferSize
+    if (playbackBuffer != null) playbackBuffer.length
+    else PlaybackActor.DefaultBufferSize
 
   /**
    * Checks whether the temporary buffer contains enough data to read another
@@ -226,7 +227,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * is started only if the buffer contains a certain amount of data.
    */
   private def sufficientBufferSize: Boolean =
-    endOfPlaylist || streamFactory.bufferManager.bufferSize >= 2 * playbackBufferSize
+    endOfPlaylist || streamFactory.bufferManager.bufferSize >= minimumBufferLimit
 
   /**
    * Checks whether a playback context is available. If not, it is tried to
@@ -382,7 +383,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     Gateway.publish(PlaybackError(msg, ex, false))
     errorStream = true
     skipPosition = Long.MaxValue
-    playbackBuffer = new Array[Byte](DefaultBufferSize)
+    playbackBuffer = new Array[Byte](PlaybackActor.DefaultBufferSize)
   }
 
   /**
@@ -576,4 +577,21 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       }
     }
   }
+}
+
+/**
+ * The companion object of ''PlaybackActor''.
+ */
+object PlaybackActor {
+  /**
+   * Constant for the minimum buffer limit. Playback is only possible if the
+   * audio buffer contains at least this amount of data.
+   */
+  val MinimumBufferLimit = 256000
+
+  /**
+   * Constant for the default buffer size. This size is used if no playback
+   * buffer is available.
+   */
+  private val DefaultBufferSize = 4096
 }

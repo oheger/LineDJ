@@ -218,7 +218,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(streamFactory.createStream(null, StreamLen1)).andReturn(streamWrapper1)
     EasyMock.expect(streamWrapper1.currentPosition).andReturn(StreamLen1 / 2).anyTimes()
     EasyMock.expect(ctxFactory.createPlaybackContext(streamWrapper1)).andReturn(context1)
-    EasyMock.expect(bufMan.bufferSize).andReturn(bufSize).anyTimes()
+    EasyMock.expect(bufMan.bufferSize).andReturn(PlaybackActor.MinimumBufferLimit).anyTimes()
     line.open(Format).times(2)
     line.start().times(2)
     if (expFlush) {
@@ -316,7 +316,8 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   @Test def testPlaybackNotEnoughDataInBuffer() {
     setUpActor()
     val lineActor = installLineWriterActor(null)
-    EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
+    EasyMock.expect(bufMan.bufferSize)
+      .andReturn(PlaybackActor.MinimumBufferLimit - 1)
     bufMan.flush()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
       actor ! AudioSource("uri", 1, 1000, 0, 0)
