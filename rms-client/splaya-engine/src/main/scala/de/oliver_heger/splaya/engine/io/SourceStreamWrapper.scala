@@ -41,6 +41,12 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   /** The last mark position. */
   private var markPosition = 0L
 
+  /** A flag indicating that this stream has been read completely. */
+  private var endOfStream = false
+
+  /** A flag whether a stream read event has already been sent. */
+  private var readEventSent = false
+
   /**
    * Auxiliary constructor which creates a default {@code StreamResetHelper}.
    * @param factory the factory for temporary files
@@ -65,6 +71,12 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
   def currentPosition: Long = position
 
   /**
+   * Returns a flag whether the end of this stream was reached.
+   * @return the end of stream flag
+   */
+  def isEndOfStream = endOfStream
+
+  /**
    * Returns a flag whether mark operations are supported by this stream. This
    * is the case.
    * @return a flag whether mark operations are supported
@@ -80,23 +92,31 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    * @return the number of bytes read
    */
   override def read(buf: Array[Byte], ofs: Int, len: Int): Int = {
-    val maxlen = scala.math.min(len, length - currentPosition).toInt
-    var read = resetHelper.read(buf, ofs, maxlen)
+    if (endOfStream) -1
+    else {
+      val maxlen = scala.math.min(len, length - currentPosition).toInt
+      var read = resetHelper.read(buf, ofs, maxlen)
 
-    if (read < len) {
-      fetchCurrentStream()
-      val streamRead = currentStream.read(buf, ofs + read, maxlen - read)
-      if (streamRead == -1) {
-        closeCurrentStream()
+      if (read < len) {
+        fetchCurrentStream()
+        val streamRead = currentStream.read(buf, ofs + read, maxlen - read)
+        if (streamRead == -1) {
+          closeCurrentStream()
+        } else {
+          read += streamRead
+        }
+      }
+
+      resetHelper.push(buf, ofs, read)
+      if (position == length && read == 0) {
+        endOfStream = true
+        sendStreamReadEventIfNecessary()
+        -1
       } else {
-        read += streamRead
+        updatePosition(position + read)
+        read
       }
     }
-
-    resetHelper.push(buf, ofs, read)
-    position += read
-    if (position == length && read == 0) -1
-    else read
   }
 
   /**
@@ -131,7 +151,8 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
    */
   override def reset() {
     resetHelper.reset()
-    position = markPosition
+    updatePosition(markPosition)
+    endOfStream = false
   }
 
   /**
@@ -180,6 +201,27 @@ class SourceStreamWrapper(resetHelper: StreamResetHelper,
     if (currentStream == null) {
       val temp = bufferManager.next()
       stream = temp.inputStream()
+    }
+  }
+
+  /**
+   * Updates the current position in this stream. The buffer manager is
+   * notified, too.
+   * @param pos the new position
+   */
+  private def updatePosition(pos: Long) {
+    position = pos
+    bufferManager.updateCurrentStreamReadPosition(pos)
+  }
+
+  /**
+   * Sends a stream read event to the buffer manager if this is the first time
+   * the stream was completely read.
+   */
+  private def sendStreamReadEventIfNecessary() {
+    if (!readEventSent) {
+      bufferManager.streamRead(length)
+      readEventSent = true
     }
   }
 }

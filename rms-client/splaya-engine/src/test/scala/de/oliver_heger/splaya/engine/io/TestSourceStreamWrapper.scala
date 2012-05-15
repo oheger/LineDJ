@@ -10,6 +10,8 @@ import org.junit.Test
 import java.io.ByteArrayInputStream
 import org.easymock.EasyMock
 import java.util.Arrays
+import scala.collection.mutable.ListBuffer
+import org.easymock.IAnswer
 
 /**
  * Test class for {@code SourceStreamWrapper}.
@@ -26,10 +28,34 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     tincidunt. Cras dapibus."""
 
   /** A mock for the buffer manager.*/
-  var bufferManager: SourceBufferManager = _
+  private var bufferManager: SourceBufferManager = _
+
+  /** A list builder for recording position changed events. */
+  private var posChangedBuilder: ListBuffer[Long] = _
+
+  /** A list builder for recording stream read events. */
+  private var streamReadBuilder: ListBuffer[Long] = _
 
   @Before def setUp() {
-    bufferManager = mock[SourceBufferManager]
+    posChangedBuilder = ListBuffer.empty
+    streamReadBuilder = ListBuffer.empty
+    bufferManager = prepareBufferManagerMock()
+  }
+
+  /**
+   * Prepares a mock for the buffer manager. The mock is prepared to expect
+   * callbacks about position updates and stream reads.
+   * @return the mock object
+   */
+  private def prepareBufferManagerMock(): SourceBufferManager = {
+    val bufMan = mock[SourceBufferManager]
+    bufMan.updateCurrentStreamReadPosition(EasyMock.anyLong())
+    EasyMock.expectLastCall().andAnswer(new ListAppendAnswer(posChangedBuilder))
+      .anyTimes()
+    bufMan.streamRead(EasyMock.anyLong())
+    EasyMock.expectLastCall().andAnswer(new ListAppendAnswer(streamReadBuilder))
+      .anyTimes()
+    bufMan
   }
 
   /**
@@ -80,6 +106,41 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
       bufferManager)
     checkReadStream(stream, Text)
     assertNull("Got a current stream", stream.currentStream)
+    assertTrue("Not end of stream", stream.isEndOfStream)
+  }
+
+  /**
+   * Tests whether position changed events are triggered while the stream is
+   * read.
+   */
+  @Test def testPositionChangedEvents() {
+    def checkList(list: List[Long], idx: Int) {
+      if (list.isEmpty) {
+        assertEquals("Wrong number of events", Text.length+1, idx)
+      } else {
+        assertEquals("Wrong value at " + idx, idx, list.head)
+        checkList(list.tail, idx + 1)
+      }
+    }
+
+    EasyMock.replay(bufferManager)
+    val stream = new SourceStreamWrapper(createResetHelper(), wrappedStream(),
+      Text.length, bufferManager)
+    checkReadStream(stream, Text)
+    checkList(posChangedBuilder.toList, 1)
+  }
+
+  /**
+   * Tests whether the buffer manager is notified when the stream was read.
+   */
+  @Test def testStreamReadEvent() {
+    EasyMock.replay(bufferManager)
+    val stream = new SourceStreamWrapper(createResetHelper(), wrappedStream(),
+      Text.length, bufferManager)
+    checkReadStream(stream, Text)
+    assert(-1 === stream.read())
+    assertEquals("Wrong number of read events", 1, streamReadBuilder.size)
+    assertEquals("Wrong stream length", Text.length, streamReadBuilder(0))
   }
 
   /**
@@ -190,6 +251,69 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests whether a reset operation updates the position in the stream.
+   */
+  @Test def testResetPositionUpdateEvent() {
+    val resetHelper = niceMock[StreamResetHelper]
+    val bufLen = 16L
+    val buffer = new Array[Byte](bufLen.toInt)
+    whenExecuting(resetHelper, bufferManager) {
+      val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
+        Text.length(), bufferManager)
+      stream.read(buffer)
+      stream.read(buffer)
+      stream.reset()
+    }
+    assert(List(bufLen, 2 * bufLen, 0) === posChangedBuilder.toList)
+  }
+
+  /**
+   * Tests that the end of stream flag is cleared after a reset operation.
+   */
+  @Test def testEndOfStreamAfterReset() {
+    val resetHelper = niceMock[StreamResetHelper]
+    val buffer = new Array[Byte](Text.length)
+    whenExecuting(resetHelper, bufferManager) {
+      val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
+        Text.length(), bufferManager)
+      stream.read(buffer)
+      stream.read()
+      assertTrue("Not end of stream", stream.isEndOfStream)
+      stream.reset()
+      assertFalse("Still end of stream", stream.isEndOfStream)
+    }
+  }
+
+  /**
+   * Tests that only a single stream read event is produced, even if the stream
+   * is reset and read multiple times.
+   */
+  @Test def testOnlyASingleStreamReadEvent() {
+    val resetHelper = niceMock[StreamResetHelper]
+    val temp = mock[TempFile]
+    val buffer = new Array[Byte](Text.length)
+
+    expecting {
+      // This is necessary only because we do not have a functional reset
+      // helper. In reality, the content of the stream would be read from the
+      // reset helper.
+      EasyMock.expect(bufferManager.next()).andReturn(temp)
+      EasyMock.expect(temp.inputStream()).andReturn(wrappedStream())
+    }
+
+    whenExecuting(resetHelper, bufferManager, temp) {
+      val stream = new SourceStreamWrapper(resetHelper, wrappedStream(),
+        Text.length(), bufferManager)
+      stream.read(buffer)
+      stream.read()
+      stream.reset()
+      stream.read(buffer)
+      stream.read()
+    }
+    assertEquals("Wrong number of stream read events", 1, streamReadBuilder.size)
+  }
+
+  /**
    * Tests a close operation which includes the underlying stream.
    */
   @Test def testCloseCurrentStream() {
@@ -239,6 +363,19 @@ class TestSourceStreamWrapper extends JUnitSuite with EasyMockSugar {
     override def close() {
       super.close()
       closed = true
+    }
+  }
+
+  /**
+   * A specialized answer implementation which appends its parameter to a list
+   * buffer.
+   * @param buffer the buffer
+   */
+  private class ListAppendAnswer(buffer: ListBuffer[Long]) extends IAnswer[Object] {
+    def answer() = {
+      val value = EasyMock.getCurrentArguments()(0).asInstanceOf[Long]
+      buffer += value
+      null
     }
   }
 }
