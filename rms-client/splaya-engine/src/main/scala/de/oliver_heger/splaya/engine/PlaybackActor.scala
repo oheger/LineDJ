@@ -235,7 +235,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * can be used for playback.
    */
   private def contextAvailable: Boolean =
-    context != null || setUpPlaybackContext()
+    context != null || errorStream || setUpPlaybackContext()
 
   /**
    * Plays a chunk of the audio data.
@@ -271,15 +271,13 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     } catch {
       case ioex: IOException =>
         val msg = "Error when reading from audio stream for source " + currentSource
-        log.error(msg, ioex)
-        Gateway.publish(
-          PlaybackError(msg, ioex, errorStream))
+        fireErrorEvent(msg, ioex, errorStream)
         if (errorStream) {
           playbackEnabled = false
         } else {
           errorStream = true
           skipCurrentSource()
-          read = readStream(ofs, len)
+          read = 0
         }
     }
     read
@@ -341,8 +339,15 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def preparePlayback() {
     val source = queue.dequeue()
     log.info("Starting playback of {}.", source.uri)
+    fireInitialPlaybackStartEvent()
+    Gateway.publish(PlaybackSourceStart(source))
+
     skipPosition = source.skip
     errorStream = false
+    currentSource = source
+    writtenForLastChunk = 0
+    lastChunkSize = 0
+    lastPositionChangedTime = 0
 
     try {
       val sourceStream = if (stream != null) stream.currentStream else null
@@ -350,15 +355,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       context = ctxFactory.createPlaybackContext(stream)
       playbackBuffer = context.createPlaybackBuffer()
       prepareLine()
-      fireInitialPlaybackStartEvent()
-      Gateway.publish(PlaybackSourceStart(source))
-      currentSource = source
-      writtenForLastChunk = 0
-      lastChunkSize = 0
-      lastPositionChangedTime = 0
     } catch {
       case ex: Exception =>
-        handleContextCreationError(source, ex)
+        handleContextCreationError(ex)
     }
 
     streamPosition = 0
@@ -374,16 +373,27 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
 
   /**
    * Handles an exception when creating the playback context for a source.
-   * @param source the current audio source
    * @param ex the exception
    */
-  private def handleContextCreationError(source: AudioSource, ex: Throwable) {
-    val msg = "Cannot create PlaybackContext for source " + source
-    log.error(msg, ex)
-    Gateway.publish(PlaybackError(msg, ex, false))
+  private def handleContextCreationError(ex: Throwable) {
+    val msg = "Cannot create PlaybackContext for source " + currentSource
+    fireErrorEvent(msg, ex, false)
     errorStream = true
     skipPosition = Long.MaxValue
     playbackBuffer = new Array[Byte](PlaybackActor.DefaultBufferSize)
+  }
+
+  /**
+   * Fires an event indicating a playback error. Some fields are set according
+   * to the error state.
+   * @param msg the error message
+   * @param ex the exception which caused this error
+   * @param fatal a flag whether this is a fatal error
+   */
+  private def fireErrorEvent(msg: String, ex: Throwable, fatal: Boolean) {
+    log.error(msg, ex)
+    Gateway.publish(PlaybackError(msg, ex, fatal))
+    handleStopPlayback()
   }
 
   /**
@@ -484,7 +494,9 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def handleStartPlayback() {
     if (!playbackEnabled) {
       playbackEnabled = true
-      updateLine(_.start())
+      if (!errorStream) {
+        updateLine(_.start())
+      }
       Gateway.publish(PlaybackStarts)
       playback()
     }
@@ -593,5 +605,5 @@ object PlaybackActor {
    * Constant for the default buffer size. This size is used if no playback
    * buffer is available.
    */
-  private val DefaultBufferSize = 4096
+  val DefaultBufferSize = 4096
 }

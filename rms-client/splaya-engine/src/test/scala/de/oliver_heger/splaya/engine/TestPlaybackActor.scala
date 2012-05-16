@@ -77,7 +77,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
 
   @Before def setUp() {
     ctxFactory = mock[PlaybackContextFactory]
-    bufMan = mock[SourceBufferManager]
+    bufMan = createBufferManagerMock()
     streamFactory = mock[SourceStreamWrapperFactory]
     EasyMock.expect(streamFactory.bufferManager).andReturn(bufMan).anyTimes()
     Gateway.start()
@@ -87,6 +87,18 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     if (actor != null) {
       actor ! Exit
     }
+  }
+
+  /**
+   * Creates an prepares the mock for the source buffer manager.
+   * @return the buffer manager mock
+   */
+  private def createBufferManagerMock(): SourceBufferManager = {
+    val bm = mock[SourceBufferManager]
+    EasyMock.expect(bm.updateCurrentStreamReadPosition(EasyMock.anyLong()))
+      .anyTimes()
+    EasyMock.expect(bm.streamRead(EasyMock.anyLong())).anyTimes()
+    bm
   }
 
   /**
@@ -317,7 +329,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor()
     val lineActor = installLineWriterActor(null)
     EasyMock.expect(bufMan.bufferSize)
-      .andReturn(PlaybackActor.MinimumBufferLimit - 1)
+      .andReturn(PlaybackActor.MinimumBufferLimit - 1).anyTimes()
     bufMan.flush()
     whenExecuting(bufMan, ctxFactory, streamFactory) {
       actor ! AudioSource("uri", 1, 1000, 0, 0)
@@ -490,7 +502,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     val temp = mock[TempFile]
     expecting {
       bufMan += temp
-      EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize)
+      EasyMock.expect(bufMan.bufferSize).andReturn(BufferSize).anyTimes()
       bufMan.flush()
     }
     setUpActor()
@@ -580,7 +592,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    * could not be created. In this case, the affected source should be skipped.
    */
   @Test def testErrorCreateContext() {
-    val len = BufferSize + 10
+    val len = StreamLen2
     val stream = createStreamWrapper(len)
     val ex = new RuntimeException("TestException")
     val src = AudioSource("uri", 1, len, 0, 0)
@@ -588,22 +600,30 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andThrow(ex)
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     bufMan.flush()
-    val lineActor = installLineWriterActor(null)
+    val strBuffer = new StringBuffer
+    val lineActor = installLineWriterActor {
+      case pc: PlayChunk =>
+        assert(Long.MaxValue === pc.skipPos)
+        strBuffer append copyBufferToString(pc)
+    }
     val listener = installListener()
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan) {
       actor ! src
-      actor ! ChunkPlayed(BufferSize)
-      listener.expectMessage(
-        PlaybackError("Cannot create PlaybackContext for source " + src,
-          ex, false))
-      val pc = extractPlayChunkMessage(lineActor)
-      assert(Long.MaxValue === pc.skipPos)
-      val content = copyBufferToString(pc)
-      assert(streamGen.generateStreamContent(0, len) === content)
+      actor ! StartPlayback
+      actor ! ChunkPlayed(PlaybackActor.DefaultBufferSize)
       shutdownActor()
     }
-    lineActor.ensureNoMessages()
+    listener.expectMessage(PlaybackStarts)
+    listener.expectMessage(PlaybackSourceStart(src))
+    listener.expectMessage(
+      PlaybackError("Cannot create PlaybackContext for source " + src,
+        ex, false))
+    listener.expectMessage(PlaybackStops)
+    listener.expectMessage(PlaybackStarts)
+    lineActor.ensureNoMessages(2)
+    assert(streamGen.generateStreamContent(0, 2 * PlaybackActor.DefaultBufferSize)
+      === strBuffer.toString)
     lineActor.shutdown()
     Gateway.unregister(listener)
     listener.shutdown()
@@ -618,7 +638,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   private def extractErrorMessage(actor: QueuingActor): PlaybackError = {
     actor.nextMessage() match {
       case err: PlaybackError => err
-      case _ => fail("Unexpected message!")
+      case otherMsg => fail("Unexpected message: " + otherMsg)
     }
   }
 
@@ -636,7 +656,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     context.close()
     line.open(Format)
     line.start()
-    line.stop()
+    line.stop().times(2)
     line.flush()
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     expectFlush(line)
@@ -645,12 +665,16 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     setUpActor()
     whenExecuting(streamFactory, ctxFactory, bufMan, context, line) {
       actor ! src
+      actor ! StartPlayback
+      actor ! ChunkPlayed(BufferSize)
       listener.skipMessages(2)
       val err = extractErrorMessage(listener)
       assert("Error when reading from audio stream for source " + src === err.msg)
       assert(false === err.fatal)
-      val pc = extractPlayChunkMessage(lineActor)
+      listener.expectMessage(PlaybackStops)
+      var pc = extractPlayChunkMessage(lineActor)
       assert(Long.MaxValue === pc.skipPos)
+      pc = extractPlayChunkMessage(lineActor)
       val content = copyBufferToString(pc)
       assert(streamGen.generateStreamContent(0, len) === content)
       shutdownActor()
@@ -677,7 +701,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     context.close()
     line.open(Format)
     line.start()
-    line.stop()
+    line.stop().times(3)
     line.flush()
     EasyMock.expect(bufMan.bufferSize).andReturn(Long.MaxValue).anyTimes()
     expectFlush(line)
@@ -689,6 +713,11 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       listener.skipMessages(2)
       val err1 = extractErrorMessage(listener)
       assert(false === err1.fatal)
+      actor ! StartPlayback
+      actor ! ChunkPlayed(BufferSize)
+      listener.expectMessage(PlaybackStops)
+      listener.expectMessage(PlaybackStarts)
+      listener.skipMessages(1)  // position changed
       val err2 = extractErrorMessage(listener)
       assert("Error when reading from audio stream for source " + src === err2.msg)
       assert(true === err2.fatal)
