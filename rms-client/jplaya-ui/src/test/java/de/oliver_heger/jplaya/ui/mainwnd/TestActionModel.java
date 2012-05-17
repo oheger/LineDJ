@@ -147,7 +147,7 @@ public class TestActionModel
         expActionEnabled(actions, ActionModel.ACTION_PLAYER_PREV, false);
         expActionEnabled(actions, ActionModel.ACTION_PLAYER_START, true);
         expActionEnabled(actions, ActionModel.ACTION_PLAYER_STOP, false);
-        expActionEnabled(actions, ActionModel.ACTION_PLAYER_SPEC, false);
+        expActionEnabled(actions, ActionModel.ACTION_PLAYER_SPEC, true);
         replayActions(actions);
         EasyMock.replay(store);
         ActionModel model = new ActionModel(store);

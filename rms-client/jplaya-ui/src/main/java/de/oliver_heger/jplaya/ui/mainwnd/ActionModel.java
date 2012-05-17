@@ -129,9 +129,9 @@ public class ActionModel
     private void enablePlayingState(boolean f)
     {
         enableAction(ACTION_INIT_PLAYLIST, true);
+        enableAction(ACTION_PLAYER_SPEC, true);
         enableAction(ACTION_PLAYER_NEXT, f);
         enableAction(ACTION_PLAYER_PREV, f);
-        enableAction(ACTION_PLAYER_SPEC, f);
         enableAction(ACTION_PLAYER_START, !f);
         enableAction(ACTION_PLAYER_STOP, f);
     }
