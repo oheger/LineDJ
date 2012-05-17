@@ -16,8 +16,8 @@ import net.sf.jguiraffe.gui.builder.window.ctrl.FormController;
  * </p>
  * <p>
  * This controller class mainly implements a count-down. If 0 is reached, the
- * dialog window is closed, and a command is executed to setup a new audio
- * player. The user can initiate the operation immediately by clicking the
+ * dialog window is closed, and a command is executed to continue playback with
+ * the next song. The user can initiate the operation immediately by clicking the
  * <em>Recover</em> button. Alternatively, <em>Cancel</em> can be clicked which
  * closes the dialog without performing any action.
  *

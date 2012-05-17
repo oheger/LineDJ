@@ -10,7 +10,7 @@
     beanClass="de.oliver_heger.jplaya.ui.mainwnd.ErrorDialogController">
     <di:constructor>
       <di:param refName="jguiraffe.guiSynchronizer"/>
-      <di:param refName="action:playerRecoverErrorAction"/>
+      <di:param refName="action:playerStartPlaybackAction"/>
       <di:param refName="comp:countdown"/>
     </di:constructor>
     <di:setProperty property="btnOkName" value="btnRecover"/>
