@@ -117,7 +117,8 @@ class EventTranslatorActor extends Actor {
           val evtype = if (pe.fatal) AudioPlayerEventType.FATAL_EXCEPTION
           else AudioPlayerEventType.EXCEPTION
           playerListeners.fire(() =>
-            AudioPlayerEventImpl(getType = evtype, exception = pe.exception),
+            AudioPlayerEventImpl(getType = evtype, exception = pe.exception,
+              source = pe.source),
             _.playbackError(_))
 
         case PlaybackStarts =>

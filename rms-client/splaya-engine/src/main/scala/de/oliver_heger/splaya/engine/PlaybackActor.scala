@@ -392,7 +392,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def fireErrorEvent(msg: String, ex: Throwable, fatal: Boolean) {
     log.error(msg, ex)
-    Gateway.publish(PlaybackError(msg, ex, fatal))
+    Gateway.publish(PlaybackError(msg, ex, fatal, currentSource))
     handleStopPlayback()
   }
 

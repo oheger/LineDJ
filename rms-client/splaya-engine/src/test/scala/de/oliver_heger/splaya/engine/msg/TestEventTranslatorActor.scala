@@ -184,9 +184,11 @@ class TestEventTranslatorActor extends JUnitSuite {
    */
   @Test def testPlaybackErrorEvent() {
     val ex = new Exception("A test exception")
-    actor ! PlaybackError("Some error", ex, false)
+    val src = AudioSource("someURI", 1, 100, 0, 0)
+    actor ! PlaybackError("Some error", ex, false, src)
     val ev = listener.expectEvent(AudioPlayerEventType.EXCEPTION)
     assert(ex === ev.getException)
+    assert(src === ev.getSource)
   }
 
   /**

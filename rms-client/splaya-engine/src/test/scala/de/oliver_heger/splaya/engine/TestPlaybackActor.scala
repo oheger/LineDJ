@@ -618,7 +618,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     listener.expectMessage(PlaybackSourceStart(src))
     listener.expectMessage(
       PlaybackError("Cannot create PlaybackContext for source " + src,
-        ex, false))
+        ex, false, src))
     listener.expectMessage(PlaybackStops)
     listener.expectMessage(PlaybackStarts)
     lineActor.ensureNoMessages(2)

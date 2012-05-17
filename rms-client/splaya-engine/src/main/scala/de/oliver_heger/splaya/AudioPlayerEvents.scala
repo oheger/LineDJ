@@ -10,8 +10,10 @@ package de.oliver_heger.splaya
  * @param exception the underlying exception
  * @param fatal '''true''' if this error causes playback to be aborted,
  * '''false''' if playback can be continued
+ * @param source the audio source which caused this error (if available)
  */
-case class PlaybackError(msg: String, exception: Throwable, fatal: Boolean)
+case class PlaybackError(msg: String, exception: Throwable, fatal: Boolean,
+  source: AudioSource = null)
 
 /**
  * A message indicating that playback starts. This message is sent when the
