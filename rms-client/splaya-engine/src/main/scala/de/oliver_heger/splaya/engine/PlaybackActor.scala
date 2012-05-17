@@ -561,6 +561,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    * is reset so the actor can be used to play another playlist.
    */
   private def flushActor() {
+    log.info("Flush of playback actor.")
     flushLine()
     closeContext()
     queue.clear()
@@ -574,6 +575,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     chunkPlaying = false
     playbackEnabled = true
     playbackPerformed = false
+    errorStream = false
   }
 
   /**
