@@ -3,9 +3,12 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationClient;
 import net.sf.jguiraffe.gui.app.ApplicationShutdownListener;
+import net.sf.jguiraffe.gui.app.OpenWindowCommand;
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
+import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
 import net.sf.jguiraffe.gui.builder.window.WindowListener;
+import net.sf.jguiraffe.locators.ClassPathLocator;
 
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.logging.Log;
@@ -15,6 +18,7 @@ import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.splaya.AudioPlayer;
 import de.oliver_heger.splaya.AudioPlayerEvent;
+import de.oliver_heger.splaya.AudioPlayerEventType;
 import de.oliver_heger.splaya.AudioPlayerListener;
 import de.oliver_heger.splaya.PlaylistEvent;
 import de.oliver_heger.splaya.PlaylistListener;
@@ -38,6 +42,12 @@ public class MainWndController implements AudioPlayerListener,
 {
     /** Constant for the name of the error script. */
     private static final String SCRIPT_ERROR = "playbackerror.jelly";
+
+    /** Constant for the resource ID for the playback error title. */
+    private static final String RES_ERR_PLAYBACK_TIT = "err_playback_title";
+
+    /** Constant for the resource ID for the playback error message. */
+    private static final String RES_ERR_PLAYBACK_MSG = "err_playback_msg";
 
     /** The logger. */
     private final Log log = LogFactory.getLog(getClass());
@@ -217,21 +227,26 @@ public class MainWndController implements AudioPlayerListener,
     @Override
     public void playbackError(final AudioPlayerEvent event)
     {
-        // TODO implement error handling
-        // getSynchronizer().asyncInvoke(new Runnable()
-        // {
-        // @Override
-        // public void run()
-        // {
-        // disablePlayerActions();
-        // enableAction(ACTION_INIT_PLAYLIST, true);
-        // enableAction(ACTION_PLAYER_SPEC, true);
-        // updatePlaylistModelForNewSong(event);
-        // }
-        // });
-        // getApplication().execute(
-        // new OpenWindowCommand(ClassPathLocator
-        // .getInstance(SCRIPT_ERROR)));
+        if (AudioPlayerEventType.EXCEPTION == event.getType())
+        {
+            getApplication().execute(
+                    new OpenWindowCommand(ClassPathLocator
+                            .getInstance(SCRIPT_ERROR)));
+        }
+        else
+        {
+            getSynchronizer().asyncInvoke(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    getApplication().getApplicationContext().messageBox(
+                            RES_ERR_PLAYBACK_MSG, RES_ERR_PLAYBACK_TIT,
+                            MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK);
+                    getApplication().shutdown();
+                }
+            });
+        }
     }
 
     /**

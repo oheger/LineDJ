@@ -1,9 +1,15 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import net.sf.jguiraffe.gui.app.Application;
+import net.sf.jguiraffe.gui.app.ApplicationContext;
+import net.sf.jguiraffe.gui.app.OpenWindowCommand;
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
+import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
 import net.sf.jguiraffe.gui.builder.window.WindowEvent;
+import net.sf.jguiraffe.gui.cmd.Command;
+import net.sf.jguiraffe.locators.ClassPathLocator;
 
 import org.apache.commons.configuration.Configuration;
 import org.easymock.EasyMock;
@@ -451,6 +457,58 @@ public class TestMainWndController extends EasyMockSupport
         Application app = createMock(Application.class);
         replayAll();
         assertTrue("Wrong result", ctrl.canShutdown(app));
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a non-fatal playback error can be handled.
+     */
+    @Test
+    public void testPlaybackErrorNonFatal()
+    {
+        Application app = createMock(Application.class);
+        AudioPlayerEvent event =
+                createAudioPlayerEvent(AudioPlayerEventType.EXCEPTION);
+        app.execute(EasyMock.anyObject(Command.class));
+        EasyMock.expectLastCall().andAnswer(new IAnswer<Object>()
+        {
+            @Override
+            public Object answer() throws Throwable
+            {
+                OpenWindowCommand cmd =
+                        (OpenWindowCommand) EasyMock.getCurrentArguments()[0];
+                assertEquals("Wrong locator",
+                        ClassPathLocator.getInstance("playbackerror.jelly"),
+                        cmd.getLocator());
+                return null;
+            }
+        });
+        replayAll();
+        ctrl.setApplication(app);
+        ctrl.playbackError(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a fatal playback error can be handled.
+     */
+    @Test
+    public void testPlaybackErrorFatal()
+    {
+        Application app = createMock(Application.class);
+        ApplicationContext ctx = createMock(ApplicationContext.class);
+        AudioPlayerEvent event =
+                createAudioPlayerEvent(AudioPlayerEventType.FATAL_EXCEPTION);
+        EasyMock.expect(app.getApplicationContext()).andReturn(ctx);
+        EasyMock.expect(
+                ctx.messageBox("err_playback_msg", "err_playback_title",
+                        MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK))
+                .andReturn(0);
+        app.shutdown();
+        expectSync();
+        replayAll();
+        ctrl.setApplication(app);
+        ctrl.playbackError(event);
         verifyAll();
     }
 }
