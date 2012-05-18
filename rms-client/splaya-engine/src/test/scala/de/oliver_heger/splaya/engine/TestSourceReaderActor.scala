@@ -30,6 +30,7 @@ import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.io.StreamSource
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * Test class for ''SourceReaderActor''.
@@ -139,19 +140,40 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Tests whether the actor can exit gracefully.
+   * Creates a mock PlaybackActor and adds it to the Gateway.
+   * @return the mock Playback actor
    */
-  @Test def testStartAndExit() {
-    setUpActor();
-    actor.start()
-    shutdownActor
-  }
-
   private def installPlaybackActor(): QueuingActor = {
     val qa = new QueuingActor
     qa.start()
     Gateway += Gateway.ActorPlayback -> qa
     qa
+  }
+  
+  /**
+   * Installs a mock listener actor at the Gateway.
+   * @return the listener actor
+   */
+  private def installListener(): QueuingActor = {
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    listener
+  }
+
+  /**
+   * Tests whether the actor can exit gracefully.
+   */
+  @Test def testStartAndExit() {
+    val listener = installListener()
+    setUpActor();
+    actor.start()
+    val srcActor = actor
+    shutdownActor()
+    listener.expectMessage(ActorExited(srcActor))
+    listener.ensureNoMessages()
+    Gateway.unregister(listener)
+    listener.shutdown()
   }
 
   /**
@@ -286,9 +308,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
    */
   @Test def testErrorWhenResolving() {
     setUpActor()
-    val qa = new QueuingActor
-    qa.start()
-    Gateway.register(qa)
+    val qa = installListener()
     val uri = streamURI(1)
     val addsrc = new AddSourceStream(uri, 1)
     val ioex = new RuntimeException("Testexception")
@@ -317,9 +337,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   @Test def testErrorWhenReading() {
     setUpActor()
     val playback = installPlaybackActor()
-    val listener = new QueuingActor
-    listener.start()
-    Gateway.register(listener)
+    val listener = installListener()
     val len = actor.BufSize + 222
     val stream = new ExceptionInputStream(
       streamGenerator.generateStreamContent(0, len))
@@ -357,9 +375,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   @Test def testWriteError() {
     setUpActor()
     val playback = installPlaybackActor()
-    val listener = new QueuingActor
-    listener.start()
-    Gateway.register(listener)
+    val listener = installListener()
     val len = ChunkSize
     val src = prepareStream(len)
     val tempFile = mock[TempFile]
@@ -509,9 +525,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
     val src = prepareStream(len)
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
-    val listener = new QueuingActor
-    listener.start()
-    Gateway.register(listener)
+    val listener = installListener()
     actor.start()
     whenExecuting(factory, resolver, tempData._1) {
       actor ! src

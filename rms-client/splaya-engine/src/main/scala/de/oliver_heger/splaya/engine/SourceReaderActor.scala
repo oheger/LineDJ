@@ -25,6 +25,7 @@ import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * An actor which reads files from a source directory and copies them to a
@@ -84,6 +85,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           cleanUpStreams()
           running = false
           ex.confirmed(this)
+          Gateway.publish(ActorExited(this))
 
         case strm: AddSourceStream =>
           appendSource(strm)
