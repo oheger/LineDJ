@@ -30,5 +30,8 @@ public enum AudioPlayerEventType
     EXCEPTION,
 
     /** A fatal error occurred during playback. */
-    FATAL_EXCEPTION
+    FATAL_EXCEPTION,
+
+    /** The audio player engine has completed its shutdown. */
+    PLAYER_SHUTDOWN
 }

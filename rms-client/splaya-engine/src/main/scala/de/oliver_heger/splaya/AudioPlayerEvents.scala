@@ -107,6 +107,14 @@ case class PlaybackPositionChanged(audioStreamPosition: Long,
 case class PlaybackTimeChanged(time: Long)
 
 /**
+ * A message indicating that the audio player has completed its shutdown. This
+ * message is sent in reaction of an invocation of ''AudioPlayer.shutdown()''.
+ * The shutdown process happens in background. When it is complete this message
+ * is distributed to all registered event listeners.
+ */
+case object PlayerShutdown
+
+/**
  * A message which is sent when information about a playlist has been updated.
  * Messages of this type are typically sent when new meta data about an audio
  * source (e.g. ID3 for a song) have become available. The index of the
