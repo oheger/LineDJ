@@ -26,6 +26,7 @@ import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.PlayChunk
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * An actor for handling audio playback.
@@ -136,6 +137,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
           running = false
           flushActor()
           ex.confirmed(this)
+          Gateway.publish(ActorExited(this))
 
         case src: AudioSource =>
           enqueueSource(src)

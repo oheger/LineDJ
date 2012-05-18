@@ -39,6 +39,7 @@ import de.oliver_heger.splaya.tsthlp.ExceptionInputStream
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * Test class for ''PlaybackActor''.
@@ -166,8 +167,14 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
    */
   @Test def testStartAndExit() {
     EasyMock.replay(streamFactory)
+    val listener = installListener()
     setUpActor()
+    val playbackActor = actor
     shutdownActor()
+    listener.expectMessage(ActorExited(playbackActor))
+    listener.ensureNoMessages()
+    listener.shutdown()
+    Gateway.unregister(listener)
   }
 
   /**
@@ -541,7 +548,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       StreamLen1 / 2, src1))
     listener.expectMessage(PlaybackSourceEnd(src1, false))
     listener.expectMessage(PlaybackSourceStart(src2))
-    listener.ensureNoMessages()
+    listener.ensureNoMessages(1)
     Gateway.unregister(listener)
     listener.shutdown()
   }
@@ -895,7 +902,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
         case _ =>
       }
     }
-    listener.ensureNoMessages()
+    listener.ensureNoMessages(1)  // ignore exit message
     assert(1 == stopCount)
     listener.shutdown()
   }
@@ -927,7 +934,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
       }
     }
     listener.expectMessage(PlaylistEnd)
-    listener.ensureNoMessages()
+    listener.ensureNoMessages(1)
     listener.shutdown()
   }
 
