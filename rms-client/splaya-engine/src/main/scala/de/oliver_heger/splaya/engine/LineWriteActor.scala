@@ -8,6 +8,7 @@ import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.PlayChunk
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * An actor that feeds a line for audio playback.
@@ -31,6 +32,7 @@ class LineWriteActor extends Actor {
         case ex: Exit =>
           ex.confirmed(this)
           running = false
+          Gateway.publish(ActorExited(this))
 
         case pc: PlayChunk =>
           playAudioChunk(pc)

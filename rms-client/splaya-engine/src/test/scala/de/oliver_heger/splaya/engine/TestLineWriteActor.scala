@@ -14,6 +14,7 @@ import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.tsthlp.WaitForExit
 import de.oliver_heger.splaya.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * Test class for ''LineWriteActor''.
@@ -46,7 +47,7 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar {
    */
   private def shutdownActor() {
     val exitCmd = new WaitForExit
-    if (!exitCmd.shutdownActor(actor, 500000)) {
+    if (!exitCmd.shutdownActor(actor, 5000)) {
       fail("Actor did not exit!")
     }
     actor = null
@@ -180,5 +181,20 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar {
     val playbackActor = executePlayChunkTestWithPlaybackActor(data)
     playbackActor.expectMessage(ChunkPlayed(BufferLength))
     playbackActor.shutdown()
+  }
+
+  /**
+   * Tests whether the actor sends out an exit message before it goes down.
+   */
+  @Test def testActorExitedMessage() {
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    val lineActor = actor
+    shutdownActor()
+    listener.expectMessage(ActorExited(lineActor))
+    listener.ensureNoMessages()
+    listener.shutdown()
+    Gateway.unregister(listener)
   }
 }

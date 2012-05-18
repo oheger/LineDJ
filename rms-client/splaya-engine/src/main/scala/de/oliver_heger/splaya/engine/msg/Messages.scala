@@ -1,6 +1,7 @@
 package de.oliver_heger.splaya.engine.msg
 import javax.sound.sampled.SourceDataLine
 import org.slf4j.LoggerFactory
+import scala.actors.Actor
 
 /**
  * A message for adding a stream to be played to the source reader actor.
@@ -116,3 +117,12 @@ case class TimeAction(f: Long => Unit)
  * @param lock a flag whether the source medium is locked or unlocked
  */
 case class AccessSourceMedium(lock: Boolean)
+
+/**
+ * A message indicating that an actor has exited. Messages of this type are
+ * sent out as the very last action of actors of the audio engine. This
+ * mechanism can be used to find out when all important actors have shut down
+ * (then basically the whole audio player engine has completed its shutdown).
+ * @param actor the actor which sends this message
+ */
+case class ActorExited(actor: Actor)
