@@ -22,6 +22,7 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * Test class for ''PlaylistCtrlActor''.
@@ -77,6 +78,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     sourceActor.start()
     actor = new PlaylistCtrlActor(sourceActor, scanner, store, generator)
     actor.start()
+    Gateway.start()
   }
 
   @After def tearDown() {
@@ -472,14 +474,22 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Creates a mock actor and installs it as event listener at the Gateway.
+   * @return the mock listener actor
+   */
+  private def installListener(): QueuingActor = {
+    val listener = new QueuingActor
+    listener.start()
+    Gateway.register(listener)
+    listener
+  }
+
+  /**
    * Tests whether a newly created playlist is sent around as an event.
    */
   @Test def testPlaylistCreatedEvent() {
     prepareTestWithPlaylist()
-    val listener = new QueuingActor
-    listener.start()
-    Gateway.start()
-    Gateway.register(listener)
+    val listener = installListener()
     whenExecuting(scanner, store, generator) {
       actor ! ReadMedium(RootURI)
       shutdownActor()
@@ -500,5 +510,18 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
       case _ => fail("Unexpected message!")
     }
     Gateway.unregister(listener)
+  }
+
+  /**
+   * Tests whether an exit message is sent out when the test actor shuts down.
+   */
+  @Test def testActorExitedMessage() {
+    val listener = installListener()
+    val ctrlActor = actor
+    shutdownActor()
+    listener.expectMessage(ActorExited(ctrlActor))
+    listener.ensureNoMessages()
+    Gateway.unregister(listener)
+    listener.shutdown()
   }
 }

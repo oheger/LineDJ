@@ -18,6 +18,7 @@ import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.AudioSourceData
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -75,6 +76,7 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
         case ex: Exit =>
           ex.confirmed(this)
           running = false
+          Gateway.publish(ActorExited(this))
 
         case ReadMedium(uri) =>
           handleReadMedium(uri)
