@@ -137,11 +137,11 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
    * Helper method for testing that all test actors have received an Exit
    * message.
    */
-  private def checkActorsExit(exit: Exit) {
-    readerActor.expectMessage(exit)
-    playbackActor.expectMessage(exit)
-    timingActor.expectMessage(exit)
-    eventActor.expectMessage(exit)
+  private def checkActorsExit() {
+    readerActor.expectMessage(Exit)
+    playbackActor.expectMessage(Exit)
+    timingActor.expectMessage(Exit)
+    eventActor.ensureNoMessages()
   }
 
   /**
@@ -155,30 +155,8 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     whenExecuting(plCtrl) {
       player.shutdown()
     }
-    val exit = Exit(5)
-    checkActorsExit(exit)
-    lineActor.expectMessage(exit)
-    ensureActorsNoMessages()
-  }
-
-  /**
-   * Tests the shutdown() method which waits until all actors have exited.
-   */
-  @Test def testShutdownAndWait() {
-    val exit = mock[Exit]
-    val lineActor = new QueuingActor
-    lineActor.start()
-    Gateway += Gateway.ActorLineWrite -> lineActor
-    player = new AudioPlayerImpl(plCtrl, timingActor, eventActor) {
-      override def createExit() = exit
-    }
-    plCtrl.shutdownAndWait()
-    exit.await()
-    whenExecuting(plCtrl, exit) {
-      player.shutdownAndWait()
-    }
-    checkActorsExit(exit)
-    lineActor.expectMessage(exit)
+    checkActorsExit()
+    lineActor.expectMessage(Exit)
     ensureActorsNoMessages()
   }
 

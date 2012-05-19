@@ -4,6 +4,23 @@ import org.slf4j.LoggerFactory
 import scala.actors.Actor
 
 /**
+ * A message that indicates that processing should be aborted.
+ */
+case class Exit() {
+  /** The logger. */
+  val log = LoggerFactory.getLogger(classOf[Exit])
+
+  /**
+   * Records that the specified object has processed the Exit message. This
+   * implementation just prints a log message.
+   * @param x the affected object
+   */
+  def confirmed(x: Any) {
+    log.info("{} exited.", x)
+  }
+}
+
+/**
  * A message for adding a stream to be played to the source reader actor.
  * Messages of this type are typically sent by the component which controls the
  * current playlist.

@@ -155,23 +155,6 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
   }
 
   /**
-   * @inheritdoc This implementation works similar to ''shutdown()'', however,
-   * it waits on the ''Exit'' object until all actors have exited. Also, the
-   * playlist controller's ''shutdownAndWait()'' method is invoked.
-   */
-  def shutdownAndWait() {
-    val exit = shutdownActors()
-    playlistController.shutdownAndWait()
-    exit.await()
-  }
-
-  /**
-   * Creates the ''Exit'' message used by the shutdown methods.
-   * @return the ''Exit'' message
-   */
-  private[engine] def createExit() = Exit(5)
-
-  /**
    * Flushes the actors of the audio engine. This causes the temporary buffer
    * with streamed audio data to be invalidated.
    */
@@ -183,13 +166,11 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * Sends all actors involved an ''Exit'' message.
    * @return the ''Exit'' message
    */
-  private def shutdownActors(): Exit = {
-    val ex = createExit()
+  private def shutdownActors() {
+    val ex = Exit
     Gateway ! Gateway.ActorSourceRead -> ex
     Gateway ! Gateway.ActorPlayback -> ex
     Gateway ! Gateway.ActorLineWrite -> ex
     timingActor ! ex
-    eventActor ! ex
-    ex
   }
 }

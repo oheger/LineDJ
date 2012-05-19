@@ -79,15 +79,12 @@ trait AudioPlayer {
 
   /**
    * Closes this audio player and frees all resources. This method should be
-   * called at the end of an audio player application.
+   * called at the end of an audio player application. Note that this method
+   * - as is true for most methods defined by this trait - is asynchronous.
+   * This means that the shutdown of the audio player engine is only
+   * initiated, but not necessarily completed when this method returns. Clients
+   * that need to know when the shutdown is complete should register themselves
+   * as event listeners and wait for a player shutdown event.
    */
   def shutdown()
-
-  /**
-   * Closes this audio player, frees all its resources, and waits until shutdown
-   * is complete. This method works like ''shutdown()'', but it blocks until
-   * shutdown is actually complete.
-   * @throws InterruptedException if waiting is interrupted
-   */
-  def shutdownAndWait()
 }

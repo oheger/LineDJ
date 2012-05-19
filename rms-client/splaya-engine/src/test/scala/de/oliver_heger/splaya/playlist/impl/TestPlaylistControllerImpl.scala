@@ -59,23 +59,7 @@ class TestPlaylistControllerImpl extends JUnitSuite with EasyMockSugar {
   @Test def testShutdown() {
     ctrl.shutdown()
     actor.expectMessage(SavePlaylist)
-    actor.expectMessage(Exit(1))
+    actor.expectMessage(Exit)
     actor.ensureNoMessages()
-  }
-
-  /**
-   * Tests the blocking shutdown method.
-   */
-  @Test def testShutdownAndWait() {
-    val ex = mock[Exit]
-    ex.await()
-    ctrl = new PlaylistControllerImpl(actor) {
-      override def createExit() = ex
-    }
-    whenExecuting(ex) {
-      ctrl.shutdownAndWait()
-      actor.expectMessage(SavePlaylist)
-      actor.expectMessage(ex)
-    }
   }
 }

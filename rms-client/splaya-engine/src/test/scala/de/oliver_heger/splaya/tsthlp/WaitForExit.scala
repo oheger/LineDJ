@@ -6,12 +6,24 @@ import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * A specialized [[de.oliver_heger.splaya.engine.Exit]] implementation which can
- * be used for tests with actors. The class provides additional functionality
- * for waiting until an actor has processed the Exit message.
+ * be used for tests with actors. The class provides functionality for waiting
+ * until an actor has processed the Exit message.
  */
-class WaitForExit extends Exit(1) {
+class WaitForExit extends Exit {
   /** Constant for the default timeout when waiting for an actor to exit. */
   val DefaultTimeout = 5000
+
+  /** The latch for waiting. */
+  private val latch = new CountDownLatch(1)
+
+  /**
+   * Extends the super method by triggering the latch when this message is
+   * processed.
+   */
+  override def confirmed(x: Any) {
+    super.confirmed(x)
+    latch.countDown()
+  }
 
   /**
    * Causes the specified actor to exit by sending this message to it. Then this
@@ -22,7 +34,7 @@ class WaitForExit extends Exit(1) {
    */
   def shutdownActor(act: Actor, timeout: Long): Boolean = {
     act ! this
-    await(timeout, TimeUnit.MILLISECONDS)
+    latch.await(timeout, TimeUnit.MILLISECONDS)
   }
 
   /**
