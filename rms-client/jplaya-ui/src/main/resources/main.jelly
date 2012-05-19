@@ -241,7 +241,10 @@
 
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
-    beanClass="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlayerShutdownActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
   </di:bean>
 
   <!-- File sync action command and task -->
