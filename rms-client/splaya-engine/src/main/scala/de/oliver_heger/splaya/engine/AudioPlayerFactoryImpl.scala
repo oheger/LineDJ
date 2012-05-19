@@ -56,7 +56,7 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
     val playbackActor = new PlaybackActor(ctxFactory, streamFactory)
     val lineActor = new LineWriteActor
     val timingActor = new TimingActor(new StopWatch)
-    val eventActor = new EventTranslatorActor
+    val eventActor = new EventTranslatorActor(4)
     val extrActor = new AudioSourceDataExtractorActor(extractor)
     val playlistExtrActor = new PlaylistDataExtractorActor(extrActor)
     val plCtrlActor = new PlaylistCtrlActor(readActor, fsScanner,

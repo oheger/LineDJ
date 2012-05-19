@@ -27,6 +27,8 @@ import java.util.concurrent.BlockingQueue
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.splaya.PlayerShutdown
 
 /**
  * Test class for ''EventTranslatorActor''.
@@ -45,7 +47,8 @@ class TestEventTranslatorActor extends JUnitSuite {
   private var actor: EventTranslatorActor = _
 
   @Before def setUp() {
-    actor = new EventTranslatorActor
+    Gateway.start()
+    actor = new EventTranslatorActor(TestEventTranslatorActor.ExitActorsCount)
     actor.start()
     listener = new AudioPlayerListenerImpl
     actor ! AddAudioPlayerEventListener(listener)
@@ -74,7 +77,7 @@ class TestEventTranslatorActor extends JUnitSuite {
    * Checks whether the queue of a test listener does not contain an event.
    * @param q the queue to be checked
    */
-  def checkNoEvent[E](q: BlockingQueue[E]) {
+  private def checkNoEvent[E](q: BlockingQueue[E]) {
     val event = q.poll(100, TimeUnit.MILLISECONDS)
     assertNull("Got an event: " + event, event)
   }
@@ -83,7 +86,7 @@ class TestEventTranslatorActor extends JUnitSuite {
    * Creates a mock playlist.
    * @return the mock playlist
    */
-  def createPlaylist(): PlaylistData = {
+  private def createPlaylist(): PlaylistData = {
     val pl = EasyMock.createMock(classOf[PlaylistData])
     EasyMock.replay(pl)
     pl
@@ -256,11 +259,34 @@ class TestEventTranslatorActor extends JUnitSuite {
     assertSame("Wrong playlist data", pl, ev.getPlaylistData)
     assertEquals("Wrong update index", idx, ev.getUpdateIndex)
   }
+
+  /**
+   * Tests whether ActorExited events are processed correctly and translated
+   * to a shutdown event.
+   */
+  @Test def testPlayerShutdown() {
+    val actorListener = new QueuingActor
+    actorListener.start()
+    Gateway.register(actorListener)
+    for (i <- 1 to TestEventTranslatorActor.ExitActorsCount) {
+      actor ! ActorExited(actor)
+    }
+    listener.expectEvent(AudioPlayerEventType.PLAYER_SHUTDOWN)
+    actorListener.expectMessage(PlayerShutdown)
+    actor ! PlaybackStarts
+    checkNoEvent(listener.queue)
+    Gateway.unregister(actorListener)
+    actorListener.shutdown()
+    actor = null
+  }
 }
 
 object TestEventTranslatorActor {
   /** Constant for the timeout for incoming events (in seconds). */
   val EventTimeOut = 5
+
+  /** Constant for the number of actors to exit. */
+  private val ExitActorsCount = 3
 }
 
 /**
@@ -298,6 +324,10 @@ private class AudioPlayerListenerImpl extends AudioPlayerListener {
 
   def playbackStarts(ev: AudioPlayerEvent) {
     addMessage(ev, AudioPlayerEventType.START_PLAYBACK)
+  }
+
+  def playerShutdown(ev: AudioPlayerEvent) {
+    addMessage(ev, AudioPlayerEventType.PLAYER_SHUTDOWN)
   }
 
   /**

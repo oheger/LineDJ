@@ -20,6 +20,8 @@ import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.PlaylistEventType
 import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.PlayerShutdown
+import org.slf4j.LoggerFactory
 
 /**
  * Implementation of an actor which translates messages sent by the audio player
@@ -42,10 +44,24 @@ import de.oliver_heger.splaya.PlaylistEnd
  * and passes them to the corresponding methods of the event listeners
  * registered. The registration of event listeners is done through specific
  * messages sent to this actor.
+ *
+ * Further, this class plays a role in the shutdown mechanism of the audio
+ * engine: The engine's shutdown in an asynchronous process; actors fulfilling
+ * important functionality for the audio player are going down one by one.
+ * This actor keeps track on ''ActorExited'' messages. When all important
+ * actors are down, a last event of type ''PLAYER_SHUTDOWN'' is generated and
+ * published. Now a client application using the audio player engine can exit
+ * safely.
+ *
+ * @param actorsToExitCount the number of actors whose exit state is monitored;
+ * when all of these actors have exited a player shutdown event is generated
  */
-class EventTranslatorActor extends Actor {
+class EventTranslatorActor(val actorsToExitCount: Int) extends Actor {
   /** Constant for a dummy position changed event setting all positions to 0. */
   private val InitPositionChanged = PlaybackPositionChanged(0, 1, 0, null)
+
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(classOf[EventTranslatorActor])
 
   /** The audio player listeners. */
   private val playerListeners =
@@ -60,6 +76,9 @@ class EventTranslatorActor extends Actor {
 
   /** Stores the last playback time. */
   private var lastPlaybackTime: Long = 0
+
+  /** The number of actors which have exited so far. */
+  private var exitedActorsCount = 0
 
   /**
    * The main message loop of this actor.
@@ -141,9 +160,14 @@ class EventTranslatorActor extends Actor {
             PlaylistEventImpl(PlaylistEventType.PLAYLIST_UPDATED, pd, idx),
             _.playlistUpdated(_))
 
+        case ae: ActorExited =>
+          running = handleActorExited()
+
         case _ =>
       }
     }
+
+    log.info("EventTranslatorActor.act() exits.")
   }
 
   /**
@@ -166,6 +190,25 @@ class EventTranslatorActor extends Actor {
       position = lastPositionEvent.audioStreamPosition,
       relativePosition = lastPositionEvent.relativePosition,
       playbackTime = lastPlaybackTime, skipped = skipFlag)
+
+  /**
+   * Handles an ''ActorExited'' event. The number of events of this type is
+   * recorded. If all actors to monitor have exited, the player is shutdown,
+   * and a corresponding event is fired. Then this actor will also exit.
+   * @return '''true''' if this actor should continue working, '''false'' if
+   * this actor should exit
+   */
+  private def handleActorExited(): Boolean = {
+    exitedActorsCount += 1
+    if (exitedActorsCount == actorsToExitCount) {
+      log.info("Sending PlayerShutdown event.")
+      playerListeners.fire(() =>
+        AudioPlayerEventImpl(getType = AudioPlayerEventType.PLAYER_SHUTDOWN),
+        _.playerShutdown(_))
+      Gateway.publish(PlayerShutdown)
+      false
+    } else true
+  }
 
   /**
    * An internally used helper class for managing a list of event listeners of

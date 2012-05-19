@@ -303,6 +303,13 @@ public class MainWndController implements AudioPlayerListener,
         handleAudioPlayerEvent(event);
     }
 
+    @Override
+    public void playerShutdown(AudioPlayerEvent arg0)
+    {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Not yet implemented!");
+    }
+
     /**
      * {@inheritDoc} This implementation delegates to the model objects.
      */
