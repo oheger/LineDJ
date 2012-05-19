@@ -2,7 +2,6 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationClient;
-import net.sf.jguiraffe.gui.app.ApplicationShutdownListener;
 import net.sf.jguiraffe.gui.app.OpenWindowCommand;
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer;
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput;
@@ -37,8 +36,7 @@ import de.oliver_heger.splaya.PlaylistListener;
  * @version $Id: $
  */
 public class MainWndController implements AudioPlayerListener,
-        PlaylistListener, WindowListener, ApplicationShutdownListener,
-        ApplicationClient
+        PlaylistListener, WindowListener, ApplicationClient
 {
     /** Constant for the name of the error script. */
     private static final String SCRIPT_ERROR = "playbackerror.jelly";
@@ -303,11 +301,14 @@ public class MainWndController implements AudioPlayerListener,
         handleAudioPlayerEvent(event);
     }
 
+    /**
+     * Notifies this controller that the audio engine has completed its
+     * shutdown. Now the whole application can exit.
+     */
     @Override
-    public void playerShutdown(AudioPlayerEvent arg0)
+    public void playerShutdown(AudioPlayerEvent event)
     {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Not yet implemented!");
+        getApplication().shutdown();
     }
 
     /**
@@ -400,36 +401,19 @@ public class MainWndController implements AudioPlayerListener,
     {
         getAudioPlayer().addAudioPlayerListener(this);
         getAudioPlayer().addPlaylistListener(this);
-        getApplication().addShutdownListener(this);
         initPlaylist();
     }
 
     /**
-     * Checks whether the application can shutdown. This implementation always
-     * returns <b>true</b>.
-     *
-     * @param app the current {@code Application}
-     * @return a flag whether shutdown is allowed
+     * Initiates a shutdown of the audio player engine. The engine will go
+     * down in a background thread. If this is complete, an event of type
+     * {@link AudioPlayerEventType#PLAYER_SHUTDOWN} is fired.
      */
-    @Override
-    public boolean canShutdown(Application app)
+    protected void shutdown()
     {
-        return true;
-    }
-
-    /**
-     * Notifies this listener that the application is going to shutdown. This
-     * implementation ensures that the audio player is properly closed. This
-     * includes saving the state of the playlist (which is done internally by
-     * the player).
-     *
-     * @param app the current {@code Application}
-     */
-    @Override
-    public void shutdown(Application app)
-    {
+        getActionModel().disablePlayerActions();
         log.info("Performing shutdown.");
-        getAudioPlayer().shutdownAndWait();
+        getAudioPlayer().shutdown();
     }
 
     /**

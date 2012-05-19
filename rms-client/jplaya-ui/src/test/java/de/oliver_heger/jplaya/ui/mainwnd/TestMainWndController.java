@@ -1,7 +1,6 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationContext;
 import net.sf.jguiraffe.gui.app.OpenWindowCommand;
@@ -182,7 +181,6 @@ public class TestMainWndController extends EasyMockSupport
         actionModel.disablePlayerActions();
         player.addAudioPlayerListener(ctrl);
         player.addPlaylistListener(ctrl);
-        app.addShutdownListener(ctrl);
         replayAll();
         ctrl.setApplication(app);
         ctrl.windowOpened(event);
@@ -207,7 +205,6 @@ public class TestMainWndController extends EasyMockSupport
         actionModel.disablePlayerActions();
         player.addAudioPlayerListener(ctrl);
         player.addPlaylistListener(ctrl);
-        app.addShutdownListener(ctrl);
         player.readMedium(mediaDir);
         replayAll();
         ctrl.setApplication(app);
@@ -441,22 +438,10 @@ public class TestMainWndController extends EasyMockSupport
     @Test
     public void testShutdown()
     {
-        Application app = createMock(Application.class);
-        player.shutdownAndWait();
+        actionModel.disablePlayerActions();
+        player.shutdown();
         replayAll();
-        ctrl.shutdown(app);
-        verifyAll();
-    }
-
-    /**
-     * Tests the canShutdown() implementation.
-     */
-    @Test
-    public void testCanShutdown()
-    {
-        Application app = createMock(Application.class);
-        replayAll();
-        assertTrue("Wrong result", ctrl.canShutdown(app));
+        ctrl.shutdown();
         verifyAll();
     }
 
@@ -509,6 +494,22 @@ public class TestMainWndController extends EasyMockSupport
         replayAll();
         ctrl.setApplication(app);
         ctrl.playbackError(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests whether a player shutdown event is processed correctly.
+     */
+    @Test
+    public void testPlayerShutdownEvent()
+    {
+        Application app = createMock(Application.class);
+        AudioPlayerEvent event =
+                createAudioPlayerEvent(AudioPlayerEventType.PLAYER_SHUTDOWN);
+        app.shutdown();
+        replayAll();
+        ctrl.setApplication(app);
+        ctrl.playerShutdown(event);
         verifyAll();
     }
 }
