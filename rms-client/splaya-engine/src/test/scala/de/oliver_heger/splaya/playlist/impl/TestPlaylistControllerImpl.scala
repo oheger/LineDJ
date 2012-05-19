@@ -59,7 +59,7 @@ class TestPlaylistControllerImpl extends JUnitSuite with EasyMockSugar {
   @Test def testShutdown() {
     ctrl.shutdown()
     actor.expectMessage(SavePlaylist)
-    actor.expectMessage(Exit)
+    actor.expectMessage(Exit())
     actor.ensureNoMessages()
   }
 }

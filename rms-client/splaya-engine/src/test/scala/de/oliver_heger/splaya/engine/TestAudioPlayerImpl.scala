@@ -138,9 +138,10 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
    * message.
    */
   private def checkActorsExit() {
-    readerActor.expectMessage(Exit)
-    playbackActor.expectMessage(Exit)
-    timingActor.expectMessage(Exit)
+    val ex = Exit()
+    readerActor.expectMessage(ex)
+    playbackActor.expectMessage(ex)
+    timingActor.expectMessage(ex)
     eventActor.ensureNoMessages()
   }
 
@@ -156,7 +157,7 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
       player.shutdown()
     }
     checkActorsExit()
-    lineActor.expectMessage(Exit)
+    lineActor.expectMessage(Exit())
     ensureActorsNoMessages()
   }
 

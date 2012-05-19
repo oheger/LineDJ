@@ -167,7 +167,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * @return the ''Exit'' message
    */
   private def shutdownActors() {
-    val ex = Exit
+    val ex = Exit()
     Gateway ! Gateway.ActorSourceRead -> ex
     Gateway ! Gateway.ActorPlayback -> ex
     Gateway ! Gateway.ActorLineWrite -> ex
