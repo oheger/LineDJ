@@ -18,6 +18,7 @@ import de.oliver_heger.splaya.engine.msg.Gateway
 import org.junit.BeforeClass
 import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
+import de.oliver_heger.splaya.PlayerShutdown
 
 /**
  * Test class for ''PlaylistDataExtractorActor''.
@@ -258,6 +259,19 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
     actor ! createPlaylistData()
     extractor.expectMessage(ExtractSourceDataRequest(2, playlistURI(1), 1, actor))
     extractor.shutdown()
+  }
+
+  /**
+   * Tests whether an event indicating the player's shutdown is processed.
+   */
+  @Test def testPlayerShutdownEvent() {
+    val extractor = createMockExtractor()
+    setUpActor(extractor)
+    actor ! PlayerShutdown
+    actor ! createPlaylistData()
+    extractor.expectMessage(Exit)
+    extractor.ensureNoMessages()
+    actor = null
   }
 }
 
