@@ -16,8 +16,11 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
   /** Constant for the number of items in the playlist. */
   private val PlaylistSize = 32
 
+  /** Constant for the test file name of an audio source. */
+  private val AudioSourceFileName = "audioSource_"
+
   /** Constant for an URI prefix for playlist items. */
-  private val URIPrefix = "file://audioSource"
+  private val URIPrefix = "file:///d/testmusic/" + AudioSourceFileName + "%d.mp3"
 
   /** Constant for a song title prefix. */
   private val TitlePrefix = "TestSong"
@@ -42,7 +45,7 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
    * @param idx the index
    * @return the URI of the item at this index
    */
-  private def uri(idx: Int) = URIPrefix + idx
+  private def uri(idx: Int) = String.format(URIPrefix, idx.asInstanceOf[Object])
 
   /**
    * Generates the song title of the playlist item at the given index.
@@ -115,7 +118,7 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
   @Test def testGetAudioDataUndefined() {
     for (i <- 0 until PlaylistSize) {
       val srcData = data.getAudioSourceData(i)
-      assert(uri(i) === srcData.title)
+      assert(AudioSourceFileName + i === srcData.title)
       assert(0 === srcData.trackNo)
       assert(0 === srcData.duration)
       assert(0 === srcData.inceptionYear)
@@ -140,5 +143,43 @@ class TestPlaylistDataImpl extends JUnitSuite with EasyMockSugar {
    */
   @Test def testSize() {
     assert(PlaylistSize === data.size)
+  }
+
+  /**
+   * Helper method for testing whether the name of an audio source can be
+   * extracted from its URI.
+   * @param uri the URI of the source
+   * @param expName the expected name
+   */
+  private def checkAudioSourceName(uri: String, expName: String) {
+    val pl = uri :: (createPlaylist().toList)
+    val data2 = PlaylistDataImpl(data.settings, data.startIndex, pl)
+    val srcData = data2.getAudioSourceData(0)
+    assert(expName === srcData.title)
+  }
+
+  /**
+   * Tests whether an audio source name can be extracted if there is no path.
+   */
+  @Test def testExtractAudioSourceNameNoPath() {
+    checkAudioSourceName(AudioSourceFileName + ".mp3", AudioSourceFileName)
+  }
+
+  /**
+   * Tests whether an audio source name can be extracted if there is no file
+   * extension.
+   */
+  @Test def testExtractAudioSourceNameNoExtension() {
+    checkAudioSourceName("http://www.test.org/music/test/" + AudioSourceFileName,
+      AudioSourceFileName)
+  }
+
+  /**
+   * Tests whether the protocol of a URI is removed when extracting the audio
+   * source name.
+   */
+  @Test def testExtractAudioSourceNameProtocol() {
+    checkAudioSourceName("file:" + AudioSourceFileName + ".wav",
+      AudioSourceFileName)
   }
 }

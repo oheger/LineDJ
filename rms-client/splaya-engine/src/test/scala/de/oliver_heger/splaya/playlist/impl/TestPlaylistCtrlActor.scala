@@ -11,6 +11,7 @@ import org.junit.Before
 import org.junit.After
 import de.oliver_heger.splaya.engine.msg.Exit
 import org.junit.Test
+import org.junit.Assert._
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import scala.xml.Elem
@@ -504,7 +505,8 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
         for (i <- 0 until PlaylistSize) {
           assert(playlistURI(i) === pl.getURI(i))
           val srcData = pl.getAudioSourceData(i)
-          assert(playlistURI(i) === srcData.title)
+          assertTrue("Invalid title: " + srcData,
+            playlistURI(i).contains(srcData.title))
           assertNull("Got an artist", srcData.artistName)
         }
       case _ => fail("Unexpected message!")

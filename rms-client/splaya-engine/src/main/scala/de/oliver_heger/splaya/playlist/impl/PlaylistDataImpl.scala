@@ -62,6 +62,23 @@ private case class PlaylistDataImpl(settings: PlaylistSettings, startIndex: Int,
    * @return the data object for this playlist item
    */
   private def createDummySourceData(idx: Int): AudioSourceData =
-    AudioSourceDataImpl(title = getURI(idx), albumName = null,
+    AudioSourceDataImpl(title = extractAudioSourceName(idx), albumName = null,
       artistName = null, duration = 0, trackNo = 0, inceptionYear = 0)
+
+  /**
+   * Extracts the name of an audio source from its URI. Path elements and the
+   * file extension are stripped.
+   * @param idx the index of the playlist item
+   * @return the extracted audio source name for this item
+   */
+  private def extractAudioSourceName(idx: Int): String = {
+    val uri = getURI(idx)
+    val posPrefix = scala.math.max(uri lastIndexOf ':', uri lastIndexOf '/')
+    var posExt = uri lastIndexOf '.'
+    if (posExt >= 0 && posExt < posPrefix) {
+      posExt = -1
+    }
+    val uriNoExt = if (posExt < 0) uri else uri take posExt
+    if (posPrefix < 0) uriNoExt else uriNoExt drop posPrefix + 1
+  }
 }
