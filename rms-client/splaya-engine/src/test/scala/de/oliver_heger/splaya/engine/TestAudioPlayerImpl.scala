@@ -234,4 +234,20 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     player.removePlaylistListener(listener)
     eventActor.expectMessage(RemovePlaylistEventListener(listener))
   }
+
+  /**
+   * Tests whether a listener actor can be registered.
+   */
+  @Test def testListenerActor() {
+    val listener = new QueuingActor
+    listener.start()
+    player.addListenerActor(listener)
+    val msg = "someMessage"
+    Gateway.publish(msg)
+    listener.expectMessage(msg)
+    player.removeListenerActor(listener)
+    Gateway.publish("someOtherMessage")
+    listener.ensureNoMessages()
+    listener.shutdown()
+  }
 }

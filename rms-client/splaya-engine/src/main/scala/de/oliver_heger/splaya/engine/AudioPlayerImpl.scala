@@ -145,6 +145,22 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
   }
 
   /**
+   * @inheritdoc This implementation registers the specified actor at the
+   * Gateway.
+   */
+  def addListenerActor(actor: Actor) {
+    Gateway.register(actor)
+  }
+
+  /**
+   * @inheritdoc This implementation removes the specified actor from the
+   * Gateway.
+   */
+  def removeListenerActor(actor: Actor) {
+    Gateway.unregister(actor)
+  }
+
+  /**
    * @inheritdoc This implementation sends exit messages to the actors
    * comprising the audio engine. Also, the ''PlaylistController'' is told to
    * shutdown.
