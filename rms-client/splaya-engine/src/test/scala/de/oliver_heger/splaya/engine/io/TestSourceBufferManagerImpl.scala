@@ -8,7 +8,7 @@ import org.junit.Test
 import org.easymock.EasyMock
 import org.junit.After
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ReadChunk
 import java.io.IOException
 

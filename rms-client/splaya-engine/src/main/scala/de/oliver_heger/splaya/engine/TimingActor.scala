@@ -1,16 +1,19 @@
 package de.oliver_heger.splaya.engine
 
+import java.io.Closeable
+
 import scala.actors.Actor
+
 import org.apache.commons.lang3.time.StopWatch
+
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.TimeAction
 import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackTimeChanged
+import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.engine.msg.TimeAction
-import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.PlaybackTimeChanged
 
 /**
  * A specialized ''Actor'' implementation which is responsible for timing
@@ -67,8 +70,8 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
 
         case PlaybackSourceStart(src) =>

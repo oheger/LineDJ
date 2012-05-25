@@ -2,21 +2,17 @@ package de.oliver_heger.splaya.engine.msg
 import javax.sound.sampled.SourceDataLine
 import org.slf4j.LoggerFactory
 import scala.actors.Actor
+import java.io.Closeable
 
 /**
  * A message that indicates that processing should be aborted.
  */
-case class Exit() {
+case object Exit extends Closeable {
   /** The logger. */
-  val log = LoggerFactory.getLogger(classOf[Exit])
+  private val log = LoggerFactory.getLogger("Exit")
 
-  /**
-   * Records that the specified object has processed the Exit message. This
-   * implementation just prints a log message.
-   * @param x the affected object
-   */
-  def confirmed(x: Any) {
-    log.info("{} exited.", x)
+  def close() {
+    log.debug("Actor exits.")
   }
 }
 

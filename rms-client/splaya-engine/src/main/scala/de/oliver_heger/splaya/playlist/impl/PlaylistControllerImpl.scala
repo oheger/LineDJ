@@ -45,6 +45,6 @@ class PlaylistControllerImpl(actor: Actor) extends PlaylistController {
    */
   def shutdown() {
     actor ! SavePlaylist
-    actor ! Exit()
+    actor ! Exit
   }
 }

@@ -1,9 +1,11 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import java.io.Closeable
+
 import scala.actors.Actor
+
 import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
-import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * An actor implementation which extracts meta data from audio sources.
@@ -28,8 +30,8 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
 
         case req: ExtractSourceDataRequest =>

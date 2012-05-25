@@ -17,8 +17,8 @@ import de.oliver_heger.splaya.PlaybackStarts
 import org.easymock.EasyMock
 import java.util.concurrent.atomic.AtomicLong
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.tsthlp.QueuingActor
-import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.WaitForExit
 import de.oliver_heger.splaya.engine.msg.TimeAction
 
 /**

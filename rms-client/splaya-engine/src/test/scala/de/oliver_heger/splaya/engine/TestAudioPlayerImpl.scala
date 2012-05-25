@@ -7,8 +7,8 @@ import org.junit.After
 import org.junit.Test
 import org.junit.Assert.fail
 import org.easymock.EasyMock
-import de.oliver_heger.splaya.tsthlp.QueuingActor
-import de.oliver_heger.splaya.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.StartPlayback
 import de.oliver_heger.splaya.engine.msg.StopPlayback
@@ -138,10 +138,9 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
    * message.
    */
   private def checkActorsExit() {
-    val ex = Exit()
-    readerActor.expectMessage(ex)
-    playbackActor.expectMessage(ex)
-    timingActor.expectMessage(ex)
+    readerActor.expectMessage(Exit)
+    playbackActor.expectMessage(Exit)
+    timingActor.expectMessage(Exit)
     eventActor.ensureNoMessages()
   }
 
@@ -157,7 +156,7 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
       player.shutdown()
     }
     checkActorsExit()
-    lineActor.expectMessage(Exit())
+    lineActor.expectMessage(Exit)
     ensureActorsNoMessages()
   }
 

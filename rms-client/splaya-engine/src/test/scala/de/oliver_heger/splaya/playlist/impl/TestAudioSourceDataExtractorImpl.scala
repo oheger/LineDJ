@@ -1,6 +1,6 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import de.oliver_heger.splaya.tsthlp.TestFileSupport
+import de.oliver_heger.tsthlp.TestFileSupport
 import org.scalatest.junit.JUnitSuite
 import org.apache.commons.vfs2.FileSystemManager
 import org.junit.BeforeClass

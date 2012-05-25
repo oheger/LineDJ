@@ -10,7 +10,7 @@ import java.io.PrintStream
 import java.io.FileOutputStream
 import org.junit.Test
 import java.io.IOException
-import de.oliver_heger.splaya.tsthlp.TestFileSupport
+import de.oliver_heger.tsthlp.TestFileSupport
 
 /**
  * Test class for ''SourceResolverImpl''.

@@ -1,7 +1,7 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import org.scalatest.junit.JUnitSuite
-import de.oliver_heger.splaya.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.ActorTestImpl
 import org.junit.Before
 import org.junit.Test
 import de.oliver_heger.splaya.engine.msg.Exit
@@ -59,7 +59,7 @@ class TestPlaylistControllerImpl extends JUnitSuite with EasyMockSugar {
   @Test def testShutdown() {
     ctrl.shutdown()
     actor.expectMessage(SavePlaylist)
-    actor.expectMessage(Exit())
+    actor.expectMessage(Exit)
     actor.ensureNoMessages()
   }
 }

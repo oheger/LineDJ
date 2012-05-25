@@ -5,7 +5,7 @@ import org.scalatest.mock.EasyMockSugar
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.FSScanner
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.After
@@ -22,7 +22,7 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.WaitForExit
 import de.oliver_heger.splaya.engine.msg.ActorExited
 
 /**

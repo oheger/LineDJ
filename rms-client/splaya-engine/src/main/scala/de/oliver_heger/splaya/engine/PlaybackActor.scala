@@ -27,6 +27,7 @@ import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.PlayChunk
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import java.io.Closeable
 
 /**
  * An actor for handling audio playback.
@@ -133,11 +134,12 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
 
     while (running) {
       receive {
-        case ex: Exit =>
+        case cl: Closeable =>
           running = false
           flushActor()
-          ex.confirmed(this)
+          cl.close()
           Gateway.publish(ActorExited(this))
+          log.info(this + " exited.")
 
         case src: AudioSource =>
           enqueueSource(src)

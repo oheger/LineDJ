@@ -1,14 +1,13 @@
 package de.oliver_heger.splaya.engine;
 
+import java.io.Closeable
+
 import scala.actors.Actor
-import javax.sound.sampled.SourceDataLine
-import javax.sound.sampled.LineListener
-import javax.sound.sampled.LineEvent
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.engine.msg.PlayChunk
-import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.PlayChunk
 
 /**
  * An actor that feeds a line for audio playback.
@@ -29,8 +28,8 @@ class LineWriteActor extends Actor {
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
           Gateway.publish(ActorExited(this))
 

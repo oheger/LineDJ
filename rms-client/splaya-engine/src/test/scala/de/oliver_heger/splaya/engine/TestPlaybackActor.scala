@@ -25,8 +25,8 @@ import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
 import de.oliver_heger.splaya.tsthlp.StreamDataGenerator
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.tsthlp.WaitForExit
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
 import de.oliver_heger.splaya.engine.msg.PlayChunk

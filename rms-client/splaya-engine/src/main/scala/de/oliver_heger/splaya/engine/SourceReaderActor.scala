@@ -1,31 +1,30 @@
 package de.oliver_heger.splaya.engine
 
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.Closeable
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+
 import scala.actors.Actor
 import scala.collection.mutable.Queue
-import java.io.File
-import java.io.OutputStream
-import java.io.BufferedInputStream
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.BufferedOutputStream
-import java.io.InputStream
-import java.io.Closeable
+
 import org.slf4j.LoggerFactory
-import java.io.IOException
-import de.oliver_heger.splaya.PlaybackError
-import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.engine.msg.AddSourceStream
-import de.oliver_heger.splaya.engine.msg.ReadChunk
-import de.oliver_heger.splaya.engine.msg.FlushPlayer
+
 import de.oliver_heger.splaya.engine.io.SourceResolver
-import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.io.TempFile
-import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
-import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.ReadChunk
+import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.PlaylistEnd
 
 /**
  * An actor which reads files from a source directory and copies them to a
@@ -81,11 +80,12 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
 
     while (running) {
       receive {
-        case ex: Exit =>
+        case cl: Closeable =>
           cleanUpStreams()
           running = false
-          ex.confirmed(this)
+          cl.close()
           Gateway.publish(ActorExited(this))
+          log.info(this + " exited.")
 
         case strm: AddSourceStream =>
           appendSource(strm)

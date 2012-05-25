@@ -1,24 +1,35 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import java.io.Closeable
+
 import scala.actors.Actor
+import scala.collection.mutable.ListBuffer
+import scala.xml.Elem
+
+import PlaylistCtrlActor.ElemCurrent
+import PlaylistCtrlActor.ElemDesc
+import PlaylistCtrlActor.ElemIndex
+import PlaylistCtrlActor.ElemName
+import PlaylistCtrlActor.ElemOrder
+import PlaylistCtrlActor.ElemOrderMode
+import PlaylistCtrlActor.ElemOrderParams
+import PlaylistCtrlActor.ElemPosition
+import PlaylistCtrlActor.ElemTime
+import PlaylistCtrlActor.longValue
+import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
+import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.playlist.FSScanner
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import scala.xml.Elem
-import scala.collection.mutable.ListBuffer
-import de.oliver_heger.splaya.engine.msg.AddSourceStream
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.PlaybackSourceStart
-import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackTimeChanged
-import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.splaya.PlaylistData
-import de.oliver_heger.splaya.AudioSourceData
-import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.PlaylistSettings
 
 /**
  * An actor implementing the major part of the functionality required by a
@@ -73,8 +84,8 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
           Gateway.publish(ActorExited(this))
 

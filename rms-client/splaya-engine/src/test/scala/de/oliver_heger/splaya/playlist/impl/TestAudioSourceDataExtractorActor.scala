@@ -7,10 +7,10 @@ import de.oliver_heger.splaya.AudioSourceData
 import org.junit.Before
 import org.junit.After
 import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.WaitForExit
 import org.junit.Test
 import org.easymock.EasyMock
-import de.oliver_heger.splaya.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.ActorTestImpl
 
 /**
  * Test class for ''AudioSourceDataExtractorActor''.

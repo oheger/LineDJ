@@ -6,7 +6,7 @@ import de.oliver_heger.splaya.AudioPlayerListener
 import java.util.concurrent.SynchronousQueue
 import de.oliver_heger.splaya.AudioPlayerEvent
 import de.oliver_heger.splaya.AudioPlayerEventType
-import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.WaitForExit
 import java.util.concurrent.TimeUnit
 import org.junit.Before
 import org.junit.After
@@ -27,7 +27,7 @@ import java.util.concurrent.BlockingQueue
 import org.easymock.EasyMock
 import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.PlaylistEnd
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.PlayerShutdown
 
 /**

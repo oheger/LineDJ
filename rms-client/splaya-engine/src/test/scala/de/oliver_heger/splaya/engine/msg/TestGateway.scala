@@ -5,7 +5,7 @@ import org.junit.Test
 import org.junit.Before
 import org.junit.After
 import org.junit.Assert.assertTrue
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
 
 /**
  * Test class for Gateway.

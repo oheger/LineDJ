@@ -8,6 +8,7 @@ import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 import de.oliver_heger.splaya.PlayerShutdown
+import java.io.Closeable
 
 /**
  * An actor implementation which is responsible for obtaining meta data for all
@@ -54,8 +55,8 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
 
         case PlayerShutdown =>

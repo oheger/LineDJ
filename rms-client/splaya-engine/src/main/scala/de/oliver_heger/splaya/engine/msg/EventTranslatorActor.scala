@@ -22,6 +22,7 @@ import de.oliver_heger.splaya.PlaylistUpdate
 import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.PlayerShutdown
 import org.slf4j.LoggerFactory
+import java.io.Closeable
 
 /**
  * Implementation of an actor which translates messages sent by the audio player
@@ -88,9 +89,10 @@ class EventTranslatorActor(val actorsToExitCount: Int) extends Actor {
 
     while (running) {
       receive {
-        case ex: Exit =>
-          ex.confirmed(this)
+        case cl: Closeable =>
+          cl.close()
           running = false
+          log.info(this + " exited.")
 
         case AddAudioPlayerEventListener(l) =>
           playerListeners += l

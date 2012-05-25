@@ -1,18 +1,18 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import org.scalatest.junit.JUnitSuite
-import de.oliver_heger.splaya.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.ActorTestImpl
 import org.junit.Before
 import org.junit.After
 import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.WaitForExit
 import org.scalatest.mock.EasyMockSugar
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.splaya.AudioSourceData
 import org.junit.Test
 import org.junit.Assert._
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
 import scala.actors.Actor
 import de.oliver_heger.splaya.engine.msg.Gateway
 import org.junit.BeforeClass

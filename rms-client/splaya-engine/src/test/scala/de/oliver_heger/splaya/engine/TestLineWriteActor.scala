@@ -11,8 +11,8 @@ import org.easymock.EasyMock
 import de.oliver_heger.splaya.engine.msg.PlayChunk
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.tsthlp.WaitForExit
-import de.oliver_heger.splaya.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.msg.ActorExited
 

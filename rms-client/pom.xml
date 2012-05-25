@@ -15,6 +15,8 @@
     <module>oauthclient</module>
     <module>localstore</module>
     <module>jplaya-engine</module>
+    <module>scala-parent</module>
+    <module>actor-testutils</module>
     <module>splaya-engine</module>
     <module>jplaya-ui</module>
   </modules>
