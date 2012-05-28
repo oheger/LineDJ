@@ -13,8 +13,11 @@ import org.junit.After
  * to safely test the interaction of the test actor with other components.
  */
 trait TestActorSupport {
+  /** The concrete actor type to be tested. */
+  type ActorUnderTest <: Actor
+
   /** The test actor. */
-  protected var actor: Actor
+  protected var actor: ActorUnderTest
 
   /**
    * Performs cleanup at the end of a test. If the test actor has not been
@@ -35,6 +38,6 @@ trait TestActorSupport {
     if (!ex.shutdownActor(actor, timeout)) {
       fail("Actor did not exit!")
     }
-    actor = null
+    actor = null.asInstanceOf[ActorUnderTest]
   }
 }

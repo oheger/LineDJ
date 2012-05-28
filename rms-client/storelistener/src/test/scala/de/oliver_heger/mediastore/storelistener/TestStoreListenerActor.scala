@@ -27,6 +27,9 @@ import de.oliver_heger.tsthlp.TestActorSupport
  */
 class TestStoreListenerActor extends JUnitSuite with EasyMockSugar
   with TestActorSupport {
+  /** The concrete test type. */
+  type ActorUnderTest = StoreListenerActor
+
   /** Constant for a song name. */
   private val Title = "Money for Nothing"
 
@@ -55,7 +58,7 @@ class TestStoreListenerActor extends JUnitSuite with EasyMockSugar
   private var store: MediaStore = _
 
   /** The actor to be tested. */
-  protected var actor: Actor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     store = mock[MediaStore]
@@ -246,7 +249,7 @@ class TestStoreListenerActor extends JUnitSuite with EasyMockSugar
   @Test def testCreateSongDataDefaultValues() {
     val srcData = niceMock[AudioSourceData]
     EasyMock.replay(srcData)
-    val data = actor.asInstanceOf[StoreListenerActor].createSongData(srcData)
+    val data = actor.createSongData(srcData)
     assertNull("Got a title", data.getName())
     assertNull("Got an artist", data.getArtistName())
     assertNull("Got an album", data.getAlbumName())
