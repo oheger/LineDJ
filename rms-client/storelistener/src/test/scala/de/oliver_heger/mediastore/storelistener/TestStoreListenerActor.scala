@@ -1,13 +1,14 @@
 package de.oliver_heger.mediastore.storelistener
 
+import scala.actors.Actor
+
+import org.easymock.EasyMock.{eq => matchEq}
 import org.easymock.IAnswer
 import org.easymock.EasyMock
-import org.easymock.EasyMock.{ eq => matchEq }
 import org.junit.Assert.assertEquals
-import org.junit.After
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
-import org.junit.Assert._
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
 
@@ -19,12 +20,13 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlayerShutdown
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.PlaylistUpdate
-import de.oliver_heger.tsthlp.WaitForExit
+import de.oliver_heger.tsthlp.TestActorSupport
 
 /**
  * Test class for ''StoreListenerActor''.
  */
-class TestStoreListenerActor extends JUnitSuite with EasyMockSugar {
+class TestStoreListenerActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
   /** Constant for a song name. */
   private val Title = "Money for Nothing"
 
@@ -53,29 +55,12 @@ class TestStoreListenerActor extends JUnitSuite with EasyMockSugar {
   private var store: MediaStore = _
 
   /** The actor to be tested. */
-  private var actor: StoreListenerActor = _
+  protected var actor: Actor = _
 
   @Before def setUp() {
     store = mock[MediaStore]
     actor = new StoreListenerActor(store)
     actor.start()
-  }
-
-  @After def tearDown() {
-    if (actor != null) {
-      actor ! new WaitForExit
-    }
-  }
-
-  /**
-   * Terminates the test actor and waits until it is down.
-   */
-  private def shutdownActor() {
-    val ex = new WaitForExit
-    if (!ex.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**
@@ -261,7 +246,7 @@ class TestStoreListenerActor extends JUnitSuite with EasyMockSugar {
   @Test def testCreateSongDataDefaultValues() {
     val srcData = niceMock[AudioSourceData]
     EasyMock.replay(srcData)
-    val data = actor.createSongData(srcData)
+    val data = actor.asInstanceOf[StoreListenerActor].createSongData(srcData)
     assertNull("Got a title", data.getName())
     assertNull("Got an artist", data.getArtistName())
     assertNull("Got an album", data.getAlbumName())
