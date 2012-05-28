@@ -10,9 +10,6 @@ import java.io.Closeable
  * functionality for waiting until an actor has processed the Exit message.
  */
 class WaitForExit extends Closeable {
-  /** Constant for the default timeout when waiting for an actor to exit. */
-  val DefaultTimeout = 5000
-
   /** The latch for waiting. */
   private val latch = new CountDownLatch(1)
 
@@ -32,16 +29,13 @@ class WaitForExit extends Closeable {
    * @param timeout the timeout to wait for (in milliseconds)
    * @return a flag whether the actor exited in the specified timeout
    */
-  def shutdownActor(act: Actor, timeout: Long): Boolean = {
+  def shutdownActor(act: Actor, timeout: Long = WaitForExit.DefaultTimeout): Boolean = {
     act ! this
     latch.await(timeout, TimeUnit.MILLISECONDS)
   }
+}
 
-  /**
-   * Causes the specified actor to exit using a default timeout.
-   * @param act the actor
-   * @return a flag whether the actor exited in the default timeout
-   */
-  def shutdownActor(act: Actor): Boolean =
-    shutdownActor(act, DefaultTimeout)
+object WaitForExit {
+  /** Constant for the default timeout when waiting for an actor to exit. */
+  val DefaultTimeout = 5000
 }
