@@ -31,11 +31,16 @@ import de.oliver_heger.splaya.engine.io.StreamSource
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.tsthlp.TestActorSupport
 
 /**
  * Test class for ''SourceReaderActor''.
  */
-class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
+class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The concrete actor type to be tested. */
+  type ActorUnderTest = SourceReaderActor
+  
   /** Constant for the prefix of a URI. */
   private val URIPrefix = "file:testFile"
 
@@ -58,27 +63,10 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
   private var playlistIndex = 0
 
   /** The actor to be tested. */
-  private var actor: SourceReaderActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     Gateway.start()
-  }
-
-  @After def tearDown {
-    if (actor != null) {
-      actor ! Exit
-    }
-  }
-
-  /**
-   * Causes the test actor to exit and waits until its shutdown is complete.
-   */
-  private def shutdownActor() {
-    val exitCmd = new WaitForExit
-    if (!exitCmd.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**
@@ -216,7 +204,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       actor ! src
       qa.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
       qa.shutdown()
-      shutdownActor
+      shutdownActor()
       checkStream(tempData._2, 0, len)
     }
   }
@@ -238,7 +226,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       actor ! src
       qa.expectMessage(AudioSource(streamURI(0), 0, len, src.skip, src.skipTime))
       qa.shutdown()
-      shutdownActor
+      shutdownActor()
       checkStream(tempData._2, 0, len)
     }
   }
@@ -264,7 +252,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
       qa.expectMessage(tempData1._1)
       qa.expectMessage(tempData2._1)
       qa.shutdown()
-      shutdownActor
+      shutdownActor()
       checkStream(tempData1._2, 0, ChunkSize)
       checkStream(tempData2._2, ChunkSize, ChunkSize)
     }
@@ -296,7 +284,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar {
         qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
         qa.expectMessage(tempData2._1)
         qa.shutdown()
-        shutdownActor
+        shutdownActor()
         checkStream(tempData1._2, 0, ChunkSize)
         checkStream(tempData2._2, ChunkSize, ChunkSize)
         checkStream(tempData3._2, 2 * ChunkSize, len1 + len2 - 2 * ChunkSize)

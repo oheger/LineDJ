@@ -1,29 +1,35 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import org.scalatest.junit.JUnitSuite
-import de.oliver_heger.tsthlp.ActorTestImpl
-import org.junit.Before
+import scala.actors.Actor
+
+import org.junit.Assert.assertEquals
 import org.junit.After
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.tsthlp.WaitForExit
+import org.junit.BeforeClass
+import org.junit.Test
+import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
+import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.AudioSourceData
+import de.oliver_heger.splaya.PlayerShutdown
 import de.oliver_heger.splaya.PlaylistData
 import de.oliver_heger.splaya.PlaylistSettings
-import de.oliver_heger.splaya.AudioSourceData
-import org.junit.Test
-import org.junit.Assert._
-import de.oliver_heger.tsthlp.QueuingActor
-import scala.actors.Actor
-import de.oliver_heger.splaya.engine.msg.Gateway
-import org.junit.BeforeClass
 import de.oliver_heger.splaya.PlaylistUpdate
-import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
-import de.oliver_heger.splaya.PlayerShutdown
+import de.oliver_heger.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.TestActorSupport
+import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''PlaylistDataExtractorActor''.
  */
-class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
+class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The actor type to be tested. */
+  type ActorUnderTest = PlaylistDataExtractorActor
+
   /** Constant for a prefix for a playlist URI. */
   private val URI = "file:///music/song"
 
@@ -37,24 +43,7 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar {
   private var extractor: ActorTestImpl = _
 
   /** The actor to be tested. */
-  private var actor: PlaylistDataExtractorActor = _
-
-  @After def tearDown() {
-    if (actor != null) {
-      shutdownActor()
-    }
-  }
-
-  /**
-   * Sends an Exit message to the test actor and waits until it is processed.
-   */
-  private def shutdownActor() {
-    var msg = new WaitForExit
-    if (!msg.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
-  }
+  protected var actor: ActorUnderTest = _
 
   /**
    * Creates a mock for the extractor actor which sends default results for

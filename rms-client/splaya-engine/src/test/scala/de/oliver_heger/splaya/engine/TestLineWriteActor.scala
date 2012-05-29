@@ -15,11 +15,16 @@ import de.oliver_heger.tsthlp.WaitForExit
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.tsthlp.TestActorSupport
 
 /**
  * Test class for ''LineWriteActor''.
  */
-class TestLineWriteActor extends JUnitSuite with EasyMockSugar {
+class TestLineWriteActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The concrete actor type to be tested. */
+  type ActorUnderTest = LineWriteActor
+
   /** Constant for the buffer length. */
   private val BufferLength = 4096
 
@@ -27,30 +32,13 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar {
   private var line: SourceDataLine = _
 
   /** The actor to be tested. */
-  private var actor: LineWriteActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     Gateway.start()
     line = mock[SourceDataLine]
     actor = new LineWriteActor
     actor.start()
-  }
-
-  @After def tearDown() {
-    if (actor != null) {
-      actor ! Exit
-    }
-  }
-
-  /**
-   * Causes the test actor to exit and waits until its shutdown is complete.
-   */
-  private def shutdownActor() {
-    val exitCmd = new WaitForExit
-    if (!exitCmd.shutdownActor(actor, 5000)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**

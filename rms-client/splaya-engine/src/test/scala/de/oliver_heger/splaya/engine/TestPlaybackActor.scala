@@ -27,6 +27,7 @@ import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.tsthlp.WaitForExit
 import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.TestActorSupport
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
 import de.oliver_heger.splaya.engine.msg.PlayChunk
@@ -44,7 +45,11 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 /**
  * Test class for ''PlaybackActor''.
  */
-class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
+class TestPlaybackActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The concrete actor type to be tested. */
+  type ActorUnderTest = PlaybackActor
+  
   /** Constant for a test audio format. */
   private val Format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f,
     16, 2, 17, 10, true)
@@ -74,7 +79,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   private lazy val streamGen = StreamDataGenerator()
 
   /** The actor to be tested. */
-  private var actor: PlaybackActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     ctxFactory = mock[PlaybackContextFactory]
@@ -82,12 +87,6 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
     streamFactory = mock[SourceStreamWrapperFactory]
     EasyMock.expect(streamFactory.bufferManager).andReturn(bufMan).anyTimes()
     Gateway.start()
-  }
-
-  @After def tearDown {
-    if (actor != null) {
-      actor ! Exit
-    }
   }
 
   /**
@@ -108,17 +107,6 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar {
   private def setUpActor() {
     actor = new PlaybackActor(ctxFactory, streamFactory)
     actor.start()
-  }
-
-  /**
-   * Causes the test actor to exit and waits until its shutdown is complete.
-   */
-  private def shutdownActor() {
-    val exitCmd = new WaitForExit
-    if (!exitCmd.shutdownActor(actor, 5000)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**

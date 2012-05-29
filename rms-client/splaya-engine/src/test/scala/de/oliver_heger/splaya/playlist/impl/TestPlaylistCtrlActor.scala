@@ -1,34 +1,40 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import scala.xml.Elem
+
+import org.easymock.EasyMock
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-import de.oliver_heger.splaya.playlist.PlaylistFileStore
-import de.oliver_heger.splaya.playlist.FSScanner
-import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import de.oliver_heger.tsthlp.QueuingActor
-import org.junit.Assert.assertNull
-import org.junit.Before
-import org.junit.After
-import de.oliver_heger.splaya.engine.msg.Exit
-import org.junit.Test
-import org.junit.Assert._
-import org.easymock.EasyMock
-import de.oliver_heger.splaya.engine.msg.AddSourceStream
-import scala.xml.Elem
-import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceStart
-import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackTimeChanged
-import de.oliver_heger.splaya.PlaybackSourceEnd
-import de.oliver_heger.splaya.PlaylistEnd
-import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.tsthlp.WaitForExit
+
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.engine.msg.AddSourceStream
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.playlist.FSScanner
+import de.oliver_heger.splaya.playlist.PlaylistFileStore
+import de.oliver_heger.splaya.playlist.PlaylistGenerator
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackTimeChanged
+import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.TestActorSupport
+import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''PlaylistCtrlActor''.
  */
-class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
+class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The actor type to be tested. */
+  type ActorUnderTest = PlaylistCtrlActor
+
   /** Constant for a playlist identifier. */
   private val PlaylistID = "ATestPlaylist"
 
@@ -69,7 +75,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
   private var sourceActor: QueuingActor = _
 
   /** The actor to be tested. */
-  private var actor: PlaylistCtrlActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     scanner = mock[FSScanner]
@@ -80,24 +86,6 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar {
     actor = new PlaylistCtrlActor(sourceActor, scanner, store, generator)
     actor.start()
     Gateway.start()
-  }
-
-  @After def tearDown() {
-    sourceActor.shutdown()
-    if (actor != null) {
-      shutdownActor()
-    }
-  }
-
-  /**
-   * Shuts down the test actor.
-   */
-  private def shutdownActor() {
-    val msg = new WaitForExit
-    if (!msg.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**

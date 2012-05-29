@@ -1,21 +1,27 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import org.easymock.EasyMock
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
+import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
-import org.junit.Before
-import org.junit.After
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.tsthlp.WaitForExit
-import org.junit.Test
-import org.easymock.EasyMock
 import de.oliver_heger.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.TestActorSupport
+import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''AudioSourceDataExtractorActor''.
  */
-class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar {
+class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar
+  with TestActorSupport {
+  /** The actor type to be tested. */
+  type ActorUnderTest = AudioSourceDataExtractorActor
+
   /** Constant for an URI.*/
   private val URI = "audio://TestMusic.la"
 
@@ -26,29 +32,12 @@ class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar {
   private var extractor: AudioSourceDataExtractor = _
 
   /** The actor to be tested. */
-  private var actor: AudioSourceDataExtractorActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     extractor = mock[AudioSourceDataExtractor]
     actor = new AudioSourceDataExtractorActor(extractor)
     actor.start()
-  }
-
-  @After def tearDown() {
-    if(actor != null) {
-      actor ! Exit
-    }
-  }
-
-  /**
-   * Sends the test actor an Exit message and waits until its completion.
-   */
-  private def shutdownActor() {
-    val msg = new WaitForExit
-    if(!msg.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**

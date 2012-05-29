@@ -1,39 +1,49 @@
 package de.oliver_heger.splaya.engine.msg
 
-import org.scalatest.junit.JUnitSuite
-import org.junit.Assert._
-import de.oliver_heger.splaya.AudioPlayerListener
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.TimeUnit
+
+import org.easymock.EasyMock
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.scalatest.junit.JUnitSuite
+
 import de.oliver_heger.splaya.AudioPlayerEvent
 import de.oliver_heger.splaya.AudioPlayerEventType
-import de.oliver_heger.tsthlp.WaitForExit
-import java.util.concurrent.TimeUnit
-import org.junit.Before
-import org.junit.After
-import org.junit.Test
+import de.oliver_heger.splaya.AudioPlayerListener
 import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceStart
-import de.oliver_heger.splaya.PlaybackSourceEnd
-import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackStarts
 import de.oliver_heger.splaya.PlaybackStops
-import de.oliver_heger.splaya.PlaylistListener
+import de.oliver_heger.splaya.PlaybackTimeChanged
+import de.oliver_heger.splaya.PlayerShutdown
+import de.oliver_heger.splaya.PlaylistData
+import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.splaya.PlaylistEvent
 import de.oliver_heger.splaya.PlaylistEventType
-import de.oliver_heger.splaya.PlaylistData
-import java.util.concurrent.BlockingQueue
-import org.easymock.EasyMock
+import de.oliver_heger.splaya.PlaylistListener
 import de.oliver_heger.splaya.PlaylistUpdate
-import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.splaya.PlayerShutdown
+import de.oliver_heger.tsthlp.TestActorSupport
+import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''EventTranslatorActor''.
  */
-class TestEventTranslatorActor extends JUnitSuite {
+class TestEventTranslatorActor extends JUnitSuite with TestActorSupport {
+  /** The concrete actor type to be tested. */
+  type ActorUnderTest = EventTranslatorActor
+
   /** Constant of a test audio source. */
   private val Source = AudioSource("SomeTestSong", 11, 20120421222632L, 0, 0)
 
@@ -44,7 +54,7 @@ class TestEventTranslatorActor extends JUnitSuite {
   private var playlistListener: PlaylistListenerImpl = _
 
   /** The actor to be tested. */
-  private var actor: EventTranslatorActor = _
+  protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
     Gateway.start()
@@ -54,23 +64,6 @@ class TestEventTranslatorActor extends JUnitSuite {
     actor ! AddAudioPlayerEventListener(listener)
     playlistListener = new PlaylistListenerImpl
     actor ! AddPlaylistEventListener(playlistListener)
-  }
-
-  @After def tearDown() {
-    if (actor != null) {
-      shutdownActor()
-    }
-  }
-
-  /**
-   * Shuts down the test actor and waits until it is down.
-   */
-  private def shutdownActor() {
-    val ex = new WaitForExit
-    if (!ex.shutdownActor(actor)) {
-      fail("Actor did not exit!")
-    }
-    actor = null
   }
 
   /**
