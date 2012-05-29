@@ -240,11 +240,11 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
   @Test def testListenerActor() {
     val listener = new QueuingActor
     listener.start()
-    player.addListenerActor(listener)
+    player.addActorListener(listener)
     val msg = "someMessage"
     Gateway.publish(msg)
     listener.expectMessage(msg)
-    player.removeListenerActor(listener)
+    player.removeActorListener(listener)
     Gateway.publish("someOtherMessage")
     listener.ensureNoMessages()
     listener.shutdown()

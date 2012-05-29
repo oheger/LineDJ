@@ -90,13 +90,13 @@ trait AudioPlayer {
    * they should ignore all unknown messages.
    * @param actor the actor to be registered at the internal event bus
    */
-  def addListenerActor(actor: Actor)
+  def addActorListener(actor: Actor)
 
   /**
    * Removes the specified event listener actor. It will not receive any events
    * any more.
    */
-  def removeListenerActor(actor: Actor)
+  def removeActorListener(actor: Actor)
 
   /**
    * Closes this audio player and frees all resources. This method should be

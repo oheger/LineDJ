@@ -148,7 +148,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * @inheritdoc This implementation registers the specified actor at the
    * Gateway.
    */
-  def addListenerActor(actor: Actor) {
+  def addActorListener(actor: Actor) {
     Gateway.register(actor)
   }
 
@@ -156,7 +156,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * @inheritdoc This implementation removes the specified actor from the
    * Gateway.
    */
-  def removeListenerActor(actor: Actor) {
+  def removeActorListener(actor: Actor) {
     Gateway.unregister(actor)
   }
 
