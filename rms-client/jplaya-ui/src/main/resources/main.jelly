@@ -237,6 +237,10 @@
 
   <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>
 
+  <!-- Register the store listener actor at the audio player -->
+  <a:eventListener targetBean="audioPlayer" eventType="Actor" 
+    beanName="storeListenerActor"/>
+
   <!-- Action tasks and commands -->
 
   <!-- The action task for quitting the application -->

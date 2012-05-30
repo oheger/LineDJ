@@ -68,4 +68,13 @@
       <di:invocationTarget refName="audioPlayerFactory"/>
     </di:methodInvocation>
   </di:bean>
+
+  <!-- The listener for storing audio data in the local media store -->
+  <di:bean name="storeListenerActor"
+    beanClass="de.oliver_heger.mediastore.storelistener.StoreListenerActor">
+    <di:constructor>
+      <di:param refName="mediaStore"/>
+    </di:constructor>
+    <di:methodInvocation method="start"/>
+  </di:bean>
 </j:jelly>

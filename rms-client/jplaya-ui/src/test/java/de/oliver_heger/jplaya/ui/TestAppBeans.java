@@ -1,6 +1,7 @@
 package de.oliver_heger.jplaya.ui;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import javax.persistence.EntityManagerFactory;
@@ -16,6 +17,7 @@ import org.junit.Test;
 
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
+import de.oliver_heger.mediastore.storelistener.StoreListenerActor;
 import de.oliver_heger.splaya.AudioPlayer;
 import de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl;
 
@@ -113,6 +115,20 @@ public class TestAppBeans
     {
         AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
         player.shutdown();
+    }
+
+    /**
+     * Tests whether the store listener can be obtained.
+     */
+    @Test
+    public void testBeanStoreListener()
+    {
+        StoreListenerActor listener =
+                (StoreListenerActor) getBeanContext().getBean(
+                        "storeListenerActor");
+        assertNotNull("No store listener", listener);
+        assertSame("Wrong media store",
+                getBeanContext().getBean(MediaStore.class), listener.store());
     }
 
     private static class MainTestImpl extends Main

@@ -1,17 +1,21 @@
 package de.oliver_heger.mediastore.storelistener
 
-import scala.actors.Actor
-import de.oliver_heger.mediastore.localstore.MediaStore
-import de.oliver_heger.splaya.PlaylistData
 import java.io.Closeable
-import org.slf4j.LoggerFactory
-import de.oliver_heger.splaya.PlayerShutdown
-import de.oliver_heger.mediastore.service.SongData
-import de.oliver_heger.mediastore.service.ObjectFactory
-import de.oliver_heger.splaya.AudioSourceData
 import java.math.BigInteger
-import de.oliver_heger.splaya.PlaylistUpdate
+import java.util.EventListener
+
+import scala.actors.Actor
+
+import org.slf4j.LoggerFactory
+
+import de.oliver_heger.mediastore.localstore.MediaStore
+import de.oliver_heger.mediastore.service.ObjectFactory
+import de.oliver_heger.mediastore.service.SongData
+import de.oliver_heger.splaya.AudioSourceData
 import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlayerShutdown
+import de.oliver_heger.splaya.PlaylistData
+import de.oliver_heger.splaya.PlaylistUpdate
 
 /**
  * An actor which is responsible for storing information about audio sources
@@ -31,7 +35,8 @@ import de.oliver_heger.splaya.PlaybackSourceEnd
  *
  * @param store a reference to the ''MediaStore'' service
  */
-class StoreListenerActor(val store: MediaStore) extends Actor {
+class StoreListenerActor(val store: MediaStore) extends Actor
+  with EventListener {
   /** Constant for the milliseconds factor. */
   private val Millis = 1000
 
