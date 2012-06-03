@@ -22,7 +22,7 @@
   </description>
 
   <properties>
-    <hibernate-core-version>3.4.0.GA</hibernate-core-version>
+    <version.eclipselink>2.3.2</version.eclipselink>
   </properties>
 
   <dependencies>
@@ -47,9 +47,15 @@
     </dependency>
 
     <dependency>
-      <groupId>org.hibernate</groupId>
-      <artifactId>hibernate-entitymanager</artifactId>
-      <version>${hibernate-core-version}</version>
+      <groupId>org.eclipse.persistence</groupId>
+      <artifactId>org.eclipse.persistence.equinox</artifactId>
+      <version>${version.eclipselink}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.persistence</groupId>
+      <artifactId>javax.persistence</artifactId>
+      <version>2.0.3</version>
     </dependency>
 
     <dependency>

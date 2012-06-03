@@ -45,6 +45,11 @@
       <name>Scala-tools Maven2 Repository</name>
       <url>http://scala-tools.org/repo-releases</url>
     </repository>
+    <repository>
+      <id>Eclipselink</id>
+      <name>Eclipselink Maven Repository</name>
+      <url>http://download.eclipse.org/rt/eclipselink/maven.repo</url>
+    </repository>
   </repositories>
 
   <pluginRepositories>

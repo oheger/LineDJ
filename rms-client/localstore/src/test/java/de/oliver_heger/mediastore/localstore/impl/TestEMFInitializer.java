@@ -3,7 +3,6 @@ package de.oliver_heger.mediastore.localstore.impl;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
-import java.util.List;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -80,9 +79,6 @@ public class TestEMFInitializer
         EMFInitializer init = new EMFInitializer(DB_PATH);
         EntityManagerFactory emf = init.initialize();
         EntityManager em = emf.createEntityManager();
-        List<?> resultList =
-                em.createQuery("select s from SongEntity s").getResultList();
-        assertTrue("Got query results", resultList.isEmpty());
         shutdown(em);
         em.close();
         emf.close();

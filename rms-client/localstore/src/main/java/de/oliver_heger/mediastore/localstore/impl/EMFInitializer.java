@@ -31,9 +31,9 @@ public class EMFInitializer extends BackgroundInitializer<EntityManagerFactory>
     /** Constant for the name of the persistence unit. */
     private static final String UNIT_NAME = "jplaya-localstore";
 
-    /** Constant for the name of the property with the hibernate connection URL. */
+    /** Constant for the name of the property with the connection URL. */
     private static final String PROP_CONNECTION_URL =
-            "hibernate.connection.url";
+            "javax.persistence.jdbc.url";
 
     /** Constant for the user home system property. */
     private static final String PROP_USER_HOME = "user.home";

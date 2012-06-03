@@ -103,11 +103,11 @@ public class TestUpdateLocalStoreCommand
     {
         @SuppressWarnings("unchecked")
         List<T> result =
-                (List<T>) helper
-                        .getEM()
-                        .createQuery(
-                                "select e from " + entityCls.getName() + " e")
-                        .getResultList();
+                helper
+                .getEM()
+                .createQuery(
+                        "select e from " + entityCls.getSimpleName() + " e")
+                .getResultList();
         return result;
     }
 
