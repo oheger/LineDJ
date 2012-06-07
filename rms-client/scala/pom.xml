@@ -21,6 +21,11 @@
     Parent pom for pure Scala modules of the RMS project.
   </description>
 
+  <modules>
+    <module>actor-testutils</module>
+    <module>storelistener</module>
+  </modules>
+
   <dependencies>
 
     <dependency>
