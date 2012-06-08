@@ -1,17 +1,20 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import scala.collection.Seq
-import de.oliver_heger.splaya.playlist.PlaylistFileStore
-import scala.xml.Elem
-import java.io.File
-import java.util.zip.CRC32
-import scala.xml.XML
-import org.xml.sax.SAXParseException
-import org.slf4j.LoggerFactory
-import java.io.Reader
 import java.io.BufferedReader
-import java.io.FileReader
+import java.io.File
+import java.io.FileInputStream
 import java.io.IOException
+import java.io.InputStreamReader
+import java.io.Reader
+import java.util.zip.CRC32
+
+import scala.collection.Seq
+import scala.xml.Elem
+import scala.xml.XML
+
+import org.slf4j.LoggerFactory
+
+import de.oliver_heger.splaya.playlist.PlaylistFileStore
 
 /**
  * A default implementation of the ''PlaylistFileStore'' trait.
@@ -112,7 +115,8 @@ class PlaylistFileStoreImpl(directoryName: String) extends PlaylistFileStore {
 
       var in: Reader = null
       try {
-        in = new BufferedReader(new FileReader(file))
+        in = new BufferedReader(new InputStreamReader(new FileInputStream(file),
+          Encoding))
         Some(XML.load(in))
       } catch {
         case ex: Exception =>
@@ -135,7 +139,7 @@ class PlaylistFileStoreImpl(directoryName: String) extends PlaylistFileStore {
   private def saveFile(playlistID: String, ext: String, root: Elem) {
     val file = dataFile(playlistID, ext)
     XML.save(filename = file.getAbsolutePath, node = root, enc = Encoding,
-        xmlDecl = true)
+      xmlDecl = true)
   }
 
   /**
