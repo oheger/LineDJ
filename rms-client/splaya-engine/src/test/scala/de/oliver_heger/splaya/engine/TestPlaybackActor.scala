@@ -77,16 +77,25 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
 
   /** The stream generator. */
   private lazy val streamGen = StreamDataGenerator()
+  
+  /** The gateway object. */
+  private var gateway: Gateway = _
 
   /** The actor to be tested. */
   protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
+    gateway = new Gateway
     ctxFactory = mock[PlaybackContextFactory]
     bufMan = createBufferManagerMock()
     streamFactory = mock[SourceStreamWrapperFactory]
     EasyMock.expect(streamFactory.bufferManager).andReturn(bufMan).anyTimes()
-    Gateway.start()
+    gateway.start()
+  }
+  
+  @After override def tearDown() {
+    super.tearDown()
+    gateway.shutdown()
   }
 
   /**
@@ -105,7 +114,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
    * Creates a test actor instance.
    */
   private def setUpActor() {
-    actor = new PlaybackActor(ctxFactory, streamFactory)
+    actor = new PlaybackActor(gateway, ctxFactory, streamFactory)
     actor.start()
   }
 
@@ -117,7 +126,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   private def installLineWriterActor(handler: PartialFunction[Any, Unit]): QueuingActor = {
     val lineActor = new QueuingActor(handler)
     lineActor.start()
-    Gateway += Gateway.ActorLineWrite -> lineActor
+    gateway += Gateway.ActorLineWrite -> lineActor
     lineActor
   }
 
@@ -162,7 +171,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     listener.expectMessage(ActorExited(playbackActor))
     listener.ensureNoMessages()
     listener.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 
   /**
@@ -291,7 +300,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   private def extractPlayChunkMessage(lineActor: QueuingActor): PlayChunk = {
     lineActor.nextMessage() match {
       case pc: PlayChunk => pc
-      case _ => fail("Unexpected message!")
+      case msg => fail("Unexpected message: " + msg)
     }
   }
 
@@ -485,7 +494,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
         case _ =>
       }
     }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -513,7 +522,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   private def installListener(): QueuingActor = {
     val listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     listener
   }
 
@@ -537,7 +546,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     listener.expectMessage(PlaybackSourceEnd(src1, false))
     listener.expectMessage(PlaybackSourceStart(src2))
     listener.ensureNoMessages(1)
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -620,7 +629,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     assert(streamGen.generateStreamContent(0, 2 * PlaybackActor.DefaultBufferSize)
       === strBuffer.toString)
     lineActor.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -676,7 +685,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     }
     lineActor.ensureNoMessages()
     lineActor.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -719,7 +728,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
       shutdownActor()
     }
     lineActor.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -878,7 +887,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
       actor ! StopPlayback
       actor ! StartPlayback
     }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     var startCount = 0
     var stopCount = 0
     while (startCount < 2) {
@@ -912,7 +921,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
           actor ! ChunkPlayed(BufferSize)
         }
       }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     var foundStop = false
     while (!foundStop) {
       listener.nextMessage() match {

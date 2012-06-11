@@ -33,9 +33,11 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
  * specific actions requiring the current time can be executed by this actor on
  * behalf of other components.
  *
+ * @param gateway the gateway object
  * @param clock the timer to be used by this actor
  */
-class TimingActor(private[engine] val clock: StopWatch) extends Actor {
+class TimingActor(gateway: Gateway, private[engine] val clock: StopWatch)
+  extends Actor {
   /**
    * Constant for the threshold for time events. An event is only fired if the
    * last event took place before this time (in milliseconds).
@@ -57,8 +59,9 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
   /**
    * Creates a new instance of ''TimingActor'' and initializes it with a newly
    * created timer instance.
+   * @param gateway the gateway object
    */
-  def this() = this(new StopWatch)
+  def this(gateway: Gateway) = this(gateway, new StopWatch)
 
   /**
    * The main message loop of this actor. It receives messages sent by the
@@ -140,7 +143,7 @@ class TimingActor(private[engine] val clock: StopWatch) extends Actor {
   private def firePlaybackTimeChanged() {
     val eventTime = time()
     if (lastEventTime < 0 || eventTime - lastEventTime > Threshold) {
-      Gateway.publish(PlaybackTimeChanged(eventTime))
+      gateway.publish(PlaybackTimeChanged(eventTime))
       lastEventTime = eventTime
     }
   }

@@ -19,6 +19,9 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
   /** Constant for the size of a temporary file. */
   private val FileSize = 10000L
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** The test actor. */
   private var actor: QueuingActor = _
 
@@ -28,9 +31,10 @@ class TestSourceBufferManagerImpl extends JUnitSuite with EasyMockSugar {
   @Before def setUp() {
     actor = new QueuingActor
     actor.start()
-    Gateway.start()
-    Gateway += Gateway.ActorSourceRead -> actor
-    manager = new SourceBufferManagerImpl
+    gateway = new Gateway
+    gateway.start()
+    gateway += Gateway.ActorSourceRead -> actor
+    manager = new SourceBufferManagerImpl(gateway)
   }
 
   @After def tearDown() {

@@ -31,14 +31,23 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar
   /** A mock for the data line. */
   private var line: SourceDataLine = _
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** The actor to be tested. */
   protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
-    Gateway.start()
+    gateway = new Gateway
+    gateway.start()
     line = mock[SourceDataLine]
-    actor = new LineWriteActor
+    actor = new LineWriteActor(gateway)
     actor.start()
+  }
+
+  @After override def tearDown() {
+    super.tearDown()
+    gateway.shutdown()
   }
 
   /**
@@ -60,7 +69,7 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar
   private def installPlaybackActor(): QueuingActor = {
     val playbackActor = new QueuingActor
     playbackActor.start()
-    Gateway += Gateway.ActorPlayback -> playbackActor
+    gateway += Gateway.ActorPlayback -> playbackActor
     playbackActor
   }
 
@@ -177,12 +186,12 @@ class TestLineWriteActor extends JUnitSuite with EasyMockSugar
   @Test def testActorExitedMessage() {
     val listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     val lineActor = actor
     shutdownActor()
     listener.expectMessage(ActorExited(lineActor))
     listener.ensureNoMessages()
     listener.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 }

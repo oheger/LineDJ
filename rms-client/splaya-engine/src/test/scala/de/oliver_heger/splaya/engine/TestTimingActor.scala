@@ -1,25 +1,30 @@
 package de.oliver_heger.splaya.engine
 
+import java.util.concurrent.atomic.AtomicLong
+
 import scala.actors.Actor
+
 import org.apache.commons.lang3.time.StopWatch
+import org.easymock.EasyMock
 import org.junit.Assert.assertNotNull
-import org.junit.BeforeClass
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceStart
-import org.junit.After
-import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackTimeChanged
-import de.oliver_heger.splaya.PlaybackStops
-import de.oliver_heger.splaya.PlaybackStarts
-import org.easymock.EasyMock
-import java.util.concurrent.atomic.AtomicLong
+
+import TestTimingActor.Source
+import TestTimingActor.{SourceNoSkip => source}
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.TimeAction
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackStarts
+import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.WaitForExit
-import de.oliver_heger.splaya.engine.msg.TimeAction
 
 /**
  * Test class for ''TimingActor''.
@@ -28,12 +33,20 @@ class TestTimingActor extends JUnitSuite with EasyMockSugar {
   /** A mock for the timer. */
   private var clock: StopWatch = _
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** A test event listener actor. */
   private var listener: QueuingActor = _
 
+  @Before def setUp() {
+    gateway = new Gateway
+    gateway.start()
+  }
+
   @After def tearDown() {
     if (listener != null) {
-      Gateway.unregister(listener)
+      gateway.unregister(listener)
       listener.shutdown()
     }
   }
@@ -44,7 +57,7 @@ class TestTimingActor extends JUnitSuite with EasyMockSugar {
    */
   private def createActor(): TimingActor = {
     clock = mock[StopWatch]
-    val actor = new TimingActor(clock)
+    val actor = new TimingActor(gateway, clock)
     actor.start()
     actor
   }
@@ -67,7 +80,7 @@ class TestTimingActor extends JUnitSuite with EasyMockSugar {
   private def installListener(): QueuingActor = {
     listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     listener
   }
 
@@ -75,7 +88,7 @@ class TestTimingActor extends JUnitSuite with EasyMockSugar {
    * Tests whether a default stop watch instance is created.
    */
   @Test def testDefaultClock() {
-    val actor = new TimingActor
+    val actor = new TimingActor(gateway)
     assertNotNull("No clock", actor.clock)
   }
 
@@ -247,8 +260,4 @@ object TestTimingActor {
 
   /** Constant for a audio source without skip information. */
   val SourceNoSkip = AudioSource("sourceNoSkip", 2, 20000, 0, 0)
-
-  @BeforeClass def setUpBeforeClass() {
-    Gateway.start()
-  }
 }

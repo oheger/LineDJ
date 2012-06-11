@@ -4,7 +4,7 @@ import scala.actors.Actor
 
 import org.junit.Assert.assertEquals
 import org.junit.After
-import org.junit.BeforeClass
+import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
@@ -39,11 +39,24 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
   /** Constant for the number of songs in the test playlist. */
   private val PlaylistSize = 3
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** The mock actor for doing the extraction. */
   private var extractor: ActorTestImpl = _
 
   /** The actor to be tested. */
   protected var actor: ActorUnderTest = _
+
+  @Before def setUp() {
+    gateway = new Gateway
+    gateway.start()
+  }
+
+  @After override def tearDown() {
+    super.tearDown()
+    gateway.shutdown()
+  }
 
   /**
    * Creates a mock for the extractor actor which sends default results for
@@ -67,7 +80,7 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
    * @return the test actor instance
    */
   private def setUpActor(extractor: Actor): PlaylistDataExtractorActor = {
-    actor = new PlaylistDataExtractorActor(extractor)
+    actor = new PlaylistDataExtractorActor(gateway, extractor)
     actor.start()
     actor
   }
@@ -79,7 +92,7 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
   private def installListener(): QueuingActor = {
     val listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     listener
   }
 
@@ -88,7 +101,7 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
    * @param listener the listener actor
    */
   private def deregister(listener: QueuingActor) {
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -261,11 +274,5 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
     extractor.expectMessage(Exit)
     extractor.ensureNoMessages()
     actor = null
-  }
-}
-
-object TestPlaylistDataExtractorActor {
-  @BeforeClass def setUpBeforeClass() {
-    Gateway.start()
   }
 }

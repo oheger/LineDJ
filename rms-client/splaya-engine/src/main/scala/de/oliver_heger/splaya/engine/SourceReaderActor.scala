@@ -39,9 +39,15 @@ import de.oliver_heger.splaya.PlaylistEnd
  * actor is notified when copying of new audio streams starts and when a chunk
  * of temporary data has been written. When the playback actor has played a
  * chunk of audio data it sends back a message and requests new data.
+ *
+ * @param gateway the gateway object
+ * @param resolver the resolver for audio sources
+ * @param tempFileFactory the factory for temporary files
+ * @param chunkSize the size of a chunk for a copy operation; a buffer whose
+ * size is two times this value is reserved in the temporary directory
  */
-class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFactory,
-  chunkSize: Int) extends Actor {
+class SourceReaderActor(gateway: Gateway, resolver: SourceResolver,
+  tempFileFactory: TempFileFactory, chunkSize: Int) extends Actor {
   /** Constant of the size of a copy buffer.*/
   private[engine] val BufSize = 16 * 1024;
 
@@ -84,7 +90,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           cleanUpStreams()
           running = false
           cl.close()
-          Gateway.publish(ActorExited(this))
+          gateway.publish(ActorExited(this))
           log.info(this + " exited.")
 
         case strm: AddSourceStream =>
@@ -180,10 +186,10 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
           val msg = AudioSource(srcStream.uri, srcStream.index,
             resolvedStream.size, srcStream.skip, srcStream.skipTime)
           currentInputStream = new BufferedInputStream(resolvedStream.openStream())
-          Gateway ! Gateway.ActorPlayback -> msg
+          gateway ! Gateway.ActorPlayback -> msg
         } catch {
           case ex: Exception =>
-            Gateway.publish(PlaybackError("Error opening source " + srcStream,
+            gateway.publish(PlaybackError("Error opening source " + srcStream,
               ex, false))
         }
       }
@@ -201,7 +207,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
       if (chunkBytes > 0) {
         sendChunkToPlayback()
       }
-      Gateway ! Gateway.ActorPlayback -> PlaylistEnd
+      gateway ! Gateway.ActorPlayback -> PlaylistEnd
     }
   }
 
@@ -231,7 +237,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * it can be played.
    */
   private def sendChunkToPlayback() {
-    Gateway ! Gateway.ActorPlayback -> currentTempFile
+    gateway ! Gateway.ActorPlayback -> currentTempFile
     closeCurrentOutputStream(false)
   }
 
@@ -305,7 +311,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
    * single chunks until the temporary buffer is full.
    */
   private def copy() {
-    Gateway.publish(AccessSourceMedium(true))
+    gateway.publish(AccessSourceMedium(true))
 
     while (bytesToWrite > 0 && hasMoreData) {
       try {
@@ -314,18 +320,18 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
         closeChunk()
       } catch {
         case iorex: IOReadException =>
-          Gateway ! Gateway.ActorPlayback -> SourceReadError(fileBytes)
-          Gateway.publish(PlaybackError("Error when reading audio source!",
+          gateway ! Gateway.ActorPlayback -> SourceReadError(fileBytes)
+          gateway.publish(PlaybackError("Error when reading audio source!",
             iorex.getCause(), false))
           closeCurrentInputStream()
         case ex: Exception =>
-          Gateway.publish(PlaybackError("Error when copying audio source!",
+          gateway.publish(PlaybackError("Error when copying audio source!",
             ex, true))
           bytesToWrite = 0
       }
     }
 
-    Gateway.publish(AccessSourceMedium(false))
+    gateway.publish(AccessSourceMedium(false))
   }
 
   /**
@@ -347,7 +353,7 @@ class SourceReaderActor(resolver: SourceResolver, tempFileFactory: TempFileFacto
     chunkBytes = 0
     fileBytes = 0
     sourceStreams.clear()
-    Gateway ! Gateway.ActorPlayback -> FlushPlayer
+    gateway ! Gateway.ActorPlayback -> FlushPlayer
   }
 }
 

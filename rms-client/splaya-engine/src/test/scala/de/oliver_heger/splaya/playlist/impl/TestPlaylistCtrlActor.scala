@@ -62,6 +62,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   /** Constant for the number of URIs in the test playlist. */
   private val PlaylistSize = 32
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** A mock for the FS scanner. */
   private var scanner: FSScanner = _
 
@@ -78,14 +81,15 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
+    gateway = new Gateway
+    gateway.start()
     scanner = mock[FSScanner]
     store = mock[PlaylistFileStore]
     generator = mock[PlaylistGenerator]
     sourceActor = new QueuingActor
     sourceActor.start()
-    actor = new PlaylistCtrlActor(sourceActor, scanner, store, generator)
+    actor = new PlaylistCtrlActor(gateway, sourceActor, scanner, store, generator)
     actor.start()
-    Gateway.start()
   }
 
   /**
@@ -469,7 +473,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   private def installListener(): QueuingActor = {
     val listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     listener
   }
 
@@ -497,9 +501,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
             playlistURI(i).contains(srcData.title))
           assertNull("Got an artist", srcData.artistName)
         }
-      case _ => fail("Unexpected message!")
+      case msg => fail("Unexpected message: " + msg)
     }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 
   /**
@@ -511,7 +515,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     shutdownActor()
     listener.expectMessage(ActorExited(ctrlActor))
     listener.ensureNoMessages()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 }

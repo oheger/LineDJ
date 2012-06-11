@@ -43,6 +43,9 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
   /** A mock for the event translation actor. */
   private var eventActor: ActorTestImpl = _
 
+  /** The gateway object. */
+  private var gateway: Gateway = _
+
   /** The player to be tested. */
   private var player: AudioPlayerImpl = _
 
@@ -50,21 +53,23 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     plCtrl = mock[PlaylistController]
     playbackActor = new QueuingActor
     playbackActor.start()
-    Gateway += Gateway.ActorPlayback -> playbackActor
+    gateway = new Gateway
+    gateway += Gateway.ActorPlayback -> playbackActor
     readerActor = new QueuingActor
     readerActor.start()
-    Gateway += Gateway.ActorSourceRead -> readerActor
-    Gateway.start()
+    gateway += Gateway.ActorSourceRead -> readerActor
+    gateway.start()
     timingActor = new QueuingActor
     timingActor.start()
     eventActor = new ActorTestImpl
-    player = new AudioPlayerImpl(plCtrl, timingActor, eventActor)
+    player = new AudioPlayerImpl(gateway, plCtrl, timingActor, eventActor)
   }
 
   @After def tearDown() {
     playbackActor.shutdown()
     readerActor.shutdown()
     timingActor.shutdown()
+    gateway.shutdown()
   }
 
   /**
@@ -150,7 +155,7 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
   @Test def testShutdown() {
     val lineActor = new QueuingActor
     lineActor.start()
-    Gateway += Gateway.ActorLineWrite -> lineActor
+    gateway += Gateway.ActorLineWrite -> lineActor
     plCtrl.shutdown()
     whenExecuting(plCtrl) {
       player.shutdown()
@@ -242,10 +247,10 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     listener.start()
     player.addActorListener(listener)
     val msg = "someMessage"
-    Gateway.publish(msg)
+    gateway.publish(msg)
     listener.expectMessage(msg)
     player.removeActorListener(listener)
-    Gateway.publish("someOtherMessage")
+    gateway.publish("someOtherMessage")
     listener.ensureNoMessages()
     listener.shutdown()
   }

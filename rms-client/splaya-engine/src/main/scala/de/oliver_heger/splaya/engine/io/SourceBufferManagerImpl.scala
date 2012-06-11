@@ -1,9 +1,10 @@
 package de.oliver_heger.splaya.engine.io
-import scala.actors.Actor
+import java.io.IOException
+
 import scala.collection.mutable.Queue
+
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.ReadChunk
-import java.io.IOException
 
 /**
  * A default implementation of the ''SourceBufferManager'' interface.
@@ -14,8 +15,10 @@ import java.io.IOException
  * buffer again.
  *
  * Implementation note: This class is not thread-safe!
+ *
+ * @param gateway the gateway object
  */
-class SourceBufferManagerImpl extends SourceBufferManager {
+class SourceBufferManagerImpl(gateway: Gateway) extends SourceBufferManager {
   /** The underlying queue.*/
   private val queue = Queue.empty[TempFile]
 
@@ -74,7 +77,7 @@ class SourceBufferManagerImpl extends SourceBufferManager {
   def next(): TempFile = {
     if (currentFile != null) {
       currentFile.delete()
-      Gateway ! Gateway.ActorSourceRead -> ReadChunk
+      gateway ! Gateway.ActorSourceRead -> ReadChunk
     }
 
     if (queue.isEmpty) {

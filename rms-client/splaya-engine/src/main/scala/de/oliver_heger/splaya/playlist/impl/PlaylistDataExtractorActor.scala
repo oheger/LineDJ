@@ -26,9 +26,11 @@ import java.io.Closeable
  * accessed by the ''SourceReaderActor''. If this is the case, loading audio
  * meta data is interrupted.
  *
+ * @param gateway the gateway object
  * @param sourceDataExtractor the actor for extracting audio source data
  */
-class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
+class PlaylistDataExtractorActor(gateway: Gateway, sourceDataExtractor: Actor)
+  extends Actor {
   /** The playlist to be processed. */
   private var playlistData: PlaylistDataImpl = _
 
@@ -105,7 +107,7 @@ class PlaylistDataExtractorActor(sourceDataExtractor: Actor) extends Actor {
     if (playlistID == res.playlistID) {
       if (!res.data.isEmpty) {
         playlistData.setAudioSourceData(res.index, res.data.get)
-        Gateway.publish(createPlaylistUpdateMessage(res))
+        gateway.publish(createPlaylistUpdateMessage(res))
       }
 
       requestPending = false

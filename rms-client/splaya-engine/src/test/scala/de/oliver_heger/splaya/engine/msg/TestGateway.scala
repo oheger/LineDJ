@@ -8,14 +8,22 @@ import org.junit.Assert.assertTrue
 import de.oliver_heger.tsthlp.QueuingActor
 
 /**
- * Test class for Gateway.
+ * Test class for ''Gateway''.
  */
 class TestGateway extends JUnitSuite {
   /** Constant for the name of the test actor.*/
   private val TestActor = "MyTestActor"
 
+  /** The gateway instance to be tested. */
+  private var gateway: Gateway = _
+
   @Before def setUp() {
-    Gateway.start()
+    gateway = new Gateway
+    gateway.start()
+  }
+
+  @After def tearDown() {
+    gateway.shutdown()
   }
 
   /**
@@ -24,9 +32,9 @@ class TestGateway extends JUnitSuite {
   @Test def testDelegateToActor() {
     val actor = new QueuingActor
     actor.start()
-    Gateway += TestActor -> actor
+    gateway += TestActor -> actor
     val msg = "A test message"
-    Gateway ! TestActor -> msg
+    gateway ! TestActor -> msg
     actor.expectMessage(msg)
   }
 
@@ -37,14 +45,14 @@ class TestGateway extends JUnitSuite {
     val actor1, actor2 = new QueuingActor
     actor1.start()
     actor2.start()
-    Gateway.register(actor1)
-    Gateway.register(actor2)
+    gateway.register(actor1)
+    gateway.register(actor2)
     val msg = 20120213214524L;
-    Gateway.publish(msg)
+    gateway.publish(msg)
     actor1.expectMessage(msg)
     actor2.expectMessage(msg)
-    Gateway.unregister(actor1)
-    Gateway.unregister(actor2)
+    gateway.unregister(actor1)
+    gateway.unregister(actor2)
   }
 
   /**
@@ -53,9 +61,9 @@ class TestGateway extends JUnitSuite {
   @Test def testUnregister() {
     val actor = new QueuingActor
     actor.start()
-    Gateway.register(actor)
-    Gateway.unregister(actor)
-    Gateway.publish("some message!")
+    gateway.register(actor)
+    gateway.unregister(actor)
+    gateway.publish("some message!")
     Thread.sleep(200)
     assertTrue("Got a message", actor.queue.isEmpty())
   }

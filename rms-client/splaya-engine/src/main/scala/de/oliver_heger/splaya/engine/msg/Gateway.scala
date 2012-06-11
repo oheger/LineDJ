@@ -2,22 +2,15 @@ package de.oliver_heger.splaya.engine.msg
 import scala.actors.Actor
 
 /**
- * <p>A class for managing the actors in this application.</p>
- * <p>The singleton instance of this class holds references to all actors and
- * provides a generic method for sending them messages. Note that this object
- * is itself an actor. All modifications are implemented by sending itself
- * internal messages and are therefore thread-safe.</p>
+ * A class for managing the actors in this application and for supporting a
+ * simple messaging channel.
+ *
+ * An instance of this class holds references to all relevant actors and
+ * provides a generic method for sending them messages. To ensure thread-safety,
+ * there is another actor involved. Modifications are implemented by sending
+ * internal messages to this internal actor.
  */
-object Gateway {
-  /** Constant for the name of the source read actor. */
-  val ActorSourceRead = "SourceReadActor"
-
-  /** Constant for the name of the playback actor. */
-  val ActorPlayback = "PlaybackActor"
-
-  /** Constant for the name of the line write actor. */
-  val ActorLineWrite = "LineWriteActor"
-
+class Gateway {
   /** A wrapped actor which does the actual work.*/
   private val actor = new WrappedActor
 
@@ -103,6 +96,10 @@ object Gateway {
    */
   private case class MsgUnregister(actor: Actor)
 
+  /**
+   * The internally used actor class which manages the actors of the
+   * application.
+   */
   private class WrappedActor extends Actor {
     /** The map with the actors known to this application. */
     private var actors = Map.empty[String, Actor]
@@ -149,4 +146,18 @@ object Gateway {
       listeners foreach (_ ! msg)
     }
   }
+}
+
+/**
+ * The companion object for the ''Gateway'' class.
+ */
+object Gateway {
+  /** Constant for the name of the source read actor. */
+  val ActorSourceRead = "SourceReadActor"
+
+  /** Constant for the name of the playback actor. */
+  val ActorPlayback = "PlaybackActor"
+
+  /** Constant for the name of the line write actor. */
+  val ActorLineWrite = "LineWriteActor"
 }

@@ -40,6 +40,7 @@ import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
  * same or a different medium).
  * - Before the application exists, ''shutdown()'' should be called.
  *
+ * @param gateway the gateway object
  * @param playlistController the object managing playlist information
  * @param timingActor the actor responsible for timing
  * @param eventActor the actor responsible for event translation
@@ -49,7 +50,7 @@ import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
  * to the previous audio source; otherwise, the current audio source is played
  * again
  */
-class AudioPlayerImpl(val playlistController: PlaylistController,
+class AudioPlayerImpl(gateway: Gateway, val playlistController: PlaylistController,
   timingActor: Actor, eventActor: Actor, val moveBackwardThreshold: Long = 5000)
   extends AudioPlayer {
   /**
@@ -57,7 +58,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * playback actor.
    */
   def startPlayback() {
-    Gateway ! Gateway.ActorPlayback -> StartPlayback
+    gateway ! Gateway.ActorPlayback -> StartPlayback
   }
 
   /**
@@ -65,7 +66,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * playback actor.
    */
   def stopPlayback() {
-    Gateway ! Gateway.ActorPlayback -> StopPlayback
+    gateway ! Gateway.ActorPlayback -> StopPlayback
   }
 
   /**
@@ -73,7 +74,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * corresponding skip message is sent to the playback actor.
    */
   def moveForward() {
-    Gateway ! Gateway.ActorPlayback -> SkipCurrentSource
+    gateway ! Gateway.ActorPlayback -> SkipCurrentSource
   }
 
   /**
@@ -149,7 +150,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * Gateway.
    */
   def addActorListener(actor: Actor) {
-    Gateway.register(actor)
+    gateway.register(actor)
   }
 
   /**
@@ -157,7 +158,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * Gateway.
    */
   def removeActorListener(actor: Actor) {
-    Gateway.unregister(actor)
+    gateway.unregister(actor)
   }
 
   /**
@@ -175,7 +176,7 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * with streamed audio data to be invalidated.
    */
   private def flush() {
-    Gateway ! Gateway.ActorSourceRead -> FlushPlayer
+    gateway ! Gateway.ActorSourceRead -> FlushPlayer
   }
 
   /**
@@ -183,9 +184,9 @@ class AudioPlayerImpl(val playlistController: PlaylistController,
    * @return the ''Exit'' message
    */
   private def shutdownActors() {
-    Gateway ! Gateway.ActorSourceRead -> Exit
-    Gateway ! Gateway.ActorPlayback -> Exit
-    Gateway ! Gateway.ActorLineWrite -> Exit
+    gateway ! Gateway.ActorSourceRead -> Exit
+    gateway ! Gateway.ActorPlayback -> Exit
+    gateway ! Gateway.ActorLineWrite -> Exit
     timingActor ! Exit
   }
 }

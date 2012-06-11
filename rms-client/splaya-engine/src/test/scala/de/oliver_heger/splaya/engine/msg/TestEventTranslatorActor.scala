@@ -53,17 +53,27 @@ class TestEventTranslatorActor extends JUnitSuite with TestActorSupport {
   /** A test playlist event listener. */
   private var playlistListener: PlaylistListenerImpl = _
 
+  /** The gateway object. **/
+  private var gateway: Gateway = _
+
   /** The actor to be tested. */
   protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
-    Gateway.start()
-    actor = new EventTranslatorActor(TestEventTranslatorActor.ExitActorsCount)
+    gateway = new Gateway
+    gateway.start()
+    actor = new EventTranslatorActor(gateway,
+      TestEventTranslatorActor.ExitActorsCount)
     actor.start()
     listener = new AudioPlayerListenerImpl
     actor ! AddAudioPlayerEventListener(listener)
     playlistListener = new PlaylistListenerImpl
     actor ! AddPlaylistEventListener(playlistListener)
+  }
+
+  @After override def tearDown() {
+    super.tearDown()
+    gateway.shutdown()
   }
 
   /**
@@ -260,7 +270,7 @@ class TestEventTranslatorActor extends JUnitSuite with TestActorSupport {
   @Test def testPlayerShutdown() {
     val actorListener = new QueuingActor
     actorListener.start()
-    Gateway.register(actorListener)
+    gateway.register(actorListener)
     for (i <- 1 to TestEventTranslatorActor.ExitActorsCount) {
       actor ! ActorExited(actor)
     }
@@ -268,7 +278,7 @@ class TestEventTranslatorActor extends JUnitSuite with TestActorSupport {
     actorListener.expectMessage(PlayerShutdown)
     actor ! PlaybackStarts
     checkNoEvent(listener.queue)
-    Gateway.unregister(actorListener)
+    gateway.unregister(actorListener)
     actorListener.shutdown()
     actor = null
   }

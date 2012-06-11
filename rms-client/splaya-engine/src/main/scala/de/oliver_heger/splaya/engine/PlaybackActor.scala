@@ -47,6 +47,7 @@ import java.io.Closeable
  * ''PlaybackActor'' also reacts on messages for pausing and resuming playback.
  * If a line is open, it is directly stopped and started, respectively.
  *
+ * @param gateway the gateway object
  * @param ctxFactory the factory for creating playback context objects
  * @param streamFactory a factory for creating stream objects
  * @param minimumBufferLimit the minimum amount of data which must be in the
@@ -55,7 +56,7 @@ import java.io.Closeable
  * an mp3 audio stream; the default value should be appropriate, but can be
  * adapted if necessary
  */
-class PlaybackActor(ctxFactory: PlaybackContextFactory,
+class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactory,
   streamFactory: SourceStreamWrapperFactory,
   minimumBufferLimit: Int = PlaybackActor.MinimumBufferLimit) extends Actor {
   /**
@@ -138,7 +139,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
           running = false
           flushActor()
           cl.close()
-          Gateway.publish(ActorExited(this))
+          gateway.publish(ActorExited(this))
           log.info(this + " exited.")
 
         case src: AudioSource =>
@@ -317,7 +318,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     val line = if (errorStream) null else context.line
     val msg = PlayChunk(line, Arrays.copyOf(playbackBuffer,
       playbackBuffer.length), ofs + len, streamPosition - ofs, skipPosition)
-    Gateway ! Gateway.ActorLineWrite -> msg
+    gateway ! Gateway.ActorLineWrite -> msg
     lastChunkSize = msg.len
   }
 
@@ -344,7 +345,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     val source = queue.dequeue()
     log.info("Starting playback of {}.", source.uri)
     fireInitialPlaybackStartEvent()
-    Gateway.publish(PlaybackSourceStart(source))
+    gateway.publish(PlaybackSourceStart(source))
 
     skipPosition = source.skip
     errorStream = false
@@ -396,7 +397,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def fireErrorEvent(msg: String, ex: Throwable, fatal: Boolean) {
     log.error(msg, ex)
-    Gateway.publish(PlaybackError(msg, ex, fatal, currentSource))
+    gateway.publish(PlaybackError(msg, ex, fatal, currentSource))
     handleStopPlayback()
   }
 
@@ -445,7 +446,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
    */
   private def closeCurrentAudioSource() {
     if (currentSource != null) {
-      Gateway.publish(PlaybackSourceEnd(currentSource,
+      gateway.publish(PlaybackSourceEnd(currentSource,
         skipPosition == Long.MaxValue))
       currentSource = null
     }
@@ -501,7 +502,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       if (!errorStream) {
         updateLine(_.start())
       }
-      Gateway.publish(PlaybackStarts)
+      gateway.publish(PlaybackStarts)
       playback()
     }
   }
@@ -514,7 +515,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
     if (playbackEnabled) {
       playbackEnabled = false
       updateLine(_.stop())
-      Gateway.publish(PlaybackStops)
+      gateway.publish(PlaybackStops)
     }
   }
 
@@ -524,8 +525,8 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def fireStopEventAtEndOfPlaylist() {
     if (endOfPlaylist && !endOfPlaylistMessage) {
       endOfPlaylistMessage = true
-      Gateway.publish(PlaybackStops)
-      Gateway.publish(PlaylistEnd)
+      gateway.publish(PlaybackStops)
+      gateway.publish(PlaylistEnd)
     }
   }
 
@@ -536,7 +537,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
   private def fireInitialPlaybackStartEvent() {
     if (!playbackPerformed) {
       playbackPerformed = true
-      Gateway.publish(PlaybackStarts)
+      gateway.publish(PlaybackStarts)
     }
   }
 
@@ -591,7 +592,7 @@ class PlaybackActor(ctxFactory: PlaybackContextFactory,
       var now = System.currentTimeMillis()
       if (now - lastPositionChangedTime > PositionChangedThreshold) {
         lastPositionChangedTime = now
-        Gateway.publish(createPositionChangedMessage())
+        gateway.publish(createPositionChangedMessage())
       }
     }
   }

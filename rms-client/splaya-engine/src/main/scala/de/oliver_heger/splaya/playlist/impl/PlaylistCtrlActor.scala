@@ -48,6 +48,7 @@ import de.oliver_heger.splaya.PlaylistSettings
  * causes the playlist to be saved automatically after a configurable number of
  * played audio sources.
  *
+ * @param gateway the gateway object
  * @param sourceActor the actor to which the playlist has to be communicated
  * @param scanner the ''FSScanner'' for scanning the source medium
  * @param store the ''PlaylistFileStore'' for persisting playlist data
@@ -55,7 +56,7 @@ import de.oliver_heger.splaya.PlaylistSettings
  * @param autoSaveInterval the number of audio sources after which the
  * current playlist is saved (auto-save)
  */
-class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
+class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor, scanner: FSScanner,
   store: PlaylistFileStore, generator: PlaylistGenerator,
   autoSaveInterval: Int = 3) extends Actor {
   /** A sequence with the current playlist. */
@@ -87,7 +88,7 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
         case cl: Closeable =>
           cl.close()
           running = false
-          Gateway.publish(ActorExited(this))
+          gateway.publish(ActorExited(this))
 
         case ReadMedium(uri) =>
           handleReadMedium(uri)
@@ -165,7 +166,7 @@ class PlaylistCtrlActor(sourceActor: Actor, scanner: FSScanner,
       setUpExistingPlaylist(playlistData.get)
     }
 
-    Gateway.publish(createPlaylistData(settings))
+    gateway.publish(createPlaylistData(settings))
   }
 
   /**

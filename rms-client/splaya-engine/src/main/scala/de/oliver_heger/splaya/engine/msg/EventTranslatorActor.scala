@@ -54,10 +54,12 @@ import java.io.Closeable
  * published. Now a client application using the audio player engine can exit
  * safely.
  *
+ * @param gateway the gateway object
  * @param actorsToExitCount the number of actors whose exit state is monitored;
  * when all of these actors have exited a player shutdown event is generated
  */
-class EventTranslatorActor(val actorsToExitCount: Int) extends Actor {
+class EventTranslatorActor(gateway: Gateway, val actorsToExitCount: Int)
+  extends Actor {
   /** Constant for a dummy position changed event setting all positions to 0. */
   private val InitPositionChanged = PlaybackPositionChanged(0, 1, 0, null)
 
@@ -207,7 +209,7 @@ class EventTranslatorActor(val actorsToExitCount: Int) extends Actor {
       playerListeners.fire(() =>
         AudioPlayerEventImpl(getType = AudioPlayerEventType.PLAYER_SHUTDOWN),
         _.playerShutdown(_))
-      Gateway.publish(PlayerShutdown)
+      gateway.publish(PlayerShutdown)
       false
     } else true
   }

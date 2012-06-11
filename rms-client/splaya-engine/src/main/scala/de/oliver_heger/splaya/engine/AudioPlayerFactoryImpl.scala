@@ -37,9 +37,10 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
    * @return the ''AudioPlayer'' instance
    */
   def createAudioPlayer(): AudioPlayer = {
+    val gateway = new Gateway
     val sourceResolver = new SourceResolverImpl(fileSystemManager)
     val tempFileFactory = new TempFileFactoryImpl
-    val bufferManager = new SourceBufferManagerImpl
+    val bufferManager = new SourceBufferManagerImpl(gateway)
     val ctxFactory = new PlaybackContextFactoryImpl
     val streamFactory = new SourceStreamWrapperFactoryImpl(bufferManager,
       tempFileFactory)
@@ -51,18 +52,18 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
         songs
     }
 
-    val readActor = new SourceReaderActor(sourceResolver, tempFileFactory,
-      bufferSize / 2)
-    val playbackActor = new PlaybackActor(ctxFactory, streamFactory)
-    val lineActor = new LineWriteActor
-    val timingActor = new TimingActor(new StopWatch)
-    val eventActor = new EventTranslatorActor(4)
+    val readActor = new SourceReaderActor(gateway, sourceResolver,
+      tempFileFactory, bufferSize / 2)
+    val playbackActor = new PlaybackActor(gateway, ctxFactory, streamFactory)
+    val lineActor = new LineWriteActor(gateway)
+    val timingActor = new TimingActor(gateway, new StopWatch)
+    val eventActor = new EventTranslatorActor(gateway, 4)
     val extrActor = new AudioSourceDataExtractorActor(extractor)
-    val playlistExtrActor = new PlaylistDataExtractorActor(extrActor)
-    val plCtrlActor = new PlaylistCtrlActor(readActor, fsScanner,
+    val playlistExtrActor = new PlaylistDataExtractorActor(gateway, extrActor)
+    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, fsScanner,
       playlistFileStore, plGenerator)
 
-    Gateway.start()
+    gateway.start()
     readActor.start()
     playbackActor.start()
     lineActor.start()
@@ -71,15 +72,15 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
     extrActor.start()
     playlistExtrActor.start()
     plCtrlActor.start()
-    Gateway += Gateway.ActorSourceRead -> readActor
-    Gateway += Gateway.ActorPlayback -> playbackActor
-    Gateway += Gateway.ActorLineWrite -> lineActor
-    Gateway.register(timingActor)
-    Gateway.register(eventActor)
-    Gateway.register(playlistExtrActor)
-    Gateway.register(plCtrlActor)
+    gateway += Gateway.ActorSourceRead -> readActor
+    gateway += Gateway.ActorPlayback -> playbackActor
+    gateway += Gateway.ActorLineWrite -> lineActor
+    gateway.register(timingActor)
+    gateway.register(eventActor)
+    gateway.register(playlistExtrActor)
+    gateway.register(plCtrlActor)
 
     val plCtrl = new PlaylistControllerImpl(plCtrlActor)
-    new AudioPlayerImpl(plCtrl, timingActor, eventActor)
+    new AudioPlayerImpl(gateway, plCtrl, timingActor, eventActor)
   }
 }

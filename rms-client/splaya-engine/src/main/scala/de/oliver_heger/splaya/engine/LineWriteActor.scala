@@ -16,8 +16,10 @@ import de.oliver_heger.splaya.engine.msg.PlayChunk
  * this chunk into the current line. When the chunk has been played completely
  * it sends back a message to the playback actor. This is the signal to load
  * the next chunk of data.
+ *
+ * @param gateway the gateway object
  */
-class LineWriteActor extends Actor {
+class LineWriteActor(gateway: Gateway) extends Actor {
   /**
    * The main message loop of this actor. It processes messages for playing a
    * chunk of audio data. If an ''Exit'' message is received, the main loop
@@ -31,7 +33,7 @@ class LineWriteActor extends Actor {
         case cl: Closeable =>
           cl.close()
           running = false
-          Gateway.publish(ActorExited(this))
+          gateway.publish(ActorExited(this))
 
         case pc: PlayChunk =>
           playAudioChunk(pc)
@@ -55,7 +57,7 @@ class LineWriteActor extends Actor {
     val played = ofs +
       (if (len <= 0) pc.len
       else pc.line.write(pc.chunk, ofs, len))
-    Gateway ! Gateway.ActorPlayback -> ChunkPlayed(played)
+    gateway ! Gateway.ActorPlayback -> ChunkPlayed(played)
   }
 
   /**

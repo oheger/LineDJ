@@ -49,6 +49,9 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
 
   /** Constant for the chunk size used by the tests. */
   private val ChunkSize = 1000 * streamGenerator.blockLen
+  
+  /** The gateway object. */
+  private var gateway: Gateway = _
 
   /** A mock for the source resolver. */
   private var resolver: SourceResolver = _
@@ -66,7 +69,13 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   protected var actor: ActorUnderTest = _
 
   @Before def setUp() {
-    Gateway.start()
+    gateway = new Gateway
+    gateway.start()
+  }
+  
+  @After override def tearDown() {
+    super.tearDown()
+    gateway.shutdown()
   }
 
   /**
@@ -124,7 +133,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   private def setUpActor() {
     resolver = mock[SourceResolver]
     factory = mock[TempFileFactory]
-    actor = new SourceReaderActor(resolver, factory, ChunkSize)
+    actor = new SourceReaderActor(gateway, resolver, factory, ChunkSize)
   }
 
   /**
@@ -134,7 +143,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   private def installPlaybackActor(): QueuingActor = {
     val qa = new QueuingActor
     qa.start()
-    Gateway += Gateway.ActorPlayback -> qa
+    gateway += Gateway.ActorPlayback -> qa
     qa
   }
   
@@ -145,7 +154,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   private def installListener(): QueuingActor = {
     val listener = new QueuingActor
     listener.start()
-    Gateway.register(listener)
+    gateway.register(listener)
     listener
   }
 
@@ -160,7 +169,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     shutdownActor()
     listener.expectMessage(ActorExited(srcActor))
     listener.ensureNoMessages()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -316,7 +325,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
       case _ => fail("Unexpected message!")
     }
     qa.shutdown()
-    Gateway.unregister(qa)
+    gateway.unregister(qa)
   }
 
   /**
@@ -354,7 +363,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
       shutdownActor()
       checkStream(tempData._2, expContent)
     }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 
   /**
@@ -388,7 +397,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
       playback.shutdown()
       shutdownActor()
     }
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 
   /**
@@ -524,6 +533,6 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     }
     qa.shutdown()
     listener.shutdown()
-    Gateway.unregister(listener)
+    gateway.unregister(listener)
   }
 }
