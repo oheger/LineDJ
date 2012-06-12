@@ -15,7 +15,7 @@
   </parent>
 
   <artifactId>rms-storelistener</artifactId>
-  <packaging>jar</packaging>
+  <packaging>bundle</packaging>
 
   <name>Store Listener</name>
   <description>

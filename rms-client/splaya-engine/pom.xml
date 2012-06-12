@@ -12,7 +12,7 @@
   </parent>
 
   <artifactId>splaya-engine</artifactId>
-  <packaging>jar</packaging>
+  <packaging>bundle</packaging>
 
   <name>Scala Playa</name>
   <description>

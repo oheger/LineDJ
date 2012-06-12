@@ -12,7 +12,7 @@
   </parent>
 
   <artifactId>rms-localstore</artifactId>
-  <packaging>jar</packaging>
+  <packaging>bundle</packaging>
 
   <name>Local storage components</name>
   <description>

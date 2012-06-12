@@ -12,7 +12,7 @@
   </parent>
 
   <artifactId>rms-oauthclient</artifactId>
-  <packaging>jar</packaging>
+  <packaging>bundle</packaging>
 
   <name>RMS OAuth Client implementation</name>
   <description>
