@@ -11,6 +11,7 @@
     <module>testutils</module>
     <module>ifcs</module>
     <module>server</module>
+    <module>osgi-wrappers</module>
     <module>rms-client</module>
   </modules>
 

@@ -34,10 +34,25 @@
 
   <modules>
     <module>scala-osgi</module>
+    <module>jl-osgi</module>
+    <module>tritonus_share-osgi</module>
+    <module>mp3spi-osgi</module>
+    <module>servlet-osgi</module>
+    <module>commons-logging-osgi</module>
+    <module>commons-cli-osgi</module>
+    <module>commons-jexl-osgi</module>
+    <module>dom4j-osgi</module>
+    <module>commons-jelly-osgi</module>
+    <module>commons-vfs2-osgi</module>
+    <module>jguiraffe-osgi</module>
+    <module>log4j-osgi</module>
+    <module>oauth-signature-osgi</module>
+    <module>oauth-client-osgi</module>
   </modules>
 
   <properties>
     <osgi.embed>*;scope=compile|runtime</osgi.embed>
+    <osgi.import-package>*</osgi.import-package>
     <bundle.groupId>${project.groupId}</bundle.groupId>
     <bundle.artifactId>${project.artifactId}</bundle.artifactId>
     <bundle.version>${project.version}</bundle.version>
@@ -68,6 +83,7 @@
             -->
             <_exportcontents>*</_exportcontents>
             <Private-Package>!*</Private-Package>
+            <Import-Package>${osgi.import-package}</Import-Package>
             <Embed-Dependency>${osgi.embed};inline=true</Embed-Dependency>
           </instructions>
         </configuration>
@@ -75,4 +91,4 @@
     </plugins>
   </build>
 </project>
- 
+
