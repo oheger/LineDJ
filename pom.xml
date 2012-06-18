@@ -114,13 +114,20 @@
     <dependency>
       <groupId>net.sf.jguiraffe</groupId>
       <artifactId>jguiraffe</artifactId>
-      <version>1.1</version>
+      <version>1.2-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
       <version>2.9.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.osgi.core</artifactId>
+      <version>1.4.0</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -196,6 +203,10 @@
   </dependencies>
   </dependencyManagement>
 
+  <properties>
+    <osgi.bundleActivator></osgi.bundleActivator>
+  </properties>
+
   <build>
     <pluginManagement>
     <plugins>
@@ -221,6 +232,7 @@
             <_versionpolicy>
               [$(version;==;$(@)), $(version;+;$(@)))
             </_versionpolicy>
+            <Bundle-Activator>${osgi.bundleActivator}</Bundle-Activator>
           </instructions>
         </configuration>
       </plugin>

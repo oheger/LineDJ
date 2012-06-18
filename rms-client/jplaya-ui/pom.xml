@@ -19,6 +19,10 @@
     This project contains the UI components for the JPlaya MP3 player.
   </description>
 
+  <properties>
+    <osgi.bundleActivator>de.oliver_heger.jplaya.ui.Activator</osgi.bundleActivator>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
@@ -53,6 +57,11 @@
     <dependency>
       <groupId>net.sf.jguiraffe</groupId>
       <artifactId>jguiraffe</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.osgi.core</artifactId>
     </dependency>
 
     <dependency>

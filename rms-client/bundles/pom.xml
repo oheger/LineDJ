@@ -84,11 +84,6 @@
       <version>1.5.2</version>
     </dependency>
     <dependency>
-      <groupId>net.sf.jguiraffe</groupId>
-      <artifactId>jguiraffe-osgi</artifactId>
-      <version>1.1</version>
-    </dependency>
-    <dependency>
       <groupId>javazoom</groupId>
       <artifactId>jl-osgi</artifactId>
       <version>1.0</version>
@@ -213,6 +208,10 @@
       <groupId>org.hsqldb</groupId>
       <artifactId>hsqldb</artifactId>
       <version>2.2.8</version>
+    </dependency>
+    <dependency>
+      <groupId>net.sf.jguiraffe</groupId>
+      <artifactId>jguiraffe</artifactId>
     </dependency>
   </dependencies>
 
