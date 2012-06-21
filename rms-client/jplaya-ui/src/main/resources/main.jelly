@@ -79,7 +79,7 @@
 
   <!-- A transformer for simplifying usage of static text elements -->
   <di:bean name="staticTextTransformer"
-    beanClass="net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataTransformer">
+    beanClassName="net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataTransformer">
   </di:bean>
 
   <!-- The model of the playlist table. This is a plain array list.-->
@@ -87,6 +87,18 @@
 
   <!-- The special font for the UI -->
   <f:font var="uiFont" name="SansSerif" size="11"/>
+
+  <!-- An event filter for the window closing event. -->
+  <di:bean name="windowClosingEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
+  </di:bean>
+
+  <!-- An event filter for the mouse double-click event. -->
+  <di:bean name="mouseDoubleClickEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="MOUSE_DOUBLE_CLICKED"/>
+  </di:bean>
 
   <!-- The main window -->
   <w:frame name="mainFrame" titleres="main_title" menu="mainMenu"
@@ -183,8 +195,7 @@
 
             <!-- Connects double clicks to the action for selecting a specific song -->
             <a:mouseEvent actionName="playerSpecificSongAction">
-              <a:eventFilter eventType="MOUSE_DOUBLE_CLICKED"
-                class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
+              <a:eventFilter beanName="mouseDoubleClickEventFilter"/>
             </a:mouseEvent>
           </f:table>
         </f:panel>
@@ -195,14 +206,13 @@
          application exit action.
     -->
     <w:windowEvent actionName="exitAction">
-      <a:eventFilter eventType="WINDOW_CLOSING"
-        class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
+      <a:eventFilter beanName="windowClosingEventFilter"/>
     </w:windowEvent>
   </w:frame>
 
   <!-- The playlist model object -->
   <di:bean name="playlistModel"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlaylistModel">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlaylistModel">
     <di:constructor>
       <di:param refName="CURRENT_FORM"/>
       <di:param refName="comp:playlistTable"/>
@@ -211,7 +221,7 @@
 
   <!-- The playlist table model object -->
   <di:bean name="playlistTableModel"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlaylistTableModel">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlaylistTableModel">
     <di:constructor>
       <di:param refName="comp:playlistTable"/>
     </di:constructor>
@@ -219,7 +229,7 @@
 
   <!-- The action model object -->
   <di:bean name="actionModel"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.ActionModel">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.ActionModel">
     <di:constructor>
       <di:param refName="ACTION_STORE"/>
     </di:constructor>
@@ -227,7 +237,7 @@
 
   <!-- The main controller -->
   <di:bean name="controller"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
     <di:setProperty property="playlistModel" refName="playlistModel"/>
     <di:setProperty property="playlistTableModel" refName="playlistTableModel"/>
     <di:setProperty property="actionModel" refName="actionModel"/>
@@ -245,7 +255,7 @@
 
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.PlayerShutdownActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlayerShutdownActionTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -253,24 +263,24 @@
 
   <!-- File sync action command and task -->
   <di:bean name="openSyncDialogCommand"
-    beanClass="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
     <di:constructor>
       <di:param value="classpath:sync.jelly"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="syncTask"
-    beanClass="net.sf.jguiraffe.gui.app.CommandActionTask">
+    beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="openSyncDialogCommand"/>
     <di:setProperty property="beforeEnabler" value="action:fileSyncAction"/>
     <di:setProperty property="afterEnabler">
-      <di:bean beanClass="net.sf.jguiraffe.gui.builder.enablers.NullEnabler"/>
+      <di:bean beanClassName="net.sf.jguiraffe.gui.builder.enablers.NullEnabler"/>
     </di:setProperty>
   </di:bean>
 
   <!-- Player initialize playlist action task -->
   <di:bean name="initPlaylistTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -278,7 +288,7 @@
 
   <!-- Task for start playback action -->
   <di:bean name="startPlaybackTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.StartPlaybackActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.StartPlaybackActionTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -286,7 +296,7 @@
 
   <!-- Task for stop playback action -->
   <di:bean name="stopPlaybackTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.StopPlaybackActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.StopPlaybackActionTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -294,7 +304,7 @@
 
   <!-- Task for next song action -->
   <di:bean name="nextSongTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.NextSongActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.NextSongActionTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -302,7 +312,7 @@
 
   <!-- Task for previous song action -->
   <di:bean name="prevSongTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.MovePreviousActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MovePreviousActionTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>
@@ -310,7 +320,7 @@
 
   <!-- Task for move to specific song action -->
   <di:bean name="specificSongTask"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.MoveToIndexActionTask">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MoveToIndexActionTask">
     <di:constructor>
       <di:param refName="controller"/>
       <di:param refName="comp:playlistTable"/>

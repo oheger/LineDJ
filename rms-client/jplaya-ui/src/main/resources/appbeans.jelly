@@ -6,7 +6,7 @@
 
   <!-- The initializer for an Entity Manager Factory -->
   <di:bean name="emfInitializer"
-    beanClass="de.oliver_heger.mediastore.localstore.impl.EMFInitializer">
+    beanClassName="de.oliver_heger.mediastore.localstore.impl.EMFInitializer">
     <di:constructor>
       <di:param value=".jplaya/data/jplaya"/>
     </di:constructor>
@@ -15,7 +15,7 @@
 
   <!-- The OAuth token store implementation. -->
   <di:bean name="oauthTokenStore"
-    beanClass="de.oliver_heger.mediastore.localstore.impl.OAuthFileTokenStore">
+    beanClassName="de.oliver_heger.mediastore.localstore.impl.OAuthFileTokenStore">
     <di:constructor>
       <di:param value=".jplaya/oauth_tokens.dat"/>
     </di:constructor>
@@ -23,7 +23,7 @@
 
   <!-- The bean implementing the MediaStore interface -->
   <di:bean name="mediaStore"
-    beanClass="de.oliver_heger.mediastore.localstore.impl.MediaStoreImpl">
+    beanClassName="de.oliver_heger.mediastore.localstore.impl.MediaStoreImpl">
     <di:constructor>
       <di:param refName="emfInitializer"/>
       <di:param refName="jguiraffe.commandQueue"/>
@@ -36,17 +36,17 @@
 
   <!-- The file system manager -->
   <di:bean name="fileSystemManager"
-    beanClass="org.apache.commons.vfs2.FileSystemManager">
+    beanClassName="org.apache.commons.vfs2.FileSystemManager">
     <di:factory>
       <di:methodInvocation method="getManager"
-        targetClass="org.apache.commons.vfs2.VFS">
+        targetClassName="org.apache.commons.vfs2.VFS">
       </di:methodInvocation>
     </di:factory>
   </di:bean>
 
   <!-- The file store for playlist meta data -->
   <di:bean name="playlistFileStore"
-    beanClass="de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl">
+    beanClassName="de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl">
     <di:constructor>
       <di:param value="${user.home}/.jplaya"/>
     </di:constructor>
@@ -54,7 +54,7 @@
 
   <!-- The audio player factory -->
   <di:bean name="audioPlayerFactory"
-    beanClass="de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl">
+    beanClassName="de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl">
     <di:constructor>
       <di:param refName="playlistFileStore"/>
       <di:param refName="fileSystemManager"/>
@@ -63,7 +63,7 @@
 
   <!-- The audio player -->
   <di:bean name="audioPlayer" resultVar="player"
-    beanClass="de.oliver_heger.splaya.AudioPlayer">
+    beanClassName="de.oliver_heger.splaya.AudioPlayer">
     <di:methodInvocation method="createAudioPlayer" result="player">
       <di:invocationTarget refName="audioPlayerFactory"/>
     </di:methodInvocation>
@@ -71,7 +71,7 @@
 
   <!-- The listener for storing audio data in the local media store -->
   <di:bean name="storeListenerActor"
-    beanClass="de.oliver_heger.mediastore.storelistener.StoreListenerActor">
+    beanClassName="de.oliver_heger.mediastore.storelistener.StoreListenerActor">
     <di:constructor>
       <di:param refName="mediaStore"/>
     </di:constructor>
