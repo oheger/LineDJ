@@ -205,6 +205,7 @@
 
   <properties>
     <osgi.bundleActivator></osgi.bundleActivator>
+    <osgi.import-package>*</osgi.import-package>
   </properties>
 
   <build>
@@ -233,6 +234,7 @@
               [$(version;==;$(@)), $(version;+;$(@)))
             </_versionpolicy>
             <Bundle-Activator>${osgi.bundleActivator}</Bundle-Activator>
+            <Import-Package>${osgi.import-package}</Import-Package>
           </instructions>
         </configuration>
       </plugin>

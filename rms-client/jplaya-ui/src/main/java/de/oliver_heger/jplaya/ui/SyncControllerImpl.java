@@ -16,7 +16,8 @@ import net.sf.jguiraffe.gui.builder.window.WindowListener;
 import net.sf.jguiraffe.gui.builder.window.WindowUtils;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.oliver_heger.mediastore.localstore.CommandObserver;
 import de.oliver_heger.mediastore.localstore.MediaStore;
@@ -79,7 +80,7 @@ public class SyncControllerImpl implements WindowListener, SyncController,
     private static final float MAX_PROGRESS_VALUE = 100;
 
     /** The logger. */
-    private final Logger log = Logger.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     /** A reference to the media store service. */
     private final MediaStore mediaStore;

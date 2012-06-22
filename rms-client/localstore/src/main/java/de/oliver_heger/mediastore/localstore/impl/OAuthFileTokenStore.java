@@ -6,7 +6,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
 import de.oliver_heger.mediastore.oauth.OAuthTokens;
@@ -40,7 +41,7 @@ public class OAuthFileTokenStore implements OAuthTokenStore
     private static final String PROP_USRHOME = "user.home";
 
     /** The logger. */
-    private final Logger log = Logger.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     /** The path to the file with the authorization information. */
     private final String tokenFilePath;

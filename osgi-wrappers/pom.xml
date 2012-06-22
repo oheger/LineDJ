@@ -51,7 +51,6 @@
 
   <properties>
     <osgi.embed>*;scope=compile|runtime</osgi.embed>
-    <osgi.import-package>*</osgi.import-package>
     <bundle.groupId>${project.groupId}</bundle.groupId>
     <bundle.artifactId>${project.artifactId}</bundle.artifactId>
     <bundle.version>${project.version}</bundle.version>
@@ -82,7 +81,6 @@
             -->
             <_exportcontents>*</_exportcontents>
             <Private-Package>!*</Private-Package>
-            <Import-Package>${osgi.import-package}</Import-Package>
             <Embed-Dependency>${osgi.embed};inline=true</Embed-Dependency>
           </instructions>
         </configuration>

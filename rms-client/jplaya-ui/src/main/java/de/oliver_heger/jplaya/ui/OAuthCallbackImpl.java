@@ -14,7 +14,8 @@ import net.sf.jguiraffe.locators.Locator;
 import net.sf.jguiraffe.locators.LocatorException;
 
 import org.apache.commons.lang3.mutable.MutableObject;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
 import de.oliver_heger.mediastore.oauth.OAuthCallback;
@@ -54,7 +55,7 @@ public class OAuthCallbackImpl implements OAuthCallback
     static final String RES_ERRMSG_BUILDER = "sync_err_builder";
 
     /** The logger. */
-    private final Logger log = Logger.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     /** The token store. */
     private final OAuthTokenStore tokenStore;
