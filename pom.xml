@@ -206,6 +206,8 @@
   <properties>
     <osgi.bundleActivator></osgi.bundleActivator>
     <osgi.import-package>*</osgi.import-package>
+    <osgi.dynamicImport></osgi.dynamicImport>
+    <version.eclipselink>2.3.2</version.eclipselink>
   </properties>
 
   <build>
@@ -235,6 +237,7 @@
             </_versionpolicy>
             <Bundle-Activator>${osgi.bundleActivator}</Bundle-Activator>
             <Import-Package>${osgi.import-package}</Import-Package>
+            <DynamicImport-Package>${osgi.dynamicImport}</DynamicImport-Package>
           </instructions>
         </configuration>
       </plugin>

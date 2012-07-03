@@ -22,7 +22,13 @@
   </description>
 
   <properties>
-    <version.eclipselink>2.3.2</version.eclipselink>
+    <osgi.import-package>
+      javax.persistence;version="1.1.0";jpa="2.0",
+      org.eclipse.persistence.jpa,
+      org.hsqldb,
+      *
+    </osgi.import-package>
+    <osgi.dynamicImport>org.eclipse.persistence.*</osgi.dynamicImport>
   </properties>
 
   <dependencies>
@@ -48,7 +54,13 @@
 
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
-      <artifactId>org.eclipse.persistence.equinox</artifactId>
+      <artifactId>org.eclipse.persistence.jpa</artifactId>
+      <version>${version.eclipselink}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.persistence</groupId>
+      <artifactId>org.eclipse.persistence.osgi</artifactId>
       <version>${version.eclipselink}</version>
     </dependency>
 
@@ -61,6 +73,11 @@
     <dependency>
       <groupId>net.sf.jguiraffe</groupId>
       <artifactId>jguiraffe</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.osgi.core</artifactId>
     </dependency>
 
     <dependency>

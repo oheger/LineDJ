@@ -5,9 +5,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
 
 import org.apache.commons.lang3.concurrent.BackgroundInitializer;
+import org.eclipse.persistence.config.PersistenceUnitProperties;
 
 /**
  * <p>
@@ -79,9 +79,13 @@ public class EMFInitializer extends BackgroundInitializer<EntityManagerFactory>
     @Override
     protected EntityManagerFactory initialize() throws Exception
     {
-        Map<String, String> props = new HashMap<String, String>();
+        org.eclipse.persistence.jpa.osgi.PersistenceProvider p =
+                new org.eclipse.persistence.jpa.osgi.PersistenceProvider();
+        Map<String, Object> props = new HashMap<String, Object>();
         props.put(PROP_CONNECTION_URL, createDBURL(dbSubPath));
-        return Persistence.createEntityManagerFactory(UNIT_NAME, props);
+        props.put(PersistenceUnitProperties.CLASSLOADER, getClass()
+                .getClassLoader());
+        return p.createEntityManagerFactory(UNIT_NAME, props);
     }
 
     /**

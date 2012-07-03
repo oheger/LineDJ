@@ -165,22 +165,27 @@
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>org.eclipse.persistence.jpa</artifactId>
-      <version>2.3.2</version>
+      <version>${version.eclipselink}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.persistence</groupId>
+      <artifactId>org.eclipse.persistence.osgi</artifactId>
+      <version>${version.eclipselink}</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>org.eclipse.persistence.asm</artifactId>
-      <version>2.3.2</version>
+      <version>${version.eclipselink}</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>org.eclipse.persistence.core</artifactId>
-      <version>2.3.2</version>
+      <version>${version.eclipselink}</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>org.eclipse.persistence.antlr</artifactId>
-      <version>2.3.2</version>
+      <version>${version.eclipselink}</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
