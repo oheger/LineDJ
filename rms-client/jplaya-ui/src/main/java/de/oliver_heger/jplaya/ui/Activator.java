@@ -1,5 +1,6 @@
 package de.oliver_heger.jplaya.ui;
 
+import org.apache.commons.vfs2.VFS;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
@@ -19,18 +20,20 @@ public class Activator implements BundleActivator
     @Override
     public void start(BundleContext context) throws Exception
     {
-        ClassLoader cclOld = Thread.currentThread().getContextClassLoader();
+        ClassLoader oldCtxCL = Thread.currentThread().getContextClassLoader();
         try
         {
             Thread.currentThread().setContextClassLoader(
                     getClass().getClassLoader());
-            Main main = new Main();
-            Main.startup(main, new String[0]);
+            VFS.getManager();
         }
         finally
         {
-            Thread.currentThread().setContextClassLoader(cclOld);
+            Thread.currentThread().setContextClassLoader(oldCtxCL);
         }
+
+        Main main = new Main();
+        Main.startup(main, new String[0]);
     }
 
     @Override
