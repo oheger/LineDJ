@@ -7,7 +7,7 @@
 
   <!-- The dialog controller -->
   <di:bean name="controller"
-    beanClass="de.oliver_heger.jplaya.ui.mainwnd.ErrorDialogController">
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.ErrorDialogController">
     <di:constructor>
       <di:param refName="jguiraffe.guiSynchronizer"/>
       <di:param refName="action:playerStartPlaybackAction"/>

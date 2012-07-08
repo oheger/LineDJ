@@ -8,12 +8,12 @@
 
   <!-- A validator for required input fields.-->
   <di:bean name="requiredValidator"
-    beanClass="net.sf.jguiraffe.transform.RequiredValidator">
+    beanClassName="net.sf.jguiraffe.transform.RequiredValidator">
   </di:bean>
 
   <!-- The bean for the form controller.-->
   <di:bean name="controller"
-    beanClass="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
+    beanClassName="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
     <di:setProperty property="btnOkName" value="btnOk"/>
     <di:setProperty property="btnCancelName" value="btnCancel"/>
   </di:bean>

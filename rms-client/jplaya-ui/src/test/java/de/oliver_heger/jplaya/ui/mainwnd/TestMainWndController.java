@@ -1,6 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationContext;
 import net.sf.jguiraffe.gui.app.OpenWindowCommand;
@@ -462,9 +463,10 @@ public class TestMainWndController extends EasyMockSupport
             {
                 OpenWindowCommand cmd =
                         (OpenWindowCommand) EasyMock.getCurrentArguments()[0];
-                assertEquals("Wrong locator",
-                        ClassPathLocator.getInstance("playbackerror.jelly"),
-                        cmd.getLocator());
+                ClassPathLocator cploc = (ClassPathLocator) cmd.getLocator();
+                assertEquals("Wrong resource name", "playbackerror.jelly",
+                        cploc.getResourceName());
+                assertNotNull("No class loader set", cploc.getClassLoader());
                 return null;
             }
         });

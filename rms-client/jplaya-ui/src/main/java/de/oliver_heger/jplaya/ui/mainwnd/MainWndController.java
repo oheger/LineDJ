@@ -228,8 +228,8 @@ public class MainWndController implements AudioPlayerListener,
         if (AudioPlayerEventType.EXCEPTION == event.getType())
         {
             getApplication().execute(
-                    new OpenWindowCommand(ClassPathLocator
-                            .getInstance(SCRIPT_ERROR)));
+                    new OpenWindowCommand(ClassPathLocator.getInstance(
+                            SCRIPT_ERROR, getClass().getClassLoader())));
         }
         else
         {

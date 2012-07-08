@@ -45,7 +45,7 @@
 
   <!-- The OAuth callback bean -->
   <di:bean name="oauthCallback"
-    beanClass="de.oliver_heger.jplaya.ui.OAuthCallbackImpl">
+    beanClassName="de.oliver_heger.jplaya.ui.OAuthCallbackImpl">
     <di:constructor>
       <di:param refName="oauthTokenStore"/>
       <di:param refName="jguiraffe.applicationContext"/>
@@ -55,7 +55,7 @@
 
   <!-- The controller of the sync operation -->
   <di:bean name="syncController"
-  beanClass="de.oliver_heger.jplaya.ui.SyncControllerImpl">
+  beanClassName="de.oliver_heger.jplaya.ui.SyncControllerImpl">
     <di:constructor>
       <di:param refName="mediaStore"/>
       <di:param refName="oauthCallback"/>
