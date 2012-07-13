@@ -2,10 +2,14 @@ package de.oliver_heger.jplaya.ui;
 
 import net.sf.jguiraffe.gui.app.ApplicationException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.VFS;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleException;
 
 /**
  * <p>
@@ -20,16 +24,21 @@ import org.osgi.framework.BundleContext;
  */
 public class Activator implements BundleActivator
 {
+    /** The logger. */
+    private final Log log = LogFactory.getLog(getClass());
+
     @Override
     public void start(BundleContext context) throws Exception
     {
+        log.info("Starting PlayaUI bundle.");
         initVFS();
-        startMainApplication();
+        startMainApplication(context);
     }
 
     @Override
     public void stop(BundleContext context) throws Exception
     {
+        log.info("Stopping PlayaUI bundle.");
     }
 
     /**
@@ -57,24 +66,55 @@ public class Activator implements BundleActivator
     /**
      * Starts up the main application. This causes the main window to be
      * displayed.
+     *
+     * @param context the bundle context
      */
-    private void startMainApplication()
+    private void startMainApplication(BundleContext context)
     {
+        final Runnable exitHandler = createExitHandler(context);
         new Thread()
         {
             @Override
             public void run()
             {
                 Main main = new Main();
+                main.setExitHandler(exitHandler);
                 try
                 {
                     Main.startup(main, new String[0]);
                 }
                 catch (ApplicationException e)
                 {
-                    e.printStackTrace();
+                    log.error("Could not start application!", e);
                 }
             }
         }.start();
+    }
+
+    /**
+     * Creates the exit handler for the application. This handler will shutdown
+     * the OSGi framework by stopping the system bundle.
+     *
+     * @param context the bundle context
+     * @return the exit handler
+     */
+    private Runnable createExitHandler(final BundleContext context)
+    {
+        return new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                Bundle sysBundle = context.getBundle(0);
+                try
+                {
+                    sysBundle.stop();
+                }
+                catch (BundleException bex)
+                {
+                    log.error("Could not stop OSGi framework!", bex);
+                }
+            }
+        };
     }
 }
