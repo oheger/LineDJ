@@ -1,14 +1,12 @@
 package de.oliver_heger.splaya.playlist.impl
-import org.apache.commons.vfs2.FileSystemManager
-import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
-import de.oliver_heger.splaya.AudioSourceData
-import org.apache.commons.vfs2.FileContent
-import javazoom.jl.decoder.Bitstream
-import javazoom.jl.decoder.Header
-import javax.sound.sampled.AudioSystem
 import org.slf4j.LoggerFactory
+
 import de.oliver_heger.splaya.engine.io.SourceResolver
 import de.oliver_heger.splaya.engine.io.StreamSource
+import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
+import de.oliver_heger.splaya.AudioSourceData
+import javazoom.jl.decoder.Bitstream
+import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
 
 /**
  * A default implementation of the ''AudioSourceDataExtractor'' trait.
@@ -51,10 +49,16 @@ class AudioSourceDataExtractorImpl(resolver: SourceResolver)
    */
   protected def getProperties(uri: String): java.util.Map[String, Object] = {
     val source = resolver.resolve(uri)
-    val format = AudioSystem.getAudioFileFormat(source.openStream())
-    val data = new java.util.HashMap[String, Object](format.properties())
-    AudioSourceDataExtractorImpl.determineDuration(data, source);
-    data
+    val stream = source.openStream()
+    try {
+      val reader = new MpegAudioFileReader
+      val format = reader.getAudioFileFormat(stream)
+      val data = new java.util.HashMap[String, Object](format.properties())
+      AudioSourceDataExtractorImpl.determineDuration(data, source);
+      data
+    } finally {
+      stream.close()
+    }
   }
 
   /**
