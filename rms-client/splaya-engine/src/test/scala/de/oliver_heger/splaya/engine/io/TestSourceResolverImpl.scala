@@ -3,13 +3,13 @@ package de.oliver_heger.splaya.engine.io
 import org.scalatest.junit.JUnitSuite
 import org.junit.Before
 import org.apache.commons.vfs2.VFS
-import de.oliver_heger.splaya.tsthlp.StreamDataGenerator
 import java.io.File
 import org.junit.After
 import java.io.PrintStream
 import java.io.FileOutputStream
 import org.junit.Test
 import java.io.IOException
+import de.oliver_heger.tsthlp.StreamDataGenerator
 import de.oliver_heger.tsthlp.TestFileSupport
 
 /**

@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.tsthlp
+package de.oliver_heger.tsthlp
 import java.io.InputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream

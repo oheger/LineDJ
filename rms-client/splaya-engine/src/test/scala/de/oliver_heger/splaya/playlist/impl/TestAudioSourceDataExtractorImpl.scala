@@ -8,7 +8,7 @@ import org.apache.commons.vfs2.VFS
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert._
-import de.oliver_heger.splaya.tsthlp.StreamDataGenerator
+import de.oliver_heger.tsthlp.StreamDataGenerator
 import org.junit.After
 import de.oliver_heger.splaya.engine.io.SourceResolverImpl
 

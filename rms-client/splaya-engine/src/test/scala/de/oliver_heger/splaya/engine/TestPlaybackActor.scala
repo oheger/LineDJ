@@ -1,46 +1,46 @@
 package de.oliver_heger.splaya.engine
 
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.mock.EasyMockSugar
-import org.junit.Before
-import org.junit.Test
-import org.junit.After
-import org.easymock.EasyMock
-import javax.sound.sampled.AudioFormat
-import javax.sound.sampled.SourceDataLine
-import org.easymock.IAnswer
 import java.io.InputStream
+
 import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
-import de.oliver_heger.splaya.PlaybackError
-import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackSourceStart
-import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackSourceEnd
-import de.oliver_heger.splaya.PlaybackStops
-import de.oliver_heger.splaya.PlaybackStarts
-import de.oliver_heger.splaya.PlaylistEnd
+
+import org.easymock.IAnswer
+import org.easymock.EasyMock
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.scalatest.junit.JUnitSuite
+import org.scalatest.mock.EasyMockSugar
+
 import de.oliver_heger.splaya.engine.io.SourceBufferManager
-import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
-import de.oliver_heger.splaya.tsthlp.StreamDataGenerator
-import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.tsthlp.WaitForExit
-import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.tsthlp.TestActorSupport
-import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
-import de.oliver_heger.splaya.engine.msg.PlayChunk
-import de.oliver_heger.splaya.engine.msg.StopPlayback
-import de.oliver_heger.splaya.engine.msg.StartPlayback
-import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
+import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.io.TempFileFactory
-import de.oliver_heger.splaya.tsthlp.ExceptionInputStream
-import de.oliver_heger.splaya.engine.msg.SourceReadError
-import de.oliver_heger.splaya.engine.msg.FlushPlayer
-import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.engine.msg.ActorExited
+import de.oliver_heger.splaya.engine.msg.ChunkPlayed
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
+import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.PlayChunk
+import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
+import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.msg.StartPlayback
+import de.oliver_heger.splaya.engine.msg.StopPlayback
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackStarts
+import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.tsthlp.ExceptionInputStream
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.StreamDataGenerator
+import de.oliver_heger.tsthlp.TestActorSupport
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.SourceDataLine
 
 /**
  * Test class for ''PlaybackActor''.
