@@ -23,6 +23,13 @@
     A service providing access to the medium with the audio files to be played.
   </description>
 
+  <properties>
+    <osgi.dynamicImport>
+      org.apache.commons.vfs2.provider.*
+    </osgi.dynamicImport>
+    <osgi.serviceComponent>OSGI-INF/fsservice.xml</osgi.serviceComponent>
+  </properties>
+
   <dependencies>
 
     <dependency>

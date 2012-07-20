@@ -184,6 +184,12 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>splaya-fs</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>rms-storelistener</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -207,6 +213,7 @@
     <osgi.bundleActivator></osgi.bundleActivator>
     <osgi.import-package>*</osgi.import-package>
     <osgi.dynamicImport></osgi.dynamicImport>
+    <osgi.serviceComponent></osgi.serviceComponent>
     <version.eclipselink>2.3.2</version.eclipselink>
   </properties>
 
@@ -238,6 +245,7 @@
             <Bundle-Activator>${osgi.bundleActivator}</Bundle-Activator>
             <Import-Package>${osgi.import-package}</Import-Package>
             <DynamicImport-Package>${osgi.dynamicImport}</DynamicImport-Package>
+            <Service-Component>${osgi.serviceComponent}</Service-Component>
           </instructions>
         </configuration>
       </plugin>
