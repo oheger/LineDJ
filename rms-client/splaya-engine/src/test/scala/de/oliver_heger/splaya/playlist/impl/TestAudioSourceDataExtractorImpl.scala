@@ -1,16 +1,16 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import de.oliver_heger.tsthlp.TestFileSupport
-import org.scalatest.junit.JUnitSuite
-import org.apache.commons.vfs2.FileSystemManager
-import org.junit.BeforeClass
-import org.apache.commons.vfs2.VFS
+import org.junit.Assert.assertNull
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.junit.Assert._
+import org.scalatest.junit.JUnitSuite
+import de.oliver_heger.splaya.fs.impl.FSServiceImpl
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.tsthlp.StreamDataGenerator
-import org.junit.After
-import de.oliver_heger.splaya.engine.io.SourceResolverImpl
+import de.oliver_heger.tsthlp.TestFileSupport
+import org.junit.BeforeClass
 
 /**
  * Test class for ''AudioSourceDataExtractorImpl''.
@@ -20,8 +20,8 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
   private var extractor: AudioSourceDataExtractorImpl = _
 
   @Before def setUp() {
-    extractor = new AudioSourceDataExtractorImpl(new SourceResolverImpl(
-      TestAudioSourceDataExtractorImpl.manager))
+    extractor = new AudioSourceDataExtractorImpl(
+      TestAudioSourceDataExtractorImpl.fsService)
   }
 
   @After def tearDown() {
@@ -111,10 +111,22 @@ object TestAudioSourceDataExtractorImpl {
   /** Constant for the original duration of the audio file. */
   private val Duration = 10842L;
 
-  /** The VFS file system manager. */
-  private var manager: FileSystemManager = _
+  /** The service wrapper for the file system service. */
+  private var fsService: ServiceWrapper[FSService] = _
 
-  @BeforeClass def setUpBeforeClass() {
-    manager = VFS.getManager()
+  @BeforeClass def setupBeforeClass() {
+    fsService = initFSService()
+  }
+
+  /**
+   * Creates and initializes a service wrapper for an FSService implementation.
+   * @return the service wrapper
+   */
+  private def initFSService(): ServiceWrapper[FSService] = {
+    val wrapper = new ServiceWrapper[FSService]
+    val fsService = new FSServiceImpl
+    fsService.activate()
+    wrapper bind fsService
+    wrapper
   }
 }

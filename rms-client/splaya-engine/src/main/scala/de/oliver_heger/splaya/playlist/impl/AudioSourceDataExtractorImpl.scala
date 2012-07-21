@@ -1,8 +1,9 @@
 package de.oliver_heger.splaya.playlist.impl
 import org.slf4j.LoggerFactory
 
-import de.oliver_heger.splaya.engine.io.SourceResolver
-import de.oliver_heger.splaya.engine.io.StreamSource
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.fs.StreamSource
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
 import javazoom.jl.decoder.Bitstream
@@ -16,9 +17,9 @@ import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
  * for extracting meta data. The URIs passed to the extractor are evaluated
  * using the passed in ''SourceResolver''.
  *
- * @param resolver the ''SourceResolver''
+ * @param fsService the ''FSService'' instance
  */
-class AudioSourceDataExtractorImpl(resolver: SourceResolver)
+class AudioSourceDataExtractorImpl(fsService: ServiceWrapper[FSService])
   extends AudioSourceDataExtractor {
   /** The logger. */
   val log = LoggerFactory.getLogger(classOf[AudioSourceDataExtractorImpl])
@@ -48,17 +49,20 @@ class AudioSourceDataExtractorImpl(resolver: SourceResolver)
    * @return a map with the meta data properties
    */
   protected def getProperties(uri: String): java.util.Map[String, Object] = {
-    val source = resolver.resolve(uri)
-    val stream = source.openStream()
-    try {
-      val reader = new MpegAudioFileReader
-      val format = reader.getAudioFileFormat(stream)
-      val data = new java.util.HashMap[String, Object](format.properties())
-      AudioSourceDataExtractorImpl.determineDuration(data, source);
-      data
-    } finally {
-      stream.close()
+    val data = new java.util.HashMap[String, Object]
+    fsService foreach { svc =>
+      val source = svc.resolve(uri)
+      val stream = source.openStream()
+      try {
+        val reader = new MpegAudioFileReader
+        val format = reader.getAudioFileFormat(stream)
+        data.putAll(format.properties())
+        AudioSourceDataExtractorImpl.determineDuration(data, source);
+      } finally {
+        stream.close()
+      }
     }
+    data
   }
 
   /**

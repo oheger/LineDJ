@@ -39,6 +39,8 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
    * @return the ''AudioPlayer'' instance
    */
   def createAudioPlayer(): AudioPlayer = {
+    //TODO obtain through dependency injection
+    val fsService = new ServiceWrapper[FSService]
     val gateway = new Gateway
     val sourceResolver = new SourceResolverImpl(fileSystemManager)
     val tempFileFactory = new TempFileFactoryImpl
@@ -46,8 +48,7 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
     val ctxFactory = new PlaybackContextFactoryImpl
     val streamFactory = new SourceStreamWrapperFactoryImpl(bufferManager,
       tempFileFactory)
-    val extractor = new AudioSourceDataExtractorImpl(sourceResolver)
-    val fsScanner = new FSScannerImpl(fileSystemManager)
+    val extractor = new AudioSourceDataExtractorImpl(fsService)
     //TODO provide meaningful implementation
     val plGenerator = new PlaylistGenerator {
       def generatePlaylist(songs: Seq[String], mode: String, params: xml.NodeSeq) =
@@ -62,7 +63,7 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
     val eventActor = new EventTranslatorActor(gateway, 4)
     val extrActor = new AudioSourceDataExtractorActor(extractor)
     val playlistExtrActor = new PlaylistDataExtractorActor(gateway, extrActor)
-    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, new ServiceWrapper[FSService],
+    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, fsService,
       playlistFileStore, plGenerator, Set("mp3"))
 
     gateway.start()
