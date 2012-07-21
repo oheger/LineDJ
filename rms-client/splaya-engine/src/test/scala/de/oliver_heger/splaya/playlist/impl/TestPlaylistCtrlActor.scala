@@ -5,7 +5,6 @@ import scala.xml.Elem
 import org.easymock.EasyMock
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
@@ -14,7 +13,8 @@ import org.scalatest.mock.EasyMockSugar
 import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.playlist.FSScanner
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioSource
@@ -25,7 +25,6 @@ import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaylistEnd
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.TestActorSupport
-import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''PlaylistCtrlActor''.
@@ -34,6 +33,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   with TestActorSupport {
   /** The actor type to be tested. */
   type ActorUnderTest = PlaylistCtrlActor
+
+  /** Constant for the set with file extensions. */
+  private val Extensions = Set("mp3", "wav")
 
   /** Constant for a playlist identifier. */
   private val PlaylistID = "ATestPlaylist"
@@ -65,8 +67,8 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   /** The gateway object. */
   private var gateway: Gateway = _
 
-  /** A mock for the FS scanner. */
-  private var scanner: FSScanner = _
+  /** A mock for the FS service. */
+  private var scanner: FSService = _
 
   /** A mock for the playlist store. */
   private var store: PlaylistFileStore = _
@@ -83,12 +85,15 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   @Before def setUp() {
     gateway = new Gateway
     gateway.start()
-    scanner = mock[FSScanner]
+    scanner = mock[FSService]
     store = mock[PlaylistFileStore]
     generator = mock[PlaylistGenerator]
     sourceActor = new QueuingActor
     sourceActor.start()
-    actor = new PlaylistCtrlActor(gateway, sourceActor, scanner, store, generator)
+    val wrapper = new ServiceWrapper[FSService]
+    wrapper bind scanner
+    actor = new PlaylistCtrlActor(gateway, sourceActor, wrapper, store,
+      generator, Extensions)
     actor.start()
   }
 
@@ -138,7 +143,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   private def expectPlaylistProcessing(list: Seq[String],
     playlistData: Option[Elem], settingsData: Option[Elem]) {
-    EasyMock.expect(scanner.scan(RootURI)).andReturn(list)
+    EasyMock.expect(scanner.scan(RootURI, Extensions)).andReturn(list)
     EasyMock.expect(store.calculatePlaylistID(list)).andReturn(PlaylistID)
     EasyMock.expect(store.loadPlaylist(PlaylistID)).andReturn(playlistData)
     EasyMock.expect(store.loadSettings(PlaylistID)).andReturn(settingsData)

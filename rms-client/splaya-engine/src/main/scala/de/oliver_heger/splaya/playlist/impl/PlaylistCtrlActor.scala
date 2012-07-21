@@ -6,20 +6,11 @@ import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
 import scala.xml.Elem
 
-import PlaylistCtrlActor.ElemCurrent
-import PlaylistCtrlActor.ElemDesc
-import PlaylistCtrlActor.ElemIndex
-import PlaylistCtrlActor.ElemName
-import PlaylistCtrlActor.ElemOrder
-import PlaylistCtrlActor.ElemOrderMode
-import PlaylistCtrlActor.ElemOrderParams
-import PlaylistCtrlActor.ElemPosition
-import PlaylistCtrlActor.ElemTime
-import PlaylistCtrlActor.longValue
 import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.playlist.FSScanner
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioSource
@@ -50,14 +41,16 @@ import de.oliver_heger.splaya.PlaylistSettings
  *
  * @param gateway the gateway object
  * @param sourceActor the actor to which the playlist has to be communicated
- * @param scanner the ''FSScanner'' for scanning the source medium
+ * @param fsService the ''FSService'' for scanning the source medium
  * @param store the ''PlaylistFileStore'' for persisting playlist data
  * @param generator the ''PlaylistGenerator'' for generating a new playlist
+ * @param extensions a set with file extensions of supported audio files
  * @param autoSaveInterval the number of audio sources after which the
  * current playlist is saved (auto-save)
  */
-class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor, scanner: FSScanner,
-  store: PlaylistFileStore, generator: PlaylistGenerator,
+class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
+  fsService: ServiceWrapper[FSService], store: PlaylistFileStore,
+  generator: PlaylistGenerator, extensions: Set[String],
   autoSaveInterval: Int = 3) extends Actor {
   /** A sequence with the current playlist. */
   private var playlist: Seq[String] = List.empty
@@ -154,7 +147,8 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor, scanner: FSScanner
    * @param uri the URI of the medium to be read
    */
   private def handleReadMedium(uri: String) {
-    val list = scanner.scan(uri)
+    val optList = fsService map(_.scan(uri, extensions))
+    val list = optList.getOrElse(List.empty)
     playlistID = store.calculatePlaylistID(list)
     val playlistData = store.loadPlaylist(playlistID)
     val settings = readPlaylistSettings()

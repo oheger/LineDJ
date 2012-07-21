@@ -18,6 +18,8 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
+import de.oliver_heger.splaya.fs.FSService
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -60,8 +62,8 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
     val eventActor = new EventTranslatorActor(gateway, 4)
     val extrActor = new AudioSourceDataExtractorActor(extractor)
     val playlistExtrActor = new PlaylistDataExtractorActor(gateway, extrActor)
-    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, fsScanner,
-      playlistFileStore, plGenerator)
+    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, new ServiceWrapper[FSService],
+      playlistFileStore, plGenerator, Set("mp3"))
 
     gateway.start()
     readActor.start()
