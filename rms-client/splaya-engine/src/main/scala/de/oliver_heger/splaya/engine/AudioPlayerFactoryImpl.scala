@@ -55,7 +55,7 @@ class AudioPlayerFactoryImpl(@BeanProperty val playlistFileStore: PlaylistFileSt
         songs
     }
 
-    val readActor = new SourceReaderActor(gateway, sourceResolver,
+    val readActor = new SourceReaderActor(gateway, fsService,
       tempFileFactory, bufferSize / 2)
     val playbackActor = new PlaybackActor(gateway, ctxFactory, streamFactory)
     val lineActor = new LineWriteActor(gateway)

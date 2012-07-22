@@ -6,12 +6,9 @@ import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-
 import scala.actors.Actor
 import scala.collection.mutable.Queue
-
 import org.slf4j.LoggerFactory
-
 import de.oliver_heger.splaya.engine.io.SourceResolver
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.io.TempFileFactory
@@ -25,6 +22,8 @@ import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackError
 import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
+import de.oliver_heger.splaya.fs.FSService
 
 /**
  * An actor which reads files from a source directory and copies them to a
@@ -41,12 +40,12 @@ import de.oliver_heger.splaya.PlaylistEnd
  * chunk of audio data it sends back a message and requests new data.
  *
  * @param gateway the gateway object
- * @param resolver the resolver for audio sources
+ * @param fsService the service for accessing the file system
  * @param tempFileFactory the factory for temporary files
  * @param chunkSize the size of a chunk for a copy operation; a buffer whose
  * size is two times this value is reserved in the temporary directory
  */
-class SourceReaderActor(gateway: Gateway, resolver: SourceResolver,
+class SourceReaderActor(gateway: Gateway, fsService: ServiceWrapper[FSService],
   tempFileFactory: TempFileFactory, chunkSize: Int) extends Actor {
   /** Constant of the size of a copy buffer.*/
   private[engine] val BufSize = 16 * 1024;
@@ -182,11 +181,16 @@ class SourceReaderActor(gateway: Gateway, resolver: SourceResolver,
         log.info("Copying {}.", srcStream.uri)
         fileBytes = 0
         try {
-          val resolvedStream = resolver.resolve(srcStream.uri)
-          val msg = AudioSource(srcStream.uri, srcStream.index,
-            resolvedStream.size, srcStream.skip, srcStream.skipTime)
-          currentInputStream = new BufferedInputStream(resolvedStream.openStream())
-          gateway ! Gateway.ActorPlayback -> msg
+          val resolvedStreamOpt = fsService map (_.resolve(srcStream.uri))
+          if (resolvedStreamOpt.isEmpty) {
+            gateway.publish(PlaybackError("No FSService available!", null, true))
+          } else {
+            val resolvedStream = resolvedStreamOpt.get
+            val msg = AudioSource(srcStream.uri, srcStream.index,
+              resolvedStream.size, srcStream.skip, srcStream.skipTime)
+            currentInputStream = new BufferedInputStream(resolvedStream.openStream())
+            gateway ! Gateway.ActorPlayback -> msg
+          }
         } catch {
           case ex: Exception =>
             gateway.publish(PlaybackError("Error opening source " + srcStream,

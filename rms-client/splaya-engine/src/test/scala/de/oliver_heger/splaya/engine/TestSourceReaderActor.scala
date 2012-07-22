@@ -4,16 +4,12 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-
 import org.easymock.EasyMock
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-
-import de.oliver_heger.splaya.engine.io.SourceResolver
-import de.oliver_heger.splaya.engine.io.StreamSource
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
@@ -30,6 +26,9 @@ import de.oliver_heger.tsthlp.ExceptionInputStream
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.StreamDataGenerator
 import de.oliver_heger.tsthlp.TestActorSupport
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.fs.StreamSource
 
 /**
  * Test class for ''SourceReaderActor''.
@@ -51,9 +50,9 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   /** The gateway object. */
   private var gateway: Gateway = _
 
-  /** A mock for the source resolver. */
-  private var resolver: SourceResolver = _
-
+  /** The service wrapper for the file system service. */
+  private var fsService: ServiceWrapper[FSService] = _
+  
   /** A mock for the temporary file factory. */
   private var factory: TempFileFactory = _
 
@@ -98,7 +97,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val plIdx = playlistIndex
     playlistIndex += 1
     val uri = streamURI(plIdx)
-    EasyMock.expect(resolver.resolve(uri)).andReturn(ssrc)
+    EasyMock.expect(fsService.get.resolve(uri)).andReturn(ssrc)
     new AddSourceStream(uri, plIdx)
   }
 
@@ -129,9 +128,11 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
    * Creates the test actor with default settings.
    */
   private def setUpActor() {
-    resolver = mock[SourceResolver]
+    val fs = mock[FSService]
     factory = mock[TempFileFactory]
-    actor = new SourceReaderActor(gateway, resolver, factory, ChunkSize)
+    fsService = new ServiceWrapper
+    fsService.bind(fs)
+    actor = new SourceReaderActor(gateway, fsService, factory, ChunkSize)
   }
 
   /**
@@ -207,7 +208,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! src
       qa.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
       qa.shutdown()
@@ -229,7 +230,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! src
       qa.expectMessage(AudioSource(streamURI(0), 0, len, src.skip, src.skipTime))
       qa.shutdown()
@@ -251,7 +252,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData1 = prepareTempFile()
     val tempData2 = prepareTempFile()
     actor.start()
-    whenExecuting(factory, resolver, tempData1._1, tempData2._1) {
+    whenExecuting(factory, fsService.get, tempData1._1, tempData2._1) {
       actor ! src1
       actor ! src2
       qa.expectMessage(AudioSource(streamURI(0), 0, len1, 0, 0))
@@ -281,7 +282,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData3 = prepareTempFile()
     EasyMock.expect(tempData3._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData1._1, tempData2._1,
+    whenExecuting(factory, fsService.get, tempData1._1, tempData2._1,
       tempData3._1) {
         actor ! src1
         actor ! src2
@@ -299,6 +300,18 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   }
 
   /**
+   * Extracts an error message from the given queuing actor. This method fails
+   * if the actor's next message is not an error message.
+   * @param listener the actor
+   * @return the extracted error message
+   */
+  private def extractErrorMsg(listener: QueuingActor): PlaybackError =
+    listener.nextMessage() match {
+      case err: PlaybackError => err
+      case other => fail("Unexpected message: " + other)
+    }
+  
+  /**
    * Tests whether an error when opening an audio source is detected.
    */
   @Test def testErrorWhenResolving() {
@@ -307,21 +320,41 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val uri = streamURI(1)
     val addsrc = new AddSourceStream(uri, 1)
     val ioex = new RuntimeException("Testexception")
-    EasyMock.expect(resolver.resolve(uri)).andThrow(ioex)
+    EasyMock.expect(fsService.get.resolve(uri)).andThrow(ioex)
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! addsrc
       shutdownActor()
     }
     qa.skipMessages(1)
-    qa.nextMessage() match {
-      case err: PlaybackError =>
-        assert(ioex === err.exception)
-        assert(err.fatal === false)
-      case _ => fail("Unexpected message!")
+    val err = extractErrorMsg(qa)
+    assert(ioex === err.exception)
+    assert(err.fatal === false)
+    qa.shutdown()
+    gateway.unregister(qa)
+  }
+  
+  /**
+   * Tests whether an error is generated if no FSService is available.
+   */
+  @Test def testErrorNoFSService() {
+    setUpActor()
+    val qa = installListener()
+    val uri = streamURI(1)
+    val addsrc = new AddSourceStream(uri, 1)
+    val tempData = prepareTempFile()
+    EasyMock.expect(tempData._1.delete()).andReturn(true)
+    actor.start()
+    fsService.clear()
+    whenExecuting(factory, tempData._1) {
+      actor ! addsrc
+      shutdownActor()
     }
+    qa.skipMessages(1)
+    val err = extractErrorMsg(qa)
+    assert(err.fatal === true)
     qa.shutdown()
     gateway.unregister(qa)
   }
@@ -342,7 +375,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! src
       actor ! src2
       playback.expectMessage(AudioSource(streamURI(0), 0, len + 10, 0, 0))
@@ -382,7 +415,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     EasyMock.expect(factory.createFile()).andReturn(tempFile)
     EasyMock.expect(tempFile.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempFile) {
+    whenExecuting(factory, fsService.get, tempFile) {
       actor ! src
       playback.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
       listener.skipMessages(1)
@@ -408,7 +441,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val src = prepareStream(len)
     val temp = prepareTempFile()
     actor.start()
-    whenExecuting(factory, resolver, temp._1) {
+    whenExecuting(factory, fsService.get, temp._1) {
       actor ! src
       actor ! PlaylistEnd
       playback.expectMessage(AudioSource(streamURI(0), 0, len, 0, 0))
@@ -428,7 +461,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! PlaylistEnd
       playback.expectMessage(PlaylistEnd)
       playback.shutdown()
@@ -445,7 +478,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! PlaylistEnd
       actor ! AddSourceStream(streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
@@ -464,7 +497,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! new AddSourceStream
       actor ! AddSourceStream(streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
@@ -489,7 +522,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData3 = prepareTempFile()
     EasyMock.expect(tempData3._1.delete()).andReturn(true)
     actor.start()
-    whenExecuting(factory, resolver, tempData1._1, tempData2._1, tempData3._1) {
+    whenExecuting(factory, fsService.get, tempData1._1, tempData2._1, tempData3._1) {
       actor ! src1
       actor ! new AddSourceStream("someUri", 42)
       actor ! new AddSourceStream("anotherUri", 815)
@@ -522,7 +555,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     val listener = installListener()
     actor.start()
-    whenExecuting(factory, resolver, tempData._1) {
+    whenExecuting(factory, fsService.get, tempData._1) {
       actor ! src
       listener.expectMessage(AccessSourceMedium(true))
       listener.expectMessage(AccessSourceMedium(false))
