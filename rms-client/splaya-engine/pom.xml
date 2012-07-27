@@ -19,6 +19,10 @@
     Scala implementation of the Playa MP3 audio player.
   </description>
 
+  <properties>
+    <osgi.serviceComponent>OSGI-INF/audioplayerfactory.xml</osgi.serviceComponent>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.scala-lang</groupId>
