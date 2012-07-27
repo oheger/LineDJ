@@ -32,43 +32,6 @@
     </di:constructor>
   </di:bean>
 
-  <!-- Beans related to the audio engine -->
-
-  <!-- The file system manager -->
-  <di:bean name="fileSystemManager"
-    beanClassName="org.apache.commons.vfs2.FileSystemManager">
-    <di:factory>
-      <di:methodInvocation method="getManager"
-        targetClassName="org.apache.commons.vfs2.VFS">
-      </di:methodInvocation>
-    </di:factory>
-  </di:bean>
-
-  <!-- The file store for playlist meta data -->
-  <di:bean name="playlistFileStore"
-    beanClassName="de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl">
-    <di:constructor>
-      <di:param value="${user.home}/.jplaya"/>
-    </di:constructor>
-  </di:bean>
-
-  <!-- The audio player factory -->
-  <di:bean name="audioPlayerFactory"
-    beanClassName="de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl">
-    <di:constructor>
-      <di:param refName="playlistFileStore"/>
-      <di:param refName="fileSystemManager"/>
-    </di:constructor>
-  </di:bean>
-
-  <!-- The audio player -->
-  <di:bean name="audioPlayer" resultVar="player"
-    beanClassName="de.oliver_heger.splaya.AudioPlayer">
-    <di:methodInvocation method="createAudioPlayer" result="player">
-      <di:invocationTarget refName="audioPlayerFactory"/>
-    </di:methodInvocation>
-  </di:bean>
-
   <!-- The listener for storing audio data in the local media store -->
   <di:bean name="storeListenerActor"
     beanClassName="de.oliver_heger.mediastore.storelistener.StoreListenerActor">

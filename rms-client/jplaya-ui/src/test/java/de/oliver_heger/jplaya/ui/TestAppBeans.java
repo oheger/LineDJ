@@ -18,8 +18,6 @@ import org.junit.Test;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
 import de.oliver_heger.mediastore.storelistener.StoreListenerActor;
-import de.oliver_heger.splaya.AudioPlayer;
-import de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl;
 
 /**
  * A test class for the global bean definition file of the application.
@@ -93,28 +91,6 @@ public class TestAppBeans
     {
         MediaStore store = getBeanContext().getBean(MediaStore.class);
         assertNotNull("No media store", store);
-    }
-
-    /**
-     * Tests whether the audio player factory bean can be obtained.
-     */
-    @Test
-    public void testBeanAudioPlayerFactory()
-    {
-        AudioPlayerFactoryImpl factory =
-                getBeanContext().getBean(AudioPlayerFactoryImpl.class);
-        assertNotNull("No file system manager", factory.getFileSystemManager());
-        assertNotNull("No file store", factory.getPlaylistFileStore());
-    }
-
-    /**
-     * Tests whether the audio player can be obtained.
-     */
-    @Test
-    public void testBeanAudioPlayer()
-    {
-        AudioPlayer player = getBeanContext().getBean(AudioPlayer.class);
-        player.shutdown();
     }
 
     /**

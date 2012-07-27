@@ -242,14 +242,9 @@
     <di:setProperty property="playlistTableModel" refName="playlistTableModel"/>
     <di:setProperty property="actionModel" refName="actionModel"/>
     <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
-    <di:setProperty property="audioPlayer" refName="audioPlayer"/>
   </di:bean>
 
   <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>
-
-  <!-- Register the store listener actor at the audio player -->
-  <a:eventListener targetBean="audioPlayer" eventType="Actor" 
-    beanName="storeListenerActor"/>
 
   <!-- Action tasks and commands -->
 
