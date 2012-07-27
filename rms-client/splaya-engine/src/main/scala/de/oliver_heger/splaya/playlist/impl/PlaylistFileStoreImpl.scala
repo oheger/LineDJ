@@ -29,7 +29,7 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
  *
  * @param directoryName the name of the directory where to store the data files
  */
-class PlaylistFileStoreImpl(directoryName: String) extends PlaylistFileStore {
+class PlaylistFileStoreImpl(val directoryName: String) extends PlaylistFileStore {
   /** Constant for the file extension for playlist files. */
   private val ExtPlaylist = ".plist"
 

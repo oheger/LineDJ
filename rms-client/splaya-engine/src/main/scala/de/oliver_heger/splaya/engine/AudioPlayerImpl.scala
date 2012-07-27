@@ -50,8 +50,9 @@ import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
  * to the previous audio source; otherwise, the current audio source is played
  * again
  */
-class AudioPlayerImpl(gateway: Gateway, val playlistController: PlaylistController,
-  timingActor: Actor, eventActor: Actor, val moveBackwardThreshold: Long = 5000)
+class AudioPlayerImpl(protected[engine] val gateway: Gateway,
+  val playlistController: PlaylistController, timingActor: Actor,
+  eventActor: Actor, val moveBackwardThreshold: Long = 5000)
   extends AudioPlayer {
   /**
    * @inheritdoc This implementation sends a ''StartPlayback'' message to the
