@@ -15,5 +15,9 @@
     bind="bindFSService"
     unbind="unbindFSService"/>
 
+  <scr:service>
+    <scr:provide interface="de.oliver_heger.splaya.AudioPlayerFactory"/>
+  </scr:service>
+
   <scr:property name="audioPlayer.bufferSize" value="16M"/>
 </scr:component>

@@ -9,7 +9,6 @@ import java.io.OutputStream
 import scala.actors.Actor
 import scala.collection.mutable.Queue
 import org.slf4j.LoggerFactory
-import de.oliver_heger.splaya.engine.io.SourceResolver
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
