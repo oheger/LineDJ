@@ -2,6 +2,10 @@ package de.oliver_heger.jplaya.ui.mainwnd;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+
+import java.util.concurrent.atomic.AtomicReference;
+
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationContext;
 import net.sf.jguiraffe.gui.app.OpenWindowCommand;
@@ -18,6 +22,7 @@ import org.easymock.IAnswer;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.oliver_heger.jplaya.ui.AudioPlayerClient;
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.splaya.AudioPlayer;
 import de.oliver_heger.splaya.AudioPlayerEvent;
@@ -167,15 +172,26 @@ public class TestMainWndController extends EasyMockSupport
     }
 
     /**
-     * Tests reaction on the window opened event if there is no configuration
-     * data for setting up a playlist.
+     * Tests reaction on the window opened event.
      */
     @Test
-    public void testWindowOpenedNoMediaDir()
+    public void testWindowOpenedMediaDir()
+    {
+        WindowEvent event = createMock(WindowEvent.class);
+        actionModel.disablePlayerActions();
+        replayAll();
+        ctrl.windowOpened(event);
+        verifyAll();
+    }
+
+    /**
+     * Tests the bind audio player callback if no media directory is configured.
+     */
+    @Test
+    public void testBindAudioPlayerNoMediaDir()
     {
         Application app = createMock(Application.class);
         Configuration config = createMock(Configuration.class);
-        WindowEvent event = createMock(WindowEvent.class);
         EasyMock.expect(app.getUserConfiguration()).andReturn(config);
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
                 .andReturn(null);
@@ -183,22 +199,22 @@ public class TestMainWndController extends EasyMockSupport
         player.addAudioPlayerListener(ctrl);
         player.addPlaylistListener(ctrl);
         replayAll();
+        ctrl.setAudioPlayer(null);
         ctrl.setApplication(app);
-        ctrl.windowOpened(event);
+        ctrl.bindAudioPlayer(player);
+        assertSame("Player not stored", player, ctrl.getAudioPlayer());
         verifyAll();
     }
 
     /**
-     * Tests reaction on the window opened event if the directory for media
-     * files has been configured. In this case the audio player should be
-     * started immediately.
+     * Tests the bind audio player callback if a media directory is configured.
+     * In this case the audio player should be started immediately.
      */
     @Test
-    public void testWindowOpenedMediaDir()
+    public void testBindAudioPlayerMediaDir()
     {
         Application app = createMock(Application.class);
         Configuration config = createMock(Configuration.class);
-        WindowEvent event = createMock(WindowEvent.class);
         final String mediaDir = "R:\\";
         EasyMock.expect(app.getUserConfiguration()).andReturn(config);
         EasyMock.expect(config.getString(ConfigurationConstants.PROP_MEDIA_DIR))
@@ -209,7 +225,7 @@ public class TestMainWndController extends EasyMockSupport
         player.readMedium(mediaDir);
         replayAll();
         ctrl.setApplication(app);
-        ctrl.windowOpened(event);
+        ctrl.bindAudioPlayer(player);
         verifyAll();
     }
 
@@ -513,5 +529,19 @@ public class TestMainWndController extends EasyMockSupport
         ctrl.setApplication(app);
         ctrl.playerShutdown(event);
         verifyAll();
+    }
+
+    /**
+     * Tests whether the reference to the audio player client is correctly
+     * initialized.
+     */
+    @Test
+    public void testSetPlayerClientReference()
+    {
+        AtomicReference<AudioPlayerClient> ref =
+                new AtomicReference<AudioPlayerClient>();
+        replayAll();
+        ctrl.setPlayerClientReference(ref);
+        assertSame("Reference not initialized", ctrl, ref.get());
     }
 }

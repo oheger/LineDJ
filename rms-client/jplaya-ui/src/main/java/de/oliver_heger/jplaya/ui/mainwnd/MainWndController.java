@@ -1,5 +1,7 @@
 package de.oliver_heger.jplaya.ui.mainwnd;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import net.sf.jguiraffe.gui.app.Application;
 import net.sf.jguiraffe.gui.app.ApplicationClient;
 import net.sf.jguiraffe.gui.app.OpenWindowCommand;
@@ -13,6 +15,7 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import de.oliver_heger.jplaya.ui.AudioPlayerClient;
 import de.oliver_heger.jplaya.ui.ConfigurationConstants;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.splaya.AudioPlayer;
@@ -36,7 +39,7 @@ import de.oliver_heger.splaya.PlaylistListener;
  * @version $Id: $
  */
 public class MainWndController implements AudioPlayerListener,
-        PlaylistListener, WindowListener, ApplicationClient
+        PlaylistListener, WindowListener, ApplicationClient, AudioPlayerClient
 {
     /** Constant for the name of the error script. */
     private static final String SCRIPT_ERROR = "playbackerror.jelly";
@@ -206,13 +209,37 @@ public class MainWndController implements AudioPlayerListener,
     }
 
     /**
-     * Sets the {@code AudioPlayer} object.
+     * Sets a reference object which stores an audio player client. This method
+     * is called during initialization of the audio player application. It is
+     * used by a mechanism to pass the player client to the central application
+     * object. This has to be done in order to initialize the controller with
+     * the audio player when the audio player factory service gets injected.
+     * Basically, an {@code AtomicReference} is declared in the application's
+     * bean declarations. This is passed here and will be initialized with this
+     * controller itself.
      *
-     * @param audioPlayer the {@code AudioPlayer}
+     * @param ref the reference to the {@code AudioPlayerClient}
      */
-    public void setAudioPlayer(AudioPlayer audioPlayer)
+    public void setPlayerClientReference(AtomicReference<AudioPlayerClient> ref)
     {
-        this.audioPlayer = audioPlayer;
+        ref.set(this);
+    }
+
+    /**
+     * Initializes the audio player reference. This method is called immediately
+     * after the application has started (provided that the required services
+     * are available). It stores the audio player reference, registers this
+     * object as event listener, and initiates playback if possible.
+     *
+     * @param player the audio player reference
+     */
+    @Override
+    public void bindAudioPlayer(AudioPlayer player)
+    {
+        setAudioPlayer(player);
+        getAudioPlayer().addAudioPlayerListener(this);
+        getAudioPlayer().addPlaylistListener(this);
+        initPlaylist();
     }
 
     /**
@@ -399,14 +426,12 @@ public class MainWndController implements AudioPlayerListener,
     @Override
     public void windowOpened(WindowEvent event)
     {
-        getAudioPlayer().addAudioPlayerListener(this);
-        getAudioPlayer().addPlaylistListener(this);
-        initPlaylist();
+        getActionModel().disablePlayerActions();
     }
 
     /**
-     * Initiates a shutdown of the audio player engine. The engine will go
-     * down in a background thread. If this is complete, an event of type
+     * Initiates a shutdown of the audio player engine. The engine will go down
+     * in a background thread. If this is complete, an event of type
      * {@link AudioPlayerEventType#PLAYER_SHUTDOWN} is fired.
      */
     protected void shutdown()
@@ -485,6 +510,17 @@ public class MainWndController implements AudioPlayerListener,
         {
             log.warn("No media directory specified in configuration!");
         }
+    }
+
+    /**
+     * Sets the {@code AudioPlayer} object. This method is used internally and
+     * package protected only for testing purposes.
+     *
+     * @param audioPlayer the {@code AudioPlayer}
+     */
+    void setAudioPlayer(AudioPlayer audioPlayer)
+    {
+        this.audioPlayer = audioPlayer;
     }
 
     /**
