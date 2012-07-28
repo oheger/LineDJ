@@ -40,4 +40,12 @@
     </di:constructor>
     <di:methodInvocation method="start"/>
   </di:bean>
+
+  <!-- The reference to the audio player client.
+       This bean is used to pass the current audio player instance to UI
+       classes after it has been created by the startup class.
+   -->
+   <di:bean name="de.oliver_heger.jplaya.ui.Main.audioPlayerClientRef"
+     beanClassName="java.util.concurrent.atomic.AtomicReference">
+   </di:bean>
 </j:jelly>

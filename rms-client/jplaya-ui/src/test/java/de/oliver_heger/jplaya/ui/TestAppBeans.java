@@ -4,6 +4,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.persistence.EntityManagerFactory;
 
 import net.sf.jguiraffe.di.BeanContext;
@@ -105,6 +107,20 @@ public class TestAppBeans
         assertNotNull("No store listener", listener);
         assertSame("Wrong media store",
                 getBeanContext().getBean(MediaStore.class), listener.store());
+    }
+
+    /**
+     * Tests whether the reference to the audio player client can be obtained.
+     */
+    @Test
+    public void testBeanAudioPlayerClientRef()
+    {
+        AtomicReference<?> ref =
+                (AtomicReference<?>) getBeanContext().getBean(
+                        Main.BEAN_PLAYER_CLIENT_REF);
+        assertNotNull("No audio player client reference", ref);
+        assertSame("Multiple instances", ref,
+                getBeanContext().getBean(Main.BEAN_PLAYER_CLIENT_REF));
     }
 
     private static class MainTestImpl extends Main
