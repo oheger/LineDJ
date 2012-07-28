@@ -242,8 +242,7 @@
     <di:setProperty property="playlistTableModel" refName="playlistTableModel"/>
     <di:setProperty property="actionModel" refName="actionModel"/>
     <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
-    <di:setProperty property="playerClientReference"
-      refName="de.oliver_heger.jplaya.ui.Main.audioPlayerClientRef"/>
+    <di:setProperty property="playerClientReference" refName="audioPlayerClientRef"/>
   </di:bean>
 
   <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>

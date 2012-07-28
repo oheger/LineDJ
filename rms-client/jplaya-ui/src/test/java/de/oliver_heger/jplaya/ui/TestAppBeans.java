@@ -1,9 +1,11 @@
 package de.oliver_heger.jplaya.ui;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.persistence.EntityManagerFactory;
@@ -17,6 +19,7 @@ import org.apache.commons.lang3.concurrent.ConcurrentUtils;
 import org.junit.Before;
 import org.junit.Test;
 
+import scala.actors.Actor;
 import de.oliver_heger.mediastore.localstore.MediaStore;
 import de.oliver_heger.mediastore.localstore.OAuthTokenStore;
 import de.oliver_heger.mediastore.storelistener.StoreListenerActor;
@@ -121,6 +124,18 @@ public class TestAppBeans
         assertNotNull("No audio player client reference", ref);
         assertSame("Multiple instances", ref,
                 getBeanContext().getBean(Main.BEAN_PLAYER_CLIENT_REF));
+    }
+
+    /**
+     * Tests whether a collection with event listener actors can be obtained.
+     */
+    @Test
+    public void testFetchAudioPlayerListenerActors()
+    {
+        List<Actor> actors = app.fetchAudioPlayerListenerActors();
+        assertEquals("Wrong number of elements", 1, actors.size());
+        assertTrue("Wrong element at 1",
+                actors.get(0) instanceof StoreListenerActor);
     }
 
     private static class MainTestImpl extends Main

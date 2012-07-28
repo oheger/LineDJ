@@ -45,7 +45,12 @@
        This bean is used to pass the current audio player instance to UI
        classes after it has been created by the startup class.
    -->
-   <di:bean name="de.oliver_heger.jplaya.ui.Main.audioPlayerClientRef"
+   <di:bean name="audioPlayerClientRef"
      beanClassName="java.util.concurrent.atomic.AtomicReference">
    </di:bean>
+
+  <!-- A list with listener actors to be registered at the audio player. -->
+  <di:list name="listenerActors">
+    <di:element refName="storeListenerActor"/>
+  </di:list>
 </j:jelly>
