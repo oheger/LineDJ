@@ -20,22 +20,10 @@
   </description>
 
   <properties>
-    <version.vfs>"[2.0,3)"</version.vfs>
-    <osgi.bundleActivator>de.oliver_heger.jplaya.ui.Activator</osgi.bundleActivator>
+    <osgi.serviceComponent>OSGI-INF/playerappcomponent.xml</osgi.serviceComponent>
     <osgi.import-package>
-      de.oliver_heger.splaya.playlist.impl;version=${project.version},
-      de.oliver_heger.splaya.engine;version=${project.version},
       de.oliver_heger.mediastore.localstore.impl;version=${project.version},
       de.oliver_heger.mediastore.storelistener;version=${project.version},
-      org.apache.commons.vfs2;version=${version.vfs},
-      org.apache.commons.vfs2.provider.local;version=${version.vfs},
-      org.apache.commons.vfs2.provider.zip;version=${version.vfs},
-      org.apache.commons.vfs2.provider.gzip;version=${version.vfs},
-      org.apache.commons.vfs2.provider.jar;version=${version.vfs},
-      org.apache.commons.vfs2.provider.temp;version=${version.vfs},
-      org.apache.commons.vfs2.provider.res;version=${version.vfs},
-      org.apache.commons.vfs2.provider.ram;version=${version.vfs},
-      org.apache.commons.vfs2.provider.url;version=${version.vfs},
       *
     </osgi.import-package>
   </properties>
