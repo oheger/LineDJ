@@ -31,3 +31,21 @@ trait PlaylistGenerator {
    */
   def generatePlaylist(songs: Seq[String], mode: String, params: NodeSeq): Seq[String]
 }
+
+/**
+ * The companion object for ''PlaylistGenerator''.
+ */
+object PlaylistGenerator {
+  /**
+   * Constant for the mode property. The mode defines a name for a concrete
+   * generator service implementation. Based on the mode string a suitable
+   * ''PlaylistGenerator'' object is selected.
+   */
+  final val PropertyMode = "generator.mode"
+
+  /**
+   * Constant for the default property. If here a value of '''true''' is
+   * provided, the generator can be used as default generator.
+   */
+  final val PropertyDefault = "generator.default"
+}

@@ -1,6 +1,12 @@
 package de.oliver_heger.splaya.engine;
 import java.util.Locale
+
+import scala.Array.canBuildFrom
+import scala.actors.Actor
+
 import org.apache.commons.lang3.time.StopWatch
+import org.slf4j.LoggerFactory
+
 import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactoryImpl
 import de.oliver_heger.splaya.engine.io.TempFileFactoryImpl
@@ -8,18 +14,19 @@ import de.oliver_heger.splaya.engine.msg.EventTranslatorActor
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
+import de.oliver_heger.splaya.playlist.impl.AddPlaylistGenerator
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorImpl
 import de.oliver_heger.splaya.playlist.impl.PlaylistControllerImpl
+import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistCtrlActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
+import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -30,6 +37,9 @@ import org.slf4j.LoggerFactory
  * instances:
  * $ - [[de.oliver_heger.splaya.fs.FSServive]] for accessing the file system
  * containing the media files to be played
+ * $ - [[de.oliver_heger.splaya.playlist.PlaylistGenerator]] generates ordered
+ * playlist based on specific criteria; an arbitrary number of services of this
+ * type can be bound to this component
  *
  * Some configuration properties can be set in the declarative services
  * configuration:
@@ -39,8 +49,13 @@ import org.slf4j.LoggerFactory
  * missing, it is assumed that the size is provided in bytes
  * $ - `audioPlayer.fileExtensions`: a comma-separated list with file extensions
  * of media files to be taken into account
+ *
+ * @param playlistCreationActor an actor instance for managing playlist
+ * generators (this parameter is mainly used for testing purposes; there is
+ * also a default constructor which creates a default actor instance)
  */
-class AudioPlayerFactoryImpl extends AudioPlayerFactory {
+class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
+  extends AudioPlayerFactory {
   /** The object for managing the file system service. */
   protected[engine] val fsService = new ServiceWrapper[FSService]
 
@@ -57,6 +72,14 @@ class AudioPlayerFactoryImpl extends AudioPlayerFactory {
 
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
+
+  /**
+   * Creates a new instance of ''AudioPlayerFactoryImpl'' with a default
+   * instance of a ''PlaylistCreationActor''.
+   */
+  def this() {
+    this(new PlaylistCreationActor)
+  }
 
   /**
    * Returns the local buffer size used by this factory. Audio player instances
@@ -156,6 +179,36 @@ class AudioPlayerFactoryImpl extends AudioPlayerFactory {
   protected[engine] def unbindFSService(svc: FSService) {
     fsService unbind svc
     log.info("Unbound FSService")
+  }
+
+  /**
+   * Injects a ''PlaylistGenerator'' service reference. This method is called
+   * by the OSGi container when a new service implementation becomes available.
+   * The properties of the generator service are also provided. This
+   * implementation delegates management of ''PlaylistGenerator'' services to a
+   * [[de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor]] instance.
+   * @param generator the generator service implementation
+   * @param props a map with properties
+   */
+  protected[engine] def bindPlaylistGenerator(generator: PlaylistGenerator,
+    props: java.util.Map[String, String]) {
+    val mode = props get PlaylistGenerator.PropertyMode
+    val isDefault = java.lang.Boolean.valueOf(
+      props get PlaylistGenerator.PropertyDefault).booleanValue()
+    playlistCreationActor ! AddPlaylistGenerator(generator, mode, isDefault)
+    log.info("Bound playlist generator for mode {}.", Array(mode))
+  }
+
+  /**
+   * Notifies this object that the given ''PlaylistGenerator'' service is not
+   * longer available.
+   * @param generator the affected generator service
+   * @param props a map with properties
+   */
+  protected[engine] def unbindPlaylistGenerator(generator: PlaylistGenerator,
+    props: java.util.Map[String, String]) {
+    playlistCreationActor ! RemovePlaylistGenerator(generator,
+      props get PlaylistGenerator.PropertyMode)
   }
 }
 
