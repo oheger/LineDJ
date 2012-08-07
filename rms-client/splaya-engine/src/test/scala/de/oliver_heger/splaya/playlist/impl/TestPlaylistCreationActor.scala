@@ -11,6 +11,7 @@ import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import org.easymock.EasyMock
 import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.splaya.PlaylistSettings
 
 /**
  * Test class for ''PlaylistCreationActor''.
@@ -43,8 +44,7 @@ class TestPlaylistCreationActor extends JUnitSuite with EasyMockSugar
     val sender = new QueuingActor
     sender.start()
     val msg = GeneratePlaylist(songs = TestPlaylistCreationActor.OriginalPlaylist,
-      sender = sender, mode = TestPlaylistCreationActor.Mode,
-      params = TestPlaylistCreationActor.Params)
+      sender = sender, settings = TestPlaylistCreationActor.PlaylistSettings)
     actor ! msg
     sender
   }
@@ -76,6 +76,7 @@ class TestPlaylistCreationActor extends JUnitSuite with EasyMockSugar
     val expectedSongs = if (processed) TestPlaylistCreationActor.ProcessedPlaylist
     else TestPlaylistCreationActor.OriginalPlaylist
     assert(expectedSongs === resp.songs)
+    assert(TestPlaylistCreationActor.PlaylistSettings === resp.settings)
     q.shutdown()
   }
 
@@ -159,4 +160,19 @@ object TestPlaylistCreationActor {
 
   /** Constant for a node sequence for additional parameters. */
   val Params = <params>test</params>
+
+  /** Constant for the default settings object. */
+  val PlaylistSettings = createSettings()
+
+  /**
+   * Generates a data object with default playlist settings.
+   * @return the settings object
+   */
+  private def createSettings(): PlaylistSettings = {
+    val settings = EasyMock.createMock(classOf[PlaylistSettings])
+    EasyMock.expect(settings.orderMode).andReturn(Mode).anyTimes()
+    EasyMock.expect(settings.orderParams).andReturn(Params).anyTimes()
+    EasyMock.replay(settings)
+    settings
+  }
 }

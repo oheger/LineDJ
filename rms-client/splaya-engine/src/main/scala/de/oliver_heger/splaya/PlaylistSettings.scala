@@ -27,4 +27,13 @@ trait PlaylistSettings {
    * @return the playlist's order mode
    */
   def orderMode: String
+
+  /**
+   * Returns additional parameters as a structured XML node sequence.
+   * Depending in the concrete order mode, more information may be required to
+   * produce an ordered playlist. This can be provided here in an extensible
+   * form.
+   * @return additional parameters for ordering the playlist
+   */
+  def orderParams: xml.NodeSeq
 }

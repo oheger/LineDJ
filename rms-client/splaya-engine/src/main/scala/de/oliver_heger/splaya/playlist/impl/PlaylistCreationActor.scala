@@ -5,6 +5,7 @@ import java.io.Closeable
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import scala.xml.NodeSeq
 import org.slf4j.LoggerFactory
+import de.oliver_heger.splaya.PlaylistSettings
 
 /**
  * An actor for managing a number of
@@ -97,11 +98,13 @@ class PlaylistCreationActor extends Actor {
    * @param request the object with all data of the request
    */
   private def generatePlaylist(request: GeneratePlaylist) {
-    log.info("Generate playlist request for mode {}.", Array(request.mode))
-    val generator = generators.getOrElse(request.mode, defaultGenerator())
-    val orderedSongs = generator.generatePlaylist(request.songs, request.mode,
-      request.params)
-    request.sender ! PlaylistGenerated(orderedSongs)
+    log.info("Generate playlist request for mode {}.",
+      Array(request.settings.orderMode))
+    val generator = generators.getOrElse(request.settings.orderMode,
+      defaultGenerator())
+    val orderedSongs = generator.generatePlaylist(request.songs,
+      request.settings.orderMode, request.settings.orderParams)
+    request.sender ! PlaylistGenerated(orderedSongs, request.settings)
   }
 
   /**
@@ -143,11 +146,10 @@ case class RemovePlaylistGenerator(generator: PlaylistGenerator, mode: String)
  * successful playlist creation, a message of type ''PlaylistGenerated'' is
  * sent back to the sending actor.
  * @param songs a sequence with all songs available on the source medium
- * @param mode the mode string
- * @param params additional parameters from the playlist settings
+ * @param settings an object with information about the playlist's settings
  * @param sender the sending actor
  */
-case class GeneratePlaylist(songs: Seq[String], mode: String, params: NodeSeq,
+case class GeneratePlaylist(songs: Seq[String], settings: PlaylistSettings,
   sender: Actor)
 
 /**
@@ -155,5 +157,6 @@ case class GeneratePlaylist(songs: Seq[String], mode: String, params: NodeSeq,
  * type are sent back to actors which have requested the creation of a
  * playlist.
  * @param songs the ordered list of songs in the playlist
+ * @param settings the settings of the playlist this message is about
  */
-case class PlaylistGenerated(songs: Seq[String])
+case class PlaylistGenerated(songs: Seq[String], settings: PlaylistSettings)
