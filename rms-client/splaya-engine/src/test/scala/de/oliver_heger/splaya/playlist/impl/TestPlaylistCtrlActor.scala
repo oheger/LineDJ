@@ -3,8 +3,11 @@ package de.oliver_heger.splaya.playlist.impl
 import scala.xml.Elem
 
 import org.easymock.EasyMock
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
@@ -16,13 +19,13 @@ import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
-import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
 import de.oliver_heger.splaya.PlaybackSourceStart
 import de.oliver_heger.splaya.PlaybackTimeChanged
 import de.oliver_heger.splaya.PlaylistEnd
+import de.oliver_heger.splaya.PlaylistSettings
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.TestActorSupport
 
@@ -73,8 +76,8 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   /** A mock for the playlist store. */
   private var store: PlaylistFileStore = _
 
-  /** A mock for the playlist generator. */
-  private var generator: PlaylistGenerator = _
+  /** The actor responsible for playlist creation. */
+  private var playlistCreationActor: QueuingActor = _
 
   /** A mock source actor. */
   private var sourceActor: QueuingActor = _
@@ -87,14 +90,21 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     gateway.start()
     scanner = mock[FSService]
     store = mock[PlaylistFileStore]
-    generator = mock[PlaylistGenerator]
+    playlistCreationActor = new QueuingActor
+    playlistCreationActor.start()
     sourceActor = new QueuingActor
     sourceActor.start()
     val wrapper = new ServiceWrapper[FSService]
     wrapper bind scanner
     actor = new PlaylistCtrlActor(gateway, sourceActor, wrapper, store,
-      generator, Extensions)
+      playlistCreationActor, Extensions)
     actor.start()
+  }
+
+  @After override def tearDown() {
+    sourceActor.shutdown()
+    playlistCreationActor.shutdown()
+    super.tearDown()
   }
 
   /**
@@ -192,6 +202,13 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     </configuration>
 
   /**
+   * Creates a mock with playlist settings.
+   * @return the playlist settings mock
+   */
+  private def createPlaylistSettings(): PlaylistSettings =
+    mock[PlaylistSettings]
+
+  /**
    * Tests whether an already existing playlist is detected if a medium is read.
    */
   @Test def testReadMediumExistingPlaylist() {
@@ -199,11 +216,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     val pl = createPlaylist()
     val playlistData = createPersistentPlaylist(pl, currentIndex)
     expectPlaylistProcessing(pl, Some(playlistData), None)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
       checkSentPlaylist(currentIndex, CurrentPos, CurrentTime)
       shutdownActor()
     }
+    playlistCreationActor.ensureNoMessages()
   }
 
   /**
@@ -220,10 +238,11 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
                          </current>
                        </configuration>
     expectPlaylistProcessing(pl, Some(playlistData), None)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
       sourceActor.expectMessage(AddSourceStream(RootURI, 0, CurrentPos, CurrentTime))
     }
+    playlistCreationActor.ensureNoMessages()
   }
 
   /**
@@ -238,10 +257,39 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
                          </list>
                        </configuration>
     expectPlaylistProcessing(pl, Some(playlistData), None)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
       checkSentPlaylist(0, 0, 0)
     }
+    playlistCreationActor.ensureNoMessages()
+  }
+
+  /**
+   * Extracts a request for generating a playlist from the playlist creation
+   * actor. This method fails if no such request is found.
+   * @return the extracted request
+   */
+  private def extractGeneratePlaylistRequest(): GeneratePlaylist =
+    playlistCreationActor.nextMessage() match {
+      case req: GeneratePlaylist => req
+      case other => fail("Unexpected message: " + other)
+    }
+
+  /**
+   * Extracts the next request for generating a playlist and checks its
+   * properties.
+   * @param songs the expected list of songs
+   * @param mode the expected mode string
+   * @param params the expected parameters
+   */
+  private def checkGeneratePlaylistRequest(songs: Seq[String], mode: String,
+    params: xml.NodeSeq = xml.NodeSeq.Empty) {
+    val req = extractGeneratePlaylistRequest()
+    assertEquals("Wrong list of songs", songs, req.songs)
+    assertEquals("Wrong mode", mode, req.settings.orderMode)
+    assertEquals("Wrong parameters", params, req.settings.orderParams)
+    assertEquals("Wrong sender", actor, req.sender)
+    playlistCreationActor.ensureNoMessages()
   }
 
   /**
@@ -254,11 +302,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     val playlistData = <configuration>
                        </configuration>
     expectPlaylistProcessing(scannedPL, Some(playlistData), None)
-    EasyMock.expect(generator.generatePlaylist(scannedPL, "", xml.NodeSeq.Empty))
-      .andReturn(generatedPL)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
-      checkSentPlaylist(0, 0, 0)
+      checkGeneratePlaylistRequest(scannedPL, "")
     }
   }
 
@@ -271,11 +317,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     val scannedPL = generatedPL.reverse
     val settingsData = createSettings()
     expectPlaylistProcessing(scannedPL, None, Some(settingsData))
-    EasyMock.expect(generator.generatePlaylist(scannedPL, OrderMode,
-      settingsData \\ "params")).andReturn(generatedPL)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
-      checkSentPlaylist(0, 0, 0)
+      checkGeneratePlaylistRequest(scannedPL, OrderMode, settingsData \\ "params")
     }
   }
 
@@ -284,36 +328,44 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   @Test def testReadMediumEmptyPlaylist() {
     expectPlaylistProcessing(List.empty, None, None)
-    EasyMock.expect(generator.generatePlaylist(List.empty, "", xml.NodeSeq.Empty))
-      .andReturn(List.empty)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
-      shutdownActor()
-      sourceActor.ensureNoMessages()
+      checkGeneratePlaylistRequest(List.empty, "")
     }
   }
 
   /**
-   * Prepares a test which requires an existing playlist. The mocks are
-   * initialized to create a new playlist which is sent initially to the source
-   * actor. Current index is 0.
+   * Tests whether a response for a newly created playlist can be processed.
+   */
+  @Test def testPlaylistCreated() {
+    actor ! PlaylistGenerated(createPlaylist(), createPlaylistSettings())
+    checkSentPlaylist(0, 0, 0)
+  }
+
+  /**
+   * Tests whether a newly created empty playlist can be processed.
+   */
+  @Test def testEmptyPlaylistCreated() {
+    actor ! PlaylistGenerated(List.empty, createPlaylistSettings())
+    shutdownActor()
+    sourceActor.ensureNoMessages()
+  }
+
+  /**
+   * Prepares a test which requires an existing playlist. This method simply
+   * sends a PlaylistGenerated message to the test actor.
    */
   private def prepareTestWithPlaylist() {
-    val pl = createPlaylist()
-    val settingsData = createSettings()
-    expectPlaylistProcessing(pl, None, Some(settingsData))
-    EasyMock.expect(generator.generatePlaylist(pl, OrderMode,
-      settingsData \\ "params")).andReturn(pl)
+    actor ! PlaylistGenerated(createPlaylist(), createPlaylistSettings())
   }
 
   /**
    * Tests whether the actor can move to a valid index in the playlist.
    */
   @Test def testMoveToValidIndex() {
-    prepareTestWithPlaylist()
     val newIndex = 12
-    whenExecuting(scanner, store, generator) {
-      actor ! ReadMedium(RootURI)
+    whenExecuting(scanner, store) {
+      prepareTestWithPlaylist()
       actor ! MoveTo(newIndex)
       sourceActor.skipMessages(PlaylistSize + 1)
       checkSentPlaylist(newIndex, 0, 0)
@@ -327,12 +379,9 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   private def checkMoveToInvalidIndex(idx: Int) {
     prepareTestWithPlaylist()
-    whenExecuting(scanner, store, generator) {
-      actor ! ReadMedium(RootURI)
-      actor ! MoveTo(idx)
-      shutdownActor()
-      sourceActor.ensureNoMessages(PlaylistSize + 1)
-    }
+    actor ! MoveTo(idx)
+    shutdownActor()
+    sourceActor.ensureNoMessages(PlaylistSize + 1)
   }
 
   /**
@@ -354,14 +403,11 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   @Test def testMoveRelativeValidIndex() {
     prepareTestWithPlaylist()
-    whenExecuting(scanner, store, generator) {
-      actor ! ReadMedium(RootURI)
-      actor ! MoveRelative(5)
-      actor ! MoveRelative(-2)
-      sourceActor.skipMessages(PlaylistSize + 1)
-      checkSentPlaylist(5, 0, 0, false)
-      checkSentPlaylist(3, 0, 0)
-    }
+    actor ! MoveRelative(5)
+    actor ! MoveRelative(-2)
+    sourceActor.skipMessages(PlaylistSize + 1)
+    checkSentPlaylist(5, 0, 0, false)
+    checkSentPlaylist(3, 0, 0)
   }
 
   /**
@@ -369,21 +415,18 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   @Test def testMoveRelativeInvalidIndex() {
     prepareTestWithPlaylist()
-    whenExecuting(scanner, store, generator) {
-      actor ! ReadMedium(RootURI)
-      actor ! MoveRelative(PlaylistSize - 1)
-      actor ! MoveRelative(5)
-      sourceActor.skipMessages(PlaylistSize + 1)
-      checkSentPlaylist(PlaylistSize - 1, 0, 0, false)
-      checkSentPlaylist(PlaylistSize - 1, 0, 0)
-    }
+    actor ! MoveRelative(PlaylistSize - 1)
+    actor ! MoveRelative(5)
+    sourceActor.skipMessages(PlaylistSize + 1)
+    checkSentPlaylist(PlaylistSize - 1, 0, 0, false)
+    checkSentPlaylist(PlaylistSize - 1, 0, 0)
   }
 
   /**
    * Tests a relative move operation if the current playlist is empty.
    */
   @Test def testMoveRelativeNoPlaylist() {
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! MoveRelative(5)
       shutdownActor()
       sourceActor.ensureNoMessages()
@@ -402,13 +445,14 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * Tests whether the state of the playlist can be saved.
    */
   @Test def testSavePlaylist() {
-    prepareTestWithPlaylist()
     val currentIndex = 16
     val pl = createPlaylist()
     store.savePlaylist(PlaylistID, createPersistentPlaylist(pl, currentIndex))
     val source = createSource(currentIndex)
-    whenExecuting(scanner, store, generator) {
+    expectPlaylistProcessing(pl, None, None)
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
+      prepareTestWithPlaylist()
       actor ! PlaybackSourceStart(source)
       actor ! PlaybackPositionChanged(CurrentPos, 2000, 500, source)
       actor ! PlaybackTimeChanged(CurrentTime)
@@ -429,11 +473,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
       actor ! PlaybackSourceEnd(source, false)
     }
 
-    prepareTestWithPlaylist()
-    store.savePlaylist(PlaylistID, createPersistentPlaylist(createPlaylist(),
-      2, 0, 0))
-    whenExecuting(scanner, store, generator) {
+    val pl = createPlaylist()
+    expectPlaylistProcessing(pl, None, None)
+    store.savePlaylist(PlaylistID, createPersistentPlaylist(pl, 2, 0, 0))
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
+      prepareTestWithPlaylist()
       sendSourceMessages(0)
       sendSourceMessages(1)
       val source = createSource(2)
@@ -449,11 +494,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * Tests whether a playlist can be persisted if it has been fully played.
    */
   @Test def testSavePlaylistComplete() {
-    prepareTestWithPlaylist()
     val source = createSource(PlaylistSize - 1)
+    expectPlaylistProcessing(createPlaylist(), None, None)
     store.savePlaylist(PlaylistID, PlaylistCtrlActor.EmptyPlaylist)
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
+      prepareTestWithPlaylist()
       actor ! PlaybackSourceStart(source)
       actor ! PlaybackSourceEnd(source, false)
       actor ! SavePlaylist
@@ -465,7 +511,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * Tests whether a save message is ignored if there is no playlist.
    */
   @Test def testSavePlaylistUndefined() {
-    whenExecuting(scanner, store, generator) {
+    whenExecuting(scanner, store) {
       actor ! SavePlaylist
       shutdownActor()
     }
@@ -483,19 +529,23 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   }
 
   /**
-   * Tests whether a newly created playlist is sent around as an event.
+   * Tests whether a newly created playlist is sent around as an event if there
+   * is already a persistent playlist.
    */
-  @Test def testPlaylistCreatedEvent() {
-    prepareTestWithPlaylist()
+  @Test def testPlaylistCreatedEventExistingPlaylist() {
     val listener = installListener()
-    whenExecuting(scanner, store, generator) {
+    val pl = createPlaylist()
+    val playlistData = createPersistentPlaylist(pl, 2)
+    expectPlaylistProcessing(pl, Some(playlistData), Some(createSettings()))
+    whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
+      prepareTestWithPlaylist()
       shutdownActor()
     }
     listener.nextMessage() match {
       case pl: PlaylistDataImpl =>
         assert(PlaylistSize === pl.size)
-        assert(0 === pl.startIndex)
+        assert(2 === pl.startIndex)
         val settings = pl.settings
         assert(PlaylistName === settings.name)
         assert(PlaylistDesc === settings.description)
@@ -506,6 +556,23 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
             playlistURI(i).contains(srcData.title))
           assertNull("Got an artist", srcData.artistName)
         }
+      case msg => fail("Unexpected message: " + msg)
+    }
+    gateway.unregister(listener)
+  }
+
+  /**
+   * Tests whether a playlist event is sent around if a playlist has to be
+   * newly created.
+   */
+  @Test def testPlaylistCreatedEventNewPlaylist() {
+    val listener = installListener()
+    val settings = createPlaylistSettings()
+    actor ! PlaylistGenerated(createPlaylist(), settings)
+    listener.nextMessage() match {
+      case pl: PlaylistDataImpl =>
+        assert(0 === pl.startIndex)
+        assertSame("Wrong settings", settings, pl.settings)
       case msg => fail("Unexpected message: " + msg)
     }
     gateway.unregister(listener)

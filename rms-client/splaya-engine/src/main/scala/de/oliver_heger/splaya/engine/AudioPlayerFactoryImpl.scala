@@ -123,7 +123,7 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
     val extrActor = new AudioSourceDataExtractorActor(extractor)
     val playlistExtrActor = new PlaylistDataExtractorActor(gateway, extrActor)
     val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, fsService,
-      playlistFileStore, plGenerator, Set("mp3"))
+      playlistFileStore, playlistCreationActor, Set("mp3"))
 
     gateway.start()
     readActor.start()

@@ -27,11 +27,11 @@ import de.oliver_heger.splaya.PlaylistSettings
  * [[de.oliver_heger.splaya.playlist.PlaylistController]] implementation.
  *
  * This actor manages the current playlist of the audio player. It uses a
- * [[de.oliver_heger.splaya.playlist.playlist.FSScanner]] object to determine
+ * [[de.oliver_heger.splaya.fs.FSService]] object to determine
  * the audio sources available on the current medium. Based on this list a
- * specific playlist is generated with the help of a
- * [[de.oliver_heger.splaya.playlist.playlist.PlaylistGenerator]]. This playlist
- * is then communicated to the audio engine in terms of
+ * specific playlist is generated with the help of an actor managing the
+ * available [[de.oliver_heger.splaya.playlist.playlist.PlaylistGenerator]]
+ * objects. This playlist is then communicated to the audio engine in terms of
  * [[de.oliver_heger.splaya.engine.AddSourceStream]] messages sent to the actor
  * responsible for audio streaming. It lies also in the responsibility of this
  * actor to persist the current state of the playlist, so that playback can be
@@ -43,14 +43,14 @@ import de.oliver_heger.splaya.PlaylistSettings
  * @param sourceActor the actor to which the playlist has to be communicated
  * @param fsService the ''FSService'' for scanning the source medium
  * @param store the ''PlaylistFileStore'' for persisting playlist data
- * @param generator the ''PlaylistGenerator'' for generating a new playlist
+ * @param playlistCreationActor the actor for generating a new playlist
  * @param extensions a set with file extensions of supported audio files
  * @param autoSaveInterval the number of audio sources after which the
  * current playlist is saved (auto-save)
  */
 class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
   fsService: ServiceWrapper[FSService], store: PlaylistFileStore,
-  generator: PlaylistGenerator, extensions: Set[String],
+  playlistCreationActor: Actor, extensions: Set[String],
   autoSaveInterval: Int = 3) extends Actor {
   /** A sequence with the current playlist. */
   private var playlist: Seq[String] = List.empty
@@ -85,6 +85,9 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
 
         case ReadMedium(uri) =>
           handleReadMedium(uri)
+
+        case resp: PlaylistGenerated =>
+          handlePlaylistGenerated(resp)
 
         case MoveTo(idx) =>
           handleMoveTo(idx)
@@ -158,9 +161,20 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
       constructPlaylist(list, settings)
     } else {
       setUpExistingPlaylist(playlistData.get)
+      gateway.publish(createPlaylistData(settings))
     }
+  }
 
-    gateway.publish(createPlaylistData(settings))
+  /**
+   * Processes a notification about a newly created playlist. The songs of the
+   * playlist are passed to the source actor. A message about the new playlist
+   * is sent out.
+   * @param resp the response of the generate playlist request
+   */
+  private def handlePlaylistGenerated(resp: PlaylistGenerated) {
+    playlist = resp.songs
+    sendPlaylist(0)
+    gateway.publish(createPlaylistData(resp.settings))
   }
 
   /**
@@ -295,9 +309,8 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
    * @param settings an object with playlist settings
    */
   private def constructPlaylist(pl: Seq[String], settings: PlaylistSettingsData) {
-    playlist = generator.generatePlaylist(pl, settings.orderMode,
-      settings.orderParams)
-    sendPlaylist(0)
+    playlistCreationActor ! GeneratePlaylist(songs = pl, sender = this,
+      settings = settings)
   }
 
   /**
