@@ -1,12 +1,9 @@
 package de.oliver_heger.splaya.engine;
 import java.util.Locale
-
 import scala.Array.canBuildFrom
 import scala.actors.Actor
-
 import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
-
 import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactoryImpl
 import de.oliver_heger.splaya.engine.io.TempFileFactoryImpl
@@ -27,6 +24,7 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
+import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -108,11 +106,6 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
     val streamFactory = new SourceStreamWrapperFactoryImpl(bufferManager,
       tempFileFactory)
     val extractor = new AudioSourceDataExtractorImpl(fsService)
-    //TODO provide meaningful implementation
-    val plGenerator = new PlaylistGenerator {
-      def generatePlaylist(songs: Seq[String], mode: String, params: xml.NodeSeq) =
-        songs
-    }
 
     val readActor = new SourceReaderActor(gateway, fsService,
       tempFileFactory, bufferSize / 2)
@@ -161,6 +154,16 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
       fileExtensions = AudioPlayerFactoryImpl.parseFileExtensions(
         String.valueOf(props get AudioPlayerFactoryImpl.PropFileExtensions))
     }
+    
+    playlistCreationActor.start()
+  }
+  
+  /**
+   * Deactivates this component. This implementation does some cleanup.
+   */
+  protected[engine] def deactivate() {
+    log.info("Deactivating AudioPlayerFactoryImpl")
+    playlistCreationActor ! Exit
   }
 
   /**
@@ -207,8 +210,9 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
    */
   protected[engine] def unbindPlaylistGenerator(generator: PlaylistGenerator,
     props: java.util.Map[String, String]) {
-    playlistCreationActor ! RemovePlaylistGenerator(generator,
-      props get PlaylistGenerator.PropertyMode)
+    val mode = props get PlaylistGenerator.PropertyMode
+    playlistCreationActor ! RemovePlaylistGenerator(generator, mode)
+    log.info("Unbound playlist generator for mode {}.", Array(mode))
   }
 }
 
@@ -236,6 +240,12 @@ object AudioPlayerFactoryImpl {
 
   /** Constant for the system property with the user's home directory. */
   private val PropHomeDir = "user.home"
+    
+  /**
+   * Constant for the sub directory in the user's home directory where to store
+   * playlist-related data.
+   */
+  private val PlayaSubDir = "/.jplaya"
 
   /**
    * Determines the size of the local file buffer. This method tries to parse
@@ -287,7 +297,7 @@ object AudioPlayerFactoryImpl {
    * @return the ''PlaylistFileStore'' object
    */
   private def createPlaylistFileStore() =
-    new PlaylistFileStoreImpl(System getProperty PropHomeDir)
+    new PlaylistFileStoreImpl((System getProperty PropHomeDir) + PlayaSubDir)
 
   /**
    * Helper method for converting a string to lower case.

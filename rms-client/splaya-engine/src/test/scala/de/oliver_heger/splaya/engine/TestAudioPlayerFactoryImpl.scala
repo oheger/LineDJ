@@ -9,7 +9,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.playlist.impl.AddPlaylistGenerator
 import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
@@ -17,6 +16,9 @@ import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * Test class for ''AudioPlayerFactoryImpl''.
@@ -56,6 +58,32 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
     factory.activate(props)
     assertEquals("Wrong file extensions", Set("mp3", "wav", "au", "ogg"),
       factory.getFileExtensions)
+  }
+
+  /**
+   * Tests whether the activate() method starts the actor for playlist creation.
+   */
+  @Test def testActivateActorStarted() {
+    val actor = new QueuingActor
+    val factory = new AudioPlayerFactoryImpl(actor)
+    val props = new java.util.HashMap[String, Object]
+    factory.activate(props)
+    val msg = "Hello Actor"
+    actor ! msg
+    assertEquals("Message not received", msg, actor.nextMessage())
+    actor.shutdown()
+  }
+
+  /**
+   * Tests the cleanup performed by deactivate().
+   */
+  @Test def testDeactivate() {
+    val actor = new QueuingActor
+    actor.start()
+    val factory = new AudioPlayerFactoryImpl(actor)
+    factory.deactivate()
+    assertEquals("No Exit message", Exit, actor.nextMessage())
+    actor.shutdown()
   }
 
   /**
@@ -142,7 +170,7 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testPlaylistFileStore() {
     val factory = new AudioPlayerFactoryImpl
     val store = factory.playlistFileStore.asInstanceOf[PlaylistFileStoreImpl]
-    assertEquals("Wrong directory", System.getProperty("user.home"),
+    assertEquals("Wrong directory", System.getProperty("user.home") + "/.jplaya",
       store.directoryName)
   }
 

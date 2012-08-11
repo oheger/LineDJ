@@ -15,6 +15,13 @@
     bind="bindFSService"
     unbind="unbindFSService"/>
 
+  <scr:reference
+    interface="de.oliver_heger.splaya.playlist.PlaylistGenerator"
+    cardinality="0..n"
+    policy="dynamic"
+    bind="bindPlaylistGenerator"
+    unbind="unbindPlaylistGenerator"/>
+
   <scr:service>
     <scr:provide interface="de.oliver_heger.splaya.AudioPlayerFactory"/>
   </scr:service>
