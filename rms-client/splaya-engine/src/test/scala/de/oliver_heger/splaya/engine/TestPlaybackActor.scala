@@ -887,7 +887,6 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
       actor ! StopPlayback
       actor ! StartPlayback
     }
-    gateway.unregister(listener)
     var startCount = 0
     var stopCount = 0
     while (startCount < 2) {
@@ -901,6 +900,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     }
     listener.ensureNoMessages(1)  // ignore exit message
     assert(1 == stopCount)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
@@ -921,7 +921,6 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
           actor ! ChunkPlayed(BufferSize)
         }
       }
-    gateway.unregister(listener)
     var foundStop = false
     while (!foundStop) {
       listener.nextMessage() match {
@@ -932,6 +931,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     }
     listener.expectMessage(PlaylistEnd)
     listener.ensureNoMessages(1)
+    gateway.unregister(listener)
     listener.shutdown()
   }
 
