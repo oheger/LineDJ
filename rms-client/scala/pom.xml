@@ -24,6 +24,7 @@
   <modules>
     <module>actor-testutils</module>
     <module>storelistener</module>
+    <module>splaya-fs</module>
   </modules>
 
   <dependencies>
