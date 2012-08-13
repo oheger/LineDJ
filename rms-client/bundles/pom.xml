@@ -48,6 +48,10 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>playlistgen-directories</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>jplaya-ui</artifactId>
       <version>${project.version}</version>
     </dependency>

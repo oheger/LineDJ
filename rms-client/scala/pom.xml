@@ -25,6 +25,7 @@
     <module>actor-testutils</module>
     <module>storelistener</module>
     <module>splaya-fs</module>
+    <module>pgen-dir</module>
   </modules>
 
   <dependencies>
