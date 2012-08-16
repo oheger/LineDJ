@@ -202,6 +202,12 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>playlistgen-random</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>rms-testutils</artifactId>
       <version>${project.version}</version>
     </dependency>

@@ -26,6 +26,7 @@
     <module>storelistener</module>
     <module>splaya-fs</module>
     <module>pgen-dir</module>
+    <module>pgen-random</module>
   </modules>
 
   <dependencies>

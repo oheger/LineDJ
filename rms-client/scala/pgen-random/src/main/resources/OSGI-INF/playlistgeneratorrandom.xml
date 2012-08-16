@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declarative Services declaration of the PlaylistGenerator component for the
+  mode 'random'.
+  This playlist generator produces a playlist in random order. Optionally,
+  groups of audio files can be specified which are always played in sequence.
+-->
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0"
+  name="PlaylistGeneratorRandom">
+  <scr:implementation class="de.oliver_heger.splaya.playlist.gen.random.PlaylistGeneratorRandom" />
+
+  <scr:service>
+    <scr:provide interface="de.oliver_heger.splaya.playlist.PlaylistGenerator"/>
+  </scr:service>
+
+  <scr:property name="generator.mode" value="random"/>
+  <scr:property name="generator.default" value="false"/>
+</scr:component>

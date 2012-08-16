@@ -52,6 +52,10 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>playlistgen-random</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>jplaya-ui</artifactId>
       <version>${project.version}</version>
     </dependency>
