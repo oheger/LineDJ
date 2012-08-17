@@ -1,17 +1,17 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import java.util.Locale
+
+import org.easymock.EasyMock
+import org.junit.Before
+import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-import org.junit.Test
-import de.oliver_heger.tsthlp.TestActorSupport
-import org.junit.Before
-import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.tsthlp.QueuingActor
+
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import org.easymock.EasyMock
-import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.splaya.PlaylistSettings
+import de.oliver_heger.tsthlp.QueuingActor
+import de.oliver_heger.tsthlp.TestActorSupport
 
 /**
  * Test class for ''PlaylistCreationActor''.
@@ -115,6 +115,19 @@ class TestPlaylistCreationActor extends JUnitSuite with EasyMockSugar
   }
 
   /**
+   * Tests whether generator names are case insensitive.
+   */
+  @Test def testCreatePlaylistWithGeneratorCase() {
+    val gen = mock[PlaylistGenerator]
+    expectGeneratePlaylist(gen)
+    whenExecuting(gen) {
+      actor ! AddPlaylistGenerator(gen,
+        TestPlaylistCreationActor.Mode.toUpperCase(Locale.ENGLISH), false)
+      checkResponse(requestPlaylist(), true)
+    }
+  }
+
+  /**
    * Tests whether a default playlist generator is used if not matching one is
    * found.
    */
@@ -141,7 +154,8 @@ class TestPlaylistCreationActor extends JUnitSuite with EasyMockSugar
     whenExecuting(gen1, gen2) {
       actor ! AddPlaylistGenerator(gen1, TestPlaylistCreationActor.Mode, true)
       actor ! AddPlaylistGenerator(gen2, "otherMode", false)
-      actor ! RemovePlaylistGenerator(gen1, TestPlaylistCreationActor.Mode)
+      actor ! RemovePlaylistGenerator(gen1,
+        TestPlaylistCreationActor.Mode.toUpperCase(Locale.ENGLISH))
       val client = requestPlaylist()
       checkResponse(client, false)
     }

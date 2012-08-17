@@ -1,10 +1,13 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import scala.actors.Actor
 import java.io.Closeable
-import de.oliver_heger.splaya.playlist.PlaylistGenerator
-import scala.xml.NodeSeq
+import java.util.Locale
+
+import scala.actors.Actor
+
 import org.slf4j.LoggerFactory
+
+import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.PlaylistSettings
 
 /**
@@ -74,8 +77,8 @@ class PlaylistCreationActor extends Actor {
    * @param addGen the message with information about the generator to be added
    */
   private def addGenerator(addGen: AddPlaylistGenerator) {
-    log.info("Adding playlist generator for {}.", Array(addGen.mode))
-    generators += addGen.mode -> addGen.generator
+    log.info("Adding playlist generator for {}.", addGen.mode)
+    generators += key(addGen.mode) -> addGen.generator
     if (addGen.useAsDefault) {
       defaultGenerators = addGen :: defaultGenerators
     }
@@ -87,10 +90,10 @@ class PlaylistCreationActor extends Actor {
    * @param mode the mode string
    */
   private def removeGenerator(gen: PlaylistGenerator, mode: String) {
-    log.info("Removing playlist generator for {}.", Array(mode))
-    generators -= mode
+    log.info("Removing playlist generator for {}.", mode)
+    generators -= key(mode)
     defaultGenerators = defaultGenerators filterNot (addGen =>
-      addGen.generator == gen && addGen.mode == mode)
+      addGen.generator == gen && addGen.mode.equalsIgnoreCase(mode))
   }
 
   /**
@@ -99,8 +102,8 @@ class PlaylistCreationActor extends Actor {
    */
   private def generatePlaylist(request: GeneratePlaylist) {
     log.info("Generate playlist request for mode {}.",
-      Array(request.settings.orderMode))
-    val generator = generators.getOrElse(request.settings.orderMode,
+      request.settings.orderMode)
+    val generator = generators.getOrElse(key(request.settings.orderMode),
       defaultGenerator())
     val orderedSongs = generator.generatePlaylist(request.songs,
       request.settings.orderMode, request.settings.orderParams)
@@ -115,6 +118,15 @@ class PlaylistCreationActor extends Actor {
   private def defaultGenerator(): PlaylistGenerator =
     if (defaultGenerators.isEmpty) DummyGenerator
     else defaultGenerators.head.generator
+
+  /**
+   * Transforms the given mode name to a key in the internal map of playlist
+   * generators. Generator modes are case insensitive, therefore the mode is
+   * converted to upper case.
+   * @param mode the generator mode
+   * @return the corresponding key into the internal map
+   */
+  private def key(mode: String): String = mode.toUpperCase(Locale.ENGLISH)
 }
 
 /**
