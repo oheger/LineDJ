@@ -170,10 +170,17 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
       <order>
         <mode>{ OrderMode }</mode>
         <params>
-          <coolness>true</coolness>
+          { createOrderParams() }
         </params>
       </order>
     </configuration>
+
+  /**
+   * Generates a XML fragment with parameters for the ordering.
+   * @return the fragment
+   */
+  private def createOrderParams() =
+    <coolness>true</coolness>
 
   /**
    * Generates a XML document for a persistent playlist. The current section
@@ -287,7 +294,10 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     val req = extractGeneratePlaylistRequest()
     assertEquals("Wrong list of songs", songs, req.songs)
     assertEquals("Wrong mode", mode, req.settings.orderMode)
-    assertEquals("Wrong parameters", params, req.settings.orderParams)
+    assertEquals("Wrong number of param nodes", params.size,
+      req.settings.orderParams.size)
+    assertTrue("Wrong parameters: " + req.settings.orderParams,
+      req.settings.orderParams containsSlice params)
     assertEquals("Wrong sender", actor, req.sender)
     playlistCreationActor.ensureNoMessages()
   }
@@ -319,7 +329,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     expectPlaylistProcessing(scannedPL, None, Some(settingsData))
     whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
-      checkGeneratePlaylistRequest(scannedPL, OrderMode, settingsData \\ "params")
+      checkGeneratePlaylistRequest(scannedPL, OrderMode, createOrderParams())
     }
   }
 

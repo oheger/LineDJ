@@ -297,7 +297,7 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
     import PlaylistCtrlActor._
     val elemOrder = elem \ ElemOrder
     PlaylistSettingsData((elem \ ElemName).text, (elem \ ElemDesc).text,
-      (elemOrder \ ElemOrderMode).text, elemOrder \ ElemOrderParams)
+      (elemOrder \ ElemOrderMode).text, elemOrder \ ElemOrderParams \ "_")
   }
 
   /**
