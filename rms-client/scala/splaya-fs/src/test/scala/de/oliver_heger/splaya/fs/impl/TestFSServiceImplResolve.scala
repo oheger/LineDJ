@@ -48,8 +48,11 @@ class TestFSServiceImplResolve extends JUnitSuite with TestFileSupport {
    * Helper method for creating a data file and passing it to the resolver.
    * @return the resolved stream source
    */
-  private def resolveFile(): StreamSource =
-    service.resolve(createDataFile().toURI.toString)
+  private def resolveFile(): StreamSource = {
+    val f = createDataFile()
+    val root = f.getParentFile().toURI.toString
+    service.resolve(root, f.getName)
+  }
 
   /**
    * Tests whether a valid URI can be resolved and its content read.
@@ -75,6 +78,14 @@ class TestFSServiceImplResolve extends JUnitSuite with TestFileSupport {
    * Tries to resolve a non existing URI.
    */
   @Test(expected = classOf[IOException]) def testResolveNonExistingURI() {
-    service.resolve("a non existing URI!")
+    val f = new File(".")
+    service.resolve(f.getAbsolutePath, "a non existing URI!")
+  }
+
+  /**
+   * Tries to resolve a non existing root URI.
+   */
+  @Test(expected = classOf[IOException]) def testResolveNonExitingRoot() {
+    service.resolve("non-existing root!", "someFile.txt")
   }
 }

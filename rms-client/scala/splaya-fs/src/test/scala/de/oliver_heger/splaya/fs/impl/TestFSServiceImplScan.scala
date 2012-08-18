@@ -146,10 +146,11 @@ class TestFSServiceImplScan extends JUnitSuite with EasyMockSugar {
    * @param exts the set of extensions to be passed in
    */
   private def checkScan(exts: Set[String]) {
-    val dir = setUpMusicDir()
-    val files = service.scan(dir.toURI.toString, exts)
+    val rootURI = setUpMusicDir().toURI.toString
+    val root = TestFSServiceImplScan.manager.resolveFile(rootURI)
+    val files = service.scan(rootURI, exts)
     assertEquals("Wrong number of files", fileURIs.size, files.size)
-    files.foreach(TestFSServiceImplScan.checkFile(_))
+    files.foreach(TestFSServiceImplScan.checkFile(root, _))
   }
 
   /**
@@ -220,11 +221,12 @@ object TestFSServiceImplScan {
 
   /**
    * Checks the content of the specified file.
+   * @param root the root file object
    * @param uri the URI to the test file
    * @throws IOException if an error occurs
    */
-  private def checkFile(uri: String) {
-    val fo = manager.resolveFile(uri);
+  private def checkFile(root: FileObject, uri: String) {
+    val fo = manager.resolveFile(root, uri);
     assertTrue("File does not exist: " + uri, fo.exists());
     val in = new BufferedReader(new InputStreamReader(fo.getContent()
       .getInputStream()));

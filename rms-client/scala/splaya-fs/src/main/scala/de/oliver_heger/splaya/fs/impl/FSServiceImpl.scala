@@ -57,8 +57,9 @@ class FSServiceImpl extends FSService {
    * obtain an object representing its content. This information is exposed
    * through an anonymous implementation of the ''StreamSource'' trait.
    */
-  def resolve(uri: String): StreamSource = {
-    val fo = getFSManager resolveFile (uri)
+  def resolve(root: String, uri: String): StreamSource = {
+    val rootFile = getFSManager resolveFile root
+    val fo = rootFile resolveFile uri
     val content = fo.getContent()
     new StreamSource {
       def openStream() = content.getInputStream()
@@ -77,7 +78,7 @@ class FSServiceImpl extends FSService {
     val selector = new FileFilterSelector(createFileFilter(
       FSServiceImpl.fetchExtensions(extensions)))
 
-    scanDirectory(root, resultBuffer, selector)
+    scanDirectory(root, root, resultBuffer, selector)
     resultBuffer.toList
   }
 
@@ -117,17 +118,18 @@ class FSServiceImpl extends FSService {
   /**
    * Recursively scans a directory and adds the found audio files to the given
    * list buffer.
+   * @param root the root file of the directory structure
    * @param dir the directory to be scanned
    * @param results the target buffer
    * @param sel the file selector
    */
-  private def scanDirectory(dir: FileObject, results: ListBuffer[String],
-    sel: FileSelector) {
+  private def scanDirectory(root: FileObject, dir: FileObject,
+    results: ListBuffer[String], sel: FileSelector) {
     for (fo <- dir.findFiles(sel)) {
       if (FileType.FOLDER.equals(fo.getType())) {
-        scanDirectory(fo, results, sel);
+        scanDirectory(root, fo, results, sel);
       } else {
-        results += fo.getName.getURI;
+        results += root.getName.getRelativeName(fo.getName);
       }
     }
   }

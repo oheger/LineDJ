@@ -10,17 +10,21 @@ package de.oliver_heger.splaya.fs
  */
 trait FSService {
   /**
-   * Resolves the specified URI. The object returned by this method allows
-   * access to the represented audio stream.
-   * @param uri the URI to be resolved
+   * Resolves the specified URI relative to the root URI. The root URI
+   * identifies the medium, concrete files are relative to this URI. The object
+   * returned by this method allows access to the represented audio stream.
+   * @param root the root URI of the source medium
+   * @param path the relative path to the file to be resolved
    * @return a data object for this URI
    * @throws IOException if an error occurs
    */
-  def resolve(uri: String): StreamSource
+  def resolve(root: String, path: String): StreamSource
 
   /**
    * Scans the specified directory structure and returns a list with all found
-   * media files. A set with the extensions of supported media files is passed.
+   * media files. Media files are returned as URIs relative to the root URI of
+   * the source medium. A set with the extensions of supported media files is
+   * passed.
    * @param rootUri the URI pointing to the directory structure to be scanned
    * @param extensions a set with the file extensions of supported audio files
    * @return a list with the media files which have been discovered
