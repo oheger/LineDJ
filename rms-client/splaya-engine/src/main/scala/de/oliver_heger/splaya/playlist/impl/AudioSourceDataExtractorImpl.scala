@@ -30,12 +30,12 @@ class AudioSourceDataExtractorImpl(fsService: ServiceWrapper[FSService])
    * ''createSourceDataFromProperties()'' in order to create the required
    * output object.
    */
-  def extractAudioSourceData(uri: String): Option[AudioSourceData] = {
-    //TODO the source medium URI has to be passed in
+  override def extractAudioSourceData(mediumURI: String, uri: String):
+    Option[AudioSourceData] = {
     log.info("Extract audio data for {}.", uri)
 
     try {
-      val props = getProperties(uri)
+      val props = getProperties(mediumURI, uri)
       Some(createSourceDataFromProperties(props, uri))
     } catch {
       case ex: Exception =>
@@ -49,10 +49,11 @@ class AudioSourceDataExtractorImpl(fsService: ServiceWrapper[FSService])
    * @param uri the URI of the audio file
    * @return a map with the meta data properties
    */
-  protected def getProperties(uri: String): java.util.Map[String, Object] = {
+  protected def getProperties(mediumURI: String, uri: String):
+    java.util.Map[String, Object] = {
     val data = new java.util.HashMap[String, Object]
     fsService foreach { svc =>
-      val source = svc.resolve(null, uri)
+      val source = svc.resolve(mediumURI, uri)
       val stream = source.openStream()
       try {
         val reader = new MpegAudioFileReader

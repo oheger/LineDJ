@@ -32,9 +32,9 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
   /**
    * Tests a successful extraction of audio source data.
    */
-  @Ignore @Test def testExtractAudioSourceDataSuccess() {
+  @Test def testExtractAudioSourceDataSuccess() {
     import TestAudioSourceDataExtractorImpl._
-    val data = extractor.extractAudioSourceData(Test1).get
+    val data = extractor.extractAudioSourceData(RootURI, Test1).get
     assert(Interpret === data.artistName)
     assert(Title === data.title)
     assert(Duration === data.duration)
@@ -47,8 +47,9 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
    * Tests an audio file with no ID3 tags. At least the duration should be
    * available and a title derived from the URI.
    */
-  @Ignore @Test def testExtractAudioSourceDataNoProperties() {
+  @Test def testExtractAudioSourceDataNoProperties() {
     val data = extractor.extractAudioSourceData(
+      TestAudioSourceDataExtractorImpl.RootURI,
       TestAudioSourceDataExtractorImpl.Test2).get
     assert(TestAudioSourceDataExtractorImpl.Test2 === data.title)
     assert(6734 === data.duration)
@@ -63,14 +64,15 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
     val file = createTempFile { out =>
       out.print(generator.generateStreamContent(0, 1024))
     }
-    assert(None === extractor.extractAudioSourceData(file.toURI.toString))
+    val root = file.getParentFile.toURI.toString
+    assert(None === extractor.extractAudioSourceData(root, file.getName))
   }
 
   /**
    * Tries to extract information from a non existing file.
    */
   @Test def testExtractAudioSourceDataFileNotFound() {
-    assert(None === extractor.extractAudioSourceData("a non existing file!"))
+    assert(None === extractor.extractAudioSourceData("root", "a non existing file!"))
   }
 
   /**
@@ -97,11 +99,14 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
 }
 
 object TestAudioSourceDataExtractorImpl {
+  /** Constant for the root URI. */
+  private val RootURI = "res://"
+
   /** Constant for the name of test file 1. */
-  private val Test1 = "res:test.mp3";
+  private val Test1 = "test.mp3";
 
   /** Constant for the name of test file 2. */
-  private val Test2 = "res:test2.mp3";
+  private val Test2 = "test2.mp3";
 
   /** Constant for the name of the interpret. */
   private val Interpret = "Testinterpret";

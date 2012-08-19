@@ -1,14 +1,12 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import scala.actors.Actor
-
 import org.junit.Assert.assertEquals
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
 import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.Gateway
@@ -21,6 +19,7 @@ import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.TestActorSupport
 import de.oliver_heger.tsthlp.WaitForExit
+import org.easymock.EasyMock
 
 /**
  * Test class for ''PlaylistDataExtractorActor''.
@@ -30,8 +29,11 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
   /** The actor type to be tested. */
   type ActorUnderTest = PlaylistDataExtractorActor
 
+  /** Constant for a medium root URI. */
+  private val RootURI = "file:///music"
+
   /** Constant for a prefix for a playlist URI. */
-  private val URI = "file:///music/song"
+  private val URI = "song"
 
   /** Constant for a prefix for a title of a song in the playlist. */
   private val Title = "TestSong No "
@@ -119,7 +121,10 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
   private def createPlaylistData(): PlaylistData = {
     val items =
       for (i <- 0 until PlaylistSize) yield playlistURI(i)
-    PlaylistDataImpl(playlist = items, settings = mock[PlaylistSettings],
+    val settings = mock[PlaylistSettings]
+    EasyMock.expect(settings.mediumURI).andReturn(RootURI).anyTimes()
+    EasyMock.replay(settings)
+    PlaylistDataImpl(playlist = items, settings = settings,
       startIndex = 1)
   }
 
@@ -177,7 +182,8 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
     val listener = installListener()
     setUpActor(extractor)
     actor ! createPlaylistData()
-    extractor.expectMessage(ExtractSourceDataRequest(1, playlistURI(1), 1, actor))
+    extractor.expectMessage(ExtractSourceDataRequest(1, RootURI, playlistURI(1),
+      1, actor))
     actor ! ExtractSourceDataResult(1, 1, None)
     shutdownActor()
     listener.ensureNoMessages()
@@ -208,7 +214,8 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
     actor ! AccessSourceMedium(true)
     actor ! createPlaylistData()
     actor ! AccessSourceMedium(false)
-    extractor.expectMessage(ExtractSourceDataRequest(1, playlistURI(1), 1, actor))
+    extractor.expectMessage(ExtractSourceDataRequest(1, RootURI, playlistURI(1),
+      1, actor))
     extractor.shutdown()
   }
 
@@ -241,7 +248,8 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
     val listener = installListener()
     setUpActor(extractor)
     actor ! createPlaylistData()
-    extractor.expectMessage(ExtractSourceDataRequest(1, playlistURI(1), 1, actor))
+    extractor.expectMessage(ExtractSourceDataRequest(1, RootURI, playlistURI(1),
+      1, actor))
     actor ! ExtractSourceDataResult(0, 1, Some(createSourceData(1)))
     shutdownActor()
     listener.ensureNoMessages()
@@ -257,9 +265,11 @@ class TestPlaylistDataExtractorActor extends JUnitSuite with EasyMockSugar
     extractor.start()
     setUpActor(extractor)
     actor ! createPlaylistData()
-    extractor.expectMessage(ExtractSourceDataRequest(1, playlistURI(1), 1, actor))
+    extractor.expectMessage(ExtractSourceDataRequest(1, RootURI, playlistURI(1),
+      1, actor))
     actor ! createPlaylistData()
-    extractor.expectMessage(ExtractSourceDataRequest(2, playlistURI(1), 1, actor))
+    extractor.expectMessage(ExtractSourceDataRequest(2, RootURI, playlistURI(1),
+      1, actor))
     extractor.shutdown()
   }
 

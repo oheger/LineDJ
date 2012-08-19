@@ -22,8 +22,11 @@ class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar
   /** The actor type to be tested. */
   type ActorUnderTest = AudioSourceDataExtractorActor
 
+  /** Constant for a medium root URI. */
+  private val RootURI = "file://d/sounds"
+
   /** Constant for an URI.*/
-  private val URI = "audio://TestMusic.la"
+  private val URI = "TestMusic.la"
 
   /** Constant for a playlist ID. */
   private val PlaylistID = 20120418214432L
@@ -46,9 +49,10 @@ class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar
   @Test def testExtractData() {
     val data = mock[AudioSourceData]
     val index = 42
-    EasyMock.expect(extractor.extractAudioSourceData(URI)).andReturn(Some(data))
+    EasyMock.expect(extractor.extractAudioSourceData(RootURI, URI))
+      .andReturn(Some(data))
     val rec = new ActorTestImpl
-    val msg = ExtractSourceDataRequest(PlaylistID, URI, index, rec)
+    val msg = ExtractSourceDataRequest(PlaylistID, RootURI, URI, index, rec)
     whenExecuting(data, extractor) {
       actor ! msg
       shutdownActor()

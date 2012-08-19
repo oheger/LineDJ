@@ -167,7 +167,8 @@ class PlaylistDataExtractorActor(gateway: Gateway, sourceDataExtractor: Actor)
    */
   private def createExtractRequest() =
     ExtractSourceDataRequest(playlistID = playlistID, index = index,
-      uri = playlistData.getURI(index), sender = this)
+      uri = playlistData.getURI(index),
+      mediumURI = playlistData.settings.mediumURI, sender = this)
 
   /**
    * Creates a message indicating that the playlist was updated. Messages of

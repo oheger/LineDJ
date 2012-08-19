@@ -52,7 +52,7 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
    * @param req the request for audio source data
    */
   private def handleRequest(req: ExtractSourceDataRequest) {
-    val data = extractor.extractAudioSourceData(req.uri)
+    val data = extractor.extractAudioSourceData(req.mediumURI, req.uri)
     req.sender ! ExtractSourceDataResult(req.playlistID, req.index, data)
   }
 }
@@ -60,18 +60,20 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
 /**
  * A message which can be sent to the ''AudioSourceDataExtractorActor'' to
  * request audio data for a specific audio source. The audio source in question
- * is identified by its URI. The result of the extraction is sent to the
- * specified actor in form of an ''ExtractSourceDataResult'' message.
+ * is identified by its URI and the URI of the source medium. The result of the
+ * extraction is sent to the specified actor in form of an
+ * ''ExtractSourceDataResult'' message.
  * @param playlistID a unique ID for the current playlist; this value is used
  * to deal with multiple playlists (for instance, a new playlist can be set
  * while the former one is still processed)
+ * @param mediumURI the URI of the source medium
  * @param uri the URI of the audio source to be processed
  * @param index the index of the audio source affected by this operation in the
  * playlist
  * @param sender the actor to which to sent the result
  */
-case class ExtractSourceDataRequest(playlistID: Long, uri: String, index: Int,
-  sender: Actor)
+case class ExtractSourceDataRequest(playlistID: Long, mediumURI: String,
+  uri: String, index: Int, sender: Actor)
 
 /**
  * A message providing the result of a request for extracting audio source data.

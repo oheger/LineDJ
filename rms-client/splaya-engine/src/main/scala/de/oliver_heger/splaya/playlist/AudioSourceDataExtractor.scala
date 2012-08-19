@@ -11,5 +11,11 @@ import de.oliver_heger.splaya.AudioSourceData
  * files meta data can be extracted an ''Option'' of this type is returned.
  */
 trait AudioSourceDataExtractor {
-  def extractAudioSourceData(uri: String): Option[AudioSourceData]
+  /**
+   * Tries to extract audio data for the specified audio file.
+   * @param mediumURI the URI of the source medium
+   * @param uri the relative URI of the audio file in question
+   * @return an ''Option'' object with extracted audio data
+   */
+  def extractAudioSourceData(mediumURI: String, uri: String): Option[AudioSourceData]
 }
