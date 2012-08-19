@@ -31,7 +31,8 @@ class AudioSourceDataExtractorImpl(fsService: ServiceWrapper[FSService])
    * output object.
    */
   def extractAudioSourceData(uri: String): Option[AudioSourceData] = {
-    log.info("Extract audio data for {}.", Array(uri))
+    //TODO the source medium URI has to be passed in
+    log.info("Extract audio data for {}.", uri)
 
     try {
       val props = getProperties(uri)
@@ -51,7 +52,7 @@ class AudioSourceDataExtractorImpl(fsService: ServiceWrapper[FSService])
   protected def getProperties(uri: String): java.util.Map[String, Object] = {
     val data = new java.util.HashMap[String, Object]
     fsService foreach { svc =>
-      val source = svc.resolve(uri)
+      val source = svc.resolve(null, uri)
       val stream = source.openStream()
       try {
         val reader = new MpegAudioFileReader

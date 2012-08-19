@@ -36,4 +36,13 @@ trait PlaylistSettings {
    * @return additional parameters for ordering the playlist
    */
   def orderParams: xml.NodeSeq
+
+  /**
+   * Returns the root URI of the medium from which the associated playlist has
+   * been constructed. This information is typically not persisted, it is set
+   * dynamically when the source medium is read and a playlist is constructed.
+   * It merely serves informational purpose.
+   * @return the root URI of the source medium from which the playlist was read
+   */
+  def mediumURI: String
 }

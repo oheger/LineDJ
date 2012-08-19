@@ -58,6 +58,9 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
   /** The ID of the current playlist. */
   private var playlistID: String = _
 
+  /** The URI of the current source medium. */
+  private var currentSourceMedium: String = _
+
   /** The current index in the playlist. */
   private var currentIndex: Int = _
 
@@ -124,6 +127,7 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
 
   /**
    * Sends the current playlist to the source read actor.
+   * @param mediumURI the URI of the source medium
    * @param startIdx the start index
    * @param initSkipPos the initial skip position
    * @param initSkipTime the initial skip time
@@ -133,10 +137,11 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
     currentIndex = startIdx
     val pl = playlist.drop(startIdx)
     if (!pl.isEmpty) {
-      sourceActor ! AddSourceStream(pl.head, startIdx, initSkipPos, initSkipTime)
+      sourceActor ! AddSourceStream(currentSourceMedium, pl.head, startIdx,
+        initSkipPos, initSkipTime)
       var idx = startIdx + 1
       for (uri <- pl.tail) {
-        sourceActor ! AddSourceStream(uri, idx, 0, 0)
+        sourceActor ! AddSourceStream(currentSourceMedium, uri, idx, 0, 0)
         idx += 1
       }
       sourceActor ! PlaylistEnd
@@ -154,13 +159,13 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
     val list = optList.getOrElse(List.empty)
     playlistID = store.calculatePlaylistID(list)
     val playlistData = store.loadPlaylist(playlistID)
-    val settings = readPlaylistSettings()
+    val settings = readPlaylistSettings(uri)
 
     playlist = readPersistentPlaylist(playlistData)
     if (playlist.isEmpty) {
       constructPlaylist(list, settings)
     } else {
-      setUpExistingPlaylist(playlistData.get)
+      setUpExistingPlaylist(uri, playlistData.get)
       gateway.publish(createPlaylistData(settings))
     }
   }
@@ -173,6 +178,7 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
    */
   private def handlePlaylistGenerated(resp: PlaylistGenerated) {
     playlist = resp.songs
+    currentSourceMedium = resp.settings.mediumURI
     sendPlaylist(0)
     gateway.publish(createPlaylistData(resp.settings))
   }
@@ -264,40 +270,48 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
    * This method is called if a persistent playlist was found. It obtains the
    * current index and skip positions and sends the playlist to the source
    * actor.
+   * @param mediumURI the URI of the source medium
    * @param playlistData the XML root node of the persistent playlist
    */
-  private def setUpExistingPlaylist(playlistData: Elem) {
+  private def setUpExistingPlaylist(mediumURI: String, playlistData: Elem) {
     import PlaylistCtrlActor._
     val current = playlistData \ ElemCurrent
     val skipPos = longValue(current \ ElemPosition)
     val skipTime = longValue(current \ ElemTime)
     val index = longValue(current \ ElemIndex).toInt
+    currentSourceMedium = mediumURI
     sendPlaylist(index, skipPos, skipTime)
   }
 
   /**
    * Obtains playlist setting information. If the store does not have a settings
    * document, a default settings object is returned.
+   * @param mediumURI the URI of the source medium
    * @return an object with playlist settings information
    */
-  private def readPlaylistSettings(): PlaylistSettingsData = {
+  private def readPlaylistSettings(mediumURI: String): PlaylistSettingsData = {
     val optSettingsData = store.loadSettings(playlistID)
-    val settingsData = optSettingsData map { extractPlaylistSettings(_) }
+    val settingsData = optSettingsData map { extractPlaylistSettings(mediumURI, _) }
     settingsData.getOrElse(PlaylistSettingsData(PlaylistCtrlActor.EmptyName,
       PlaylistCtrlActor.EmptyName, PlaylistCtrlActor.EmptyName,
-      xml.NodeSeq.Empty))
+      xml.NodeSeq.Empty, mediumURI))
   }
 
   /**
    * Extracts a data object with playlist settings from an XML representation.
+   * @param mediumURI the URI of the source medium
    * @param elem the root XML element
    * @return the data object with playlist settings
    */
-  private def extractPlaylistSettings(elem: xml.NodeSeq): PlaylistSettingsData = {
+  private def extractPlaylistSettings(mediumURI: String, elem: xml.NodeSeq):
+    PlaylistSettingsData = {
     import PlaylistCtrlActor._
     val elemOrder = elem \ ElemOrder
-    PlaylistSettingsData((elem \ ElemName).text, (elem \ ElemDesc).text,
-      (elemOrder \ ElemOrderMode).text, elemOrder \ ElemOrderParams \ "_")
+    PlaylistSettingsData(name = (elem \ ElemName).text,
+      description = (elem \ ElemDesc).text,
+      orderMode = (elemOrder \ ElemOrderMode).text,
+      orderParams = elemOrder \ ElemOrderParams \ "_",
+      mediumURI = mediumURI)
   }
 
   /**
@@ -427,7 +441,8 @@ private object PlaylistCtrlActor {
  * @param orderParams additional parameters for ordering the playlist
  */
 private case class PlaylistSettingsData(name: String, description: String,
-  orderMode: String, orderParams: xml.NodeSeq) extends PlaylistSettings
+  orderMode: String, orderParams: xml.NodeSeq, mediumURI: String)
+  extends PlaylistSettings
 
 /**
  * A message which causes the ''PlaylistCtrlActor'' to read the medium with the

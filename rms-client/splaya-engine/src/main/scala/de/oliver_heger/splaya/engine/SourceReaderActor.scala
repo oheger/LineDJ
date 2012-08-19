@@ -180,7 +180,8 @@ class SourceReaderActor(gateway: Gateway, fsService: ServiceWrapper[FSService],
         log.info("Copying {}.", srcStream.uri)
         fileBytes = 0
         try {
-          val resolvedStreamOpt = fsService map (_.resolve(srcStream.uri))
+          val resolvedStreamOpt = fsService map
+            (_.resolve(srcStream.rootURI, srcStream.uri))
           if (resolvedStreamOpt.isEmpty) {
             gateway.publish(PlaybackError("No FSService available!", null, true))
           } else {

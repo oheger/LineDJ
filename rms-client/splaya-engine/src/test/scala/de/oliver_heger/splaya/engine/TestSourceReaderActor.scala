@@ -38,8 +38,11 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
   /** The concrete actor type to be tested. */
   type ActorUnderTest = SourceReaderActor
   
+  /** Constant for the root URI of the source medium. */
+  private val RootURI = "file://R:/"
+  
   /** Constant for the prefix of a URI. */
-  private val URIPrefix = "file:testFile"
+  private val URIPrefix = "testFile"
 
   /** The stream generator. */
   private val streamGenerator = StreamDataGenerator()
@@ -97,8 +100,8 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val plIdx = playlistIndex
     playlistIndex += 1
     val uri = streamURI(plIdx)
-    EasyMock.expect(fsService.get.resolve(uri)).andReturn(ssrc)
-    new AddSourceStream(uri, plIdx)
+    EasyMock.expect(fsService.get.resolve(RootURI, uri)).andReturn(ssrc)
+    new AddSourceStream(uri = uri, rootURI = RootURI, index = plIdx)
   }
 
   /**
@@ -226,7 +229,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val qa = installPlaybackActor()
     val len = 111
     val srcOrg = prepareStream(len)
-    val src = AddSourceStream(srcOrg.uri, srcOrg.index, 1000, 2222)
+    val src = AddSourceStream(RootURI, srcOrg.uri, srcOrg.index, 1000, 2222)
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
@@ -318,9 +321,9 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     setUpActor()
     val qa = installListener()
     val uri = streamURI(1)
-    val addsrc = new AddSourceStream(uri, 1)
+    val addsrc = new AddSourceStream(RootURI, uri, 1)
     val ioex = new RuntimeException("Testexception")
-    EasyMock.expect(fsService.get.resolve(uri)).andThrow(ioex)
+    EasyMock.expect(fsService.get.resolve(RootURI, uri)).andThrow(ioex)
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
@@ -343,7 +346,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     setUpActor()
     val qa = installListener()
     val uri = streamURI(1)
-    val addsrc = new AddSourceStream(uri, 1)
+    val addsrc = new AddSourceStream(RootURI, uri, 1)
     val tempData = prepareTempFile()
     EasyMock.expect(tempData._1.delete()).andReturn(true)
     actor.start()
@@ -480,7 +483,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     actor.start()
     whenExecuting(factory, fsService.get, tempData._1) {
       actor ! PlaylistEnd
-      actor ! AddSourceStream(streamURI(0), 0, 0, 0)
+      actor ! AddSourceStream(RootURI, streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
       playback.ensureNoMessages()
       playback.shutdown()
@@ -499,7 +502,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     actor.start()
     whenExecuting(factory, fsService.get, tempData._1) {
       actor ! new AddSourceStream
-      actor ! AddSourceStream(streamURI(0), 0, 0, 0)
+      actor ! AddSourceStream(RootURI, streamURI(0), 0, 0, 0)
       playback.expectMessage(PlaylistEnd)
       playback.ensureNoMessages()
       playback.shutdown()
@@ -524,8 +527,8 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     actor.start()
     whenExecuting(factory, fsService.get, tempData1._1, tempData2._1, tempData3._1) {
       actor ! src1
-      actor ! new AddSourceStream("someUri", 42)
-      actor ! new AddSourceStream("anotherUri", 815)
+      actor ! new AddSourceStream(RootURI, "someUri", 42)
+      actor ! new AddSourceStream(RootURI, "anotherUri", 815)
       actor ! PlaylistEnd
       actor ! FlushPlayer
       actor ! src2

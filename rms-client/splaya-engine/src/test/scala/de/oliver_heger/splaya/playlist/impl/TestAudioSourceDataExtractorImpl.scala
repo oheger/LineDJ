@@ -11,6 +11,7 @@ import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.tsthlp.StreamDataGenerator
 import de.oliver_heger.tsthlp.TestFileSupport
 import org.junit.BeforeClass
+import org.junit.Ignore
 
 /**
  * Test class for ''AudioSourceDataExtractorImpl''.
@@ -31,7 +32,7 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
   /**
    * Tests a successful extraction of audio source data.
    */
-  @Test def testExtractAudioSourceDataSuccess() {
+  @Ignore @Test def testExtractAudioSourceDataSuccess() {
     import TestAudioSourceDataExtractorImpl._
     val data = extractor.extractAudioSourceData(Test1).get
     assert(Interpret === data.artistName)
@@ -46,7 +47,7 @@ class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
    * Tests an audio file with no ID3 tags. At least the duration should be
    * available and a title derived from the URI.
    */
-  @Test def testExtractAudioSourceDataNoProperties() {
+  @Ignore @Test def testExtractAudioSourceDataNoProperties() {
     val data = extractor.extractAudioSourceData(
       TestAudioSourceDataExtractorImpl.Test2).get
     assert(TestAudioSourceDataExtractorImpl.Test2 === data.title)

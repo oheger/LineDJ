@@ -44,7 +44,7 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   private val PlaylistID = "ATestPlaylist"
 
   /** Constant for a URI prefix used in a test playlist. */
-  private val URIPrefix = "test://TestAudioSource"
+  private val URIPrefix = "TestAudioSource"
 
   /** Constant for the test medium URI. */
   private val RootURI = "file:///C:/music"
@@ -132,10 +132,10 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    */
   private def checkSentPlaylist(startIdx: Int, skipPos: Long, skipTime: Long,
     checkNoMsgs: Boolean = true) {
-    sourceActor.expectMessage(AddSourceStream(playlistURI(startIdx), startIdx,
-      skipPos, skipTime))
+    sourceActor.expectMessage(AddSourceStream(RootURI, playlistURI(startIdx),
+      startIdx, skipPos, skipTime))
     for (i <- startIdx + 1 until PlaylistSize) {
-      sourceActor.expectMessage(AddSourceStream(playlistURI(i), i, 0, 0))
+      sourceActor.expectMessage(AddSourceStream(RootURI, playlistURI(i), i, 0, 0))
     }
     sourceActor.expectMessage(PlaylistEnd)
     if (checkNoMsgs) {
@@ -212,8 +212,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * Creates a mock with playlist settings.
    * @return the playlist settings mock
    */
-  private def createPlaylistSettings(): PlaylistSettings =
-    mock[PlaylistSettings]
+  private def createPlaylistSettings(): PlaylistSettings = {
+    val settings = niceMock[PlaylistSettings]
+    EasyMock.expect(settings.mediumURI).andReturn(RootURI).anyTimes()
+    EasyMock.replay(settings)
+    settings
+  }
 
   /**
    * Tests whether an already existing playlist is detected if a medium is read.
@@ -241,13 +245,14 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
                          <current>
                            <position>{ CurrentPos }</position>
                            <time>{ CurrentTime }</time>
-                           <file name={ RootURI }/>
+                           <file name={ URIPrefix }/>
                          </current>
                        </configuration>
     expectPlaylistProcessing(pl, Some(playlistData), None)
     whenExecuting(scanner, store) {
       actor ! ReadMedium(RootURI)
-      sourceActor.expectMessage(AddSourceStream(RootURI, 0, CurrentPos, CurrentTime))
+      sourceActor.expectMessage(AddSourceStream(RootURI, URIPrefix, 0,
+        CurrentPos, CurrentTime))
     }
     playlistCreationActor.ensureNoMessages()
   }
