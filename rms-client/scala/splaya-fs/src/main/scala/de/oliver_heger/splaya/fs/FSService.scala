@@ -1,4 +1,5 @@
 package de.oliver_heger.splaya.fs
+import java.io.IOException
 
 /**
  * Definition of a service interface providing access to a source medium with
@@ -18,6 +19,7 @@ trait FSService {
    * @return a data object for this URI
    * @throws IOException if an error occurs
    */
+  @throws(classOf[IOException])
   def resolve(root: String, path: String): StreamSource
 
   /**
@@ -28,6 +30,8 @@ trait FSService {
    * @param rootUri the URI pointing to the directory structure to be scanned
    * @param extensions a set with the file extensions of supported audio files
    * @return a list with the media files which have been discovered
+   * @throws IOException if an error occurs
    */
+  @throws(classOf[IOException])
   def scan(rootUri: String, extensions: Set[String]): Seq[String]
 }
