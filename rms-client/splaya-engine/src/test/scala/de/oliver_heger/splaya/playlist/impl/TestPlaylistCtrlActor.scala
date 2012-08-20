@@ -1,5 +1,9 @@
 package de.oliver_heger.splaya.playlist.impl
 
+import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.io.StringWriter
+
 import scala.xml.Elem
 
 import org.easymock.EasyMock
@@ -17,6 +21,7 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.fs.StreamSource
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.AudioSource
@@ -150,13 +155,22 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * @param list the playlist
    * @param playlistData the persistent playlist data to be returned
    * @param settingsData the settings data to be returned
+   * @param prepareFSService if set to '''true''' and no settings data is
+   * provided, the mock for the FS service is prepared to expect a resolve
+   * operation for the medium playlist settings and throw an exception
    */
   private def expectPlaylistProcessing(list: Seq[String],
-    playlistData: Option[Elem], settingsData: Option[Elem]) {
+    playlistData: Option[Elem], settingsData: Option[Elem],
+    prepareFSService: Boolean = true) {
     EasyMock.expect(scanner.scan(RootURI, Extensions)).andReturn(list)
     EasyMock.expect(store.calculatePlaylistID(list)).andReturn(PlaylistID)
     EasyMock.expect(store.loadPlaylist(PlaylistID)).andReturn(playlistData)
     EasyMock.expect(store.loadSettings(PlaylistID)).andReturn(settingsData)
+
+    if(prepareFSService && settingsData.isEmpty) {
+      EasyMock.expect(scanner.resolve(RootURI, "playlist.settings")
+        .andThrow(new IOException("Testexception on resolving medium settings.")))
+    }
   }
 
   /**
@@ -333,6 +347,28 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     val settingsData = createSettings()
     expectPlaylistProcessing(scannedPL, None, Some(settingsData))
     whenExecuting(scanner, store) {
+      actor ! ReadMedium(RootURI)
+      checkGeneratePlaylistRequest(scannedPL, OrderMode, createOrderParams())
+    }
+  }
+
+  /**
+   * Tests whether playlist settings can be obtained from a central settings
+   * file on the source medium.
+   */
+  @Test def testReadMediumNoPlaylistWithSettingsFromMedium() {
+    val strsrc = mock[StreamSource]
+    val generatedPL = createPlaylist()
+    val scannedPL = generatedPL.reverse
+    val settingsData = createSettings()
+    expectPlaylistProcessing(scannedPL, None, None, false)
+    val writer = new StringWriter
+    xml.XML.write(writer, settingsData, null, false, null)
+    EasyMock.expect(strsrc.openStream())
+      .andReturn(new ByteArrayInputStream(writer.toString.getBytes))
+    EasyMock.expect(scanner.resolve(RootURI, "playlist.settings"))
+      .andReturn(strsrc)
+    whenExecuting(scanner, store, strsrc) {
       actor ! ReadMedium(RootURI)
       checkGeneratePlaylistRequest(scannedPL, OrderMode, createOrderParams())
     }

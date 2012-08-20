@@ -1,6 +1,7 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import java.io.Closeable
+import java.io.IOException
 
 import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
@@ -10,9 +11,9 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper.convertToOption
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
-import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackPositionChanged
 import de.oliver_heger.splaya.PlaybackSourceEnd
@@ -38,6 +39,13 @@ import de.oliver_heger.splaya.PlaylistSettings
  * interrupted and resumed later. There is an auto-save functionality which
  * causes the playlist to be saved automatically after a configurable number of
  * played audio sources.
+ *
+ * A playlist can be associated with playlist settings - an XML document with
+ * meta information like a name, a description, and a default order mode.
+ * Playlist settings are loaded from the ''PlaylistFileStore''; they are named
+ * by the playlist ID. If no settings are defined here, this actor searches in
+ * the root of the source medium for a file named `playlist.settings`. If it
+ * exists, it is loaded and interpreted as playlist settings.
  *
  * @param gateway the gateway object
  * @param sourceActor the actor to which the playlist has to be communicated
@@ -285,17 +293,37 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
 
   /**
    * Obtains playlist setting information. If the store does not have a settings
-   * document, a default settings object is returned.
+   * document, we search for a settings file on the source medium. If this
+   * fails, too, a default settings object is returned.
    * @param mediumURI the URI of the source medium
    * @return an object with playlist settings information
    */
   private def readPlaylistSettings(mediumURI: String): PlaylistSettingsData = {
-    val optSettingsData = store.loadSettings(playlistID)
+    var optSettingsData = store.loadSettings(playlistID)
+    if (optSettingsData.isEmpty) {
+      optSettingsData = readMediumPlaylistSettings(mediumURI)
+    }
     val settingsData = optSettingsData map { extractPlaylistSettings(mediumURI, _) }
-    settingsData.getOrElse(PlaylistSettingsData(PlaylistCtrlActor.EmptyName,
-      PlaylistCtrlActor.EmptyName, PlaylistCtrlActor.EmptyName,
-      xml.NodeSeq.Empty, mediumURI))
+    settingsData.getOrElse(PlaylistCtrlActor.dummyPlaylistSettingsData(mediumURI))
   }
+
+  /**
+   * Tries to load a file with playlist settings from the source medium. This
+   * method is called if no playlist settings are found in the playlist store.
+   * @param mediumURI the URI of the source medium
+   * @return an ''Option'' object with the XML of the loaded playlist settings
+   */
+  private def readMediumPlaylistSettings(mediumURI: String): Option[xml.Elem] =
+    loadXML { () =>
+      fsService map (_.resolve(mediumURI,
+        PlaylistCtrlActor.MediumSettingsFile)) match {
+          case Some(source) =>
+            source.openStream()
+          case None =>
+            // this is very unlikely
+            throw new IOException("No FS service available.")
+        }
+    }
 
   /**
    * Extracts a data object with playlist settings from an XML representation.
@@ -423,12 +451,26 @@ private object PlaylistCtrlActor {
   /** Constant for the file name attribute. */
   private val AttrName = "@name"
 
+  /** Constant for the name of the playlist settings file on the medium. */
+  private val MediumSettingsFile = "playlist.settings"
+
   /**
    * Returns the value of the given XML element as Long. If there is no value,
    * result is 0.
    */
   private def longValue(elem: xml.NodeSeq): Long =
     if (elem.isEmpty) 0 else elem.text.toLong
+
+  /**
+   * Creates a dummy ''PlaylistSettingsData'' object that is used if no real
+   * settings can be found.
+   * @param mediumURI the URI of the source medium
+   * @return the dummy ''PlaylistSettingsData'' object
+   */
+  private def dummyPlaylistSettingsData(mediumURI: String) =
+    PlaylistSettingsData(PlaylistCtrlActor.EmptyName,
+      PlaylistCtrlActor.EmptyName, PlaylistCtrlActor.EmptyName,
+      xml.NodeSeq.Empty, mediumURI)
 }
 
 /**
