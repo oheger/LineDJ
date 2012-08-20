@@ -51,6 +51,20 @@ class ServiceWrapper[T <: AnyRef] {
    * @return the wrapped service instance
    */
   def get: T = store.get
+
+  /**
+   * Executes a function with the wrapped service object or returns the default
+   * value if no service is bound. This method provides a convenient way to
+   * handle the absence of a service object by providing a default.
+   * @param f the function to be invoked on the service object
+   * @param defVal the default value to be returned if there is no service
+   * @return the return value of the function or the default value
+   */
+  def callOrElse[U](f: T => U, defVal: => U): U = {
+    val svc = get
+    if (svc != null) f(svc)
+    else defVal
+  }
 }
 
 /**

@@ -5,6 +5,7 @@ import org.scalatest.mock.EasyMockSugar
 import org.junit.Assert._
 import org.junit.Before
 import org.junit.Test
+import org.easymock.EasyMock
 
 /**
  * Test class for ''ServiceWrapper''.
@@ -95,5 +96,23 @@ class TestServiceWrapper extends JUnitSuite with EasyMockSugar {
   @Test def testOptionConversionNoSvc() {
     val opt: Option[Runnable] = wrapper
     assert(opt === None)
+  }
+
+  /**
+   * Tests whether callOrElse() invokes the function if a service is bound.
+   */
+  @Test def testCallOrElseServiceBound() {
+    val svc = mock[Runnable]
+    EasyMock.replay(svc)
+    wrapper bind svc
+    assert(svc.toString === wrapper.callOrElse(_.toString, "default"))
+  }
+
+  /**
+   * Tests whether the default value is returned by callOrElse() if no service
+   * is bound.
+   */
+  @Test def testCallOrElseNoServiceBound() {
+    assert("default" === wrapper.callOrElse(_.toString, "default"))
   }
 }
