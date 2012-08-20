@@ -36,9 +36,6 @@ class PlaylistFileStoreImpl(val directoryName: String) extends PlaylistFileStore
   /** Constant for the file extension for settings files. */
   private val ExtSettings = ".settings"
 
-  /** Constant for the encoding. */
-  private val Encoding = "iso-8859-1"
-
   /** The logger. */
   private val log = LoggerFactory.getLogger(classOf[PlaylistFileStoreImpl])
 
@@ -112,19 +109,7 @@ class PlaylistFileStoreImpl(val directoryName: String) extends PlaylistFileStore
     val file = dataFile(playlistID, ext)
     if (file.isFile()) {
       log.info("Loading {} file for playlist {}", ext, playlistID)
-
-      var in: Reader = null
-      try {
-        in = new BufferedReader(new InputStreamReader(new FileInputStream(file),
-          Encoding))
-        Some(XML.load(in))
-      } catch {
-        case ex: Exception =>
-          log.error("Could not load file", ex)
-          None
-      } finally {
-        close(in)
-      }
+      loadXML(() => new FileInputStream(file))
     } else {
       None
     }
@@ -138,21 +123,7 @@ class PlaylistFileStoreImpl(val directoryName: String) extends PlaylistFileStore
    */
   private def saveFile(playlistID: String, ext: String, root: Elem) {
     val file = dataFile(playlistID, ext)
-    XML.save(filename = file.getAbsolutePath, node = root, enc = Encoding,
+    XML.save(filename = file.getAbsolutePath, node = root, enc = XMLEncoding,
       xmlDecl = true)
-  }
-
-  /**
-   * Closes the specified reader ignoring any exceptions.
-   */
-  private def close(r: Reader) {
-    if (r != null) {
-      try {
-        r.close()
-      } catch {
-        case ioex: IOException =>
-          log.warn("Error when closing reader.", ioex)
-      }
-    }
   }
 }
