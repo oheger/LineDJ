@@ -1,15 +1,17 @@
 package de.oliver_heger.splaya.engine
 
-import org.scalatest.junit.JUnitSuite
+import java.io.IOException
+
+import org.easymock.EasyMock
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
-import org.junit.Assert._
+import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
+import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.SourceDataLine
-import org.easymock.EasyMock
-import java.io.IOException
-import javax.sound.sampled.AudioFormat
 
 /**
  * Test class of ''PlaybackContextFactoryImpl''.

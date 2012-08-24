@@ -1,10 +1,10 @@
 package de.oliver_heger.splaya.engine
 
-
 import java.io.InputStream
 
 import com.sun.media.sound.DirectAudioDeviceProvider
 
+import de.oliver_heger.splaya.engine.io.ID3SkipStream
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
@@ -23,7 +23,9 @@ class PlaybackContextFactoryImpl extends PlaybackContextFactory {
 
   def createPlaybackContext(stream: InputStream): PlaybackContext = {
     val reader = new MpegAudioFileReader
-    val sourceStream = reader.getAudioInputStream(stream)
+    val skipStream = new ID3SkipStream(stream)
+    skipStream.skipID3()
+    val sourceStream = reader.getAudioInputStream(skipStream)
     val baseFormat = sourceStream.getFormat
     val decodedFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
       baseFormat.getSampleRate(), 16,
