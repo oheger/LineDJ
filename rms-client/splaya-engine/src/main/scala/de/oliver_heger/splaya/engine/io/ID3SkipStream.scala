@@ -1,8 +1,7 @@
 package de.oliver_heger.splaya.engine.io
 
-import java.io.FilterInputStream
 import java.io.InputStream
-
+import java.io.PushbackInputStream
 
 /**
  * A specialized input stream implementation which can be used to skip ID3 tags
@@ -21,25 +20,40 @@ import java.io.InputStream
  *
  * @param in the input stream to be filtered
  */
-class ID3SkipStream(in: InputStream) extends FilterInputStream(in) {
+class ID3SkipStream(in: InputStream) extends PushbackInputStream(in,
+  ID3SkipStream.HeaderSize) {
   /**
-   * Skips an ID3 header in the wrapped input stream if available. This
+   * Skips all ID3 headers in the wrapped input at the current position. This
    * method should be called directly after creation of this object. It checks
-   * whether the wrapped stream starts with an ID3 header. If this is the case,
-   * ID3 information is skipped, and result is '''true'''. Otherwise, this
-   * method has no effect, and result is '''false'''.
+   * whether the wrapped stream starts with one or more ID3 headers. If this is
+   * the case, ID3 information is skipped, and result is the number of skipped
+   * ID3 headers. Otherwise, this method has no effect, and result is 0.
+   * @return the number of ID3 headers which have been skipped
+   * @throws IOException if a read error occurs
+   */
+  def skipID3(): Int = {
+    var count = 0
+    while (skipNextID3()) {
+      count += 1
+    }
+    count
+  }
+
+  /**
+   * Skips the next ID3 header at the current position of the wrapped input
+   * stream if present. The return value indicates whether an ID3 header was
+   * found at the current position. If not, this method has no effect.
    * @return a flag whether an ID3 header was skipped
    * @throws IOException if a read error occurs
    */
-  def skipID3(): Boolean = {
+  def skipNextID3(): Boolean = {
     val header = new Array[Byte](ID3SkipStream.HeaderSize)
-    in.mark(ID3SkipStream.HeaderSize)
-    if (in.read(header) == ID3SkipStream.HeaderSize
-      && ID3SkipStream.isID3Header(header)) {
+    val read = in.read(header)
+    if (read == ID3SkipStream.HeaderSize && ID3SkipStream.isID3Header(header)) {
       in.skip(id3Size(header))
       true
     } else {
-      in.reset()
+      unread(header, 0, read)
       false
     }
   }
