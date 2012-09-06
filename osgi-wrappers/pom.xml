@@ -44,7 +44,6 @@
     <module>dom4j-osgi</module>
     <module>commons-jelly-osgi</module>
     <module>commons-vfs2-osgi</module>
-    <module>commons-configuration-osgi</module>
     <module>log4j-osgi</module>
     <module>oauth-signature-osgi</module>
     <module>oauth-client-osgi</module>
