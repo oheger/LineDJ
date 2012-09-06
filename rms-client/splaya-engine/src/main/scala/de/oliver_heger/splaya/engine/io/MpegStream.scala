@@ -1,8 +1,8 @@
 package de.oliver_heger.splaya.engine.io
 
 import java.io.IOException
-import java.io.FilterInputStream
 import java.io.InputStream
+import java.io.PushbackInputStream
 
 /**
  * A specialized stream class which can be used to extract single frames of
@@ -15,15 +15,10 @@ import java.io.InputStream
  *
  * @param in the underlying input stream
  */
-class MpegStream(in: InputStream) extends FilterInputStream(in) {
+class MpegStream(in: InputStream)
+  extends PushbackInputStream(in, MpegStream.HeaderSize) {
   /** The current MPEG header. */
   private var currentHeader: Option[MpegHeader] = None
-
-  /** An array with bytes to read first. */
-  private var readBuffer: Array[Int] = _
-
-  /** The index of the internal read buffer. */
-  private var readBufferIndex = -1
 
   /** A flag whether the end of the stream is reached. */
   private var endOfStream = false
@@ -131,35 +126,13 @@ class MpegStream(in: InputStream) extends FilterInputStream(in) {
   }
 
   /**
-   * Reads the next byte. If the internal read buffer contains data, the byte
-   * is taken from there. Otherwise, the underlying stream is read.
+   * Reads the next byte. This implementation reads a byte from the underlying
+   * stream. Checks for the end of stream are done; if the end is reached, 0
+   * is returned. (This is done for having a defined byte value when
+   * constructing an MPEG header.)
    * @return the next byte
    */
   private def nextByte(): Int = {
-    if (readBufferIndex >= 0) nextByteFromBuffer()
-    else nextByteFromStream()
-  }
-
-  /**
-   * Reads the next byte of the stream if the internal read buffer contains
-   * data.
-   * @return the next byte
-   */
-  private def nextByteFromBuffer(): Int = {
-    val result = readBuffer(readBufferIndex)
-    readBufferIndex += 1
-    if (readBufferIndex >= readBuffer.length) {
-      readBufferIndex = -1
-    }
-    result
-  }
-
-  /**
-   * Reads the next byte from the underlying stream. It is checked for the end
-   * of the stream.
-   * @return the next byte
-   */
-  private def nextByteFromStream(): Int = {
     if (endOfStream) 0
     else {
       val result = read()
@@ -177,8 +150,7 @@ class MpegStream(in: InputStream) extends FilterInputStream(in) {
    * @param field the header bit field with the invalid frame header
    */
   private def pushBack(field: HeaderBitField) {
-    readBuffer = field.toArray
-    readBufferIndex = 0
+    unread(field.toArray)
   }
 
   /**
@@ -222,13 +194,13 @@ class MpegStream(in: InputStream) extends FilterInputStream(in) {
     /**
      * Returns the internal value of this field as an array. The array contains
      * 3 bytes.
-     * @return the internal value of this field as Int array
+     * @return the internal value of this field as byte array
      */
-    def toArray: Array[Int] = {
-      val result = new Array[Int](3)
-      result(0) = apply(16, 23)
-      result(1) = apply(8, 15)
-      result(2) = apply(0, 7)
+    def toArray: Array[Byte] = {
+      val result = new Array[Byte](3)
+      result(0) = apply(16, 23).toByte
+      result(1) = apply(8, 15).toByte
+      result(2) = apply(0, 7).toByte
       result
     }
   }
