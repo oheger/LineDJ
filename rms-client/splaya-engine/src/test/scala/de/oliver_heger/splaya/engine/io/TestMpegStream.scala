@@ -117,7 +117,7 @@ class TestMpegStream extends JUnit3Suite {
    * @param expected the expected duration (in milliseconds)
    */
   private def checkDuration(fileName: String, expected: Int) {
-    val id3Stream = new ID3SkipStream(testStream(fileName))
+    val id3Stream = new ID3Stream(testStream(fileName))
     id3Stream.skipID3()
     stream = new MpegStream(id3Stream)
     var duration = 0.0f

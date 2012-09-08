@@ -12,9 +12,9 @@ import org.scalatest.junit.JUnitSuite
 import de.oliver_heger.tsthlp.StreamDataGenerator
 
 /**
- * Test class for ''ID3SkipStream''.
+ * Test class for ''ID3Stream''.
  */
-class TestID3SkipStream extends JUnitSuite {
+class TestID3Stream extends JUnitSuite {
   /** The generator for stream data. */
   private var streamgen: StreamDataGenerator = _
 
@@ -32,7 +32,7 @@ class TestID3SkipStream extends JUnitSuite {
     header(7) = 0x7F
     header(8) = 0x7F
     header(9) = 0x7F
-    val stream = new ID3SkipStream(streamgen.nextStream(256))
+    val stream = new ID3Stream(streamgen.nextStream(256))
     assert(0xFFFFFFF === stream.id3Size(header))
   }
 
@@ -42,7 +42,7 @@ class TestID3SkipStream extends JUnitSuite {
   @Test def testSkipID3NoHeader() {
     val count = 1024
     val in = streamgen.nextStream(count)
-    val stream = new ID3SkipStream(in)
+    val stream = new ID3Stream(in)
     assertEquals("Wrong result", 0, stream.skipID3())
     val data = new String(StreamDataGenerator.readStream(stream))
     assert(streamgen.generateStreamContent(0, count) === data)
@@ -73,7 +73,7 @@ class TestID3SkipStream extends JUnitSuite {
     out.write(header)
     out.write(streamgen.generateStreamContent(0, count).getBytes)
     val in = new ByteArrayInputStream(out.toByteArray)
-    val stream = new ID3SkipStream(in)
+    val stream = new ID3Stream(in)
     assertEquals("Wrong result", 1, stream.skipID3())
     val data = new String(StreamDataGenerator.readStream(stream))
     assert(streamgen.generateStreamContent(headerSize, count - headerSize) === data)
@@ -94,7 +94,7 @@ class TestID3SkipStream extends JUnitSuite {
     out.write(streamgen.generateStreamContent(id3Size1 + id3Size2,
       contentSize).getBytes)
     val in = new ByteArrayInputStream(out.toByteArray)
-    val stream = new ID3SkipStream(in)
+    val stream = new ID3Stream(in)
     assertEquals("Wrong result", 2, stream.skipID3())
     val data = new String(StreamDataGenerator.readStream(stream))
     assert(streamgen.generateStreamContent(id3Size1 + id3Size2, contentSize) === data)
@@ -105,7 +105,7 @@ class TestID3SkipStream extends JUnitSuite {
    */
   @Test def testSkipID3TooShort() {
     val count = 5
-    val stream = new ID3SkipStream(streamgen.nextStream(count))
+    val stream = new ID3Stream(streamgen.nextStream(count))
     assertEquals("Wrong result", 0, stream.skipID3())
     val data = new String(StreamDataGenerator.readStream(stream))
     assert(streamgen.generateStreamContent(0, count) === data)
@@ -116,6 +116,6 @@ class TestID3SkipStream extends JUnitSuite {
    */
   @Test def testIsID3HeaderArrayTooShort() {
     val arr = new Array[Byte](1)
-    assertFalse("Wrong result", ID3SkipStream.isID3Header(arr))
+    assertFalse("Wrong result", ID3Stream.isID3Header(arr))
   }
 }

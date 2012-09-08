@@ -4,24 +4,29 @@ import java.io.InputStream
 import java.io.PushbackInputStream
 
 /**
- * A specialized input stream implementation which can be used to skip ID3 tags
- * in MP3 files.
+ * A specialized input stream implementation which can be used to skip or
+ * evaluate ID3 tags in MP3 files.
  *
  * Obviously, the MP3 library used for playing audio files has some problems
  * with MP3 files containing certain images in their ID3 tags. Therefore, this
  * stream can be wrapped around a data stream. It checks whether the wrapped
- * stream contains ID3 tags. If this is the case, the whole ID3 tags are
+ * stream contains ID3 tags. If this is the case, the whole ID3 tags can be
  * skipped. For clients reading data from this stream it looks as if the data
  * file would not contain any ID3 information.
  *
  * After creating an instance passing in the wrapped stream, the ''skipID3()''
  * method has to be called. Afterwards the stream can be used in the usual way.
- * If ID3 information were present, it is skipped now.
+ * If ID3 information was present, it is skipped now.
+ *
+ * It is also possible to evaluate ID3 information. In this is desired, rather
+ * than calling ''skipID3()'', call ''nextID3Frame()'' for obtaining a data
+ * object describing the next ID3 frame. From this object the single ID3 tags
+ * can be obtained.
  *
  * @param in the input stream to be filtered
  */
-class ID3SkipStream(in: InputStream) extends PushbackInputStream(in,
-  ID3SkipStream.HeaderSize) {
+class ID3Stream(in: InputStream) extends PushbackInputStream(in,
+  ID3Stream.HeaderSize) {
   /**
    * Skips all ID3 headers in the wrapped input at the current position. This
    * method should be called directly after creation of this object. It checks
@@ -47,9 +52,9 @@ class ID3SkipStream(in: InputStream) extends PushbackInputStream(in,
    * @throws IOException if a read error occurs
    */
   def skipNextID3(): Boolean = {
-    val header = new Array[Byte](ID3SkipStream.HeaderSize)
+    val header = new Array[Byte](ID3Stream.HeaderSize)
     val read = in.read(header)
-    if (read == ID3SkipStream.HeaderSize && ID3SkipStream.isID3Header(header)) {
+    if (read == ID3Stream.HeaderSize && ID3Stream.isID3Header(header)) {
       in.skip(id3Size(header))
       true
     } else {
@@ -66,7 +71,7 @@ class ID3SkipStream(in: InputStream) extends PushbackInputStream(in,
    * @return the size of the ID3 block (minus header size)
    */
   protected[io] def id3Size(header: Array[Byte]): Int = {
-    import ID3SkipStream._
+    import ID3Stream._
     val f1 = header(IdxSize).toInt << F1
     val f2 = header(IdxSize + 1).toInt << F2
     val f3 = header(IdxSize + 2).toInt << F3
@@ -75,9 +80,9 @@ class ID3SkipStream(in: InputStream) extends PushbackInputStream(in,
 }
 
 /**
- * The companion object of ''ID3SkipStream''.
+ * The companion object of ''ID3Stream''.
  */
-object ID3SkipStream {
+object ID3Stream {
   /** The factor for byte 1 of the header size. */
   private val F1 = 21
 
