@@ -645,17 +645,19 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
       case otherMsg => fail("Unexpected message: " + otherMsg)
     }
   }
-
+  
   /**
-   * Tests whether an error while reading the audio stream is handled correctly.
+   * Helper method for testing whether exceptions caused by reading the audio
+   * input stream are handled correctly.
+   * @param inp the input stream to be used by this test
    */
-  @Test def testErrorReadAudioStream() {
+  private def checkErrorReadAudioStream(inp: InputStream) {
     val line = mock[SourceDataLine]
     val len = 100
     val stream = createStreamWrapper(len)
     val src = AudioSource("uri", 1, len, 0, 0)
     EasyMock.expect(streamFactory.createStream(null, len)).andReturn(stream)
-    val context = createContext(line, new ExceptionInputStream("Error"))
+    val context = createContext(line, inp)
     EasyMock.expect(ctxFactory.createPlaybackContext(stream)).andReturn(context)
     context.close()
     line.open(Format)
@@ -687,6 +689,24 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     lineActor.shutdown()
     gateway.unregister(listener)
     listener.shutdown()
+  }
+
+  /**
+   * Tests whether an IO exception while reading the audio stream is handled
+   * correctly.
+   */
+  @Test def testIOExReadAudioStream() {
+    checkErrorReadAudioStream(new ExceptionInputStream("Error"))
+  }
+
+  /**
+   * Tests whether a runtime exception while reading the audio stream is handled
+   * correctly.
+   */
+  @Test def testRuntimeExReadAudioStream() {
+    val stream = new ExceptionInputStream("Error",
+      new IllegalArgumentException("Invalid encoding!"))
+    checkErrorReadAudioStream(stream)
   }
 
   /**

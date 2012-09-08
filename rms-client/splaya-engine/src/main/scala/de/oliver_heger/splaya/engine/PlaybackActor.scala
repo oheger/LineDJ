@@ -274,9 +274,10 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactory,
     try {
       read = is.read(playbackBuffer, ofs, len)
     } catch {
-      case ioex: IOException =>
+      // also runtime exceptions have to be handled
+      case ex: Exception =>
         val msg = "Error when reading from audio stream for source " + currentSource
-        fireErrorEvent(msg, ioex, errorStream)
+        fireErrorEvent(msg, ex, errorStream)
         if (errorStream) {
           playbackEnabled = false
         } else {
