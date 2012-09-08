@@ -5,10 +5,14 @@ import java.io.IOException
 
 /**
  * A helper stream class which throws an exception after the full content was
- * read.
+ * read. This class can be used to test read operations which cause exceptions.
+ *
  * @param content the content of the stream
+ * @param ex the exception to be thrown
  */
-class ExceptionInputStream(content: String) extends InputStream {
+class ExceptionInputStream(content: String,
+  ex: Throwable = new IOException("Exception from ExceptionInputStream!"))
+  extends InputStream {
   /** The content of the stream as an array. */
   private val contentArray = content.getBytes()
 
@@ -43,7 +47,7 @@ class ExceptionInputStream(content: String) extends InputStream {
    */
   private def throwExceptionIfPositionReached() {
     if (readCount >= contentArray.length) {
-      throw new IOException("Exception from ExceptionInputStream!");
+      throw ex
     }
   }
 }
