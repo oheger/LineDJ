@@ -4,7 +4,7 @@ import java.io.InputStream
 
 import com.sun.media.sound.DirectAudioDeviceProvider
 
-import de.oliver_heger.splaya.engine.io.ID3Stream
+import de.oliver_heger.splaya.mp3.ID3Stream
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
