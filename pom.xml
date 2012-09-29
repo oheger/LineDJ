@@ -190,6 +190,12 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>splaya-mp3</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>rms-storelistener</artifactId>
       <version>${project.version}</version>
     </dependency>

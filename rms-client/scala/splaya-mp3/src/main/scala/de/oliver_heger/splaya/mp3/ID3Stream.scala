@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine.io
+package de.oliver_heger.splaya.mp3
 
 import java.io.InputStream
 import java.io.PushbackInputStream
@@ -80,7 +80,7 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
    * @param header the array with the ID3 header
    * @return the size of the ID3 block (minus header size)
    */
-  protected[io] def id3Size(header: Array[Byte]): Int = {
+  protected[mp3] def id3Size(header: Array[Byte]): Int = {
     import ID3Stream._
     val f1 = header(IdxSize).toInt << F1
     val f2 = header(IdxSize + 1).toInt << F2
@@ -194,7 +194,7 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
  */
 object ID3Stream {
   /** A blank string. */
-  private[io] val Blank = ""
+  private[mp3] val Blank = ""
 
   /** The factor for byte 1 of the header size. */
   private val F1 = 21
@@ -233,7 +233,7 @@ object ID3Stream {
    * An array with all supported text encodings in an order which corresponds
    * to the text encoding byte used within ID3v2 tags.
    */
-  private[io] val Encodings = Array(EncISO88591, EncUTF16, EncUTF16BE, EncUTF8)
+  private[mp3] val Encodings = Array(EncISO88591, EncUTF16, EncUTF16BE, EncUTF8)
 
   private val Versions = createVersionDataMap()
 
@@ -272,7 +272,7 @@ object ID3Stream {
    * @param enc the name of the encoding
    * @return the resulting string
    */
-  private[io] def extractString(buf: Array[Byte], ofs: Int, len: Int,
+  private[mp3] def extractString(buf: Array[Byte], ofs: Int, len: Int,
     enc: String): String =
     new String(buf, ofs, len, enc)
 
@@ -300,7 +300,7 @@ object ID3Stream {
    * @param idx the index in the buffer
    * @return the resulting unsigned integer
    */
-  private[io] def extractByte(buf: Array[Byte], idx: Int): Int =
+  private[mp3] def extractByte(buf: Array[Byte], idx: Int): Int =
     buf(idx).toInt & 0xFF
 
   /**

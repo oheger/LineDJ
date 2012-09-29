@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine.io
+package de.oliver_heger.splaya.mp3
 
 import org.scalatest.junit.JUnitSuite
 import de.oliver_heger.tsthlp.StreamDataGenerator

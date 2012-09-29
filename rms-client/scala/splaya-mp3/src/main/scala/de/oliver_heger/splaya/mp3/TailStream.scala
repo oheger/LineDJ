@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.engine.io
+package de.oliver_heger.splaya.mp3
 
 import java.io.FilterInputStream
 import java.io.InputStream
