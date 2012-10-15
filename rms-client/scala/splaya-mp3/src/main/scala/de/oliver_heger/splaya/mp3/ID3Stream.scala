@@ -235,6 +235,13 @@ object ID3Stream {
    */
   private[mp3] val Encodings = Array(EncISO88591, EncUTF16, EncUTF16BE, EncUTF8)
 
+  /** An array with tag names for ID3v2.2 frames. */
+  private val TagsV2 = Array("TT2", "TP1", "TAL", "TYE", "TRK")
+
+  /** An array with tag names for ID3v2.3 and 4 frames. */
+  private val TagsV3 = Array("TIT2", "TPE1", "TALB", "TYER", "TRCK")
+
+  /** A map with version-specific data. */
   private val Versions = createVersionDataMap()
 
   /** The mask for extracting a byte value to an unsigned integer. */
@@ -262,6 +269,21 @@ object ID3Stream {
     } else {
       false
     }
+  }
+
+  /**
+   * Returns an ''ID3TagProvider'' for the specified ''ID3Frame''. The provider
+   * can be used to obtain the most relevant tag values in a convenient way.
+   * If the ID3v2 version of the frame is not supported, an exception is
+   * throws (this should not happen if the frame was obtained through this
+   * class).
+   * @param frame the ''ID3Frame'' in question
+   * @return a corresponding ''ID3TagProvider''
+   * @throws IllegalArgumentException if the frame has a version which is not
+   * supported
+   */
+  def providerFor(frame: ID3Frame): ID3TagProvider = {
+    Versions(frame.header.version) createProvider frame
   }
 
   /**
@@ -309,9 +331,12 @@ object ID3Stream {
    * @return the mapping
    */
   private def createVersionDataMap(): Map[Int, VersionData] =
-    Map(2 -> VersionData(nameLength = 3, sizeLength = 3, headerLength = 6),
-      3 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10),
-      4 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10))
+    Map(2 -> VersionData(nameLength = 3, sizeLength = 3, headerLength = 6,
+      tagNames = TagsV2),
+      3 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10,
+        tagNames = TagsV3),
+      4 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10,
+        tagNames = TagsV3))
 
   /**
    * A class with information about differences in the single ID3v2 versions.
@@ -323,9 +348,11 @@ object ID3Stream {
    * @param nameLength the length of a tag name in this version
    * @param sizeLength the length of the size header field in this version
    * @param headerLength the total length of a tag header in bytes
+   * @param tagNames an array with the names of the tags exposed through the
+   * ''ID3TagProvider'' trait
    */
   private case class VersionData(nameLength: Int, sizeLength: Int,
-    headerLength: Int) {
+    headerLength: Int, tagNames: Array[String]) {
     /**
      * Extracts the tag name from the given header array.
      * @param header an array with the bytes of the tag header
@@ -342,6 +369,14 @@ object ID3Stream {
      */
     def extractSize(header: Array[Byte]): Int =
       extractInt(header, nameLength, sizeLength)
+
+    /**
+     * Creates an ''ID3TagProvider'' for the specified frame.
+     * @param frame the frame
+     * @return an ''ID3TagProvider'' for reading data from this frame
+     */
+    def createProvider(frame: ID3Frame): ID3TagProvider =
+      new ID3v2TagProvider(frame, tagNames)
   }
 }
 

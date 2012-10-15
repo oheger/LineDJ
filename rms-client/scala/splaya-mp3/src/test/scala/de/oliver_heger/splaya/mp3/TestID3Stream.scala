@@ -214,9 +214,10 @@ class TestID3Stream extends JUnitSuite {
   }
 
   /**
-   * Tests whether ID3v2.2 tags can be read.
+   * Creates an ID3Stream on an input stream with an ID3v2.2 frame.
+   * @return the ID3Stream
    */
-  @Test def testReadID3v2() {
+  private def createV2Stream(): ID3Stream = {
     val tagsOut = new ByteArrayOutputStream
     var size = 0
     size += writeV2Tag(tagsOut, "TT2", "Tit")
@@ -229,7 +230,14 @@ class TestID3Stream extends JUnitSuite {
     out.write(header)
     out.write(tagsOut.toByteArray)
     val in = new ByteArrayInputStream(out.toByteArray)
-    stream = new ID3Stream(in)
+    new ID3Stream(in)
+  }
+
+  /**
+   * Tests whether ID3v2.2 tags can be read.
+   */
+  @Test def testReadID3v2() {
+    stream = createV2Stream()
     val frameOpt = stream.nextID3Frame()
     assertTrue("Undefined", frameOpt.isDefined)
     val frame = frameOpt.get
@@ -349,5 +357,57 @@ class TestID3Stream extends JUnitSuite {
     assertTrue("Not defined", stream.nextID3Frame().isDefined)
     val content = new String(StreamDataGenerator.readStream(stream))
     assert(streamgen.generateStreamContent(padding, count - padding) === content)
+  }
+
+  /**
+   * Tries to obtain an ID3 tag provider for an unsupported version.
+   */
+  @Test(expected = classOf[NoSuchElementException])
+  def testProviderForUnsupportedVersion() {
+    val header = ID3Header(size = 128, version = 20121014)
+    val frame = ID3Frame(header = header, tags = Map.empty)
+    ID3Stream.providerFor(frame)
+  }
+
+  /**
+   * Tests a tag provider for an ID3v2.2 frame.
+   */
+  @Test def testProviderForV2Frame() {
+    val stream = createV2Stream()
+    val frame = stream.nextID3Frame().get
+    val provider = ID3Stream providerFor frame
+    assertEquals("Wrong title", "Tit", provider.title.get)
+    assertEquals("Wrong artist", "Art", provider.artist.get)
+    assertEquals("Wrong album", "Alb", provider.album.get)
+    assertEquals("Wrong year", 2012, provider.inceptionYear.get)
+    assertEquals("Wrong track", 1, provider.trackNo.get)
+  }
+
+  /**
+   * Tests a tag provider for an ID3v2.3 frame.
+   */
+  @Test def testProviderForV3Frame() {
+    stream = streamForTestFile("test.mp3")
+    val frame = stream.nextID3Frame().get
+    val provider = ID3Stream providerFor frame
+    assertEquals("Wrong title", "Testtitle", provider.title.get)
+    assertEquals("Wrong artist", "Testinterpret", provider.artist.get)
+    assertEquals("Wrong album", "A Test Collection", provider.album.get)
+    assertEquals("Wrong year", 2006, provider.inceptionYear.get)
+    assertEquals("Wrong track", 1, provider.trackNo.get)
+  }
+
+  /**
+   * Tests a tag provider for an ID3v2.4 frame.
+   */
+  @Test def testProviderForV4Frame() {
+    stream = streamForTestFile("testMP3id3v24.mp3")
+    val frame = stream.nextID3Frame().get
+    val provider = ID3Stream providerFor frame
+    assertEquals("Wrong title", "Test Title", provider.title.get)
+    assertEquals("Wrong artist", "Test Artist", provider.artist.get)
+    assertEquals("Wrong album", "Test Album", provider.album.get)
+    assertEquals("Wrong track", 11, provider.trackNo.get)
+    assertFalse("Got a year", provider.inceptionYear.isDefined)
   }
 }
