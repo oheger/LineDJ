@@ -4,7 +4,6 @@ import org.slf4j.LoggerFactory
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.fs.StreamSource
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
-import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
 import javazoom.jl.decoder.Bitstream
 import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader

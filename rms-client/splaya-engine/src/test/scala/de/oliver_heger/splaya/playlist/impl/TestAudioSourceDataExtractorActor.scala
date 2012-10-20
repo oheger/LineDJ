@@ -8,7 +8,6 @@ import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
 
 import de.oliver_heger.splaya.engine.msg.Exit
-import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
 import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.tsthlp.TestActorSupport

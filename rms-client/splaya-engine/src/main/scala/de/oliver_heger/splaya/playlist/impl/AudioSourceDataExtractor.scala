@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.playlist
+package de.oliver_heger.splaya.playlist.impl
 import de.oliver_heger.splaya.AudioSourceData
 
 /**

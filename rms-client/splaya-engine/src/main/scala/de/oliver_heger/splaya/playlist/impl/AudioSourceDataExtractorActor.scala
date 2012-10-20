@@ -4,7 +4,6 @@ import java.io.Closeable
 
 import scala.actors.Actor
 
-import de.oliver_heger.splaya.playlist.AudioSourceDataExtractor
 import de.oliver_heger.splaya.AudioSourceData
 
 /**
