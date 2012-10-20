@@ -1,138 +1,164 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import org.junit.Assert.assertNull
-import org.junit.After
+import java.io.IOException
+import java.io.InputStream
+
+import org.easymock.EasyMock
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
-import de.oliver_heger.splaya.fs.impl.FSServiceImpl
+import org.scalatest.mock.EasyMockSugar
+
 import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.fs.StreamSource
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
-import de.oliver_heger.tsthlp.StreamDataGenerator
-import de.oliver_heger.tsthlp.TestFileSupport
-import org.junit.BeforeClass
-import org.junit.Ignore
+import de.oliver_heger.splaya.AudioSourceData
+import de.oliver_heger.splaya.MediaDataExtractor
 
 /**
  * Test class for ''AudioSourceDataExtractorImpl''.
  */
-class TestAudioSourceDataExtractorImpl extends JUnitSuite with TestFileSupport {
+class TestAudioSourceDataExtractorImpl extends JUnitSuite with EasyMockSugar {
+  /** Constant for the root URI. */
+  private val RootURI = "res://SomeRootURI"
+
+  /** Constant for the name of a test file. */
+  private val TestURI = "test.mp3";
+
+  /** A mock for the FS service. */
+  private var fsService: FSService = _
+
+  /** A mock for a first media extractor. */
+  private var dataExtr1: MediaDataExtractor = _
+
+  /** A mock for another media extractor. */
+  private var dataExtr2: MediaDataExtractor = _
+
   /** The extractor to be tested. */
   private var extractor: AudioSourceDataExtractorImpl = _
 
   @Before def setUp() {
-    extractor = new AudioSourceDataExtractorImpl(
-      TestAudioSourceDataExtractorImpl.fsService)
+    val wrapper = new ServiceWrapper[FSService]
+    fsService = mock[FSService]
+    wrapper bind fsService
+    extractor = new AudioSourceDataExtractorImpl(wrapper)
+    dataExtr1 = mock[MediaDataExtractor]
+    dataExtr2 = mock[MediaDataExtractor]
   }
 
-  @After def tearDown() {
-    removeTempFiles()
+  /**
+   * Prepares the mock for the file system service to resolve the test audio
+   * source.
+   * @param stream the input stream to be returned by the audio source
+   */
+  private def prepareFSService(stream: InputStream) {
+    val source = mock[StreamSource]
+    EasyMock.expect(fsService.resolve(RootURI, TestURI)).andReturn(source)
+    EasyMock.expect(source.openStream()).andReturn(stream).anyTimes()
+    EasyMock.replay(source)
+  }
+
+  /**
+   * Creates a mock for an input stream and prepare the mock for the file
+   * system service to resolve the test audio source.
+   * @return the mock for the input stream
+   */
+  private def createStreamAndPrepareFSService(): InputStream = {
+    val stream = mock[InputStream]
+    prepareFSService(stream)
+    stream.close()
+    EasyMock.expectLastCall[Unit].times(1, 2)
+    stream
   }
 
   /**
    * Tests a successful extraction of audio source data.
    */
   @Test def testExtractAudioSourceDataSuccess() {
-    import TestAudioSourceDataExtractorImpl._
-    val data = extractor.extractAudioSourceData(RootURI, Test1).get
-    assert(Interpret === data.artistName)
-    assert(Title === data.title)
-    assert(Duration === data.duration)
-    assert(2006 === data.inceptionYear)
-    assert(1 === data.trackNo)
-    assert("A Test Collection" === data.albumName)
-  }
-
-  /**
-   * Tests an audio file with no ID3 tags. At least the duration should be
-   * available and a title derived from the URI.
-   */
-  @Test def testExtractAudioSourceDataNoProperties() {
-    val data = extractor.extractAudioSourceData(
-      TestAudioSourceDataExtractorImpl.RootURI,
-      TestAudioSourceDataExtractorImpl.Test2).get
-    assert(TestAudioSourceDataExtractorImpl.Test2 === data.title)
-    assert(6734 === data.duration)
-    assertNull("Got an album", data.albumName)
-  }
-
-  /**
-   * Tests whether an unsupported audio file is handled correctly.
-   */
-  @Test def testExtractAudioSourceDataUnsupported() {
-    val generator = StreamDataGenerator()
-    val file = createTempFile { out =>
-      out.print(generator.generateStreamContent(0, 1024))
+    val stream = createStreamAndPrepareFSService()
+    val data = mock[AudioSourceData]
+    EasyMock.expect(dataExtr1.extractData(stream)).andReturn(Some(data))
+    EasyMock.expect(dataExtr2.extractData(stream)).andReturn(None).times(0, 1)
+    whenExecuting(fsService, stream, dataExtr1, dataExtr2) {
+      extractor addMediaDataExtractor dataExtr1
+      extractor addMediaDataExtractor dataExtr2
+      assertSame("Wrong data", data, extractor.extractAudioSourceData(
+        RootURI, TestURI).get)
     }
-    val root = file.getParentFile.toURI.toString
-    assert(None === extractor.extractAudioSourceData(root, file.getName))
   }
 
   /**
-   * Tries to extract information from a non existing file.
+   * Tests an extraction if none of the media extractors can handle the source.
    */
-  @Test def testExtractAudioSourceDataFileNotFound() {
-    assert(None === extractor.extractAudioSourceData("root", "a non existing file!"))
+  @Test def testExtractUnsupportedSource() {
+    val stream = createStreamAndPrepareFSService()
+    EasyMock.expect(dataExtr1.extractData(stream)).andReturn(None)
+    EasyMock.expect(dataExtr2.extractData(stream)).andReturn(None)
+    whenExecuting(fsService, stream, dataExtr1, dataExtr2) {
+      extractor addMediaDataExtractor dataExtr1
+      extractor addMediaDataExtractor dataExtr2
+      assertFalse("Got data", extractor.extractAudioSourceData(
+        RootURI, TestURI).isDefined)
+    }
   }
 
   /**
-   * Tests whether undefined numeric properties are handled correctly.
+   * Tests an extraction if there are no media extractors.
    */
-  @Test def testUndefinedNumericProperties() {
-    val map = new java.util.HashMap[String, Object]
-    val data = extractor.createSourceDataFromProperties(map,
-      TestAudioSourceDataExtractorImpl.Test1)
-    assert(0 === data.trackNo)
-    assert(0 === data.duration)
+  @Test def testExtractNoMediaExtractors() {
+    whenExecuting(fsService) {
+      assertFalse("Got data", extractor.extractAudioSourceData(
+        RootURI, TestURI).isDefined)
+    }
   }
 
   /**
-   * Tests whether an unexpected property value is handled correctly.
+   * Tests an extract operation if an extractor throws an exception.
    */
-  @Test def testInvalidNumericPropertyValue() {
-    val map = new java.util.HashMap[String, Object]
-    map.put("mp3.id3tag.track", "not a number")
-    val data = extractor.createSourceDataFromProperties(map,
-      TestAudioSourceDataExtractorImpl.Test1)
-    assert(0 === data.trackNo)
-  }
-}
-
-object TestAudioSourceDataExtractorImpl {
-  /** Constant for the root URI. */
-  private val RootURI = "res://"
-
-  /** Constant for the name of test file 1. */
-  private val Test1 = "test.mp3";
-
-  /** Constant for the name of test file 2. */
-  private val Test2 = "test2.mp3";
-
-  /** Constant for the name of the interpret. */
-  private val Interpret = "Testinterpret";
-
-  /** Constant for the title. */
-  private val Title = "Testtitle";
-
-  /** Constant for the original duration of the audio file. */
-  private val Duration = 10842L;
-
-  /** The service wrapper for the file system service. */
-  private var fsService: ServiceWrapper[FSService] = _
-
-  @BeforeClass def setupBeforeClass() {
-    fsService = initFSService()
+  @Test def testExtractException() {
+    val stream = createStreamAndPrepareFSService()
+    EasyMock.expect(dataExtr1.extractData(stream)).andThrow(new RuntimeException)
+    EasyMock.expect(dataExtr2.extractData(stream)).andReturn(None)
+    whenExecuting(fsService, stream, dataExtr1, dataExtr2) {
+      extractor addMediaDataExtractor dataExtr1
+      extractor addMediaDataExtractor dataExtr2
+      assertFalse("Got data", extractor.extractAudioSourceData(
+        RootURI, TestURI).isDefined)
+    }
   }
 
   /**
-   * Creates and initializes a service wrapper for an FSService implementation.
-   * @return the service wrapper
+   * Tests whether media extractors can be removed.
    */
-  private def initFSService(): ServiceWrapper[FSService] = {
-    val wrapper = new ServiceWrapper[FSService]
-    val fsService = new FSServiceImpl
-    fsService.activate()
-    wrapper bind fsService
-    wrapper
+  @Test def testRemoveMediaDataExtractor() {
+    val stream = createStreamAndPrepareFSService()
+    EasyMock.expect(dataExtr1.extractData(stream)).andReturn(None)
+    whenExecuting(fsService, stream, dataExtr1, dataExtr2) {
+      extractor addMediaDataExtractor dataExtr1
+      extractor addMediaDataExtractor dataExtr2
+      extractor removeMediaDataExtractor dataExtr2
+      assertFalse("Got data", extractor.extractAudioSourceData(
+        RootURI, TestURI).isDefined)
+    }
+  }
+
+  /**
+   * Tests whether an exception thrown by the stream on close() is detected.
+   */
+  @Test def testStreamExceptionOnClose() {
+    val stream = mock[InputStream]
+    prepareFSService(stream)
+    val data = mock[AudioSourceData]
+    EasyMock.expect(dataExtr1.extractData(stream)).andReturn(Some(data))
+    stream.close()
+    EasyMock.expectLastCall[Unit].andThrow(
+      new IOException("TestException on close()!"))
+    whenExecuting(fsService, stream, dataExtr1) {
+      extractor addMediaDataExtractor dataExtr1
+      assertSame("Wrong data", data, extractor.extractAudioSourceData(
+        RootURI, TestURI).get)
+    }
   }
 }
