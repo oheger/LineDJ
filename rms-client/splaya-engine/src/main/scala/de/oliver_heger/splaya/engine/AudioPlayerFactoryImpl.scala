@@ -36,8 +36,11 @@ import de.oliver_heger.splaya.engine.msg.Exit
  * $ - [[de.oliver_heger.splaya.fs.FSServive]] for accessing the file system
  * containing the media files to be played
  * $ - [[de.oliver_heger.splaya.playlist.PlaylistGenerator]] generates ordered
- * playlist based on specific criteria; an arbitrary number of services of this
+ * playlists based on specific criteria; an arbitrary number of services of this
  * type can be bound to this component
+ * $ - [[de.oliver_heger.splaya.playlist.MediaDataExtractor]] is used to obtain
+ * meta information from audio files to be played; such services are optional,
+ * an arbitrary number can be bound supporting different audio file formats
  *
  * Some configuration properties can be set in the declarative services
  * configuration:
@@ -48,12 +51,20 @@ import de.oliver_heger.splaya.engine.msg.Exit
  * $ - `audioPlayer.fileExtensions`: a comma-separated list with file extensions
  * of media files to be taken into account
  *
+ * For a new audio player object a number of different ''Actor'' objects has to
+ * be created. This is done through an
+ * [[de.oliver_heger.splaya.engine.ActorFactory]] object. It is possible to
+ * pass such an object to the constructor, but this is mainly used for
+ * testing purposes. A default actor factory is set by the default
+ * constructor.
+ *
  * @param playlistCreationActor an actor instance for managing playlist
  * generators (this parameter is mainly used for testing purposes; there is
  * also a default constructor which creates a default actor instance)
+ * @param actorFactory the factory for creating actor objects
  */
-class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
-  extends AudioPlayerFactory {
+class AudioPlayerFactoryImpl(val playlistCreationActor: Actor,
+  val actorFactory: ActorFactory) extends AudioPlayerFactory {
   /** The object for managing the file system service. */
   protected[engine] val fsService = new ServiceWrapper[FSService]
 
@@ -73,10 +84,10 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
 
   /**
    * Creates a new instance of ''AudioPlayerFactoryImpl'' with a default
-   * instance of a ''PlaylistCreationActor''.
+   * instance of a ''PlaylistCreationActor'' and a default actor factory.
    */
   def this() {
-    this(new PlaylistCreationActor)
+    this(new PlaylistCreationActor, AudioPlayerFactoryImpl.DefaultActorFactory)
   }
 
   /**
@@ -107,16 +118,18 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
       tempFileFactory)
     val extractor = new AudioSourceDataExtractorImpl(fsService)
 
-    val readActor = new SourceReaderActor(gateway, fsService,
+    val readActor = actorFactory.createSourceReaderActor(gateway, fsService,
       tempFileFactory, bufferSize / 2)
-    val playbackActor = new PlaybackActor(gateway, ctxFactory, streamFactory)
-    val lineActor = new LineWriteActor(gateway)
-    val timingActor = new TimingActor(gateway, new StopWatch)
-    val eventActor = new EventTranslatorActor(gateway, 4)
-    val extrActor = new AudioSourceDataExtractorActor(extractor)
-    val playlistExtrActor = new PlaylistDataExtractorActor(gateway, extrActor)
-    val plCtrlActor = new PlaylistCtrlActor(gateway, readActor, fsService,
-      playlistFileStore, playlistCreationActor, Set("mp3"))
+    val playbackActor = actorFactory.createPlaybackActor(gateway, ctxFactory,
+      streamFactory)
+    val lineActor = actorFactory.createLineActor(gateway)
+    val timingActor = actorFactory.createTimingActor(gateway, new StopWatch)
+    val eventActor = actorFactory.createEventTranslatorActor(gateway, 4)
+    val extrActor = actorFactory.createAudioSourceDataExtractorActor(extractor)
+    val playlistExtrActor =
+      actorFactory.createPlaylistDataExtractorActor(gateway, extrActor)
+    val plCtrlActor = actorFactory.createPlaylistCtrlActor(gateway, readActor,
+      fsService, playlistFileStore, playlistCreationActor, Set("mp3"))
 
     gateway.start()
     readActor.start()
@@ -154,10 +167,10 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor)
       fileExtensions = AudioPlayerFactoryImpl.parseFileExtensions(
         String.valueOf(props get AudioPlayerFactoryImpl.PropFileExtensions))
     }
-    
+
     playlistCreationActor.start()
   }
-  
+
   /**
    * Deactivates this component. This implementation does some cleanup.
    */
@@ -232,6 +245,9 @@ object AudioPlayerFactoryImpl {
   /** A set with default file extensions. */
   val DefaultFileExtensions = Set("mp3")
 
+  /** A default actor factory. */
+  val DefaultActorFactory = new ActorFactory {}
+
   /** Constant for the regular expression for splitting file extensions. */
   private val RegExSplitExtensions = "\\s*[,;]\\s*";
 
@@ -240,7 +256,7 @@ object AudioPlayerFactoryImpl {
 
   /** Constant for the system property with the user's home directory. */
   private val PropHomeDir = "user.home"
-    
+
   /**
    * Constant for the sub directory in the user's home directory where to store
    * playlist-related data.
