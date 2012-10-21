@@ -1,17 +1,15 @@
 package de.oliver_heger.splaya.playlist.impl
 
 import org.easymock.EasyMock
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
 
-import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.AudioSourceData
+import de.oliver_heger.splaya.MediaDataExtractor
 import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.tsthlp.TestActorSupport
-import de.oliver_heger.tsthlp.WaitForExit
 
 /**
  * Test class for ''AudioSourceDataExtractorActor''.
@@ -57,5 +55,29 @@ class TestAudioSourceDataExtractorActor extends JUnitSuite with EasyMockSugar
       shutdownActor()
     }
     rec.expectMessage(ExtractSourceDataResult(PlaylistID, index, Some(data)))
+  }
+
+  /**
+   * Tests whether a media data extractor can be added.
+   */
+  @Test def testAddMediaDataExtractor() {
+    val dataExtr = mock[MediaDataExtractor]
+    extractor.addMediaDataExtractor(dataExtr)
+    whenExecuting(extractor, dataExtr) {
+      actor ! AddMediaDataExtractor(dataExtr)
+      shutdownActor()
+    }
+  }
+
+  /**
+   * Tests whether a media data extractor can be removed.
+   */
+  @Test def testRemoveMediaDataExtractor() {
+    val dataExtr = mock[MediaDataExtractor]
+    extractor.removeMediaDataExtractor(dataExtr)
+    whenExecuting(extractor, dataExtr) {
+      actor ! RemoveMediaDataExtractor(dataExtr)
+      shutdownActor()
+    }
   }
 }

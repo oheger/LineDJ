@@ -5,6 +5,7 @@ import java.io.Closeable
 import scala.actors.Actor
 
 import de.oliver_heger.splaya.AudioSourceData
+import de.oliver_heger.splaya.MediaDataExtractor
 
 /**
  * An actor implementation which extracts meta data from audio sources.
@@ -13,6 +14,12 @@ import de.oliver_heger.splaya.AudioSourceData
  * a [[de.oliver_heger.splaya.playlist.AudioSourceDataExtractor]] implementation
  * to obtain meta data about this audio source. The information extracted is
  * then sent back to the sender.
+ *
+ * An ''AudioSourceDataExtractor'' manages a set of
+ * [[de.oliver_heger.splaya.playlist.MediaDataExtractor]] objects. Such
+ * objects can be added or removed dynamically. This is also done by this
+ * actor; therefore, the ''AudioSourceDataExtractor'' object used need not be
+ * thread-safe.
  *
  * @param extractor the ''AudioSourceDataExtractor'' to be used
  */
@@ -35,6 +42,12 @@ class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
 
         case req: ExtractSourceDataRequest =>
           handleRequest(req)
+
+        case AddMediaDataExtractor(dataExtr) =>
+          extractor.addMediaDataExtractor(dataExtr)
+
+        case RemoveMediaDataExtractor(dataExtr) =>
+          extractor.removeMediaDataExtractor(dataExtr)
       }
     }
   }
@@ -86,3 +99,19 @@ case class ExtractSourceDataRequest(playlistID: Long, mediumURI: String,
  */
 case class ExtractSourceDataResult(playlistID: Long, index: Int,
   data: Option[AudioSourceData])
+
+/**
+ * A message to add a [[de.oliver_heger.splaya.playlist.MediaDataExtractor]]
+ * object. This object is passed to the associated
+ * [[de.oliver_heger.splaya.playlist.AudioSourceDataExtractor]] to be added.
+ * @param extr the ''MediaDataExtractor'' to be added
+ */
+case class AddMediaDataExtractor(extr: MediaDataExtractor)
+
+/**
+ * A message to remove a [[de.oliver_heger.splaya.playlist.MediaDataExtractor]]
+ * object. This object is passed to the associated
+ * [[de.oliver_heger.splaya.playlist.AudioSourceDataExtractor]] to be removed.
+ * @param extr the ''MediaDataExtractor'' to be removed
+ */
+case class RemoveMediaDataExtractor(extr: MediaDataExtractor)
