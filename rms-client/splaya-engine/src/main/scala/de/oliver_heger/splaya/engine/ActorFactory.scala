@@ -10,6 +10,7 @@ import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
+import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistCtrlActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
@@ -30,6 +31,12 @@ import msg.EventTranslatorActor
  * specialized actor implementations.
  */
 trait ActorFactory {
+  /**
+   * Creates an actor for creating playlist instances.
+   * @return the playlist creation actor
+   */
+  def createPlaylistCreationActor(): Actor = new PlaylistCreationActor
+
   /**
    * Creates an actor for reading data from the source medium.
    * @param gateway the gateway

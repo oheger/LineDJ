@@ -15,6 +15,7 @@ import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
+import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistCtrlActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractor
@@ -110,5 +111,13 @@ class TestActorFactory extends JUnitSuite with EasyMockSugar {
     assertEquals("Wrong actor", classOf[PlaylistCtrlActor],
       factory.createPlaylistCtrlActor(gateway, readActor, fsService, store,
         plCreateActor, Set("mp3")).getClass)
+  }
+
+  /**
+   * Tests whether the actor for creating playlist instances can be created.
+   */
+  @Test def testCreatePlaylistCreationActor() {
+    assertEquals("Wrong actor", classOf[PlaylistCreationActor],
+        factory.createPlaylistCreationActor().getClass)
   }
 }
