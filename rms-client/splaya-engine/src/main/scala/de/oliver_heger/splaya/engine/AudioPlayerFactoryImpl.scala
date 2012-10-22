@@ -1,13 +1,17 @@
 package de.oliver_heger.splaya.engine;
 import java.util.Locale
+
 import scala.Array.canBuildFrom
 import scala.actors.Actor
+
 import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
+
 import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactoryImpl
 import de.oliver_heger.splaya.engine.io.TempFileFactoryImpl
 import de.oliver_heger.splaya.engine.msg.EventTranslatorActor
+import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
@@ -16,7 +20,6 @@ import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorImpl
 import de.oliver_heger.splaya.playlist.impl.PlaylistControllerImpl
 import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
-import de.oliver_heger.splaya.playlist.impl.PlaylistCtrlActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
@@ -24,7 +27,6 @@ import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
-import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -58,19 +60,22 @@ import de.oliver_heger.splaya.engine.msg.Exit
  * testing purposes. A default actor factory is set by the default
  * constructor.
  *
- * @param playlistCreationActor an actor instance for managing playlist
- * generators (this parameter is mainly used for testing purposes; there is
- * also a default constructor which creates a default actor instance)
  * @param actorFactory the factory for creating actor objects
  */
-class AudioPlayerFactoryImpl(val playlistCreationActor: Actor,
-  val actorFactory: ActorFactory) extends AudioPlayerFactory {
+class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
+  extends AudioPlayerFactory {
   /** The object for managing the file system service. */
   protected[engine] val fsService = new ServiceWrapper[FSService]
 
   /** The ''PlaylistFileStore'' implementation used by this factory. */
   protected[engine] val playlistFileStore: PlaylistFileStore =
     AudioPlayerFactoryImpl.createPlaylistFileStore()
+    
+  /**
+   * The actor for creating playlist instances. This actor is global to the
+   * factory and shared between multiple audio player instances.
+   */
+  private val playlistCreationActor = actorFactory.createPlaylistCreationActor()
 
   /** The size of the temporary buffer used by the streaming actor. */
   @volatile private var bufferSize = AudioPlayerFactoryImpl.DefaultBufferSize
@@ -87,7 +92,7 @@ class AudioPlayerFactoryImpl(val playlistCreationActor: Actor,
    * instance of a ''PlaylistCreationActor'' and a default actor factory.
    */
   def this() {
-    this(new PlaylistCreationActor, AudioPlayerFactoryImpl.DefaultActorFactory)
+    this(AudioPlayerFactoryImpl.DefaultActorFactory)
   }
 
   /**

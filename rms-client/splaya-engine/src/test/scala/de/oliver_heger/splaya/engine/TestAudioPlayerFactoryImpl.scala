@@ -1,24 +1,24 @@
 package de.oliver_heger.splaya.engine
 
+import scala.actors.Actor
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
+import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.playlist.impl.AddPlaylistGenerator
-import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.splaya.engine.msg.Exit
 
 /**
  * Test class for ''AudioPlayerFactoryImpl''.
@@ -65,8 +65,7 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
    */
   @Test def testActivateActorStarted() {
     val actor = new QueuingActor
-    val factory = new AudioPlayerFactoryImpl(actor,
-      AudioPlayerFactoryImpl.DefaultActorFactory)
+    val factory = new AudioPlayerFactoryImpl(new MockPLCreationActorFactory(actor))
     val props = new java.util.HashMap[String, Object]
     factory.activate(props)
     val msg = "Hello Actor"
@@ -81,8 +80,7 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testDeactivate() {
     val actor = new QueuingActor
     actor.start()
-    val factory = new AudioPlayerFactoryImpl(actor,
-      AudioPlayerFactoryImpl.DefaultActorFactory)
+    val factory = new AudioPlayerFactoryImpl(new MockPLCreationActorFactory(actor))
     factory.deactivate()
     assertEquals("No Exit message", Exit, actor.nextMessage())
     actor.shutdown()
@@ -188,23 +186,13 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   }
 
   /**
-   * Tests whether a default playlist creation actor is created.
-   */
-  @Test def testDefaultPlaylistCreationActor() {
-    val factory = new AudioPlayerFactoryImpl
-    val playlistCreationActor =
-      factory.playlistCreationActor.asInstanceOf[PlaylistCreationActor]
-    assertNotNull("No playlist creation actor", playlistCreationActor)
-  }
-
-  /**
    * Tests whether a playlist generator service can be bound.
    */
   @Test def testBindPlaylistGenerator() {
     val generator = mock[PlaylistGenerator]
     val playlistCreatorActor = new ActorTestImpl
-    val factory = new AudioPlayerFactoryImpl(playlistCreatorActor,
-      AudioPlayerFactoryImpl.DefaultActorFactory)
+    val actorFactory = new MockPLCreationActorFactory(playlistCreatorActor)
+    val factory = new AudioPlayerFactoryImpl(actorFactory)
     val props = new java.util.HashMap[String, String]
     props.put(PlaylistGenerator.PropertyMode, "directories")
     factory.bindPlaylistGenerator(generator, props)
@@ -227,8 +215,8 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testBindPlaylistGeneratorDefault() {
     val generator = mock[PlaylistGenerator]
     val playlistCreatorActor = new ActorTestImpl
-    val factory = new AudioPlayerFactoryImpl(playlistCreatorActor,
-      AudioPlayerFactoryImpl.DefaultActorFactory)
+    val actorFactory = new MockPLCreationActorFactory(playlistCreatorActor)
+    val factory = new AudioPlayerFactoryImpl(actorFactory)
     val props = new java.util.HashMap[String, String]
     props.put(PlaylistGenerator.PropertyMode, "directories")
     props.put(PlaylistGenerator.PropertyDefault, "True")
@@ -250,8 +238,8 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testUnbindPlaylistGenerator() {
     val generator = mock[PlaylistGenerator]
     val playlistCreatorActor = new ActorTestImpl
-    val factory = new AudioPlayerFactoryImpl(playlistCreatorActor,
-      AudioPlayerFactoryImpl.DefaultActorFactory)
+    val actorFactory = new MockPLCreationActorFactory(playlistCreatorActor)
+    val factory = new AudioPlayerFactoryImpl(actorFactory)
     val props = new java.util.HashMap[String, String]
     props.put(PlaylistGenerator.PropertyMode, "directories")
     factory.unbindPlaylistGenerator(generator, props)
@@ -274,4 +262,11 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
     assertSame("Wrong default factory",
       AudioPlayerFactoryImpl.DefaultActorFactory, factory.actorFactory)
   }
+
+  /**
+   * A specialized actor factory which allows mocking the playlist creation
+   * actor.
+   */
+  private class MockPLCreationActorFactory(override val createPlaylistCreationActor: Actor)
+    extends ActorFactory
 }
