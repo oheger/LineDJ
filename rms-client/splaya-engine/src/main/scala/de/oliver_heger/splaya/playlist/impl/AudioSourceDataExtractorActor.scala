@@ -23,7 +23,7 @@ import de.oliver_heger.splaya.MediaDataExtractor
  *
  * @param extractor the ''AudioSourceDataExtractor'' to be used
  */
-class AudioSourceDataExtractorActor(extractor: AudioSourceDataExtractor)
+class AudioSourceDataExtractorActor(val extractor: AudioSourceDataExtractor)
   extends Actor {
   /**
    * The main method of this actor. The actor mainly reacts on messages

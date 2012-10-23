@@ -4,7 +4,9 @@ import scala.actors.Actor
 
 import org.apache.commons.lang3.time.StopWatch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Before
+
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
@@ -86,8 +88,11 @@ class TestActorFactory extends JUnitSuite with EasyMockSugar {
    */
   @Test def testCreateAudioSourceDataExtractorActor() {
     val extr = mock[AudioSourceDataExtractor]
+    val actor = factory.createAudioSourceDataExtractorActor(extr)
     assertEquals("Wrong class", classOf[AudioSourceDataExtractorActor],
-      factory.createAudioSourceDataExtractorActor(extr).getClass)
+      actor.getClass)
+    assertSame("Wrong extractor", extr,
+      actor.asInstanceOf[AudioSourceDataExtractorActor].extractor)
   }
 
   /**
@@ -118,6 +123,6 @@ class TestActorFactory extends JUnitSuite with EasyMockSugar {
    */
   @Test def testCreatePlaylistCreationActor() {
     assertEquals("Wrong actor", classOf[PlaylistCreationActor],
-        factory.createPlaylistCreationActor().getClass)
+      factory.createPlaylistCreationActor().getClass)
   }
 }

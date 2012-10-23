@@ -15,6 +15,7 @@ import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
+import de.oliver_heger.splaya.playlist.impl.AddMediaDataExtractor
 import de.oliver_heger.splaya.playlist.impl.AddPlaylistGenerator
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorImpl
@@ -22,11 +23,13 @@ import de.oliver_heger.splaya.playlist.impl.PlaylistControllerImpl
 import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
+import de.oliver_heger.splaya.playlist.impl.RemoveMediaDataExtractor
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
 import de.oliver_heger.splaya.playlist.PlaylistFileStore
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
+import de.oliver_heger.splaya.MediaDataExtractor
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -70,12 +73,19 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
   /** The ''PlaylistFileStore'' implementation used by this factory. */
   protected[engine] val playlistFileStore: PlaylistFileStore =
     AudioPlayerFactoryImpl.createPlaylistFileStore()
-    
+
   /**
    * The actor for creating playlist instances. This actor is global to the
    * factory and shared between multiple audio player instances.
    */
   private val playlistCreationActor = actorFactory.createPlaylistCreationActor()
+
+  /**
+   * The actor for extracting audio data. This actor is shared between all
+   * audio player instances.
+   */
+  private val audioDataExtractorActor =
+    actorFactory.createAudioSourceDataExtractorActor(createAudioSourceExtractor())
 
   /** The size of the temporary buffer used by the streaming actor. */
   @volatile private var bufferSize = AudioPlayerFactoryImpl.DefaultBufferSize
@@ -121,7 +131,6 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     val ctxFactory = new PlaybackContextFactoryImpl
     val streamFactory = new SourceStreamWrapperFactoryImpl(bufferManager,
       tempFileFactory)
-    val extractor = new AudioSourceDataExtractorImpl(fsService)
 
     val readActor = actorFactory.createSourceReaderActor(gateway, fsService,
       tempFileFactory, bufferSize / 2)
@@ -130,9 +139,8 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     val lineActor = actorFactory.createLineActor(gateway)
     val timingActor = actorFactory.createTimingActor(gateway, new StopWatch)
     val eventActor = actorFactory.createEventTranslatorActor(gateway, 4)
-    val extrActor = actorFactory.createAudioSourceDataExtractorActor(extractor)
     val playlistExtrActor =
-      actorFactory.createPlaylistDataExtractorActor(gateway, extrActor)
+      actorFactory.createPlaylistDataExtractorActor(gateway, audioDataExtractorActor)
     val plCtrlActor = actorFactory.createPlaylistCtrlActor(gateway, readActor,
       fsService, playlistFileStore, playlistCreationActor, Set("mp3"))
 
@@ -142,7 +150,6 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     lineActor.start()
     timingActor.start()
     eventActor.start()
-    extrActor.start()
     playlistExtrActor.start()
     plCtrlActor.start()
     gateway += Gateway.ActorSourceRead -> readActor
@@ -174,6 +181,7 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     }
 
     playlistCreationActor.start()
+    audioDataExtractorActor.start()
   }
 
   /**
@@ -182,6 +190,7 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
   protected[engine] def deactivate() {
     log.info("Deactivating AudioPlayerFactoryImpl")
     playlistCreationActor ! Exit
+    audioDataExtractorActor ! Exit
   }
 
   /**
@@ -221,7 +230,7 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
   }
 
   /**
-   * Notifies this object that the given ''PlaylistGenerator'' service is not
+   * Notifies this object that the given ''PlaylistGenerator'' service is no
    * longer available.
    * @param generator the affected generator service
    * @param props a map with properties
@@ -232,6 +241,34 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     playlistCreationActor ! RemovePlaylistGenerator(generator, mode)
     log.info("Unbound playlist generator for mode {}.", Array(mode))
   }
+
+  /**
+   * Injects a [[de.oliver_heger.splaya.MediaDataExtractor]] service reference.
+   * This method is called by the OSGi container when a corresponding service
+   * implementation becomes available. This method passes the service reference
+   * to the audio data extractor actor.
+   * @param extr the extractor service implementation
+   */
+  protected[engine] def bindMediaDataExtractor(extr: MediaDataExtractor) {
+    audioDataExtractorActor ! AddMediaDataExtractor(extr)
+  }
+
+  /**
+   * Notifies this object that the given ''MediaDataExtractor'' service is no
+   * longer available.
+   * @param extr the affected extractor service
+   */
+  protected[engine] def unbindMediaDataExtractor(extr: MediaDataExtractor) {
+    audioDataExtractorActor ! RemoveMediaDataExtractor(extr)
+  }
+
+  /**
+   * Creates the ''AudioSourceDataExtractor'' instance used by the data
+   * extractor actor.
+   * @return the ''AudioSourceDataExtractor''
+   */
+  private def createAudioSourceExtractor() =
+    new AudioSourceDataExtractorImpl(fsService)
 }
 
 /**
