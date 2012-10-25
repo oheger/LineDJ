@@ -38,6 +38,12 @@ trait ActorFactory {
   def createPlaylistCreationActor(): Actor = new PlaylistCreationActor
 
   /**
+   * Creates an actor for managing playback context factory services.
+   * @return the playback context factory actor
+   */
+  def createPlaybackContextActor(): Actor = new PlaybackContextActor
+
+  /**
    * Creates an actor for reading data from the source medium.
    * @param gateway the gateway
    * @param fsService a reference to the ''FSService''

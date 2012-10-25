@@ -125,4 +125,13 @@ class TestActorFactory extends JUnitSuite with EasyMockSugar {
     assertEquals("Wrong actor", classOf[PlaylistCreationActor],
       factory.createPlaylistCreationActor().getClass)
   }
+
+  /**
+   * Tests whether the actor for managing playback context factory services
+   * can be created.
+   */
+  @Test def testCreatePlaybackContextFactoryActor() {
+    assertEquals("Wrong actor", classOf[PlaybackContextActor],
+        factory.createPlaybackContextActor().getClass)
+  }
 }
