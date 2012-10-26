@@ -22,6 +22,22 @@
     bind="bindPlaylistGenerator"
     unbind="unbindPlaylistGenerator"/>
 
+  <scr:reference
+    name="MediaDataExtractor"
+    interface="de.oliver_heger.splaya.MediaDataExtractor"
+    cardinality="0..n"
+    policy="dynamic"
+    bind="bindMediaDataExtractor"
+    unbind="unbindMediaDataExtractor"/>
+
+  <scr:reference
+    name="PlaybackContextFactory"
+    interface="de.oliver_heger.splaya.PlaybackContextFactory"
+    cardinality="1..n"
+    policy="dynamic"
+    bind="bindPlaybackContextFactory"
+    unbind="unbindPlaybackContextFactory"/>
+
   <scr:service>
     <scr:provide interface="de.oliver_heger.splaya.AudioPlayerFactory"/>
   </scr:service>
