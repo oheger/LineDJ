@@ -63,7 +63,7 @@ trait ActorFactory {
    * @param streamFactory the factory for creating stream wrappers
    * @return the playback actor
    */
-  def createPlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactory,
+  def createPlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
     streamFactory: SourceStreamWrapperFactory): Actor =
     new PlaybackActor(gateway, ctxFactory, streamFactory)
 

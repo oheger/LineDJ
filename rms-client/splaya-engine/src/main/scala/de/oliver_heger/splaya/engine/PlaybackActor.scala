@@ -56,7 +56,7 @@ import java.io.Closeable
  * an mp3 audio stream; the default value should be appropriate, but can be
  * adapted if necessary
  */
-class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactory,
+class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
   streamFactory: SourceStreamWrapperFactory,
   minimumBufferLimit: Int = PlaybackActor.MinimumBufferLimit) extends Actor {
   /**

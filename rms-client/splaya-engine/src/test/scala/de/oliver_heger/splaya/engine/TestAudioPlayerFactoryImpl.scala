@@ -22,6 +22,7 @@ import de.oliver_heger.splaya.playlist.impl.RemoveMediaDataExtractor
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
 import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.MediaDataExtractor
+import de.oliver_heger.splaya.PlaybackContextFactory
 import de.oliver_heger.tsthlp.ActorTestImpl
 import de.oliver_heger.tsthlp.QueuingActor
 
@@ -101,6 +102,16 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests whether the activate() method starts the actor for creating playback
+   * context objects.
+   */
+  @Test def testActivatePBCtxActorStarted() {
+    val actor = new QueuingActor
+    val actFactory = new MockPlaybackCtxActorFactory(actor)
+    checkActivateActorStarted(actFactory, actor)
+  }
+
+  /**
    * Tests whether the deactivate() callback shuts down global actors.
    */
   private def checkDeactivateActorExit(actFactory: ActorFactory, actor: QueuingActor) {
@@ -125,6 +136,14 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   @Test def testDeactivateExtrActorExit() {
     val actor = new QueuingActor
     checkDeactivateActorExit(new MockExtractorActorFactory(actor), actor)
+  }
+
+  /**
+   * Tests whether deactivate() shuts down the playback context actor.
+   */
+  @Test def testDeactivatePBCtxActorExit() {
+    val actor = new QueuingActor
+    checkDeactivateActorExit(new MockPlaybackCtxActorFactory(actor), actor)
   }
 
   /**
@@ -331,6 +350,32 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
   }
 
   /**
+   * Tests whether a playback context factory service can be attached to the
+   * factory.
+   */
+  @Test def testBindPlaybackContextFactory() {
+    val svc = mock[PlaybackContextFactory]
+    val pbActor = new ActorTestImpl
+    val factory = new AudioPlayerFactoryImpl(new MockPlaybackCtxActorFactory(pbActor))
+    factory bindPlaybackContextFactory svc
+    pbActor.expectMessage(AddPlaybackContextFactory(svc))
+    pbActor.ensureNoMessages()
+  }
+
+  /**
+   * Tests whether a playback context factory service can be removed from the
+   * factory.
+   */
+  @Test def testUnbindPlaybackContextFactory() {
+    val svc = mock[PlaybackContextFactory]
+    val pbActor = new ActorTestImpl
+    val factory = new AudioPlayerFactoryImpl(new MockPlaybackCtxActorFactory(pbActor))
+    factory unbindPlaybackContextFactory svc
+    pbActor.expectMessage(RemovePlaybackContextFactory(svc))
+    pbActor.ensureNoMessages()
+  }
+
+  /**
    * A specialized actor factory which allows mocking the playlist creation
    * actor.
    */
@@ -349,4 +394,10 @@ class TestAudioPlayerFactoryImpl extends JUnitSuite with EasyMockSugar {
       extrActor
     }
   }
+
+  /**
+   * A specialized actor factory which allows mocking the playback context actor.
+   */
+  private class MockPlaybackCtxActorFactory(
+    override val createPlaybackContextActor: Actor) extends ActorFactory
 }

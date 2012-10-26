@@ -67,7 +67,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   private val AudioStreamLen = 20000
 
   /** The mock for playback context factory. */
-  private var ctxFactory: PlaybackContextFactory = _
+  private var ctxFactory: PlaybackContextFactoryOld = _
 
   /** The mock for the source buffer manager. */
   private var bufMan: SourceBufferManager = _
@@ -86,7 +86,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
 
   @Before def setUp() {
     gateway = new Gateway
-    ctxFactory = mock[PlaybackContextFactory]
+    ctxFactory = mock[PlaybackContextFactoryOld]
     bufMan = createBufferManagerMock()
     streamFactory = mock[SourceStreamWrapperFactory]
     EasyMock.expect(streamFactory.bufferManager).andReturn(bufMan).anyTimes()

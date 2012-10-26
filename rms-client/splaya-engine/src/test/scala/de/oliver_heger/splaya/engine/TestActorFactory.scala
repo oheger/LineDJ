@@ -52,7 +52,7 @@ class TestActorFactory extends JUnitSuite with EasyMockSugar {
    * Tests whether a playback actor can be created.
    */
   @Test def testCreatePlaybackActor() {
-    val ctxFactory = mock[PlaybackContextFactory]
+    val ctxFactory = mock[PlaybackContextFactoryOld]
     val streamFactory = mock[SourceStreamWrapperFactory]
     assertEquals("Wrong actor", classOf[PlaybackActor],
       factory.createPlaybackActor(gateway, ctxFactory, streamFactory).getClass)

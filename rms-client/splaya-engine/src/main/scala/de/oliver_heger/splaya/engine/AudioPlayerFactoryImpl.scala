@@ -2,7 +2,6 @@ package de.oliver_heger.splaya.engine;
 import java.util.Locale
 
 import scala.Array.canBuildFrom
-import scala.actors.Actor
 
 import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
@@ -10,18 +9,14 @@ import org.slf4j.LoggerFactory
 import de.oliver_heger.splaya.engine.io.SourceBufferManagerImpl
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactoryImpl
 import de.oliver_heger.splaya.engine.io.TempFileFactoryImpl
-import de.oliver_heger.splaya.engine.msg.EventTranslatorActor
 import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.fs.FSService
 import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.playlist.impl.AddMediaDataExtractor
 import de.oliver_heger.splaya.playlist.impl.AddPlaylistGenerator
-import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.AudioSourceDataExtractorImpl
 import de.oliver_heger.splaya.playlist.impl.PlaylistControllerImpl
-import de.oliver_heger.splaya.playlist.impl.PlaylistCreationActor
-import de.oliver_heger.splaya.playlist.impl.PlaylistDataExtractorActor
 import de.oliver_heger.splaya.playlist.impl.PlaylistFileStoreImpl
 import de.oliver_heger.splaya.playlist.impl.RemoveMediaDataExtractor
 import de.oliver_heger.splaya.playlist.impl.RemovePlaylistGenerator
@@ -30,6 +25,7 @@ import de.oliver_heger.splaya.playlist.PlaylistGenerator
 import de.oliver_heger.splaya.AudioPlayer
 import de.oliver_heger.splaya.AudioPlayerFactory
 import de.oliver_heger.splaya.MediaDataExtractor
+import de.oliver_heger.splaya.PlaybackContextFactory
 
 /**
  * A factory class for constructing an [[de.oliver_heger.splaya.AudioPlayer]]
@@ -86,6 +82,12 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
    */
   private val audioDataExtractorActor =
     actorFactory.createAudioSourceDataExtractorActor(createAudioSourceExtractor())
+
+  /**
+   * The actor for managing playback context factories and context creation.
+   * This actor is shared between all audio player instances.
+   */
+  private val playbackCtxActor = actorFactory.createPlaybackContextActor()
 
   /** The size of the temporary buffer used by the streaming actor. */
   @volatile private var bufferSize = AudioPlayerFactoryImpl.DefaultBufferSize
@@ -182,6 +184,7 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
 
     playlistCreationActor.start()
     audioDataExtractorActor.start()
+    playbackCtxActor.start()
   }
 
   /**
@@ -191,6 +194,7 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     log.info("Deactivating AudioPlayerFactoryImpl")
     playlistCreationActor ! Exit
     audioDataExtractorActor ! Exit
+    playbackCtxActor ! Exit
   }
 
   /**
@@ -260,6 +264,27 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
    */
   protected[engine] def unbindMediaDataExtractor(extr: MediaDataExtractor) {
     audioDataExtractorActor ! RemoveMediaDataExtractor(extr)
+  }
+
+  /**
+   * Injects a [[de.oliver_heger.splaya.PlaybackContextFactory]] service
+   * reference. This method is called by the OSGi container when a
+   * corresponding service implementation becomes available. This method passes
+   * the service reference to the actor which manages playback context
+   * creation.
+   * @param factory the playback context factory service
+   */
+  protected[engine] def bindPlaybackContextFactory(factory: PlaybackContextFactory) {
+    playbackCtxActor ! AddPlaybackContextFactory(factory)
+  }
+
+  /**
+   * Notifies this object that the given ''PlaybackContextFactory'' service is
+   * no longer available.
+   * @param factory the affected factory service
+   */
+  protected[engine] def unbindPlaybackContextFactory(factory: PlaybackContextFactory) {
+    playbackCtxActor ! RemovePlaybackContextFactory(factory)
   }
 
   /**

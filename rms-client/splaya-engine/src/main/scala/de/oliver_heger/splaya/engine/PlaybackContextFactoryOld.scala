@@ -6,7 +6,7 @@ import java.io.InputStream
  * <p>Typical implementations of this trait know to setup audio streams and a
  * source line based on a stream with audio data to be played.</p>
  */
-trait PlaybackContextFactory {
+trait PlaybackContextFactoryOld {
   /**
    * Creates a context object for the specified input stream.
    * @param stream the input stream

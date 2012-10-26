@@ -17,7 +17,7 @@ import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
 /**
  * A default implementation of the ''PlaybackContextFactory'' interface.
  */
-class PlaybackContextFactoryImpl extends PlaybackContextFactory {
+class PlaybackContextFactoryImpl extends PlaybackContextFactoryOld {
   /** Constant for the default buffer size. */
   private val BufferSize = 4096
 
