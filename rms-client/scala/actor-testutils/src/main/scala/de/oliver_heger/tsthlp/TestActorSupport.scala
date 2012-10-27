@@ -30,14 +30,23 @@ trait TestActorSupport {
   }
 
   /**
+   * Terminates the given actor and waits until it is down.
+   * @param target the actor to shut down
+   * @param timeout the time (in milliseconds) to wait for the actor's shutdown
+   */
+  def closeActor(target: Actor, timeout: Long = ActorTrigger.DefaultTimeout) {
+    val ex = new WaitForExit
+    if (!ex.shutdownActor(target, timeout)) {
+      fail("Actor did not exit!")
+    }
+  }
+
+  /**
    * Terminates the test actor and waits until it is down.
    * @param timeout the time (in milliseconds) to wait for the actor's shutdown
    */
-  def shutdownActor(timeout: Long = WaitForExit.DefaultTimeout) {
-    val ex = new WaitForExit
-    if (!ex.shutdownActor(actor, timeout)) {
-      fail("Actor did not exit!")
-    }
+  def shutdownActor(timeout: Long = ActorTrigger.DefaultTimeout) {
+    closeActor(actor, timeout)
     actor = null.asInstanceOf[ActorUnderTest]
   }
 }
