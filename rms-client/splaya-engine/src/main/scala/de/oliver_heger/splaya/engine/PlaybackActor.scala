@@ -1,33 +1,35 @@
 package de.oliver_heger.splaya.engine;
 
+import java.io.Closeable
+import java.util.Arrays
+
 import scala.actors.Actor
 import scala.collection.mutable.Queue
+
 import org.slf4j.LoggerFactory
-import java.util.Arrays
-import javax.sound.sampled.SourceDataLine
-import java.io.IOException
-import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.PlaybackError
-import de.oliver_heger.splaya.PlaybackSourceStart
-import de.oliver_heger.splaya.PlaybackSourceEnd
-import de.oliver_heger.splaya.PlaybackPositionChanged
-import de.oliver_heger.splaya.PlaybackStarts
-import de.oliver_heger.splaya.PlaybackStops
-import de.oliver_heger.splaya.PlaylistEnd
-import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
+
 import de.oliver_heger.splaya.engine.io.SourceStreamWrapper
-import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.io.SourceStreamWrapperFactory
 import de.oliver_heger.splaya.engine.io.TempFile
+import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
-import de.oliver_heger.splaya.engine.msg.StopPlayback
-import de.oliver_heger.splaya.engine.msg.StartPlayback
-import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
-import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
 import de.oliver_heger.splaya.engine.msg.PlayChunk
-import de.oliver_heger.splaya.engine.msg.ActorExited
-import java.io.Closeable
+import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
+import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.engine.msg.StartPlayback
+import de.oliver_heger.splaya.engine.msg.StopPlayback
+import de.oliver_heger.splaya.AudioSource
+import de.oliver_heger.splaya.PlaybackContext
+import de.oliver_heger.splaya.PlaybackError
+import de.oliver_heger.splaya.PlaybackPositionChanged
+import de.oliver_heger.splaya.PlaybackSourceEnd
+import de.oliver_heger.splaya.PlaybackSourceStart
+import de.oliver_heger.splaya.PlaybackStarts
+import de.oliver_heger.splaya.PlaybackStops
+import de.oliver_heger.splaya.PlaylistEnd
+import javax.sound.sampled.SourceDataLine
 
 /**
  * An actor for handling audio playback.
@@ -48,7 +50,7 @@ import java.io.Closeable
  * If a line is open, it is directly stopped and started, respectively.
  *
  * @param gateway the gateway object
- * @param ctxFactory the factory for creating playback context objects
+ * @param ctxFactoryActor the actor for creating playback context objects
  * @param streamFactory a factory for creating stream objects
  * @param minimumBufferLimit the minimum amount of data which must be in the
  * audio buffer before playback can start; this value must correspond to the
@@ -56,7 +58,7 @@ import java.io.Closeable
  * an mp3 audio stream; the default value should be appropriate, but can be
  * adapted if necessary
  */
-class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
+class PlaybackActor(gateway: Gateway, val ctxFactoryActor: Actor,
   streamFactory: SourceStreamWrapperFactory,
   minimumBufferLimit: Int = PlaybackActor.MinimumBufferLimit) extends Actor {
   /**
@@ -128,6 +130,11 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
   private var playbackPerformed = false
 
   /**
+   * A flag whether a request for creating a playback context is pending.
+   */
+  private var waitForContextCreation = false
+
+  /**
    * The main message loop of this actor.
    */
   def act() {
@@ -169,6 +176,9 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
 
         case FlushPlayer =>
           flushActor()
+
+        case CreatePlaybackContextResponse(src, pbctx) =>
+          handlePlaybackContextCreated(src, pbctx)
       }
     }
   }
@@ -240,7 +250,12 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
    * can be used for playback.
    */
   private def contextAvailable: Boolean =
-    context != null || errorStream || setUpPlaybackContext()
+    if (waitForContextCreation) false
+    else if (context != null || errorStream) true
+    else {
+      setUpPlaybackContext()
+      false
+    }
 
   /**
    * Plays a chunk of the audio data.
@@ -325,16 +340,14 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
 
   /**
    * Creates the objects required for the playback of a new audio file. If there
-   * are no more audio files to play, this method returns <b>false</b>.
-   * @return a flag if there are more files to play
+   * are no more audio files to play, this method sends a playback stop event
+   * because the end of the playlist is reached.
    */
-  private def setUpPlaybackContext(): Boolean = {
+  private def setUpPlaybackContext() {
     if (queue.isEmpty) {
       fireStopEventAtEndOfPlaylist()
-      false
     } else {
       preparePlayback()
-      true
     }
   }
 
@@ -358,15 +371,41 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
     try {
       val sourceStream = if (stream != null) stream.currentStream else null
       stream = streamFactory.createStream(sourceStream, source.length)
-      context = ctxFactory.createPlaybackContext(stream)
-      playbackBuffer = context.createPlaybackBuffer()
-      prepareLine()
+      waitForContextCreation = true
+      ctxFactoryActor ! CreatePlaybackContextRequest(stream, source, this)
     } catch {
       case ex: Exception =>
         handleContextCreationError(ex)
     }
 
     streamPosition = 0
+  }
+
+  /**
+   * Handles a message about a newly created playback context. Such messages
+   * are sent by the playback context actor as response of
+   * ''CreatePlaybackContextRequest'' messages. If the message refers to the
+   * current source, playback can actually start.
+   * @param src the audio source the message refers to
+   * @param pbctx the new playback context
+   */
+  private def handlePlaybackContextCreated(src: AudioSource,
+    pbctx: Option[PlaybackContext]) {
+    log.info("Playback context created for source {}", src)
+    if (src == currentSource) {
+      waitForContextCreation = false
+      if (pbctx.isEmpty) {
+        handleContextCreationError(
+          new IllegalStateException("No playback context could be created!"))
+      } else {
+        context = pbctx.get
+        playbackBuffer = context.createPlaybackBuffer()
+        prepareLine()
+        playback()
+      }
+    } else {
+      log.warn("Unknown source: " + src + ", expected: " + currentSource)
+    }
   }
 
   /**
@@ -582,6 +621,7 @@ class PlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
     playbackEnabled = true
     playbackPerformed = false
     errorStream = false
+    waitForContextCreation = false
   }
 
   /**

@@ -130,14 +130,13 @@ class AudioPlayerFactoryImpl(val actorFactory: ActorFactory)
     val gateway = new Gateway
     val tempFileFactory = new TempFileFactoryImpl
     val bufferManager = new SourceBufferManagerImpl(gateway)
-    val ctxFactory = new PlaybackContextFactoryImpl
     val streamFactory = new SourceStreamWrapperFactoryImpl(bufferManager,
       tempFileFactory)
 
     val readActor = actorFactory.createSourceReaderActor(gateway, fsService,
       tempFileFactory, bufferSize / 2)
-    val playbackActor = actorFactory.createPlaybackActor(gateway, ctxFactory,
-      streamFactory)
+    val playbackActor = actorFactory.createPlaybackActor(gateway, 
+      playbackCtxActor, streamFactory)
     val lineActor = actorFactory.createLineActor(gateway)
     val timingActor = actorFactory.createTimingActor(gateway, new StopWatch)
     val eventActor = actorFactory.createEventTranslatorActor(gateway, 4)

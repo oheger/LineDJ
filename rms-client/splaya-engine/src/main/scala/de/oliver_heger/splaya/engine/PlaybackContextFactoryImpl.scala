@@ -1,9 +1,7 @@
 package de.oliver_heger.splaya.engine
 
 import java.io.InputStream
-
 import com.sun.media.sound.DirectAudioDeviceProvider
-
 import de.oliver_heger.splaya.mp3.ID3Stream
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
@@ -13,11 +11,12 @@ import javax.sound.sampled.Mixer
 import javax.sound.sampled.SourceDataLine
 import javazoom.spi.mpeg.sampled.convert.MpegFormatConversionProvider
 import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
+import de.oliver_heger.splaya.PlaybackContext
 
 /**
  * A default implementation of the ''PlaybackContextFactory'' interface.
  */
-class PlaybackContextFactoryImpl extends PlaybackContextFactoryOld {
+class PlaybackContextFactoryImpl {
   /** Constant for the default buffer size. */
   private val BufferSize = 4096
 

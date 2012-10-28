@@ -59,13 +59,13 @@ trait ActorFactory {
   /**
    * Creates the actor which handles playback.
    * @param gateway the gateway
-   * @param ctxFactory the factory for creating a playback context
+   * @param ctxFactoryActor the actor for creating a playback context
    * @param streamFactory the factory for creating stream wrappers
    * @return the playback actor
    */
-  def createPlaybackActor(gateway: Gateway, ctxFactory: PlaybackContextFactoryOld,
+  def createPlaybackActor(gateway: Gateway, ctxFactoryActor: Actor,
     streamFactory: SourceStreamWrapperFactory): Actor =
-    new PlaybackActor(gateway, ctxFactory, streamFactory)
+    new PlaybackActor(gateway, ctxFactoryActor, streamFactory)
 
   /**
    * Creates the actor which manages the data line.
