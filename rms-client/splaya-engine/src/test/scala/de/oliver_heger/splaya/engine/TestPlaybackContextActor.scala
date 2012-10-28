@@ -9,8 +9,8 @@ import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
 
 import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.{PlaybackContext => Context}
-import de.oliver_heger.splaya.{PlaybackContextFactory => FactoryService}
+import de.oliver_heger.splaya.PlaybackContext
+import de.oliver_heger.splaya.PlaybackContextFactory
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.TestActorSupport
 
@@ -23,10 +23,10 @@ class TestPlaybackContextActor extends JUnitSuite with EasyMockSugar
   type ActorUnderTest = PlaybackContextActor
 
   /** A mock for a factory service. */
-  private var factory1: FactoryService = _
+  private var factory1: PlaybackContextFactory = _
 
   /** A mock for another factory service. */
-  private var factory2: FactoryService = _
+  private var factory2: PlaybackContextFactory = _
 
   /** The actor to be tested. */
   protected var actor: ActorUnderTest = _
@@ -34,8 +34,8 @@ class TestPlaybackContextActor extends JUnitSuite with EasyMockSugar
   @Before def setUp() {
     actor = new ActorUnderTest
     actor.start()
-    factory1 = mock[FactoryService]
-    factory2 = mock[FactoryService]
+    factory1 = mock[PlaybackContextFactory]
+    factory2 = mock[PlaybackContextFactory]
     actor ! AddPlaybackContextFactory(factory2)
     actor ! AddPlaybackContextFactory(factory1)
   }
@@ -64,7 +64,7 @@ class TestPlaybackContextActor extends JUnitSuite with EasyMockSugar
   @Test def testCreateRequestSuccess() {
     val stream = mock[InputStream]
     val source = createSource()
-    val ctx = mock[Context]
+    val ctx = mock[PlaybackContext]
     EasyMock.expect(factory1.createPlaybackContext(stream, source)).andReturn(Some(ctx))
     val sender = createSender()
     whenExecuting(stream, ctx, factory1, factory2) {

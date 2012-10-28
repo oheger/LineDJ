@@ -8,8 +8,8 @@ import scala.actors.Actor
 import org.slf4j.LoggerFactory
 
 import de.oliver_heger.splaya.AudioSource
-import de.oliver_heger.splaya.{PlaybackContext => Context}
-import de.oliver_heger.splaya.{PlaybackContextFactory => FactoryService}
+import de.oliver_heger.splaya.PlaybackContext
+import de.oliver_heger.splaya.PlaybackContextFactory
 
 /**
  * A specialized ''Actor'' implementation responsible for managing the
@@ -33,7 +33,7 @@ class PlaybackContextActor extends Actor {
   private val log = LoggerFactory.getLogger(getClass)
 
   /** A list with the factory services available. */
-  private var factoryServices = List.empty[FactoryService]
+  private var factoryServices = List.empty[PlaybackContextFactory]
 
   /**
    * The main processing function of this actor.
@@ -61,7 +61,7 @@ class PlaybackContextActor extends Actor {
    * Removes the specified factory service from the internal list.
    * @param factoryService the service to be removed
    */
-  private def removeFactoryService(factoryService: FactoryService) {
+  private def removeFactoryService(factoryService: PlaybackContextFactory) {
     factoryServices = factoryServices filterNot (_ == factoryService)
   }
 
@@ -72,7 +72,7 @@ class PlaybackContextActor extends Actor {
    * @param req the request to be handled
    */
   private def handleCreateContextRequest(req: CreatePlaybackContextRequest) {
-    var result: Option[Context] = None
+    var result: Option[PlaybackContext] = None
 
     try {
       result = (result /: factoryServices) { (ctx, fs) =>
@@ -94,7 +94,7 @@ class PlaybackContextActor extends Actor {
  *
  * @param factory the ''PlaybackContextFactory'' service to be added
  */
-case class AddPlaybackContextFactory(factory: FactoryService)
+case class AddPlaybackContextFactory(factory: PlaybackContextFactory)
 
 /**
  * A message indicating that a playback context factory is no longer available
@@ -102,7 +102,7 @@ case class AddPlaybackContextFactory(factory: FactoryService)
  *
  * @param factory the ''PlaybackContextFactory'' service to be removed
  */
-case class RemovePlaybackContextFactory(factory: FactoryService)
+case class RemovePlaybackContextFactory(factory: PlaybackContextFactory)
 
 /**
  * A message defining a request for creating a ''PlaybackContext'' for the
@@ -127,4 +127,4 @@ case class CreatePlaybackContextRequest(stream: InputStream, source: AudioSource
  * @param playbackContext an option for the newly created playback context
  */
 case class CreatePlaybackContextResponse(source: AudioSource,
-  playbackContext: Option[Context])
+  playbackContext: Option[PlaybackContext])
