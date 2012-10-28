@@ -1,8 +1,10 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.mp3
 
 import java.io.InputStream
+
 import com.sun.media.sound.DirectAudioDeviceProvider
-import de.oliver_heger.splaya.mp3.ID3Stream
+
+import de.oliver_heger.splaya.PlaybackContext
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
@@ -11,12 +13,12 @@ import javax.sound.sampled.Mixer
 import javax.sound.sampled.SourceDataLine
 import javazoom.spi.mpeg.sampled.convert.MpegFormatConversionProvider
 import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
-import de.oliver_heger.splaya.PlaybackContext
 
 /**
- * A default implementation of the ''PlaybackContextFactory'' interface.
+ * An implementation of the ''PlaybackContextFactory'' interface which deals
+ * with MP3 files.
  */
-class PlaybackContextFactoryImpl {
+class MP3PlaybackContextFactory {
   /** Constant for the default buffer size. */
   private val BufferSize = 4096
 
@@ -66,7 +68,7 @@ class PlaybackContextFactoryImpl {
    * @param format the audio format
    * @return the size of a suitable playback buffer
    */
-  private[engine] def calculateBufferSize(format: AudioFormat) = {
+  private[mp3] def calculateBufferSize(format: AudioFormat) = {
     if (BufferSize % format.getFrameSize != 0)
       ((BufferSize / format.getFrameSize) + 1) * format.getFrameSize
     else BufferSize

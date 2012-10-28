@@ -1,29 +1,31 @@
-package de.oliver_heger.splaya.engine
+package de.oliver_heger.splaya.mp3
 
 import java.io.IOException
+
 import org.easymock.EasyMock
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
+import de.oliver_heger.splaya.PlaybackContext
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.SourceDataLine
-import de.oliver_heger.splaya.PlaybackContext
 
 /**
- * Test class of ''PlaybackContextFactoryImpl''.
+ * Test class of ''MP3PlaybackContextFactory''.
  */
-class TestPlaybackContextFactoryImpl extends JUnitSuite with EasyMockSugar {
+class TestMP3PlaybackContextFactory extends JUnitSuite with EasyMockSugar {
   /** Constant for the first test file. */
   private val TestFile1 = "/test.mp3"
 
   /** The factory to be tested. */
-  private var factory: PlaybackContextFactoryImpl = _
+  private var factory: MP3PlaybackContextFactory = _
 
   @Before def setUp() {
-    factory = new PlaybackContextFactoryImpl
+    factory = new MP3PlaybackContextFactory
   }
 
   /**
