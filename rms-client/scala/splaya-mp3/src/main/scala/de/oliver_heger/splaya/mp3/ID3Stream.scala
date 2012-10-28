@@ -56,7 +56,7 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
    */
   def skipNextID3(): Boolean = {
     nextHeader().exists { header =>
-      in.skip(header.size)
+      skipID3Frame(header)
       true
     }
   }
@@ -112,7 +112,12 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
    * @param header the header of the frame
    */
   private def skipID3Frame(header: ID3Header) {
-    in.skip(header.size)
+    var size = header.size.toLong
+    var skipped = 0L
+    while (size > 0 && skipped >= 0) {
+      skipped = in.skip(header.size)
+      size -= skipped
+    }
   }
 
   /**

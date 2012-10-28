@@ -1,10 +1,13 @@
 package de.oliver_heger.splaya.mp3
 
 import java.io.InputStream
+import java.util.Locale
 
 import com.sun.media.sound.DirectAudioDeviceProvider
 
+import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackContext
+import de.oliver_heger.splaya.PlaybackContextFactory
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
@@ -17,16 +20,46 @@ import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
 /**
  * An implementation of the ''PlaybackContextFactory'' interface which deals
  * with MP3 files.
+ *
+ * This class makes direct use of classes of the
+ * [[http://www.javazoom.net/index.shtml JavaZoom library]] to set up an audio
+ * stream for playing MP3 files. Because this code runs as an OSGi bundle
+ * the service provider interface of JavaSound does not work in a reliable way;
+ * therefore it is necessary to access the classes directly.
+ *
+ * JavaZoom in its current version obviously has a problem with certain ID3
+ * tags. Playback of such files fails with an IOException stating "Resetting
+ * to invalid mark". To avoid this error, this class uses an
+ * [[de.oliver_heger.splaya.mp3.ID3Stream]] and skips all ID3 frames before
+ * the audio stream is constructed.
  */
-class MP3PlaybackContextFactory {
+class MP3PlaybackContextFactory extends PlaybackContextFactory {
   /** Constant for the default buffer size. */
   private val BufferSize = 4096
 
-  def createPlaybackContext(stream: InputStream): PlaybackContext = {
+  /**
+   * @inheritdoc This implementation uses classes from the JavaZoom library
+   * to set up an audio stream for playing MP3 files. Only audio sources
+   * with the "mp3" file extension (ignoring case) are accepted.
+   */
+  def createPlaybackContext(stream: InputStream, source: AudioSource): Option[PlaybackContext] = {
+    if (checkSupportedFileExtension(source)) {
+      Some(setUpContext(stream))
+    } else None
+  }
+
+  /**
+   * Creates a playback context for the specified audio stream. This method is
+   * called if the audio source has been accepted (i.e. it has one of the
+   * supported file extensions).
+   * @param stream the input stream
+   * @return a ''PlaybackContext'' for this stream
+   */
+  private def setUpContext(stream: InputStream): PlaybackContext = {
+    val id3Stream = new ID3Stream(stream)
+    id3Stream.skipID3()
     val reader = new MpegAudioFileReader
-    val skipStream = new ID3Stream(stream)
-    skipStream.skipID3()
-    val sourceStream = reader.getAudioInputStream(skipStream)
+    val sourceStream = reader.getAudioInputStream(id3Stream)
     val baseFormat = sourceStream.getFormat
     val decodedFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
       baseFormat.getSampleRate(), 16,
@@ -87,16 +120,27 @@ class MP3PlaybackContextFactory {
     var mixer: Option[Mixer] = None
     minfos find { minfo =>
       val mx = provider.getMixer(minfo)
-      if(mx isLineSupported info) {
+      if (mx isLineSupported info) {
         mixer = Some(mx)
         true
       } else {
         false
       }
     }
-    if(mixer.isEmpty) {
+    if (mixer.isEmpty) {
       throw new IllegalArgumentException("Cannot obtain line for " + info)
     }
     mixer.get.getLine(info).asInstanceOf[SourceDataLine]
+  }
+
+  /**
+   * Tests whether the URI of the given audio source has a supported file
+   * extension. Only audio files accepted by this method can be processed.
+   * @param src the audio source in question
+   * @return a flag whether this source is supported or not
+   */
+  private def checkSupportedFileExtension(src: AudioSource): Boolean = {
+    val pos = src.uri.lastIndexOf('.')
+    pos >= 0 && src.uri.substring(pos + 1).toLowerCase(Locale.ENGLISH) == "mp3"
   }
 }
