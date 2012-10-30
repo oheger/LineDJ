@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declarative Services declaration for the MP3PlaybackContextFactory component.
+  This component provides support for playing MP3 audio files.
+-->
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0"
+  name="MP3PlaybackContextFactory">
+  <scr:implementation class="de.oliver_heger.splaya.mp3.MP3PlaybackContextFactory" />
+
+  <scr:service>
+    <provide interface="de.oliver_heger.splaya.PlaybackContextFactory"/>
+  </scr:service>
+</scr:component>

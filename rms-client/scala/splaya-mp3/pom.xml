@@ -21,6 +21,10 @@
     Classes for dealing with MP3 files.
   </description>
 
+  <properties>
+    <osgi.serviceComponent>OSGI-INF/playbackcontextfactory.xml</osgi.serviceComponent>
+  </properties>
+
   <dependencies>
 
     <dependency>
