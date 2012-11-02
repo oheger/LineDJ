@@ -121,7 +121,7 @@ object ID3v1Handler {
    */
   private def extractTrackNo(buf: Array[Byte]): Option[String] = {
     if (buf(TrackNoPos) != 0 && buf(TrackNoPos - 1) == 0) {
-      val trackNo = buf(TrackNoPos) & 0xff
+      val trackNo = extractByte(buf, TrackNoPos)
       Some(trackNo.toString)
     } else None
   }

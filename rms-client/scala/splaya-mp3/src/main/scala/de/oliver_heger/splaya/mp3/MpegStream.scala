@@ -64,7 +64,7 @@ class MpegStream(in: InputStream)
   @throws(classOf[IOException])
   def skipFrame(): Boolean = {
     if (currentHeader.isDefined) {
-      in.skip(currentHeader.get.length - MpegStream.HeaderSize)
+      skipStream(in, currentHeader.get.length - MpegStream.HeaderSize)
       currentHeader = None
       true
     } else {

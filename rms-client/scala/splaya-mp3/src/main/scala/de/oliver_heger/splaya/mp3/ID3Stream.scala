@@ -99,7 +99,7 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
     val read = readBuffer(header)
     if (!endOfStream && ID3Stream.isID3Header(header)) {
       Some(ID3Header(size = id3Size(header),
-        version = ID3Stream.extractByte(header, ID3Stream.IdxVersion)))
+        version = extractByte(header, ID3Stream.IdxVersion)))
     } else {
       unread(header, 0, read)
       None
@@ -112,12 +112,7 @@ class ID3Stream(in: InputStream) extends PushbackInputStream(in,
    * @param header the header of the frame
    */
   private def skipID3Frame(header: ID3Header) {
-    var size = header.size.toLong
-    var skipped = 0L
-    while (size > 0 && skipped >= 0) {
-      skipped = in.skip(header.size)
-      size -= skipped
-    }
+    skipStream(in, header.size.toLong)
   }
 
   /**
@@ -321,16 +316,6 @@ object ID3Stream {
   }
 
   /**
-   * Extracts a single byte from the given buffer and converts it to an
-   * (unsigned) integer.
-   * @param buf the byte buffer
-   * @param idx the index in the buffer
-   * @return the resulting unsigned integer
-   */
-  private[mp3] def extractByte(buf: Array[Byte], idx: Int): Int =
-    buf(idx).toInt & 0xFF
-
-  /**
    * Creates a map which associates versions of ID3v2 frames with
    * corresponding ''VersionData'' objects.
    * @return the mapping
@@ -428,7 +413,7 @@ case class ID3Tag(name: String, private val data: Array[Byte]) {
       case Array(0) => ID3Stream.Blank
       case _ =>
         var ofs = 0
-        val encFlag = ID3Stream.extractByte(data, 0)
+        val encFlag = extractByte(data, 0)
         val encoding = if (encFlag < ID3Stream.Encodings.length) {
           ofs = 1
           ID3Stream.Encodings(encFlag)
