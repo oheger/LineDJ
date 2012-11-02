@@ -17,7 +17,7 @@ import de.oliver_heger.splaya.MediaDataExtractor
  * is '' None''. If an audio file contains multiple ID3 frames with the same
  * tags, frames with a higher version take precedence.
  */
-class ID3MediaDataExtractor extends MediaDataExtractor {
+class MP3MediaDataExtractor extends MediaDataExtractor {
   /**
    * @inheritdoc This implementation tries to find ID3 frames and extract
    * information from them. Also an iteration over all MP3 frames is done to

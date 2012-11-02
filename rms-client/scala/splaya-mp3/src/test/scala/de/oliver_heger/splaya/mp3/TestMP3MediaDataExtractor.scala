@@ -13,12 +13,12 @@ import org.scalatest.junit.JUnitSuite
 /**
  * Test class for ''ID3MediaDataExtractor''.
  */
-class TestID3MediaDataExtractor extends JUnitSuite {
+class TestMP3MediaDataExtractor extends JUnitSuite {
   /** The extractor to be tested. */
-  private var extractor: ID3MediaDataExtractor = _
+  private var extractor: MP3MediaDataExtractor = _
 
   @Before def setUp() {
-    extractor = new ID3MediaDataExtractor
+    extractor = new MP3MediaDataExtractor
   }
 
   /**
