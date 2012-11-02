@@ -22,7 +22,9 @@
   </description>
 
   <properties>
-    <osgi.serviceComponent>OSGI-INF/playbackcontextfactory.xml</osgi.serviceComponent>
+    <osgi.serviceComponent>
+      OSGI-INF/playbackcontextfactory.xml, OSGI-INF/mediadataextractor.xml
+    </osgi.serviceComponent>
   </properties>
 
   <dependencies>
