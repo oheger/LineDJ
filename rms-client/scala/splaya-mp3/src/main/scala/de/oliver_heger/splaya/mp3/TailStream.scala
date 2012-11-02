@@ -17,6 +17,9 @@ import java.io.InputStream
  * @param tailSize the size of the tail buffer
  */
 class TailStream(in: InputStream, val tailSize: Int) extends FilterInputStream(in) {
+  /** Constant for the default skip buffer size. */
+  private val SkipSize = 4096
+
   /** The buffer in which the tail data is stored. */
   private val tailBuffer = new Array[Byte](tailSize)
 
@@ -96,6 +99,28 @@ class TailStream(in: InputStream, val tailSize: Int) extends FilterInputStream(i
       currentIndex = markIndex
       bytesRead = markBytesRead
     }
+  }
+
+  /**
+   * @inheritdoc This implementation calls the underlying stream's ''read()''
+   * method to read the specified number of bytes. This ensures that even if
+   * skipping parts of the stream the tail buffer gets filled.
+   */
+  override def skip(count: Long): Long = {
+    val bufSize = math.min(count, SkipSize).toInt
+    val buf = new Array[Byte](bufSize)
+    var bytesSkipped = 0L
+    var bytesRead = 0
+
+    while (bytesSkipped < count && bytesRead != -1) {
+      val len = math.min(bufSize, count - bytesSkipped).toInt
+      bytesRead = read(buf, 0, len)
+      if (bytesRead != -1) {
+        bytesSkipped += bytesRead
+      }
+    }
+
+    bytesSkipped
   }
 
   /**

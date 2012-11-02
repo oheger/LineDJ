@@ -96,4 +96,28 @@ class TestTailStream extends JUnitSuite {
     assert(streamgen.generateStreamContent(count - tailSize, tailSize)
       === new String(stream.tail))
   }
+
+  /**
+   * Tests whether skip() also reads data into the tail buffer.
+   */
+  @Test def testSkip() {
+    val tailSize = 128
+    val count = 1024
+    val skipCount = 512
+    val stream = new TailStream(streamgen.nextStream(count), tailSize)
+    assert(skipCount === stream.skip(skipCount))
+    assert(streamgen.generateStreamContent(skipCount - tailSize, tailSize)
+        === new String(stream.tail))
+  }
+
+  /**
+   * Tests a skip() operation at the end of the stream.
+   */
+  @Test def testSkipEOS() {
+    val count = 128
+    val stream = new TailStream(streamgen.nextStream(count), 2 * count)
+    assert(count === stream.skip(2 * count))
+    assert(streamgen.generateStreamContent(0, count)
+        === new String(stream.tail))
+  }
 }
