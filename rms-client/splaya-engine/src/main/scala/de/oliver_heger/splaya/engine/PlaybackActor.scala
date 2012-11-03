@@ -144,7 +144,7 @@ class PlaybackActor(gateway: Gateway, val ctxFactoryActor: Actor,
       receive {
         case cl: Closeable =>
           running = false
-          flushActor()
+          flushActor(FlushPlayer())
           cl.close()
           gateway.publish(ActorExited(this))
           log.info(this + " exited.")
@@ -174,8 +174,8 @@ class PlaybackActor(gateway: Gateway, val ctxFactoryActor: Actor,
         case SourceReadError(newLength) =>
           handleSourceReadError(newLength)
 
-        case FlushPlayer =>
-          flushActor()
+        case fp: FlushPlayer =>
+          flushActor(fp)
 
         case CreatePlaybackContextResponse(src, pbctx) =>
           handlePlaybackContextCreated(src, pbctx)
@@ -603,9 +603,11 @@ class PlaybackActor(gateway: Gateway, val ctxFactoryActor: Actor,
 
   /**
    * Performs a flush operation on this actor. This means that the internal state
-   * is reset so the actor can be used to play another playlist.
+   * is reset so the actor can be used to play another playlist. If the
+   * ''FlushPlayer'' message which caused this flush operation contains follow
+   * messages, those are sent after completing the flush.
    */
-  private def flushActor() {
+  private def flushActor(fp: FlushPlayer) {
     log.info("Flush of playback actor.")
     flushLine()
     closeContext()
@@ -622,6 +624,8 @@ class PlaybackActor(gateway: Gateway, val ctxFactoryActor: Actor,
     playbackPerformed = false
     errorStream = false
     waitForContextCreation = false
+
+    fp.sendFollowMessages()
   }
 
   /**

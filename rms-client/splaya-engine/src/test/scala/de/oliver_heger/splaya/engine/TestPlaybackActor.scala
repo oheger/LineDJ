@@ -22,6 +22,7 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.MsgDef
 import de.oliver_heger.splaya.engine.msg.PlayChunk
 import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
 import de.oliver_heger.splaya.engine.msg.SourceReadError
@@ -1001,9 +1002,10 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   }
 
   /**
-   * Tests whether a flush message is correctly processed.
+   * Helper method for testing whether the actor reacts on a flush message.
+   * @param flushMsg the flush message to be sent to the actor
    */
-  @Test def testFlush() {
+  private def checkFlush(flushMsg: Any) {
     val line = mock[SourceDataLine]
     val stream1 = mock[SourceStreamWrapper]
     val stream2 = mock[SourceStreamWrapper]
@@ -1029,7 +1031,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
     val srcmsgs = for (i <- 1 until 10)
       yield AudioSource("uri" + i, i + 1, StreamLen1 + i, 0, 0)
     ctxFactoryActor ! ExpectContextCreation(src1, stream1, Some(context1),
-      srcmsgs.toList ::: List(FlushPlayer, src2))
+      srcmsgs.toList ::: List(flushMsg, src2))
     ctxFactoryActor ! ExpectContextCreation(src = src2, stream = stream2,
       optCtx = Some(context2), trigger = Some(trigger))
     setUpActor()
@@ -1038,5 +1040,28 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
       trigger.awaitOrFail()
       shutdownActor()
     }
+  }
+
+  /**
+   * Tests whether a flush message is correctly processed.
+   */
+  @Test def testFlush() {
+    checkFlush(FlushPlayer())
+  }
+
+  /**
+   * Tests whether messages contained in a flush message are processed.
+   */
+  @Test def testFlushWithFollowMessages() {
+    val target = new QueuingActor
+    target.start()
+    val msg1 = "some message"
+    val msg2 = 42
+    val flushMsg = FlushPlayer(List(MsgDef(target, msg1), MsgDef(target, msg2)))
+    checkFlush(flushMsg)
+    target.expectMessage(msg1)
+    target.expectMessage(msg2)
+    target.ensureNoMessages()
+    target.shutdown()
   }
 }
