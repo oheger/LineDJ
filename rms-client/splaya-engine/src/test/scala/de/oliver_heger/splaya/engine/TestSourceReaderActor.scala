@@ -4,12 +4,14 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+
 import org.easymock.EasyMock
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
+
 import de.oliver_heger.splaya.engine.io.TempFile
 import de.oliver_heger.splaya.engine.io.TempFileFactory
 import de.oliver_heger.splaya.engine.msg.AccessSourceMedium
@@ -17,8 +19,12 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.MsgDef
 import de.oliver_heger.splaya.engine.msg.ReadChunk
 import de.oliver_heger.splaya.engine.msg.SourceReadError
+import de.oliver_heger.splaya.fs.FSService
+import de.oliver_heger.splaya.fs.StreamSource
+import de.oliver_heger.splaya.osgiutil.ServiceWrapper
 import de.oliver_heger.splaya.AudioSource
 import de.oliver_heger.splaya.PlaybackError
 import de.oliver_heger.splaya.PlaylistEnd
@@ -26,9 +32,6 @@ import de.oliver_heger.tsthlp.ExceptionInputStream
 import de.oliver_heger.tsthlp.QueuingActor
 import de.oliver_heger.tsthlp.StreamDataGenerator
 import de.oliver_heger.tsthlp.TestActorSupport
-import de.oliver_heger.splaya.osgiutil.ServiceWrapper
-import de.oliver_heger.splaya.fs.FSService
-import de.oliver_heger.splaya.fs.StreamSource
 
 /**
  * Test class for ''SourceReaderActor''.
@@ -524,18 +527,19 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData2 = prepareTempFile()
     val tempData3 = prepareTempFile()
     EasyMock.expect(tempData3._1.delete()).andReturn(true)
+    val flushMsg = FlushPlayer(List(MsgDef(actor, "someMsg")))
     actor.start()
     whenExecuting(factory, fsService.get, tempData1._1, tempData2._1, tempData3._1) {
       actor ! src1
       actor ! new AddSourceStream(RootURI, "someUri", 42)
       actor ! new AddSourceStream(RootURI, "anotherUri", 815)
       actor ! PlaylistEnd
-      actor ! FlushPlayer
+      actor ! flushMsg
       actor ! src2
       qa.expectMessage(AudioSource(streamURI(0), 0, len1, 0, 0))
       qa.expectMessage(tempData1._1)
       qa.expectMessage(tempData2._1)
-      qa.expectMessage(FlushPlayer)
+      qa.expectMessage(flushMsg)
       qa.expectMessage(AudioSource(streamURI(1), 1, len2, 0, 0))
       qa.shutdown()
       shutdownActor()

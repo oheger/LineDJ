@@ -101,8 +101,8 @@ class SourceReaderActor(gateway: Gateway, fsService: ServiceWrapper[FSService],
         case PlaylistEnd =>
           appendSource(new AddSourceStream)
 
-        case FlushPlayer =>
-          flushActor()
+        case fp: FlushPlayer =>
+          flushActor(fp)
       }
     }
   }
@@ -348,16 +348,18 @@ class SourceReaderActor(gateway: Gateway, fsService: ServiceWrapper[FSService],
 
   /**
    * Flushes this actor. Resets the state so that this actor can be used to
-   * process another playlist.
+   * process another playlist. The ''FlushPlayer'' message is also forwarded
+   * to the playback actor.
+   * @param fp the message for flushing the actor
    */
-  private def flushActor() {
+  private def flushActor(fp: FlushPlayer) {
     cleanUpStreams()
     playlistEnd = false
     bytesToWrite = 2 * chunkSize
     chunkBytes = 0
     fileBytes = 0
     sourceStreams.clear()
-    gateway ! Gateway.ActorPlayback -> FlushPlayer
+    gateway ! Gateway.ActorPlayback -> fp
   }
 }
 
