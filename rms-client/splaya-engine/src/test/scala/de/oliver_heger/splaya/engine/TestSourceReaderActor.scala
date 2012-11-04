@@ -19,7 +19,6 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.MsgDef
 import de.oliver_heger.splaya.engine.msg.ReadChunk
 import de.oliver_heger.splaya.engine.msg.SourceReadError
 import de.oliver_heger.splaya.fs.FSService
@@ -527,7 +526,7 @@ class TestSourceReaderActor extends JUnitSuite with EasyMockSugar
     val tempData2 = prepareTempFile()
     val tempData3 = prepareTempFile()
     EasyMock.expect(tempData3._1.delete()).andReturn(true)
-    val flushMsg = FlushPlayer(List(MsgDef(actor, "someMsg")))
+    val flushMsg = new FlushPlayer
     actor.start()
     whenExecuting(factory, fsService.get, tempData1._1, tempData2._1, tempData3._1) {
       actor ! src1

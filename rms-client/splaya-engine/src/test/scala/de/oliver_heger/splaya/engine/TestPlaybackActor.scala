@@ -22,7 +22,6 @@ import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.ChunkPlayed
 import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
-import de.oliver_heger.splaya.engine.msg.MsgDef
 import de.oliver_heger.splaya.engine.msg.PlayChunk
 import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
 import de.oliver_heger.splaya.engine.msg.SourceReadError
@@ -1046,7 +1045,7 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
    * Tests whether a flush message is correctly processed.
    */
   @Test def testFlush() {
-    checkFlush(FlushPlayer())
+    checkFlush(new FlushPlayer)
   }
 
   /**
@@ -1055,12 +1054,12 @@ class TestPlaybackActor extends JUnitSuite with EasyMockSugar
   @Test def testFlushWithFollowMessages() {
     val target = new QueuingActor
     target.start()
-    val msg1 = "some message"
-    val msg2 = 42
-    val flushMsg = FlushPlayer(List(MsgDef(target, msg1), MsgDef(target, msg2)))
+    val msg = "some message"
+    val flushMsg = new FlushPlayer {
+      target ! msg
+    }
     checkFlush(flushMsg)
-    target.expectMessage(msg1)
-    target.expectMessage(msg2)
+    target.expectMessage(msg)
     target.ensureNoMessages()
     target.shutdown()
   }

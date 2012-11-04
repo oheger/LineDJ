@@ -104,22 +104,6 @@ case object StopPlayback
 case object SkipCurrentSource
 
 /**
- * A simple data class defining a message to be sent to an actor. An instance
- * holds the receiving actor and the actual message.
- *
- * @param receiver the receiving actor
- * @param msg the content of the message
- */
-case class MsgDef(receiver: Actor, msg: Any) {
-  /**
-   * Sends the message defined by this message definition to its receiver.
-   */
-  def send() {
-    receiver ! msg
-  }
-}
-
-/**
  * A message indicating that the audio player is to be flushed. Flushing means
  * that all actors wipe out their current state so that playback can start
  * anew, at a different position in the playlist.
@@ -128,21 +112,20 @@ case class MsgDef(receiver: Actor, msg: Any) {
  * happen (e.g. reading the content of a source medium or moving to another
  * position in the playlist). To avoid race conditions, it has to be ensured
  * that these actions are not triggered before the flush operation is
- * complete. This class provides some support in this area by accepting a
- * list of messages. An actor handling a message of this type can then
- * send these messages to their corresponding receivers. That way other actors
- * can be triggered immediately after the flush.
+ * complete. This class provides some support in this area by accepting an
+ * optional action function. An actor handling a message of this type can then
+ * execute this action function. That way arbitrary things can be done
+ * immediately after the flush.
  *
- * @param followMessages an optional list of messages to be sent after the
- * flush message has been processed
+ * @param followAction an optional function to be executed after the flush
+ * message has been processed
  */
-case class FlushPlayer(followMessages: List[MsgDef] = Nil) {
+class FlushPlayer(followAction: => Unit = {}) {
   /**
-   * Processes all follow messages defined for this object to the corresponding
-   * receivers.
+   * Executes the follow action associated with this message object.
    */
-  def sendFollowMessages() {
-    followMessages foreach (_.send())
+  def executeFollowAction() {
+    followAction
   }
 }
 
