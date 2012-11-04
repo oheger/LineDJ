@@ -87,11 +87,12 @@ class AudioPlayerImpl(protected[engine] val gateway: Gateway,
    * has to be performed.
    */
   def moveBackward() {
-    flush()
-    timingActor ! TimeAction { time =>
-      playlistController.moveToSourceRelative(
-        if (time < moveBackwardThreshold) -1
-        else 0)
+    flush {
+      timingActor ! TimeAction { time =>
+        playlistController.moveToSourceRelative(
+          if (time < moveBackwardThreshold) -1
+          else 0)
+      }
     }
   }
 
@@ -103,8 +104,9 @@ class AudioPlayerImpl(protected[engine] val gateway: Gateway,
    * playlist to the audio engine.
    */
   def moveToSource(idx: Int) {
-    flush()
-    playlistController.moveToSourceAt(idx)
+    flush {
+      playlistController.moveToSourceAt(idx)
+    }
   }
 
   /**
@@ -114,8 +116,9 @@ class AudioPlayerImpl(protected[engine] val gateway: Gateway,
    * the specified medium.
    */
   def readMedium(rootUri: String) {
-    flush()
-    playlistController.readMedium(rootUri)
+    flush {
+      playlistController.readMedium(rootUri)
+    }
   }
 
   /**
@@ -176,8 +179,8 @@ class AudioPlayerImpl(protected[engine] val gateway: Gateway,
    * Flushes the actors of the audio engine. This causes the temporary buffer
    * with streamed audio data to be invalidated.
    */
-  private def flush() {
-    gateway ! Gateway.ActorSourceRead -> FlushPlayer
+  private def flush(followAct: => Unit) {
+    gateway ! Gateway.ActorSourceRead -> new FlushPlayer(followAct)
   }
 
   /**

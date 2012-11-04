@@ -1,28 +1,27 @@
 package de.oliver_heger.splaya.engine
 
+import org.easymock.EasyMock
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.mock.EasyMockSugar
-import org.junit.Before
-import org.junit.After
-import org.junit.Test
-import org.junit.Assert.fail
-import org.easymock.EasyMock
-import de.oliver_heger.tsthlp.QueuingActor
-import de.oliver_heger.tsthlp.ActorTestImpl
+
+import de.oliver_heger.splaya.engine.msg.AddAudioPlayerEventListener
+import de.oliver_heger.splaya.engine.msg.AddPlaylistEventListener
+import de.oliver_heger.splaya.engine.msg.Exit
+import de.oliver_heger.splaya.engine.msg.FlushPlayer
 import de.oliver_heger.splaya.engine.msg.Gateway
+import de.oliver_heger.splaya.engine.msg.RemoveAudioPlayerEventListener
+import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
+import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
 import de.oliver_heger.splaya.engine.msg.StartPlayback
 import de.oliver_heger.splaya.engine.msg.StopPlayback
-import de.oliver_heger.splaya.engine.msg.SkipCurrentSource
-import de.oliver_heger.splaya.engine.msg.FlushPlayer
-import de.oliver_heger.splaya.engine.msg.Exit
 import de.oliver_heger.splaya.engine.msg.TimeAction
-import de.oliver_heger.splaya.engine.msg.EventTranslatorActor
 import de.oliver_heger.splaya.AudioPlayerListener
-import de.oliver_heger.splaya.engine.msg.AddAudioPlayerEventListener
-import de.oliver_heger.splaya.engine.msg.RemoveAudioPlayerEventListener
 import de.oliver_heger.splaya.PlaylistListener
-import de.oliver_heger.splaya.engine.msg.AddPlaylistEventListener
-import de.oliver_heger.splaya.engine.msg.RemovePlaylistEventListener
+import de.oliver_heger.tsthlp.ActorTestImpl
+import de.oliver_heger.tsthlp.QueuingActor
 
 /**
  * Test class for ''AudioPlayerImpl''.
@@ -120,8 +119,8 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     plCtrl.moveToSourceAt(idx)
     whenExecuting(plCtrl) {
       player.moveToSource(idx)
+      extractFlushMessage(readerActor)
     }
-    readerActor.expectMessage(FlushPlayer)
     ensureActorsNoMessages()
   }
 
@@ -133,8 +132,8 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     plCtrl.readMedium(uri)
     whenExecuting(plCtrl) {
       player.readMedium(uri)
+      extractFlushMessage(readerActor)
     }
-    readerActor.expectMessage(FlushPlayer)
     ensureActorsNoMessages()
   }
 
@@ -176,6 +175,19 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     }
 
   /**
+   * Checks whether the specified actor received a flush message. If so, its
+   * follow action is executed.
+   * @param act the queuing actor
+   */
+  private def extractFlushMessage(act: QueuingActor) {
+    act.nextMessage() match {
+      case fp: FlushPlayer =>
+        fp.executeFollowAction()
+      case other => fail("Unexpected message: " + other)
+    }
+  }
+
+  /**
    * Tests a move backward operation if the current audio source has to be
    * played again.
    */
@@ -183,9 +195,9 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     plCtrl.moveToSourceRelative(0)
     whenExecuting(plCtrl) {
       player.moveBackward()
+      extractFlushMessage(readerActor)
       extractTimeAction().f(5000)
     }
-    readerActor.expectMessage(FlushPlayer)
     ensureActorsNoMessages()
   }
 
@@ -197,9 +209,9 @@ class TestAudioPlayerImpl extends JUnitSuite with EasyMockSugar {
     plCtrl.moveToSourceRelative(-1)
     whenExecuting(plCtrl) {
       player.moveBackward()
+      extractFlushMessage(readerActor)
       extractTimeAction().f(4999)
     }
-    readerActor.expectMessage(FlushPlayer)
     ensureActorsNoMessages()
   }
 
