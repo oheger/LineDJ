@@ -120,7 +120,8 @@ class TailStream(in: InputStream, val tailSize: Int) extends FilterInputStream(i
       }
     }
 
-    bytesSkipped
+    if (bytesRead < 0 && bytesSkipped == 0) -1
+    else bytesSkipped
   }
 
   /**

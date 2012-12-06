@@ -120,4 +120,14 @@ class TestTailStream extends JUnitSuite {
     assert(streamgen.generateStreamContent(0, count)
         === new String(stream.tail))
   }
+
+  /**
+   * Tests skip() if read reaches the end of the stream and returns -1.
+   */
+  @Test def testSkipReadEnd() {
+    val count = 128
+    val stream = new TailStream(streamgen.nextStream(count), 2 * count)
+    StreamDataGenerator.readStream(stream)
+    assert(-1 === stream.skip(1))
+  }
 }
