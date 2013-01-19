@@ -7,6 +7,9 @@ import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
 import scala.xml.Elem
 
+import org.apache.commons.lang3.text.translate.NumericEntityEscaper
+import org.apache.commons.lang3.StringEscapeUtils
+
 import de.oliver_heger.splaya.engine.msg.ActorExited
 import de.oliver_heger.splaya.engine.msg.AddSourceStream
 import de.oliver_heger.splaya.engine.msg.Gateway
@@ -60,6 +63,10 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
   fsService: ServiceWrapper[FSService], store: PlaylistFileStore,
   playlistCreationActor: Actor, extensions: Set[String],
   autoSaveInterval: Int = 3) extends Actor {
+  /** The encoder for playlist items. */
+  private final val Encoder = StringEscapeUtils.ESCAPE_XML.`with`(
+        NumericEntityEscaper.between(0x7f, Integer.MAX_VALUE))
+
   /** A sequence with the current playlist. */
   private var playlist: Seq[String] = List.empty
 
@@ -132,6 +139,56 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
    * @return a string for this actor
    */
   override def toString = "PlaylistCtrlActor"
+
+  /**
+   * Creates the XML for persisting the current playlist. This method is
+   * called in reaction on a ''SavePlaylist'' event.
+   * @param curIndex the current index in the playlist
+   * @param curPos the current position in the current file
+   * @param curTime the current time in the current file
+   * @param list a sequence with the song names comprising the playlist
+   * @return the XML for the current playlist
+   */
+  protected[impl] def createPlaylistXML(curIndex: Int, curPos: Long,
+      curTime: Long, list: Seq[String]): Elem =
+    <configuration>
+      <current>
+        <index>{ curIndex }</index>
+        <position>{ curPos }</position>
+        <time>{ curTime }</time>
+      </current>
+      <list>
+        {
+          for (uri <- list) yield <file name={ Encoder.translate(uri) }>
+          </file>
+        }
+      </list>
+    </configuration>
+
+  /**
+   * Extracts the playlist from an existing persistent playlist file. This
+   * method is called when a playlist in XML form has to be processed.
+   * @param playlistData the XML structure representing the playlist
+   * @return the extracted playlist or an empty sequence if there is none
+   */
+  protected[impl] def readPersistentPlaylist(playlistData: Elem): Seq[String] = {
+    def decode(s: String): String =
+      StringEscapeUtils.unescapeXml(s)
+
+    val pl = ListBuffer.empty[String]
+
+    val current = playlistData \ "current" \ "file" \ "@name"
+    if (!current.isEmpty) {
+      pl += decode(current.text)
+    }
+
+    val files = playlistData \ "list" \ "file"
+    for (f <- files) {
+      pl += decode((f \ "@name").text)
+    }
+
+    pl.toList
+  }
 
   /**
    * Sends the current playlist to the source read actor.
@@ -252,29 +309,6 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
   }
 
   /**
-   * Extracts the playlist from an existing persistent playlist file. Works like
-   * the method with the same name, but directly operates on the existing XML
-   * structures.
-   * @param playlistData the XML structure representing the playlist
-   * @return the extracted playlist or an empty sequence if there is none
-   */
-  private def readPersistentPlaylist(playlistData: Elem): Seq[String] = {
-    val pl = ListBuffer.empty[String]
-
-    val current = playlistData \ "current" \ "file" \ "@name"
-    if (!current.isEmpty) {
-      pl += current.text
-    }
-
-    val files = playlistData \ "list" \ "file"
-    for (f <- files) {
-      pl += (f \ "@name").text
-    }
-
-    pl.toList
-  }
-
-  /**
    * This method is called if a persistent playlist was found. It obtains the
    * current index and skip positions and sends the playlist to the source
    * actor.
@@ -362,29 +396,19 @@ class PlaylistCtrlActor(gateway: Gateway, sourceActor: Actor,
   private def savePlaylist() {
     if (playlistID != null) {
       val xml = if (playlistComplete) PlaylistCtrlActor.EmptyPlaylist
-      else createPlaylistXML
+      else createPersistentPlaylist
       store.savePlaylist(playlistID, xml)
     }
   }
 
   /**
-   * Creates the XML for persisting the current playlist.
-   * @return the XML for the current playlist
+   * Constructs the XML representation of the current playlist containing all
+   * meta data available. This method delegates to ''createPlaylistXML''
+   * passing in the current playlist data.
+   * @return the XML representation of the current playlist
    */
-  private def createPlaylistXML: Elem =
-    <configuration>
-      <current>
-        <index>{ currentIndex }</index>
-        <position>{ currentPos }</position>
-        <time>{ currentTime }</time>
-      </current>
-      <list>
-        {
-          for (uri <- playlist) yield <file name={ uri }>
-                                      </file>
-        }
-      </list>
-    </configuration>
+  private def createPersistentPlaylist: Elem =
+    createPlaylistXML(currentIndex, currentPos, currentTime, playlist)
 
   /**
    * Performs an auto save if necessary.

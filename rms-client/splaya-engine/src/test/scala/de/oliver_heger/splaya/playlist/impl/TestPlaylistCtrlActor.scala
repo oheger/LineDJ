@@ -63,6 +63,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
   /** Constant for a special ordering mode used for the test playlist. */
   private val OrderMode = "SpecialTestOrdering"
 
+  /** Constant for a special song name with reserved characters. */
+  private val SongWithSpecialCharacters = "Test \u2013 LaLa.mp3"
+
+  /** Constant for the test song with an encoded name. */
+  private val EncodedSong = "Test &#8211; LaLa.mp3"
+
   /** Constant for a skip position in a persistent playlist. */
   private val CurrentPos = 10000L
 
@@ -207,7 +213,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
    * @return the XML document
    */
   private def createPersistentPlaylist(pl: Seq[String], currentIndex: Int,
-    pos: Long = CurrentPos, time: Long = CurrentTime) =
+    pos: Long = CurrentPos, time: Long = CurrentTime) = {
+    val songList = pl map { s =>
+      if (s == SongWithSpecialCharacters) EncodedSong
+      else s
+    }
+
     <configuration>
       <current>
         <index>{ currentIndex }</index>
@@ -216,11 +227,12 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
       </current>
       <list>
         {
-          for (uri <- pl) yield <file name={ uri }>
-                                      </file>
+          for (uri <- songList) yield <file name={ uri }>
+          </file>
         }
       </list>
     </configuration>
+  }
 
   /**
    * Creates a mock with playlist settings.
@@ -231,6 +243,18 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
     EasyMock.expect(settings.mediumURI).andReturn(RootURI).anyTimes()
     EasyMock.replay(settings)
     settings
+  }
+
+  /**
+   * Tests whether encoded characters are handled correctly when reading an
+   * XML playlist.
+   */
+  @Test def testReadPersistentPlaylistEncoding() {
+    val pl = SongWithSpecialCharacters :: Nil
+    val playlistData = createPersistentPlaylist(pl, 0)
+    val readList = actor.readPersistentPlaylist(playlistData)
+    assertEquals("Wrong size", 1, readList.size)
+    assertEquals("Wrong encoded song", SongWithSpecialCharacters, readList.head)
   }
 
   /**
@@ -511,6 +535,19 @@ class TestPlaylistCtrlActor extends JUnitSuite with EasyMockSugar
       checkSentPlaylist(0, 0, 0)
       shutdownActor()
     }
+  }
+
+  /**
+   * Tests whether playlist items are encoded correctly, so that special
+   * characters in file names do not cause problems.
+   */
+  @Test def testCreatePlaylistXMLEncoding() {
+    val pl = SongWithSpecialCharacters :: createPlaylist().toList
+    val index = 1
+    val pos = 20130119191218L
+    val time = 20130119191244L
+    assert(createPersistentPlaylist(pl, index, pos, time)
+        === actor.createPlaylistXML(index, pos, time, pl))
   }
 
   /**

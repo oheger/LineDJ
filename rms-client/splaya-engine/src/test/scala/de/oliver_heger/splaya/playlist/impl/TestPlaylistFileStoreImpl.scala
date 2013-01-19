@@ -1,15 +1,22 @@
 package de.oliver_heger.splaya.playlist.impl
 
-import org.scalatest.junit.JUnitSuite
 import java.io.File
-import org.junit.Before
-import org.junit.After
-import org.junit.Assert._
-import scala.collection.mutable.ListBuffer
-import org.junit.Test
-import scala.xml.Elem
-import java.io.PrintWriter
 import java.io.FileWriter
+import java.io.PrintWriter
+
+import scala.Option.option2Iterable
+import scala.collection.mutable.ListBuffer
+import scala.xml.Elem
+
+import org.apache.commons.lang3.text.translate.NumericEntityEscaper
+import org.apache.commons.lang3.StringEscapeUtils
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.scalatest.junit.JUnitSuite
 
 /**
  * Test class for ''PlaylistFileStoreImpl''.
@@ -181,15 +188,18 @@ class TestPlaylistFileStoreImpl extends JUnitSuite {
    * Tests whether special characters are encoded correctly.
    */
   @Test def testSaveFileWithSpecialCharacters() {
-    val sourceName = "W\u00fcndersch\u00f6ne M\u00fcsic.mp3"
+    val sourceName = "W\u00fcndersch\u00f6ne M\u00fcsic \u2013 in stere\u00f6.mp3"
+    val encName = StringEscapeUtils.ESCAPE_XML.`with`(
+        NumericEntityEscaper.between(0x7f, Integer.MAX_VALUE)).translate(sourceName)
     val pldata = <playlist>
                    <name>Test</name>
                    <list>
-                     <file name={ sourceName }/>
+                     <file name={ encName }/>
                    </list>
                  </playlist>
     store.savePlaylist(TestID, pldata)
     val elem = store.loadPlaylist(TestID).get
-    assert(sourceName === (elem \\ "file" \\ "@name").text)
+    assert(sourceName ===
+      StringEscapeUtils.unescapeXml((elem \\ "file" \\ "@name").text))
   }
 }
