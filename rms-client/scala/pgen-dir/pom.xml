@@ -13,7 +13,7 @@
   <parent>
     <groupId>de.oliver_heger.remotemediastore</groupId>
     <artifactId>rms-scala-parent</artifactId>
-    <version>1.0</version>
+    <version>1.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>playlistgen-directories</artifactId>
