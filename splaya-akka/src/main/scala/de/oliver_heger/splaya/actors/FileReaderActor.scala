@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.actors
 
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
-import java.nio.file.{Path, StandardOpenOption}
+import java.nio.file.Path
 
 import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.splaya.actors.FileReaderActor._
@@ -77,8 +77,10 @@ object FileReaderActor {
  *
  * Internally, this actor uses features from Java NIO to read portions of a
  * file asynchronously.
+ *
+ * @param channelFactory the factory for creating file channels
  */
-class FileReaderActor extends Actor {
+class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
   /** The path to the file which is currently read. */
   private var currentPath: Path = _
 
@@ -88,9 +90,16 @@ class FileReaderActor extends Actor {
   /** The current position in the file to be read. */
   private var position = 0L
 
+  /**
+   * Creates a new instance of ''FileReaderActor'' using a default
+   * ''FileChannelFactory''.
+   * @return the newly created instance
+   */
+  def this() = this(new FileChannelFactory)
+
   override def receive: Receive = {
     case InitFile(path) =>
-      channel = AsynchronousFileChannel.open(path, StandardOpenOption.READ)
+      channel = channelFactory createChannel path
       currentPath = path
       position = 0
 
