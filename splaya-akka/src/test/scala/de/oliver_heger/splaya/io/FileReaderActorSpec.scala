@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.actors
+package de.oliver_heger.splaya.io
 
 import java.io.{IOException, File, FileOutputStream}
 import java.lang
@@ -128,8 +128,8 @@ object FileReaderActorSpec {
 class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
 with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
 
-  import de.oliver_heger.splaya.actors.FileReaderActor._
-  import de.oliver_heger.splaya.actors.FileReaderActorSpec._
+  import de.oliver_heger.splaya.io.FileReaderActor._
+  import de.oliver_heger.splaya.io.FileReaderActorSpec._
 
   /** Stores the temporary file created by a test case. */
   private lazy val testFile = createDataFile()

@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.actors
+package de.oliver_heger.splaya.io
 
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -6,7 +6,7 @@ import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorRef}
-import de.oliver_heger.splaya.actors.FileReaderActor._
+import de.oliver_heger.splaya.io.FileReaderActor._
 
 /**
  * Companion object for ''FileReaderActor''.
@@ -65,7 +65,7 @@ object FileReaderActor {
    * @param length the number of bytes read (may be less than the length of the result array)
    * @param exception an exception that was thrown during the operation
    */
-  private[actors] case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
+  private[io] case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
   Array[Byte] = null, length: Int = 0, exception: Option[Throwable] = None)
 
 }
@@ -139,7 +139,7 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
    * @param dataArray the array for storing the bytes read
    * @return the completion handler
    */
-  private[actors] def createCompletionHandler(actor: ActorRef, dataArray: Array[Byte]):
+  private[io] def createCompletionHandler(actor: ActorRef, dataArray: Array[Byte]):
   CompletionHandler[Integer, ActorRef] = {
     val currentReadOperationNo = readOperationNumber
     new CompletionHandler[Integer, ActorRef] {

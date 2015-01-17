@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.actors
+package de.oliver_heger.splaya.io
 
 import java.nio.channels.AsynchronousFileChannel
 import java.nio.file.{Path, StandardOpenOption}
