@@ -1,11 +1,18 @@
 package de.oliver_heger.splaya.actors
 
-import java.io.{File, FileOutputStream}
+import java.io.{IOException, File, FileOutputStream}
+import java.lang
+import java.nio.ByteBuffer
+import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers._
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
@@ -48,13 +55,78 @@ object FileReaderActorSpec {
    * @return the test bytes in the specified range
    */
   private def testBytes(from: Int, to: Int): Array[Byte] = toBytes(TestData.substring(from, to))
+
+  /**
+   * A specialized ''FileChannelFactory'' implementation that allows access to
+   * te channel created later on. This can be used to check whether the
+   * channel has been closed correctly.
+   */
+  private class WrappingFileChannelFactory extends FileChannelFactory {
+    var createdChannel: AsynchronousFileChannel = _
+
+    override def createChannel(path: Path): AsynchronousFileChannel = {
+      createdChannel = super.createChannel(path)
+      createdChannel
+    }
+  }
+
+  /**
+   * A convenience implementation of a file channel factory which helps
+   * checking that the created channel has been closed.
+   */
+  private class VerifyClosedChannelFactory extends WrappingFileChannelFactory with Matchers {
+    /**
+     * Checks whether the channel has been closed.
+     */
+    def verifyChannelClosed(): Unit = {
+      createdChannel.isOpen should be (right = false)
+    }
+  }
+
+  /**
+   * A specialized test implementation of ''FileChannelFactory'' which always
+   * returns the channel passed to the constructor.
+   *
+   * This is useful for instance to inject mock channel implementations.
+   * @param channel the channel to be returned
+   */
+  private class ConfigurableChannelFactory(channel: AsynchronousFileChannel) extends FileChannelFactory {
+
+    override def createChannel(path: Path): AsynchronousFileChannel = channel
+  }
+
+  /**
+   * A specialized implementation of ''FileChannelFactory'' which expects
+   * multiple requests for creating a channel factory; each request is answered
+   * with a configurable factory.
+   *
+   * An instance is initialized with a list of ''FileChannelFactory''
+   * instances. On each request, the next element is removed from the list and
+   * asked to create the channel.
+   *
+   * @param factories the factories to be returned
+   */
+  private class MultiFileChannelFactory(factories: FileChannelFactory*) extends FileChannelFactory {
+    private var factoryList = factories.toList
+
+    /**
+     * @inheritdoc Creates the channel by delegating to the first element in
+     *             the list of managed factories. Then this element is
+     *             removed.
+     */
+    override def createChannel(path: Path): AsynchronousFileChannel = {
+      val currentFactory = factoryList.head
+      factoryList = factoryList.tail
+      currentFactory createChannel path
+    }
+  }
 }
 
 /**
  * Test class for ''FileReaderActor''.
  */
 class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
-with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll {
+with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
 
   import de.oliver_heger.splaya.actors.FileReaderActor._
   import de.oliver_heger.splaya.actors.FileReaderActorSpec._
@@ -86,8 +158,23 @@ with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll {
     file.toPath
   }
 
-  private def readerActor(): ActorRef = {
-    system.actorOf(Props[FileReaderActor])
+  /**
+   * Returns a ''Props'' object for a file reader actor with the specified
+   * channel factory.
+   * @param factory the channel factory
+   * @return the ''Props'' for the test actor
+   */
+  private def propsForActorWithFactory(factory: FileChannelFactory): Props =
+    Props(classOf[FileReaderActor], factory)
+
+  /**
+   * Creates a new reader actor in the test actor system. Optionally, a
+   * specialized channel factory can be provided.
+   * @return the test reader actor
+   */
+  private def readerActor(optChannelFactory: Option[FileChannelFactory] = None): ActorRef = {
+    if(optChannelFactory.isEmpty) system.actorOf(Props[FileReaderActor])
+    else system.actorOf(propsForActorWithFactory(optChannelFactory.get))
   }
 
   /**
@@ -158,5 +245,114 @@ with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll {
 
     reader ! InitFile(testFile)
     checkTestFileReadResult(readTestFile(reader))
+  }
+
+  it should "close the channel when the file is read" in {
+    val channelFactory = new VerifyClosedChannelFactory
+    val reader = readerActor(Some(channelFactory))
+
+    reader ! InitFile(testFile)
+    readTestFile(reader)
+    channelFactory.verifyChannelClosed()
+  }
+
+  it should "allow starting a new read operation before the current one is done" in {
+    val closedChannelFactory = new VerifyClosedChannelFactory
+    val reader = readerActor(Some(new MultiFileChannelFactory(closedChannelFactory, new
+        FileChannelFactory)))
+
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+    expectMsgType[ReadResult]
+
+    reader ! InitFile(testFile)
+    readTestFile(reader)
+    closedChannelFactory.verifyChannelClosed()
+  }
+
+  it should "prevent read operations after the channel was closed" in {
+    val reader = readerActor()
+    reader ! InitFile(testFile)
+    readTestFile(reader)
+
+    reader ! ReadData(32)
+    expectMsgType[EndOfFile].path should be(null)
+  }
+
+  /**
+   * Obtains the ''CompletionHandler'' that was passed to a mock file channel.
+   * @param mockChannel the mock channel
+   * @return the ''CompletionHandler''
+   */
+  private def fetchCompletionHandler(mockChannel: AsynchronousFileChannel):
+  CompletionHandler[Integer, ActorRef] = {
+    val argCaptor = ArgumentCaptor.forClass(classOf[CompletionHandler[Integer, ActorRef]])
+    verify(mockChannel).read(any(classOf[ByteBuffer]), any(classOf[lang.Long]), any
+      (classOf[ActorRef]), argCaptor.capture())
+    argCaptor.getValue
+  }
+
+  it should "handle results of outdated read operations correctly" in {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = readerActor(Some(new MultiFileChannelFactory(new ConfigurableChannelFactory
+    (mockChannel), new FileChannelFactory)))
+    reader ! InitFile(testFile)
+    reader ! ReadData(16)
+
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+    expectMsgType[ReadResult]
+
+    verify(mockChannel).close()
+    val handler = fetchCompletionHandler(mockChannel)
+    handler.completed(16, testActor)
+    reader ! ReadData(8)
+    expectMsgType[ReadResult].length should be(8)
+  }
+
+  /**
+   * Helper method for checking whether exceptions passed to the completion
+   * handler are processed correctly.
+   * @param exCause the exception to be passed to the handler
+   * @return the resulting exception
+   */
+  private def checkExceptionInReadOperation(exCause: Throwable): Throwable = {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = TestActorRef(propsForActorWithFactory(new ConfigurableChannelFactory(mockChannel)))
+    reader receive InitFile(testFile)
+    reader receive ReadData(1)
+
+    try {
+      reader receive ChannelReadComplete(testActor, 1, exception = Some(exCause))
+      fail("Exception not thrown!")
+    } catch {
+      case ex: Exception => ex
+    }
+  }
+
+  it should "throw an exception if receiving a message about a failed read operation" in {
+    val exCause = new RuntimeException
+    checkExceptionInReadOperation(exCause) match {
+      case ioEx: IOException =>
+        ioEx.getCause should be(exCause)
+    }
+  }
+
+  it should "not wrap occurring IOExceptions if a read operation fails" in {
+    val exCause = new IOException
+    checkExceptionInReadOperation(exCause) should be(exCause)
+  }
+
+  it should "handle exceptions reported asynchronously by the file channel" in {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = TestActorRef(propsForActorWithFactory(new ConfigurableChannelFactory(mockChannel)))
+    val readerActor = reader.underlyingActor.asInstanceOf[FileReaderActor]
+    val handler = readerActor.createCompletionHandler(testActor, new Array[Byte](8))
+
+    val exception = new RuntimeException
+    handler.failed(exception, testActor)
+    val msg = expectMsgType[ChannelReadComplete]
+    msg.exception.get should be(exception)
+    msg.target should be(testActor)
   }
 }

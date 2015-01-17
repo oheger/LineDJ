@@ -1,5 +1,6 @@
 package de.oliver_heger.splaya.actors
 
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.file.Path
@@ -59,10 +60,13 @@ object FileReaderActor {
    * array. If the length is less than zero, the end of the file has been
    * reached.
    * @param target the target actor for sending the response to
+   * @param operationNumber the number of the read operation this result is for
    * @param data the data read from the actor
    * @param length the number of bytes read (may be less than the length of the result array)
+   * @param exception an exception that was thrown during the operation
    */
-  private case class ChannelReadComplete(target: ActorRef, data: Array[Byte], length: Int)
+  private[actors] case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
+  Array[Byte] = null, length: Int = 0, exception: Option[Throwable] = None)
 
 }
 
@@ -90,6 +94,12 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
   /** The current position in the file to be read. */
   private var position = 0L
 
+    /**
+     * A counter for read operations. This is also used to deal with results
+     * of reads from operations which have been canceled.
+     */
+   private var readOperationNumber = 0L
+
   /**
    * Creates a new instance of ''FileReaderActor'' using a default
    * ''FileChannelFactory''.
@@ -99,9 +109,11 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
 
   override def receive: Receive = {
     case InitFile(path) =>
+      closeChannel()
       channel = channelFactory createChannel path
       currentPath = path
       position = 0
+      readOperationNumber += 1
 
     case ReadData(count) =>
       if (channel == null) {
@@ -110,8 +122,36 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
         readBytes(count)
       }
 
-    case ChannelReadComplete(target, data, length) =>
-      target ! processChannelRead(data, length)
+    case ChannelReadComplete(target, operationNo, data, length, ex) =>
+      if (readOperationNumber == operationNo) {
+        if (ex.isDefined) {
+          throw wrapInIoException(ex.get)
+        }
+        target ! processChannelRead(data, length)
+      }
+  }
+
+  /**
+   * Creates a ''CompletionHandler'' to be used by an asynchronous read
+   * operation. When the read finishes the handler reports the result to the
+   * specified actor.
+   * @param actor the actor to be notified by the handler
+   * @param dataArray the array for storing the bytes read
+   * @return the completion handler
+   */
+  private[actors] def createCompletionHandler(actor: ActorRef, dataArray: Array[Byte]):
+  CompletionHandler[Integer, ActorRef] = {
+    val currentReadOperationNo = readOperationNumber
+    new CompletionHandler[Integer, ActorRef] {
+
+      override def completed(bytesRead: Integer, attachment: ActorRef): Unit = {
+        actor ! ChannelReadComplete(attachment, currentReadOperationNo, dataArray, bytesRead)
+      }
+
+      override def failed(exc: Throwable, attachment: ActorRef): Unit = {
+        actor ! ChannelReadComplete(attachment, currentReadOperationNo, exception = Some(exc))
+      }
+    }
   }
 
   /**
@@ -121,14 +161,7 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
   private def readBytes(count: Int): Unit = {
     val dataArray = new Array[Byte](count)
     val buffer = ByteBuffer wrap dataArray
-    channel.read(buffer, position, sender(), new CompletionHandler[Integer, ActorRef] {
-
-      override def completed(bytesRead: Integer, attachment: ActorRef): Unit = {
-        self ! ChannelReadComplete(attachment, dataArray, bytesRead)
-      }
-
-      override def failed(exc: Throwable, attachment: ActorRef): Unit = ???
-    })
+    channel.read(buffer, position, sender(), createCompletionHandler(self, dataArray))
   }
 
   /**
@@ -141,6 +174,31 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
     if (length >= 0) {
       position += length
       ReadResult(result, length)
-    } else EndOfFile(currentPath)
+    } else {
+      closeChannel()
+      EndOfFile(currentPath)
+    }
   }
+
+  /**
+   * Closes the current channel if it exists.
+   */
+  private def closeChannel() {
+    if (channel != null) {
+      channel.close()
+      channel = null
+    }
+  }
+
+  /**
+   * Wraps the specified exception in an IO exception. If it is already an
+   * IOException, it is returned directly.
+   * @param ex the exception to be wrapped
+   * @return the resulting IOException
+   */
+  private def wrapInIoException(ex: Throwable): IOException =
+    ex match {
+      case ioex: IOException => ioex
+      case other: Throwable => new IOException(other)
+    }
 }
