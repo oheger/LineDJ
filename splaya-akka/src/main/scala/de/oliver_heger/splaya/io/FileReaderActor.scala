@@ -123,12 +123,16 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
       }
 
     case ChannelReadComplete(target, operationNo, data, length, ex) =>
-      if (readOperationNumber == operationNo) {
+      if (readOperationNumber == operationNo && channel != null) {
         if (ex.isDefined) {
           throw wrapInIoException(ex.get)
         }
         target ! processChannelRead(data, length)
       }
+
+    case CloseRequest =>
+      closeChannel()
+      sender ! CloseAck(self)
   }
 
   /**

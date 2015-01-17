@@ -1,6 +1,6 @@
 package de.oliver_heger.splaya.io
 
-import java.io.{IOException, File, FileOutputStream}
+import java.io.{File, FileOutputStream, IOException}
 import java.lang
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
@@ -354,5 +354,34 @@ with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with 
     val msg = expectMsgType[ChannelReadComplete]
     msg.exception.get should be(exception)
     msg.target should be(testActor)
+  }
+
+  it should "be able to handle a close request if no file is open" in {
+    val reader = readerActor()
+    reader ! CloseRequest
+
+    expectMsgType[CloseAck].actor should be(reader)
+  }
+
+  it should "close the current channel on a close request" in {
+    val factory = new VerifyClosedChannelFactory
+    val reader = readerActor(Some(factory))
+    reader ! InitFile(testFile)
+
+    reader ! CloseRequest
+    expectMsgType[CloseAck]
+    factory.verifyChannelClosed()
+  }
+
+  it should "ignore write results after the channel was closed" in {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = readerActor(Some(new ConfigurableChannelFactory(mockChannel)))
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+
+    reader ! CloseRequest
+    expectMsgType[CloseAck]
+    fetchCompletionHandler(mockChannel).completed(8, testActor)
+    expectNoMsg(1.second)
   }
 }
