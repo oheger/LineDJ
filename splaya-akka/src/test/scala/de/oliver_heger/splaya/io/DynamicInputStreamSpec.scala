@@ -1,6 +1,6 @@
 package de.oliver_heger.splaya.io
 
-import java.io.ByteArrayOutputStream
+import java.io.{IOException, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util
 
@@ -65,6 +65,29 @@ object DynamicInputStreamSpec {
     while (count != -1) {
       bos.write(buf, 0, count)
       count = stream read buf
+    }
+    bos
+  }
+
+  /**
+   * Appends data to a stream while reading portions of data. This method
+   * implements a basic check for the management of the chunks of a
+   * ''DynamicInputStream''.
+   * @param stream the test stream
+   * @param optOutputStream an optional output stream for storing read results;
+   *                        if this is not provided, a new stream is created
+   * @param bufSize the size of the buffer for read operations
+   * @param data a sequence of chunks to be added to the stream
+   * @return the output stream with the data read from the stream
+   */
+  private def readWhileAppending(stream: DynamicInputStream, optOutputStream:
+  Option[ByteArrayOutputStream], bufSize: Int, data: Seq[String]): ByteArrayOutputStream = {
+    val buf = new Array[Byte](bufSize)
+    val bos = optOutputStream.getOrElse(new ByteArrayOutputStream)
+    for (c <- data) {
+      stream append createReadResult(c)
+      val count = stream read buf
+      bos.write(buf, 0, count)
     }
     bos
   }
@@ -224,15 +247,8 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
       "Without that title. Romeo, doff thy name,",
       "and for thy name, which is no part of thee,",
       "Take all myself.")
-    val bos = new ByteArrayOutputStream
     val stream = new DynamicInputStream(initialCapacity)
-    val buf = new Array[Byte](16)
-
-    for (c <- Data) {
-      stream append createReadResult(c)
-      val count = stream read buf
-      bos.write(buf, 0, count)
-    }
+    val bos = readWhileAppending(stream, None, 16, Data)
     readStream(stream = stream, optOutputStream = Some(bos))
     checkReadResult(bos, Data: _*)
     stream
@@ -254,6 +270,81 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
     intercept[IllegalStateException] {
       stream append createReadResult("Thy drugs are quick. Thus with a kiss I die.")
+    }
+  }
+
+  it should "indicate that it supports mark operations" in {
+    val stream = new DynamicInputStream
+    stream.markSupported should be (right = true)
+  }
+
+  it should "throw an exception if reset() is called without mark()" in {
+    val stream = new DynamicInputStream
+    stream append createReadResult("Swits and spurs, swits and spurs, or I'll cry a match.")
+    stream.read()
+
+    intercept[IOException] {
+      stream.reset()
+    }
+  }
+
+  /**
+   * Helper method for checking whether reset() works as expected - event if
+   * applied multiple times.
+   * @param numberOfResets the number of reset operations to execute
+   */
+  private def checkReset(numberOfResets: Int): Unit = {
+    val Data = Array("Romeo:",
+      "Hold, Tybalt! Good Mercutio!",
+      "[Tybalt under Romeo's arm thrusts Mercutio in. Away Tybalt]",
+      "Mercutio:",
+      "I am hurt.",
+      "A plague a' both your houses! I am sped.",
+      "Is he gone and hath nothing?")
+    val stream = new DynamicInputStream(4)
+    stream append createReadResult(Data(0))
+    val buf = new Array[Byte](1024)
+    stream read buf
+
+    stream.mark(16384) // this actually means "no limit"
+    val bos = readWhileAppending(stream, None, 16, Data.tail)
+    val count = stream read buf
+    bos.write(buf, 0, count)
+    checkReadResult(bos, Data.tail: _*)
+
+    for(i <- 0 until numberOfResets) {
+      stream.reset()
+      val bos2 = new ByteArrayOutputStream
+      val count = stream read buf
+      bos2.write(buf, 0, count)
+      checkReadResult(bos2, Data.tail: _*)
+    }
+  }
+
+  it should "handle mark and reset operations correctly" in {
+    checkReset(1)
+  }
+
+  it should "support multiple resets to the same mark" in {
+    checkReset(4)
+  }
+
+  it should "ignore a mark operation when the read limit is reached" in {
+    val stream = new DynamicInputStream(3)
+    stream append createReadResult("Romeo, away, be gone!")
+    val buf = new Array[Byte](8)
+    stream read buf
+    stream.mark(16)
+
+    appendChunks(stream, "The citizens are up, and Tybalt slain.",
+    "Stand not amaz'd, the Prince will doom thee death")
+    stream read buf
+    stream read buf
+    stream read buf
+    appendChunks(stream, "If thou art taken. Hence be gone, away!")
+    stream.capacity should be (3)
+    intercept[IOException] {
+      stream.reset()
     }
   }
 }

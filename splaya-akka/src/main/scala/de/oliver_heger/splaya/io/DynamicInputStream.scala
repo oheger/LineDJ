@@ -1,6 +1,6 @@
 package de.oliver_heger.splaya.io
 
-import java.io.InputStream
+import java.io.{IOException, InputStream}
 
 import de.oliver_heger.splaya.io.FileReaderActor.ReadResult
 
@@ -14,6 +14,11 @@ object DynamicInputStream {
    * more chunks are added, the capacity grows dynamically.
    */
   val DefaultCapacity = 64
+
+  /**
+   * Constant for an index used to represent an undefined mark position.
+   */
+  private val UndefinedMarkIndex = -1
 }
 
 /**
@@ -32,12 +37,17 @@ object DynamicInputStream {
  * the stream returns -1 indicating its end. To prevent this, users have
  * to ensure that the stream is sufficiently filled before data is read.
  *
+ * Implementation note: This class is not thread-safe. Append and read
+ * operations have to take place in the same thread or have to be synchronized
+ * properly.
+ *
  * @param initialCapacity the initial capacity of this stream; this is the
  *                        number of chunks that can be added; it grows
  *                        dynamically if necessary
  */
 class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapacity) extends
 InputStream {
+  import DynamicInputStream._
   /**
    * An array with the chunks that have been appended to this stream. This
    * array will be used as a circular buffer when adding new chunks.
@@ -52,6 +62,18 @@ InputStream {
 
   /** The current read position. */
   private var currentPosition = 0
+
+  /** Stores the chunk index selected by a mark operation. */
+  private var markedChunk = UndefinedMarkIndex
+
+  /** Stores the position selected by a mark operation. */
+  private var markedPosition = UndefinedMarkIndex
+
+  /** The limit passed to the mark() method. */
+  private var markReadLimit = UndefinedMarkIndex
+
+  /** The number of bytes read since a mark operation. */
+  private var bytesReadAfterMark = 0
 
   /** The number of bytes currently available. */
   private var bytesAvailable = 0
@@ -71,6 +93,7 @@ InputStream {
       throw new IllegalStateException("Cannot add data to a completed stream!")
     }
 
+    checkMarkReadLimit()
     ensureCapacity()
     chunks(appendChunk) = data
     appendChunk = increaseChunkIndex(appendChunk)
@@ -104,6 +127,12 @@ InputStream {
   def capacity: Int = chunks.length
 
   /**
+   * Returns a flag whether this stream implementation supports mark
+   * operations. This is the case; therefore, result is '''true'''.
+   */
+  override val markSupported = true
+
+  /**
    * @inheritdoc This implementation returns the number of bytes which has been
    *             added to this stream and not read so far.
    */
@@ -119,7 +148,7 @@ InputStream {
     if (bytesAvailable > 0) {
       val result = chunks(0).data(currentPosition)
       currentPosition += 1
-      bytesAvailable -= 1
+      bytesRead(1)
       result
     } else -1
   }
@@ -132,9 +161,48 @@ InputStream {
     else {
       readFromChunks(b, off, readLength)
 
-      bytesAvailable -= readLength
+      bytesRead(readLength)
       readLength
     }
+  }
+
+  /**
+   * @inheritdoc This stream implementation supports mark and reset operations.
+   *             The current position in the stream is marked. If data is read
+   *             beyond the specified limit, the marked position is lost.
+   * @param readlimit the number of bytes to keep before a reset
+   */
+  override def mark(readlimit: Int): Unit = {
+    markedChunk = currentChunk
+    markedPosition = currentPosition
+    bytesReadAfterMark = 0
+    markReadLimit = readlimit
+  }
+
+  /**
+   * @inheritdoc This implementation restores the position selected by the
+   *             previous mark operation. If there was none, an exception
+   *             is thrown.
+   */
+  override def reset(): Unit = {
+    if(markedChunk == UndefinedMarkIndex) {
+      throw new IOException("reset without mark!")
+    }
+
+    currentChunk = markedChunk
+    currentPosition = markedPosition
+    bytesAvailable += bytesReadAfterMark
+    bytesReadAfterMark = 0
+  }
+
+  /**
+   * Updates internal counters to reflect that the given number of bytes was
+   * read.
+   * @param count the number of bytes which has been read
+   */
+  private def bytesRead(count: Int): Unit = {
+    bytesAvailable -= count
+    bytesReadAfterMark += count
   }
 
   /**
@@ -168,22 +236,45 @@ InputStream {
    * increased, the array's size is doubled.)
    */
   private def ensureCapacity(): Unit = {
-    if (appendChunk == currentChunk && available() > 0) {
-      val newChunks = copyChunks()
-      currentChunk = 0
+    val chunkIndex = if (markedChunk != UndefinedMarkIndex) markedChunk
+    else currentChunk
+
+    if (appendChunk == chunkIndex && available() > 0) {
+      val newChunks = copyChunks(chunkIndex)
+      if (markedChunk != UndefinedMarkIndex) {
+        val delta = if (markedChunk <= currentChunk) currentChunk - markedChunk
+        else capacity + currentChunk - markedChunk
+        markedChunk = 0
+        currentChunk = delta
+      } else {
+        currentChunk = 0
+      }
       appendChunk = chunks.length
       chunks = newChunks
     }
   }
 
   /**
+   * Checks whether the read limit specified when calling mark() has been
+   * reached. If this is the case, the member fields associated with a mark
+   * operation are reset. It is then no longer possible to reset the stream to
+   * this position.
+   */
+  private def checkMarkReadLimit() {
+    if (markedChunk != UndefinedMarkIndex && bytesReadAfterMark >= markReadLimit) {
+      markedChunk = UndefinedMarkIndex
+    }
+  }
+
+  /**
    * Creates a new array with chunks and copies the content of the old array
    * into it.
+   * @param startChunkIndex the index of the chunks where to start the copying
    * @return the new array with chunks
    */
-  private def copyChunks(): Array[ReadResult] = {
+  private def copyChunks(startChunkIndex: Int): Array[ReadResult] = {
     val newChunks = new Array[ReadResult](chunks.length * 2)
-    var orgIndex = currentChunk
+    var orgIndex = startChunkIndex
     for (i <- 0 until chunks.length) {
       newChunks(i) = chunks(orgIndex)
       orgIndex = increaseChunkIndex(orgIndex)
