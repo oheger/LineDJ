@@ -3,7 +3,7 @@ package de.oliver_heger.splaya.io
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
-import java.nio.file.Path
+import java.nio.file.{StandardOpenOption, Path}
 
 import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.splaya.io.FileReaderActor._
@@ -110,7 +110,7 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
   override def receive: Receive = {
     case InitFile(path) =>
       closeChannel()
-      channel = channelFactory createChannel path
+      channel = channelFactory.createChannel(path, StandardOpenOption.READ)
       currentPath = path
       position = 0
       readOperationNumber += 1

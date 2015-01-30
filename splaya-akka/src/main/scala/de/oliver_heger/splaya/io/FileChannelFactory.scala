@@ -1,7 +1,7 @@
 package de.oliver_heger.splaya.io
 
 import java.nio.channels.AsynchronousFileChannel
-import java.nio.file.{Path, StandardOpenOption}
+import java.nio.file.{OpenOption, Path}
 
 /**
  * An internally used helper class for creating ''AsynchronousFileChannel''
@@ -11,13 +11,14 @@ import java.nio.file.{Path, StandardOpenOption}
  * file channel. This simplifies testing as specially prepared channels can be
  * injected.
  */
-private class FileChannelFactory {
+class FileChannelFactory {
   /**
    * Creates a new channel for reading the specified file.
    * @param path the path to the file to be read
+   * @param openOptions a sequence of options for the channel
    * @return the channel for reading this file
    * @throws java.io.IOException if the channel cannot be opened
    */
-  def createChannel(path: Path): AsynchronousFileChannel =
-    AsynchronousFileChannel.open(path, StandardOpenOption.READ)
+  def createChannel(path: Path, openOptions: OpenOption*): AsynchronousFileChannel =
+    AsynchronousFileChannel.open(path, openOptions: _*)
 }

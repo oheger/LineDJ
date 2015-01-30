@@ -5,7 +5,7 @@ import java.lang
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{StandardOpenOption, OpenOption, Files, Path}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
@@ -49,22 +49,16 @@ object FileReaderActorSpec {
   private def testBytes() = toBytes(TestData)
 
   /**
-   * Returns a byte array with the test data in the given range.
-   * @param from index of the first byte
-   * @param to index of the last byte (excluding)
-   * @return the test bytes in the specified range
-   */
-  private def testBytes(from: Int, to: Int): Array[Byte] = toBytes(TestData.substring(from, to))
-
-  /**
    * A specialized ''FileChannelFactory'' implementation that allows access to
    * te channel created later on. This can be used to check whether the
    * channel has been closed correctly.
    */
-  private class WrappingFileChannelFactory extends FileChannelFactory {
+  private class WrappingFileChannelFactory extends FileChannelFactory with Matchers {
     var createdChannel: AsynchronousFileChannel = _
 
-    override def createChannel(path: Path): AsynchronousFileChannel = {
+    override def createChannel(path: Path, options: OpenOption*): AsynchronousFileChannel = {
+      options should have length 1
+      options.head should be(StandardOpenOption.READ)
       createdChannel = super.createChannel(path)
       createdChannel
     }
@@ -92,7 +86,7 @@ object FileReaderActorSpec {
    */
   private class ConfigurableChannelFactory(channel: AsynchronousFileChannel) extends FileChannelFactory {
 
-    override def createChannel(path: Path): AsynchronousFileChannel = channel
+    override def createChannel(path: Path, options: OpenOption*): AsynchronousFileChannel = channel
   }
 
   /**
@@ -114,10 +108,10 @@ object FileReaderActorSpec {
      *             the list of managed factories. Then this element is
      *             removed.
      */
-    override def createChannel(path: Path): AsynchronousFileChannel = {
+    override def createChannel(path: Path, options: OpenOption*): AsynchronousFileChannel = {
       val currentFactory = factoryList.head
       factoryList = factoryList.tail
-      currentFactory createChannel path
+      currentFactory.createChannel(path, options: _*)
     }
   }
 }
