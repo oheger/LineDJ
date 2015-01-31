@@ -18,6 +18,24 @@ object ChannelHandler {
    */
   case class InitFile(path: Path)
 
+  /**
+   * A trait defining access to a byte array.
+   *
+   * Arrays can be used to transport data from a source to a sink. Sometimes,
+   * the array is only partly filled. With this trait it is possible to find
+   * out which parts of the array actually contain valid data.
+   */
+  trait ArraySource {
+    /** The full data array stored in this object. */
+    val data: Array[Byte]
+
+    /** The offset into the data array on which valid data starts. */
+    val offset = 0
+
+    /** The length of the area containing valid data. */
+    val length: Int
+  }
+
 }
 
 /**

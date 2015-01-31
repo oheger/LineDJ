@@ -174,6 +174,16 @@ FileTestHelper {
     checkTestFileReadResult(result)
   }
 
+  it should "return read results as ArraySource objects" in {
+    val reader = readerActor()
+    reader ! InitFile(testFile)
+    reader ! ReadData(16)
+
+    val result = expectMsgType[ArraySource]
+    result.length should be (16)
+    result.offset should be (0)
+  }
+
   it should "be able to read a file in multiple small chunks" in {
     val BufferSize = TestData.length / 4
     val resultBuffer = ArrayBuffer.empty[Byte]

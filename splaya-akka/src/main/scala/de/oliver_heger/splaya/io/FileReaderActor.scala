@@ -5,6 +5,7 @@ import java.nio.channels.CompletionHandler
 import java.nio.file.{StandardOpenOption, Path}
 
 import akka.actor.ActorRef
+import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
 import de.oliver_heger.splaya.io.FileReaderActor._
 
 /**
@@ -38,7 +39,7 @@ object FileReaderActor {
    * length of the data read is stored as an additional attribute.
    * @param data an array with the bytes read
    */
-  case class ReadResult(data: Array[Byte], length: Int)
+  case class ReadResult(data: Array[Byte], length: Int) extends ArraySource
 
   /**
    * An internally used message sent when a read operation of the channel was
