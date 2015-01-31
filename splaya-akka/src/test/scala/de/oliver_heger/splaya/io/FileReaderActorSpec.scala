@@ -1,11 +1,10 @@
 package de.oliver_heger.splaya.io
 
-import java.io.{File, FileOutputStream, IOException}
+import java.io.IOException
 import java.lang
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
-import java.nio.charset.StandardCharsets
-import java.nio.file.{StandardOpenOption, OpenOption, Files, Path}
+import java.nio.file.{OpenOption, Path, StandardOpenOption}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
@@ -22,32 +21,6 @@ import scala.concurrent.duration._
  * Companion object for ''FileReaderActorSpec''.
  */
 object FileReaderActorSpec {
-  private val TestData = """Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
-                  eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
-                  voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
-                  kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
-                  ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
-                  tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
-                  vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
-                  gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
-                  dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
-                  invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
-                  eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
-                  sea takimata sanctus est Lorem ipsum dolor sit amet."""
-
-  /**
-   * Helper method for converting a string to a byte array.
-   * @param s the string
-   * @return the byte array
-   */
-  private def toBytes(s: String): Array[Byte] = s.getBytes(StandardCharsets.UTF_8)
-
-  /**
-   * Returns a byte array with the complete test data.
-   * @return the test bytes
-   */
-  private def testBytes() = toBytes(TestData)
-
   /**
    * A specialized ''FileChannelFactory'' implementation that allows access to
    * te channel created later on. This can be used to check whether the
@@ -117,40 +90,27 @@ object FileReaderActorSpec {
 }
 
 /**
- * Test class for ''FileReaderActor''.
+ * Test class for ''FileReaderActor''. This class also tests functionality of
+ * the base trait ''ChannelHandler''.
  */
 class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
-with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
+with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar with
+FileTestHelper {
 
-  import ChannelHandler._
+  import de.oliver_heger.splaya.io.ChannelHandler._
   import de.oliver_heger.splaya.io.FileReaderActor._
   import de.oliver_heger.splaya.io.FileReaderActorSpec._
 
-  /** Stores the temporary file created by a test case. */
-  private lazy val testFile = createDataFile()
-
   def this() = this(ActorSystem("FileReaderActorSpec"))
+
+  override protected def beforeAll(): Unit = {
+    createDataFile()
+  }
 
   override protected def afterAll(): Unit = {
     system.shutdown()
     system awaitTermination 10.seconds
-
-    Files deleteIfExists testFile
-  }
-
-  /**
-   * Creates a temporary file with test data.
-   * @return the path to the test file
-   */
-  private def createDataFile(): Path = {
-    val file = File.createTempFile("FileReaderActor", "tmp")
-    val out = new FileOutputStream(file)
-    try {
-      out.write(testBytes())
-    } finally {
-      out.close()
-    }
-    file.toPath
+    tearDownTestFile()
   }
 
   /**
