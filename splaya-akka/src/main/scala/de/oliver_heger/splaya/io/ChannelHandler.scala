@@ -61,6 +61,12 @@ trait ChannelHandler extends Actor {
   private var operationNumber = 0L
 
   /**
+   * A flag whether currently a request is processed by this actor. This actor
+   * only accepts a new request after the former one has been processed.
+   */
+  private var requestPending = false
+
+  /**
    * Returns the ''Path'' to the file currently processed. This member is only
    * defined if currently a file path was set; i.e. if a channel is open.
    * @return the path to the file currently processed
@@ -144,7 +150,30 @@ trait ChannelHandler extends Actor {
    */
   protected def processAsyncResult[R](operationNo: Long, result: R)(f: R => Unit): Unit = {
     if (operationNumber == operationNo && channel.isDefined) {
+      requestPending = false
       f(result)
+    }
+  }
+
+  /**
+   * Handles a new request for a channel operation. This method checks whether
+   * a new request can be accepted. If not - because no channel is open or
+   * another request is currently processed -, a specific result is sent to the
+   * caller. Otherwise, a function is executed actually handling the request.
+   * @param noChannelResult the result to sent if no channel is open
+   * @param pendingResult the result to sent if this actor is busy
+   * @param f the function for handling the request
+   */
+  protected def handleRequest(noChannelResult: => Any, pendingResult: => Any)(f: => Unit): Unit = {
+    if (currentChannel.isEmpty) {
+      sender ! noChannelResult
+    } else {
+      if (requestPending) {
+        sender ! pendingResult
+      } else {
+        f
+        requestPending = true
+      }
     }
   }
 
@@ -160,6 +189,7 @@ trait ChannelHandler extends Actor {
       path = filePath
       position = 0
       operationNumber += 1
+      requestPending = false
 
     case CloseRequest =>
       closeChannel()

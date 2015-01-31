@@ -68,6 +68,10 @@ object FileReaderActor {
  * the results of read operations. When the end of the file is reached a
  * corresponding end message is sent.
  *
+ * Note that another read request is only accepted after the current request has
+ * been processed and the answer sent out. So the protocol requires waiting for
+ * the read result before a new request is created.
+ *
  * Internally, this actor uses features from Java NIO to read portions of a
  * file asynchronously.
  *
@@ -88,9 +92,7 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
 
   override def specialReceive: Receive = {
     case ReadData(count) =>
-      if (currentChannel.isEmpty) {
-        sender ! EndOfFile(null)
-      } else {
+      handleRequest(EndOfFile(null), ReadResult(Array.empty, 0)) {
         readBytes(count)
       }
 

@@ -379,4 +379,16 @@ with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with 
     fetchCompletionHandler(mockChannel).completed(8, testActor)
     expectNoMsg(1.second)
   }
+
+  it should "reject a read request if one is still pending" in {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = readerActor(Some(new ConfigurableChannelFactory(mockChannel)))
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+
+    reader ! ReadData(16)
+    val result = expectMsgType[ReadResult]
+    result.data should have length 0
+    result.length should be (0)
+  }
 }
