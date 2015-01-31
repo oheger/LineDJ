@@ -1,27 +1,16 @@
 package de.oliver_heger.splaya.io
 
-import java.io.IOException
 import java.nio.ByteBuffer
-import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
+import java.nio.channels.CompletionHandler
 import java.nio.file.{StandardOpenOption, Path}
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.ActorRef
 import de.oliver_heger.splaya.io.FileReaderActor._
 
 /**
  * Companion object for ''FileReaderActor''.
  */
 object FileReaderActor {
-
-  /**
-   * Message for initializing the file to be read.
-   *
-   * This message tells the file reader actor which file has to be read.
-   * The actor will open a channel for this path. After a successful
-   * initialization, the file can be read.
-   * @param path the path to the file to be read
-   */
-  case class InitFile(path: Path)
 
   /**
    * A message indicating the end of the file read by the file reader actor.
@@ -84,22 +73,7 @@ object FileReaderActor {
  *
  * @param channelFactory the factory for creating file channels
  */
-class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
-  /** The path to the file which is currently read. */
-  private var currentPath: Path = _
-
-  /** A channel for reading from the current file. */
-  private var channel: AsynchronousFileChannel = _
-
-  /** The current position in the file to be read. */
-  private var position = 0L
-
-    /**
-     * A counter for read operations. This is also used to deal with results
-     * of reads from operations which have been canceled.
-     */
-   private var readOperationNumber = 0L
-
+class FileReaderActor(override val channelFactory: FileChannelFactory) extends ChannelHandler {
   /**
    * Creates a new instance of ''FileReaderActor'' using a default
    * ''FileChannelFactory''.
@@ -107,32 +81,24 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
    */
   def this() = this(new FileChannelFactory)
 
-  override def receive: Receive = {
-    case InitFile(path) =>
-      closeChannel()
-      channel = channelFactory.createChannel(path, StandardOpenOption.READ)
-      currentPath = path
-      position = 0
-      readOperationNumber += 1
+  /**
+   * @inheritdoc This class opens a channel for read access.
+   */
+  override val channelOpenOptions = List(StandardOpenOption.READ)
 
+  override def specialReceive: Receive = {
     case ReadData(count) =>
-      if (channel == null) {
+      if (currentChannel.isEmpty) {
         sender ! EndOfFile(null)
       } else {
         readBytes(count)
       }
 
-    case ChannelReadComplete(target, operationNo, data, length, ex) =>
-      if (readOperationNumber == operationNo && channel != null) {
-        if (ex.isDefined) {
-          throw wrapInIoException(ex.get)
-        }
-        target ! processChannelRead(data, length)
+    case c: ChannelReadComplete =>
+      processAsyncResult(c.operationNumber, c) { result =>
+        handleIOException(result.exception)
+        result.target ! processChannelRead(result.data, result.length)
       }
-
-    case CloseRequest =>
-      closeChannel()
-      sender ! CloseAck(self)
   }
 
   /**
@@ -145,7 +111,7 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
    */
   private[io] def createCompletionHandler(actor: ActorRef, dataArray: Array[Byte]):
   CompletionHandler[Integer, ActorRef] = {
-    val currentReadOperationNo = readOperationNumber
+    val currentReadOperationNo = currentOperationNumber
     new CompletionHandler[Integer, ActorRef] {
 
       override def completed(bytesRead: Integer, attachment: ActorRef): Unit = {
@@ -165,7 +131,7 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
   private def readBytes(count: Int): Unit = {
     val dataArray = new Array[Byte](count)
     val buffer = ByteBuffer wrap dataArray
-    channel.read(buffer, position, sender(), createCompletionHandler(self, dataArray))
+    currentChannel.get.read(buffer, position, sender(), createCompletionHandler(self, dataArray))
   }
 
   /**
@@ -183,26 +149,4 @@ class FileReaderActor(channelFactory: FileChannelFactory) extends Actor {
       EndOfFile(currentPath)
     }
   }
-
-  /**
-   * Closes the current channel if it exists.
-   */
-  private def closeChannel() {
-    if (channel != null) {
-      channel.close()
-      channel = null
-    }
-  }
-
-  /**
-   * Wraps the specified exception in an IO exception. If it is already an
-   * IOException, it is returned directly.
-   * @param ex the exception to be wrapped
-   * @return the resulting IOException
-   */
-  private def wrapInIoException(ex: Throwable): IOException =
-    ex match {
-      case ioex: IOException => ioex
-      case other: Throwable => new IOException(other)
-    }
 }

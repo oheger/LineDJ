@@ -122,6 +122,7 @@ object FileReaderActorSpec {
 class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
 with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
 
+  import ChannelHandler._
   import de.oliver_heger.splaya.io.FileReaderActor._
   import de.oliver_heger.splaya.io.FileReaderActorSpec._
 
@@ -367,7 +368,7 @@ with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with 
     factory.verifyChannelClosed()
   }
 
-  it should "ignore write results after the channel was closed" in {
+  it should "ignore read results after the channel was closed" in {
     val mockChannel = mock[AsynchronousFileChannel]
     val reader = readerActor(Some(new ConfigurableChannelFactory(mockChannel)))
     reader ! InitFile(testFile)
