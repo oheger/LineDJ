@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.io
 
 import java.nio.ByteBuffer
 import java.nio.channels.CompletionHandler
-import java.nio.file.{StandardOpenOption, Path}
+import java.nio.file.{Path, StandardOpenOption}
 
 import akka.actor.ActorRef
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
@@ -55,7 +55,7 @@ object FileReaderActor {
    * @param length the number of bytes read (may be less than the length of the result array)
    * @param exception an exception that was thrown during the operation
    */
-  private[io] case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
+  private case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
   Array[Byte] = null, length: Int = 0, exception: Option[Throwable] = None)
 
 }
@@ -99,8 +99,8 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
 
     case c: ChannelReadComplete =>
       processAsyncResult(c.operationNumber, c) { result =>
-        handleIOException(result.exception)
-        result.target ! processChannelRead(result.data, result.length)
+        result.target ! handleAndMapException(result.exception).getOrElse(processChannelRead
+          (result.data, result.length))
       }
   }
 

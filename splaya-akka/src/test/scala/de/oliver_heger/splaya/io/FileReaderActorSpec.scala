@@ -275,50 +275,19 @@ FileTestHelper {
     expectMsgType[ReadResult].length should be(8)
   }
 
-  /**
-   * Helper method for checking whether exceptions passed to the completion
-   * handler are processed correctly.
-   * @param exCause the exception to be passed to the handler
-   * @return the resulting exception
-   */
-  private def checkExceptionInReadOperation(exCause: Throwable): Throwable = {
+  it should "send an error message about a failed read operation" in {
     val mockChannel = mock[AsynchronousFileChannel]
     val reader = TestActorRef(propsForActorWithFactory(new ConfigurableChannelFactory(mockChannel)))
     reader receive InitFile(testFile)
     reader receive ReadData(1)
-
-    try {
-      reader receive ChannelReadComplete(testActor, 1, exception = Some(exCause))
-      fail("Exception not thrown!")
-    } catch {
-      case ex: Exception => ex
-    }
-  }
-
-  it should "throw an exception if receiving a message about a failed read operation" in {
-    val exCause = new RuntimeException
-    checkExceptionInReadOperation(exCause) match {
-      case ioEx: IOException =>
-        ioEx.getCause should be(exCause)
-    }
-  }
-
-  it should "not wrap occurring IOExceptions if a read operation fails" in {
-    val exCause = new IOException
-    checkExceptionInReadOperation(exCause) should be(exCause)
-  }
-
-  it should "handle exceptions reported asynchronously by the file channel" in {
-    val mockChannel = mock[AsynchronousFileChannel]
-    val reader = TestActorRef(propsForActorWithFactory(new ConfigurableChannelFactory(mockChannel)))
-    val readerActor = reader.underlyingActor.asInstanceOf[FileReaderActor]
-    val handler = readerActor.createCompletionHandler(testActor, new Array[Byte](8))
-
-    val exception = new RuntimeException
+    val handler = fetchCompletionHandler(mockChannel)
+    val exception = new IOException
     handler.failed(exception, testActor)
-    val msg = expectMsgType[ChannelReadComplete]
-    msg.exception.get should be(exception)
-    msg.target should be(testActor)
+
+    val errMsg = expectMsgType[IOOperationError]
+    errMsg.path should be(testFile)
+    errMsg.exception should be (exception)
+    verify(mockChannel).close()
   }
 
   it should "be able to handle a close request if no file is open" in {

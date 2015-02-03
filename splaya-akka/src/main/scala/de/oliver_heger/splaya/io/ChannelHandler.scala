@@ -1,6 +1,5 @@
 package de.oliver_heger.splaya.io
 
-import java.io.IOException
 import java.nio.channels.AsynchronousFileChannel
 import java.nio.file.{OpenOption, Path}
 
@@ -17,6 +16,18 @@ object ChannelHandler {
    * @param path the path to the file to be read
    */
   case class InitFile(path: Path)
+
+  /**
+   * Message for reporting an error that occurred during an IO operation.
+   *
+   * Messages of this type are sent by actors as responses to operations that
+   * failed - rather than the normal result messages. The callers can then
+   * find out that something went wrong and react accordingly.
+   *
+   * @param path the path to the file that was processed
+   * @param exception the exception that occurred during the last operation
+   */
+  case class IOOperationError(path: Path, exception: Throwable)
 
   /**
    * A trait defining access to a byte array.
@@ -133,25 +144,19 @@ trait ChannelHandler extends Actor {
   }
 
   /**
-   * Wraps the specified exception in an IO exception. If it is already an
-   * IOException, it is returned directly.
-   * @param ex the exception to be wrapped
-   * @return the resulting IOException
+   * Deals with an exception that occurred during an IO operation and maps it
+   * to a corresponding error message. This method can be used by extending
+   * classes to deal with exceptions in a convenient way. The current channel
+   * is closed. The resulting message contains all required error information.
+   * If no exception occurred, this method has no effect, and the result is
+   * ''None''.
+   * @param optEx an option with an exception
+   * @return the corresponding error message
    */
-  protected def wrapInIoException(ex: Throwable): IOException =
-    ex match {
-      case ioex: IOException => ioex
-      case other: Throwable => new IOException(other)
-    }
-
-  /**
-   * Checks whether the passed in ''Option'' contains an exception. If this
-   * is the case, it is wrapped in an ''IOException'' and thrown.
-   * @param ex an optional exception
-   */
-  protected def handleIOException(ex: Option[Throwable]): Unit = {
-    if (ex.isDefined) {
-      throw wrapInIoException(ex.get)
+  protected def handleAndMapException(optEx: Option[Throwable]): Option[Any] = {
+    optEx map { t =>
+      closeChannel()
+      IOOperationError(exception = t, path = currentPath)
     }
   }
 
