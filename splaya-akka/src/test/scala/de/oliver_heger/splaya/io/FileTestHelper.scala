@@ -4,6 +4,8 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
+import scala.io.Source
+
 /**
  * A helper trait which can be used by test classes that need access to a file
  * with defined test data.
@@ -18,18 +20,18 @@ trait FileTestHelper {
   var optTestFile: Option[Path] = None
 
   /** A string with defined test data. */
-  val TestData = """Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
-                  eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
-                  voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
-                  kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
-                  ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
-                  tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
-                  vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
-                  gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
-                  dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
-                  invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
-                  eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
-                  sea takimata sanctus est Lorem ipsum dolor sit amet."""
+  val TestData = """|Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
+                    |eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
+                    |voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
+                    |kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
+                    |ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+                    |tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+                    |vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
+                    |gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
+                    |dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
+                    |invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
+                    |eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
+                    |sea takimata sanctus est Lorem ipsum dolor sit amet.""".stripMargin
 
   /**
    * Helper method for converting a string to a byte array.
@@ -79,5 +81,16 @@ trait FileTestHelper {
     val path = createFileReference()
     Files.write(path, toBytes(content))
     path
+  }
+
+  /**
+   * Reads the content of the data file and returns it as a string.
+   * @return the content read from the data file
+   */
+  def readDataFile(): String = {
+    val source = Source.fromFile(testFile.toFile)
+    val result = source.getLines().mkString("\r\n")
+    source.close()
+    result
   }
 }
