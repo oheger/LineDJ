@@ -7,6 +7,7 @@ import java.nio.file.Path
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import de.oliver_heger.splaya.FileTestHelper
 import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, IOOperationError, InitFile}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqParam, _}

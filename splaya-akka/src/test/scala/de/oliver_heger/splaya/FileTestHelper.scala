@@ -1,4 +1,4 @@
-package de.oliver_heger.splaya.io
+package de.oliver_heger.splaya
 
 import java.io.File
 import java.nio.charset.StandardCharsets

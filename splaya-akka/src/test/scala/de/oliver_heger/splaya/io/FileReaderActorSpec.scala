@@ -8,6 +8,7 @@ import java.nio.file.{OpenOption, Path, StandardOpenOption}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import de.oliver_heger.splaya.FileTestHelper
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
