@@ -98,6 +98,7 @@ class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
 with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar with
 FileTestHelper {
 
+  import FileTestHelper._
   import de.oliver_heger.splaya.io.ChannelHandler._
   import de.oliver_heger.splaya.io.FileReaderActor._
   import de.oliver_heger.splaya.io.FileReaderActorSpec._

@@ -6,32 +6,20 @@ import java.nio.file.{Files, Path}
 
 import scala.io.Source
 
-/**
- * A helper trait which can be used by test classes that need access to a file
- * with defined test data.
- *
- * This trait allows creating a test file. The file can be either be filled
- * initially with test data (for tests of reading functionality) or be read
- * later (for tests of writing functionality). There is also a cleanup method
- * for removing the file when it is no longer needed.
- */
-trait FileTestHelper {
-  /** The test file managed by this trait. */
-  var optTestFile: Option[Path] = None
-
+object FileTestHelper {
   /** A string with defined test data. */
   val TestData = """|Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
-                    |eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
-                    |voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
-                    |kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
-                    |ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
-                    |tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
-                    |vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
-                    |gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
-                    |dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
-                    |invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
-                    |eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
-                    |sea takimata sanctus est Lorem ipsum dolor sit amet.""".stripMargin
+                   |eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
+                   |voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
+                   |kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
+                   |ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+                   |tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+                   |vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
+                   |gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
+                   |dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
+                   |invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
+                   |eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
+                   |sea takimata sanctus est Lorem ipsum dolor sit amet.""".stripMargin
 
   /**
    * Helper method for converting a string to a byte array.
@@ -45,6 +33,21 @@ trait FileTestHelper {
    * @return the test bytes
    */
   def testBytes() = toBytes(TestData)
+}
+
+/**
+ * A helper trait which can be used by test classes that need access to a file
+ * with defined test data.
+ *
+ * This trait allows creating a test file. The file can be either be filled
+ * initially with test data (for tests of reading functionality) or be read
+ * later (for tests of writing functionality). There is also a cleanup method
+ * for removing the file when it is no longer needed.
+ */
+trait FileTestHelper {
+  import FileTestHelper._
+  /** The test file managed by this trait. */
+  var optTestFile: Option[Path] = None
 
   /**
    * Removes the temporary file if it exists.
@@ -77,7 +80,7 @@ trait FileTestHelper {
    * @param content the content of the file
    * @return the path to the new file
    */
-  def createDataFile(content: String = TestData): Path = {
+  def createDataFile(content: String = FileTestHelper.TestData): Path = {
     val path = createFileReference()
     Files.write(path, toBytes(content))
     path

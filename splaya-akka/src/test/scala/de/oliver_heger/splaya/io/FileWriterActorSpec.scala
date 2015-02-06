@@ -26,6 +26,7 @@ with MockitoSugar with
 FileTestHelper {
 
   import de.oliver_heger.splaya.io.FileWriterActor._
+  import FileTestHelper._
 
   def this() = this(ActorSystem("FileWriterActorSpec"))
 
