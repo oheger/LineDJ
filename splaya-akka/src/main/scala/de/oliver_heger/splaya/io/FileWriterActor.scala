@@ -45,8 +45,13 @@ object FileWriterActor {
    * write requests. By inspecting the status code, the receiver can find out
    * whether the operation was successful.
    * @param status the status code of the operation
+   * @param bytesWritten contains the number of bytes written by this operation;
+   *                     note: if the write operation was successful, this number
+   *                     is the same as in the original write request; it is
+   *                     included here for convenience purposes as it simplifies
+   *                     the processing of messages of this type
    */
-  case class WriteResult(status: WriteResultStatus.Value)
+  case class WriteResult(status: WriteResultStatus.Value, bytesWritten: Int)
 
   /**
    * An internally used message class to report the completion of an
@@ -90,7 +95,7 @@ class FileWriterActor(override val channelFactory: FileChannelFactory) extends C
 
   override protected def specialReceive: Receive = {
     case as: ArraySource =>
-      handleRequest(WriteResult(WriteResultStatus.NoChannel), null) {
+      handleRequest(WriteResult(WriteResultStatus.NoChannel, 0), null) {
         writeData(as.data, as.offset, as.length)
       }
 
@@ -113,7 +118,7 @@ class FileWriterActor(override val channelFactory: FileChannelFactory) extends C
   private def processWriteResult(r: ChannelWriteResult): Unit = {
     position += r.bytesWritten
     if (r.bytesWritten == r.length) {
-      r.target ! WriteResult(WriteResultStatus.Ok)
+      r.target ! WriteResult(WriteResultStatus.Ok, r.bytesWritten)
     } else {
       writeData(r.data, r.offset + r.bytesWritten, r.length - r.bytesWritten)
     }

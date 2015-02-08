@@ -91,8 +91,9 @@ FileTestHelper {
     val writer = fileWriterActor()
     writer ! FileReaderActor.ReadResult(Array.empty, 0)
 
-    val status = expectMsgType[WriteResult].status
-    status should be(FileWriterActor.WriteResultStatus.NoChannel)
+    val message = expectMsgType[WriteResult]
+    message.status should be(FileWriterActor.WriteResultStatus.NoChannel)
+    message.bytesWritten should be (0)
   }
 
   /**
@@ -120,7 +121,9 @@ FileTestHelper {
         offset = if (count == 0) 1 else 0)
       count += 1
       writer ! request
-      expectMsgType[WriteResult].status should be(FileWriterActor.WriteResultStatus.Ok)
+      val message = expectMsgType[WriteResult]
+      message.status should be(FileWriterActor.WriteResultStatus.Ok)
+      message.bytesWritten should be(request.length)
     }
     closeWriter(writer)
 
