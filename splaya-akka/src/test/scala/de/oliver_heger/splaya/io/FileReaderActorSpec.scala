@@ -98,21 +98,34 @@ class FileReaderActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
 with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with MockitoSugar with
 FileTestHelper {
 
-  import FileTestHelper._
+  import de.oliver_heger.splaya.FileTestHelper._
   import de.oliver_heger.splaya.io.ChannelHandler._
   import de.oliver_heger.splaya.io.FileReaderActor._
   import de.oliver_heger.splaya.io.FileReaderActorSpec._
 
+  /** The test file used by this class. */
+  private var testFile: Path = _
+
   def this() = this(ActorSystem("FileReaderActorSpec"))
 
   override protected def beforeAll(): Unit = {
-    createDataFile()
+    testFile = createDataFile()
   }
 
   override protected def afterAll(): Unit = {
     system.shutdown()
     system awaitTermination 10.seconds
     tearDownTestFile()
+  }
+
+  /**
+   * Closes the test actor. This method should be called after each test
+   * to ensure that the test file is correctly closed.
+   * @param actor the test actor
+   */
+  private def closeActor(actor: ActorRef): Unit = {
+    actor ! CloseRequest
+    expectMsg(CloseAck(actor))
   }
 
   /**
@@ -174,6 +187,7 @@ FileTestHelper {
     reader ! InitFile(testFile)
     val result = readTestFile(reader)
     checkTestFileReadResult(result)
+    closeActor(reader)
   }
 
   it should "return read results as ArraySource objects" in {
@@ -184,6 +198,7 @@ FileTestHelper {
     val result = expectMsgType[ArraySource]
     result.length should be (16)
     result.offset should be (0)
+    closeActor(reader)
   }
 
   it should "be able to read a file in multiple small chunks" in {
@@ -203,6 +218,7 @@ FileTestHelper {
         true
     }
     resultBuffer.toArray should be(testBytes())
+    closeActor(reader)
   }
 
   it should "allow reading multiple files in series" in {
@@ -212,6 +228,7 @@ FileTestHelper {
 
     reader ! InitFile(testFile)
     checkTestFileReadResult(readTestFile(reader))
+    closeActor(reader)
   }
 
   it should "close the channel when the file is read" in {
@@ -235,6 +252,7 @@ FileTestHelper {
     reader ! InitFile(testFile)
     readTestFile(reader)
     closedChannelFactory.verifyChannelClosed()
+    closeActor(reader)
   }
 
   it should "prevent read operations after the channel was closed" in {
@@ -275,6 +293,7 @@ FileTestHelper {
     handler.completed(16, testActor)
     reader ! ReadData(8)
     expectMsgType[ReadResult].length should be(8)
+    closeActor(reader)
   }
 
   it should "send an error message about a failed read operation" in {
@@ -290,6 +309,7 @@ FileTestHelper {
     errMsg.path should be(testFile)
     errMsg.exception should be (exception)
     verify(mockChannel).close()
+    closeActor(reader)
   }
 
   it should "be able to handle a close request if no file is open" in {

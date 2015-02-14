@@ -110,8 +110,9 @@ FileTestHelper {
   }
 
   it should "write a file successfully" in {
+    val file = createFileReference()
     val writer = fileWriterActor()
-    writer ! InitFile(createFileReference())
+    writer ! InitFile(file)
 
     var count = 0
     for (w <- TestData.split("\\s")) {
@@ -127,7 +128,7 @@ FileTestHelper {
     }
     closeWriter(writer)
 
-    readDataFile() should be(TestData.replace("\r\n", "  "))
+    readDataFile(file) should be(TestData.replace("\r\n", "  "))
   }
 
   it should "trigger a second write if there are remaining bytes" in {
@@ -147,25 +148,27 @@ FileTestHelper {
   }
 
   it should "handle exceptions reported to the completion handler" in {
+    val file = createFileReference()
     val channel = mock[AsynchronousFileChannel]
     val writer = TestActorRef(propsForWriterActorWithChannel(channel))
-    writer receive InitFile(createFileReference())
+    writer receive InitFile(file)
     writer receive writeRequest()
 
     val handler = fetchCompletionHandler(channel)
     val exception = new RuntimeException
     handler.failed(exception, testActor)
     val errMsg = expectMsgType[IOOperationError]
-    errMsg.path should be(testFile)
+    errMsg.path should be(file)
     errMsg.exception should be(exception)
   }
 
   it should "ignore stale write results" in {
     val channel = mock[AsynchronousFileChannel]
+    val file = createFileReference()
     val writer = TestActorRef(propsForWriterActorWithChannel(channel))
-    writer receive InitFile(createFileReference())
+    writer receive InitFile(file)
     writer receive writeRequest()
-    writer receive InitFile(testFile)
+    writer receive InitFile(file)
 
     val handler = fetchCompletionHandler(channel)
     handler.failed(new IOException, testActor)
