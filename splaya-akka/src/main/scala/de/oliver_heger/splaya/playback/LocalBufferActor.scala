@@ -152,7 +152,7 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
   def this() = this(new FileActorFactory, None)
 
   /** The object for handling a close operation. */
-  private val closingState = new ClosingState
+  private var closingState: ClosingState = _
 
   /** The current reader actor for filling the buffer. */
   private var fillActor: Option[ActorRef] = None
@@ -193,7 +193,7 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
 
   override def receive: Receive = {
     case FillBuffer(readerActor) =>
-      if (fillActor.isDefined || closingState.isClosing) {
+      if (fillActor.isDefined) {
         sender ! BufferBusy
       } else {
         fillActor = Some(readerActor)
@@ -203,28 +203,22 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
       }
 
     case readResult: ArraySource =>
-      if (!closingState.isClosing) {
-        handleReadResult(readResult)
-        bytesWrittenToFile += readResult.length
-      }
+      handleReadResult(readResult)
+      bytesWrittenToFile += readResult.length
 
     case WriteResult(_, length) =>
-      if (!closingState.isClosing) {
-        if (bytesWrittenToFile >= temporaryFileSize) {
-          writerActor ! CloseRequest
-        } else {
-          continueFilling()
-        }
+      if (bytesWrittenToFile >= temporaryFileSize) {
+        writerActor ! CloseRequest
+      } else {
+        continueFilling()
       }
 
     case CloseAck(actor) if writerActor == actor =>
-      if (closingState.writeActorClosed()) {
-        bufferManager append currentPath.get
-        bytesWrittenToFile = 0
-        currentPath = None
-        serveReadRequest()
-        continueFilling()
-      }
+      bufferManager append currentPath.get
+      bytesWrittenToFile = 0
+      currentPath = None
+      serveReadRequest()
+      continueFilling()
 
     case EndOfFile(_) =>
       fillActor foreach { a =>
@@ -235,7 +229,7 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
       }
 
     case ReadBuffer =>
-      if (readClient.isDefined || closingState.isClosing) {
+      if (readClient.isDefined) {
         sender ! BufferBusy
       } else {
         readClient = Option(sender())
@@ -243,23 +237,36 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
       }
 
     case Terminated(actor) if actor == readActor =>
-      bufferManager.checkOutAndRemove()
-      readClient = None
-      if (closingState.readActorStopped()) {
-        serveFillRequest()
-      }
+      completeReadOperation()
+      serveFillRequest()
 
     case SequenceComplete =>
-      if (closingState.isClosing) {
-        sender ! BufferBusy
-      } else {
-        if (currentPath.isDefined) {
-          writerActor ! CloseRequest
-        }
+      if (currentPath.isDefined) {
+        writerActor ! CloseRequest
       }
 
     case CloseRequest =>
+      closingState = new ClosingState(sender())
       closingState.initiateClosing()
+      context become closing
+  }
+
+  def closing: Receive = {
+    case FillBuffer(readerActor) =>
+      sender ! BufferBusy
+
+    case CloseAck(actor) if writerActor == actor =>
+      closingState.writeActorClosed()
+
+    case ReadBuffer =>
+      sender ! BufferBusy
+
+    case SequenceComplete =>
+      sender ! BufferBusy
+
+    case Terminated(actor) if actor == readActor =>
+      completeReadOperation()
+      closingState.readActorStopped()
   }
 
   /**
@@ -275,6 +282,15 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
       case None =>
         fillActor foreach (_ ! ReadData(chunkSize))
     }
+  }
+
+  /**
+   * A read operation has been completed. The temporary file can now be
+   * removed from the buffer.
+   */
+  private def completeReadOperation(): Unit = {
+    bufferManager.checkOutAndRemove()
+    readClient = None
   }
 
   /**
@@ -371,14 +387,10 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
    * currently open temporary files). This class collects the required
    * information and is also triggered when a change in the affected conditions
    * happens.
+   *
+   * @param closingActor the actor that triggered the closing operation
    */
-  private class ClosingState {
-    /**
-     * Stores the actor which requested the closing operation. If this option
-     * is undefined, no closing operation is in progress.
-     */
-    var closingActor: Option[ActorRef] = None
-
+  private class ClosingState(closingActor: ActorRef) {
     /** A flag whether the write actor is still open. */
     var writeActorPending = false
 
@@ -386,18 +398,11 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
     var readActorPending = false
 
     /**
-     * Returns a flag whether a closing operation is initiated.
-     * @return '''true''' if this actor is to be closed, '''false''' otherwise
-     */
-    def isClosing: Boolean = closingActor.isDefined
-
-    /**
      * Triggers a closing operation. The current state as it affects closing is
      * collected. If possible, the close is already executed.
      * @return a flag whether this actor could be closed directly
      */
     def initiateClosing(): Boolean = {
-      closingActor = Some(sender())
       readActorPending = readClient.isDefined
       writeActorPending = currentPath.isDefined
       if (writeActorPending) {
@@ -437,13 +442,11 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
      * @return a flag whether the current operation can be continued
      */
     private def closeIfPossible(): Boolean = {
-      closingActor forall { a =>
-        if (!writeActorPending && !readActorPending) {
-          a ! CloseAck(self)
-          bufferManager.removeContainedPaths()
-        }
-        false
+      if (!writeActorPending && !readActorPending) {
+        closingActor ! CloseAck(self)
+        bufferManager.removeContainedPaths()
       }
+      false
     }
   }
 
