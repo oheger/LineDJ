@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.io
 
 import java.io.{IOException, InputStream}
 
-import de.oliver_heger.splaya.io.FileReaderActor.ReadResult
+import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
 
 /**
  * Companion object of ''DynamicInputStream''.
@@ -47,12 +47,12 @@ object DynamicInputStream {
  */
 class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapacity) extends
 InputStream {
-  import DynamicInputStream._
+  import de.oliver_heger.splaya.io.DynamicInputStream._
   /**
    * An array with the chunks that have been appended to this stream. This
    * array will be used as a circular buffer when adding new chunks.
    */
-  private var chunks = new Array[ReadResult](initialCapacity)
+  private var chunks = new Array[ArraySource](initialCapacity)
 
   /** The index of the current chunk to read from. */
   private var currentChunk = 0
@@ -88,7 +88,7 @@ InputStream {
    * @return a reference to this stream
    * @throws IllegalStateException if the stream is already complete
    */
-  def append(data: ReadResult): DynamicInputStream = {
+  def append(data: ArraySource): DynamicInputStream = {
     if (completed) {
       throw new IllegalStateException("Cannot add data to a completed stream!")
     }
@@ -99,6 +99,19 @@ InputStream {
     appendChunk = increaseChunkIndex(appendChunk)
     bytesAvailable += data.length
     this
+  }
+
+  /**
+   * Clears the whole content of this stream. After this operation, the
+   * stream is empty and can again be filled an reused.
+   */
+  def clear(): Unit = {
+    bytesAvailable = 0
+    currentChunk = 0
+    appendChunk = 0
+    currentPosition = 0
+    markedChunk = UndefinedMarkIndex
+    contentCompleted = false
   }
 
   /**
@@ -218,7 +231,8 @@ InputStream {
     while (bytesToRead > 0) {
       val chunkReadLength = math.min(chunks(currentChunk).length - currentPosition, bytesToRead)
       if (chunkReadLength > 0) {
-        System.arraycopy(chunks(currentChunk).data, currentPosition, b, arrayOffset,
+        System.arraycopy(chunks(currentChunk).data, chunks(currentChunk).offset +
+          currentPosition, b, arrayOffset,
           chunkReadLength)
         currentPosition += chunkReadLength
         bytesToRead -= chunkReadLength
@@ -272,8 +286,8 @@ InputStream {
    * @param startChunkIndex the index of the chunks where to start the copying
    * @return the new array with chunks
    */
-  private def copyChunks(startChunkIndex: Int): Array[ReadResult] = {
-    val newChunks = new Array[ReadResult](chunks.length * 2)
+  private def copyChunks(startChunkIndex: Int): Array[ArraySource] = {
+    val newChunks = new Array[ArraySource](chunks.length * 2)
     var orgIndex = startChunkIndex
     for (i <- 0 until chunks.length) {
       newChunks(i) = chunks(orgIndex)

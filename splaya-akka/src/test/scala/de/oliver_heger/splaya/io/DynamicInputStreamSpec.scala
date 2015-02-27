@@ -4,6 +4,7 @@ import java.io.{IOException, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util
 
+import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
 import de.oliver_heger.splaya.io.FileReaderActor.ReadResult
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -199,6 +200,24 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     checkReadResult(bos, Data)
   }
 
+  it should "take the offset of an ArraySource into account" in {
+    val Data = List("O, I am fortune's fool!", "You fools of fortune.")
+    val startIndex = 3
+    val stream = new DynamicInputStream
+
+    Data map { s => new ArraySource {
+      override val data: Array[Byte] = toBytes(s)
+      override val length: Int = data.length - startIndex
+      override val offset: Int = startIndex
+    }
+    } foreach { src => stream append src}
+    stream.complete()
+
+    val buffer = ArrayBuffer.empty[Byte]
+    Data foreach { s => buffer ++= toBytes(s) drop startIndex}
+    readStream(stream).toByteArray should be(buffer.toArray)
+  }
+
   it should "read no data if no content is available" in {
     val Data = "So thrive my soul-"
     val stream = createStreamWithChunks(Data)
@@ -343,6 +362,33 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     stream read buf
     appendChunks(stream, "If thou art taken. Hence be gone, away!")
     stream.capacity should be (3)
+    intercept[IOException] {
+      stream.reset()
+    }
+  }
+
+  it should "support a clear operation" in {
+    val stream = new DynamicInputStream
+    appendChunks(stream, "Romeo, away, be gone!",
+      "The citizens are up, and Tybalt slain.",
+      "Stand not amaz'd, the Prince will doom thee death")
+    stream.complete()
+
+    stream.clear()
+    stream.available() should be(0)
+    stream should not be 'completed
+    val Chunk = "If thou art taken. Hence be gone, away!"
+    appendChunks(stream, Chunk)
+    readStream(stream).toByteArray should be(toBytes(Chunk))
+  }
+
+  it should "remove mark data when cleared" in {
+    val stream = new DynamicInputStream
+    appendChunks(stream, "Double, double toil and trouble", "Fire burn, and cauldron bubble.")
+    stream.read()
+    stream.mark(64)
+
+    stream.clear()
     intercept[IOException] {
       stream.reset()
     }
