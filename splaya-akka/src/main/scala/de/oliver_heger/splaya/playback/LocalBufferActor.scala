@@ -335,8 +335,8 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
     if (readResult.length + bytesWrittenToFile <= temporaryFileSize) (readResult, None)
     else {
       val actLength = temporaryFileSize - bytesWrittenToFile
-      (new ArraySourceImpl(readResult, length = actLength), Some(new ArraySourceImpl(readResult,
-        offset = readResult.offset + actLength, length = readResult.length - actLength)))
+      (new ArraySourceImpl(readResult, length = actLength),
+        Some(ArraySourceImpl(readResult, actLength)))
     }
   }
 
@@ -452,17 +452,3 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
 
 }
 
-/**
- * A specialized implementation of ''ArraySource'' which is based on another
- * ''ArraySource'' object, but allows overriding the offset and the length.
- *
- * This class is used if the result of a read operation has to be split
- * because it does not fit into the current temporary file.
- * @param readResult the underlying ''ReadResult''
- * @param length the new length
- * @param offset the new offset
- */
-private class ArraySourceImpl(readResult: ArraySource, override val length: Int, override val
-offset: Int = 0) extends ArraySource {
-  override val data: Array[Byte] = readResult.data
-}
