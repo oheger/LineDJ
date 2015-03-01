@@ -159,10 +159,9 @@ InputStream {
    */
   override def read(): Int = {
     if (bytesAvailable > 0) {
-      val result = chunks(0).data(currentPosition)
-      currentPosition += 1
-      bytesRead(1)
-      result
+      val buf = new Array[Byte](1)
+      read(buf, 0 ,1)
+      buf(0)
     } else -1
   }
 

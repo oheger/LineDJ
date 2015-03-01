@@ -138,17 +138,34 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     stream.read() should be(-1)
   }
 
-  it should "allow reading a single chunk of data byte-wise" in {
-    val Data = "I would I were thy bird."
-    val stream = createStreamWithChunks(Data)
-
+  /**
+   * Reads a stream using the read() method that returns a single byte.
+   * @param stream the stream to be read
+   * @return an output stream with the data read
+   */
+  private def readStreamByteWise(stream: DynamicInputStream): ByteArrayOutputStream = {
     val bos = new ByteArrayOutputStream
     var c = stream.read()
     while (c != -1) {
       bos write c
       c = stream.read()
     }
-    checkReadResult(bos, Data)
+    bos
+  }
+
+  it should "allow reading a single chunk of data byte-wise" in {
+    val Data = "I would I were thy bird."
+    val stream = createStreamWithChunks(Data)
+
+    checkReadResult(readStreamByteWise(stream), Data)
+  }
+
+  it should "allow reading multiple chunks of data byte-wise" in {
+    val c1 = "What man art thou, that, thus bescreen'd in night,"
+    val c2 = "So stumblest on my counsel?"
+    val stream = createStreamWithChunks(c1, c2)
+
+    checkReadResult(readStreamByteWise(stream), c1 + c2)
   }
 
   it should "return the number of available bytes of a single chunk" in {
