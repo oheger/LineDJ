@@ -449,6 +449,4 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
       false
     }
   }
-
 }
-

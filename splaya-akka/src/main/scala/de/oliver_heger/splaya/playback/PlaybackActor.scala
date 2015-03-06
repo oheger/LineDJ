@@ -54,6 +54,22 @@ object PlaybackActor {
    */
   case object StartPlayback
 
+  /**
+   * A message received by ''PlaybackActor'' telling it to stop current
+   * playback. As long as playback is disabled, no data is sent to the line
+   * writer actor. However, data is still loaded from the source until the
+   * buffer is filled.
+   */
+  case object StopPlayback
+
+  /**
+   * A message received by ''PlaybackActor'' telling it to skip the current
+   * audio source. When this message is received further audio data is
+   * requested from the source actor until the end of the current audio file
+   * is reached, but this data is no longer sent to the line writer actor.
+   */
+  case object SkipSource
+
   /** The prefix for all configuration properties related to this actor. */
   private val PropertyPrefix = "splaya.playback."
 
@@ -125,6 +141,12 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   /** An array for playing audio data chunk-wise. */
   private var audioChunk: Array[Byte] = _
 
+  /** The skip position of the current source. */
+  private var skipPosition = 0L
+
+  /** The number of bytes processed from the current audio source so far. */
+  private var bytesProcessed = 0L
+
   /** A flag whether a request for audio data is pending. */
   private var audioDataPending = false
 
@@ -146,6 +168,8 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
       if (currentSource.isEmpty) {
         currentSource = Some(src)
         audioDataPending = false
+        skipPosition = src.skip
+        bytesProcessed = 0
         requestAudioDataIfPossible()
       } else {
         sender ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
@@ -153,13 +177,17 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
 
     case data: ArraySource =>
       if (checkAudioDataResponse(data)) {
-        audioDataStream append data
+        handleNewAudioData(data)
         playback()
       }
 
     case eof: EndOfFile =>
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
+        assert(currentSource.isDefined)
+        if (skipPosition > currentSource.get.length) {
+          sourceCompleted()
+        }
         playback()
       }
 
@@ -178,6 +206,12 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
     case StartPlayback =>
       playbackEnabled = true
       playback()
+
+    case StopPlayback =>
+      playbackEnabled = false
+
+    case SkipSource =>
+      enterSkipMode()
   }
 
   /**
@@ -193,6 +227,20 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
       audioDataPending = false
       true
     }
+  }
+
+  /**
+   * Handles new audio data which has been sent to this actor. The
+   * data has to be appended to the audio buffer - if this is allowed by the
+   * current skip position.
+   * @param data the data source to be added
+   */
+  private def handleNewAudioData(data: ArraySource): Unit = {
+    val skipSource = ArraySourceImpl(data, (skipPosition - bytesProcessed).toInt)
+    if (skipSource.length > 0) {
+      audioDataStream append skipSource
+    }
+    bytesProcessed += data.length
   }
 
   /**
@@ -280,11 +328,28 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
    */
   private def checkSourceEnd(bytesRead: Int): Boolean = {
     if (bytesRead < audioChunk.length) {
-      log.info("Finished playback of audio source {}.", currentSource.get)
-      audioDataStream.clear()
-      currentSource = None
+      sourceCompleted()
     }
     bytesRead > 0
+  }
+
+  /**
+   * Sets internal flags that cause the current source to be skipped.
+   */
+  private def enterSkipMode(): Unit = {
+    skipPosition = currentSource.get.length + 1
+    audioDataStream.clear()
+    requestAudioDataIfPossible()
+  }
+
+  /**
+   * Marks the current source as completely processed. Playback will continue
+   * with the next audio source in the playlist.
+   */
+  private def sourceCompleted(): Unit = {
+    log.info("Finished playback of audio source {}.", currentSource.get)
+    audioDataStream.clear()
+    currentSource = None
   }
 
   /**
@@ -304,20 +369,24 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   private def createPlaybackContext(): Option[PlaybackContext] = {
     if (audioBufferFilled && contextFactory.subFactories.nonEmpty) {
       playbackContext = contextFactory.createPlaybackContext(audioDataStream, currentSource.get.uri)
-      createChunkBuffer(playbackContext)
+      playbackContext match {
+        case Some(ctx) =>
+          audioChunk = createChunkBuffer(ctx)
+        case None =>
+          enterSkipMode()
+      }
+      playbackContext
     } else None
   }
 
   /**
    * Creates the array for processing chunks of the current playback context if
    * the context is defined.
-   * @param optContext the optional current context
-   * @return the context option again
+   * @param context the current context
+   * @return the array buffer for the playback context
    */
-  private def createChunkBuffer(optContext: Option[PlaybackContext]): Option[PlaybackContext] = {
-    optContext foreach (ctx => audioChunk = new Array[Byte](ctx.bufferSize))
-    optContext
-  }
+  private def createChunkBuffer(context: PlaybackContext): Array[Byte] =
+    new Array[Byte](context.bufferSize)
 
   private def bytesInAudioBuffer = audioDataStream.available()
 }

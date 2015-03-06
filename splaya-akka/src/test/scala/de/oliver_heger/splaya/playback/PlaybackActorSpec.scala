@@ -18,6 +18,7 @@ import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 
 object PlaybackActorSpec {
@@ -34,10 +35,11 @@ object PlaybackActorSpec {
    * Creates a test audio source whose properties are derived from the given
    * index value.
    * @param idx the index
+   * @param skipBytes the number of bytes to be skipped at the beginning
    * @return the test audio source
    */
-  private def createSource(idx: Int): AudioSource =
-    AudioSource(s"audiSource$idx.mp3", idx, 20 * (idx + 1), 0, 0)
+  private def createSource(idx: Int, skipBytes: Int = 0): AudioSource =
+    AudioSource(s"audiSource$idx.mp3", idx, 20 * (idx + 1), skipBytes, 0)
 
   /**
    * Creates a data array with test content and the given length. The array
@@ -230,6 +232,21 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     line
   }
 
+  /**
+   * Handles the protocol to send chunks of audio data to the playback actor.
+   * This method first expects the request for new audio data.
+   * @param actor the playback actor
+   * @param audioData the data chunks (as messages) to be sent to the actor
+   * @return the reference to the actor
+   */
+  private def sendAudioData(actor: ActorRef, audioData: Any*): ActorRef = {
+    for(data <- audioData) {
+      expectMsgType[GetAudioData]
+      actor ! data
+    }
+    actor
+  }
+
   it should "pass data to the line writer actor" in {
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockFactory(optFactory = Some
@@ -239,8 +256,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
-    expectMsgType[GetAudioData]
-    actor ! arraySource(1, AudioBufferSize)
+    sendAudioData(actor, arraySource(1, AudioBufferSize))
 
     val writeMsg = lineWriter.expectMsgType[WriteAudioData]
     writeMsg.line should be(line)
@@ -266,10 +282,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
-    expectMsgType[GetAudioData]
-    actor ! arraySource(1, AudioBufferSize)
-    expectMsgType[GetAudioData]
-    actor ! arraySource(2, 16)
+    sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, 16))
     expectMsgType[GetAudioData]
 
     lineWriter.expectMsgType[WriteAudioData]
@@ -313,10 +326,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
-    expectMsgType[GetAudioData]
-    actor ! arraySource(1, sourceSize)
-    expectMsgType[GetAudioData]
-    actor ! EndOfFile(null)
+    sendAudioData(actor, arraySource(1, sourceSize), EndOfFile(null))
 
     gatherPlaybackData(actor, lineWriter, line, sourceSize) should be(dataArray(2, sourceSize))
     lineWriter.expectNoMsg(1.seconds)
@@ -339,6 +349,120 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     val errMsg = expectMsgType[PlaybackProtocolViolation]
     errMsg.msg should be(eofMsg)
     errMsg.errorText should include("unexpected data")
+  }
+
+  it should "skip a chunk according to the source's skip property" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val line = installMockPlaybackContextFactory(actor)
+    val SkipSize = 16
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1, skipBytes = SkipSize)
+    sendAudioData(actor, arraySource(1, SkipSize), arraySource(2, AudioBufferSize), EndOfFile(null))
+
+    gatherPlaybackData(actor, lineWriter, line, AudioBufferSize) should be(dataArray(3,
+      AudioBufferSize))
+    expectMsg(GetAudioSource)
+  }
+
+  it should "skip a chunk partially according to the source's skip property" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val line = installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1, skipBytes = 7)
+    sendAudioData(actor, arraySource(1, 8), arraySource(2, AudioBufferSize), EndOfFile(null))
+
+    val audioData = gatherPlaybackData(actor, lineWriter, line, AudioBufferSize + 1)
+    expectMsg(GetAudioSource)
+    val buffer = ArrayBuffer.empty[Byte]
+    buffer += 2
+    buffer ++= dataArray(3, AudioBufferSize)
+    audioData should be (buffer.toArray)
+  }
+
+  it should "allow skipping playback of the current source" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val line = installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor, arraySource(1, LineChunkSize), arraySource(2, PlaybackContextLimit))
+    val playMsg = lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    playMsg.line should be(line)
+    playMsg.data.data should be(dataArray(2, LineChunkSize))
+
+    actor ! SkipSource
+    sendAudioData(actor, arraySource(3, LineChunkSize), EndOfFile(null))
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    expectMsg(GetAudioSource)
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    lineWriter.expectMsgType[PlaybackProtocolViolation]
+  }
+
+  it should "skip a source if no playback context can be created" in {
+    val mockContextFactory = mock[PlaybackContextFactory]
+    when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
+      .thenReturn(None)
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    actor ! AddPlaybackContextFactory(mockContextFactory)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, PlaybackContextLimit),
+      EndOfFile(null))
+
+    expectMsg(GetAudioSource)
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    lineWriter.expectMsgType[PlaybackProtocolViolation]
+  }
+
+  it should "allow stopping playback" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val contextFactory = mockPlaybackContextFactory()
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(25)
+    actor ! StopPlayback
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit))
+    expectMsgType[GetAudioData]
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    verify(contextFactory).createPlaybackContext(any(classOf[InputStream]), anyString())
+  }
+
+  it should "allow skipping a source even if playback is not enabled" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(25)
+    actor ! StopPlayback
+    sendAudioData(actor, arraySource(1, AudioBufferSize))
+
+    actor ! SkipSource
+    sendAudioData(actor, arraySource(3, AudioBufferSize), EndOfFile(null))
+    expectMsg(GetAudioSource)
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 }
 

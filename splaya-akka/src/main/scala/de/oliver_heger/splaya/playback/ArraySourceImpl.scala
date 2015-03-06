@@ -21,12 +21,14 @@ private object ArraySourceImpl {
   /**
    * Creates a new ''ArraySource'' whose offset and length are adjusted by the
    * given delta. This method can be used if only a subset of the original data
-   * is to be processed.
+   * is to be processed. The offset may be 0 or negative; then the original
+   * source is returned.
    * @param source the original ''ArraySource''
    * @param offsetDelta the start offset of the data to be selected
    * @return the adjusted ''ArraySource''
    */
   def apply(source: ArraySource, offsetDelta: Int): ArraySource =
-    new ArraySourceImpl(source, offset = source.offset + offsetDelta, length = source.length -
-      offsetDelta)
+    if(offsetDelta <= 0) source
+    else new ArraySourceImpl(source, offset = source.offset + offsetDelta,
+      length = math.max(source.length - offsetDelta, 0))
 }
