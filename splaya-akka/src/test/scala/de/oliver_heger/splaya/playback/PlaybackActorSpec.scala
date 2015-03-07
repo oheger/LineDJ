@@ -8,6 +8,7 @@ import akka.actor.{ActorContext, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
+import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.splaya.playback.LineWriterActor.WriteAudioData
 import de.oliver_heger.splaya.playback.PlaybackActor._
@@ -130,16 +131,20 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
    * Creates a playback context factory which creates context objects using a
    * ''SimulatedAudioStream''.
    * @param optLine an optional line mock
+   * @param optStreamFactory an optional stream factory
    * @return the factory
    */
-  private def mockPlaybackContextFactory(optLine: Option[SourceDataLine] = None):
+  private def mockPlaybackContextFactory(optLine: Option[SourceDataLine] = None,
+                                         optStreamFactory: Option[SimulatedAudioStreamFactory] =
+                                         None):
   PlaybackContextFactory = {
     val factory = mock[PlaybackContextFactory]
     when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenAnswer(new
         Answer[Option[PlaybackContext]] {
       override def answer(invocationOnMock: InvocationOnMock): Option[PlaybackContext] = {
-        val stream = new SimulatedAudioStream(invocationOnMock.getArguments()(0)
-          .asInstanceOf[InputStream])
+        val factory = optStreamFactory getOrElse new SimulatedAudioStreamFactory
+        val stream = factory createAudioStream invocationOnMock.getArguments()(0)
+          .asInstanceOf[InputStream]
         val context = mock[PlaybackContext]
         when(context.stream).thenReturn(stream)
         when(context.bufferSize).thenReturn(LineChunkSize)
@@ -464,6 +469,107 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
+
+  /**
+   * Checks that a playback context has been closed.
+   * @param line the data line
+   * @param streamFactory the stream factory
+   */
+  private def assertPlaybackContextClosed(line: SourceDataLine, streamFactory:
+  SimulatedAudioStreamFactory): Unit = {
+    streamFactory.latestStream shouldBe 'closed
+    verify(line).close()
+  }
+
+  it should "close the playback context when a source is complete" in {
+    val line = mock[SourceDataLine]
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val streamFactory = new SimulatedAudioStreamFactory
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
+      optLine = Some(line))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(25)
+    sendAudioData(actor, arraySource(1, LineChunkSize), EndOfFile(null))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize)
+    expectMsg(GetAudioSource)
+
+    assertPlaybackContextClosed(line, streamFactory)
+  }
+
+  it should "handle a close request if there is no playback context" in {
+    val actor = TestActorRef[PlaybackActor](propsWithMockFactory())
+    installMockPlaybackContextFactory(actor)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+
+    actor ! CloseRequest
+    expectMsg(CloseAck(actor))
+    actor.underlyingActor should not be 'playing
+  }
+
+  it should "reject messages after receiving a close request" in {
+    val actor = system.actorOf(propsWithMockFactory())
+    installMockPlaybackContextFactory(actor)
+
+    actor ! CloseRequest
+    expectMsgType[CloseAck]
+    actor ! StartPlayback
+    val errMsg = expectMsgType[PlaybackProtocolViolation]
+    errMsg.errorText should include ("Actor is closing")
+  }
+
+  it should "handle a close request if a playback context is active" in {
+    val line = mock[SourceDataLine]
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val streamFactory = new SimulatedAudioStreamFactory
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
+      optLine = Some(line))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(2)
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize)
+    expectMsgType[GetAudioData]
+
+    actor ! CloseRequest
+    expectMsg(CloseAck(actor))
+    assertPlaybackContextClosed(line, streamFactory)
+  }
+
+  it should "handle a close request while audio data is currently played" in {
+    val line = mock[SourceDataLine]
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
+      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val streamFactory = new SimulatedAudioStreamFactory
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
+      optLine = Some(line))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit))
+    expectMsgType[GetAudioData]
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+
+    actor ! CloseRequest
+    actor ! createSource(4)
+    expectMsgType[PlaybackProtocolViolation]
+    verify(line, never()).close()
+    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    expectMsg(CloseAck(actor))
+    assertPlaybackContextClosed(line, streamFactory)
+  }
 }
 
 /**
@@ -473,9 +579,36 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
  * @param wrappedStream the wrapped input stream
  */
 private class SimulatedAudioStream(val wrappedStream: InputStream) extends InputStream {
+  /** A flag whether this stream was closed. */
+  var closed = false
+
   override def read(): Int = {
     val result = wrappedStream.read()
     if (result < 0) -1
     else result + 1
+  }
+
+  override def close(): Unit = {
+    closed = true
+    super.close()
+  }
+}
+
+/**
+ * A simple class that allows creating a simulated audio stream and querying
+ * the created instance.
+ */
+private class SimulatedAudioStreamFactory {
+  /** The latest stream created by the factory. */
+  var latestStream: SimulatedAudioStream = _
+
+  /**
+   * Creates a new simulated audio stream which wraps the passed in stream.
+   * @param wrapped the underlying stream
+   * @return the simulated audio stream
+   */
+  def createAudioStream(wrapped: InputStream): InputStream = {
+    latestStream = new SimulatedAudioStream(wrapped)
+    latestStream
   }
 }

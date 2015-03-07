@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.playback
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
-import de.oliver_heger.splaya.io.DynamicInputStream
+import de.oliver_heger.splaya.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.splaya.playback.LineWriterActor.{AudioDataWritten, WriteAudioData}
 
@@ -141,6 +141,9 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   /** An array for playing audio data chunk-wise. */
   private var audioChunk: Array[Byte] = _
 
+  /** An actor which triggered a close request. */
+  private var closingActor: ActorRef = _
+
   /** The skip position of the current source. */
   private var skipPosition = 0L
 
@@ -208,10 +211,33 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
       playback()
 
     case StopPlayback =>
-      playbackEnabled = false
+      stopPlayback()
 
     case SkipSource =>
       enterSkipMode()
+
+    case CloseRequest =>
+      handleCloseRequest()
+  }
+
+  /**
+   * Returns a flag whether playback is currently enabled.
+   * @return a flag whether playback is enabled
+   */
+  def isPlaying = playbackEnabled
+
+  /**
+   * An alternative ''Receive'' function which is installed when the actor is
+   * to be closed, but there is still a playback operation in progress. In this
+   * case, we have to wait until the playback of the current chunk is finished.
+   * Then the close operation can be actually performed.
+   */
+  private def closing: Receive = {
+    case AudioDataWritten =>
+      closeActor()
+
+    case msg =>
+      sender ! PlaybackProtocolViolation(msg, "Actor is closing!")
   }
 
   /**
@@ -256,6 +282,14 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   }
 
   /**
+   * Stops playback. An internal flag is reset indicating that no audio data
+   * must be played.
+   */
+  private def stopPlayback(): Unit = {
+    playbackEnabled = false
+  }
+
+  /**
    * Sends a request for new audio data to the source actor if this is
    * currently allowed.
    */
@@ -293,7 +327,7 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   private def playbackAudioDataIfPossible(): Unit = {
     if (!audioPlaybackPending) {
       fetchPlaybackContext() foreach { ctx =>
-        if (playbackEnabled) {
+        if (isPlaying) {
           if (audioBufferFilled) {
             val len = ctx.stream.read(audioChunk)
             if (checkSourceEnd(len)) {
@@ -350,6 +384,7 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
     log.info("Finished playback of audio source {}.", currentSource.get)
     audioDataStream.clear()
     currentSource = None
+    closePlaybackContext()
   }
 
   /**
@@ -389,4 +424,39 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
     new Array[Byte](context.bufferSize)
 
   private def bytesInAudioBuffer = audioDataStream.available()
+
+  /**
+   * Closes the playback context if it exists.
+   */
+  private def closePlaybackContext(): Unit = {
+    playbackContext foreach { ctx =>
+      ctx.line.close()
+      ctx.stream.close()
+    }
+    playbackContext = None
+  }
+
+  /**
+   * Reacts on a close request message. The actor switches to a state in which
+   * it does no longer accept arbitrary messages. If currently playback is
+   * ongoing, the request cannot be served immediately; rather, we have to wait
+   * until the line writer actor is done.
+   */
+  private def handleCloseRequest(): Unit = {
+    closingActor = sender()
+    stopPlayback()
+    context.become(closing)
+    if (!audioPlaybackPending) {
+      closeActor()
+    }
+  }
+
+  /**
+   * Actually reacts on a close request. Performs cleanup and notifies the
+   * triggering actor that the close operation is complete.
+   */
+  private def closeActor(): Unit = {
+    closePlaybackContext()
+    closingActor ! CloseAck(self)
+  }
 }
