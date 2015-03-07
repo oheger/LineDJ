@@ -30,15 +30,6 @@ object PlaybackActor {
   case object GetAudioSource
 
   /**
-   * A message sent by ''PlaybackActor'' if it receives a message which is
-   * invalid in its current state. The error string contains further
-   * information why the related message was not allowed.
-   * @param msg the invalid message
-   * @param errorText an error text providing additional information
-   */
-  case class PlaybackProtocolViolation(msg: Any, errorText: String)
-
-  /**
    * A message received by ''PlaybackActor'' telling it to add a new sub
    * ''PlaybackContextFactory''. By sending messages of this type the
    * context factories available can be initialized.
