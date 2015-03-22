@@ -4,14 +4,15 @@ import java.io.{ByteArrayOutputStream, InputStream}
 import java.util
 import javax.sound.sampled.SourceDataLine
 
-import akka.actor.{ActorContext, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
-import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadResult}
+import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
 import de.oliver_heger.splaya.playback.LineWriterActor.WriteAudioData
 import de.oliver_heger.splaya.playback.PlaybackActor._
+import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -99,33 +100,21 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     optActor getOrElse testActor
 
   /**
-   * Creates a dummy ''LineWriterActorFactory'' which returns a specific actor.
-   * Either the actor is directly specified or the test actor is used.
-   * @param optActor an option for the actor to be returned by the factory
-   * @return the line writer actor factory
-   */
-  private def createLineWriterActorFactory(optActor: Option[ActorRef] = None):
-  LineWriterActorFactory =
-    new LineWriterActorFactory {
-      /**
-       * Creates a new line writer actor using the specified ''ActorContext''.
-       * @param context the ''ActorContext''
-       * @return the new line writer actor
-       */
-      override def createLineWriterActor(context: ActorContext): ActorRef = fetchActorRef(optActor)
-    }
-
-  /**
    * Creates a ''Props'' object for creating a ''PlaybackActor''. The factory
    * for the line actor and the source actor can be provided optionally.
-   * @param optFactory the optional line writer factory
+   * @param optLineWriter the optional line writer actor
    * @param optSource the optional source actor
    * @return the ''Props'' object
    */
-  private def propsWithMockFactory(optFactory: Option[LineWriterActorFactory] = None, optSource:
+  private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None, optSource:
   Option[ActorRef] = None): Props =
-    Props(classOf[PlaybackActor], optFactory getOrElse createLineWriterActorFactory(),
-      fetchActorRef(optSource))
+    Props(new PlaybackActor(fetchActorRef(optSource)) with ChildActorFactory {
+      override def createChildActor(p: Props): ActorRef = {
+        p.actorClass() should be (classOf[LineWriterActor])
+        p.args shouldBe 'empty
+        fetchActorRef(optLineWriter)
+      }
+    })
 
   /**
    * Creates a playback context factory which creates context objects using a
@@ -155,19 +144,23 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     factory
   }
 
-  "A PlaybackActor" should "create a correct LineWriterActorFactory" in {
-    val actor = TestActorRef[PlaybackActor](Props(classOf[PlaybackActor], testActor))
-    actor.underlyingActor.lineWriterActorFactory shouldBe a[LineWriterActorFactory]
+  "A PlaybackActor" should "create a correct Props object" in {
+    val props = PlaybackActor(testActor)
+    val actor = TestActorRef[PlaybackActor](props)
+    actor.underlyingActor shouldBe a[PlaybackActor]
+    actor.underlyingActor shouldBe a[ChildActorFactory]
+    props.args should have length 1
+    props.args.head should be (testActor)
   }
 
   it should "request data when it is passed an audio source" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
     actor ! createSource(1)
     expectMsg(GetAudioData(AudioBufferSize))
   }
 
   it should "report a protocol violation if too many audio sources are sent" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
     actor ! createSource(1)
     expectMsgType[GetAudioData]
 
@@ -178,7 +171,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "report a protocol violation if receiving data without asking" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
 
     val dataMsg = arraySource(1, 8)
     actor ! dataMsg
@@ -188,7 +181,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "receive data until the buffer is full" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
 
     actor ! createSource(1)
     expectMsgType[GetAudioData]
@@ -204,7 +197,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "request an audio source when started initially" in {
     val probe = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optSource = Some(probe.ref)))
+    val actor = system.actorOf(propsWithMockLineWriter(optSource = Some(probe.ref)))
 
     actor ! StartPlayback
     probe.expectMsg(GetAudioSource)
@@ -214,7 +207,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     val factory = mock[PlaybackContextFactory]
     when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenReturn(None)
 
-    val actor = TestActorRef(propsWithMockFactory())
+    val actor = TestActorRef(propsWithMockLineWriter())
     actor ! AddPlaybackContextFactory(factory)
     val audioSource = createSource(1)
     actor ! audioSource
@@ -254,8 +247,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "pass data to the line writer actor" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
 
     val line = installMockPlaybackContextFactory(actor)
     actor ! StartPlayback
@@ -270,7 +262,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "report a protocol violation if audio data was played without a request" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
 
     actor ! LineWriterActor.AudioDataWritten
     val errMsg = expectMsgType[PlaybackProtocolViolation]
@@ -280,8 +272,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "send only a single audio data chunk at a time" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
@@ -324,8 +315,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
    */
   private def checkPlaybackOfFullSource(sourceSize: Int): Unit = {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
@@ -347,7 +337,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "report a protocol error when receiving an unexpected EoF message" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
 
     val eofMsg = EndOfFile(null)
     actor ! eofMsg
@@ -358,8 +348,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "skip a chunk according to the source's skip property" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
     val SkipSize = 16
 
@@ -375,8 +364,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "skip a chunk partially according to the source's skip property" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
@@ -394,8 +382,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "allow skipping playback of the current source" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
@@ -419,8 +406,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
       .thenReturn(None)
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     actor ! AddPlaybackContextFactory(mockContextFactory)
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -435,8 +421,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "allow stopping playback" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val contextFactory = mockPlaybackContextFactory()
     actor ! AddPlaybackContextFactory(contextFactory)
 
@@ -453,8 +438,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "allow skipping a source even if playback is not enabled" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
@@ -484,8 +468,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "close the playback context when a source is complete" in {
     val line = mock[SourceDataLine]
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))
@@ -502,7 +485,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "handle a close request if there is no playback context" in {
-    val actor = TestActorRef[PlaybackActor](propsWithMockFactory())
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter())
     installMockPlaybackContextFactory(actor)
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -513,7 +496,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   it should "reject messages after receiving a close request" in {
-    val actor = system.actorOf(propsWithMockFactory())
+    val actor = system.actorOf(propsWithMockLineWriter())
     installMockPlaybackContextFactory(actor)
 
     actor ! CloseRequest
@@ -526,8 +509,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "handle a close request if a playback context is active" in {
     val line = mock[SourceDataLine]
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))
@@ -548,8 +530,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "handle a close request while audio data is currently played" in {
     val line = mock[SourceDataLine]
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockFactory(optFactory = Some
-      (createLineWriterActorFactory(Some(lineWriter.ref)))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))

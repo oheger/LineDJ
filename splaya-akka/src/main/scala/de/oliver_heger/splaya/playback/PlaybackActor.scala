@@ -1,10 +1,11 @@
 package de.oliver_heger.splaya.playback
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Props, Actor, ActorLogging, ActorRef}
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.splaya.playback.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.splaya.utils.ChildActorFactory
 
 /**
  * Companion object of ''PlaybackActor''.
@@ -75,6 +76,16 @@ object PlaybackActor {
    * of bytes which must be available in the buffer.
    */
   private val PropContextLimit = PropertyPrefix + "playbackContextLimit"
+
+  private class PlaybackActorImpl(dataSource: ActorRef) extends PlaybackActor(dataSource) with
+  ChildActorFactory
+
+  /**
+   * Creates a ''Props'' object for creating an instance of this actor class.
+   * @param dataSource the actor which provides the data to be played
+   * @return a ''Props'' object for creating an instance
+   */
+  def apply(dataSource: ActorRef): Props = Props(classOf[PlaybackActorImpl], dataSource)
 }
 
 /**
@@ -100,11 +111,11 @@ object PlaybackActor {
  * For more information about the protocol supported by this actor refer to the
  * description of the message objects defined by the companion object.
  *
- * @param lineWriterActorFactory the factory for creating a line writer actor
  * @param dataSource the actor which provides the data to be played
  */
-class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActorFactory,
-                    dataSource: ActorRef) extends Actor with ActorLogging {
+class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
+
+  this: ChildActorFactory =>
 
   import de.oliver_heger.splaya.playback.PlaybackActor._
 
@@ -150,11 +161,9 @@ class PlaybackActor(private[playback] val lineWriterActorFactory: LineWriterActo
   /** A flag whether playback is currently enabled. */
   private var playbackEnabled = false
 
-  def this(dataSource: ActorRef) = this(new LineWriterActorFactory, dataSource)
-
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    lineWriterActor = lineWriterActorFactory createLineWriterActor context
+    lineWriterActor = createChildActor(Props[LineWriterActor])
   }
 
   override def receive: Receive = {
