@@ -7,6 +7,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.splaya.FileTestHelper
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadResult}
+import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -45,14 +46,6 @@ FileTestHelper {
     msg
   }
 
-  "A FileLoaderActor" should "load the content of a file" in {
-    val file = createDataFile()
-    val loader = system.actorOf(Props[FileLoaderActor])
-
-    loader ! LoadFile(file)
-    checkContentMessage(expectMsgType[FileContent], file, testBytes())
-  }
-
   /**
    * Creates a content string for a large file whose size is bigger than the
    * chunk size used by the read actors involved.
@@ -76,8 +69,25 @@ FileTestHelper {
     createDataFile(largeFileContent)
   }
 
+  "A FileLoaderActor" should "create a correct Props object" in {
+    val props = FileLoaderActor()
+
+    props.args shouldBe 'empty
+    val ref = TestActorRef[FileLoaderActor](props)
+    ref.underlyingActor shouldBe a[FileLoaderActor]
+    ref.underlyingActor shouldBe a[ChildActorFactory]
+  }
+
+  it should "load the content of a file" in {
+    val file = createDataFile()
+    val loader = system.actorOf(FileLoaderActor())
+
+    loader ! LoadFile(file)
+    checkContentMessage(expectMsgType[FileContent], file, testBytes())
+  }
+
   it should "handle multiple load operations in parallel" in {
-    val loader = system.actorOf(Props[FileLoaderActor])
+    val loader = system.actorOf(FileLoaderActor())
     val file1 = createLargeFile()
     val file2 = createDataFile()
     val probe = TestProbe()
@@ -89,30 +99,31 @@ FileTestHelper {
   }
 
   it should "ignore ReadResult messages from unknown read actors" in {
-    val loader = TestActorRef(Props[FileLoaderActor])
+    val loader = TestActorRef(FileLoaderActor())
     loader receive ReadResult(data = testBytes(), length = 42)
   }
 
   it should "ignore EndOfFile messages from unknown read actors" in {
-    val loader = TestActorRef(Props[FileLoaderActor])
+    val loader = TestActorRef(FileLoaderActor())
     loader receive EndOfFile(createFileReference())
   }
 
   it should "stop a read actor when a file has been read" in {
     val probe = TestProbe()
-    val deathWatchReaderFactory = new TrackReaderActorFactory(new FileReaderActorFactory)
     val file = createDataFile()
-    val loader = system.actorOf(Props(classOf[FileLoaderActor], deathWatchReaderFactory))
+    val loader = TestActorRef[FileLoaderActor](Props(new FileLoaderActor with
+      TrackReaderActorFactory))
 
     loader ! LoadFile(file)
     checkContentMessage(expectMsgType[FileContent], file, testBytes())
-    probe watch deathWatchReaderFactory.createdActor
+    val deathWatchFactory = loader.underlyingActor.asInstanceOf[TrackReaderActorFactory]
+    probe watch deathWatchFactory.createdActor
     val termMsg = probe.expectMsgType[Terminated]
-    termMsg.actor should be(deathWatchReaderFactory.createdActor)
+    termMsg.actor should be(deathWatchFactory.createdActor)
   }
 
   it should "send an error message if a load operation fails" in {
-    val loader = system.actorOf(Props[FileLoaderActor])
+    val loader = system.actorOf(FileLoaderActor())
 
     val path = Paths.get("a non existing path!")
     loader ! LoadFile(path)
@@ -121,23 +132,16 @@ FileTestHelper {
   }
 
   /**
-   * A specialized reader actor factory implementation which keeps track about
+   * A specialized child actor factory implementation which keeps track about
    * the file reader actor created. This factory is used to check whether read
    * actors are stopped when they are no longer needed.
-   * @param wrappedFactory the wrapped factory
    */
-  private class TrackReaderActorFactory(wrappedFactory: FileReaderActorFactory) extends
-  FileReaderActorFactory {
+  private trait TrackReaderActorFactory extends ChildActorFactory {
     /** The last actor created by this factory. */
     var createdActor: ActorRef = _
 
-    /**
-     * Creates a new ''FileReaderActor'' using the specified context object.
-     * @param context the ''ActorContext''
-     * @return the newly created ''FileReaderActor''
-     */
-    override def createFileReaderActor(context: ActorContext): ActorRef = {
-      createdActor = wrappedFactory createFileReaderActor context
+    override def createChildActor(p: Props): ActorRef = {
+      createdActor = super.createChildActor(p)
       createdActor
     }
   }

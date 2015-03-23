@@ -7,6 +7,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.io.ChannelHandler.{IOOperationError, InitFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
+import de.oliver_heger.splaya.utils.ChildActorFactory
 
 /**
  * Companion object.
@@ -32,6 +33,15 @@ object FileLoaderActor {
    */
   case class FileContent(path: Path, content: Array[Byte])
 
+  private class FileLoaderActorImpl extends FileLoaderActor with ChildActorFactory
+
+  /**
+   * Creates a ''Props'' object for creating new actors of this class. This
+   * method should always be used for creating properties; it ensures that all
+   * required dependencies are provided.
+   * @return a ''Props'' object for creating new actor instances
+   */
+  def apply(): Props = Props[FileLoaderActorImpl]
 }
 
 /**
@@ -48,17 +58,14 @@ object FileLoaderActor {
  * [[FileReaderActor]]. This makes it possible to handle multiple load
  * operations in parallel. Each operation involves a full interaction with the
  * associated file reader actor. After that, the reader actor is stopped.
- *
- * @param factory the factory for creating new file reader actors
  */
-class FileLoaderActor(factory: FileReaderActorFactory) extends Actor with ActorLogging {
+class FileLoaderActor extends Actor with ActorLogging {
+  this: ChildActorFactory =>
 
   import de.oliver_heger.splaya.io.FileLoaderActor._
 
   /** A map for keeping track of the currently active load operations. */
   private val operations = collection.mutable.Map.empty[ActorRef, FileLoadOperation]
-
-  def this() = this(new FileReaderActorFactory)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -103,7 +110,7 @@ class FileLoaderActor(factory: FileReaderActorFactory) extends Actor with ActorL
    * @return the new ''FileReaderActor''
    */
   private def createFileReaderActor(): ActorRef = {
-    val readActor = factory createFileReaderActor context
+    val readActor = createChildActor(Props[FileReaderActor])
     context watch readActor
     readActor
   }
