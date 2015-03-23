@@ -23,7 +23,7 @@ import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
  * @param prefix the prefix for temporary files
  * @param extension the file extension for temporary files
  */
-private class BufferFileManager(val directory: Path, val prefix: String, val extension: String) {
+class BufferFileManager(val directory: Path, val prefix: String, val extension: String) {
   /** An array for storing the files contained in this buffer. */
   private val content = Array[Option[Path]](None, None)
 

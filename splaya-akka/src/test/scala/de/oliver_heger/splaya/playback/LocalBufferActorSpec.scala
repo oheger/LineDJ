@@ -12,6 +12,7 @@ import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.splaya.io.FileWriterActor.{WriteResult, WriteResultStatus}
 import de.oliver_heger.splaya.io._
+import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -64,9 +65,16 @@ with MockitoSugar {
     system awaitTermination 10.seconds
   }
 
-  "A LocalBufferActor" should "create a default FileWriterActorFactory" in {
-    val bufferActor = TestActorRef[LocalBufferActor]
-    bufferActor.underlyingActor.fileActorFactory shouldBe a[FileActorFactory]
+  "A LocalBufferActor" should "create a correct Props object" in {
+    val bufferManager = mock[BufferFileManager]
+    val props = LocalBufferActor(Some(bufferManager))
+
+    props.args should have length 1
+    props.args.head should be (Some(bufferManager))
+    val bufferActor = TestActorRef[LocalBufferActor](props)
+    bufferActor.underlyingActor shouldBe a[LocalBufferActor]
+    bufferActor.underlyingActor shouldBe a[ChildActorFactory]
+    bufferActor.underlyingActor.bufferManager should be (bufferManager)
   }
 
   /**
@@ -80,7 +88,7 @@ with MockitoSugar {
     else path
 
   it should "create a default buffer file manager" in {
-    val bufferActor = TestActorRef[LocalBufferActor]
+    val bufferActor = TestActorRef[LocalBufferActor](LocalBufferActor())
     val bufferManager = bufferActor.underlyingActor.bufferManager
     bufferManager.prefix should be(FilePrefix)
     bufferManager.extension should be(FileSuffix)
@@ -148,28 +156,6 @@ with MockitoSugar {
   }
 
   /**
-   * Creates a file actor factory implementation that returns the provided
-   * actor references. If a reference is not provided, the test actor is used
-   * per default.
-   * @param readerActor the reader actor reference
-   * @param writerActor the writer actor reference
-   * @return the factory
-   */
-  private def createFileActorFactory(readerActor: Option[ActorRef] = None, writerActor:
-  Option[ActorRef]): FileActorFactory = {
-    def fetchReference(ref: Option[ActorRef]): ActorRef =
-      ref.getOrElse(testActor)
-
-    new FileActorFactory {
-      override def createFileReaderActor(context: ActorContext): ActorRef =
-        fetchReference(readerActor)
-
-      override def createFileWriterActor(context: ActorContext): ActorRef =
-        fetchReference(writerActor)
-    }
-  }
-
-  /**
    * Creates a mock for a buffer file manager. The mock is prepared to give some
    * default answers.
    * @return the mock for the ''BufferFileManager''
@@ -186,9 +172,17 @@ with MockitoSugar {
   }
 
   /**
+   * Helper method for resolving an optional actor reference. If not specified,
+   * the test actor is used.
+   * @param ref the optional actor reference
+   * @return the resolved reference
+   */
+  private def fetchReference(ref: Option[ActorRef]): ActorRef = ref.getOrElse(testActor)
+
+  /**
    * Creates a ''Props'' object for instantiating a buffer actor with a mock
-   * factory that returns the provided actor references. If no actors are
-   * specified, the implicit test actor is used.
+   * child actor factory that returns the provided actor references. If no
+   * actors are specified, the implicit test actor is used.
    * @param readerActor an optional reader actor
    * @param writerActor an optional writer actor
    * @param bufferManager an optional buffer manager object
@@ -196,9 +190,40 @@ with MockitoSugar {
    */
   private def propsWithMockFactory(readerActor: Option[ActorRef] = None,
                                    writerActor: Option[ActorRef] = None, bufferManager:
-  Option[BufferFileManager] = None): Props = {
-    Props(classOf[LocalBufferActor], createFileActorFactory(readerActor, writerActor),
-      bufferManager orElse Some(createBufferFileManager()))
+  Option[BufferFileManager] = None): Props =
+    propsWithMockFactoryForMultipleReaders(List(fetchReference(readerActor)), writerActor,
+      bufferManager)
+
+  /**
+   * Creates a ''Props'' object for instantiating a buffer actor with a mock
+   * child actor factory that returns multiple reader actor references. This
+   * method can be used if multiple reader actors are involved.
+   * @param readers a list with reader actors
+   * @param writerActor an optional writer actor
+   * @param bufferManager an optional buffer manager object
+   * @return the ''Props'' object with the specified data
+   */
+  private def propsWithMockFactoryForMultipleReaders(readers: List[ActorRef], writerActor:
+  Option[ActorRef], bufferManager: Option[BufferFileManager]): Props = {
+    Props(new LocalBufferActor(bufferManager orElse Some(createBufferFileManager()))
+      with ChildActorFactory {
+      var readerList = readers
+
+      override def createChildActor(p: Props): ActorRef = {
+        p.args shouldBe 'empty
+        val ReaderClass = classOf[FileReaderActor]
+        val WriterClass = classOf[FileWriterActor]
+        p.actorClass() match {
+          case ReaderClass =>
+            val readerActor = readerList.head
+            readerList = readerList.tail
+            readerActor
+
+          case WriterClass =>
+            fetchReference(writerActor)
+        }
+      }
+    })
   }
 
   /**
@@ -335,8 +360,8 @@ with MockitoSugar {
     val path2 = BufferPath resolve "file2"
     when(bufferManager.read).thenReturn(Some(path1), Some(path2))
     val probe = TestProbe()
-    val bufferActor = TestActorRef(propsWithMockFactory(bufferManager = Some(bufferManager),
-      readerActor = Some(probe.ref)))
+    val bufferActor = TestActorRef(propsWithMockFactoryForMultipleReaders(bufferManager = Some
+      (bufferManager), readers = List(probe.ref, probe.ref), writerActor = None))
 
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
@@ -391,21 +416,12 @@ with MockitoSugar {
     val readActor1 = TestProbe()
     val readActor2 = TestProbe()
     val readActor3 = TestProbe()
-    var readActors = List(readActor1.ref, readActor2.ref, readActor3.ref)
-    val fileActorFactory = new FileActorFactory {
-      override def createFileReaderActor(context: ActorContext): ActorRef = {
-        val actor = readActors.head
-        readActors = readActors.tail
-        actor
-      }
-
-      override def createFileWriterActor(context: ActorContext): ActorRef = testActor
-    }
+    val readActors = List(readActor1.ref, readActor2.ref, readActor3.ref)
     val bufferManager = createBufferFileManager()
     when(bufferManager.read).thenReturn(Some(BufferPath))
     when(bufferManager.isFull).thenReturn(true, false)
-    val bufferActor = system.actorOf(Props(classOf[LocalBufferActor], fileActorFactory, Some
-      (bufferManager)))
+    val bufferActor = system.actorOf(propsWithMockFactoryForMultipleReaders(readActors, None,
+      Some(bufferManager)))
 
     readActor3 watch readActor2.ref
     bufferActor ! FillBuffer(testActor)
@@ -419,7 +435,7 @@ with MockitoSugar {
   }
 
   it should "not crash when receiving an unexpected EoF message" in {
-    val bufferActor = TestActorRef(Props[LocalBufferActor])
+    val bufferActor = TestActorRef(LocalBufferActor())
     bufferActor receive EndOfFile(BufferPath)
   }
 

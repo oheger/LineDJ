@@ -2,11 +2,12 @@ package de.oliver_heger.splaya.playback
 
 import java.nio.file.{FileSystems, Path}
 
-import akka.actor.{Actor, ActorRef, Terminated}
+import akka.actor.{Props, Actor, ActorRef, Terminated}
 import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.splaya.io.FileWriterActor.WriteResult
-import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
+import de.oliver_heger.splaya.io.{FileReaderActor, FileWriterActor, CloseAck, CloseRequest}
+import de.oliver_heger.splaya.utils.ChildActorFactory
 
 /**
  * Companion object to ''LocalBufferActor''.
@@ -101,6 +102,18 @@ object LocalBufferActor {
    */
   case object SequenceComplete
 
+  private class LocalBufferActorImpl(optBufferManager: Option[BufferFileManager])
+    extends LocalBufferActor(optBufferManager) with ChildActorFactory
+
+  /**
+   * Creates a ''Props'' object which can be used to create new actor instances
+   * of this class. This method should always be used; it guarantees that all
+   * required dependencies are satisfied.
+   * @param optBufferManager an option with the object for managing temporary files
+   * @return a ''Props'' object for creating actor instances
+   */
+  def apply(optBufferManager: Option[BufferFileManager] = None): Props =
+    Props(classOf[LocalBufferActorImpl], optBufferManager)
 }
 
 /**
@@ -128,11 +141,10 @@ object LocalBufferActor {
  * At a time only a single read and a single fill operation are allowed. If a
  * request for another operation arrives, a busy message is returned.
  *
- * @param fileActorFactory the factory for creating file actors
  * @param optBufferManager an option with the object for managing temporary files
  */
-class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
-                       optBufferManager: Option[BufferFileManager]) extends Actor {
+class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Actor {
+  this: ChildActorFactory =>
 
   import de.oliver_heger.splaya.playback.LocalBufferActor._
 
@@ -144,12 +156,6 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
 
   /** The object for managing temporary files. */
   private[playback] lazy val bufferManager = optBufferManager getOrElse createBufferManager()
-
-  /**
-   * Creates a new instance of ''LocalBufferActor'' using a default factory for
-   * file actors.
-   */
-  def this() = this(new FileActorFactory, None)
 
   /** The object for handling a close operation. */
   private var closingState: ClosingState = _
@@ -188,7 +194,7 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     bufferManager.clearBufferDirectory()
-    writerActor = fileActorFactory createFileWriterActor context
+    writerActor = createChildActor(Props[FileWriterActor])
   }
 
   override def receive: Receive = {
@@ -362,7 +368,7 @@ class LocalBufferActor(private[playback] val fileActorFactory: FileActorFactory,
   private def serveReadRequest(): Unit = {
     for {client <- readClient
          path <- bufferManager.read} {
-      readActor = fileActorFactory createFileReaderActor context
+      readActor = createChildActor(Props[FileReaderActor])
       context watch readActor
       readActor ! InitFile(path)
       client ! BufferReadActor(readActor)
