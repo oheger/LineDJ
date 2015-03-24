@@ -38,20 +38,29 @@ FileTestHelper {
 
   "A MediumIDCalculator" should "calculate the correct medium ID" in {
     val calculator = new MediumIDCalculator
-    calculator.calculateMediumID(testDirectory, createContentList()) should be(MediumID)
+    calculator.calculateMediumID(testDirectory, createContentList()).mediumID should be(MediumID)
   }
 
   it should "return the same ID independent on ordering" in {
     val calculator = new MediumIDCalculator
 
     val content = createContentList().reverse
-    calculator.calculateMediumID(testDirectory, content) should be(MediumID)
+    calculator.calculateMediumID(testDirectory, content).mediumID should be(MediumID)
   }
 
   it should "return different IDs for different content" in {
     val calculator = new MediumIDCalculator
 
     val content = createPathInDirectory("newTrack.mp3") :: createContentList().toList
-    calculator.calculateMediumID(testDirectory, content) should not be MediumID
+    calculator.calculateMediumID(testDirectory, content).mediumID should not be MediumID
+  }
+
+  it should "generate a correct URI path mapping" in {
+    val calculator = new MediumIDCalculator
+
+    val files = createContentList()
+    val data = calculator.calculateMediumID(testDirectory, files)
+    data.fileURIMapping should have size files.size
+    data.fileURIMapping.values forall files.contains shouldBe true
   }
 }
