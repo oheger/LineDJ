@@ -9,6 +9,9 @@ object DirectoryScannerSpec {
   /** A set with file extensions to be excluded. */
   private val Exclusions = Set("txt", "")
 
+  /** The content of a file which is not part of a medium. */
+  private val OtherFileContent = "12345678"
+
   /**
    * Helper method for checking whether all elements in a sub set are contained
    * in another set. Result is the first element in the sub set which was not
@@ -99,13 +102,21 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     s.toSet map toPath
 
   /**
+   * Extracts path information from a list of media files.
+   * @param files the sequence with file objects
+   * @return a sequence with the extracts paths
+   */
+  private def extractPaths(files: Seq[MediaFile]): Seq[Path] =
+    files map (_.path)
+
+  /**
    * Creates a directory structure with test media files and directories.
    */
   private def setUpDirectoryStructure(): Unit = {
     createFile(testDirectory, "test.txt", "some content")
-    createFile(testDirectory, "noMedium1.mp3", "*")
+    createFile(testDirectory, "noMedium1.mp3", OtherFileContent)
     val medium1 = createDir(testDirectory, "medium1")
-    createFile(medium1, "noMedium2.mp3", "*")
+    createFile(medium1, "noMedium2.mp3", OtherFileContent)
     createFile(medium1, "medium1.settings", "+")
     val sub1 = createDir(medium1, "sub1")
     createFile(sub1, "medium1Song1.mp3", "*")
@@ -125,7 +136,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     createFile(sub3, "medium3Song1.mp3", "*")
 
     val otherDir = createDir(testDirectory, "other")
-    createFile(otherDir, "noMedium3.mp3", "*")
+    createFile(otherDir, "noMedium3.mp3", OtherFileContent)
   }
 
   /**
@@ -142,7 +153,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
     val result = scan()
 
-    checkContainsAll(result.otherFiles, expected) should be(None)
+    checkContainsAll(extractPaths(result.otherFiles), expected) should be(None)
   }
 
   it should "exclude files with configured extensions" in {
@@ -152,7 +163,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     result.mediaFiles foreach { e =>
       checkContainsNone(e._2, excluded) should be(None)
     }
-    checkContainsNone(result.otherFiles, excluded) should be(None)
+    checkContainsNone(extractPaths(result.otherFiles), excluded) should be(None)
   }
 
   it should "detect all media directories" in {
@@ -178,7 +189,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
    */
   private def checkMedium(result: MediaScanResult, mediumDesc: String, content: String*):
   Option[Path] = {
-    val files = result.mediaFiles(toPath(mediumDesc + ".settings"))
+    val files = result.mediaFiles(toPath(mediumDesc + ".settings")) map (_.path)
     files should have length content.length
     checkContainsAll(files, paths(content: _*))
   }
@@ -191,5 +202,12 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     checkMedium(result, "medium2/medium2", "medium2/sub2/medium2Song1.sub")
     checkMedium(result, "medium2/sub2/medium3/medium3", "medium2/sub2/medium3/sub3/medium3Song1" +
       ".mp3")
+  }
+
+  it should "determine correct file sizes" in {
+    val result = scan()
+
+    result.mediaFiles(toPath("medium1/medium1.settings")).head.size should be (1)
+    result.otherFiles.head.size should be (OtherFileContent.length)
   }
 }

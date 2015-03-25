@@ -40,19 +40,6 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
   }
 }
 
-/**
- * A data class storing the results of a directory scan for media files (in its
- * raw form).
- *
- * This class consists of a map with files that could be assigned to a medium
- * and all other files encountered in the processed directory structure. A
- * medium is represented by a path pointing to it medium description file.
- *
- * @param mediaFiles a map with files assigned to a medium
- * @param otherFiles a list with other files
- */
-case class MediaScanResult(mediaFiles: Map[Path, List[Path]], otherFiles: List[Path])
-
 private object ScanVisitor {
   /** Constant for an undefined file extension. */
   private val NoExtension = ""
@@ -87,37 +74,37 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
   import de.oliver_heger.splaya.media.ScanVisitor._
 
   /** A stack structure with the list buffers for the current directories. */
-  var filesStack = List(ListBuffer.empty[Path])
+  var filesStack = List(ListBuffer.empty[MediaFile])
 
   /** The buffer for populating the current medium in the next directory. */
   var nextBuffer = filesStack.head
 
   /** The map storing the files for all media. */
-  var mediaFilesMap = Map.empty[Path, ListBuffer[Path]]
+  var mediaFilesMap = Map.empty[Path, ListBuffer[MediaFile]]
 
   /**
    * Creates the map with media files based on the data collected during the
    * visit operation.
    * @return the map with media files
    */
-  def mediaFiles: Map[Path, List[Path]] = mediaFilesMap map (e => (e._1, e._2.toList))
+  def mediaFiles: Map[Path, List[MediaFile]] = mediaFilesMap map (e => (e._1, e._2.toList))
 
   /**
    * Creates the list with files that do not belong to a specific medium based
    * on the information collected during the visit operation.
    * @return the list with other files
    */
-  def otherFiles: List[Path] = filesStack.head.toList
+  def otherFiles: List[MediaFile] = filesStack.head.toList
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     val extension = extractExtension(file)
     if (SettingsExtension == extension) {
-      val buffer = ListBuffer.empty[Path]
+      val buffer = ListBuffer.empty[MediaFile]
       mediaFilesMap = mediaFilesMap + (file -> buffer)
       nextBuffer = buffer
 
     } else if (!exclusions.contains(extension)) {
-      filesStack.head += file
+      filesStack.head += createMediaFile(file)
     }
     FileVisitResult.CONTINUE
   }
@@ -132,4 +119,12 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
     filesStack = filesStack.tail
     FileVisitResult.CONTINUE
   }
+
+  /**
+   * Creates a ''MediaFile'' object for the specified path. This method
+   * obtains the additional meta data required by the ''MediaFile'' class.
+   * @param path the path to the file in question
+   * @return the corresponding ''MediaFile'' object
+   */
+  private def createMediaFile(path: Path): MediaFile = MediaFile(path, Files size path)
 }
