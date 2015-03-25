@@ -24,15 +24,18 @@ private class MediumIDCalculator {
    * Calculates an alphanumeric medium ID and URIs for the files on the
    * affected medium for the specified input parameters.
    * @param mediumRoot the root directory of the medium
+   * @param mediumURI the URI to the medium (this information is just passed to the result object)
    * @param mediumContent the files obtained from this medium; note: the files
    *                      are expected to be relative to the medium root path
    * @return an object with the calculated IDs and URIs
    */
-  def calculateMediumID(mediumRoot: Path, mediumContent: Seq[Path]): MediumIDData = {
-    val fileURIs = mediumContent map mediumRoot.relativize map (_.toString.replace('\\', '/'))
+  def calculateMediumID(mediumRoot: Path, mediumURI: String, mediumContent: Seq[MediaFile]):
+  MediumIDData = {
+    val paths = mediumContent map (_.path)
+    val fileURIs = paths map mediumRoot.relativize map (_.toString.replace('\\', '/'))
     val crc = new CRC32
-    fileURIs sortWith(_ < _) foreach { s => crc.update(s.getBytes)}
-    MediumIDData(java.lang.Long.toHexString(crc.getValue), Map(fileURIs zip mediumContent: _*))
+    fileURIs sortWith (_ < _) foreach { s => crc.update(s.getBytes) }
+    MediumIDData(java.lang.Long.toHexString(crc.getValue), mediumURI, Map(fileURIs zip mediumContent: _*))
   }
 }
 
@@ -45,4 +48,5 @@ private class MediumIDCalculator {
  * @param mediumID the alphanumeric medium ID
  * @param fileURIMapping a mapping from logic file URIs to physical paths
  */
-private case class MediumIDData(mediumID: String, fileURIMapping: Map[String, Path])
+private case class MediumIDData(mediumID: String, mediumURI: String, fileURIMapping: Map[String,
+  MediaFile])
