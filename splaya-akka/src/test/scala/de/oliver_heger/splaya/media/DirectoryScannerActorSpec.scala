@@ -16,8 +16,8 @@ object DirectoryScannerActorSpec {
   private val Path = Paths.get("TestPath")
 
   /** A test result object returned by the mock scanner. */
-  private val TestResult = MediaScanResult(Map(Path -> List(MediaFile(Path, 1))), List(MediaFile
-    (Path, 2)))
+  private val TestResult = MediaScanResult(Path, Map(Path -> List(MediaFile(Path, 1))), List
+    (MediaFile(Path, 2)))
 }
 
 /**

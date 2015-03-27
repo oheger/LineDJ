@@ -36,7 +36,7 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
   def scan(root: Path): MediaScanResult = {
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(root, visitor)
-    MediaScanResult(visitor.mediaFiles, visitor.otherFiles)
+    MediaScanResult(root, visitor.mediaFiles, visitor.otherFiles)
   }
 }
 

@@ -21,8 +21,9 @@ private case class MediaFile(path: Path, size: Long)
  * and all other files encountered in the processed directory structure. A
  * medium is represented by a path pointing to it medium description file.
  *
+ * @param root the root path that has been scanned
  * @param mediaFiles a map with files assigned to a medium
  * @param otherFiles a list with other files
  */
-private case class MediaScanResult(mediaFiles: Map[Path, List[MediaFile]], otherFiles:
+private case class MediaScanResult(root: Path, mediaFiles: Map[Path, List[MediaFile]], otherFiles:
 List[MediaFile])

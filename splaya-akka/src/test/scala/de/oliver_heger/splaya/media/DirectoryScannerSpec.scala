@@ -153,6 +153,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
     val result = scan()
 
+    result.root should be (testDirectory)
     checkContainsAll(extractPaths(result.otherFiles), expected) should be(None)
   }
 
