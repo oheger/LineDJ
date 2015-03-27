@@ -14,7 +14,7 @@ object MediumInfoParserActor {
    * parsing error.
    */
   private lazy val DummyMediumSettingsData = MediumSettingsData(name = UnknownMedium,
-    description = "", mediumURI = null, orderMode = "", orderParams = xml.NodeSeq.Empty)
+    description = "", mediumURI = "", orderMode = "", orderParams = xml.NodeSeq.Empty)
 
   /**
    * A message processed by ''MediumInfoParserActor'' which tells it to parse a
@@ -25,6 +25,13 @@ object MediumInfoParserActor {
    */
   case class ParseMediumInfo(descriptionData: Array[Byte], mediumURI: String)
 
+  /**
+   * Returns a ''MediumInfo'' object for an undefined medium. This object can
+   * be used if no information about a medium is available (e.g. if no or an
+   * invalid description file is encountered).
+   * @return a ''MediumInfo'' object for an undefined medium
+   */
+  def undefinedMediumInfo: MediumInfo = DummyMediumSettingsData
 }
 
 /**
