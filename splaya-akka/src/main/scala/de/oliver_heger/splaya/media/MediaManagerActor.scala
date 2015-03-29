@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.media
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
@@ -124,7 +124,7 @@ object MediaManagerActor {
  * data to be played. The content of specific media can be queried, and single
  * audio sources can be requested.
  */
-class MediaManagerActor extends Actor {
+class MediaManagerActor extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import MediaManagerActor._
@@ -142,7 +142,7 @@ class MediaManagerActor extends Actor {
   private var loaderActor: ActorRef = _
 
   /** The map with the media currently available. */
-  private var mediaMap: Map[String, MediumInfo] = _
+  private var mediaMap = Map.empty[String, MediumInfo]
 
   /**
    * A temporary map for storing media ID information. It is used while
@@ -163,6 +163,22 @@ class MediaManagerActor extends Actor {
    */
   private val mediaFiles = collection.mutable.Map.empty[String, Map[String, MediaFile]]
 
+  /**
+   * Stores references to clients that have asked for the available media
+   * before this information has been fetched. As soon as the data about the
+   * media available is complete, these actors will receive a notification.
+   */
+  private var pendingMediaRequest = List.empty[ActorRef]
+
+  /** The number of paths which have to be scanned in a current scan operation. */
+  private var pathsToScan = 0
+
+  /** The number of paths that have already been scanned. */
+  private var pathsScanned = -1
+
+  /** The number of available media.*/
+  private var mediaCount = 0
+
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     loaderActor = createChildActor(Props[FileLoaderActor])
@@ -170,8 +186,7 @@ class MediaManagerActor extends Actor {
 
   override def receive: Receive = {
     case ScanMedia(roots) =>
-      mediaMap = Map.empty
-      scanMediaRoots(roots)
+      processScanRequest(roots)
 
     case scanResult: MediaScanResult =>
       processScanResult(scanResult)
@@ -182,7 +197,7 @@ class MediaManagerActor extends Actor {
 
     case idData: MediumIDData =>
       if (idData.mediumURI == MediumIDOtherFiles) {
-        mediaMap += idData.mediumID -> MediumInfoParserActor.undefinedMediumInfo
+        appendMedium(idData.mediumID, MediumInfoParserActor.undefinedMediumInfo)
       } else {
         mediaIDData += idData.mediumURI -> idData
         createAndStoreMediumInfo(idData.mediumURI)
@@ -196,7 +211,11 @@ class MediaManagerActor extends Actor {
       stopSender()
 
     case GetAvailableMedia =>
-      sender ! AvailableMedia(mediaMap)
+      if(mediaInformationComplete) {
+        sender ! AvailableMedia(mediaMap)
+      } else {
+        pendingMediaRequest = sender() :: pendingMediaRequest
+      }
 
     case GetMediumFiles(mediumID) =>
       val optResponse = mediaFiles.get(mediumID) map
@@ -212,15 +231,33 @@ class MediaManagerActor extends Actor {
   }
 
   /**
+   * Processes a request for scanning directory structures. If this request is
+   * allowed in the current state of this actor, the scanning of the desired
+   * directory structures is initiated.
+   * @param roots a sequence with the root directories to be scanned
+   */
+  private def processScanRequest(roots: Seq[String]): Unit = {
+    if (noScanInProgress) {
+      mediaMap = Map.empty
+      mediaCount = 0
+      pathsToScan = roots.size
+      pathsScanned = 0
+      scanMediaRoots(roots)
+    } else log.warning("Ignoring scan request for {}. Scan already in progress.", roots)
+  }
+
+  /**
    * Initiates scanning of the root directories with media files.
    * @param roots a sequence with the root directories to be scanned
    */
   private def scanMediaRoots(roots: Seq[String]): Unit = {
+    log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
       val dirScannerActor = createChildActor(Props(classOf[DirectoryScannerActor],
         directoryScanner))
       dirScannerActor ! DirectoryScannerActor.ScanPath(Paths.get(root))
     }
+    mediaDataAdded()
   }
 
   /**
@@ -240,11 +277,16 @@ class MediaManagerActor extends Actor {
       val mediumPath = mediumPathFromDescription(e._1)
       triggerIDCalculation(mediumPath, pathToURI(mediumPath), e._2)
     }
+    mediaCount += scanResult.mediaFiles.size
 
     if (scanResult.otherFiles.nonEmpty) {
+      mediaCount += 1
       triggerIDCalculation(scanResult.root, MediumIDOtherFiles, scanResult.otherFiles)
       processOtherFiles(scanResult)
     }
+
+    pathsScanned += 1
+    mediaDataAdded()
   }
 
   /**
@@ -255,7 +297,8 @@ class MediaManagerActor extends Actor {
    */
   private def processOtherFiles(scanResult: MediaScanResult): Unit = {
     if (!mediaMap.contains(MediumIDOtherFiles)) {
-      mediaMap += MediumIDOtherFiles -> MediumInfoParserActor.undefinedMediumInfo
+      mediaCount += 1
+      appendMedium(MediumIDOtherFiles, MediumInfoParserActor.undefinedMediumInfo)
     }
     val otherMapping = createOtherFilesMapping(scanResult)
     val currentOtherMapping = mediaFiles.getOrElse(MediumIDOtherFiles, Map.empty)
@@ -297,7 +340,7 @@ class MediaManagerActor extends Actor {
     for {idData <- mediaIDData.get(mediumURI)
          settingsData <- mediaSettingsData.get(mediumURI)
     } {
-      mediaMap += idData.mediumID -> settingsData
+      appendMedium(idData.mediumID, settingsData)
     }
   }
 
@@ -319,4 +362,67 @@ class MediaManagerActor extends Actor {
   private def stopSender(): Unit = {
     context stop sender()
   }
+
+  /**
+   * Checks whether the information about available media is now complete.
+   * @return a flag whether all information is now complete
+   */
+  private def mediaInformationComplete: Boolean =
+    pathsScanned >= pathsToScan && mediaMap.size >= mediaCount
+
+  /**
+   * Sends information about the currently available media to pending actors.
+   * This method is called when all data about media has been fetched. Actors
+   * which have requested this information before have to be notified now.
+   */
+  private def handlePendingMediaRequests(): Unit = {
+    if (pendingMediaRequest.nonEmpty) {
+      val msg = AvailableMedia(mediaMap)
+      pendingMediaRequest foreach (_ ! msg)
+    }
+  }
+
+  /**
+   * Notifies this object that new media information has been added. If this
+   * information is now complete, the scan operation can be terminated, and
+   * pending requests can be handled.
+   * @return a flag whether the data about media is now complete
+   */
+  private def mediaDataAdded(): Boolean = {
+    if (mediaInformationComplete) {
+      handlePendingMediaRequests()
+      completeScanOperation()
+      true
+    } else false
+  }
+
+  /**
+   * Completes a scan operation. Temporary fields are reset.
+   */
+  private def completeScanOperation(): Unit = {
+    pathsToScan = -1
+    pathsScanned = -1
+    pendingMediaRequest = List.empty
+    mediaIDData.clear()
+    mediaSettingsData.clear()
+  }
+
+  /**
+   * Appends another entry to the map with media data. If the data is now
+   * complete, the scan operation is terminated.
+   * @param mediumID the ID of the medium
+   * @param info the medium info object
+   * @return a flag whether the data about media is now complete
+   */
+  private def appendMedium(mediumID: String, info: MediumInfo): Boolean = {
+    mediaMap += mediumID -> info
+    mediaDataAdded()
+  }
+
+  /**
+   * Checks that currently no scan is in progress. This method is used to
+   * avoid the processing of multiple scan requests in parallel.
+   * @return a flag whether currently no scan request is in progress
+   */
+  private def noScanInProgress: Boolean = pathsScanned < 0
 }

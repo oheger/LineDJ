@@ -5,6 +5,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
+import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -176,6 +177,51 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val readerProbe = helper.probesOfType[FileReaderActor].head
     readerProbe.expectMsg(ChannelHandler.InitFile(file.path))
     response.contentReader should be(readerProbe.ref)
+  }
+
+  it should "send media information to clients when it becomes available" in {
+    val helper = new MediaManagerTestHelper
+    val probe = TestProbe()
+
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor.tell(MediaManagerActor.GetAvailableMedia, probe.ref)
+    helper.scanMedia()
+    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    helper.checkMediaWithDescriptions(msgMedia)
+    probe.expectMsg(msgMedia)
+  }
+
+  it should "handle a scan operation that does not yield media" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
+    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    msgMedia.media should have size 0
+  }
+
+  it should "support multiple scan operations" in {
+    val helper = new MediaManagerTestHelper
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.scanMedia()
+    helper.checkMediaWithDescriptions(expectMsgType[MediaManagerActor.AvailableMedia])
+
+    helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    msgMedia.media should have size 0
+    helper.testManagerActor ! MediaManagerActor.GetMediumFiles("someMedium")
+    expectMsgType[MediaManagerActor.MediumFiles].uris shouldBe 'empty
+  }
+
+  it should "ignore another scan request while a scan is in progress" in {
+    val helper = new MediaManagerTestHelper
+    val manager = helper.sendScanRequest()
+
+    manager ! ScanMedia(List("UnsupportedTestPath"))
+    helper.scanMedia()
+    manager ! MediaManagerActor.GetAvailableMedia
+    helper checkMediaWithDescriptions expectMsgType[MediaManagerActor.AvailableMedia]
   }
 
   /**
@@ -421,9 +467,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      * @return a reference to the test actor
      */
     def scanMedia(): ActorRef = {
+      sendScanRequest()
+      simulateCollaboratingActors()
+      testManagerActor
+    }
+
+    /**
+     * Sends a ''ScanMedia'' request to the test actor (without simulating the
+     * responses of collaborating actors).
+     * @return a reference to the test actor
+     */
+    def sendScanRequest(): ActorRef = {
       testManagerActor ! MediaManagerActor.ScanMedia(List(Drive1Root.toString, Drive2Root
         .toString, Drive3Root.toString))
-      simulateCollaboratingActors()
       testManagerActor
     }
 
