@@ -2,7 +2,7 @@ package de.oliver_heger.splaya.media
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
@@ -12,6 +12,17 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
+
+object MediaManagerActorSpec {
+  /** Class for the directory scanner child actor. */
+  val ClsDirScanner = classOf[DirectoryScannerActor]
+
+  /** Class for the ID calculator child actor. */
+  val ClsIDCalculator = classOf[MediumIDCalculatorActor]
+
+  /** Class for the medium info parser child actor. */
+  val ClsInfoParser = classOf[MediumInfoParserActor]
+}
 
 /**
  * Test class for ''MediaManagerActor''.
@@ -224,6 +235,40 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     helper checkMediaWithDescriptions expectMsgType[MediaManagerActor.AvailableMedia]
   }
 
+  it should "handle IO exceptions when scanning directories" in {
+    val helper = new MediaManagerTestHelper(childActorFunc = { (ctx, props) =>
+      props.actorClass() match {
+        case MediaManagerActorSpec.ClsDirScanner =>
+          Some(ctx.actorOf(props, "DirScannerActor"))
+        case _ => None
+      }
+    })
+
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor ! MediaManagerActor.ScanMedia(List("non existing directory!"))
+    val mediaMsg = expectMsgType[MediaManagerActor.AvailableMedia]
+    mediaMsg.media shouldBe 'empty
+  }
+
+  it should "handle IO operation exceptions sent from a file loader actor" in {
+    val helper = new MediaManagerTestHelper(childActorFunc = { (ctx, props) =>
+      if (props.actorClass() == classOf[FileLoaderActor]) {
+        Some(ctx.actorOf(Props(new Actor {
+          override def receive: Receive = {
+            case FileLoaderActor.LoadFile(p) =>
+              sender ! ChannelHandler.IOOperationError(p, new Exception("TestException"))
+          }
+        })))
+      } else None
+    })
+
+    helper.scanMedia()
+    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    val mediaMsg = expectMsgType[MediaManagerActor.AvailableMedia]
+    mediaMsg.media(helper.Medium1IDData.mediumID).name should be(MediumInfoParserActor
+      .undefinedMediumInfo.name)
+  }
+
   /**
    * A helper class combining data required for typical tests of a media
    * manager actor.
@@ -232,8 +277,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    * actor. The data is divided into drives (which are the root directories to
    * be scanned) and media (directory sub structures with a description file
    * and audio data).
+   *
+   * @param childActorFunc an optional function for injecting child actors
    */
-  private class MediaManagerTestHelper {
+  private class MediaManagerTestHelper(childActorFunc: (ActorContext, Props) => Option[ActorRef] =
+                                       (ctx, p) => None) {
     /** The root path. */
     private val root = Paths.get("root")
 
@@ -414,15 +462,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     /** Scan result for drive 3. */
     val Drive3 = MediaScanResult(Drive3Root, Map.empty, Drive3OtherFiles)
 
-    /** Class for the directory scanner child actor. */
-    private val ClsDirScanner = classOf[DirectoryScannerActor]
-
-    /** Class for the ID calculator child actor. */
-    private val ClsIDCalculator = classOf[MediumIDCalculatorActor]
-
-    /** Class for the medium info parser child actor. */
-    private val ClsInfoParser = classOf[MediumInfoParserActor]
-
     /**
      * A map with messages that are expected by collaboration actors and
      * their corresponding responses.
@@ -455,7 +494,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      * time a child actor is requested, a ''TestProbe'' is created and stored
      * in this map for the corresponding actor class.
      */
-    private val probes = collection.mutable.Map.empty[Class[_], List[TestProbe]]
+    private val probes = createTestProbesMap()
 
     /** The actor used for tests. */
     lazy val testManagerActor = createTestActor()
@@ -554,13 +593,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      */
     private def expectedArgForActorClass(props: Props): Option[Any] =
       props.actorClass() match {
-        case ClsDirScanner =>
+        case MediaManagerActorSpec.ClsDirScanner =>
           Some(testManagerActor.underlyingActor.directoryScanner)
 
-        case ClsIDCalculator =>
+        case MediaManagerActorSpec.ClsIDCalculator =>
           Some(testManagerActor.underlyingActor.idCalculator)
 
-        case ClsInfoParser =>
+        case MediaManagerActorSpec.ClsInfoParser =>
           Some(testManagerActor.underlyingActor.mediumInfoParser)
 
         case _ => None
@@ -616,10 +655,21 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       TestActorRef[MediaManagerActor](Props(new MediaManagerActor with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
-          createProbeForChildActor(checkArgs(p)).ref
+          childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
         }
       }))
     }
+
+    /**
+     * Creates the map which stores the test probes used by this test helper
+     * class. Some default values are set for typical actor classes. (This is
+     * done to make it possible to inject test actors for the default probes.
+     * In this case, the map still needs to contain empty lists.)
+     * @return the initial map with test probes
+     */
+    private def createTestProbesMap(): collection.mutable.Map[Class[_], List[TestProbe]] =
+      collection.mutable.Map(classOf[FileLoaderActor] -> Nil,
+        MediaManagerActorSpec.ClsInfoParser -> Nil)
   }
 
 }

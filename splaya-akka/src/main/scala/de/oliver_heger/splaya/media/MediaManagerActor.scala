@@ -1,8 +1,10 @@
 package de.oliver_heger.splaya.media
 
+import java.io.IOException
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor._
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
@@ -106,6 +108,16 @@ object MediaManagerActor {
    * @return the resulting medium path
    */
   private def mediumPathFromDescription(descPath: Path): Path = descPath.getParent
+
+  /**
+   * Creates a dummy ''MediumSettingsData'' object for a medium description
+   * file which could not be loaded.
+   * @param path the path to the description file
+   * @return the dummy settings data
+   */
+  private def createDummySettingsDataForPath(path: Path): MediumSettingsData =
+    MediumInfoParserActor.DummyMediumSettingsData.copy(mediumURI = pathToURI
+      (mediumPathFromDescription(path)))
 }
 
 /**
@@ -179,6 +191,14 @@ class MediaManagerActor extends Actor with ActorLogging {
   /** The number of available media.*/
   private var mediaCount = 0
 
+  /**
+   * The supervisor strategy used by this actor stops the affected child on
+   * receiving an IO exception. This is used to detect failed scan operations.
+   */
+  override val supervisorStrategy = OneForOneStrategy() {
+    case _: IOException => Stop
+  }
+
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     loaderActor = createChildActor(Props[FileLoaderActor])
@@ -190,6 +210,7 @@ class MediaManagerActor extends Actor with ActorLogging {
 
     case scanResult: MediaScanResult =>
       processScanResult(scanResult)
+      context unwatch sender()
       stopSender()
 
     case FileContent(path, content) =>
@@ -206,8 +227,7 @@ class MediaManagerActor extends Actor with ActorLogging {
       stopSender()
 
     case setData: MediumSettingsData =>
-      mediaSettingsData += setData.mediumURI -> setData
-      createAndStoreMediumInfo(setData.mediumURI)
+      storeSettingsData(setData)
       stopSender()
 
     case GetAvailableMedia =>
@@ -228,6 +248,13 @@ class MediaManagerActor extends Actor with ActorLogging {
       optFile foreach (f => readerActor ! ChannelHandler.InitFile(f.path))
       sender ! AudioSourceDownloadResponse(sourceID, readerActor, optFile.getOrElse
         (NonExistingFile).size)
+
+    case _: Terminated =>
+      handleActorTermination()
+
+    case ChannelHandler.IOOperationError(path, ex) =>
+      log.warning("Loading a description file caused an exception: {}!", ex)
+      storeSettingsData(createDummySettingsDataForPath(path))
   }
 
   /**
@@ -255,6 +282,7 @@ class MediaManagerActor extends Actor with ActorLogging {
     roots foreach { root =>
       val dirScannerActor = createChildActor(Props(classOf[DirectoryScannerActor],
         directoryScanner))
+      context watch dirScannerActor
       dirScannerActor ! DirectoryScannerActor.ScanPath(Paths.get(root))
     }
     mediaDataAdded()
@@ -285,8 +313,7 @@ class MediaManagerActor extends Actor with ActorLogging {
       processOtherFiles(scanResult)
     }
 
-    pathsScanned += 1
-    mediaDataAdded()
+    incrementScannedPaths()
   }
 
   /**
@@ -328,6 +355,16 @@ class MediaManagerActor extends Actor with ActorLogging {
     val parserActor = createChildActor(Props(classOf[MediumInfoParserActor], mediumInfoParser))
     parserActor ! MediumInfoParserActor.ParseMediumInfo(content, pathToURI
       (mediumPathFromDescription(path)))
+  }
+
+  /**
+   * Stores a ''MediumSettingsData'' object which has been created by a child
+   * actor.
+   * @param data the data object to be stored
+   */
+  private def storeSettingsData(data: MediumSettingsData): Unit = {
+    mediaSettingsData += data.mediumURI -> data
+    createAndStoreMediumInfo(data.mediumURI)
   }
 
   /**
@@ -420,9 +457,28 @@ class MediaManagerActor extends Actor with ActorLogging {
   }
 
   /**
+   * Increments the number of paths that have been scanned. This method also
+   * checks whether this was the last pending path.
+   */
+  private def incrementScannedPaths(): Unit = {
+    pathsScanned += 1
+    mediaDataAdded()
+  }
+
+  /**
    * Checks that currently no scan is in progress. This method is used to
    * avoid the processing of multiple scan requests in parallel.
    * @return a flag whether currently no scan request is in progress
    */
   private def noScanInProgress: Boolean = pathsScanned < 0
+
+  /**
+   * Handles an actor terminated message. A message of this type indicates that
+   * a directory scanner actor threw an exception. In this case, the
+   * corresponding directory structure is excluded/ignored.
+   */
+  private def handleActorTermination(): Unit = {
+    log.warning("Received Terminated message.")
+    incrementScannedPaths()
+  }
 }

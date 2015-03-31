@@ -13,7 +13,7 @@ object MediumInfoParserActor {
    * Template for a default settings object to be returned in case of a
    * parsing error.
    */
-  private lazy val DummyMediumSettingsData = MediumSettingsData(name = UnknownMedium,
+  private[media] lazy val DummyMediumSettingsData = MediumSettingsData(name = UnknownMedium,
     description = "", mediumURI = "", orderMode = "", orderParams = xml.NodeSeq.Empty)
 
   /**
