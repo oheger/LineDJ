@@ -68,9 +68,11 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
     case response: AudioSourceDownloadResponse =>
       resetCurrentDownload() match {
         case Some(info) =>
-          readerActor ! AudioSource(uri = info.sourceID.uri, index = info.index, length =
-            response.length, skip = info.skip, skipTime = info.skipTime)
-          downloadToProcess = fillBufferIfPossible(response)
+          if (isValidDownloadResponse(response)) {
+            readerActor ! AudioSource(uri = info.sourceID.uri, index = info.index, length =
+              response.length, skip = info.skip, skipTime = info.skipTime)
+            downloadToProcess = fillBufferIfPossible(response)
+          }
           downloadIfPossible()
 
         case None =>
@@ -92,6 +94,17 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
       currentReadActor foreach context.stop
       sender ! CloseAck(self)
   }
+
+  /**
+   * Checks whether the specified ''AudioSourceDownloadResponse'' object
+   * indicates a valid download. The media manager actor returns responses with
+   * a negative length to indicate that a requested source could not be
+   * delivered.
+   * @param response the response object to be checked
+   * @return a flag whether the response is valid
+   */
+  private def isValidDownloadResponse(response: AudioSourceDownloadResponse): Boolean =
+    response.length >= 0
 
   /**
    * Sets the current download to ''None''. The old value is returned.

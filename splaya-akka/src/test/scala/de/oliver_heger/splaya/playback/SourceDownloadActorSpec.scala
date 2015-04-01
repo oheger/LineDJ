@@ -154,6 +154,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     srcActor.expectMsg(sourceID(3))
   }
 
+  it should "ignore download response messages if the length is undefined" in {
+    val srcActor, bufActor, readActor, contentActor1, contentActor2 = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(sourceID(1))
+    actor ! createPlaylistInfo(2)
+
+    actor ! AudioSourceDownloadResponse(sourceID(1), contentActor1.ref, -1)
+    srcActor.expectMsg(sourceID(2))
+    actor ! AudioSourceDownloadResponse(sourceID(2), contentActor2.ref, SourceLength)
+    readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength, 0, 0))
+    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
+  }
+
   it should "stop a read actor after it has been processed" in {
     val srcActor, bufActor, readActor, contentActor, watchActor = TestProbe()
     val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
