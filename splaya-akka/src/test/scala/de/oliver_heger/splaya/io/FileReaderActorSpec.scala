@@ -6,12 +6,15 @@ import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.file.{OpenOption, Path, StandardOpenOption}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
-import de.oliver_heger.splaya.FileTestHelper
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor._
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.splaya.{FileTestHelper, SupervisionTestActor}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -296,20 +299,54 @@ FileTestHelper {
     closeActor(reader)
   }
 
-  it should "send an error message about a failed read operation" in {
+  /**
+   * Creates a mock file channel and prepares it to invoke the failed callback
+   * on the completion handler.
+   * @param ex the exception to pass to the handler
+   * @return the mock file channel
+   */
+  private def prepareFailedOperation(ex: Throwable): AsynchronousFileChannel = {
     val mockChannel = mock[AsynchronousFileChannel]
-    val reader = TestActorRef(propsForActorWithFactory(new ConfigurableChannelFactory(mockChannel)))
-    reader receive InitFile(testFile)
-    reader receive ReadData(1)
-    val handler = fetchCompletionHandler(mockChannel)
-    val exception = new IOException
-    handler.failed(exception, testActor)
+    when(mockChannel.read(any(classOf[ByteBuffer]), anyLong(), any(classOf[ActorRef]),
+      any(classOf[CompletionHandler[Integer, ActorRef]]))).thenAnswer(new Answer[Void] {
+      override def answer(invocation: InvocationOnMock): Void = {
+        val handler = invocation.getArguments()(3).asInstanceOf[CompletionHandler[Integer,
+          ActorRef]]
+        handler.failed(ex, testActor)
+        null
+      }
+    })
+    mockChannel
+  }
 
-    val errMsg = expectMsgType[IOOperationError]
-    errMsg.path should be(testFile)
-    errMsg.exception should be (exception)
-    verify(mockChannel).close()
-    closeActor(reader)
+  /**
+   * Checks whether a failed I/O operation is handled correctly.
+   * @param ex the exception to be passed to the completion handler
+   */
+  private def checkHandlingOfFailedOperations(ex: Throwable): Unit = {
+    val strategy = OneForOneStrategy() {
+      case _: IOException => Stop
+    }
+    val channel = prepareFailedOperation(ex)
+    val supervisionTestActor = SupervisionTestActor(system, strategy, propsForActorWithFactory
+      (new ConfigurableChannelFactory(channel)))
+    val probe = TestProbe()
+    val readActor = supervisionTestActor.underlyingActor.childActor
+    probe watch readActor
+
+    readActor ! InitFile(testFile)
+    readActor ! ReadData(8)
+    val termMsg = probe.expectMsgType[Terminated]
+    termMsg.actor should be(readActor)
+    verify(channel).close()
+  }
+
+  it should "throw an IOException about a failed read operation" in {
+    checkHandlingOfFailedOperations(new IOException)
+  }
+
+  it should "wrap other exceptions in IOExceptions if an operation fails" in {
+    checkHandlingOfFailedOperations(new Throwable("TestException"))
   }
 
   it should "be able to handle a close request if no file is open" in {
