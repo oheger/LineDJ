@@ -102,8 +102,19 @@ class FileLoaderActor extends Actor with ActorLogging {
       operations.get(term.actor) foreach { operation =>
         operation.caller ! IOOperationError(operation.path,
           new IOException("Read operation failed!"))
+        operations -= term.actor
       }
   }
+
+  /**
+   * Returns a data object representing the read operation associated with the
+   * given actor reference. If the actor is not associated with a read
+   * operation, result is ''None''.
+   * @param actor the actor in question
+   * @return an option with the associated operation
+   */
+  private[io] def operationForActor(actor: ActorRef): Option[FileLoadOperation] =
+    operations get actor
 
   /**
    * Creates a new ''FileReaderActor'' using the ''FileReaderActorFactory''.
@@ -122,7 +133,7 @@ class FileLoaderActor extends Actor with ActorLogging {
    * @param f the function to be executed
    */
   private def handleOperation(f: FileLoadOperation => Unit): Unit = {
-    operations.get(sender()) foreach f
+    operationForActor(sender()) foreach f
   }
 }
 

@@ -31,6 +31,10 @@ FileTestHelper {
     system awaitTermination 10.seconds
   }
 
+  after {
+    tearDownTestFile()
+  }
+
   /**
    * Checks a ''FileContent'' message. (Messages of this type cannot be checked
    * using equals because they contain a byte array.)
@@ -123,12 +127,15 @@ FileTestHelper {
   }
 
   it should "send an error message if a load operation fails" in {
-    val loader = system.actorOf(FileLoaderActor())
+    val loader = TestActorRef[FileLoaderActor](Props(new FileLoaderActor with
+      TrackReaderActorFactory))
 
     val path = Paths.get("a non existing path!")
     loader ! LoadFile(path)
     val errMsg = expectMsgType[ChannelHandler.IOOperationError]
     errMsg.path should be(path)
+    val factory = loader.underlyingActor.asInstanceOf[TrackReaderActorFactory]
+    loader.underlyingActor.operationForActor(factory.createdActor) should be (None)
   }
 
   /**
