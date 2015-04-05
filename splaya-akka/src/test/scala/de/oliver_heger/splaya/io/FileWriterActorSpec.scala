@@ -5,13 +5,16 @@ import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.file.Path
 
+import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
-import de.oliver_heger.splaya.FileTestHelper
-import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, IOOperationError, InitFile}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
+import de.oliver_heger.splaya.{FileTestHelper, SupervisionTestActor}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqParam, _}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -22,11 +25,10 @@ import scala.concurrent.duration._
  */
 class FileWriterActorSpec(actorSystem: ActorSystem) extends TestKit(actorSystem)
 with ImplicitSender with Matchers with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter
-with MockitoSugar with
-FileTestHelper {
+with MockitoSugar with FileTestHelper {
 
-  import de.oliver_heger.splaya.io.FileWriterActor._
   import FileTestHelper._
+  import de.oliver_heger.splaya.io.FileWriterActor._
 
   def this() = this(ActorSystem("FileWriterActorSpec"))
 
@@ -150,16 +152,29 @@ FileTestHelper {
   it should "handle exceptions reported to the completion handler" in {
     val file = createFileReference()
     val channel = mock[AsynchronousFileChannel]
-    val writer = TestActorRef(propsForWriterActorWithChannel(channel))
-    writer receive InitFile(file)
-    writer receive writeRequest()
+    when(channel.write(any(classOf[ByteBuffer]), anyLong(), any(classOf[ActorRef]),
+      any(classOf[CompletionHandler[Integer, ActorRef]]))).thenAnswer(new Answer[Void] {
+      override def answer(invocation: InvocationOnMock): Void = {
+        val handler = invocation.getArguments()(3).asInstanceOf[CompletionHandler[Integer,
+          ActorRef]]
+        handler.failed(new Throwable, testActor)
+        null
+      }
+    })
+    val strategy = OneForOneStrategy() {
+      case _: IOException => Stop
+    }
+    val supervisionTestActor = SupervisionTestActor(system, strategy,
+      propsForWriterActorWithChannel(channel))
+    val probe = TestProbe()
+    val writer = supervisionTestActor.underlyingActor.childActor
+    probe watch writer
+    writer ! InitFile(file)
+    writer ! writeRequest()
 
-    val handler = fetchCompletionHandler(channel)
-    val exception = new RuntimeException
-    handler.failed(exception, testActor)
-    val errMsg = expectMsgType[IOOperationError]
-    errMsg.path should be(file)
-    errMsg.exception should be(exception)
+    val termMsg = probe.expectMsgType[Terminated]
+    termMsg.actor should be(writer)
+    verify(channel).close()
   }
 
   it should "ignore stale write results" in {
