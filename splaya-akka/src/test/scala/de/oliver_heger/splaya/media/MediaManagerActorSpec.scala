@@ -4,7 +4,8 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
+import de.oliver_heger.splaya.io.{FileOperationActor, ChannelHandler, FileLoaderActor,
+FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
@@ -256,7 +257,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
         Some(ctx.actorOf(Props(new Actor {
           override def receive: Receive = {
             case FileLoaderActor.LoadFile(p) =>
-              sender ! ChannelHandler.IOOperationError(p, new Exception("TestException"))
+              sender ! FileOperationActor.IOOperationError(p, new Exception("TestException"))
           }
         })))
       } else None

@@ -19,18 +19,6 @@ object ChannelHandler {
   case class InitFile(path: Path)
 
   /**
-   * Message for reporting an error that occurred during an IO operation.
-   *
-   * Messages of this type are sent by actors as responses to operations that
-   * failed - rather than the normal result messages. The callers can then
-   * find out that something went wrong and react accordingly.
-   *
-   * @param path the path to the file that was processed
-   * @param exception the exception that occurred during the last operation
-   */
-  case class IOOperationError(path: Path, exception: Throwable)
-
-  /**
    * A trait defining access to a byte array.
    *
    * Arrays can be used to transport data from a source to a sink. Sometimes,

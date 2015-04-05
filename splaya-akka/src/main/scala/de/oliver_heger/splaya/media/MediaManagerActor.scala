@@ -6,7 +6,8 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
-import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileReaderActor}
+import de.oliver_heger.splaya.io.{FileOperationActor, ChannelHandler, FileLoaderActor,
+FileReaderActor}
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
@@ -252,7 +253,7 @@ class MediaManagerActor extends Actor with ActorLogging {
     case _: Terminated =>
       handleActorTermination()
 
-    case ChannelHandler.IOOperationError(path, ex) =>
+    case FileOperationActor.IOOperationError(path, ex) =>
       log.warning("Loading a description file caused an exception: {}!", ex)
       storeSettingsData(createDummySettingsDataForPath(path))
   }
