@@ -1,11 +1,11 @@
 package de.oliver_heger.splaya.io
 
-import java.io.{ByteArrayOutputStream, IOException}
+import java.io.ByteArrayOutputStream
 import java.nio.file.Path
 
-import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import de.oliver_heger.splaya.io.ChannelHandler.{IOOperationError, InitFile}
+import de.oliver_heger.splaya.io.ChannelHandler.InitFile
+import de.oliver_heger.splaya.io.FileOperationActor.FileOperation
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
@@ -59,62 +59,35 @@ object FileLoaderActor {
  * operations in parallel. Each operation involves a full interaction with the
  * associated file reader actor. After that, the reader actor is stopped.
  */
-class FileLoaderActor extends Actor with ActorLogging {
+class FileLoaderActor extends Actor with FileOperationActor with ActorLogging {
   this: ChildActorFactory =>
 
   import de.oliver_heger.splaya.io.FileLoaderActor._
 
-  /** A map for keeping track of the currently active load operations. */
-  private val operations = collection.mutable.Map.empty[ActorRef, FileLoadOperation]
+  type Operation = FileLoadOperation
 
-  /**
-   * The supervisor strategy used by this actor stops the affected child on
-   * receiving an IO exception. This mechanism is used to report failed load
-   * operations to callers.
-   */
-  override val supervisorStrategy = OneForOneStrategy() {
-    case _: IOException => Stop
-  }
-
-  override def receive: Receive = {
+  override def specialReceive: Receive = {
     case LoadFile(path) =>
       val reader = createFileReaderActor()
       reader ! InitFile(path)
       reader ! ReadData(ChunkSize)
-      operations += reader -> FileLoadOperation(sender(), path)
+      addFileOperation(reader, FileLoadOperation(sender(), path))
 
     case res: ReadResult =>
-      handleOperation { op =>
+      handleOperation() { op =>
         op.appendContent(res)
         sender ! ReadData(ChunkSize)
+        true
       }
 
     case EndOfFile(_) =>
-      handleOperation { operation =>
+      handleOperation() { operation =>
         operation.caller ! FileContent(path = operation.path, content = operation.content)
         context unwatch sender()
         context stop sender()
-        operations -= sender()
-      }
-
-    case term: Terminated =>
-      log.warning("Child reader actor was stopped due to an exception!")
-      operations.get(term.actor) foreach { operation =>
-        operation.caller ! IOOperationError(operation.path,
-          new IOException("Read operation failed!"))
-        operations -= term.actor
+        false
       }
   }
-
-  /**
-   * Returns a data object representing the read operation associated with the
-   * given actor reference. If the actor is not associated with a read
-   * operation, result is ''None''.
-   * @param actor the actor in question
-   * @return an option with the associated operation
-   */
-  private[io] def operationForActor(actor: ActorRef): Option[FileLoadOperation] =
-    operations get actor
 
   /**
    * Creates a new ''FileReaderActor'' using the ''FileReaderActorFactory''.
@@ -125,16 +98,6 @@ class FileLoaderActor extends Actor with ActorLogging {
     context watch readActor
     readActor
   }
-
-  /**
-   * Executes the specified handler function on the load operation associated
-   * with the sending actor. If the sending actor is unknown, this message is
-   * ignored.
-   * @param f the function to be executed
-   */
-  private def handleOperation(f: FileLoadOperation => Unit): Unit = {
-    operationForActor(sender()) foreach f
-  }
 }
 
 /**
@@ -144,7 +107,8 @@ class FileLoaderActor extends Actor with ActorLogging {
  * @param caller the actor which triggered the request
  * @param path the path of the file to be loaded
  */
-private case class FileLoadOperation(caller: ActorRef, path: Path) {
+case class FileLoadOperation(override val caller: ActorRef, override val path: Path) extends
+FileOperation {
   val contentStream = new ByteArrayOutputStream
 
   /**

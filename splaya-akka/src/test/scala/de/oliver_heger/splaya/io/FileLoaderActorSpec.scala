@@ -132,7 +132,7 @@ FileTestHelper {
 
     val path = Paths.get("a non existing path!")
     loader ! LoadFile(path)
-    val errMsg = expectMsgType[ChannelHandler.IOOperationError]
+    val errMsg = expectMsgType[FileOperationActor.IOOperationError]
     errMsg.path should be(path)
     val factory = loader.underlyingActor.asInstanceOf[TrackReaderActorFactory]
     loader.underlyingActor.operationForActor(factory.createdActor) should be (None)
