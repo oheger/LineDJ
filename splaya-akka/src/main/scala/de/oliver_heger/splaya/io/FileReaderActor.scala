@@ -1,6 +1,5 @@
 package de.oliver_heger.splaya.io
 
-import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.CompletionHandler
 import java.nio.file.{Path, StandardOpenOption}
@@ -100,10 +99,7 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
 
     case c: ChannelReadComplete =>
       processAsyncResult(c.operationNumber, c) { result =>
-        result.exception foreach { t =>
-          closeChannel()
-          throw mapToIOException(t)
-        }
+        handleFailedOperation(c.exception)
         result.target ! processChannelRead(result.data, result.length)
       }
   }
@@ -156,16 +152,4 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
       EndOfFile(currentPath)
     }
   }
-
-  /**
-   * Maps the passed in exception to an IOException. If it is already of this
-   * type, it is directly thrown. Otherwise, it is wrapped.
-   * @param ex the exception in question
-   * @return the mapped IOException
-   */
-  private def mapToIOException(ex: Throwable): IOException =
-    ex match {
-      case ioex: IOException => ioex
-      case _ => new IOException(ex)
-    }
 }

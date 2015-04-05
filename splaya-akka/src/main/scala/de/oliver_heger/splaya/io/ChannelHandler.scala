@@ -1,5 +1,6 @@
 package de.oliver_heger.splaya.io
 
+import java.io.IOException
 import java.nio.channels.AsynchronousFileChannel
 import java.nio.file.{OpenOption, Path}
 
@@ -144,19 +145,15 @@ trait ChannelHandler extends Actor {
   }
 
   /**
-   * Deals with an exception that occurred during an IO operation and maps it
-   * to a corresponding error message. This method can be used by extending
-   * classes to deal with exceptions in a convenient way. The current channel
-   * is closed. The resulting message contains all required error information.
-   * If no exception occurred, this method has no effect, and the result is
-   * ''None''.
-   * @param optEx an option with an exception
-   * @return the corresponding error message
+   * Handles a failed I/O operation. If the specified throwable is defined, it
+   * is mapped to an IOException and thrown. Provided that a corresponding
+   * supervisor strategy is set, this will cause this actor to be stopped.
+   * @param optThrowable the option with the Throwable
    */
-  protected def handleAndMapException(optEx: Option[Throwable]): Option[Any] = {
-    optEx map { t =>
+  protected def handleFailedOperation(optThrowable: Option[Throwable]): Unit = {
+    optThrowable foreach { t =>
       closeChannel()
-      IOOperationError(exception = t, path = currentPath)
+      throw mapToIOException(t)
     }
   }
 
@@ -218,4 +215,16 @@ trait ChannelHandler extends Actor {
       closeChannel()
       sender ! CloseAck(self)
   }
+
+  /**
+   * Maps the passed in exception to an IOException. If it is already of this
+   * type, it is directly thrown. Otherwise, it is wrapped.
+   * @param ex the exception in question
+   * @return the mapped IOException
+   */
+  private def mapToIOException(ex: Throwable): IOException =
+    ex match {
+      case ioex: IOException => ioex
+      case _ => new IOException(ex)
+    }
 }

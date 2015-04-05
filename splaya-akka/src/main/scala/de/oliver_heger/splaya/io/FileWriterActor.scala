@@ -1,14 +1,12 @@
 package de.oliver_heger.splaya.io
 
-import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.CompletionHandler
 import java.nio.file.{OpenOption, StandardOpenOption}
 
 import akka.actor.ActorRef
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
-import de.oliver_heger.splaya.io.FileWriterActor.{ChannelWriteResult, WriteResult,
-WriteResultStatus}
+import de.oliver_heger.splaya.io.FileWriterActor.{ChannelWriteResult, WriteResult, WriteResultStatus}
 
 /**
  * The companion object for ''FileWriterActor''.
@@ -102,10 +100,7 @@ class FileWriterActor(override val channelFactory: FileChannelFactory) extends C
 
     case r: ChannelWriteResult =>
       processAsyncResult(r.operationNumber, r) { r =>
-        r.exception foreach { t =>
-          closeChannel()
-          throw mapToIOException(t)
-        }
+        handleFailedOperation(r.exception)
         processWriteResult(r)
       }
   }
@@ -148,16 +143,4 @@ class FileWriterActor(override val channelFactory: FileChannelFactory) extends C
 
     currentChannel.get.write(buffer, position, sender(), completionHandler)
   }
-
-  /**
-   * Maps the passed in exception to an IOException. If it is already of this
-   * type, it is directly thrown. Otherwise, it is wrapped.
-   * @param ex the exception in question
-   * @return the mapped IOException
-   */
-  private def mapToIOException(ex: Throwable): IOException =
-    ex match {
-      case ioex: IOException => ioex
-      case _ => new IOException(ex)
-    }
 }
