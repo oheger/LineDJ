@@ -202,15 +202,16 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
   }
 
   override def receive: Receive = {
-    case FillBuffer(readerActor) =>
+    case FillBuffer(actor) =>
       if (fillActor.isDefined) {
         sender ! BufferBusy
       } else {
         bytesWrittenForSource = 0
-        fillActor = Some(readerActor)
+        fillActor = Some(actor)
         fillClient = sender()
         pendingFillRequest = true
         serveFillRequest()
+        context watch actor
       }
 
     case readResult: ArraySource =>
@@ -233,12 +234,7 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
       continueFilling()
 
     case EndOfFile(_) =>
-      fillActor foreach { a =>
-        if (sender() == a) {
-          fillClient ! BufferFilled(a, bytesWrittenForSource)
-          fillActor = None
-        }
-      }
+      fillOperationCompleted(sender())
 
     case ReadBuffer =>
       if (readClient.isDefined) {
@@ -251,6 +247,9 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
     case Terminated(actor) if actor == readActor =>
       completeReadOperation()
       serveFillRequest()
+
+    case Terminated(actor) if actor != readActor =>
+      fillOperationCompleted(actor)
 
     case SequenceComplete =>
       if (currentPath.isDefined) {
@@ -293,6 +292,21 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
         handleReadResult(result)
       case None =>
         fillActor foreach (_ ! ReadData(chunkSize))
+    }
+  }
+
+  /**
+   * A fill operation has been completed. The corresponding message is sent if
+   * actually the fill actor is affected.
+   * @param actor the actor responsible for this message
+   */
+  private def fillOperationCompleted(actor: ActorRef): Unit = {
+    fillActor foreach { a =>
+      if (actor == a) {
+        fillClient ! BufferFilled(a, bytesWrittenForSource)
+        fillActor = None
+        context unwatch a
+      }
     }
   }
 

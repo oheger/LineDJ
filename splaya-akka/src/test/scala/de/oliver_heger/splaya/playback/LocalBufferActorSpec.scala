@@ -1,13 +1,14 @@
 package de.oliver_heger.splaya.playback
 
-import java.io.{ByteArrayOutputStream, File}
+import java.io.{ByteArrayOutputStream, File, IOException}
 import java.nio.file.{FileSystems, Path}
 import java.util.regex.Pattern
 
+import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import de.oliver_heger.splaya.FileTestHelper
+import de.oliver_heger.splaya.{SupervisionTestActor, FileTestHelper}
 import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.splaya.io.FileWriterActor.{WriteResult, WriteResultStatus}
@@ -568,6 +569,25 @@ with MockitoSugar {
 
     bufferActor ! SequenceComplete
     expectMsg(BufferBusy)
+  }
+
+  it should "watch the current fill actor to react on a failed read operation" in {
+    val strategy = OneForOneStrategy() {
+      case _: IOException => Stop
+    }
+    val supervisionTestActor = SupervisionTestActor(system, strategy, Props(new Actor {
+      override def receive: Receive = {
+        case FileReaderActor.ReadData(_) =>
+          throw new IOException("Test exception")
+      }
+    }))
+    val bufferActor = system.actorOf(propsWithMockFactory())
+    val fillActor = supervisionTestActor.underlyingActor.childActor
+
+    bufferActor ! LocalBufferActor.FillBuffer(fillActor)
+    val filledMsg = expectMsgType[LocalBufferActor.BufferFilled]
+    filledMsg.readerActor should be (fillActor)
+    filledMsg.sourceLength should be (0)
   }
 }
 
