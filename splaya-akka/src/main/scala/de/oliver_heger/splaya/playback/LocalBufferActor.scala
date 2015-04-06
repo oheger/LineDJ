@@ -2,11 +2,11 @@ package de.oliver_heger.splaya.playback
 
 import java.nio.file.{FileSystems, Path}
 
-import akka.actor.{Props, Actor, ActorRef, Terminated}
+import akka.actor.{Actor, ActorRef, Props, Terminated}
 import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.splaya.io.FileWriterActor.WriteResult
-import de.oliver_heger.splaya.io.{FileReaderActor, FileWriterActor, CloseAck, CloseRequest}
+import de.oliver_heger.splaya.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
 /**
@@ -53,8 +53,9 @@ object LocalBufferActor {
    * A message sent by the buffer actor after the content of a reader actor
    * has been processed and written into the buffer.
    * @param readerActor the reader actor that has been read
+   * @param sourceLength the length of the source filled into the buffer
    */
-  case class BufferFilled(readerActor: ActorRef)
+  case class BufferFilled(readerActor: ActorRef, sourceLength: Long)
 
   /**
    * A message requesting a file to be read from the buffer.
@@ -184,6 +185,9 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
   /** The number of bytes that have been written to the current temporary file. */
   private var bytesWrittenToFile = 0
 
+  /** The number of bytes written for the current source. */
+  private var bytesWrittenForSource = 0L
+
   /** A flag whether a fill request is pending. */
   private var pendingFillRequest = false
 
@@ -202,6 +206,7 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
       if (fillActor.isDefined) {
         sender ! BufferBusy
       } else {
+        bytesWrittenForSource = 0
         fillActor = Some(readerActor)
         fillClient = sender()
         pendingFillRequest = true
@@ -211,6 +216,7 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
     case readResult: ArraySource =>
       handleReadResult(readResult)
       bytesWrittenToFile += readResult.length
+      bytesWrittenForSource += readResult.length
 
     case WriteResult(_, length) =>
       if (bytesWrittenToFile >= temporaryFileSize) {
@@ -229,7 +235,7 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
     case EndOfFile(_) =>
       fillActor foreach { a =>
         if (sender() == a) {
-          fillClient ! BufferFilled(a)
+          fillClient ! BufferFilled(a, bytesWrittenForSource)
           fillActor = None
         }
       }

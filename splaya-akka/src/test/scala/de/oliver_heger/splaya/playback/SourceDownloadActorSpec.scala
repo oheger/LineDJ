@@ -115,7 +115,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   it should "reject an unexpected buffer-filled message" in {
     val actor = createDownloadActor()
-    val msg = LocalBufferActor.BufferFilled(testActor)
+    val msg = LocalBufferActor.BufferFilled(testActor, 100)
     actor ! msg
 
     val errMsg = expectMsgType[PlaybackProtocolViolation]
@@ -149,7 +149,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! createPlaylistInfo(3)
     actor ! AudioSourceDownloadResponse(sourceID(2), contentActor2.ref, SourceLength + 1)
     readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength + 1, 0, 0))
-    actor ! LocalBufferActor.BufferFilled(contentActor1.ref)
+    actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
     srcActor.expectMsg(sourceID(3))
   }
@@ -176,7 +176,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! createPlaylistInfo(1)
     srcActor.expectMsg(sourceID(1))
     actor ! AudioSourceDownloadResponse(sourceID(1), contentActor.ref, SourceLength)
-    actor ! LocalBufferActor.BufferFilled(contentActor.ref)
+    actor ! LocalBufferActor.BufferFilled(contentActor.ref, SourceLength)
     val termMsg = watchActor.expectMsgType[Terminated]
     termMsg.actor should be(contentActor.ref)
   }

@@ -144,8 +144,9 @@ with MockitoSugar {
         bytesWritten = 0
         false
 
-      case BufferFilled(actor) =>
+      case BufferFilled(actor, sourceLength) =>
         actor should be(testActor)
+        sourceLength should be (data.length)
         true
     }
 
