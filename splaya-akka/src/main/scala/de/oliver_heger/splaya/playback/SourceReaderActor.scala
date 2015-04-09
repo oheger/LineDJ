@@ -51,8 +51,28 @@ object SourceReaderActor {
   val ErrorUnexpectedGetAudioData = "Unexpected GetAudioData message! A request for audio " +
     "data is still in progress."
 
+  /**
+   * An error message indicating an unexpected ''EndOfFile'' message. Such
+   * messages should only occur when audio data is read.
+   */
   val ErrorUnexpectedEndOfFile = "Unexpected EndOfFile message! There is no current request " +
     "for audio data."
+
+  /**
+   * An error message indicating an unexpected ''AudioSourceDownloadCompleted''
+   * message. Before such a message can be processed, there must be a current
+   * audio source.
+   */
+  val ErrorUnexpectedDownloadCompleted = "Unexpected AudioSourceDownloadCompleted message!"
+
+  /**
+   * A message processed by ''SourceReaderActor'' telling it that an audio
+   * source has been downloaded. The message defines the final length of this
+   * source. (If there is an error while downloading the source, the length may
+   * be less than the original value; in this case, it has to be adapted.)
+   * @param finalLength the final length of the last audio source
+   */
+  case class AudioSourceDownloadCompleted(finalLength: Long)
 }
 
 /**
@@ -152,6 +172,9 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
 
     case eof: EndOfFile =>
       fileReaderEndOfFile(eof)
+
+    case compl: AudioSourceDownloadCompleted =>
+      handleSourceDownloadCompleted(compl)
 
     case CloseRequest =>
       fileReaderActor foreach context.stop
@@ -309,8 +332,39 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     fileReaderActor = None
     result
   }
-}
 
+  /**
+   * Handles a message about a completed download of an audio source.
+   * @param compl the completion message
+   */
+  private def handleSourceDownloadCompleted(compl: AudioSourceDownloadCompleted): Unit = {
+    if (!adaptSourceLengthInQueue(compl)) {
+      if (currentSource.isDefined) {
+        currentSource = currentSource map (_.copy(length = compl.finalLength))
+      } else {
+        protocolError(compl, ErrorUnexpectedDownloadCompleted)
+      }
+    }
+  }
+
+  /**
+   * Adapts the length of an audio source (whose download was completed) in the
+   * queue of sources if necessary.
+   * @param compl the download completed message
+   * @return a flag whether the affected audio source was part of the queue
+   */
+  private def adaptSourceLengthInQueue(compl: AudioSourceDownloadCompleted): Boolean = {
+    if (sourceQueue.nonEmpty) {
+      val lastSource = sourceQueue(sourceQueue.length - 1)
+      if (lastSource.length != compl.finalLength) {
+        sourceQueue dequeueFirst (_ == lastSource)
+        sourceQueue += lastSource.copy(length = compl.finalLength)
+      }
+      true
+    }
+    else false
+  }
+}
 
 /**
  * A data class representing a request for audio data.

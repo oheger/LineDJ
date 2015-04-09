@@ -340,4 +340,50 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     watcher watch fileReader.ref
     checkFileReaderTermination(watcher, fileReader)
   }
+
+  it should "allow adapting the size of the last audio source (to handle source read errors)" in {
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    reader ! audioSource(1)
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(100)
+
+    reader ! PlaybackActor.GetAudioSource
+    val src = expectMsgType[AudioSource]
+    src.length should be(100)
+  }
+
+  it should "send an error message about an unexpected download completed message" in {
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    val completedMsg = SourceReaderActor.AudioSourceDownloadCompleted(100)
+    reader ! completedMsg
+
+    val errMsg = expectMsgType[PlaybackProtocolViolation]
+    errMsg.msg should be(completedMsg)
+    errMsg.errorText should include("Unexpected AudioSourceDownloadCompleted")
+  }
+
+  it should "allow adapting the size of the currently processed audio source" in {
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    reader ! audioSource(1)
+    reader ! GetAudioSource
+    expectMsg(audioSource(1))
+
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(100)
+    val fileReaderActor = installFileReaderActor(reader)
+    reader ! GetAudioData(10000)
+    fileReaderActor.expectMsg(FileReaderActor.ReadData(100))
+  }
+
+  it should "replace a source only if its length has changed" in {
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    val source = audioSource(1)
+    reader ! source
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(source.length)
+
+    reader ! PlaybackActor.GetAudioSource
+    expectMsgType[AudioSource] should be theSameInstanceAs source
+  }
 }
