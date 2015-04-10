@@ -181,6 +181,21 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     termMsg.actor should be(contentActor.ref)
   }
 
+  it should "sent a download completion message after a buffer fill operation" in {
+    val FilledSize = 20150410
+    val srcActor, bufActor, readActor, contentActor = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(sourceID(1))
+    actor ! AudioSourceDownloadResponse(sourceID(1), contentActor.ref, SourceLength)
+    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor.ref))
+    readActor.expectMsgType[AudioSource]
+
+    actor ! LocalBufferActor.BufferFilled(contentActor.ref, FilledSize)
+    readActor.expectMsg(SourceReaderActor.AudioSourceDownloadCompleted(FilledSize))
+  }
+
   it should "ack a close request" in {
     val actor = createDownloadActor()
 

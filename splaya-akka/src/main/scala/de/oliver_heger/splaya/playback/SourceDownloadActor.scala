@@ -82,6 +82,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
     case filled: BufferFilled =>
       currentReadActor match {
         case Some(actor) =>
+          readerActor ! SourceReaderActor.AudioSourceDownloadCompleted(filled.sourceLength)
           resetDownloadToProcess() foreach fillBufferIfPossible
           downloadIfPossible()
           context stop actor
