@@ -31,6 +31,17 @@ object FileReaderActor {
   case class ReadData(count: Int)
 
   /**
+   * A message requesting that a number of bytes be skipped.
+   *
+   * On receiving this message, the reader actor just updates its current
+   * position into the file by the given amount. The next read operation will
+   * then read the data at the new position; so basically, a portion of the
+   * file was skipped.
+   * @param count the number of bytes to be skipped
+   */
+  case class SkipData(count: Int)
+
+  /**
    * A message with the result of a read operation.
    *
    * This message is sent by the ''FileReaderActor'' to the requester after a
@@ -58,6 +69,19 @@ object FileReaderActor {
   private case class ChannelReadComplete(target: ActorRef, operationNumber: Long, data:
   Array[Byte] = null, length: Int = 0, exception: Option[Throwable] = None)
 
+  /**
+   * Constant for an end of file message with an undefined path. This message
+   * is sent on some opportunities, e.g. when requests are received, but no
+   * channel is open.
+   */
+  private val MsgNoChannel = EndOfFile(null)
+
+  /**
+   * Constant for a result message which is sent in response on a read request
+   * while another request in pending. This message basically indicates that
+   * this actor is currently busy.
+   */
+  private val MsgRequestInProgress = ReadResult(Array.empty, 0)
 }
 
 /**
@@ -93,8 +117,14 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
 
   override def specialReceive: Receive = {
     case ReadData(count) =>
-      handleRequest(EndOfFile(null), ReadResult(Array.empty, 0)) {
+      handleRequest(MsgNoChannel, MsgRequestInProgress) {
         readBytes(count)
+      }
+
+    case SkipData(count) =>
+      handleRequest(MsgNoChannel, MsgRequestInProgress) {
+        position += count
+        requestCompleted()
       }
 
     case c: ChannelReadComplete =>

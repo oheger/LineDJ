@@ -158,7 +158,7 @@ trait ChannelHandler extends Actor {
    */
   protected def processAsyncResult[R](operationNo: Long, result: R)(f: R => Unit): Unit = {
     if (operationNumber == operationNo && channel.isDefined) {
-      requestPending = false
+      requestCompleted()
       f(result)
     }
   }
@@ -179,10 +179,18 @@ trait ChannelHandler extends Actor {
       if (requestPending) {
         sender ! pendingResult
       } else {
-        f
         requestPending = true
+        f
       }
     }
+  }
+
+  /**
+   * Marks the current request as completed. After calling this method, there
+   * is no current request any more.
+   */
+  protected def requestCompleted(): Unit = {
+    requestPending = false
   }
 
   /**
@@ -197,7 +205,7 @@ trait ChannelHandler extends Actor {
       path = filePath
       position = 0
       operationNumber += 1
-      requestPending = false
+      requestCompleted()
 
     case CloseRequest =>
       closeChannel()

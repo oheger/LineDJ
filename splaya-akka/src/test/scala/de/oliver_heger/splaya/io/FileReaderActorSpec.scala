@@ -388,5 +388,42 @@ FileTestHelper {
     val result = expectMsgType[ReadResult]
     result.data should have length 0
     result.length should be (0)
+    closeActor(reader)
+  }
+
+  it should "reject a skip request if no channel is open" in {
+    val reader = readerActor()
+    reader ! SkipData(8)
+
+    expectMsgType[EndOfFile].path should be (null)
+  }
+
+  it should "reject a skip request if a read request is still pending" in {
+    val mockChannel = mock[AsynchronousFileChannel]
+    val reader = readerActor(Some(new ConfigurableChannelFactory(mockChannel)))
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+
+    reader ! SkipData(16)
+    val result = expectMsgType[ReadResult]
+    result.data should have length 0
+    result.length should be (0)
+    closeActor(reader)
+  }
+
+  it should "allow skipping parts of the file to be read" in {
+    val reader = readerActor()
+    reader ! InitFile(testFile)
+    reader ! ReadData(8)
+    val result1 = expectMsgType[ReadResult]
+
+    reader ! SkipData(16)
+    reader ! ReadData(1024)
+    val result2 = expectMsgType[ReadResult]
+    result1.length should be (8)
+    result1.data should be (testBytes().slice(0, 8))
+    result2.length should be (testBytes().length - 8 - 16)
+    result2.data.slice(0, result2.length) should be (testBytes().slice(8 + 16, testBytes().length))
+    closeActor(reader)
   }
 }
