@@ -6,7 +6,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.splaya.io.ChannelHandler.InitFile
-import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
+import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
 import de.oliver_heger.splaya.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -352,6 +352,67 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with FileT
     processingReader ! CloseRequest
     expectMsgType[CloseAck]
     processingReader.underlyingActor.afterProcessingInvocations should be(1)
+  }
+
+  /**
+   * Creates a ''Props'' object for a processing reader that is configured to
+   * pass skip messages through.
+   * @param wrappedReader the underlying reader actor
+   * @return the ''Props''
+   */
+  private def propsWithPassThroughSkipHandling(wrappedReader: ActorRef): Props =
+    Props(new ProcessingReader {
+      override val readerActor: ActorRef = wrappedReader
+      override val passSkipMessagesThrough: Boolean = true
+    })
+
+  it should "support pass through skip handling" in {
+    val wrappedReader = TestProbe()
+    val processingReader = system.actorOf(propsWithPassThroughSkipHandling(wrappedReader.ref))
+
+    val skipMsg = SkipData(42)
+    processingReader ! skipMsg
+    wrappedReader.expectMsg(skipMsg)
+  }
+
+  it should "produce correct data in pass through skip mode" in {
+    val processingReader = system.actorOf(propsWithPassThroughSkipHandling(readerActor()))
+    processingReader ! InitFile(testFile)
+
+    processingReader ! ReadData(8)
+    expectMsgType[ReadResult]
+    processingReader ! SkipData(16)
+    read(processingReader) should be(testBytes() drop 24)
+  }
+
+  it should "support simple skip handling based on ignoring published data" in {
+    val processingReader = system.actorOf(propsWithProcessingFunction(readerActor(), duplicate))
+
+    processingReader ! InitFile(testFile)
+    processingReader ! SkipData(ChunkSize - 8)
+    val expected = duplicate(testBytes()) drop (ChunkSize - 8)
+    read(processingReader) should be(expected)
+  }
+
+  it should "support skip operations over more than a single chunk" in {
+    val processingReader = system.actorOf(propsWithProcessingFunction(readerActor(), filterSpaces))
+
+    processingReader ! InitFile(testFile)
+    val skipMsg = SkipData(2 * ChunkSize)
+    processingReader ! skipMsg
+    val expected = filterSpaces(testBytes()) drop skipMsg.count
+    read(processingReader) should be (expected)
+  }
+
+  it should "support skipping until the end of file" in {
+    val processingReader = system.actorOf(propsWithProcessingFunction(readerActor(), filterSpaces))
+    processingReader ! InitFile(testFile)
+    processingReader ! ReadData(ChunkSize)
+    expectMsgType[ReadResult].data should be(filterSpaces(testBytes() take ChunkSize))
+
+    processingReader ! SkipData(5 * TestData.length)
+    processingReader ! ReadData(ChunkSize)
+    expectMsg(EndOfFile(testFile))
   }
 
   /**

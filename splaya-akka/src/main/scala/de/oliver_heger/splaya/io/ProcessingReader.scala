@@ -1,8 +1,8 @@
 package de.oliver_heger.splaya.io
 
 import akka.actor.{Actor, ActorRef}
-import de.oliver_heger.splaya.io.ChannelHandler.InitFile
-import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
+import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
+import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
 
 /**
  * A trait supporting the modification of data produced by a
@@ -35,10 +35,34 @@ import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResul
  * that in ''dataRead()'' either ''publish()'' is called or new data is
  * requested from the underlying actor. Otherwise, no data is sent for the
  * original read request!
+ *
+ * The handling of skip messages is a complex topic. What a skip operation
+ * actually means depends on the processing implemented by a specific actor
+ * class. For instance, if the actor generates additional data to the output
+ * produced by the underlying readers, the number of bytes to be skipped is
+ * related to this additional data. Therefore, it is usually not sufficient to
+ * simply pass the skip message through to the underlying actor. (Although this
+ * mode is supported and makes sense for actors that do not change the size of
+ * the file to be read; it can be enabled by overriding the
+ * ''passSkipMessagesThrough'' variable to a value of '''true'''.) The default
+ * handling of skip messages is to do the normal processing (the corresponding
+ * methods are called in the usual way), but to ignore the data to be published
+ * until the number of bytes to be skipped is reached. This mechanism is
+ * transparent for concrete implementations.
  */
 trait ProcessingReader extends Actor {
   /** The wrapped reader actor. */
   val readerActor: ActorRef
+
+  /**
+   * A flag that controls the handling of skip messages (refer to the class
+   * comment for further details). If set to '''false''' (which is the
+   * default), skip handling is implemented manually be reading and ignoring
+   * data. A value of '''true''' means that skip messages are passed through to
+   * the underlying actor. This may be appropriate if this actor does not
+   * change the size of a processed file.
+   */
+  val passSkipMessagesThrough = false
 
   /** A stream for accumulating read results. */
   private val receivedData = new DynamicInputStream
@@ -64,11 +88,20 @@ trait ProcessingReader extends Actor {
   /** The number of bytes requested for the current read operation. */
   private var currentOperationCount = 0
 
+  /** The number of bytes that have to be skipped. */
+  private var bytesToSkip = 0
+
   /**
    * A flag that keeps track whether a response has been sent to the current
    * caller.
    */
   private var responseSent = false
+
+  /**
+   * A flag that keeps track whether a read request has been sent to the
+   * underlying reader actor.
+   */
+  private var dataRequested = false
 
   /**
    * An option storing an end-of-file message received from the wrapped
@@ -104,6 +137,13 @@ trait ProcessingReader extends Actor {
     case eof: EndOfFile =>
       handleEndOfFile(eof)
 
+    case skip: SkipData =>
+      if(passSkipMessagesThrough) {
+        readerActor ! skip
+      } else {
+        bytesToSkip = skip.count
+      }
+
     case CloseRequest =>
       readerActor ! CloseRequest
       optClosingActor = Some(sender())
@@ -138,6 +178,7 @@ trait ProcessingReader extends Actor {
     if (!endOfFile) {
       readerActor ! ReadData(count)
       bytesRequestedFromWrappedActor = count
+      dataRequested = true
     }
   }
 
@@ -145,12 +186,13 @@ trait ProcessingReader extends Actor {
    * Publishes data that is to be sent to the caller. This method can be
    * called every time a chunk of data has been completed. The data
    * passed is used to answer (pending or future) read requests to this actor.
-   * @param data the data to be published
+   * @param dataArray the data to be published
    */
-  protected def publish(data: Array[Byte]): Unit = {
-    publishedData append readResultFor(data)
-    optCaller foreach (handleReadRequest(_, currentOperationCount))
-    optCaller = None
+  protected def publish(dataArray: Array[Byte]): Unit = {
+    if (appendPublishedDataAndCheckAvailability(dataArray)) {
+      optCaller foreach (handleReadRequest(_, currentOperationCount))
+      optCaller = None
+    }
   }
 
   /**
@@ -224,7 +266,7 @@ trait ProcessingReader extends Actor {
     receivedData append readResult
 
     if (receivedData.available() >= bytesRequestedFromWrappedActor) {
-      processReadData(bytesRequestedFromWrappedActor)
+      processReadDataAndTriggerActionIfNeeded(bytesRequestedFromWrappedActor)
     } else {
       readerActor ! ReadData(bytesRequestedFromWrappedActor - receivedData.available())
     }
@@ -242,6 +284,26 @@ trait ProcessingReader extends Actor {
   }
 
   /**
+   * Calls ''dataRead()'' with the given amount of read data and checks whether
+   * this method performs an action related to sending a result to the caller.
+   * If this is not the case, a new chunk of data has to be requested. When
+   * data is to be skipped it can happen that a whole chunk published by
+   * ''dataRead()'' is ignored. In this case, processing has to continue with
+   * the next block. This is checked and initiated by this method.
+   * @param count the number of bytes to read
+   */
+  private def processReadDataAndTriggerActionIfNeeded(count: Int): Unit = {
+    responseSent = false
+    dataRequested = false
+
+    processReadData(count)
+
+    if (!responseSent && !dataRequested) {
+      readRequestReceived(currentReadRequestSize)
+    }
+  }
+
+  /**
    * Handles an end of file message. If there is still data to be processed,
    * this is done now. Also, the ''afterProcessing()'' callback is invoked.
    * @param eof the end of file message
@@ -256,6 +318,28 @@ trait ProcessingReader extends Actor {
     if (!responseSent) {
       answerCaller(eof)
     }
+  }
+
+  /**
+   * Adds a chunk of data to be published and checks whether now data is
+   * available. This method takes an ongoing skip operation into account and
+   * truncates the data to be added accordingly.
+   * @param dataArray the array with data to be appended
+   * @return '''true''' if published data is available; '''false''' otherwise
+   */
+  private def appendPublishedDataAndCheckAvailability(dataArray: Array[Byte]): Boolean = {
+    val dataAdded = if (bytesToSkip > dataArray.length) {
+      bytesToSkip -= dataArray.length
+      false
+    }
+    else {
+      val source = arraySourceFor(dataArray, bytesToSkip)
+      publishedData append source
+      bytesToSkip = 0
+      true
+    }
+
+    dataAdded || publishedData.available() > 0
   }
 
   /**
@@ -289,4 +373,18 @@ trait ProcessingReader extends Actor {
    * @return the ''ReadResult''
    */
   private def readResultFor(data: Array[Byte]): ReadResult = ReadResult(data, data.length)
+
+  /**
+   * Wraps an array inside an ''ArraySource'' object. This is needed for
+   * appending data to dynamic streams.
+   * @param dataArray the array with data to be wrapped
+   * @param startIdx an offset if data does not start at index 1
+   * @return the ''ArraySource''
+   */
+  private def arraySourceFor(dataArray: Array[Byte], startIdx: Int = 0): ArraySource =
+    new ArraySource {
+      override val data: Array[Byte] = dataArray
+      override val length: Int = dataArray.length - startIdx
+      override val offset: Int = startIdx
+    }
 }
