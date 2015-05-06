@@ -4,11 +4,16 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.splaya.io.{FileOperationActor, ChannelHandler, FileLoaderActor,
-FileReaderActor}
+import com.typesafe.config.ConfigFactory
+import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
+import de.oliver_heger.splaya.mp3.ID3DataExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
+import org.mockito.ArgumentCaptor
+import org.mockito.Mockito._
+import org.mockito.Matchers.{eq => argEq}
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -23,14 +28,40 @@ object MediaManagerActorSpec {
 
   /** Class for the medium info parser child actor. */
   val ClsInfoParser = classOf[MediumInfoParserActor]
+
+  /** Class for the media reader actor child actor. */
+  val ClsMediaReaderActor = classOf[MediaFileReaderActor]
+
+  /** A special test message sent to actors. */
+  private val TestMessage = new Object
+
+  /**
+   * Helper method to ensure that no more messages are sent to a test probe.
+   * This message sends a special message to the probe and checks whether it is
+   * immediately received.
+   * @param probe the probe to be checked
+   */
+  private def expectNoMoreMessage(probe: TestProbe): Unit = {
+    probe.ref ! TestMessage
+    probe.expectMsg(TestMessage)
+  }
 }
 
 /**
  * Test class for ''MediaManagerActor''.
  */
 class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
-  def this() = this(ActorSystem("MediaManagerActorSpec"))
+ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+  import MediaManagerActorSpec._
+
+  def this() = this(ActorSystem("MediaManagerActorSpec",
+    ConfigFactory.parseString(
+      s"""splaya {
+         |  media {
+         |    readerTimeout = 60s
+         |  }
+         |}
+       """.stripMargin)))
 
   override protected def afterAll(): Unit = {
     system.shutdown()
@@ -98,10 +129,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   /**
    * Prepares a test helper instance for a test which requires scanned media.
+   * @param optMapping an optional reader actor mapping
    * @return the test helper
    */
-  private def prepareHelperForScannedMedia(): MediaManagerTestHelper = {
-    val helper = new MediaManagerTestHelper
+  private def prepareHelperForScannedMedia(optMapping: Option[MediaReaderActorMapping] = None):
+  MediaManagerTestHelper = {
+    val helper = new MediaManagerTestHelper(optMapping = optMapping)
     val manager = helper.scanMedia()
     manager ! MediaManagerActor.GetAvailableMedia
     expectMsgType[MediaManagerActor.AvailableMedia]
@@ -149,6 +182,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
   }
 
+  it should "create a valid ID3 data extractor" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.testManagerActor.underlyingActor.id3Extractor shouldBe a[ID3DataExtractor]
+  }
+
   /**
    * Checks whether a request for a non-existing audio source is handled
    * correctly.
@@ -161,7 +200,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val response = expectMsgType[AudioSourceDownloadResponse]
     response.sourceID should be(sourceID)
     response.length should be(-1)
-    val readerProbe = helper.probesOfType[FileReaderActor].head
+    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
     val readRequest = FileReaderActor.ReadData(32)
     response.contentReader ! readRequest
     readerProbe.expectMsg(readRequest)
@@ -175,18 +214,28 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     checkUnknownSourceIDRequest(AudioSourceID(MediaManagerActor.MediumIDOtherFiles, "unknown URI"))
   }
 
+  /**
+   * Creates the ID of an audio source which exists in the directory structures
+   * scanned by the test actor.
+   * @param helper the test helper
+   * @return the audio source
+   */
+  private def createExistingAudioSourceID(helper: MediaManagerTestHelper): AudioSourceID = {
+    val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
+    AudioSourceID(helper.Medium1IDData.mediumID, fileURI)
+  }
+
   it should "return a correct download result" in {
     val helper = prepareHelperForScannedMedia()
 
-    val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
-    val file = helper.Medium1IDData.fileURIMapping(fileURI)
-    val sourceID = AudioSourceID(helper.Medium1IDData.mediumID, fileURI)
+    val sourceID = createExistingAudioSourceID(helper)
+    val file = helper.Medium1IDData.fileURIMapping(sourceID.uri)
     helper.testManagerActor ! sourceID
     val response = expectMsgType[AudioSourceDownloadResponse]
     response.sourceID should be(sourceID)
     response.length should be(file.size)
 
-    val readerProbe = helper.probesOfType[FileReaderActor].head
+    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
     readerProbe.expectMsg(ChannelHandler.InitFile(file.path))
     response.contentReader should be(readerProbe.ref)
   }
@@ -270,6 +319,76 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
       .undefinedMediumInfo.name)
   }
 
+  it should "create a default reader actor mapping" in {
+    val testActor = TestActorRef[MediaManagerActor](MediaManagerActor())
+    testActor.underlyingActor.readerActorMapping shouldBe a[MediaReaderActorMapping]
+  }
+
+  /**
+   * Obtains the mapping for the last created reader actor. This method returns
+   * a tuple with the test probes created for the media reader and its
+   * underlying reader.
+   * @param helper the test helper
+   * @return a tuple with the test probes created for the reader actors
+   */
+  private def fetchReaderActorMapping(helper: MediaManagerTestHelper): (TestProbe, TestProbe) = {
+    val procReader = helper.probesOfType[MediaFileReaderActor].head
+    val actReader = helper.probesOfType[FileReaderActor].head
+    (procReader, actReader)
+  }
+
+  it should "add newly created reader actors to the mapping" in {
+    val mapping = mock[MediaReaderActorMapping]
+    val helper = prepareHelperForScannedMedia(Some(mapping))
+    helper.testManagerActor ! createExistingAudioSourceID(helper)
+
+    expectMsgType[AudioSourceDownloadResponse]
+    val (procReader, actReader) = fetchReaderActorMapping(helper)
+    val captor = ArgumentCaptor forClass classOf[Long]
+    verify(mapping).add(argEq((procReader.ref, actReader.ref)), captor.capture())
+    val timestamp = captor.getValue
+    Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
+  }
+
+  it should "stop the underlying reader actor when the processing reader is stopped" in {
+    val helper = prepareHelperForScannedMedia()
+    helper.testManagerActor ! createExistingAudioSourceID(helper)
+    expectMsgType[AudioSourceDownloadResponse]
+    val (procReader, actReader) = fetchReaderActorMapping(helper)
+
+    val watcher = TestProbe()
+    watcher watch actReader.ref
+    system stop procReader.ref
+    watcher.expectMsgType[Terminated].actor should be (actReader.ref)
+  }
+
+  it should "stop reader actors that timed out" in {
+    val mapping = new MediaReaderActorMapping
+    val procReader1, fileReader1, procReader2, fileReader2, watcher = TestProbe()
+    val now = System.currentTimeMillis()
+    mapping.add(procReader1.ref -> fileReader1.ref, now - 65 * 1000)
+    mapping.add(procReader2.ref -> fileReader2.ref, now)
+    val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
+    watcher watch procReader1.ref
+    watcher watch procReader2.ref
+
+    helper.testManagerActor ! MediaManagerActor.CheckReaderTimeout
+    watcher.expectMsgType[Terminated].actor should be (procReader1.ref)
+    expectNoMoreMessage(watcher)
+  }
+
+  it should "allow updating active reader actors" in {
+    val mapping = new MediaReaderActorMapping
+    val procReader, fileReader, watcher = TestProbe()
+    mapping.add(procReader.ref -> fileReader.ref, 0L)
+    val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
+    watcher watch procReader.ref
+
+    helper.testManagerActor ! MediaManagerActor.ReaderActorAlive(procReader.ref)
+    helper.testManagerActor ! MediaManagerActor.CheckReaderTimeout
+    expectNoMoreMessage(watcher)
+  }
+
   /**
    * A helper class combining data required for typical tests of a media
    * manager actor.
@@ -281,8 +400,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    *
    * @param childActorFunc an optional function for injecting child actors
    */
-  private class MediaManagerTestHelper(childActorFunc: (ActorContext, Props) => Option[ActorRef] =
-                                       (ctx, p) => None) {
+  private class MediaManagerTestHelper(optMapping: Option[MediaReaderActorMapping] = None,
+    childActorFunc: (ActorContext, Props) => Option[ActorRef] = (ctx, p) => None) {
     /** The root path. */
     private val root = Paths.get("root")
 
@@ -579,10 +698,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      * @return the checked ''Props'' object
      */
     private def checkArgs(props: Props): Props = {
-      expectedArgForActorClass(props) foreach { expArg =>
-        props.args should have length 1
-        props.args.head should be(expArg)
-      }
+      val expectedArgs = expectedArgForActorClass(props)
+      props.args should contain theSameElementsAs expectedArgs
       props
     }
 
@@ -590,9 +707,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      * Returns the arguments to check for the given ''Props'' object. For
      * the different child actor classes specific arguments are expected.
      * @param props the ''Props'' object
-     * @return an option with the argument to be checked
+     * @return an Iterable with the arguments to be checked
      */
-    private def expectedArgForActorClass(props: Props): Option[Any] =
+    private def expectedArgForActorClass(props: Props): Iterable[Any] =
       props.actorClass() match {
         case MediaManagerActorSpec.ClsDirScanner =>
           Some(testManagerActor.underlyingActor.directoryScanner)
@@ -602,6 +719,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
         case MediaManagerActorSpec.ClsInfoParser =>
           Some(testManagerActor.underlyingActor.mediumInfoParser)
+
+        case MediaManagerActorSpec.ClsMediaReaderActor =>
+          List(probesOfType[FileReaderActor].head.ref, testManagerActor.underlyingActor.id3Extractor)
 
         case _ => None
       }
@@ -654,7 +774,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      * @return the test reference
      */
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
-      TestActorRef[MediaManagerActor](Props(new MediaManagerActor with ChildActorFactory {
+      val mapping = optMapping getOrElse new MediaReaderActorMapping
+      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(mapping) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
         }

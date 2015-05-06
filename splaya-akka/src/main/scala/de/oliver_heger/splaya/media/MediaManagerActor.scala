@@ -2,14 +2,17 @@ package de.oliver_heger.splaya.media
 
 import java.io.IOException
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
-import de.oliver_heger.splaya.io.{FileOperationActor, ChannelHandler, FileLoaderActor,
-FileReaderActor}
+import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
+import de.oliver_heger.splaya.mp3.ID3DataExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Companion object.
@@ -42,6 +45,25 @@ object MediaManagerActor {
    * which audio sources are requested for playback.
    */
   case object GetAvailableMedia
+
+  /**
+   * A message processed by ''MediaManagerActor'' telling it to check whether
+   * there are reader actors with a timeout. This message is processed
+   * periodically. This ensures that clients that terminated unexpectedly do
+   * not cause hanging actor references.
+   */
+  case object CheckReaderTimeout
+
+  /**
+   * A message processed by ''MediaManagerActor'' telling it that a reader
+   * actor which has been passed to a client is still alive. The download of a
+   * media file can take very long (the user may stop playback). With this
+   * message a client tells this actor that the download operation is still in
+   * progress. If such messages are not received in a given time frame, the
+   * affected reader actors are stopped.
+   * @param reader the reader actor in question
+   */
+  case class ReaderActorAlive(reader: ActorRef)
 
   /**
    * A message processed by ''MediaManagerActor'' telling it to return a list
@@ -85,6 +107,9 @@ object MediaManagerActor {
    */
   private val NonExistingFile = MediaFile(path = null, size = -1)
 
+  /** The configuration property for the reader timeout. */
+  private val PropReaderActorTimeout = "splaya.media.readerTimeout"
+
   private class MediaManagerActorImpl extends MediaManagerActor with ChildActorFactory
 
   /**
@@ -119,6 +144,12 @@ object MediaManagerActor {
   private def createDummySettingsDataForPath(path: Path): MediumSettingsData =
     MediumInfoParserActor.DummyMediumSettingsData.copy(mediumURI = pathToURI
       (mediumPathFromDescription(path)))
+
+  /**
+   * Convenience method for returning the current system time.
+   * @return the current time
+   */
+  private def now(): Long = System.currentTimeMillis()
 }
 
 /**
@@ -137,10 +168,13 @@ object MediaManagerActor {
  * data to be played. The content of specific media can be queried, and single
  * audio sources can be requested.
  */
-class MediaManagerActor extends Actor with ActorLogging {
-  this: ChildActorFactory =>
+class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorMapping) extends Actor with ActorLogging {
+  me: ChildActorFactory =>
 
   import MediaManagerActor._
+
+  /** The extractor for ID3 information. */
+  val id3Extractor = new ID3DataExtractor
 
   /** A helper object for scanning directory structures. */
   private[media] val directoryScanner = new DirectoryScanner(Set.empty)
@@ -150,6 +184,10 @@ class MediaManagerActor extends Actor with ActorLogging {
 
   /** A helper object for parsing medium description files. */
   private[media] val mediumInfoParser = new MediumInfoParser
+
+  /** The timeout for reader actors for downloading media files. */
+  private val readerActorTimeout = FiniteDuration(extractReaderActorTimeout(), concurrent
+    .duration.MILLISECONDS)
 
   /** The actor for loading files. */
   private var loaderActor: ActorRef = _
@@ -191,6 +229,12 @@ class MediaManagerActor extends Actor with ActorLogging {
 
   /** The number of available media.*/
   private var mediaCount = 0
+
+  /**
+   * Creates a new instance of ''MediaManagerActor'' with a default reader
+   * actor mapping.
+   */
+  def this() = this(new MediaReaderActorMapping)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -244,18 +288,37 @@ class MediaManagerActor extends Actor with ActorLogging {
       sender ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
 
     case sourceID: AudioSourceID =>
-      val readerActor = createChildActor(Props[FileReaderActor])
-      val optFile = fetchMediaFile(sourceID)
-      optFile foreach (f => readerActor ! ChannelHandler.InitFile(f.path))
-      sender ! AudioSourceDownloadResponse(sourceID, readerActor, optFile.getOrElse
-        (NonExistingFile).size)
+      processSourceRequest(sourceID)
 
-    case _: Terminated =>
-      handleActorTermination()
+    case t: Terminated =>
+      handleActorTermination(t.actor)
 
     case FileOperationActor.IOOperationError(path, ex) =>
       log.warning("Loading a description file caused an exception: {}!", ex)
       storeSettingsData(createDummySettingsDataForPath(path))
+
+    case CheckReaderTimeout =>
+      checkForReaderActorTimeout()
+
+    case ReaderActorAlive(reader) =>
+      readerActorMapping.updateTimestamp(reader, now())
+  }
+
+  /**
+   * Processes the request for an audio source.
+   * @param sourceID the ID of the requested audio source
+   */
+  private def processSourceRequest(sourceID: AudioSourceID): Unit = {
+    val readerActor = createChildActor(Props[FileReaderActor])
+    val mediaReaderActor = createChildActor(Props(classOf[MediaFileReaderActor], readerActor,
+      id3Extractor))
+    val optFile = fetchMediaFile(sourceID)
+    optFile foreach (f => mediaReaderActor ! ChannelHandler.InitFile(f.path))
+    sender ! AudioSourceDownloadResponse(sourceID, mediaReaderActor, optFile.getOrElse
+      (NonExistingFile).size)
+
+    readerActorMapping.add(mediaReaderActor -> readerActor, now())
+    context watch mediaReaderActor
   }
 
   /**
@@ -474,12 +537,67 @@ class MediaManagerActor extends Actor with ActorLogging {
   private def noScanInProgress: Boolean = pathsScanned < 0
 
   /**
-   * Handles an actor terminated message. A message of this type indicates that
-   * a directory scanner actor threw an exception. In this case, the
-   * corresponding directory structure is excluded/ignored.
+   * Handles an actor terminated message. We have to determine which type of
+   * actor is affected by this message. If it is a reader actor, then a
+   * download operation is finished, and some cleanup has to be done.
+   * Otherwise, this message indicates that a directory scanner actor threw an
+   * exception. In this case, the corresponding directory structure is
+   * excluded/ignored.
+   * @param actor the affected actor
    */
-  private def handleActorTermination(): Unit = {
+  private def handleActorTermination(actor: ActorRef): Unit = {
+    if(readerActorMapping hasActor actor) {
+      handleReaderActorTermination(actor)
+    } else {
+      handleScannerError()
+    }
+  }
+
+  /**
+   * Handles the termination of a reader actor. The terminated actor is only
+   * the processing media reader actor. It has to be ensured that the
+   * underlying reader actor is stopped as well.
+   * @param actor the terminated actor
+   */
+  private def handleReaderActorTermination(actor: ActorRef): Unit = {
+    readerActorMapping remove actor foreach context.stop
+  }
+
+  /**
+   * Handles a terminated message caused by a directory scanner that has
+   * thrown an exception.
+   */
+  private def handleScannerError(): Unit = {
     log.warning("Received Terminated message.")
     incrementScannedPaths()
+  }
+
+  /**
+   * Checks all currently active reader actors for timeouts. This method is
+   * called periodically. It checks whether there are actors which have not
+   * been updated during a configurable interval. This typically indicates a
+   * crash of the corresponding client.
+   */
+  private def checkForReaderActorTimeout(): Unit = {
+    readerActorMapping.findTimeouts(now(), readerActorTimeout) foreach
+      stopReaderActor
+  }
+
+  /**
+   * Stops a reader actor when the timeout was reached.
+   * @param actor the actor to be stopped
+   */
+  private def stopReaderActor(actor: ActorRef): Unit = {
+    context stop actor
+    log.warning("Reader actor {} stopped because of timeout!", actor.path)
+  }
+
+  /**
+   * Extracts the configuration property for the reader actor timeout from the
+   * configuration.
+   * @return the timeout in milliseconds
+   */
+  private def extractReaderActorTimeout(): Long = {
+    context.system.settings.config.getDuration(PropReaderActorTimeout, TimeUnit.MILLISECONDS)
   }
 }
