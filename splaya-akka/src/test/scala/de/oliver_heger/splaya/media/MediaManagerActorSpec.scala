@@ -1,18 +1,21 @@
 package de.oliver_heger.splaya.media
 
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
+import de.oliver_heger.splaya.RecordingSchedulerSupport
+import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.splaya.mp3.ID3DataExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.{eq => argEq}
+import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -34,6 +37,12 @@ object MediaManagerActorSpec {
 
   /** A special test message sent to actors. */
   private val TestMessage = new Object
+
+  /** The initial delay for reader actor timeout checks. */
+  private val ReaderCheckDelay = 10.minutes
+
+  /** The interval for reader actor timeout checks. */
+  private val ReaderCheckInterval = 5.minutes
 
   /**
    * Helper method to ensure that no more messages are sent to a test probe.
@@ -59,6 +68,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       s"""splaya {
          |  media {
          |    readerTimeout = 60s
+         |    readerCheckInterval = ${MediaManagerActorSpec.ReaderCheckInterval.toString()}
+         |    readerCheckInitialDelay = ${MediaManagerActorSpec.ReaderCheckDelay.toString()}
          |  }
          |}
        """.stripMargin)))
@@ -389,6 +400,27 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectNoMoreMessage(watcher)
   }
 
+  it should "check for timed out reader actors periodically" in {
+    val helper = new MediaManagerTestHelper
+    val expectedReceiver = helper.testManagerActor
+
+    val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
+    invocation.initialDelay should be(ReaderCheckDelay)
+    invocation.interval should be (ReaderCheckInterval)
+    invocation.receiver should be(expectedReceiver)
+    invocation.message should be(MediaManagerActor.CheckReaderTimeout)
+  }
+
+  it should "cancel periodic reader checks when it is stopped" in {
+    val helper = new MediaManagerTestHelper
+    val probe = TestProbe()
+    helper.testManagerActor ! MediaManagerActor.ReaderActorAlive(probe.ref)
+
+    system stop helper.testManagerActor
+    val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
+    awaitCond(invocation.cancellable.isCancelled)
+  }
+
   /**
    * A helper class combining data required for typical tests of a media
    * manager actor.
@@ -616,6 +648,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private val probes = createTestProbesMap()
 
+    /** A queue for storing scheduler invocations. */
+    val schedulerQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
+
     /** The actor used for tests. */
     lazy val testManagerActor = createTestActor()
 
@@ -775,10 +810,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
-      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(mapping) with ChildActorFactory {
+      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(mapping) with ChildActorFactory
+        with RecordingSchedulerSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
         }
+
+        override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
       }))
     }
 

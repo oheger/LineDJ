@@ -10,9 +10,9 @@ import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.mp3.ID3DataExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
-import de.oliver_heger.splaya.utils.ChildActorFactory
+import de.oliver_heger.splaya.utils.{ChildActorFactory, SchedulerSupport}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 /**
  * Companion object.
@@ -107,10 +107,20 @@ object MediaManagerActor {
    */
   private val NonExistingFile = MediaFile(path = null, size = -1)
 
-  /** The configuration property for the reader timeout. */
-  private val PropReaderActorTimeout = "splaya.media.readerTimeout"
+  /** Constant for the prefix for configuration options. */
+  private val ConfigPrefix = "splaya.media."
 
-  private class MediaManagerActorImpl extends MediaManagerActor with ChildActorFactory
+  /** The configuration property for the reader timeout. */
+  private val PropReaderActorTimeout = ConfigPrefix + "readerTimeout"
+
+  /** The configuration property for the initial delay for reader timeout checks. */
+  private val PropReaderCheckDelay = ConfigPrefix + "readerCheckInitialDelay"
+
+  /** The configuration property for the interval for reader timeout checks. */
+  private val PropReaderCheckInterval = ConfigPrefix + "readerCheckInterval"
+
+  private class MediaManagerActorImpl extends MediaManagerActor with ChildActorFactory with
+  SchedulerSupport
 
   /**
    * Creates a ''Props'' object for creating new actor instances of this class.
@@ -168,8 +178,9 @@ object MediaManagerActor {
  * data to be played. The content of specific media can be queried, and single
  * audio sources can be requested.
  */
-class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorMapping) extends Actor with ActorLogging {
-  me: ChildActorFactory =>
+class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorMapping) extends
+Actor with ActorLogging {
+  me: ChildActorFactory with SchedulerSupport =>
 
   import MediaManagerActor._
 
@@ -186,8 +197,13 @@ class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorM
   private[media] val mediumInfoParser = new MediumInfoParser
 
   /** The timeout for reader actors for downloading media files. */
-  private val readerActorTimeout = FiniteDuration(extractReaderActorTimeout(), concurrent
-    .duration.MILLISECONDS)
+  private val readerActorTimeout = durationProperty(PropReaderActorTimeout)
+
+  /** The initial delay for reader timeout checks. */
+  private val readerCheckInitialDelay = durationProperty(PropReaderCheckDelay)
+
+  /** The interval for reader timeout checkes. */
+  private val readerCheckInterval = durationProperty(PropReaderCheckInterval)
 
   /** The actor for loading files. */
   private var loaderActor: ActorRef = _
@@ -230,6 +246,9 @@ class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorM
   /** The number of available media.*/
   private var mediaCount = 0
 
+  /** Cancellable for the periodic reader timeout check. */
+  private var readerCheckCancellable: Option[Cancellable] = None
+
   /**
    * Creates a new instance of ''MediaManagerActor'' with a default reader
    * actor mapping.
@@ -246,7 +265,16 @@ class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorM
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
+    import context.dispatcher
     loaderActor = createChildActor(Props[FileLoaderActor])
+    readerCheckCancellable = Some(scheduleMessage(readerCheckInitialDelay, readerCheckInterval,
+      self, CheckReaderTimeout))
+  }
+
+  @throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    super.postStop()
+    readerCheckCancellable foreach (_.cancel())
   }
 
   override def receive: Receive = {
@@ -593,11 +621,12 @@ class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorM
   }
 
   /**
-   * Extracts the configuration property for the reader actor timeout from the
-   * configuration.
-   * @return the timeout in milliseconds
+   * Reads a property of type duration from the configuration.
+   * @param property the property key
+   * @return the duration value for this key
    */
-  private def extractReaderActorTimeout(): Long = {
-    context.system.settings.config.getDuration(PropReaderActorTimeout, TimeUnit.MILLISECONDS)
+  private def durationProperty(property: String): FiniteDuration = {
+    val millis = context.system.settings.config.getDuration(property, TimeUnit.MILLISECONDS)
+    FiniteDuration(millis, MILLISECONDS)
   }
 }
