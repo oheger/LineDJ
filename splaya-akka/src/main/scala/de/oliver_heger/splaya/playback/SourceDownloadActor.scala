@@ -2,6 +2,7 @@ package de.oliver_heger.splaya.playback
 
 import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
+import de.oliver_heger.splaya.media.MediaManagerActor
 import de.oliver_heger.splaya.playback.LocalBufferActor.{BufferFilled, FillBuffer}
 
 import scala.collection.mutable
@@ -10,6 +11,15 @@ import scala.collection.mutable
  * Companion object.
  */
 object SourceDownloadActor {
+
+  /**
+   * A message processed by ''SourceDownloadActor'' telling it to send a
+   * message to the source actor that the current download operation is still
+   * in progress. Such messages have to be sent periodically to indicate that
+   * this client is still alive.
+   */
+  case object ReportReaderActorAlive
+
   /**
    * Constant for an error message caused by an unexpected download response
    * message. Responses are only accepted after a request was sent out.
@@ -94,6 +104,9 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
     case CloseRequest =>
       currentReadActor foreach context.stop
       sender ! CloseAck(self)
+
+    case ReportReaderActorAlive =>
+      currentReadActor foreach (srcActor ! MediaManagerActor.ReaderActorAlive(_))
   }
 
   /**

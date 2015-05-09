@@ -1,8 +1,11 @@
 package de.oliver_heger.splaya.playback
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.splaya.SupervisionTestActor
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
+import de.oliver_heger.splaya.media.MediaManagerActor
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -125,7 +128,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   it should "handle a download response" in {
     val srcActor, bufActor, readActor, contentActor = TestProbe()
-    val actor: ActorRef = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
 
     actor ! createPlaylistInfo(1)
     actor ! AudioSourceDownloadResponse(sourceID(1), contentActor.ref, SourceLength)
@@ -166,6 +169,31 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! AudioSourceDownloadResponse(sourceID(2), contentActor2.ref, SourceLength)
     readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength, 0, 0))
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
+  }
+
+  it should "report that a reader actor is still alive" in {
+    val srcActor, bufActor, readActor, contentActor = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    actor ! AudioSourceDownloadResponse(sourceID(1), contentActor.ref, SourceLength)
+    srcActor.expectMsgType[AudioSourceID]
+
+    actor ! SourceDownloadActor.ReportReaderActorAlive
+    srcActor.expectMsg(MediaManagerActor.ReaderActorAlive(contentActor.ref))
+  }
+
+  it should "deal with with an undefined reader when receiving a report reader alive message" in {
+    val srcActor = TestProbe()
+    val strategy = OneForOneStrategy() {
+      case _: Exception => Stop
+    }
+    val supervisionTestActor = SupervisionTestActor(system, strategy, propsForActor(optSource =
+      Some(srcActor.ref)))
+    val actor = supervisionTestActor.underlyingActor.childActor
+
+    actor ! SourceDownloadActor.ReportReaderActorAlive
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsgType[AudioSourceID]
   }
 
   it should "stop a read actor after it has been processed" in {
