@@ -1,11 +1,15 @@
 package de.oliver_heger.splaya.playback
 
-import akka.actor.{Actor, ActorRef}
+import java.util.concurrent.TimeUnit
+
+import akka.actor.{Actor, ActorRef, Cancellable}
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
 import de.oliver_heger.splaya.media.MediaManagerActor
 import de.oliver_heger.splaya.playback.LocalBufferActor.{BufferFilled, FillBuffer}
+import de.oliver_heger.splaya.utils.SchedulerSupport
 
 import scala.collection.mutable
+import scala.concurrent.duration._
 
 /**
  * Companion object.
@@ -32,6 +36,15 @@ object SourceDownloadActor {
    * passed to the buffer actor.
    */
   val ErrorUnexpectedBufferFilled = "Unexpected BufferFilled message!"
+
+  /** The prefix for configuration properties. */
+  private val ConfigurationPrefix = "splaya.playback."
+
+  /** The property for initial delay for download in progress messages. */
+  private val PropReaderAliveDelay = ConfigurationPrefix + "downloadProgressMessageDelay"
+
+  /** The property for the interval of download in progress messages. */
+  private val PropReaderAliveInterval = ConfigurationPrefix + "downloadProgressMessageInterval"
 }
 
 /**
@@ -55,8 +68,15 @@ object SourceDownloadActor {
  */
 class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor: ActorRef)
   extends Actor {
+  me: SchedulerSupport =>
 
   import de.oliver_heger.splaya.playback.SourceDownloadActor._
+
+  /** Initial delay for download in progress messages. */
+  private val readerAliveDelay = durationProperty(PropReaderAliveDelay)
+
+  /** Interval for download in progress messages. */
+  private val readerAliveInterval = durationProperty(PropReaderAliveInterval)
 
   /** A queue for the items in the playlist. */
   private val playlist = mutable.Queue.empty[AudioSourcePlaylistInfo]
@@ -69,6 +89,23 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
 
   /** The read actor currently processed by the buffer. */
   private var currentReadActor: Option[ActorRef] = None
+
+  /** Cancellable for periodic download in progress notifications. */
+  private var cancellableReaderAlive: Option[Cancellable] = None
+
+  @throws[Exception](classOf[Exception])
+  override def preStart(): Unit = {
+    import context.dispatcher
+    super.preStart()
+    cancellableReaderAlive = Some(scheduleMessage(readerAliveDelay, readerAliveInterval, self,
+      ReportReaderActorAlive))
+  }
+
+  @throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    cancellableReaderAlive foreach (_.cancel())
+    super.postStop()
+  }
 
   override def receive: Receive = {
     case src: AudioSourcePlaylistInfo =>
@@ -170,5 +207,15 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
         currentReadActor = Some(response.contentReader)
         None
     }
+  }
+
+  /**
+   * Resolves a configuration property of type duration.
+   * @param key the property key
+   * @return the value of this property
+   */
+  private def durationProperty(key: String): FiniteDuration = {
+    val millis = context.system.settings.config.getDuration(key, TimeUnit.MILLISECONDS)
+    FiniteDuration(millis, MILLISECONDS)
   }
 }

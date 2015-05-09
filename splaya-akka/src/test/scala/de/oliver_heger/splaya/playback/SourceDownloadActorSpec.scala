@@ -1,11 +1,15 @@
 package de.oliver_heger.splaya.playback
 
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
+
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.splaya.SupervisionTestActor
+import com.typesafe.config.ConfigFactory
+import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
 import de.oliver_heger.splaya.media.MediaManagerActor
+import de.oliver_heger.splaya.{RecordingSchedulerSupport, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -16,6 +20,12 @@ object SourceDownloadActorSpec {
 
   /** Constant for a test source length. */
   private val SourceLength = 20150309111624L
+
+  /** Constant for the initial delay of download in progress messages. */
+  private val ReaderAliveDelay = 2.minutes
+
+  /** Constant for the interval of download in progress messages. */
+  private val ReaderAliveInterval = 4.minutes
 
   /**
    * Generates a unique URI for the audio source with the specified index.
@@ -49,7 +59,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   import de.oliver_heger.splaya.playback.SourceDownloadActorSpec._
 
-  def this() = this(ActorSystem("SourceDownloadActorSpec"))
+  def this() = this(ActorSystem("SourceDownloadActorSpec",
+  ConfigFactory.parseString(
+    s"""
+       |splaya {
+       |  playback {
+       |    downloadProgressMessageDelay = ${SourceDownloadActorSpec.ReaderAliveDelay.toString()}
+       |    downloadProgressMessageInterval = ${SourceDownloadActorSpec.ReaderAliveInterval.toString()}
+       |  }
+       |}
+     """.stripMargin)))
 
   override protected def afterAll(): Unit = {
     system.shutdown()
@@ -63,14 +82,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    * @param optSource optional reference to the source actor
    * @param optBuffer optional reference to the buffer actor
    * @param optReader optional reference to the reader actor
+   * @param optQueue optional queue for scheduler invocations
    * @return the ''Props'' object
    */
   private def propsForActor(optSource: Option[ActorRef] = None, optBuffer: Option[ActorRef] =
-  None, optReader: Option[ActorRef] = None): Props = {
+  None, optReader: Option[ActorRef] = None, optQueue: Option[BlockingQueue[SchedulerInvocation]]
+  = None): Props = {
     def fetchRef(optRef: Option[ActorRef]): ActorRef = optRef getOrElse testActor
 
-    Props(classOf[SourceDownloadActor], fetchRef(optSource), fetchRef(optBuffer), fetchRef
-      (optReader))
+    val schedulerQueue = optQueue getOrElse new LinkedBlockingQueue[SchedulerInvocation]
+    Props(new SourceDownloadActor(fetchRef(optSource), fetchRef(optBuffer), fetchRef
+      (optReader)) with RecordingSchedulerSupport {
+      override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
+    })
   }
 
   /**
@@ -78,12 +102,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    * @param optSource optional reference to the source actor
    * @param optBuffer optional reference to the buffer actor
    * @param optReader optional reference to the reader actor
+   * @param optQueue optional queue for scheduler invocations
    * @return the test actor reference
    */
   private def createDownloadActor(optSource: Option[ActorRef] = None, optBuffer: Option[ActorRef]
-  = None, optReader: Option[ActorRef] = None): ActorRef =
+  = None, optReader: Option[ActorRef] = None, optQueue:
+  Option[BlockingQueue[SchedulerInvocation]] = None): ActorRef =
     system.actorOf(propsForActor(optSource = optSource, optBuffer = optBuffer, optReader =
-      optReader))
+      optReader, optQueue = optQueue))
 
   /**
    * Convenience method for creating a download test actor which is initialized
@@ -242,5 +268,25 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val termMsg = watchActor.expectMsgType[Terminated]
     termMsg.actor should be(contentActor.ref)
     expectMsg(CloseAck(actor))
+  }
+
+  it should "periodically report that the current reader actor is alive" in {
+    val queue = new LinkedBlockingQueue[SchedulerInvocation]
+    val actor = createDownloadActor(optQueue = Some(queue))
+
+    val invocation = RecordingSchedulerSupport.expectInvocation(queue)
+    invocation.initialDelay should be (ReaderAliveDelay)
+    invocation.interval should be (ReaderAliveInterval)
+    invocation.receiver should be(actor)
+    invocation.message should be(SourceDownloadActor.ReportReaderActorAlive)
+  }
+
+  it should "cancel scheduled tasks when it is stopped" in {
+    val queue = new LinkedBlockingQueue[SchedulerInvocation]
+    val actor = createDownloadActor(optQueue = Some(queue))
+    val invocation = RecordingSchedulerSupport.expectInvocation(queue)
+
+    system stop actor
+    awaitCond(invocation.cancellable.isCancelled)
   }
 }
