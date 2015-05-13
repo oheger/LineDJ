@@ -27,6 +27,7 @@
     <module>splaya-fs</module>
     <module>pgen-dir</module>
     <module>pgen-random</module>
+    <module>pgen-random-dir</module>
     <module>splaya-mp3</module>
   </modules>
 
