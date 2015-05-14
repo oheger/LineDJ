@@ -60,6 +60,14 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>playlistgen-random-dir</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>playlistgen-random-artist</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>jplaya-ui</artifactId>
       <version>${project.version}</version>
     </dependency>
