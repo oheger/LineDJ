@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declarative Services declaration of the PlaylistGenerator component for the
+  mode 'random directories'.
+  This playlist generator produces a playlist in random directory (i.e.
+  album) order.
+-->
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0"
+  name="PlaylistGeneratorRandomArtist">
+  <scr:implementation class="de.oliver_heger.splaya.playlist.gen.randomart.PlaylistGeneratorRandomArtist" />
+
+  <scr:service>
+    <scr:provide interface="de.oliver_heger.splaya.playlist.PlaylistGenerator"/>
+  </scr:service>
+
+  <scr:property name="generator.mode" value="random_artist"/>
+  <scr:property name="generator.default" value="false"/>
+</scr:component>
