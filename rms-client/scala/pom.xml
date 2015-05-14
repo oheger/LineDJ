@@ -28,6 +28,7 @@
     <module>pgen-dir</module>
     <module>pgen-random</module>
     <module>pgen-random-dir</module>
+    <module>pgen-random-artist</module>
     <module>splaya-mp3</module>
   </modules>
 
