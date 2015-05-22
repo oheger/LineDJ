@@ -59,16 +59,6 @@ object ID3DataExtractor {
     val f3 = header(IdxSize + 2).toInt << F3
     f1 + f2 + f3 + header(IdxSize + 3).toInt
   }
-
-  /**
-   * Extracts a single byte from the given buffer and converts it to an
-   * (unsigned) integer.
-   * @param buf the byte buffer
-   * @param idx the index in the buffer
-   * @return the resulting unsigned integer
-   */
-  private def extractByte(buf: Array[Byte], idx: Int): Int =
-    buf(idx).toInt & 0xFF
 }
 
 /**
