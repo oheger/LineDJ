@@ -21,6 +21,16 @@ object ID3Tag {
 
   /** Constant for an empty string. */
   private val Blank = ""
+
+  /**
+   * Extracts the name of a tag from binary frame data.
+   * @param data the data array
+   * @param ofs the offset where the tag name starts
+   * @param length the length of the tag name
+   * @return the extracted tag name
+   */
+  def extractName(data: Array[Byte], ofs: Int, length: Int): String =
+    extractString(data, ofs, length, EncISO88591.encName)
 }
 
 /**
