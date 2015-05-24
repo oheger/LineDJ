@@ -8,7 +8,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
-import de.oliver_heger.splaya.mp3.ID3DataExtractor
+import de.oliver_heger.splaya.mp3.ID3HeaderExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.{ChildActorFactory, SchedulerSupport}
 
@@ -185,7 +185,7 @@ Actor with ActorLogging {
   import MediaManagerActor._
 
   /** The extractor for ID3 information. */
-  val id3Extractor = new ID3DataExtractor
+  val id3Extractor = new ID3HeaderExtractor
 
   /** A helper object for scanning directory structures. */
   private[media] val directoryScanner = new DirectoryScanner(Set.empty)

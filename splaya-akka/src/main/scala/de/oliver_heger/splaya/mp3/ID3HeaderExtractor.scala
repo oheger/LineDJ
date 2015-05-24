@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 /**
  * Companion object for ''ID3DataExtractor''.
  */
-object ID3DataExtractor {
+object ID3HeaderExtractor {
   /** Constant for the size of an ID3 header. */
   val ID3HeaderSize = 10
 
@@ -78,9 +78,9 @@ object ID3DataExtractor {
  * Implementation note: Instances of this class can safely be shared between
  * multiple threads; they are state-less.
  */
-class ID3DataExtractor {
+class ID3HeaderExtractor {
 
-  import ID3DataExtractor._
+  import ID3HeaderExtractor._
 
   /**
    * Tries to extract an [[ID3Header]] object from the given data array. If

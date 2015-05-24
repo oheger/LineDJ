@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.splaya.io.ChannelHandler.InitFile
 import de.oliver_heger.splaya.io.FileReaderActor.SkipData
 import de.oliver_heger.splaya.io.ProcessingReader
-import de.oliver_heger.splaya.mp3.ID3DataExtractor
+import de.oliver_heger.splaya.mp3.ID3HeaderExtractor
 
 /**
  * A specialized file reader actor for media files to be sent to clients.
@@ -22,7 +22,7 @@ import de.oliver_heger.splaya.mp3.ID3DataExtractor
  * @param readerActor the underlying reader actor
  * @param extractor the extractor for ID3 data
  */
-class MediaFileReaderActor(override val readerActor: ActorRef, val extractor: ID3DataExtractor)
+class MediaFileReaderActor(override val readerActor: ActorRef, val extractor: ID3HeaderExtractor)
   extends ProcessingReader {
   /** A flag whether all ID3 headers in the current file have been processed. */
   private var endOfID3Headers = false
@@ -49,7 +49,7 @@ class MediaFileReaderActor(override val readerActor: ActorRef, val extractor: ID
       extractor.extractID3Header(data) match {
         case Some(header) =>
           readerActor ! SkipData(header.size)
-          readFromWrappedActor(ID3DataExtractor.ID3HeaderSize)
+          readFromWrappedActor(ID3HeaderExtractor.ID3HeaderSize)
 
         case None =>
           endOfID3Headers = true
@@ -66,7 +66,7 @@ class MediaFileReaderActor(override val readerActor: ActorRef, val extractor: ID
   override protected def readRequestReceived(count: Int): Unit = {
     if (endOfID3Headers) super.readRequestReceived(count)
     else {
-      readFromWrappedActor(ID3DataExtractor.ID3HeaderSize)
+      readFromWrappedActor(ID3HeaderExtractor.ID3HeaderSize)
     }
   }
 }

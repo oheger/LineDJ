@@ -10,7 +10,7 @@ import de.oliver_heger.splaya.RecordingSchedulerSupport
 import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
-import de.oliver_heger.splaya.mp3.ID3DataExtractor
+import de.oliver_heger.splaya.mp3.ID3HeaderExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
@@ -196,7 +196,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "create a valid ID3 data extractor" in {
     val helper = new MediaManagerTestHelper
 
-    helper.testManagerActor.underlyingActor.id3Extractor shouldBe a[ID3DataExtractor]
+    helper.testManagerActor.underlyingActor.id3Extractor shouldBe a[ID3HeaderExtractor]
   }
 
   /**

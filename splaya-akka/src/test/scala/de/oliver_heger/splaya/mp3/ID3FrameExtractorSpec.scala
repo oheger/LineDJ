@@ -105,11 +105,11 @@ class ID3FrameExtractorSpec extends FlatSpec with Matchers {
    */
   private def extractorFromResourceFile(name: String): ID3FrameExtractor = {
     val content = readResourceFile(name)
-    val headerExtractor = new ID3DataExtractor
+    val headerExtractor = new ID3HeaderExtractor
     val optHeader = headerExtractor extractID3Header content
     optHeader shouldBe 'defined
 
-    val frameData = content.slice(ID3DataExtractor.ID3HeaderSize, ID3DataExtractor.ID3HeaderSize
+    val frameData = content.slice(ID3HeaderExtractor.ID3HeaderSize, ID3HeaderExtractor.ID3HeaderSize
       + optHeader.get.size)
     val extractor = new ID3FrameExtractor(optHeader.get)
     extractor addData frameData

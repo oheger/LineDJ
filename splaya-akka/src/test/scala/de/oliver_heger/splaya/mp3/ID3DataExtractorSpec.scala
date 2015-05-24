@@ -8,18 +8,18 @@ import org.scalatest.{FlatSpec, Matchers}
  */
 class ID3DataExtractorSpec extends FlatSpec with Matchers {
   "An ID3DataExtractor" should "define the correct ID3 header size" in {
-    ID3DataExtractor.ID3HeaderSize should be(10)
+    ID3HeaderExtractor.ID3HeaderSize should be(10)
   }
 
   it should "reject an array which is too small" in {
-    val extractor = new ID3DataExtractor
-    val data = new Array[Byte](ID3DataExtractor.ID3HeaderSize - 1)
+    val extractor = new ID3HeaderExtractor
+    val data = new Array[Byte](ID3HeaderExtractor.ID3HeaderSize - 1)
 
     extractor extractID3Header data shouldBe 'empty
   }
 
   it should "reject an array that does not contain header information" in {
-    val extractor = new ID3DataExtractor
+    val extractor = new ID3HeaderExtractor
     val data = FileTestHelper.toBytes("ID201234569870")
 
     extractor extractID3Header data shouldBe 'empty
@@ -40,7 +40,7 @@ class ID3DataExtractorSpec extends FlatSpec with Matchers {
     val data = prepareID3HeaderArray()
     data(3) = 2
     data(9) = 42
-    val extractor = new ID3DataExtractor
+    val extractor = new ID3HeaderExtractor
 
     val header = extractor.extractID3Header(data).get
     header.size should be(42)
@@ -53,7 +53,7 @@ class ID3DataExtractorSpec extends FlatSpec with Matchers {
     header(7) = 0x7F
     header(8) = 0x7F
     header(9) = 0x7F
-    val extractor = new ID3DataExtractor
+    val extractor = new ID3HeaderExtractor
 
     val headerObj = extractor.extractID3Header(header).get
     headerObj.size should be(0xFFFFFFF)

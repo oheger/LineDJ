@@ -8,7 +8,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.splaya.FileTestHelper
 import de.oliver_heger.splaya.io.ChannelHandler.InitFile
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
-import de.oliver_heger.splaya.mp3.{ID3DataExtractor, ID3Header}
+import de.oliver_heger.splaya.mp3.{ID3HeaderExtractor, ID3Header}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -29,7 +29,7 @@ object MediaFileReaderActorSpec {
    * @return the header data array
    */
   private def createHeaderData(index: Int): Array[Byte] = {
-    val data = new Array[Byte](ID3DataExtractor.ID3HeaderSize)
+    val data = new Array[Byte](ID3HeaderExtractor.ID3HeaderSize)
     java.util.Arrays.fill(data, index.toByte)
     data
   }
@@ -56,7 +56,7 @@ object MediaFileReaderActorSpec {
    */
   private def expectHeaderDataRequest(reader: ActorRef, readerProbe: TestProbe, headerData:
   Array[Byte]): Unit = {
-    readerProbe.expectMsg(ReadData(ID3DataExtractor.ID3HeaderSize))
+    readerProbe.expectMsg(ReadData(ID3HeaderExtractor.ID3HeaderSize))
     reader ! ReadResult(headerData, headerData.length)
   }
 
@@ -128,12 +128,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   "A MediaFileReaderActor" should "skip ID3 data" in {
-    val extractor = mock[ID3DataExtractor]
+    val extractor = mock[ID3HeaderExtractor]
     val readerProbe = TestProbe()
     val headerData1 = createHeaderData(1)
     val headerData2 = createHeaderData(2)
     val dataStream = new ByteArrayInputStream(FileTestHelper.testBytes())
-    val chunk3 = new Array[Byte](ID3DataExtractor.ID3HeaderSize)
+    val chunk3 = new Array[Byte](ID3HeaderExtractor.ID3HeaderSize)
     dataStream.read(chunk3)
     val header1 = ID3Header(1, 128)
     val header2 = ID3Header(1, 256)
@@ -157,9 +157,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "allow reading multiple files" in {
-    val extractor = mock[ID3DataExtractor]
+    val extractor = mock[ID3HeaderExtractor]
     val readerProbe = TestProbe()
-    val chunk = FileTestHelper.testBytes() take ID3DataExtractor.ID3HeaderSize
+    val chunk = FileTestHelper.testBytes() take ID3HeaderExtractor.ID3HeaderSize
     when(extractor.extractID3Header(aryEq(chunk))).thenReturn(None)
 
     val reader = system.actorOf(Props(classOf[MediaFileReaderActor], readerProbe.ref, extractor))
@@ -168,12 +168,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! ReadData(ChunkSize)
     expectHeaderDataRequest(reader, readerProbe, chunk)
     val msg = expectMsgType[ReadResult]
-    msg.length should be(ID3DataExtractor.ID3HeaderSize)
+    msg.length should be(ID3HeaderExtractor.ID3HeaderSize)
     msg.data should be(chunk)
 
     reader ! InitMsg
     readerProbe.expectMsg(InitMsg)
     reader ! ReadData(ChunkSize)
-    readerProbe.expectMsg(ReadData(ID3DataExtractor.ID3HeaderSize))
+    readerProbe.expectMsg(ReadData(ID3HeaderExtractor.ID3HeaderSize))
   }
 }
