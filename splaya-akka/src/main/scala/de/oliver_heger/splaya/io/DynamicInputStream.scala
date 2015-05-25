@@ -16,6 +16,23 @@ object DynamicInputStream {
   val DefaultCapacity = 64
 
   /**
+   * Wraps the specified data array into an ''ArraySource'' object. This is
+   * convenient when working with a ''DynamicInputStream'' as the ''append()''
+   * method per default expects such a source. Note that for reasons of
+   * efficiency the passed in array is not copied. Therefore, it must not be
+   * modified afterwards.
+   * @param dataArray the array to be wrapped in an ''ArraySource''
+   * @param startIndex the offset of the first valid position in the array
+   * @return the newly created array source object
+   */
+  def arraySourceFor(dataArray: Array[Byte], startIndex: Int = 0): ArraySource =
+    new ArraySource {
+      override val data: Array[Byte] = dataArray
+      override val length: Int = dataArray.length - startIndex
+      override val offset: Int = startIndex
+    }
+
+  /**
    * Constant for an index used to represent an undefined mark position.
    */
   private val UndefinedMarkIndex = -1
@@ -82,9 +99,9 @@ InputStream {
   private var contentCompleted = false
 
   /**
-   * Appends the content stored in the given ''ReadResult'' object to this
+   * Appends the content stored in the given ''ArraySource'' object to this
    * stream.
-   * @param data the result object to be added
+   * @param data the source object to be added
    * @return a reference to this stream
    * @throws IllegalStateException if the stream is already complete
    */
@@ -100,6 +117,17 @@ InputStream {
     bytesAvailable += data.length
     this
   }
+
+  /**
+   * Appends the content of the given array to this stream. Note that for
+   * efficiency reasons no copy of the array is created. So the array must not
+   * be modified afterwards.
+   * @param data the data array to be appended
+   * @return a reference to this stream
+   * @throws IllegalStateException if the stream is already complete
+   */
+  def append(data: Array[Byte]): DynamicInputStream =
+    append(arraySourceFor(data))
 
   /**
    * Clears the whole content of this stream. After this operation, the

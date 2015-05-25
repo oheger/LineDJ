@@ -1,7 +1,7 @@
 package de.oliver_heger.splaya.io
 
 import akka.actor.{Actor, ActorRef}
-import de.oliver_heger.splaya.io.ChannelHandler.{ArraySource, InitFile}
+import de.oliver_heger.splaya.io.ChannelHandler.InitFile
 import de.oliver_heger.splaya.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
 
 /**
@@ -333,7 +333,7 @@ trait ProcessingReader extends Actor {
       false
     }
     else {
-      val source = arraySourceFor(dataArray, bytesToSkip)
+      val source = DynamicInputStream.arraySourceFor(dataArray, bytesToSkip)
       publishedData append source
       bytesToSkip = 0
       true
@@ -374,17 +374,4 @@ trait ProcessingReader extends Actor {
    */
   private def readResultFor(data: Array[Byte]): ReadResult = ReadResult(data, data.length)
 
-  /**
-   * Wraps an array inside an ''ArraySource'' object. This is needed for
-   * appending data to dynamic streams.
-   * @param dataArray the array with data to be wrapped
-   * @param startIdx an offset if data does not start at index 1
-   * @return the ''ArraySource''
-   */
-  private def arraySourceFor(dataArray: Array[Byte], startIdx: Int = 0): ArraySource =
-    new ArraySource {
-      override val data: Array[Byte] = dataArray
-      override val length: Int = dataArray.length - startIdx
-      override val offset: Int = startIdx
-    }
 }

@@ -410,4 +410,22 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
       stream.reset()
     }
   }
+
+  it should "create an array source automatically if necessary" in {
+    val Data = """I prithee do not mock me, fellow studient,
+                 |I think it was to see my mother's wedding.""".stripMargin
+    val stream = new DynamicInputStream
+
+    stream append toBytes(Data)
+    checkReadResult(readStream(stream), Data)
+  }
+
+  it should "offer a convenience method for creating array source objects" in {
+    val Data = toBytes("Indeed, my lord, it followed hard upon.")
+    val source = DynamicInputStream.arraySourceFor(Data, 7)
+
+    source.data should be(Data)
+    source.offset should be(7)
+    source.length should be(Data.length - 7)
+  }
 }
