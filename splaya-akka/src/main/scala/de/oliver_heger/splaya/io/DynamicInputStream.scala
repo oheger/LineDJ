@@ -168,6 +168,33 @@ InputStream {
   def capacity: Int = chunks.length
 
   /**
+   * Searches for a given byte in the amount of data currently available. If
+   * the byte is found, the current position of the stream is directly after
+   * this byte. Otherwise, all data currently available has been read. This
+   * method is introduced as a more efficient way of scanning for data rather
+   * than reading the stream byte-wise.
+   * @param b the byte to be searched
+   * @return a flag whether the byte was found in the data available
+   */
+  def find(b: Byte): Boolean = {
+    var found = false
+    while (available() > 0 && !found) {
+      val pos = chunks(currentChunk).data.indexOf(b, currentPosition)
+      if(pos >= 0) {
+        found = true
+        bytesAvailable -= pos - currentPosition + 1
+        currentPosition = pos + 1
+      } else {
+        bytesAvailable -= chunks(currentChunk).length - currentPosition
+        currentPosition = 0
+        currentChunk = increaseChunkIndex(currentChunk)
+      }
+    }
+
+    found
+  }
+
+  /**
    * Returns a flag whether this stream implementation supports mark
    * operations. This is the case; therefore, result is '''true'''.
    */
@@ -316,7 +343,7 @@ InputStream {
   private def copyChunks(startChunkIndex: Int): Array[ArraySource] = {
     val newChunks = new Array[ArraySource](chunks.length * 2)
     var orgIndex = startChunkIndex
-    for (i <- 0 until chunks.length) {
+    for (i <- chunks.indices) {
       newChunks(i) = chunks(orgIndex)
       orgIndex = increaseChunkIndex(orgIndex)
     }

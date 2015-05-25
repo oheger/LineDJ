@@ -428,4 +428,48 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     source.offset should be(7)
     source.length should be(Data.length - 7)
   }
+
+  it should "report a failed find operation" in {
+    val Data = "My lord, I came to see your father's funeral."
+    val stream = createStreamWithChunks(Data)
+
+    stream find '*'.toByte shouldBe false
+  }
+
+  it should "fail a find operation if no data is available" in {
+    val stream = new DynamicInputStream
+
+    stream find 0 shouldBe false
+  }
+
+  it should "be able to find a specific byte in a chunk" in {
+    val Data = "My lord, I came to see your father's funeral."
+    val stream = createStreamWithChunks(Data)
+
+    stream find ','.toByte shouldBe true
+    val expected = Data substring 8
+    stream.available() should be(expected.length)
+    checkReadResult(readStream(stream), expected)
+  }
+
+  it should "be able to find a specific byte in multiple chunks" in {
+    val Remaining = " furnish forth the marriage tables."
+    val Data = Array("Thrift, thrift, Horatio, the funeral bak'd-meats", "Did coldly" + Remaining)
+    val stream = createStreamWithChunks(Data: _*)
+    val chunk = new Array[Byte](5)
+    stream read chunk
+
+    stream find 'y' shouldBe true
+    stream.available() should be(Remaining.length)
+    checkReadResult(readStream(stream), Remaining)
+  }
+
+  it should "skip to the end of the stream after a failed find operation" in {
+    val stream = createStreamWithChunks("Ay, marry, is't,", "But to my mind, though I am " +
+      "native here", "And to the manner born, it is a custom",
+      "More honor'd in the breach than the observance.")
+
+    stream find 'x' shouldBe false
+    stream.available() should be(0)
+  }
 }
