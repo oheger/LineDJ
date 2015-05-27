@@ -92,6 +92,18 @@ object DynamicInputStreamSpec {
     }
     bos
   }
+
+  /**
+   * Combines a number of string chunks to an array.
+   * @param chunks the chunks to be combined
+   * @return the resulting array
+   */
+  private def combineChunks(chunks: String*): Array[Byte] = {
+    val buffer = ArrayBuffer.empty[Byte]
+    chunks foreach (buffer ++= toBytes(_))
+    val expectedArray = buffer.toArray
+    expectedArray
+  }
 }
 
 /**
@@ -108,10 +120,9 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
    * @return the array extracted from the output stream
    */
   private def checkReadResult(bos: ByteArrayOutputStream, chunks: String*): Array[Byte] = {
-    val buffer = ArrayBuffer.empty[Byte]
-    chunks foreach (buffer ++= toBytes(_))
+    val expectedArray: Array[Byte] = combineChunks(chunks: _*)
     val testArray = bos.toByteArray
-    testArray should be(buffer.toArray)
+    testArray should be(expectedArray)
     testArray
   }
 
@@ -471,5 +482,66 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
     stream find 'x' shouldBe false
     stream.available() should be(0)
+  }
+
+  it should "support reset together with find" in {
+    val Data = "What does this mean, my lord?"
+    val stream = createStreamWithChunks(Data)
+
+    stream mark 1000
+    stream find ',' shouldBe true
+    stream.reset()
+    checkReadResult(readStream(stream), Data)
+  }
+
+  it should "allow skipping data in a single chunk" in {
+    val Remaining = " face."
+    val Data = "Then saw you not his" + Remaining
+    val skipLen = 20
+    val stream = createStreamWithChunks(Data)
+
+    stream skip skipLen should be(skipLen)
+    checkReadResult(readStream(stream), Remaining)
+  }
+
+  it should "allow skipping data over multiple chunks" in {
+    val Data = Array("The King doth wake to-night and takes his rouse,",
+      "Keeps wassail, and the swagg'ring up-spring reels;",
+      "And as he drains his draughts of Rhenish down,",
+      "The kettle-drum and trumpet thus bray out",
+      "The triumph of his pledge.", "Is it a custom?")
+    val ChunkLen = 10
+    val SkipLen = 60
+    val stream = createStreamWithChunks(Data: _*)
+    val chunk = new Array[Byte](ChunkLen)
+    stream read chunk
+
+    stream skip SkipLen should be(SkipLen)
+    val remaining = combineChunks(Data: _*) drop ChunkLen + SkipLen
+    stream.available() should be(remaining.length)
+    val bos = readStream(stream)
+    bos.toByteArray should be(remaining)
+  }
+
+  it should "support reset together with skip" in {
+    val Data = "O day and night, but this is wondrous strange!"
+    val readLen = 5
+    val stream = createStreamWithChunks(Data)
+    stream read new Array[Byte](readLen)
+
+    stream mark 100
+    stream skip 15 should be(15)
+    stream.reset()
+    val out = readStream(stream)
+    out.toByteArray should be(toBytes(Data.substring(readLen)))
+  }
+
+  it should "check for the number of bytes available before a skip operation" in {
+    val stream = createStreamWithChunks("A countenance more", "In sorrow than in anger.")
+    val count = stream.available()
+
+    stream skip 1000 should be(count)
+    stream.available() should be(0)
+    stream read new Array[Byte](16) should be(0)
   }
 }

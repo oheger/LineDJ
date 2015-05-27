@@ -178,19 +178,14 @@ InputStream {
    */
   def find(b: Byte): Boolean = {
     var found = false
-    while (available() > 0 && !found) {
-      val pos = chunks(currentChunk).data.indexOf(b, currentPosition)
-      if(pos >= 0) {
+    process(available()) { (src, pos, length, count) =>
+      val hit = src.data.indexOf(b, pos)
+      if(hit < 0) hit
+      else {
         found = true
-        bytesAvailable -= pos - currentPosition + 1
-        currentPosition = pos + 1
-      } else {
-        bytesAvailable -= chunks(currentChunk).length - currentPosition
-        currentPosition = 0
-        currentChunk = increaseChunkIndex(currentChunk)
+        hit + 1
       }
     }
-
     found
   }
 
@@ -223,13 +218,13 @@ InputStream {
   override def read(b: Array[Byte]): Int = read(b, 0, b.length)
 
   override def read(b: Array[Byte], off: Int, len: Int): Int = {
-    val readLength = math.min(len, bytesAvailable)
+    val readLength = checkAvailable(len)
     if (readLength == 0 && completed) -1
     else {
-      readFromChunks(b, off, readLength)
-
-      bytesRead(readLength)
-      readLength
+      process(readLength) { (src, pos, length, offset) =>
+        System.arraycopy(src.data, src.offset + pos, b, offset + off, length)
+        -1
+      }
     }
   }
 
@@ -263,6 +258,14 @@ InputStream {
   }
 
   /**
+   * @inheritdoc The skip() method is implemented here explicitly in a more
+   *             efficient way. ''Note'': Only skip sizes in the range of an
+   *             Int are supported!
+   */
+  override def skip(n: Long): Long =
+    process(checkAvailable(n.toInt)) { (_,_,_,_) => -1 }
+
+  /**
    * Updates internal counters to reflect that the given number of bytes was
    * read.
    * @param count the number of bytes which has been read
@@ -273,29 +276,51 @@ InputStream {
   }
 
   /**
-   * Reads data from the chunks stored in this stream into the provided buffer.
-   * @param b the buffer
-   * @param off the offset into this buffer
-   * @param readLength the number of bytes to be read
+   * A type definition for a function used by the ''process()'' method. This
+   * function is invoked when processing the stream. The arguments have the
+   * following meaning: the current chunk, the current position in this chunk,
+   * the number of bytes to process in this chunk, the number of bytes
+   * already processed in the current operation. The return value is the new
+   * current position in this chunk; a value of -1 means that processing should
+   * continue with the next chunk; all other values terminate processing at
+   * this position.
    */
-  private def readFromChunks(b: Array[Byte], off: Int, readLength: Int): Unit = {
-    var bytesToRead = readLength
-    var arrayOffset = off
+  private type ProcessingFunc = (ArraySource, Int, Int, Int) => Int
 
-    while (bytesToRead > 0) {
-      val chunkReadLength = math.min(chunks(currentChunk).length - currentPosition, bytesToRead)
+  /**
+   * Processes data from this stream. This method processes the given number of
+   * bytes. For each chunk encountered during processing the specified
+   * processing function is called. The function may terminate the processing
+   * by returning an end position. Otherwise, processing continues until the
+   * maximum number of bytes to be processed is reached (or no more data is
+   * available). The return value is the number of bytes processed.
+   * @param count the maximum number of bytes to be processed
+   * @param func the processing function
+   * @return the number of bytes that have been processed
+   */
+  private def process(count: Int)(func: ProcessingFunc): Int = {
+    var bytesProcessed = 0
+    var bytesToProcess = count
+    var done = false
+
+    while (bytesProcessed < count && !done) {
+      val chunkReadLength = math.min(chunks(currentChunk).length - currentPosition, bytesToProcess)
       if (chunkReadLength > 0) {
-        System.arraycopy(chunks(currentChunk).data, chunks(currentChunk).offset +
-          currentPosition, b, arrayOffset,
-          chunkReadLength)
-        currentPosition += chunkReadLength
-        bytesToRead -= chunkReadLength
-        arrayOffset += chunkReadLength
+        val pos = func(chunks(currentChunk), currentPosition, chunkReadLength, bytesProcessed)
+        val processedInChunk = if (pos < 0) chunkReadLength
+        else pos - currentPosition
+        currentPosition += processedInChunk
+        bytesToProcess -= processedInChunk
+        bytesProcessed += processedInChunk
+        done = pos >= 0
       } else {
         currentChunk = increaseChunkIndex(currentChunk)
         currentPosition = 0
       }
     }
+
+    bytesRead(bytesProcessed)
+    bytesProcessed
   }
 
   /**
@@ -349,6 +374,14 @@ InputStream {
     }
     newChunks
   }
+
+  /**
+   * Convenience method determining the minimum of the passed in length and the
+   * number of bytes available. This operation is needed in multiple places.
+   * @param len the length to be checked
+   * @return the checked length
+   */
+  private def checkAvailable(len: Int): Int = math.min(len, bytesAvailable)
 
   /**
    * Increases an index in the chunks array. If the maximum capacity is
