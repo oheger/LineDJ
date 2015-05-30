@@ -8,14 +8,20 @@ package de.oliver_heger.splaya
  */
 package object mp3 {
   /**
+   * Converts a byte to an unsigned integer.
+   * @param b the byte
+   * @return the converted integer
+   */
+  def toUnsignedInt(b: Byte): Int = b.toInt & 0xFF
+
+  /**
    * Extracts a single byte from the given buffer and converts it to an
    * (unsigned) integer.
    * @param buf the byte buffer
    * @param idx the index in the buffer
    * @return the resulting unsigned integer
    */
-  def extractByte(buf: Array[Byte], idx: Int): Int =
-    buf(idx).toInt & 0xFF
+  def extractByte(buf: Array[Byte], idx: Int): Int = toUnsignedInt(buf(idx))
 
   /**
    * Extracts a string from the given byte array using the specified encoding.
