@@ -35,10 +35,11 @@ import de.oliver_heger.splaya.mp3._
  * collecting the meta data found can be queried.
  *
  * @param collectorActor the actor collecting all kinds of meta data results
+ * @param readChunkSize the chunks size for reading audio files
  * @param id3TagSizeLimit an optional size limit for ID3v2 tags; larger tags are ignored
  */
-private class MetaDataExtractionContext(val collectorActor: ActorRef, val id3TagSizeLimit: Int =
-Integer.MAX_VALUE) {
+private case class MetaDataExtractionContext(collectorActor: ActorRef, readChunkSize: Int,
+                                             id3TagSizeLimit: Int = Integer.MAX_VALUE) {
   /** The object for extracting ID3 headers. */
   val headerExtractor = new ID3HeaderExtractor
 

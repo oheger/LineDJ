@@ -23,14 +23,14 @@ import org.scalatest.{FlatSpec, Matchers}
  */
 class MetaDataExtractionContextSpec extends FlatSpec with Matchers {
   "A MetaDataExtractionContext" should "provide an ID3 header extractor" in {
-    val context = new MetaDataExtractionContext(null)
+    val context = new MetaDataExtractionContext(null, 1024)
 
     context.headerExtractor shouldBe a[ID3HeaderExtractor]
   }
 
   it should "allow creating an ID3 frame extractor" in {
     val header = ID3Header(2, 100)
-    val context = new MetaDataExtractionContext(null)
+    val context = MetaDataExtractionContext(null, 1024)
 
     val extractor = context createID3FrameExtractor header
     extractor.header should be(header)
@@ -40,21 +40,21 @@ class MetaDataExtractionContextSpec extends FlatSpec with Matchers {
   it should "set a size limit for tags in the ID3 frame extractor" in {
     val header = ID3Header(2, 100)
     val MaxTagSize = 1024
-    val context = new MetaDataExtractionContext(null, MaxTagSize)
+    val context = MetaDataExtractionContext(null, 1024, MaxTagSize)
 
     val extractor = context createID3FrameExtractor header
     extractor.tagSizeLimit should be(MaxTagSize)
   }
 
   it should "allow creating an MP3 data extractor" in {
-    val context = new MetaDataExtractionContext(null)
+    val context = MetaDataExtractionContext(null, 1024)
 
     val extractor = context.createMp3DataExtractor()
     extractor.getFrameCount should be(0)
   }
 
   it should "allow creating an ID3v1 extractor" in {
-    val context = new MetaDataExtractionContext(null)
+    val context = MetaDataExtractionContext(null, 1024)
 
     val extractor = context.createID3v1Extractor()
     extractor.createTagProvider() shouldBe 'empty
