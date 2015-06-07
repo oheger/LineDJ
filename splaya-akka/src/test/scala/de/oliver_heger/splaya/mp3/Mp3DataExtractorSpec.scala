@@ -18,6 +18,7 @@ package de.oliver_heger.splaya.mp3
 import java.io.ByteArrayOutputStream
 import java.util
 
+import de.oliver_heger.splaya.io.DynamicInputStream
 import org.scalatest.{FlatSpec, Matchers}
 
 object Mp3DataExtractorSpec {
@@ -134,6 +135,19 @@ class Mp3DataExtractorSpec extends FlatSpec with Matchers {
     extractor.getFrameCount should be(0)
 
     extractor addData new Array[Byte](1)
+    extractor.getFrameCount should be(1)
+    checkDefaultProperties(extractor)
+  }
+
+  it should "be able to handle an array source" in {
+    val bos = new ByteArrayOutputStream
+    val offset = 5
+    writeBytes(bos, 32, offset)
+    writeFrame(bos, 0xF3, 0x96, 0)
+    val source = DynamicInputStream.arraySourceFor(bos.toByteArray, offset)
+    val extractor = new Mp3DataExtractor
+
+    extractor addData source should be(extractor)
     extractor.getFrameCount should be(1)
     checkDefaultProperties(extractor)
   }

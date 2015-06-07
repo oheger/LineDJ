@@ -15,6 +15,7 @@
  */
 package de.oliver_heger.splaya.mp3
 
+import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
 import de.oliver_heger.splaya.io.DynamicInputStream
 
 object Mp3DataExtractor {
@@ -314,6 +315,27 @@ class Mp3DataExtractor {
    */
   def addData(data: Array[Byte]): Mp3DataExtractor = {
     buffer append data
+    handleNewData()
+  }
+
+  /**
+   * Adds another chunk of data to this object in form of an ''ArraySource''
+   * and processes it. The meta data about the file to be processed is directly
+   * updated.
+   * @param source the data to be processed
+   * @return a reference to this object
+   */
+  def addData(source: ArraySource): Mp3DataExtractor = {
+    buffer append source
+    handleNewData()
+  }
+
+  /**
+   * Handles new data that has been added to the internal data buffer. If
+   * new data is available after skipping, it is processed.
+   * @return a reference to this object
+   */
+  private def handleNewData(): Mp3DataExtractor = {
     if (handleSkip()) {
       process()
     }
