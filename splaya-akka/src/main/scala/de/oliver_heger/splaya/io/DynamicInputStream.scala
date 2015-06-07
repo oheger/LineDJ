@@ -179,11 +179,11 @@ InputStream {
   def find(b: Byte): Boolean = {
     var found = false
     process(available()) { (src, pos, length, count) =>
-      val hit = src.data.indexOf(b, pos)
+      val hit = src.data.indexOf(b, pos + src.offset)
       if(hit < 0) hit
       else {
         found = true
-        hit + 1
+        hit + 1 - src.offset
       }
     }
     found

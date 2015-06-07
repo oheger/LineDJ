@@ -484,6 +484,25 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     stream.available() should be(0)
   }
 
+  it should "handle array sources with an offset correctly in find operations" in {
+    val Data = toBytes("What, look'd he frowningly?")
+    val source = DynamicInputStream.arraySourceFor(Data, 13)
+    val stream = new DynamicInputStream
+    stream append source
+
+    stream find 'w' shouldBe true
+    stream.available() should be(7)
+  }
+
+  it should "not find data in the part of a data source before the start offset" in {
+    val Data = toBytes("Then saw you not his face.")
+    val source = DynamicInputStream.arraySourceFor(Data, 13)
+    val stream = new DynamicInputStream
+    stream append source
+
+    stream find 'y' shouldBe false
+  }
+
   it should "support reset together with find" in {
     val Data = "What does this mean, my lord?"
     val stream = createStreamWithChunks(Data)
