@@ -82,6 +82,20 @@ case class Mp3MetaData(path: Path, version: Int, layer: Int, sampleRate: Int, mi
                        maximumBitRate: Int, duration: Int)
 
 /**
+ * A message with the meta data result extracted from an ID3v1 frame.
+ *
+ * A message of this type is generated when an MP3 file has been fully
+ * processed. If the file contained an ID3v1 frame at the end, it can be
+ * extracted and passed to the central collector actor. The meta data is
+ * represented by an [[ID3TagProvider]] object. If the audio file did not
+ * contain valid ID3v1 information, this may be undefined.
+ *
+ * @param path the path of the affected media file
+ * @param metaData the ID3v1 meta data
+ */
+case class ID3v1MetaData(path: Path, metaData: Option[ID3TagProvider])
+
+/**
  * A message telling media read actors that a specific media file should be
  * processed.
  *
