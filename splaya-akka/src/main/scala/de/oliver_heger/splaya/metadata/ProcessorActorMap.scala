@@ -21,6 +21,47 @@ import akka.actor.{ActorRef, Props}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
 /**
+ * A trait implementing basic functionality for mapping items to the paths of
+ * currently processed media files during meta data generation.
+ *
+ * While extracting meta data from media files, for each media file a couple
+ * of helper objects are needed. These are created on demand and then cached
+ * until processing of the associated file is done. The major part of this
+ * functionality is implemented by this trait. Concrete sub classes just have
+ * to define the creation of the managed objects.
+ *
+ * @tparam V the type of items managed by the represented map
+ */
+trait PathItemMap[V] {
+  /** A map for storing the items managed by this object.*/
+  private val itemMap = collection.mutable.Map.empty[Path, V]
+
+  /**
+   * Removes the assignment for the given path from this map and returns an
+   * option for the associated item. This method can be called when the
+   * processing of the media file with this path is done and the associated
+   * item is not longer needed. If already created, the item is returned so
+   * that it can be gracefully shutdown if needed. Otherwise, result is
+   * ''None''.
+   * @param path the path in question
+   * @return an option for the assigned item
+   */
+  def removeItemFor(path: Path): Option[V] = itemMap remove path
+
+  /**
+   * Returns the managed item associated with the given path. If this path is
+   * accessed for the first time, the item is created using the specified
+   * creator operation.
+   * @param path the path
+   * @param itemCreator the operation for creating the item
+   * @return the item assigned to this path
+   */
+  protected def getOrCreateItem(path: Path, itemCreator: => V): V = {
+    itemMap.getOrElseUpdate(path, itemCreator)
+  }
+}
+
+/**
  * An internally used helper class for storing temporary instances of actors
  * used for processing meta data.
  *
@@ -39,10 +80,7 @@ import de.oliver_heger.splaya.utils.ChildActorFactory
  *
  * @param creationProps ''Props'' for the actor instances to be created
  */
-private class ProcessorActorMap(val creationProps: Props) {
-  /** A map for storing the actors associated with paths. */
-  private val actorMap = collection.mutable.Map.empty[Path, ActorRef]
-
+private class ProcessorActorMap(val creationProps: Props) extends PathItemMap[ActorRef] {
   /**
    * Returns the reference to a child actor associated with the given path. If
    * no such child actor exists, it is created now using the provided
@@ -52,16 +90,6 @@ private class ProcessorActorMap(val creationProps: Props) {
    * @return the child actor assigned to this path
    */
   def getOrCreateActorFor(path: Path, factory: ChildActorFactory): ActorRef = {
-    actorMap.getOrElseUpdate(path, factory createChildActor creationProps)
+    getOrCreateItem(path, factory createChildActor creationProps)
   }
-
-  /**
-   * Removes the assignment for the given path from this map and returns an
-   * option for the associated actor. This method can be called when the
-   * processing of the path is done and the associated child actor no longer
-   * needs to be invoked.
-   * @param path the path in question
-   * @return an option for the assigned child actor
-   */
-  def removeActorFor(path: Path): Option[ActorRef] = actorMap remove path
 }

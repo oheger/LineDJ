@@ -109,7 +109,7 @@ class ProcessorActorMapSpec extends FlatSpec with Matchers with MockitoSugar {
     val map = new ProcessorActorMap(CreationProps)
 
     map.getOrCreateActorFor(TestPath, factory)
-    map.removeActorFor(TestPath).get should be(actor1)
+    map.removeItemFor(TestPath).get should be(actor1)
     map.getOrCreateActorFor(TestPath, factory) should be(actor2)
   }
 }
