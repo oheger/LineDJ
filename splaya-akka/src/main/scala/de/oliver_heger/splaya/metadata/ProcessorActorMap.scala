@@ -93,3 +93,25 @@ private class ProcessorActorMap(val creationProps: Props) extends PathItemMap[Ac
     getOrCreateItem(path, factory createChildActor creationProps)
   }
 }
+
+/**
+ * An internally used helper class for storing temporary instances of
+ * [[MetaDataPartsCollector]].
+ *
+ * For each media file which gets processed an associated collector objects for
+ * its meta data has to be created. During processing, these instances are
+ * queried and updated with new information as soon as it becomes available.
+ * This class handles the management of these objects and their creation on
+ * demand.
+ */
+private class MetaDataCollectorMap extends PathItemMap[MetaDataPartsCollector] {
+  /**
+   * Returns the reference to a ''MetaDataPartsCollector'' associated with the
+   * given path. If no such object exists, it is created now.
+   * @param path the path of the media file currently processed
+   * @return the ''MetaDataPartsCollector'' for this file
+   */
+  def getOrCreateCollector(path: Path): MetaDataPartsCollector = {
+    getOrCreateItem(path, new MetaDataPartsCollector)
+  }
+}
