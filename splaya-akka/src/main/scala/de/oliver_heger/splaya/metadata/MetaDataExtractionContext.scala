@@ -16,6 +16,7 @@
 package de.oliver_heger.splaya.metadata
 
 import akka.actor.ActorRef
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.mp3._
 
 /**
@@ -35,11 +36,9 @@ import de.oliver_heger.splaya.mp3._
  * collecting the meta data found can be queried.
  *
  * @param collectorActor the actor collecting all kinds of meta data results
- * @param readChunkSize the chunks size for reading audio files
- * @param id3TagSizeLimit an optional size limit for ID3v2 tags; larger tags are ignored
+ * @param config the media server configuration
  */
-private case class MetaDataExtractionContext(collectorActor: ActorRef, readChunkSize: Int,
-                                             id3TagSizeLimit: Int = Integer.MAX_VALUE) {
+private case class MetaDataExtractionContext(collectorActor: ActorRef, config: ServerConfig) {
   /** The object for extracting ID3 headers. */
   val headerExtractor = new ID3HeaderExtractor
 
@@ -49,7 +48,7 @@ private case class MetaDataExtractionContext(collectorActor: ActorRef, readChunk
    * @return a corresponding new ''ID3FrameExtractor''
    */
   def createID3FrameExtractor(header: ID3Header): ID3FrameExtractor =
-    new ID3FrameExtractor(header, id3TagSizeLimit)
+    new ID3FrameExtractor(header, config.tagSizeLimit)
 
   /**
    * Creates a new ''Mp3DataExtractor'' object.

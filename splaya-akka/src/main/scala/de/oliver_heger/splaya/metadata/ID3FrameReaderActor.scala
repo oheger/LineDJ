@@ -138,7 +138,7 @@ extractionContext: MetaDataExtractionContext) extends ProcessingReader {
     override def handleDataRead(data: Array[Byte]): ProcessingState = {
       extractionContext.headerExtractor extractID3Header data match {
         case Some(header) =>
-          val readCount = math.min(header.size, extractionContext.readChunkSize)
+          val readCount = math.min(header.size, extractionContext.config.metaDataReadChunkSize)
           readFromWrappedActor(readCount)
           new ProcessingStateHeaderFound(header, readCount)
 
@@ -185,7 +185,8 @@ extractionContext: MetaDataExtractionContext) extends ProcessingReader {
         readRequestForHeader()
         ProcessingStateHeaderSearch
       } else {
-        val nextChunkSize = math.min(extractionContext.readChunkSize, header.size - bytesProcessed)
+        val nextChunkSize = math.min(extractionContext.config.metaDataReadChunkSize,
+          header.size - bytesProcessed)
         readFromWrappedActor(nextChunkSize)
         new ProcessingStateHeaderFound(header, bytesProcessed + nextChunkSize)
       }

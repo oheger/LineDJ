@@ -15,46 +15,57 @@
  */
 package de.oliver_heger.splaya.metadata
 
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.mp3.{ID3Header, ID3HeaderExtractor}
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+
+object MetaDataExtractionContextSpec {
+  /** Constant for the maximum tag size. */
+  private val MaxTagSize = 1024
+}
 
 /**
  * Test class for ''MetaDataExtractionContext''.
  */
-class MetaDataExtractionContextSpec extends FlatSpec with Matchers {
+class MetaDataExtractionContextSpec extends FlatSpec with Matchers with MockitoSugar {
+  import MetaDataExtractionContextSpec._
+
+  /**
+   * Creates a test context object with a mock configuration.
+   * @return the test context
+   */
+  private def createContext(): MetaDataExtractionContext = {
+    val config = mock[ServerConfig]
+    when(config.tagSizeLimit).thenReturn(MaxTagSize)
+    new MetaDataExtractionContext(null, config)
+  }
+
   "A MetaDataExtractionContext" should "provide an ID3 header extractor" in {
-    val context = new MetaDataExtractionContext(null, 1024)
+    val context = createContext()
 
     context.headerExtractor shouldBe a[ID3HeaderExtractor]
   }
 
   it should "allow creating an ID3 frame extractor" in {
     val header = ID3Header(2, 100)
-    val context = MetaDataExtractionContext(null, 1024)
+    val context = createContext()
 
     val extractor = context createID3FrameExtractor header
     extractor.header should be(header)
-    extractor.tagSizeLimit should be(Integer.MAX_VALUE)
-  }
-
-  it should "set a size limit for tags in the ID3 frame extractor" in {
-    val header = ID3Header(2, 100)
-    val MaxTagSize = 1024
-    val context = MetaDataExtractionContext(null, 1024, MaxTagSize)
-
-    val extractor = context createID3FrameExtractor header
     extractor.tagSizeLimit should be(MaxTagSize)
   }
 
   it should "allow creating an MP3 data extractor" in {
-    val context = MetaDataExtractionContext(null, 1024)
+    val context = createContext()
 
     val extractor = context.createMp3DataExtractor()
     extractor.getFrameCount should be(0)
   }
 
   it should "allow creating an ID3v1 extractor" in {
-    val context = MetaDataExtractionContext(null, 1024)
+    val context = createContext()
 
     val extractor = context.createID3v1Extractor()
     extractor.createTagProvider() shouldBe 'empty

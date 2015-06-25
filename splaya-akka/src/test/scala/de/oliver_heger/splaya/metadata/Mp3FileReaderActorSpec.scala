@@ -22,8 +22,11 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.splaya.SupervisionTestActor
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.io.{ChannelHandler, FileReaderActor}
 import de.oliver_heger.splaya.utils.ChildActorFactory
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -46,7 +49,7 @@ object Mp3FileReaderActorSpec {
  * Test class for ''Mp3FileReaderActor''.
  */
 class Mp3FileReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
+ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
 
   import Mp3FileReaderActorSpec._
 
@@ -128,7 +131,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val probeCollector = TestProbe()
 
     /** The extraction context. */
-    val extractionContext = MetaDataExtractionContext(probeCollector.ref, ReadChunkSize)
+    val extractionContext = MetaDataExtractionContext(probeCollector.ref, createConfig())
 
     /**
      * Creates a test actor that uses a special child actor factory which allows
@@ -162,6 +165,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
       actor ! InitFileMessage
       frameReaderProbe.expectMsg(InitFileMessage)
       frameReaderProbe.expectMsg(FileReaderActor.ReadData(ReadChunkSize))
+    }
+
+    /**
+     * Creates an initialized mock for the server configuration.
+     * @return the configuration mock
+     */
+    private def createConfig(): ServerConfig = {
+      val config = mock[ServerConfig]
+      when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
+      config
     }
   }
 

@@ -19,6 +19,7 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.io.{ChannelHandler, FileReaderActor}
 import de.oliver_heger.splaya.mp3.{ID3Header, ID3HeaderExtractor}
 import org.mockito.Mockito._
@@ -273,10 +274,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the extraction context
      */
     private def createExtractionContext(): MetaDataExtractionContext = {
-      new MetaDataExtractionContext(collectorProbe.ref, ReadChunkSize) {
+      new MetaDataExtractionContext(collectorProbe.ref, createConfig()) {
         override val headerExtractor: ID3HeaderExtractor = ID3FrameReaderTestHelper.this
           .headerExtractor
       }
+    }
+
+    /**
+     * Creates a mock for the server configuration.
+     * @return the configuration mock
+     */
+    private def createConfig(): ServerConfig = {
+      val config = mock[ServerConfig]
+      when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
+      config
     }
   }
 
