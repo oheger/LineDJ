@@ -11,7 +11,7 @@ import java.nio.file.Path
  * @param path the path to the represented file
  * @param size the size of the file
  */
-private case class MediaFile(path: Path, size: Long)
+case class MediaFile(path: Path, size: Long)
 
 /**
  * A data class storing the results of a directory scan for media files (in its
@@ -25,5 +25,5 @@ private case class MediaFile(path: Path, size: Long)
  * @param mediaFiles a map with files assigned to a medium
  * @param otherFiles a list with other files
  */
-private case class MediaScanResult(root: Path, mediaFiles: Map[Path, List[MediaFile]], otherFiles:
+case class MediaScanResult(root: Path, mediaFiles: Map[Path, List[MediaFile]], otherFiles:
 List[MediaFile])
