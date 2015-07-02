@@ -18,6 +18,7 @@ package de.oliver_heger.splaya.metadata
 import java.nio.file.Path
 
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
+import de.oliver_heger.splaya.media.MediaScanResult
 import de.oliver_heger.splaya.mp3.{ID3Header, ID3TagProvider}
 
 /**
@@ -116,3 +117,38 @@ case class ReadMediaFile(path: Path)
  * @param path the path of the media file which has been read
  */
 case class MediaFileRead(path: Path)
+
+/**
+ * A message received by [[MediumProcessorActor]] telling it to start
+ * processing now.
+ *
+ * This message actually initiates the extraction of meta data by the receiving
+ * actor instance.
+ */
+case object ProcessMediaFiles
+
+/**
+ * A message with the result of meta data extraction for a single media file.
+ *
+ * Messages of this type are sent to the meta data manager actor whenever a
+ * media file has been processed. The message contains the meta data that
+ * could be extracted.
+ *
+ * @param path the path to the media file
+ * @param mediumPath the optional path of the medium this file belongs to;
+ *                   ''None'' if this file does not belong to a medium
+ * @param metaData an object with the meta data that could be extracted
+ */
+case class MetaDataProcessingResult(path: Path, mediumPath: Option[Path], metaData: MediaMetaData)
+
+/**
+ * A message sent by [[MediumProcessorActor]] when all media files in its list
+ * have been processed.
+ *
+ * The object containing all processed media files is passed. This gives the
+ * receiving meta data manager the chance to react on the completion of a meta
+ * data extract operation.
+ *
+ * @param data the object containing the processed media files
+ */
+case class MediaFilesProcessed(data: MediaScanResult)
