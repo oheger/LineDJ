@@ -81,10 +81,10 @@ class Mp3FileReaderActor(extractionContext: MetaDataExtractionContext) extends A
   }
 
   override def receive: Receive = {
-    case init: ChannelHandler.InitFile =>
-      readerActor ! init
+    case ReadMediaFile(path) =>
+      readerActor ! ChannelHandler.InitFile(path)
       readerActor ! ReadData(extractionContext.config.metaDataReadChunkSize)
-      currentPath = init.path
+      currentPath = path
 
     case result: FileReaderActor.ReadResult =>
       readerActor ! ReadData(extractionContext.config.metaDataReadChunkSize)

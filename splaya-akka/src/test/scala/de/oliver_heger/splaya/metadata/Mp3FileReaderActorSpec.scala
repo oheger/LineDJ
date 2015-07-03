@@ -111,7 +111,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val actor = supervisor.underlyingActor.childActor
     probe watch actor
 
-    actor ! InitFileMessage
+    actor ! ReadMediaFile(InitFileMessage.path)
     val termMsg = probe.expectMsgType[Terminated]
     termMsg.actor should be(actor)
   }
@@ -162,7 +162,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param actor the test actor
      */
     def expectInitialization(actor: ActorRef): Unit = {
-      actor ! InitFileMessage
+      actor ! ReadMediaFile(InitFileMessage.path)
       frameReaderProbe.expectMsg(InitFileMessage)
       frameReaderProbe.expectMsg(FileReaderActor.ReadData(ReadChunkSize))
     }
