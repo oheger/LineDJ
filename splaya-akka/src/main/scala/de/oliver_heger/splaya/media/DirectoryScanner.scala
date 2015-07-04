@@ -36,8 +36,17 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
   def scan(root: Path): MediaScanResult = {
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(root, visitor)
-    MediaScanResult(root, visitor.mediaFiles, visitor.otherFiles)
+    MediaScanResult(root, visitor.mediaFiles filter filterUndefinedMedium)
   }
+
+  /**
+   * Filters on the undefined medium ID. The resulting map should include this
+   * element only if it actually contains files.
+   * @param e the map entry to be filtered
+   * @return filter result for this entry
+   */
+  private def filterUndefinedMedium(e: (MediumID, List[MediaFile])): Boolean =
+    e._1 != UndefinedMediumID || e._2.nonEmpty
 }
 
 private object ScanVisitor {
@@ -80,14 +89,14 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
   var nextBuffer = filesStack.head
 
   /** The map storing the files for all media. */
-  var mediaFilesMap = Map.empty[Path, ListBuffer[MediaFile]]
+  var mediaFilesMap: Map[MediumID, ListBuffer[MediaFile]] = Map(UndefinedMediumID -> nextBuffer)
 
   /**
    * Creates the map with media files based on the data collected during the
    * visit operation.
    * @return the map with media files
    */
-  def mediaFiles: Map[Path, List[MediaFile]] = mediaFilesMap map (e => (e._1, e._2.toList))
+  def mediaFiles: Map[MediumID, List[MediaFile]] = mediaFilesMap map (e => (e._1, e._2.toList))
 
   /**
    * Creates the list with files that do not belong to a specific medium based
@@ -100,7 +109,7 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
     val extension = extractExtension(file)
     if (SettingsExtension == extension) {
       val buffer = ListBuffer.empty[MediaFile]
-      mediaFilesMap = mediaFilesMap + (file -> buffer)
+      mediaFilesMap = mediaFilesMap + (DefinedMediumID(file) -> buffer)
       nextBuffer = buffer
 
     } else if (!exclusions.contains(extension)) {
