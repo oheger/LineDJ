@@ -21,7 +21,7 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.config.ServerConfig
-import de.oliver_heger.splaya.media.{MediaFile, MediaScanResult}
+import de.oliver_heger.splaya.media.{MediumID, MediaFile, MediaScanResult}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
 object MediumProcessorActor {
@@ -45,23 +45,20 @@ object MediumProcessorActor {
    * @param scanResult the scan result
    * @return a sequence with all paths to be processed
    */
-  private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, Option[Path])] = {
-    val filesNoMedium = associateWithMediumPath(None, scanResult.otherFiles)
-    val filesWithMedium = scanResult.mediaFiles.map(e => associateWithMediumPath(Some(e._1), e
-      ._2)).toList
-    val files = filesNoMedium :: filesWithMedium
+  private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, MediumID)] = {
+    val files = scanResult.mediaFiles.map(e => associateWithMediumID(e._1, e._2)).toList
     files.flatten map (t => (t._1.path, t._2))
   }
 
   /**
-   * Produces a list of pairs that assigns each file the path to its medium.
-   * @param mediumPath the optional medium path
+   * Produces a list of pairs that assigns each file to its medium.
+   * @param mediumID the medium ID
    * @param files the list of files
    * @return a list of pairs with the associated medium paths
    */
-  private def associateWithMediumPath(mediumPath: Option[Path], files: List[MediaFile]): List[
-    (MediaFile, Option[Path])] = {
-    val mediumPathList = List.fill(files.size)(mediumPath)
+  private def associateWithMediumID(mediumID: MediumID, files: List[MediaFile]): List[
+    (MediaFile, MediumID)] = {
+    val mediumPathList = List.fill(files.size)(mediumID)
     files zip mediumPathList
   }
 }
@@ -134,7 +131,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   private[metadata] val collectorMap = optCollectorMap getOrElse new MetaDataCollectorMap
 
   /** A map with information about the files currently processed. */
-  private val currentProcessingData = collection.mutable.Map.empty[Path, Option[Path]]
+  private val currentProcessingData = collection.mutable.Map.empty[Path, MediumID]
 
   /**
    * A map keeping track which reader actor processes which file. This is
@@ -221,7 +218,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * @param reader the reader actor
    * @param fileInfo the object for the file to be read
    */
-  private def initiateFileRead(reader: ActorRef, fileInfo: (Path, Option[Path])): Unit = {
+  private def initiateFileRead(reader: ActorRef, fileInfo: (Path, MediumID)): Unit = {
     reader ! ReadMediaFile(fileInfo._1)
     currentProcessingData += fileInfo
     readerActorMap += (reader -> fileInfo._1)

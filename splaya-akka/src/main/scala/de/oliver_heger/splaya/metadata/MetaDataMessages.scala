@@ -18,7 +18,7 @@ package de.oliver_heger.splaya.metadata
 import java.nio.file.Path
 
 import de.oliver_heger.splaya.io.ChannelHandler.ArraySource
-import de.oliver_heger.splaya.media.MediaScanResult
+import de.oliver_heger.splaya.media.{MediumID, MediaScanResult}
 import de.oliver_heger.splaya.mp3.{ID3Header, ID3TagProvider}
 
 /**
@@ -135,11 +135,10 @@ case object ProcessMediaFiles
  * could be extracted.
  *
  * @param path the path to the media file
- * @param mediumPath the optional path of the medium this file belongs to;
- *                   ''None'' if this file does not belong to a medium
+ * @param mediumID the ID of the medium this file belongs to
  * @param metaData an object with the meta data that could be extracted
  */
-case class MetaDataProcessingResult(path: Path, mediumPath: Option[Path], metaData: MediaMetaData)
+case class MetaDataProcessingResult(path: Path, mediumID: MediumID, metaData: MediaMetaData)
 
 /**
  * A message sent by [[MediumProcessorActor]] when all media files in its list
