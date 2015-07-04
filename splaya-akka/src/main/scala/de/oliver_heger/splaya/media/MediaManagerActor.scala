@@ -393,18 +393,19 @@ Actor with ActorLogging {
     }
 
     scanResult.mediaFiles foreach { e =>
-      loaderActor ! LoadFile(e._1)
-      val mediumPath = mediumPathFromDescription(e._1)
-      triggerIDCalculation(mediumPath, pathToURI(mediumPath), e._2)
+      e._1.mediumDescriptionPath match {
+        case Some(path) =>
+          loaderActor ! LoadFile(path)
+          val mediumPath = mediumPathFromDescription(path)
+          triggerIDCalculation(mediumPath, pathToURI(mediumPath), e._2)
+
+        case _ =>
+          triggerIDCalculation(scanResult.root, MediumIDOtherFiles, e._2)
+          processOtherFiles(scanResult)
+      }
     }
+
     mediaCount += scanResult.mediaFiles.size
-
-    if (scanResult.otherFiles.nonEmpty) {
-      mediaCount += 1
-      triggerIDCalculation(scanResult.root, MediumIDOtherFiles, scanResult.otherFiles)
-      processOtherFiles(scanResult)
-    }
-
     incrementScannedPaths()
   }
 
@@ -432,8 +433,9 @@ Actor with ActorLogging {
    * @return the resulting mapping
    */
   private def createOtherFilesMapping(scanResult: MediaScanResult): Map[String, MediaFile] = {
-    val otherURIs = scanResult.otherFiles map { f => pathToURI(f.path) }
-    Map(otherURIs zip scanResult.otherFiles: _*)
+    val otherFiles = scanResult.mediaFiles(UndefinedMediumID)
+    val otherURIs = otherFiles map { f => pathToURI(f.path) }
+    Map(otherURIs zip otherFiles: _*)
   }
 
   /**
