@@ -15,9 +15,11 @@
  */
 package de.oliver_heger.splaya.metadata
 
+import java.io.IOException
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor._
 import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.media.{MediaFile, MediaScanResult}
 import de.oliver_heger.splaya.utils.ChildActorFactory
@@ -134,6 +136,13 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   /** A map with information about the files currently processed. */
   private val currentProcessingData = collection.mutable.Map.empty[Path, Option[Path]]
 
+  /**
+   * A map keeping track which reader actor processes which file. This is
+   * needed for error handling: If a reader fails, cleanup has to be performed,
+   * and the currently processed file marked as finished.
+   */
+  private val readerActorMap = collection.mutable.Map.empty[ActorRef, Path]
+
   /** A list with all media files to be processed. */
   private var mediaFilesToProcess = pathsToBeProcessed(data)
 
@@ -147,16 +156,19 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    */
   def this(data: MediaScanResult, config: ServerConfig) = this(data, config, None, None, None, None)
 
+  override val supervisorStrategy = OneForOneStrategy() {
+    case _: IOException => Stop
+  }
+
   override def receive: Receive = {
     case ProcessMediaFiles =>
       if (metaDataManager.isEmpty) {
         val readerCount = math.min(processorCountFromConfig, mediaFilesToProcess.size)
         for (i <- 0 until readerCount) {
-          val reader = createChildActor(Props(classOf[Mp3FileReaderActor], extractionContext))
+          val reader = createChildReaderActor()
           val fileInfo = mediaFilesToProcess.head
-          reader ! ReadMediaFile(fileInfo._1)
+          initiateFileRead(reader, fileInfo)
           mediaFilesToProcess = mediaFilesToProcess.tail
-          currentProcessingData += fileInfo
         }
         metaDataManager = Some(sender())
       }
@@ -186,11 +198,45 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
       }
 
     case MediaFileRead(_) =>
-      mediaFilesToProcess.headOption foreach { t =>
-        sender ! ReadMediaFile(t._1)
-        mediaFilesToProcess = mediaFilesToProcess.tail
-        currentProcessingData += t
-      }
+      readerActorMap remove sender()
+      processNextFile(sender())
+
+    case t: Terminated =>
+      readerActorMap remove t.actor foreach handleTerminatedReadActor
+  }
+
+  /**
+   * Creates a new child actor for reading media files.
+   * @return the new child reader actor
+   */
+  private def createChildReaderActor(): ActorRef = {
+    val reader = createChildActor(Mp3FileReaderActor(extractionContext))
+    context watch reader
+    reader
+  }
+
+  /**
+   * Starts reading a new media file. Some status variables are updated
+   * accordingly.
+   * @param reader the reader actor
+   * @param fileInfo the object for the file to be read
+   */
+  private def initiateFileRead(reader: ActorRef, fileInfo: (Path, Option[Path])): Unit = {
+    reader ! ReadMediaFile(fileInfo._1)
+    currentProcessingData += fileInfo
+    readerActorMap += (reader -> fileInfo._1)
+  }
+
+  /**
+   * Tells the specified actor to start processing of the next file in the list
+   * (if available).
+   * @param reader the reader actor
+   */
+  private def processNextFile(reader: ActorRef): Unit = {
+    mediaFilesToProcess.headOption foreach { t =>
+      initiateFileRead(reader, t)
+      mediaFilesToProcess = mediaFilesToProcess.tail
+    }
   }
 
   /**
@@ -205,15 +251,40 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
     for {manager <- metaDataManager
          metaData <- f(collectorMap.getOrCreateCollector(p))
     } {
-      manager ! MetaDataProcessingResult(p, currentProcessingData(p), metaData)
-      collectorMap removeItemFor p
-      currentProcessingData -= p
+      sendProcessingResult(manager, p, metaData)
 
       if (currentProcessingData.isEmpty && mediaFilesToProcess.isEmpty) {
         manager ! MediaFilesProcessed(data)
       }
     }
     context stop sender()
+  }
+
+  /**
+   * Sends a processing result message to the manager actor and updates some
+   * internal fields indicating that the given path has now been processed.
+   * @param manager the meta data manager actor
+   * @param p the path
+   * @param metaData the meta data to be sent
+   */
+  private def sendProcessingResult(manager: ActorRef, p: Path, metaData: MediaMetaData): Unit = {
+    manager ! MetaDataProcessingResult(p, currentProcessingData(p), metaData)
+    collectorMap removeItemFor p
+    currentProcessingData -= p
+  }
+
+  /**
+   * Handles a crashed read actor. In this case, some cleanup has to be done
+   * for the affected file. An empty result message is sent to the manager
+   * actor. A new child reader actor is created replacing the crashed one.
+   * @param p the path of the file processed by the crashed actor
+   */
+  private def handleTerminatedReadActor(p: Path): Unit = {
+    List(mp3ProcessorMap, id3v1ProcessorMap, id3v2ProcessorMap) foreach { m =>
+      m removeItemFor p foreach context.stop
+    }
+    metaDataManager foreach (sendProcessingResult(_, p, MediaMetaData()))
+    processNextFile(createChildReaderActor())
   }
 
   /**

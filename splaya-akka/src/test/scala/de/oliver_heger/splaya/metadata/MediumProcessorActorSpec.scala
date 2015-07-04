@@ -83,6 +83,7 @@ object MediumProcessorActorSpec {
   ServerConfig = {
     when(config.rootFor(ScanResult.root)).thenReturn(Some(ServerConfig.MediaRootData(ScanResult
       .root, readerCount, None)))
+    when(config.metaDataReadChunkSize).thenReturn(128)
     config
   }
 }
@@ -504,6 +505,39 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsg(MediaFilesProcessed(ScanResult))
   }
 
+  it should "react on an exception caused by a reader actor" in {
+    val mediaFiles = MediumPaths map (MediaFile(_, 128))
+    val scanResult = ScanResult.copy(mediaFiles = Map(Medium -> mediaFiles), otherFiles = Nil)
+    val errorPath = MediumPaths.head
+    val helper = new MediumProcessorActorTestHelper(scanResult = scanResult, numberOfRealActors = 1)
+    val probeMp3Processor, probeId3v1Processor, probeId3v2Processor = TestProbe()
+    when(helper.mp3ProcessorMap.removeItemFor(errorPath)).thenReturn(Some(probeMp3Processor.ref))
+    when(helper.id3v1ProcessorMap.removeItemFor(errorPath)).thenReturn(Some(probeId3v1Processor
+      .ref))
+    when(helper.id3v2ProcessorMap.removeItemFor(errorPath)).thenReturn(Some(probeId3v2Processor
+      .ref))
+    when(helper.collectorMap.removeItemFor(errorPath)).thenAnswer(new
+        Answer[Option[MetaDataPartsCollector]] {
+      override def answer(invocation: InvocationOnMock): Option[MetaDataPartsCollector] = {
+        testActor ! errorPath
+        None
+      }
+    })
+
+    helper.actor ! ProcessMediaFiles
+    List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
+    expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath, mediumPath =
+      Some(Medium)))
+    expectMsg(errorPath)
+
+    helper send createMp3Data(errorPath)
+    verify(helper.mp3ProcessorMap, never()).getOrCreateActorFor(eqArg(errorPath), any
+      (classOf[ChildActorFactory]))
+
+    val paths = helper waitForProcessing 2
+    paths should contain only (MediumPaths.tail: _*)
+  }
+
   private object MediumProcessorActorTestHelper {
     /**
      * Convenience method for creating a test helper and waiting until its
@@ -522,8 +556,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * A test helper class managing some mock dependencies passed to a test actor
    * reference.
    * @param scanResult the object with the files to be processed
+   * @param numberOfRealActors the number of real child actors to be created;
+   *                           per default, test probes are returned for child
+   *                           actors; with a value greater zero, a number of
+   *                           real reader actors can be created
    */
-  private class MediumProcessorActorTestHelper(scanResult: MediaScanResult = ScanResult) {
+  private class MediumProcessorActorTestHelper(scanResult: MediaScanResult = ScanResult,
+                                                numberOfRealActors: Int = 0) {
     /** A mock for the processor map for ID3v1 processors. */
     val id3v1ProcessorMap = mock[ProcessorActorMap]
 
@@ -616,11 +655,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         optId3v2ProcessorMap = Some(id3v2ProcessorMap), optMp3ProcessorMap = Some(mp3ProcessorMap),
         optCollectorMap = Some(collectorMap)) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
-          val extrContext = checkCreationProperties(p, classOf[Mp3FileReaderActor])
-          extrContext.collectorActor should be(actor)
-          extrContext.config should be(config)
           val index = childCount.getAndIncrement()
-          readerActors(index).ref
+          if (index + 1 <= numberOfRealActors) super.createChildActor(p)
+          else {
+            val expectedProps = Mp3FileReaderActor(null)
+            val extrContext = checkCreationProperties(p, expectedProps.actorClass())
+            extrContext.collectorActor should be(actor)
+            extrContext.config should be(config)
+            readerActors(index - numberOfRealActors).ref
+          }
         }
       })
     }
