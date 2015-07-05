@@ -45,6 +45,9 @@ object ServerConfig {
   /** The configuration property for the size restriction for ID3 tags. */
   private val PropTagSizeLimit = MetaExtractionPrefix + "tagSizeLimit"
 
+  /** The configuration property for the size of meta data update chunks. */
+  private val PropMetaDataUpdateChunkSize = MetaExtractionPrefix + "metaDataUpdateChunkSize"
+
   /** Constant for the path property of a media root object. */
   private val RootPropPath = ".path"
 
@@ -69,6 +72,7 @@ object ServerConfig {
       readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
       metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
       tagSizeLimit = config getInt PropTagSizeLimit,
+      metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
       rootMap = createMediaData(config))
   }
 
@@ -148,6 +152,12 @@ object ServerConfig {
  * @param readerCheckInitialDelay the initial delay for reader actor checks
  * @param metaDataReadChunkSize the read chunk size when extracting meta data
  * @param tagSizeLimit the size limit for ID3 tags
+ * @param metaDataUpdateChunkSize the size of a chunk of meta data sent to a
+ *                                registered meta data listener as an update
+ *                                notification; this property determines how
+ *                                often a meta data listener receives update
+ *                                notifications when new meta data becomes
+ *                                available
  * @param rootMap a map with information about media roots
  */
 class ServerConfig private(val readerTimeout: FiniteDuration,
@@ -155,6 +165,7 @@ class ServerConfig private(val readerTimeout: FiniteDuration,
                            val readerCheckInitialDelay: FiniteDuration,
                            val metaDataReadChunkSize: Int,
                            val tagSizeLimit: Int,
+                           val metaDataUpdateChunkSize: Int,
                            rootMap: Map[Path, MediaRootData]) {
   /**
    * Returns a set with paths that represent root directories for media files.

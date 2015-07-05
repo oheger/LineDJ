@@ -42,6 +42,9 @@ object ServerConfigSpec {
 
   /** Test value for the size limit for ID3 tags. */
   private val TagSizeLimit = 4096
+
+  /** Test value for the chunk size of a meta data notification. */
+  private val MetaDataChunkSize = 10
 }
 
 /**
@@ -73,6 +76,7 @@ with Matchers with BeforeAndAfterAll {
           |   metaDataExtraction {
           |     readChunkSize = ${ServerConfigSpec.ReadChunkSize}
           |     tagSizeLimit = ${ServerConfigSpec.TagSizeLimit}
+          |     metaDataUpdateChunkSize = ${ServerConfigSpec.MetaDataChunkSize}
           |   }
           | }
           |}
@@ -124,5 +128,9 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the tag size limit" in {
     createConfig().tagSizeLimit should be(TagSizeLimit)
+  }
+
+  it should "return the meta data chunk size" in {
+    createConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
   }
 }
