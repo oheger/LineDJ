@@ -2,17 +2,15 @@ package de.oliver_heger.splaya.media
 
 import java.io.IOException
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.TimeUnit
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.mp3.ID3HeaderExtractor
 import de.oliver_heger.splaya.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.splaya.utils.{ChildActorFactory, SchedulerSupport}
-
-import scala.concurrent.duration._
 
 /**
  * Companion object.
@@ -107,28 +105,17 @@ object MediaManagerActor {
    */
   private val NonExistingFile = MediaFile(path = null, size = -1)
 
-  /** Constant for the prefix for configuration options. */
-  private val ConfigPrefix = "splaya.media."
-
-  /** The configuration property for the reader timeout. */
-  private val PropReaderActorTimeout = ConfigPrefix + "readerTimeout"
-
-  /** The configuration property for the initial delay for reader timeout checks. */
-  private val PropReaderCheckDelay = ConfigPrefix + "readerCheckInitialDelay"
-
-  /** The configuration property for the interval for reader timeout checks. */
-  private val PropReaderCheckInterval = ConfigPrefix + "readerCheckInterval"
-
-  private class MediaManagerActorImpl extends MediaManagerActor with ChildActorFactory with
-  SchedulerSupport
+  private class MediaManagerActorImpl(config: ServerConfig) extends MediaManagerActor(config)
+  with ChildActorFactory with SchedulerSupport
 
   /**
    * Creates a ''Props'' object for creating new actor instances of this class.
    * Client code should always use the ''Props'' object returned by this
    * method; it ensures that all dependencies have been resolved.
+   * @param config the configuration object
    * @return a ''Props'' object for creating actor instances
    */
-  def apply(): Props = Props[MediaManagerActorImpl]
+  def apply(config: ServerConfig): Props = Props(classOf[MediaManagerActorImpl], config)
 
   /**
    * Transforms a path to a string URI.
@@ -177,8 +164,12 @@ object MediaManagerActor {
  * queried. With this information, client applications can select the audio
  * data to be played. The content of specific media can be queried, and single
  * audio sources can be requested.
+ *
+ * @param config the configuration object
+ * @param readerActorMapping internal helper object for managing reader actors
  */
-class MediaManagerActor(private[media] val readerActorMapping: MediaReaderActorMapping) extends
+class MediaManagerActor(config: ServerConfig,
+                        private[media] val readerActorMapping: MediaReaderActorMapping) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport =>
 
@@ -195,15 +186,6 @@ Actor with ActorLogging {
 
   /** A helper object for parsing medium description files. */
   private[media] val mediumInfoParser = new MediumInfoParser
-
-  /** The timeout for reader actors for downloading media files. */
-  private val readerActorTimeout = durationProperty(PropReaderActorTimeout)
-
-  /** The initial delay for reader timeout checks. */
-  private val readerCheckInitialDelay = durationProperty(PropReaderCheckDelay)
-
-  /** The interval for reader timeout checkes. */
-  private val readerCheckInterval = durationProperty(PropReaderCheckInterval)
 
   /** The actor for loading files. */
   private var loaderActor: ActorRef = _
@@ -252,8 +234,9 @@ Actor with ActorLogging {
   /**
    * Creates a new instance of ''MediaManagerActor'' with a default reader
    * actor mapping.
+   * @param config the configuration object
    */
-  def this() = this(new MediaReaderActorMapping)
+  def this(config: ServerConfig) = this(config, new MediaReaderActorMapping)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -267,8 +250,8 @@ Actor with ActorLogging {
   override def preStart(): Unit = {
     import context.dispatcher
     loaderActor = createChildActor(Props[FileLoaderActor])
-    readerCheckCancellable = Some(scheduleMessage(readerCheckInitialDelay, readerCheckInterval,
-      self, CheckReaderTimeout))
+    readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
+      config.readerCheckInterval, self, CheckReaderTimeout))
   }
 
   @throws[Exception](classOf[Exception])
@@ -609,7 +592,7 @@ Actor with ActorLogging {
    * crash of the corresponding client.
    */
   private def checkForReaderActorTimeout(): Unit = {
-    readerActorMapping.findTimeouts(now(), readerActorTimeout) foreach
+    readerActorMapping.findTimeouts(now(), config.readerTimeout) foreach
       stopReaderActor
   }
 
@@ -622,13 +605,4 @@ Actor with ActorLogging {
     log.warning("Reader actor {} stopped because of timeout!", actor.path)
   }
 
-  /**
-   * Reads a property of type duration from the configuration.
-   * @param property the property key
-   * @return the duration value for this key
-   */
-  private def durationProperty(property: String): FiniteDuration = {
-    val millis = context.system.settings.config.getDuration(property, TimeUnit.MILLISECONDS)
-    FiniteDuration(millis, MILLISECONDS)
-  }
 }

@@ -8,6 +8,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.splaya.RecordingSchedulerSupport
 import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
+import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.splaya.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.splaya.mp3.ID3HeaderExtractor
@@ -79,9 +80,21 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     system awaitTermination 10.seconds
   }
 
+  /**
+   * Creates a mock configuration object.
+   * @return the mock configuration
+   */
+  private def createConfiguration(): ServerConfig = {
+    val config = mock[ServerConfig]
+    when(config.readerTimeout).thenReturn(60.seconds)
+    when(config.readerCheckInterval).thenReturn(ReaderCheckInterval)
+    when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)
+    config
+  }
+
   "A MediaManagerActor" should "create a correct Props object" in {
-    val props = MediaManagerActor()
-    props.args shouldBe 'empty
+    val props = MediaManagerActor(createConfiguration())
+    props.args should have length 1
 
     val manager = TestActorRef[MediaManagerActor](props)
     manager.underlyingActor shouldBe a[MediaManagerActor]
@@ -89,7 +102,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create default helper objects" in {
-    val manager = TestActorRef[MediaManagerActor](MediaManagerActor())
+    val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration()))
     manager.underlyingActor.directoryScanner shouldBe a[DirectoryScanner]
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
@@ -159,7 +172,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val msgFiles = expectMsgType[MediaManagerActor.MediumFiles]
     msgFiles.mediumID should be(helper.Medium1IDData.mediumID)
     msgFiles.existing shouldBe true
-    helper.Medium1IDData.fileURIMapping.keySet.sameElements(msgFiles.uris) shouldBe true
+    helper.Medium1IDData.fileURIMapping.keySet should contain theSameElementsAs msgFiles.uris
   }
 
   it should "answer a query for the files of a non-existing medium" in {
@@ -331,7 +344,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create a default reader actor mapping" in {
-    val testActor = TestActorRef[MediaManagerActor](MediaManagerActor())
+    val testActor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration()))
     testActor.underlyingActor.readerActorMapping shouldBe a[MediaReaderActorMapping]
   }
 
@@ -810,8 +823,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
-      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(mapping) with ChildActorFactory
-        with RecordingSchedulerSupport {
+      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(createConfiguration(), mapping)
+        with ChildActorFactory with RecordingSchedulerSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
         }
