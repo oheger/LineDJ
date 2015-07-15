@@ -93,8 +93,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   "A MediaManagerActor" should "create a correct Props object" in {
-    val props = MediaManagerActor(createConfiguration())
-    props.args should have length 1
+    val props = MediaManagerActor(createConfiguration(), testActor)
+    props.args should have length 2
 
     val manager = TestActorRef[MediaManagerActor](props)
     manager.underlyingActor shouldBe a[MediaManagerActor]
@@ -102,7 +102,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create default helper objects" in {
-    val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration()))
+    val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
     manager.underlyingActor.directoryScanner shouldBe a[DirectoryScanner]
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
@@ -344,8 +344,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create a default reader actor mapping" in {
-    val testActor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration()))
-    testActor.underlyingActor.readerActorMapping shouldBe a[MediaReaderActorMapping]
+    val actor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
+    actor.underlyingActor.readerActorMapping shouldBe a[MediaReaderActorMapping]
   }
 
   /**
@@ -432,6 +432,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     system stop helper.testManagerActor
     val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
     awaitCond(invocation.cancellable.isCancelled)
+  }
+
+  it should "pass media scan results to the meta data manager" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+
+    val messages = for(i <- 1 to 3) yield helper.mediaManagerActor.expectMsgType[MediaScanResult]
+    messages should contain only (helper.Drive1, helper.Drive2, helper.Drive3)
   }
 
   /**
@@ -661,6 +669,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private val probes = createTestProbesMap()
 
+    /** A test probe representing the media manager actor. */
+    val mediaManagerActor = TestProbe()
+
     /** A queue for storing scheduler invocations. */
     val schedulerQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
@@ -823,7 +834,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
-      TestActorRef[MediaManagerActor](Props(new MediaManagerActor(createConfiguration(), mapping)
+      TestActorRef[MediaManagerActor](Props(
+        new MediaManagerActor(createConfiguration(), mediaManagerActor.ref, mapping)
         with ChildActorFactory with RecordingSchedulerSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref

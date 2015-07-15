@@ -105,17 +105,19 @@ object MediaManagerActor {
    */
   private val NonExistingFile = MediaFile(path = null, size = -1)
 
-  private class MediaManagerActorImpl(config: ServerConfig) extends MediaManagerActor(config)
-  with ChildActorFactory with SchedulerSupport
+  private class MediaManagerActorImpl(config: ServerConfig, metaDataManager: ActorRef)
+    extends MediaManagerActor(config, metaDataManager) with ChildActorFactory with SchedulerSupport
 
   /**
    * Creates a ''Props'' object for creating new actor instances of this class.
    * Client code should always use the ''Props'' object returned by this
    * method; it ensures that all dependencies have been resolved.
    * @param config the configuration object
+   * @param metaDataManager a reference to the meta data manager actor
    * @return a ''Props'' object for creating actor instances
    */
-  def apply(config: ServerConfig): Props = Props(classOf[MediaManagerActorImpl], config)
+  def apply(config: ServerConfig, metaDataManager: ActorRef): Props =
+    Props(classOf[MediaManagerActorImpl], config, metaDataManager)
 
   /**
    * Transforms a path to a string URI.
@@ -166,9 +168,10 @@ object MediaManagerActor {
  * audio sources can be requested.
  *
  * @param config the configuration object
+ * @param metaDataManager a reference to the meta data manager actor
  * @param readerActorMapping internal helper object for managing reader actors
  */
-class MediaManagerActor(config: ServerConfig,
+class MediaManagerActor(config: ServerConfig, metaDataManager: ActorRef,
                         private[media] val readerActorMapping: MediaReaderActorMapping) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport =>
@@ -235,8 +238,10 @@ Actor with ActorLogging {
    * Creates a new instance of ''MediaManagerActor'' with a default reader
    * actor mapping.
    * @param config the configuration object
+   * @param metaDataManager a reference to the meta data manager actor
    */
-  def this(config: ServerConfig) = this(config, new MediaReaderActorMapping)
+  def this(config: ServerConfig, metaDataManager: ActorRef) =
+    this(config, metaDataManager, new MediaReaderActorMapping)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -388,6 +393,7 @@ Actor with ActorLogging {
       }
     }
 
+    metaDataManager ! scanResult  // propagate to meta data manager
     mediaCount += scanResult.mediaFiles.size
     incrementScannedPaths()
   }
