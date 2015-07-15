@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+  The configuration file of the JPlaya application.
+  $Id: $
+-->
+<config>
+  <framework>
+    <builder>
+      <mainScript>main.jelly</mainScript>
+      <beandefinitions>
+        <beandefinition>appbeans.jelly</beandefinition>
+      </beandefinitions>
+    </builder>
+    <appctx>
+      <defaultResourceGroup>jplaya-resources</defaultResourceGroup>
+    </appctx>
+
+    <storeuserconfig>true</storeuserconfig>
+    <userconfigname>userConfig</userconfigname>
+  </framework>
+</config>

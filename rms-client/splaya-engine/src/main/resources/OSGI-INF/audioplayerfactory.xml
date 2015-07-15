@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declarative Services declaration for the AudioPlayerFactory component.
+  This component allows creating audio player instances. It depends on some
+  other mandatory and optional services.
+-->
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0"
+  name="AudioPlayerFactory">
+  <scr:implementation class="de.oliver_heger.splaya.engine.AudioPlayerFactoryImpl" />
+
+  <scr:reference
+    interface="de.oliver_heger.splaya.fs.FSService"
+    cardinality="1..1"
+    policy="dynamic"
+    bind="bindFSService"
+    unbind="unbindFSService"/>
+
+  <scr:reference
+    interface="de.oliver_heger.splaya.playlist.PlaylistGenerator"
+    cardinality="0..n"
+    policy="dynamic"
+    bind="bindPlaylistGenerator"
+    unbind="unbindPlaylistGenerator"/>
+
+  <scr:reference
+    name="MediaDataExtractor"
+    interface="de.oliver_heger.splaya.MediaDataExtractor"
+    cardinality="0..n"
+    policy="dynamic"
+    bind="bindMediaDataExtractor"
+    unbind="unbindMediaDataExtractor"/>
+
+  <scr:reference
+    name="PlaybackContextFactory"
+    interface="de.oliver_heger.splaya.PlaybackContextFactory"
+    cardinality="1..n"
+    policy="dynamic"
+    bind="bindPlaybackContextFactory"
+    unbind="unbindPlaybackContextFactory"/>
+
+  <scr:service>
+    <scr:provide interface="de.oliver_heger.splaya.AudioPlayerFactory"/>
+  </scr:service>
+
+  <scr:property name="audioPlayer.bufferSize" value="16M"/>
+</scr:component>

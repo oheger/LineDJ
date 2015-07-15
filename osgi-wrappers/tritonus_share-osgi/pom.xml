@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>de.oliver_heger.remotemediastore</groupId>
+    <artifactId>osgi-wrappers-parent</artifactId>
+    <version>1.1-SNAPSHOT</version>
+  </parent>
+
+  <groupId>javazoom</groupId>
+  <artifactId>tritonus_share-osgi</artifactId>
+  <version>1.0</version>
+  <packaging>bundle</packaging>
+  <name>OSGi wrapper for Javazoom tritonus_share</name>
+
+  <properties>
+    <bundle.artifactId>tritonus_share</bundle.artifactId>
+    <osgi.import-package>!org.tritonus.*,*</osgi.import-package>
+  </properties>
+</project>
+

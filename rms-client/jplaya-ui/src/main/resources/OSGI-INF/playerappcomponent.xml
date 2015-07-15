@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Declarative Services declaration for the AudioPlayerApplication component.
+  This component is a graphical user interface (based on JGUIraffe) for an
+  audio player application. It has a mandatory dependency on the audio player
+  factory service. When this service is available, an audio player instance is
+  created, and the audio player application is started.
+-->
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0"
+  name="AudioPlayerAppComponent" immediate="true">
+  <scr:implementation class="de.oliver_heger.jplaya.ui.PlayerAppComponent"/>
+
+  <scr:reference
+    interface="de.oliver_heger.splaya.AudioPlayerFactory"
+    cardinality="1..1"
+    policy="dynamic"
+    bind="bindAudioPlayerFactory"
+    unbind="unbindAudioPlayerFactory"/>
+</scr:component>

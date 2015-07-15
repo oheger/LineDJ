@@ -1,0 +1,38 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>de.oliver_heger.remotemediastore</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.1-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>rms-client</artifactId>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>oauthclient</module>
+    <module>localstore</module>
+    <module>jplaya-engine</module>
+    <module>scala</module>
+    <module>splaya-engine</module>
+    <module>jplaya-ui</module>
+    <module>bundles</module>
+  </modules>
+
+  <name>RemoteMediaStore Client Components</name>
+  <description>
+    The parent pom for the client components of the Remote Media Store
+    application.
+  </description>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

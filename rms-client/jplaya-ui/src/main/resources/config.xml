@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+  The configuration definition file of the JPlaya application.
+  $Id: $
+-->
+<configuration>
+    <system config-name="system-config"/>
+	<xml config-name="userConfig" fileName="${user.home}/.jplayaconfig.xml"
+      config-optional="true" config-forceCreate="true"/>
+	<additional>
+		<xml fileName="framework-config.xml"/>
+	</additional>
+</configuration>

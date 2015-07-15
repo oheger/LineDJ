@@ -1,0 +1,93 @@
+<!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+  xmlns:g="urn:import:com.google.gwt.user.client.ui">
+  <ui:style>
+    .secheader {
+    	font-weight: bold;
+    }
+    .listbox {
+    	min-width: 10em;
+    }
+    .btn {
+    	width: 7em;
+    }
+  </ui:style>
+  <ui:with field='images'
+    type='de.oliver_heger.mediastore.client.ImageResources'/>
+
+  <g:HTMLPanel>
+  <g:DialogBox ui:field="editDlg" visible="false">
+    <g:caption>Edit synonyms</g:caption>
+    <g:VerticalPanel spacing="10">
+      <g:Label addStyleNames="{style.secheader}">Existing synonyms</g:Label>
+      <g:HTMLPanel>
+        <table spacing="2">
+        <tr>
+          <td><g:Label>Current synonyms</g:Label></td>
+          <td>&nbsp;</td>
+          <td><g:Label>Removed synonyms</g:Label></td>
+        </tr>
+        <tr>
+          <td>
+            <g:ListBox ui:field="lstExistingSyns" multipleSelect="true"
+              visibleItemCount="5" addStyleNames="{style.listbox}">
+            </g:ListBox>
+          </td>
+          <td>
+            <g:VerticalPanel spacing="4" horizontalAlignment="ALIGN_CENTER">
+              <g:Button ui:field="btnRemoveExisting" addStyleNames="{style.btn}">Remove &gt;&gt;</g:Button>
+              <g:Button ui:field="btnAddExisting" addStyleNames="{style.btn}">&lt;&lt; Add</g:Button>
+            </g:VerticalPanel>
+          </td>
+          <td>
+            <g:ListBox ui:field="lstRemovedSyns" multipleSelect="true"
+              visibleItemCount="5" addStyleNames="{style.listbox}">
+            </g:ListBox>
+          </td>
+        </tr>
+        </table>
+      </g:HTMLPanel>
+
+      <g:Label addStyleNames="{style.secheader}">New synonyms</g:Label>
+      <g:HorizontalPanel spacing="4">
+        <g:Label>Search:</g:Label>
+        <g:TextBox ui:field="txtSearch"/>
+        <g:Image ui:field="progressIndicator" visible="false"
+          resource='{images.progressIndicator}'/>
+      </g:HorizontalPanel>
+      <g:HTMLPanel>
+        <table spacing="2">
+        <tr>
+          <td><g:Label>Search results</g:Label></td>
+          <td>&nbsp;</td>
+          <td><g:Label>New synonyms</g:Label></td>
+        </tr>
+        <tr>
+          <td>
+            <g:ListBox ui:field="lstSearchSyns" multipleSelect="true"
+              visibleItemCount="5" addStyleNames="{style.listbox}">
+            </g:ListBox>
+          </td>
+          <td>
+            <g:VerticalPanel spacing="4" horizontalAlignment="ALIGN_CENTER">
+              <g:Button ui:field="btnAddSearchSyn" addStyleNames="{style.btn}">Add &gt;&gt;</g:Button>
+              <g:Button ui:field="btnRemoveSearchSyn" addStyleNames="{style.btn}">&lt;&lt; Remove</g:Button>
+            </g:VerticalPanel>
+          </td>
+          <td>
+            <g:ListBox ui:field="lstNewSyns" multipleSelect="true"
+              visibleItemCount="5" addStyleNames="{style.listbox}">
+            </g:ListBox>
+          </td>
+        </tr>
+        </table>
+      </g:HTMLPanel>
+
+      <g:HorizontalPanel spacing="4" horizontalAlignment="ALIGN_RIGHT">
+        <g:Button ui:field="btnSave" addStyleNames="{style.btn}">Save</g:Button>
+        <g:Button ui:field="btnCancel" addStyleNames="{style.btn}">Cancel</g:Button>
+      </g:HorizontalPanel>
+    </g:VerticalPanel>
+  </g:DialogBox>
+  </g:HTMLPanel>
+</ui:UiBinder>

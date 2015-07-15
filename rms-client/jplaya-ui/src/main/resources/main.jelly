@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- The Jelly script defining the main window of the JPlaya application.
+     $Id:$
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+    resgrp="application" taskBean="exitTask"/>
+
+  <!-- File Synchronize action -->
+  <a:action name="fileSyncAction" textres="act_filesync_text"
+    tooltipres="act_filesync_tip" mnemonicres="act_filesync_mnemo"
+    taskBean="syncTask">
+  </a:action>
+
+  <!-- Player initialize playlist action -->
+  <a:action name="playerInitPlaylistAction" textres="act_playerinitpl_text"
+    tooltipres="act_playerinitpl_tip" mnemonicres="act_playerinitpl_mnemo"
+    group="playerActions" taskBean="initPlaylistTask">
+    <f:icon resource="media-eject.png"/>
+  </a:action>
+
+  <!-- Player start playback action -->
+  <a:action name="playerStartPlaybackAction" textres="act_playerstart_text"
+    tooltipres="act_playerstart_tip" mnemonicres="act_playerstart_mnemo"
+    group="playerActions" taskBean="startPlaybackTask">
+    <f:icon resource="media-playback-start.png"/>
+  </a:action>
+
+  <!-- Player stop playback action -->
+  <a:action name="playerStopPlaybackAction" textres="act_playerstop_text"
+    tooltipres="act_playerstop_tip" mnemonicres="act_playerstop_mnemo"
+    group="playerActions" taskBean="stopPlaybackTask">
+    <f:icon resource="media-playback-stop.png"/>
+  </a:action>
+
+  <!-- Player next song action -->
+  <a:action name="playerNextSongAction" textres="act_playernext_text"
+    tooltipres="act_playernext_tip" mnemonicres="act_playernext_mnemo"
+    group="playerActions" taskBean="nextSongTask">
+    <f:icon resource="media-skip-forward.png"/>
+  </a:action>
+
+  <!-- Player previous song action -->
+  <a:action name="playerPrevSongAction" textres="act_playerprev_text"
+    tooltipres="act_playerprev_tip" mnemonicres="act_playerprev_mnemo"
+    group="playerActions" taskBean="prevSongTask">
+    <f:icon resource="media-skip-backward.png"/>
+  </a:action>
+
+  <!-- An action for moving to a specific song -->
+  <a:action name="playerSpecificSongAction" textres="act_playerspec_text"
+    tooltipres="act_playerspec_tip" group="playerActions"
+    taskBean="specificSongTask">
+  </a:action>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="fileSyncAction"/>
+      <a:separator/>
+      <a:menuitem actionName="exitAction"/>
+    </a:menu>
+    <a:menu textres="menu_player_text" mnemonicres="menu_player_mnemo">
+      <a:menuitem actionName="playerInitPlaylistAction"/>
+      <a:separator/>
+      <a:menuitem actionName="playerStartPlaybackAction"/>
+      <a:menuitem actionName="playerStopPlaybackAction"/>
+      <a:menuitem actionName="playerNextSongAction"/>
+      <a:menuitem actionName="playerPrevSongAction"/>
+      <a:menuitem actionName="playerSpecificSongAction"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- A transformer for simplifying usage of static text elements -->
+  <di:bean name="staticTextTransformer"
+    beanClassName="net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataTransformer">
+  </di:bean>
+
+  <!-- The model of the playlist table. This is a plain array list.-->
+  <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
+
+  <!-- The special font for the UI -->
+  <f:font var="uiFont" name="SansSerif" size="11"/>
+
+  <!-- An event filter for the window closing event. -->
+  <di:bean name="windowClosingEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
+  </di:bean>
+
+  <!-- An event filter for the mouse double-click event. -->
+  <di:bean name="mouseDoubleClickEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="MOUSE_DOUBLE_CLICKED"/>
+  </di:bean>
+
+  <!-- The main window -->
+  <w:frame name="mainFrame" titleres="main_title" menu="mainMenu"
+    autoClose="false">
+    <f:panel>
+      <f:borderlayout/>
+      <!-- A tool bar at the top of the window's content -->
+      <a:toolbar>
+        <f:borderconstr name="NORTH"/>
+        <a:toolbutton actionName="playerInitPlaylistAction"/>
+        <a:separator/>
+        <a:toolbutton actionName="playerPrevSongAction"/>
+        <a:toolbutton actionName="playerStartPlaybackAction"/>
+        <a:toolbutton actionName="playerStopPlaybackAction"/>
+        <a:toolbutton actionName="playerNextSongAction"/>
+      </a:toolbar>
+
+      <f:panel>
+        <f:borderconstr name="CENTER"/>
+        <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="4dlu"
+          bottomMargin="4dlu" northGap="4dlu"/>
+        <f:panel>
+          <f:borderconstr name="NORTH"/>
+          <f:percentlayout
+            columns="end/preferred 2dlu full/none(20dlu)/50 2dlu end/preferred 2dlu full/none(20dlu)/50"
+            rows="preferred 2dlu preferred 2dlu preferred"
+            canShrink="true">
+            <f:colgroup indices="0, 4"/>
+          </f:percentlayout>
+          <f:label textres="main_lab_artist" fontRef="uiFont">
+            <f:percentconstr col="0" row="0"/>
+          </f:label>
+          <f:statictext name="artist" noField="false" fontRef="uiFont">
+            <f:percentconstr col="2" row="0"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+          <f:label textres="main_lab_title" fontRef="uiFont">
+            <f:percentconstr col="4" row="0"/>
+          </f:label>
+          <f:statictext name="songName" noField="false" fontRef="uiFont">
+            <f:percentconstr col="6" row="0"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+
+          <f:label textres="main_lab_playlist" fontRef="uiFont">
+            <f:percentconstr col="0" row="2"/>
+          </f:label>
+          <f:statictext name="playlistName" noField="false" fontRef="uiFont">
+            <f:percentconstr col="2" row="2"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+          <f:label textres="main_lab_album" fontRef="uiFont">
+            <f:percentconstr col="4" row="2"/>
+          </f:label>
+          <f:statictext name="albumAndTrack" noField="false" fontRef="uiFont">
+            <f:percentconstr col="6" row="2"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+
+          <f:label textres="main_lab_playbacktime" fontRef="uiFont">
+            <f:percentconstr col="0" row="4"/>
+          </f:label>
+          <f:statictext name="playbackTime" noField="false" fontRef="uiFont">
+            <f:percentconstr col="2" row="4"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+          <f:label textres="main_lab_index" fontRef="uiFont">
+            <f:percentconstr col="4" row="4"/>
+          </f:label>
+          <f:statictext name="playbackIndex" noField="false" fontRef="uiFont">
+            <f:percentconstr col="6" row="4"/>
+            <f:transformer type="write" beanName="staticTextTransformer"/>
+          </f:statictext>
+        </f:panel>
+
+        <f:panel>
+          <f:borderconstr name="CENTER"/>
+          <f:percentlayout
+            columns="full/preferred/100" rows="preferred 2dlu preferred"
+            canShrink="true">
+          </f:percentlayout>
+          <f:progressbar name="playbackRatio" min="0" max="100" noField="false">
+            <f:percentconstr col="0" row="0"/>
+          </f:progressbar>
+
+          <f:table name="playlistTable" model="playlistTableModel"
+            scrollHeight="250" scrollWidth="450" fontRef="uiFont">
+            <f:percentconstr col="0" row="2"/>
+            <f:column name="listIndex" width="25px" columnClass="Number"/>
+            <f:column name="songName" percentWidth="85" headerres="plcol_name"
+              columnClass="String"/>
+            <f:column name="duration" percentWidth="15" headerres="plcol_duration"
+              columnClass="String"/>
+
+            <!-- Connects double clicks to the action for selecting a specific song -->
+            <a:mouseEvent actionName="playerSpecificSongAction">
+              <a:eventFilter beanName="mouseDoubleClickEventFilter"/>
+            </a:mouseEvent>
+          </f:table>
+        </f:panel>
+      </f:panel>
+    </f:panel>
+
+    <!-- An event listener that delegates the window closing event to the
+         application exit action.
+    -->
+    <w:windowEvent actionName="exitAction">
+      <a:eventFilter beanName="windowClosingEventFilter"/>
+    </w:windowEvent>
+  </w:frame>
+
+  <!-- The playlist model object -->
+  <di:bean name="playlistModel"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlaylistModel">
+    <di:constructor>
+      <di:param refName="CURRENT_FORM"/>
+      <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The playlist table model object -->
+  <di:bean name="playlistTableModel"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlaylistTableModel">
+    <di:constructor>
+      <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The action model object -->
+  <di:bean name="actionModel"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.ActionModel">
+    <di:constructor>
+      <di:param refName="ACTION_STORE"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The main controller -->
+  <di:bean name="controller"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MainWndController">
+    <di:setProperty property="playlistModel" refName="playlistModel"/>
+    <di:setProperty property="playlistTableModel" refName="playlistTableModel"/>
+    <di:setProperty property="actionModel" refName="actionModel"/>
+    <di:setProperty property="synchronizer" refName="jguiraffe.guiSynchronizer"/>
+    <di:setProperty property="playerClientReference" refName="audioPlayerClientRef"/>
+  </di:bean>
+
+  <a:eventListener targetBean="window:mainFrame" eventType="Window" beanName="controller"/>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.PlayerShutdownActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- File sync action command and task -->
+  <di:bean name="openSyncDialogCommand"
+    beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:sync.jelly"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="syncTask"
+    beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openSyncDialogCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:fileSyncAction"/>
+    <di:setProperty property="afterEnabler">
+      <di:bean beanClassName="net.sf.jguiraffe.gui.builder.enablers.NullEnabler"/>
+    </di:setProperty>
+  </di:bean>
+
+  <!-- Player initialize playlist action task -->
+  <di:bean name="initPlaylistTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.InitPlaylistTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for start playback action -->
+  <di:bean name="startPlaybackTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.StartPlaybackActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for stop playback action -->
+  <di:bean name="stopPlaybackTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.StopPlaybackActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for next song action -->
+  <di:bean name="nextSongTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.NextSongActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for previous song action -->
+  <di:bean name="prevSongTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MovePreviousActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for move to specific song action -->
+  <di:bean name="specificSongTask"
+    beanClassName="de.oliver_heger.jplaya.ui.mainwnd.MoveToIndexActionTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+      <di:param refName="comp:playlistTable"/>
+    </di:constructor>
+  </di:bean>
+</j:jelly>

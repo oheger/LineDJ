@@ -1,0 +1,86 @@
+<!-- =====================================================================
+     pom for the SPlaya MP3 project.
+     This project contains classes providing functionality related to MP3
+     files, e.g. parsing of MP3 frames or extracting ID3 tags.
+     ===================================================================== -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>de.oliver_heger.remotemediastore</groupId>
+    <artifactId>rms-scala-parent</artifactId>
+    <version>1.1-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>splaya-mp3</artifactId>
+  <packaging>bundle</packaging>
+
+  <name>SPlaya MP3</name>
+  <description>
+    Classes for dealing with MP3 files.
+  </description>
+
+  <properties>
+    <osgi.serviceComponent>
+      OSGI-INF/playbackcontextfactory.xml, OSGI-INF/mediadataextractor.xml
+    </osgi.serviceComponent>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>jl</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>tritonus_share</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>javazoom</groupId>
+      <artifactId>mp3spi</artifactId>
+      <version>1.9.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>splaya-engine</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.easymock</groupId>
+      <artifactId>easymock</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_2.9.0</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>rms-actor-testutils</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

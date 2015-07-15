@@ -1,0 +1,140 @@
+<datastore-indexes autoGenerate="true">
+    <!-- Used 6 times in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="searchName" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 7 times in query history -->
+    <datastore-index kind="ArtistEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="searchName" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="searchName" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="ArtistEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="searchName" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 2 times in query history -->
+    <datastore-index kind="ArtistEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="ArtistEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="searchName" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="inceptionYear" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="inceptionYear" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="AlbumEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 2 times in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="name" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 3 times in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="name" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 2 times in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="duration" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="duration" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="inceptionYear" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="inceptionYear" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="trackNo" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="trackNo" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="playCount" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="playCount" direction="desc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="asc"/>
+    </datastore-index>
+
+    <!-- Used 1 time in query history -->
+    <datastore-index kind="SongEntity" ancestor="false" source="auto">
+        <property name="user" direction="asc"/>
+        <property name="creationDate" direction="desc"/>
+    </datastore-index>
+
+</datastore-indexes>
