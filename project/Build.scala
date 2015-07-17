@@ -36,22 +36,29 @@ object HelloBuild extends Build {
     )
 
     lazy val root = Project(id = "LineDJ",
-                            base = file(".")) aggregate(server)
+                            base = file("."))
       .settings(defaultSettings: _*)
       .settings(
-        name := "LineDJ Parent"
+        name := "linedj-parent"
+      )  aggregate(shared, server)
+      
+    lazy val shared = Project(id = "shared",
+                                 base = file("shared"))
+      .settings(defaultSettings: _*)
+      .settings(
+        name := "linedj-shared"
       )
 
     lazy val server = Project(id = "server",
                            base = file("server"))
       .settings(defaultSettings: _*)
       .settings(
-        name := "LineDJ Server",
+        name := "linedj-server",
         libraryDependencies ++= Seq(
           "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
           "org.slf4j" % "slf4j-api" % "1.7.10",
           "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
         )
-      )
+      ) dependsOn(shared % "compile->compile;test->test")
 }
 
