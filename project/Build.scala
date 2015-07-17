@@ -43,7 +43,7 @@ object HelloBuild extends Build {
       )
 
     lazy val server = Project(id = "server",
-                           base = file("splaya-akka"))
+                           base = file("server"))
       .settings(defaultSettings: _*)
       .settings(
         name := "LineDJ Server",
