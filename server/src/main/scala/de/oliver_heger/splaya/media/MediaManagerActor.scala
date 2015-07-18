@@ -254,7 +254,7 @@ Actor with ActorLogging {
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     import context.dispatcher
-    loaderActor = createChildActor(Props[FileLoaderActor])
+    loaderActor = createChildActor(FileLoaderActor())
     readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
       config.readerCheckInterval, self, CheckReaderTimeout))
   }

@@ -5,7 +5,6 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import com.typesafe.config.ConfigFactory
 import de.oliver_heger.splaya.RecordingSchedulerSupport
 import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.config.ServerConfig
@@ -36,6 +35,9 @@ object MediaManagerActorSpec {
   /** Class for the media reader actor child actor. */
   val ClsMediaReaderActor = classOf[MediaFileReaderActor]
 
+  /** Class for the file loader actor. */
+  val ClsFileLoaderActor = FileLoaderActor().actorClass()
+
   /** A special test message sent to actors. */
   private val TestMessage = new Object
 
@@ -64,16 +66,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
   import MediaManagerActorSpec._
 
-  def this() = this(ActorSystem("MediaManagerActorSpec",
-    ConfigFactory.parseString(
-      s"""splaya {
-         |  media {
-         |    readerTimeout = 60s
-         |    readerCheckInterval = ${MediaManagerActorSpec.ReaderCheckInterval.toString()}
-         |    readerCheckInitialDelay = ${MediaManagerActorSpec.ReaderCheckDelay.toString()}
-         |  }
-         |}
-       """.stripMargin)))
+  def this() = this(ActorSystem("MediaManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
     system.shutdown()
@@ -326,7 +319,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "handle IO operation exceptions sent from a file loader actor" in {
     val helper = new MediaManagerTestHelper(childActorFunc = { (ctx, props) =>
-      if (props.actorClass() == classOf[FileLoaderActor]) {
+      if (props.actorClass() == ClsFileLoaderActor) {
         Some(ctx.actorOf(Props(new Actor {
           override def receive: Receive = {
             case FileLoaderActor.LoadFile(p) =>
@@ -806,7 +799,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def simulateFileLoaderActor(): Unit = {
       val NumberOfMessages = 3
       for (i <- 1 to NumberOfMessages) {
-        simulateCollaboratingActorsOfType[FileLoaderActor.LoadFile](classOf[FileLoaderActor])
+        simulateCollaboratingActorsOfType[FileLoaderActor.LoadFile](ClsFileLoaderActor)
       }
     }
 
@@ -853,7 +846,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the initial map with test probes
      */
     private def createTestProbesMap(): collection.mutable.Map[Class[_], List[TestProbe]] =
-      collection.mutable.Map(classOf[FileLoaderActor] -> Nil,
+      collection.mutable.Map(ClsFileLoaderActor -> Nil,
         MediaManagerActorSpec.ClsInfoParser -> Nil)
   }
 
