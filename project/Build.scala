@@ -18,8 +18,8 @@ import Keys._
 
 object HelloBuild extends Build {
     lazy val akkaDependencies = Seq(
-      "com.typesafe.akka" %% "akka-actor" % "2.3.4",
-      "com.typesafe.akka" %% "akka-testkit" % "2.3.4"
+      "com.typesafe.akka" %% "akka-actor" % "2.3.12",
+      "com.typesafe.akka" %% "akka-testkit" % "2.3.12"
     )
     
     lazy val testDependencies = Seq(
