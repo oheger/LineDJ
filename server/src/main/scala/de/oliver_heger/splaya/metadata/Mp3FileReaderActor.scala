@@ -53,7 +53,8 @@ object Mp3FileReaderActor {
  *
  * @param extractionContext the central extraction context object
  */
-class Mp3FileReaderActor(extractionContext: MetaDataExtractionContext) extends Actor {
+class Mp3FileReaderActor(extractionContext: MetaDataExtractionContext) extends Actor with
+ActorLogging {
   this: ChildActorFactory =>
 
   /** The actor for reading media files. */
@@ -85,6 +86,7 @@ class Mp3FileReaderActor(extractionContext: MetaDataExtractionContext) extends A
       readerActor ! ChannelHandler.InitFile(path)
       readerActor ! ReadData(extractionContext.config.metaDataReadChunkSize)
       currentPath = path
+      log.info("Read media file request for {}.", path)
 
     case result: FileReaderActor.ReadResult =>
       readerActor ! ReadData(extractionContext.config.metaDataReadChunkSize)

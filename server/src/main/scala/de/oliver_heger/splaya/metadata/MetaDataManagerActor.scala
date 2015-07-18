@@ -17,7 +17,7 @@ package de.oliver_heger.splaya.metadata
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{ActorLogging, Actor, ActorRef, Props}
 import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.media.{MediaFile, MediaScanResult, MediumID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
@@ -292,7 +292,7 @@ object MetaDataManagerActor {
  *
  * @param config the central configuration object
  */
-class MetaDataManagerActor(config: ServerConfig) extends Actor {
+class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import MetaDataManagerActor._
@@ -317,6 +317,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor {
     case result: MetaDataProcessingResult =>
       val mediumID = mediumToString(result.mediumID)
       mediaMap get mediumID foreach processMetaDataResult(mediumID, result)
+      log.info("Received MetaDataProcessingResult for {}.", result.path)
 
     case GetMetaData(mediumID, registerAsListener) =>
       val optData = mediaMap get mediumID map (_.metaData)
