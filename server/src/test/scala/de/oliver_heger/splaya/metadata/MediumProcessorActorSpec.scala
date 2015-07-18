@@ -454,12 +454,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediumProcessorActorTestHelper
     val paths = helper waitForProcessing ProcessorCount
     val reader = helper.readerActors.head
+    val msgFileRead = MediaFileRead(paths.head)
+    val probeMp3Processor = helper.installProcessorActor(helper.mp3ProcessorMap, msgFileRead.path)
+    val probeId3Processor = helper.installProcessorActor(helper.id3v1ProcessorMap, msgFileRead.path)
 
-    helper.actor.tell(MediaFileRead(paths.head), reader.ref)
+    helper.actor.tell(msgFileRead, reader.ref)
     val msgNextFile = reader.expectMsgType[ReadMediaFile]
     val allPaths = paths + msgNextFile.path
     allPaths should have size MediumPaths.size
     allPaths should contain only (MediumPaths: _*)
+    probeMp3Processor.expectMsg(msgFileRead)
+    probeId3Processor.expectMsg(msgFileRead)
   }
 
   it should "create not more readers as files to process" in {

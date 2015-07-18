@@ -21,7 +21,7 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.splaya.config.ServerConfig
-import de.oliver_heger.splaya.media.{MediumID, MediaFile, MediaScanResult}
+import de.oliver_heger.splaya.media.{MediaFile, MediaScanResult, MediumID}
 import de.oliver_heger.splaya.utils.ChildActorFactory
 
 object MediumProcessorActor {
@@ -177,9 +177,8 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
         id3v2ProcessorMap removeItemFor msg.path
       }
 
-    case msg: ProcessMp3Data if validPath(msg.path) =>
-      mp3ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
-      id3v1ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
+    case msg: ProcessMp3Data =>
+      delegateMessageFromReader(msg, msg.path)
 
     case msg: ID3FrameMetaData if validPath(msg.path) =>
       handleProcessingResult(msg.path)(_.addID3Data(msg))
@@ -194,9 +193,10 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
         handleProcessingResult(msg.path)(_.setMp3MetaData(msg))
       }
 
-    case MediaFileRead(_) =>
+    case msg: MediaFileRead =>
       readerActorMap remove sender()
       processNextFile(sender())
+      delegateMessageFromReader(msg, msg.path)
 
     case t: Terminated =>
       readerActorMap remove t.actor foreach handleTerminatedReadActor
@@ -210,6 +210,19 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
     val reader = createChildActor(Mp3FileReaderActor(extractionContext))
     context watch reader
     reader
+  }
+
+  /**
+   * Delegates a message from the file reader actor to the corresponding
+   * processor actors.
+   * @param msg the message
+   * @param path the affected path
+   */
+  private def delegateMessageFromReader(msg: Any, path: Path): Unit = {
+    if (validPath(path)) {
+      mp3ProcessorMap.getOrCreateActorFor(path, this) ! msg
+      id3v1ProcessorMap.getOrCreateActorFor(path, this) ! msg
+    }
   }
 
   /**
