@@ -15,6 +15,8 @@
  */
 import sbt._
 import Keys._
+import de.heikoseeberger.sbtheader.HeaderPlugin
+import de.heikoseeberger.sbtheader.license.Apache2_0
 
 object HelloBuild extends Build {
     lazy val akkaDependencies = Seq(
@@ -32,9 +34,13 @@ object HelloBuild extends Build {
         version := "1.0-SNAPSHOT",
         scalaVersion := "2.11.5",
         libraryDependencies ++= akkaDependencies,
-        libraryDependencies ++= testDependencies
+        libraryDependencies ++= testDependencies,
+        HeaderPlugin.autoImport.headers := Map(
+          "scala" -> Apache2_0("2015", "The Developers Team."),
+          "conf" -> Apache2_0("2015", "The Developers Team.", "#")        
+        )
     )
-
+    
     lazy val root = Project(id = "LineDJ",
                             base = file("."))
       .settings(defaultSettings: _*)
