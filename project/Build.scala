@@ -18,10 +18,11 @@ import Keys._
 import de.heikoseeberger.sbtheader.HeaderPlugin
 import de.heikoseeberger.sbtheader.license.Apache2_0
 
-object HelloBuild extends Build {
+object LineDJBuild extends Build {
     lazy val akkaDependencies = Seq(
       "com.typesafe.akka" %% "akka-actor" % "2.3.12",
-      "com.typesafe.akka" %% "akka-testkit" % "2.3.12"
+      "com.typesafe.akka" %% "akka-testkit" % "2.3.12",
+      "com.typesafe.akka" %% "akka-remote" % "2.3.12"
     )
     
     lazy val testDependencies = Seq(
@@ -65,6 +66,13 @@ object HelloBuild extends Build {
           "org.slf4j" % "slf4j-api" % "1.7.10",
           "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
         )
+      ) dependsOn(shared % "compile->compile;test->test")
+
+    lazy val browser = Project(id = "browser",
+                                base = file("browser"))
+      .settings(defaultSettings: _*)
+      .settings(
+        name := "linedj-browser"
       ) dependsOn(shared % "compile->compile;test->test")
 }
 
