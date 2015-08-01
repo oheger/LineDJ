@@ -31,6 +31,10 @@ object LineDJBuild extends Build {
       "org.mockito" % "mockito-core" % "1.9.5" % "test"
     )
     
+    lazy val jguiraffeDependencies = Seq(
+      "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3" exclude("commons-discovery", "commons-discovery") exclude("jdom", "jdom")
+    )
+    
     val defaultSettings = Seq(
         version := "1.0-SNAPSHOT",
         scalaVersion := "2.11.5",
@@ -72,7 +76,8 @@ object LineDJBuild extends Build {
                                 base = file("browser"))
       .settings(defaultSettings: _*)
       .settings(
-        name := "linedj-browser"
+        name := "linedj-browser",
+        libraryDependencies ++= jguiraffeDependencies
       ) dependsOn(shared % "compile->compile;test->test")
 }
 

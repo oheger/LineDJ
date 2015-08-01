@@ -15,18 +15,15 @@
  */
 package de.oliver_heger.linedj.browser
 
-import akka.actor.{Props, ActorSystem}
-import de.oliver_heger.linedj.remoting.RemoteLookupActor
+import net.sf.jguiraffe.gui.app.Application
 
 /**
  * Main class of LineDJ Browser application.
  */
 object BrowserApp {
   def main(args: Array[String]): Unit = {
-    val remotePath =
-      "akka.tcp://LineDJ-Server@127.0.0.1:2552/user/mediaManager"
-    val system = ActorSystem("LineDJ-Browser")
-    val lookupActor = system.actorOf(Props(classOf[RemoteLookupActor], remotePath))
-    println("Actor is active: " + lookupActor)
+    Application.startup(new BrowserApp, args)
   }
 }
+
+class BrowserApp extends Application
