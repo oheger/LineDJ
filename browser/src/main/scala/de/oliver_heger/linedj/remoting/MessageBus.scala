@@ -37,12 +37,12 @@ import akka.actor.Actor.Receive
 trait MessageBus {
   /**
    * Publishes a message on the message bus. All registered listeners that can
-   * handle this message are invoked. The method returns '''true''' if there
-   * was at least one listener that accepted the message.
+   * handle this message are invoked. Note that this is an asynchronous
+   * operation; it returns directly while the invocation of listeners happens
+   * in a background thread.
    * @param msg the message to be published
-   * @return a flag whether the message was handled by at least one listener
    */
-  def publish(msg: Any): Boolean
+  def publish(msg: Any): Unit
 
   /**
    * Registers a listener at this message bus. The listener will be invoked for
@@ -57,7 +57,6 @@ trait MessageBus {
   /**
    * Removes the listener with the specified ID from this message bus.
    * @param listenerID the ID of the listener to be removed
-   * @return a flag whether there was a listener with this ID
    */
-  def removeListener(listenerID: Int): Boolean
+  def removeListener(listenerID: Int): Unit
 }
