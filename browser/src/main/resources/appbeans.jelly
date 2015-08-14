@@ -17,20 +17,15 @@
 
 -->
 <!--
-  The configuration file of the LineDJ playlist generator application.
+  Global bean definitions for the LineDJ playlist generator application.
 -->
-<config>
-  <framework>
-    <builder>
-      <mainScript>main.jelly</mainScript>
-      <beandefinitions>
-        <beandefinition>appbeans.jelly</beandefinition>
-      </beandefinitions>
-    </builder>
-    <appctx>
-      <defaultResourceGroup>browser-resources</defaultResourceGroup>
-    </appctx>
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
-    <storeuserconfig>true</storeuserconfig>
-  </framework>
-</config>
+  <!-- The UI message bus -->
+  <di:bean name="browserApp_MessageBus"
+    beanClassName="de.oliver_heger.linedj.bus.UIBus">
+    <di:constructor>
+      <di:param refName="jguiraffe.guiSynchronizer"/>
+    </di:constructor>
+  </di:bean>
+</j:jelly>
