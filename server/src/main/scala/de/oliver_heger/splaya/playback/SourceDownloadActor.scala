@@ -19,8 +19,8 @@ package de.oliver_heger.splaya.playback
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef, Cancellable}
+import de.oliver_heger.linedj.media.ReaderActorAlive
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
-import de.oliver_heger.splaya.media.MediaManagerActor
 import de.oliver_heger.splaya.playback.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.splaya.utils.SchedulerSupport
 
@@ -159,7 +159,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
       sender ! CloseAck(self)
 
     case ReportReaderActorAlive =>
-      currentReadActor foreach (srcActor ! MediaManagerActor.ReaderActorAlive(_))
+      currentReadActor foreach (srcActor ! ReaderActorAlive(_))
   }
 
   /**

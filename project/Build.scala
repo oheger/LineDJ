@@ -40,6 +40,7 @@ object LineDJBuild extends Build {
         scalaVersion := "2.11.5",
         libraryDependencies ++= akkaDependencies,
         libraryDependencies ++= testDependencies,
+        libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
         HeaderPlugin.autoImport.headers := Map(
           "scala" -> Apache2_0("2015", "The Developers Team."),
           "conf" -> Apache2_0("2015", "The Developers Team.", "#")        
@@ -66,7 +67,6 @@ object LineDJBuild extends Build {
       .settings(
         name := "linedj-server",
         libraryDependencies ++= Seq(
-          "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
           "org.slf4j" % "slf4j-api" % "1.7.10",
           "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
         )

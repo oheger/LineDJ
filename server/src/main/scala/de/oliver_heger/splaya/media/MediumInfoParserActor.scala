@@ -17,6 +17,7 @@
 package de.oliver_heger.splaya.media
 
 import akka.actor.Actor
+import de.oliver_heger.linedj.media.{MediumSettingsData, MediumInfo}
 
 /**
  * Companion object.

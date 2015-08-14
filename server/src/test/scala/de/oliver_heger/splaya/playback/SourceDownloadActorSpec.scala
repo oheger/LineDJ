@@ -6,9 +6,9 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
+import de.oliver_heger.linedj.media.ReaderActorAlive
 import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.io.{CloseAck, CloseRequest}
-import de.oliver_heger.splaya.media.MediaManagerActor
 import de.oliver_heger.splaya.{RecordingSchedulerSupport, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -205,7 +205,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     srcActor.expectMsgType[AudioSourceID]
 
     actor ! SourceDownloadActor.ReportReaderActorAlive
-    srcActor.expectMsg(MediaManagerActor.ReaderActorAlive(contentActor.ref))
+    srcActor.expectMsg(ReaderActorAlive(contentActor.ref))
   }
 
   it should "deal with with an undefined reader when receiving a report reader alive message" in {

@@ -18,6 +18,7 @@ package de.oliver_heger.splaya.media
 
 import java.io.ByteArrayInputStream
 
+import de.oliver_heger.linedj.media.MediumSettingsData
 import org.slf4j.LoggerFactory
 
 /**
@@ -100,16 +101,3 @@ private class MediumInfoParser {
     }
   }
 }
-
-/**
- * An internally used data class storing meta data about a medium.
- * @param name the name of the medium
- * @param description a description of the medium
- * @param mediumURI the medium URI
- * @param orderMode the default ordering mode for a playlist for this medium
- */
-private case class MediumSettingsData(override val name: String,
-                                      override val description: String,
-                                      override val mediumURI: String,
-                                      orderMode: String,
-                                      orderParams: xml.NodeSeq) extends MediumInfo

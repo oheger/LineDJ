@@ -5,6 +5,7 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.media._
 import de.oliver_heger.splaya.RecordingSchedulerSupport
 import de.oliver_heger.splaya.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.splaya.config.ServerConfig
@@ -105,8 +106,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     val manager = helper.scanMedia()
 
-    manager ! MediaManagerActor.GetAvailableMedia
-    helper checkMediaWithDescriptions expectMsgType[MediaManagerActor.AvailableMedia]
+    manager ! GetAvailableMedia
+    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
   }
 
   it should "stop temporary child actors when their answers are received" in {
@@ -126,8 +127,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     val manager = helper.scanMedia()
 
-    manager ! MediaManagerActor.GetAvailableMedia
-    val media = expectMsgType[MediaManagerActor.AvailableMedia]
+    manager ! GetAvailableMedia
+    val media = expectMsgType[AvailableMedia]
     media.media(helper.Drive1OtherIDData.mediumID) should be(MediumInfoParserActor
       .undefinedMediumInfo)
     media.media(helper.Drive3OtherIDData.mediumID) should be(MediumInfoParserActor
@@ -138,8 +139,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     val manager = helper.scanMedia()
 
-    manager ! MediaManagerActor.GetAvailableMedia
-    val media = expectMsgType[MediaManagerActor.AvailableMedia]
+    manager ! GetAvailableMedia
+    val media = expectMsgType[AvailableMedia]
     media.media(MediaManagerActor.MediumIDOtherFiles) should be(MediumInfoParserActor
       .undefinedMediumInfo)
   }
@@ -153,16 +154,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   MediaManagerTestHelper = {
     val helper = new MediaManagerTestHelper(optMapping = optMapping)
     val manager = helper.scanMedia()
-    manager ! MediaManagerActor.GetAvailableMedia
-    expectMsgType[MediaManagerActor.AvailableMedia]
+    manager ! GetAvailableMedia
+    expectMsgType[AvailableMedia]
     helper
   }
 
   it should "support queries for the files on a medium" in {
     val helper = prepareHelperForScannedMedia()
 
-    helper.testManagerActor ! MediaManagerActor.GetMediumFiles(helper.Medium1IDData.mediumID)
-    val msgFiles = expectMsgType[MediaManagerActor.MediumFiles]
+    helper.testManagerActor ! GetMediumFiles(helper.Medium1IDData.mediumID)
+    val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(helper.Medium1IDData.mediumID)
     msgFiles.existing shouldBe true
     helper.Medium1IDData.fileURIMapping.keySet should contain theSameElementsAs msgFiles.uris
@@ -171,9 +172,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "answer a query for the files of a non-existing medium" in {
     val helper = prepareHelperForScannedMedia()
 
-    val request = MediaManagerActor.GetMediumFiles("non existing medium ID!")
+    val request = GetMediumFiles("non existing medium ID!")
     helper.testManagerActor ! request
-    val msgFiles = expectMsgType[MediaManagerActor.MediumFiles]
+    val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(request.mediumID)
     msgFiles.uris shouldBe 'empty
     msgFiles.existing shouldBe false
@@ -183,8 +184,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val expURIs = helper.Drive3OtherFiles map (_.path.toString)
 
-    helper.testManagerActor ! MediaManagerActor.GetMediumFiles(helper.Drive3OtherIDData.mediumID)
-    val msgFiles = expectMsgType[MediaManagerActor.MediumFiles]
+    helper.testManagerActor ! GetMediumFiles(helper.Drive3OtherIDData.mediumID)
+    val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
   }
@@ -193,8 +194,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val expURIs = (helper.Drive1OtherFiles ::: helper.Drive3OtherFiles) map (_.path.toString)
 
-    helper.testManagerActor ! MediaManagerActor.GetMediumFiles(MediaManagerActor.MediumIDOtherFiles)
-    val msgFiles = expectMsgType[MediaManagerActor.MediumFiles]
+    helper.testManagerActor ! GetMediumFiles(MediaManagerActor.MediumIDOtherFiles)
+    val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
   }
@@ -261,10 +262,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     val probe = TestProbe()
 
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
-    helper.testManagerActor.tell(MediaManagerActor.GetAvailableMedia, probe.ref)
+    helper.testManagerActor ! GetAvailableMedia
+    helper.testManagerActor.tell(GetAvailableMedia, probe.ref)
     helper.scanMedia()
-    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    val msgMedia = expectMsgType[AvailableMedia]
     helper.checkMediaWithDescriptions(msgMedia)
     probe.expectMsg(msgMedia)
   }
@@ -272,24 +273,24 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "handle a scan operation that does not yield media" in {
     val helper = new MediaManagerTestHelper
 
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor ! GetAvailableMedia
     helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
-    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    val msgMedia = expectMsgType[AvailableMedia]
     msgMedia.media should have size 0
   }
 
   it should "support multiple scan operations" in {
     val helper = new MediaManagerTestHelper
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor ! GetAvailableMedia
     helper.scanMedia()
-    helper.checkMediaWithDescriptions(expectMsgType[MediaManagerActor.AvailableMedia])
+    helper.checkMediaWithDescriptions(expectMsgType[AvailableMedia])
 
     helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
-    val msgMedia = expectMsgType[MediaManagerActor.AvailableMedia]
+    helper.testManagerActor ! GetAvailableMedia
+    val msgMedia = expectMsgType[AvailableMedia]
     msgMedia.media should have size 0
-    helper.testManagerActor ! MediaManagerActor.GetMediumFiles("someMedium")
-    expectMsgType[MediaManagerActor.MediumFiles].uris shouldBe 'empty
+    helper.testManagerActor ! GetMediumFiles("someMedium")
+    expectMsgType[MediumFiles].uris shouldBe 'empty
   }
 
   it should "ignore another scan request while a scan is in progress" in {
@@ -298,8 +299,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     manager ! ScanMedia(List("UnsupportedTestPath"))
     helper.scanMedia()
-    manager ! MediaManagerActor.GetAvailableMedia
-    helper checkMediaWithDescriptions expectMsgType[MediaManagerActor.AvailableMedia]
+    manager ! GetAvailableMedia
+    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
   }
 
   it should "handle IO exceptions when scanning directories" in {
@@ -311,9 +312,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       }
     })
 
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
+    helper.testManagerActor ! GetAvailableMedia
     helper.testManagerActor ! MediaManagerActor.ScanMedia(List("non existing directory!"))
-    val mediaMsg = expectMsgType[MediaManagerActor.AvailableMedia]
+    val mediaMsg = expectMsgType[AvailableMedia]
     mediaMsg.media shouldBe 'empty
   }
 
@@ -330,8 +331,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     })
 
     helper.scanMedia()
-    helper.testManagerActor ! MediaManagerActor.GetAvailableMedia
-    val mediaMsg = expectMsgType[MediaManagerActor.AvailableMedia]
+    helper.testManagerActor ! GetAvailableMedia
+    val mediaMsg = expectMsgType[AvailableMedia]
     mediaMsg.media(helper.Medium1IDData.mediumID).name should be(MediumInfoParserActor
       .undefinedMediumInfo.name)
   }
@@ -401,7 +402,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader.ref
 
-    helper.testManagerActor ! MediaManagerActor.ReaderActorAlive(procReader.ref)
+    helper.testManagerActor ! ReaderActorAlive(procReader.ref)
     helper.testManagerActor ! MediaManagerActor.CheckReaderTimeout
     expectNoMoreMessage(watcher)
   }
@@ -420,7 +421,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "cancel periodic reader checks when it is stopped" in {
     val helper = new MediaManagerTestHelper
     val probe = TestProbe()
-    helper.testManagerActor ! MediaManagerActor.ReaderActorAlive(probe.ref)
+    helper.testManagerActor ! ReaderActorAlive(probe.ref)
 
     system stop helper.testManagerActor
     val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
@@ -700,8 +701,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param avMedia the data object with available media
      * @return the same passed in data object
      */
-    def checkMediaWithDescriptions(avMedia: MediaManagerActor.AvailableMedia): MediaManagerActor
-    .AvailableMedia = {
+    def checkMediaWithDescriptions(avMedia: AvailableMedia): AvailableMedia = {
       avMedia.media(mediumID(1)) should be(Medium1SettingsData)
       avMedia.media(mediumID(2)) should be(Medium2SettingsData)
       avMedia.media(mediumID(3)) should be(Medium3SettingsData)

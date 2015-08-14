@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.splaya.media
+package de.oliver_heger.linedj.media
 
 /**
  * A trait defining meta data of a medium.
@@ -37,3 +37,16 @@ trait MediumInfo {
    */
   val mediumURI: String
 }
+
+/**
+ * An internally used data class storing meta data about a medium.
+ * @param name the name of the medium
+ * @param description a description of the medium
+ * @param mediumURI the medium URI
+ * @param orderMode the default ordering mode for a playlist for this medium
+ */
+case class MediumSettingsData(override val name: String,
+                                      override val description: String,
+                                      override val mediumURI: String,
+                                      orderMode: String,
+                                      orderParams: xml.NodeSeq) extends MediumInfo

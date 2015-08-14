@@ -2,6 +2,7 @@ package de.oliver_heger.splaya.media
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import de.oliver_heger.linedj.media.MediumSettingsData
 import de.oliver_heger.splaya.media.MediumInfoParserActor.ParseMediumInfo
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

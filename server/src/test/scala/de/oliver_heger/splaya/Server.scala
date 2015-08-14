@@ -21,6 +21,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia}
 import de.oliver_heger.splaya.config.ServerConfig
 import de.oliver_heger.splaya.media.MediaManagerActor
 import de.oliver_heger.splaya.metadata.MetaDataManagerActor
@@ -54,8 +55,8 @@ object Server {
       .toSeq)
 
     implicit val timeout = Timeout(10.seconds)
-    val futureMedia = mediaManager ? MediaManagerActor.GetAvailableMedia
-    val media = Await.result(futureMedia, 10.seconds).asInstanceOf[MediaManagerActor.AvailableMedia]
+    val futureMedia = mediaManager ? GetAvailableMedia
+    val media = Await.result(futureMedia, 10.seconds).asInstanceOf[AvailableMedia]
     println("Found media: " + media)
   }
 }
