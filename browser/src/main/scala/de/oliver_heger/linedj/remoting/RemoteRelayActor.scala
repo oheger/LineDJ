@@ -36,6 +36,14 @@ object RemoteRelayActor {
   case object ServerUnavailable
 
   /**
+   * A message received by ''RemoteRelayActor'' which activates or disables
+   * tracking of the server state. The actor must be activated first before it
+   * sends ''ServerAvailable'' or ''ServerUnavailable'' messages.
+   * @param enabled flag whether server monitoring is enabled
+   */
+  case class Activate(enabled: Boolean)
+
+  /**
    * A message to be processed by ''RemoteRelayActor'' telling it to send a
    * message to a remote actor. The actor is determined by the ''target''
    * parameter. If this remote actor is currently available, the message is
@@ -119,6 +127,14 @@ object RemoteRelayActor {
     }
   }
 
+  /**
+   * Returns the state message to be sent for the specified tracking state.
+   * @param trackingState the tracking state
+   * @return the state message
+   */
+  private def stateMessage(trackingState: RemoteActorTrackingState): Any =
+    if (trackingState.trackingComplete) ServerAvailable
+    else ServerUnavailable
 }
 
 /**
@@ -137,6 +153,12 @@ object RemoteRelayActor {
  * received from the remote system (as answers to requests) are published via
  * the specified [[MessageBus]].
  *
+ * Before this actor is active and sends messages regarding the server state,
+ * it has to be enabled by sending it an ''Activate(true)'' message. As answer
+ * to this message the current server state is sent. Further on, all changes on
+ * the server state cause ''ServerAvailable'' or ''ServerUnavailable''
+ * messages to be sent.
+ *
  * @param remoteAddress the address of the remote actor system
  * @param remotePort the port of the remote actor system
  * @param messageBus the message bus
@@ -153,6 +175,9 @@ Actor {
   /** The current remote actor tracking state. */
   private var trackingState = new RemoteActorTrackingState(Map.empty)
 
+  /** The current activated flag. */
+  private var activated = false
+
   /**
    * @inheritdoc This implementation creates lookup actors for the remote
    *             actors to be tracked.
@@ -167,6 +192,10 @@ Actor {
   }
 
   override def receive: Receive = {
+    case Activate(enabled) =>
+      activated = enabled
+      publish(stateMessage(trackingState))
+
     case RemoteLookupActor.RemoteActorAvailable(path, ref) =>
       updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref))
 
@@ -191,7 +220,17 @@ Actor {
     val oldState = trackingState
     trackingState = newState
     if (oldState.trackingComplete != newState.trackingComplete) {
-      messageBus.publish(if (newState.trackingComplete) ServerAvailable else ServerUnavailable)
+      publish(stateMessage(newState))
+    }
+  }
+
+  /**
+   * Sends a message on the message bus if this actor is enabled.
+   * @param msg the message
+   */
+  private def publish(msg: => Any): Unit = {
+    if (activated) {
+      messageBus publish msg
     }
   }
 

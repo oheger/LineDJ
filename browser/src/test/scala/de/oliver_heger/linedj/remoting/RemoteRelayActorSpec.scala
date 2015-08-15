@@ -76,6 +76,14 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.provideRemoteActors()
   }
 
+  it should "send the current server state when activated" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.registerRemoteActor(helper.probeMediaManager)
+
+    helper.relayActor ! RemoteRelayActor.Activate(enabled = true)
+    expectMsg(RemoteRelayActor.ServerUnavailable)
+  }
+
   it should "send any message received from outside to the message bus" in {
     val helper = new RemoteRelayActorTestHelper
     val actor = helper.provideRemoteActors()
@@ -122,6 +130,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "ignore messages to remote actors not available" in {
     val helper = new RemoteRelayActorTestHelper
+    helper activateAndExpectState RemoteRelayActor.ServerUnavailable
     helper registerRemoteActor helper.probeMediaManager
 
     helper.relayActor ! RemoteRelayActor.RemoteMessage(RemoteActors.MetaDataManager, "ignore")
@@ -133,11 +142,24 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "ignore invalid remote actor paths" in {
     val helper = new RemoteRelayActorTestHelper
+    helper activateAndExpectState RemoteRelayActor.ServerUnavailable
     helper registerRemoteActor helper.probeMetaDataManager
 
     helper.relayActor ! RemoteLookupActor.RemoteActorAvailable("invalid path", testActor)
     helper registerRemoteActor helper.probeMediaManager
     expectMsg(RemoteRelayActor.ServerAvailable)
+  }
+
+  it should "support its deactivation" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RemoteRelayActor.Activate(enabled = false)
+    helper.unregisterRemoteActor(helper.probeMediaManager)
+    helper.registerRemoteActor(helper.probeMediaManager)
+    helper.activateAndExpectState(RemoteRelayActor.ServerAvailable)
+    helper.relayActor ! Message
+    expectMsg(Message)
   }
 
   /**
@@ -191,13 +213,14 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
     /**
      * Initializes the test actor with dependencies to the remote actors to be
-     * tracked. It is checked whether the initial server available message is
-     * received.
+     * tracked. The actor is activated. It is checked whether the initial
+     * server available message is received.
      * @return a reference to the test actor
      */
     def provideRemoteActors(): ActorRef = {
       pathActorMapping foreach { e => relayActor ! RemoteLookupActor.RemoteActorAvailable(e._1, e
         ._2._2) }
+      relayActor ! RemoteRelayActor.Activate(enabled = true)
       expectMsg(RemoteRelayActor.ServerAvailable)
       relayActor
     }
@@ -218,6 +241,16 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      */
     def unregisterRemoteActor(probe: TestProbe): Unit = {
       relayActor ! RemoteLookupActor.RemoteActorUnavailable(lookupMap(probe.ref))
+    }
+
+    /**
+     * Sends an activation message to the relay actor and awaits the expected
+     * answer.
+     * @param stateMsg the expected state message
+     */
+    def activateAndExpectState(stateMsg: Any): Unit = {
+      relayActor ! RemoteRelayActor.Activate(enabled = true)
+      expectMsg(stateMsg)
     }
 
     /**
