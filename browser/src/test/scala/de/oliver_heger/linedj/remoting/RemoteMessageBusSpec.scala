@@ -92,6 +92,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     verifyZeroInteractions(bus.bus)
   }
 
+  it should "simplify sending an activation message to the associated actor" in {
+    val bus = createRemoteBus()
+
+    bus activate true
+    expectMsg(RemoteRelayActor.Activate(true))
+  }
+
   it should "support waiting for a response and ignore unhandled messages" in {
     val bus = expectListenerRegistration(createRemoteBus())
     val responseFunc: Receive = {

@@ -37,6 +37,15 @@ import de.oliver_heger.linedj.remoting.RemoteActors.RemoteActor
  */
 class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
   /**
+   * Sends an ''Activate'' message to the relay actor. This is a
+   * convenient way to enable or disable monitoring of the server state.
+   * @param enabled the enabled flag
+   */
+  def activate(enabled: Boolean): Unit = {
+    relayActor ! RemoteRelayActor.Activate(enabled)
+  }
+
+  /**
    * Sends a message to a remote actor. No answer is expected; so the message
    * is just passed to the specified target remote actor.
    * @param target the target actor
