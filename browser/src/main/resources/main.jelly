@@ -36,6 +36,19 @@
     </a:menu>
   </a:menubar>
 
+  <!-- Message bus registration -->
+  <di:bean name="browserApp_MessageBusRegistration"
+    beanClass="de.oliver_heger.linedj.bus.MessageBusRegistration">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="remoteController"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="browserApp_MessageBus"/>
+  </di:bean>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:borderlayout canShrink="false"/>
@@ -87,6 +100,22 @@
       </f:tab>
     </f:tabbedpane>
 
+    <!-- Statusline -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+
+      <f:panel>
+        <f:borderconstr name="WEST"/>
+        <f:label name="onlineIndicator" text="online">
+          <!-- <f:icon resource="online.png"/> -->
+        </f:label>
+        <f:label name="offlineIndicator" text="offline">
+          <!-- <f:icon resource="offline.png"/> -->
+        </f:label>
+      </f:panel>
+    </f:panel>
+
     <!-- An event listener that delegates the window closing event to the
          application exit action.
     -->
@@ -94,6 +123,20 @@
       <a:eventFilter eventType="WINDOW_CLOSING"
         class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
     </w:windowEvent>
+
+    <!-- Remote controller -->
+    <di:bean name="remoteController"
+      beanClass="de.oliver_heger.linedj.browser.RemoteController">
+      <di:constructor>
+        <di:param refName="browserApp_RemoteMessageBus"/>
+        <di:param refName="ACTION_STORE"/>
+        <di:param refName="widget:onlineIndicator"/>
+        <di:param refName="widget:offlineIndicator"/>
+      </di:constructor>
+      <di:setProperty property="messageBusRegistration"
+        refName="browserApp_MessageBusRegistration"/>
+    </di:bean>
+    <w:controller beanName="remoteController"/>
   </w:frame>
 
   <!-- Action tasks and commands -->

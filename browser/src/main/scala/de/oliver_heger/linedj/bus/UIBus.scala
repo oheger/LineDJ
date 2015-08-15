@@ -37,6 +37,12 @@ class UIBus(sync: GUISynchronizer) extends MessageBus {
   private var listeners = List.empty[Receive]
 
   /**
+   * Returns the current list of listeners registered at this bus.
+   * @return the list with registered listeners
+   */
+  def busListeners: List[Receive] = listeners
+
+  /**
    * @inheritdoc This implementation iterates over all listeners in the UI
    *             thread. All listeners that can handle the message are
    *             invoked.

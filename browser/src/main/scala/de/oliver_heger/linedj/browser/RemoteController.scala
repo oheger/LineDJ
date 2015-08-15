@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.bus.MessageBusListener
+import de.oliver_heger.linedj.bus.{MessageBusRegistration, MessageBusListener}
 import de.oliver_heger.linedj.media.GetAvailableMedia
 import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
@@ -73,5 +73,17 @@ class RemoteController(bus: RemoteMessageBus, actionStore: ActionStore,
       serverAvailableIndicator setVisible true
       serverUnavailableIndicator setVisible false
       bus.send(RemoteActors.MediaManager, GetAvailableMedia)
+  }
+
+  /**
+   * A simulated set method which is invoked by the dependency injection
+   * framework. The only purpose of this method is to trigger the instantiation
+   * of the message bus registration bean. This causes all listeners to be
+   * registered at the message bus. The reference to this bean is not stored
+   * because it is not needed.
+   * @param reg the ''MessageBusRegistration'' bean
+   */
+  def setMessageBusRegistration(reg: MessageBusRegistration): Unit = {
+    //do nothing
   }
 }

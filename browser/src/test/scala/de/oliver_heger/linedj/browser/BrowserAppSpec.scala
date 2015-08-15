@@ -17,9 +17,12 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
+import de.oliver_heger.linedj.bus.UIBus
+import de.oliver_heger.linedj.remoting.RemoteMessageBus
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Mockito._
+import org.mockito.Matchers._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -30,10 +33,19 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
+   * @param mockInitUI flag whether initialization of the UI should be mocked
    * @return the instance of the application
    */
-  private def createApp(): BrowserAppTestImpl = {
-    val app = new BrowserAppTestImpl(mock[RemoteMessageBusFactory])
+  private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
+    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], mockInitUI))
+  }
+
+  /**
+   * Runs the specified test application.
+   * @param app the application to be started
+   * @return the application
+   */
+  private def runApp(app: BrowserAppTestImpl): BrowserAppTestImpl = {
     Application.startup(app, Array.empty)
     app setExitHandler new Runnable {
       override def run(): Unit = {
@@ -93,16 +105,36 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
       verify(app.remoteMessageBusFactory).recreateRemoteMessageBus(app.getApplicationContext)
     }
   }
+
+  it should "register message bus listeners correctly" in {
+    val remoteBus = mock[RemoteMessageBus]
+    val busFactory = mock[RemoteMessageBusFactory]
+    val application = new BrowserAppTestImpl(busFactory, mockInitUI = false)
+    when(application.remoteMessageBusFactory.recreateRemoteMessageBus(any(classOf[ApplicationContext]))).thenReturn(remoteBus)
+
+    withApplication(runApp(application)) { app =>
+      verify(remoteBus).activate(true)
+      val uiBus = queryBean[UIBus](app, BrowserApp.BeanMessageBus)
+      uiBus.busListeners should not be 'empty
+    }
+  }
 }
 
 /**
  * A test implementation of the main application class. This class does not
  * show the main window. It can be used to test whether the application has
- * been correctly initialized.
+ * been correctly initialized. Note that initialization of the UI is possible
+ * only once; otherwise, JavaFX complains that it is already initialized.
+ *
+ * @param factory the remote message bus factory
+ * @param mockInitUI flag whether initialization of the UI should be mocked
  */
-private class BrowserAppTestImpl(factory: RemoteMessageBusFactory) extends BrowserApp(factory) {
+private class BrowserAppTestImpl(factory: RemoteMessageBusFactory, mockInitUI: Boolean)
+  extends BrowserApp(factory) {
   override def initGUI(appCtx: ApplicationContext): Unit = {
-    //do nothing
+    if (!mockInitUI) {
+      super.initGUI(appCtx)
+    }
   }
 
   override def showMainWindow(window: Window): Unit = {

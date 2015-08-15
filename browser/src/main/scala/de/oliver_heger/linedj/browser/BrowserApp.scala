@@ -16,6 +16,7 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
+import de.oliver_heger.linedj.remoting.RemoteMessageBus
 import net.sf.jguiraffe.di.MutableBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -63,7 +64,7 @@ Application {
    * @inheritdoc This implementation stores the root bean store that it can
    *             later be populated with beans created manually.
    */
-  override def createRootStore(config: Configuration): MutableBeanStore = {
+  override protected def createRootStore(config: Configuration): MutableBeanStore = {
     val store = super.createRootStore(config)
     rootBeanStore = store
     store
@@ -73,14 +74,27 @@ Application {
    * @inheritdoc This implementation creates some additional beans, especially
    *             the actor system.
    */
-  override def createApplicationContext(): ApplicationContext = {
+  override protected def createApplicationContext(): ApplicationContext = {
     initActorSystem(super.createApplicationContext())
+  }
+
+  /**
+   * @inheritdoc This implementation activates the remote message bus after all
+   *             listeners have been registered during the execution of the
+   *             main UI script.
+   */
+  override protected def initGUI(appCtx: ApplicationContext): Unit = {
+    super.initGUI(appCtx)
+
+    val remoteMessageBus = appCtx.getBeanContext.getBean(BeanRemoteMessageBus)
+      .asInstanceOf[RemoteMessageBus]
+    remoteMessageBus activate true
   }
 
   /**
    * @inheritdoc This implementation shuts down the application's actor system.
    */
-  override def onShutdown(): Unit = {
+  override protected def onShutdown(): Unit = {
     val actorSystem = getApplicationContext.getBeanContext.getBean(BeanActorSystem)
       .asInstanceOf[ActorSystem]
     actorSystem.shutdown()
