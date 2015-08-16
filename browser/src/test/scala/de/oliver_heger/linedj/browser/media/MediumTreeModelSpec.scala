@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.splaya.metadata.MediaMetaData
+import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.apache.commons.configuration.event.{ConfigurationEvent, ConfigurationListener}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
 import org.apache.commons.configuration.{AbstractConfiguration, HierarchicalConfiguration}

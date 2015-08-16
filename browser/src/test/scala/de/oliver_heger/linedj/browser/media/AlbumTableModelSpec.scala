@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.model.SongData
-import de.oliver_heger.splaya.metadata.MediaMetaData
+import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.scalatest.{Matchers, FlatSpec}
 
 object AlbumTableModelSpec {

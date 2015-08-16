@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.model
 
-import de.oliver_heger.splaya.metadata.MediaMetaData
+import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

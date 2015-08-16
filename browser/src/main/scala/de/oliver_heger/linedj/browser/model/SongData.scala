@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.model
 
-import de.oliver_heger.splaya.metadata.MediaMetaData
+import de.oliver_heger.linedj.metadata.MediaMetaData
 
 object SongData {
   /** A separator character for URIs. */

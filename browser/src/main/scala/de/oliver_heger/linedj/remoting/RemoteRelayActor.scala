@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.remoting
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.remoting.RemoteActors.RemoteActor
-import de.oliver_heger.splaya.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RemoteRelayActor {
 
