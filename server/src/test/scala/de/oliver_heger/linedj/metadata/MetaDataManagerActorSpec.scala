@@ -21,7 +21,6 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.media._
-import de.oliver_heger.linedj.metadata.MetaDataManagerActor.MetaDataChunk
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -106,8 +105,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val actor = system.actorOf(MetaDataManagerActor(mock[ServerConfig]))
 
     val mediumID = "unknown medium ID"
-    actor ! MetaDataManagerActor.GetMetaData(mediumID, registerAsListener = false)
-    expectMsg(MetaDataManagerActor.UnknownMedium(mediumID))
+    actor ! GetMetaData(mediumID, registerAsListener = false)
+    expectMsg(UnknownMedium(mediumID))
   }
 
   it should "create a child actor for processing a scan result" in {
@@ -192,7 +191,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     val filesForChunk1 = ScanResult.mediaFiles(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
-    helper.actor ! MetaDataManagerActor.GetMetaData("", registerAsListener = true)
+    helper.actor ! GetMetaData("", registerAsListener = true)
     checkMetaDataChunk(expectMsgType[MetaDataChunk], "", filesForChunk1, expComplete = false)
     val filesForChunk2 = List(ScanResult.mediaFiles(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
@@ -203,7 +202,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       filesForChunk3))
     helper.actor ! scanResult2
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk3)
-    helper.actor ! MetaDataManagerActor.GetMetaData("", registerAsListener = false)
+    helper.actor ! GetMetaData("", registerAsListener = false)
     val allFiles = ScanResult.mediaFiles(UndefinedMediumID) ::: filesForChunk3
     checkMetaDataChunk(expectMsgType[MetaDataChunk], "", allFiles, expComplete = true)
   }
@@ -213,7 +212,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     helper.queryAndExpectMetaData(TestMediumID, registerAsListener = true).data shouldBe 'empty
 
-    helper.actor ! MetaDataManagerActor.RemoveMediumListener(TestMediumID.path.toString, testActor)
+    helper.actor ! RemoveMediumListener(TestMediumID.path.toString, testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
       TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
@@ -221,26 +220,26 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "ignore an unknown medium when removing a medium listener" in {
     val actor = TestActorRef[MediaManagerActor](MetaDataManagerActor(mock[ServerConfig]))
-    actor receive MetaDataManagerActor.RemoveMediumListener("someMedium", testActor)
+    actor receive RemoveMediumListener("someMedium", testActor)
   }
 
   it should "support completion listeners" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
 
-    helper.actor ! MetaDataManagerActor.AddCompletionListener(testActor)
+    helper.actor ! AddCompletionListener(testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     helper.sendProcessingResults(UndefinedMediumID, ScanResult.mediaFiles(UndefinedMediumID))
-    expectMsg(MetaDataManagerActor.MediumMetaDataCompleted(TestMediumID.path.toString))
-    expectMsg(MetaDataManagerActor.MediumMetaDataCompleted(""))
+    expectMsg(MediumMetaDataCompleted(TestMediumID.path.toString))
+    expectMsg(MediumMetaDataCompleted(""))
   }
 
   it should "support removing completion listeners" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    helper.actor ! MetaDataManagerActor.AddCompletionListener(testActor)
+    helper.actor ! AddCompletionListener(testActor)
 
-    helper.actor ! MetaDataManagerActor.RemoveCompletionListener(testActor)
+    helper.actor ! RemoveCompletionListener(testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
       TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
@@ -281,7 +280,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param registerAsListener the register as listener flag
      */
     def queryMetaData(mediumID: MediumID, registerAsListener: Boolean): Unit = {
-      actor ! MetaDataManagerActor.GetMetaData(mediumID.mediumDescriptionPath.get.toString,
+      actor ! GetMetaData(mediumID.mediumDescriptionPath.get.toString,
         registerAsListener)
     }
 
@@ -292,9 +291,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the chunk message received from the test actor
      */
     def queryAndExpectMetaData(mediumID: MediumID, registerAsListener: Boolean):
-    MetaDataManagerActor.MetaDataChunk = {
+    MetaDataChunk = {
       queryMetaData(mediumID, registerAsListener)
-      expectMsgType[MetaDataManagerActor.MetaDataChunk]
+      expectMsgType[MetaDataChunk]
     }
 
     /**
