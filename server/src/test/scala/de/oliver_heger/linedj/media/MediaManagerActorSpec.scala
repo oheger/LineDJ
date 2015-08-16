@@ -6,8 +6,7 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
-import de.oliver_heger.linedj.media._
-import RecordingSchedulerSupport.SchedulerInvocation
+import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.linedj.media.MediaManagerActor.ScanMedia
@@ -532,7 +531,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def settingsData(mediumRoot: Path, mediumNo: Int): MediumSettingsData =
       MediumSettingsData(name = s"Medium $mediumNo", description = s"Medium description $mediumNo",
-        mediumURI = mediumRoot.toString, orderMode = "", orderParams = xml.NodeSeq.Empty)
+        mediumURI = mediumRoot.toString, orderMode = "")
 
     /**
      * Generates a request for calculating a medium ID.

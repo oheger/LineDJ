@@ -68,9 +68,7 @@ class MediumInfoParserSpec extends FlatSpec with Matchers {
     info.name should be(MediumName)
     info.description should be(MediumDescription)
     info.orderMode should be(OrderMode)
-    info.orderParams.size should be(1)
-    info.orderParams.head.label should be("coolness")
-    info.orderParams.head.text should be("true")
+    info.orderParams should be("<coolness>true</coolness>")
   }
 
   it should "handle exceptions when parsing XML" in {

@@ -40,8 +40,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   "A MediumInfoParserActor" should "handle a successful parse operation" in {
     val parser = mock[MediumInfoParser]
     val mediumSettingsData = MediumSettingsData(name = "TestMedium", description = "Some desc",
-      mediumURI = MediumURI, orderMode = "Directories",
-      orderParams = xml.NodeSeq.Empty)
+      mediumURI = MediumURI, orderMode = "Directories")
     val data = new Array[Byte](16)
     when(parser.parseMediumInfo(data, MediumURI)).thenReturn(Some(mediumSettingsData))
 

@@ -62,7 +62,7 @@ private object MediumInfoParser {
     MediumSettingsData(name = (elem \ ElemName).text,
       description = (elem \ ElemDesc).text,
       orderMode = (elemOrder \ ElemOrderMode).text,
-      orderParams = elemOrder \ ElemOrderParams \ "_",
+      orderParams = (elemOrder \ ElemOrderParams \ "_").toString(),
       mediumURI = mediumURI)
   }
 }

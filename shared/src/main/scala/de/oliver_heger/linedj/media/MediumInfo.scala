@@ -44,9 +44,12 @@ trait MediumInfo {
  * @param description a description of the medium
  * @param mediumURI the medium URI
  * @param orderMode the default ordering mode for a playlist for this medium
+ * @param orderParams additional parameters for sorting the medium; this is a
+ *                    plain string whose interpretation depends on the order
+ *                    mode
  */
 case class MediumSettingsData(override val name: String,
                                       override val description: String,
                                       override val mediumURI: String,
                                       orderMode: String,
-                                      orderParams: xml.NodeSeq) extends MediumInfo
+                                      orderParams: String = "") extends MediumInfo
