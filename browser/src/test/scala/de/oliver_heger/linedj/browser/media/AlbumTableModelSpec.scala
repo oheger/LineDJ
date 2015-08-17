@@ -88,4 +88,12 @@ class AlbumTableModelSpec extends FlatSpec with Matchers {
     val model = appendSongs()(Album1, song2, song1, song3)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
   }
+
+  it should "ignore songs in add() which are already contained" in {
+    val song1 = song("The Prophet's Song", 8)
+    val song2 = song(song1.getTitle, 8)
+    val model = appendSongs()(Album1, song1)
+
+    model.add(Album2, song2) should be theSameInstanceAs(model)
+  }
 }

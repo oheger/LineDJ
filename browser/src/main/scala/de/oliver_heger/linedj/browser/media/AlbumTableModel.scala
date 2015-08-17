@@ -23,7 +23,7 @@ private object AlbumTableModel {
   /**
    * An empty table model object.
    */
-  val empty: AlbumTableModel = new AlbumTableModel(Map.empty)
+  val empty: AlbumTableModel = new AlbumTableModel(Map.empty, Set.empty)
 
   /**
    * A helper class storing information about an album. It allows querying an
@@ -66,8 +66,9 @@ private object AlbumTableModel {
  * in while the server scans its directory structure.
  *
  * @param data the map with the data of this model
+ * @param songUris a set with the URIs of all contained songs
  */
-private class AlbumTableModel(data: Map[AlbumKey, AlbumData]) {
+private class AlbumTableModel(data: Map[AlbumKey, AlbumData], songUris: Set[String]) {
   /**
    * Returns a sequence with songs on the specified album. If the album cannot
    * be resolved, result is an empty sequence.
@@ -84,7 +85,11 @@ private class AlbumTableModel(data: Map[AlbumKey, AlbumData]) {
    * @return the new album instance
    */
   def add(key: AlbumKey, song: SongData): AlbumTableModel = {
-    val albumData = data.get(key).map (_.add(song)).getOrElse(AlbumData(List(song), ordered = true))
-    new AlbumTableModel(data + (key -> albumData))
+    if (songUris contains song.uri) this
+    else {
+      val albumData = data.get(key).map(_.add(song)).getOrElse(AlbumData(List(song), ordered =
+        true))
+      new AlbumTableModel(data + (key -> albumData), songUris + song.uri)
+    }
   }
 }
