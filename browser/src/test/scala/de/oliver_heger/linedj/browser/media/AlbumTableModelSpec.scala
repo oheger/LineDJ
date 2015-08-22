@@ -34,7 +34,7 @@ object AlbumTableModelSpec {
    * @return the song data object
    */
   private def song(name:String, track: Int): SongData =
-    SongData("song://" + name, MediaMetaData(title = Some(name), trackNumber = Some(track)))
+    SongData("song://" + name, MediaMetaData(title = Some(name), trackNumber = Some(track)), null)
 
   /**
    * Adds the given songs to a model.
