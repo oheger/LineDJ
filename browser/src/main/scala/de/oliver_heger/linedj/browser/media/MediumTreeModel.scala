@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
+import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.apache.commons.configuration.HierarchicalConfiguration
 
@@ -42,7 +43,7 @@ private object MediumTreeModel {
    * @param items the items for the new model
    * @return the initialized model
    */
-  def apply(items: Iterable[(AlbumKey, MediaMetaData)]): MediumTreeModel = {
+  def apply(items: Iterable[(AlbumKey, SongData)]): MediumTreeModel = {
     items.foldLeft(empty) { (m, e) =>
       m.add(e._1, e._2, DummyUpdater)._1
     }
@@ -116,13 +117,13 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
    * @param currentUpdater the current updater
    * @return a new instance with updated state and a ''ConfigurationUpdater''
    */
-  def add(key: AlbumKey, meta: MediaMetaData, currentUpdater: ConfigurationUpdater):
+  def add(key: AlbumKey, meta: SongData, currentUpdater: ConfigurationUpdater):
   (MediumTreeModel, ConfigurationUpdater) = {
     if (knownKeys contains key) {
       (this, currentUpdater)
     } else {
       val albums = data.getOrElse(key.artist, SortedSet.empty[AlbumKeyWithYear])
-      val albumWithYear = keyWithYear(key, meta)
+      val albumWithYear = keyWithYear(key, meta.metaData)
       val newAlbums = albums + albumWithYear
       (new MediumTreeModel(data + (key.artist -> newAlbums), knownKeys + key),
         currentUpdater concat createNextUpdater(albumWithYear, newAlbums, currentUpdater))
