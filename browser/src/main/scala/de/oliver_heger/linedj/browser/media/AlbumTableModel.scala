@@ -26,6 +26,18 @@ private object AlbumTableModel {
   val empty: AlbumTableModel = new AlbumTableModel(Map.empty, Set.empty)
 
   /**
+   * Creates a new ''AlbumTableModel'' instance wich is initialized with the
+   * specified data items.
+   * @param items the data items to be added to the new model
+   * @return the new model instance
+   */
+  def apply(items: Iterable[(AlbumKey, SongData)]): AlbumTableModel = {
+    items.foldLeft(empty) { (model, item) =>
+      model.add(item._1, item._2)
+    }
+  }
+
+  /**
    * A helper class storing information about an album. It allows querying an
    * ordered song list which is dynamically constructed on demand.
    * @param songs the list of songs

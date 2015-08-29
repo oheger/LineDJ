@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 object AlbumTableModelSpec {
   /** Constant for an album key.*/
@@ -76,6 +76,20 @@ class AlbumTableModelSpec extends FlatSpec with Matchers {
     val m1 = appendSongs()(Album1, song1, song2)
     val m2 = appendSongs(m1)(Album2, song4, song5)
     val model = appendSongs(m2)(Album1, song3)
+    model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
+    model songsFor Album2 should contain inOrderOnly(song4, song5)
+  }
+
+  it should "allow creating an instance with a sequence of data" in {
+    val song1 = song("You are my best friend", 4)
+    val song2 = song("39", 5)
+    val song3 = song("Bohemian Rhapsody", 11)
+    val song4 = song("Sister Moonshine", 2)
+    val song5 = song("A Soapbox opera", 4)
+    val items = List((Album1, song1), (Album1, song2), (Album2, song4), (Album2, song5),
+      (Album1, song3))
+
+    val model = AlbumTableModel(items)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
     model songsFor Album2 should contain inOrderOnly(song4, song5)
   }
