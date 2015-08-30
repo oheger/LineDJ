@@ -28,4 +28,12 @@
       <di:param refName="jguiraffe.guiSynchronizer"/>
     </di:constructor>
   </di:bean>
+
+  <!-- The song data factory -->
+  <di:bean name="songDataFactory"
+    beanClassName="de.oliver_heger.linedj.browser.model.SongDataFactory">
+    <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>

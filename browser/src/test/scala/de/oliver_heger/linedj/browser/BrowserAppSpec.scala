@@ -115,7 +115,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
     withApplication(runApp(application)) { app =>
       verify(remoteBus).activate(true)
       val uiBus = queryBean[UIBus](app, BrowserApp.BeanMessageBus)
-      uiBus.busListeners should not be 'empty
+      uiBus.busListeners.size should be > 1
     }
   }
 }

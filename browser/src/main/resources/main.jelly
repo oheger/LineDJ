@@ -36,13 +36,23 @@
     </a:menu>
   </a:menubar>
 
+  <!-- The cache for meta data -->
+  <di:bean name="metaDataCache"
+    beanClass="de.oliver_heger.linedj.browser.cache.MetaDataCache">
+    <di:constructor>
+      <di:param refName="browserApp_RemoteMessageBus"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- Message bus registration -->
   <di:bean name="browserApp_MessageBusRegistration"
     beanClass="de.oliver_heger.linedj.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
+          <di:element refName="metaDataCache"/>
           <di:element refName="remoteController"/>
+          <di:element refName="mediaController"/>
         </di:list>
       </di:param>
     </di:constructor>
@@ -77,23 +87,44 @@
       <!-- The model of the table. -->
       <di:bean name="mediaTableModel" beanClass="java.util.ArrayList"/>
 
+      <!-- The model for the media combo box. -->
+      <di:bean name="mediaComboModel"
+        beanClass="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
+
       <f:tab titleres="tab_media">
         <f:panel>
           <f:borderlayout canShrink="true"/>
+          <f:panel>
+            <f:borderconstr name="NORTH"/>
+            <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+              bottomMargin="4" westGap="8" eastGap="8"/>
+            <f:label textres="media_lab_media">
+              <f:borderconstr name="WEST"/>
+            </f:label>
+            <f:combo name="comboMedia" modelRef="mediaComboModel">
+              <f:borderconstr name="CENTER"/>
+            </f:combo>
+            <f:label name="mediaLoadingIndicator" text="Loading">
+              <f:borderconstr name="EAST"/>
+            </f:label>
+          </f:panel>
+
           <f:splitter orientation="horizontal" resizeWeight="0.25">
             <f:borderconstr name="CENTER"/>
             <f:tree name="treeMedia" model="mediaTreeModel" editable="false"
-              scrollWidth="2cm" scrollHeight="3cm">
+              scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
+              rootVisible="true">
             </f:tree>
 
             <f:table name="tableMedia" model="mediaTableModel" multiSelection="true">
               <f:borderconstr name="CENTER"/>
-              <f:column name="artist" percentWidth="40"
+              <f:column name="artist" percentWidth="35"
                 headerres="media_tcol_artist">
               </f:column>
               <f:column name="title" percentWidth="40" headerres="media_tcol_title"
                 columnClass="String"/>
-              <f:column name="duration" percentWidth="20" headerres="media_tcol_duration"/>
+              <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
+              <f:column name="duration" percentWidth="15" headerres="media_tcol_duration"/>
             </f:table>
           </f:splitter>
         </f:panel>
@@ -136,8 +167,35 @@
       <di:setProperty property="messageBusRegistration"
         refName="browserApp_MessageBusRegistration"/>
     </di:bean>
+
+    <!-- Media controller -->
+    <di:bean name="mediaController"
+      beanClass="de.oliver_heger.linedj.browser.media.MediaController">
+      <di:constructor>
+        <di:param refName="browserApp_MessageBus"/>
+        <di:param refName="songDataFactory"/>
+        <di:param refName="comp:comboMedia"/>
+        <di:param refName="comp:treeMedia"/>
+        <di:param refName="comp:tableMedia"/>
+        <di:param refName="widget:mediaLoadingIndicator"/>
+      </di:constructor>
+    </di:bean>
+
     <w:controller beanName="remoteController"/>
   </w:frame>
+
+  <!-- Selection change listener for media controls -->
+  <di:bean name="mediaSelectionChangeListener"
+    beanClass="de.oliver_heger.linedj.browser.media.SelectionChangeHandler">
+    <di:constructor>
+      <di:param refName="mediaController"/>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="comboMedia" eventType="CHANGE"
+    beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="treeMedia" eventType="CHANGE"
+    beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 
