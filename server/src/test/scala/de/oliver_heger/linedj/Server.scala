@@ -30,6 +30,8 @@ import scala.concurrent.duration._
 
 /**
  * Simple class starting up the server and testing whether media files are scanned.
+ *
+ * Start with option -Dconfig.resource=server.conf
  */
 object Server {
   def main(args: Array[String]): Unit = {
