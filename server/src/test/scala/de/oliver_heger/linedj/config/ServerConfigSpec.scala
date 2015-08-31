@@ -73,6 +73,9 @@ with Matchers with BeforeAndAfterAll {
           |       accessRestriction = ${ServerConfigSpec.CDRomRoot.accessRestriction.get}
           |     }
           |   ]
+          |   excludedExtensions = [
+          |       "JPG", "pdf", "tex"
+          |   ]
           |   metaDataExtraction {
           |     readChunkSize = ${ServerConfigSpec.ReadChunkSize}
           |     tagSizeLimit = ${ServerConfigSpec.TagSizeLimit}
@@ -132,5 +135,9 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the meta data chunk size" in {
     createConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+  }
+
+  it should "return the file extensions to be excluded" in {
+    createConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
   }
 }

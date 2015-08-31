@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.config
 
 import java.nio.file.{Path, Paths}
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{Config, ConfigObject}
@@ -36,6 +37,9 @@ object ServerConfig {
 
   /** The configuration property for the interval for reader timeout checks. */
   private val PropReaderCheckInterval = ConfigPrefix + "readerCheckInterval"
+
+  /** The configuration property for the excluded file extensions. */
+  private val PropExcludedExtensions = ConfigPrefix + "excludedExtensions"
 
   /** Constant for the prefix for the meta data extraction configuration. */
   private val MetaExtractionPrefix = ConfigPrefix + "metaDataExtraction."
@@ -74,6 +78,7 @@ object ServerConfig {
       metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
       tagSizeLimit = config getInt PropTagSizeLimit,
       metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
+      excludedFileExtensions = obtainExcludedExtensions(config),
       rootMap = createMediaData(config))
   }
 
@@ -126,6 +131,16 @@ object ServerConfig {
   }
 
   /**
+   * Determines the set with the file extensions to be excluded.
+   * @param config the configuration
+   * @return the set with excluded file extensions
+   */
+  private def obtainExcludedExtensions(config: Config): Set[String] = {
+    import collection.JavaConversions._
+    config.getStringList(PropExcludedExtensions).map(_.toUpperCase(Locale.ENGLISH)).toSet
+  }
+
+  /**
    * A data class storing information about a media root. A media root is a
    * directory structure that contains media files. In addition to the actual
    * root path, some meta data is provided which is needed while processing
@@ -159,6 +174,8 @@ object ServerConfig {
  *                                often a meta data listener receives update
  *                                notifications when new meta data becomes
  *                                available
+ * @param excludedFileExtensions the set with file extensions (in upper case)
+ *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  */
 class ServerConfig private(val readerTimeout: FiniteDuration,
@@ -167,6 +184,7 @@ class ServerConfig private(val readerTimeout: FiniteDuration,
                            val metaDataReadChunkSize: Int,
                            val tagSizeLimit: Int,
                            val metaDataUpdateChunkSize: Int,
+                           val excludedFileExtensions: Set[String],
                            rootMap: Map[Path, MediaRootData]) {
   /**
    * Returns a set with paths that represent root directories for media files.
