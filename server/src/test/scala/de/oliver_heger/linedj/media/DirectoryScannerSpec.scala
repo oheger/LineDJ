@@ -6,7 +6,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 object DirectoryScannerSpec {
   /** A set with file extensions to be excluded. */
-  private val Exclusions = Set("txt", "")
+  private val Exclusions = Set("TXT", "")
 
   /** The content of a file which is not part of a medium. */
   private val OtherFileContent = "12345678"
@@ -118,6 +118,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     val medium1 = createDir(testDirectory, "medium1")
     createFile(medium1, "noMedium2.mp3", OtherFileContent)
     createFile(medium1, "medium1.settings", "+")
+    createFile(medium1, "README.TXT", "BlaBla")
     val sub1 = createDir(medium1, "sub1")
     createFile(sub1, "medium1Song1.mp3", "*")
     val sub1Sub = createDir(sub1, "subSub")

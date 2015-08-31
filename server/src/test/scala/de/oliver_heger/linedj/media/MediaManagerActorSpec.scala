@@ -47,6 +47,9 @@ object MediaManagerActorSpec {
   /** The interval for reader actor timeout checks. */
   private val ReaderCheckInterval = 5.minutes
 
+  /** The set with excluded file extensions. */
+  private val ExcludedExtensions = Set("TXT", "JPG")
+
   /**
    * Helper method to ensure that no more messages are sent to a test probe.
    * This message sends a special message to the probe and checks whether it is
@@ -82,6 +85,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     when(config.readerTimeout).thenReturn(60.seconds)
     when(config.readerCheckInterval).thenReturn(ReaderCheckInterval)
     when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)
+    when(config.excludedFileExtensions).thenReturn(ExcludedExtensions)
     config
   }
 
@@ -97,6 +101,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "create default helper objects" in {
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
     manager.underlyingActor.directoryScanner shouldBe a[DirectoryScanner]
+    manager.underlyingActor.directoryScanner.excludedExtensions should be(ExcludedExtensions)
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
   }

@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.media
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
+import java.util.Locale
 
 import scala.collection.mutable.ListBuffer
 
@@ -128,7 +129,7 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
       mediaFilesMap = mediaFilesMap + (DefinedMediumID(file) -> buffer)
       nextBuffer = buffer
 
-    } else if (!exclusions.contains(extension)) {
+    } else if (!exclusions.contains(extension.toUpperCase(Locale.ENGLISH))) {
       filesStack.head += createMediaFile(file)
     }
     FileVisitResult.CONTINUE

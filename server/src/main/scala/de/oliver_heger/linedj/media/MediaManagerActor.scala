@@ -21,7 +21,6 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import de.oliver_heger.linedj.media._
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
@@ -149,7 +148,7 @@ Actor with ActorLogging {
   val id3Extractor = new ID3HeaderExtractor
 
   /** A helper object for scanning directory structures. */
-  private[media] val directoryScanner = new DirectoryScanner(Set.empty)
+  private[media] val directoryScanner = new DirectoryScanner(config.excludedFileExtensions)
 
   /** A helper object for calculating media IDs. */
   private[media] val idCalculator = new MediumIDCalculator
