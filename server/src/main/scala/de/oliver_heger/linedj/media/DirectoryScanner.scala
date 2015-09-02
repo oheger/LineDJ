@@ -16,12 +16,25 @@
 
 package de.oliver_heger.linedj.media
 
-import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import java.util.Locale
 
 import scala.collection.mutable.ListBuffer
+
+object DirectoryScanner {
+  /** The file separator character. */
+  private val FileSeparator = System.getProperty("file.separator")
+
+  /**
+   * Determines the path prefix of a medium description file. This is the
+   * directory which contains the description file as string.
+   * @param descFile the path to the description file
+   * @return the prefix for this description file
+   */
+  private def descriptionPrefix(descFile: Path): String =
+    descFile.getParent.toString
+}
 
 /**
  * An internally used helper class for scanning a directory structure for media
@@ -44,6 +57,7 @@ import scala.collection.mutable.ListBuffer
  * @param excludedExtensions a set with file extensions to be excluded
  */
 private class DirectoryScanner(val excludedExtensions: Set[String]) {
+  import DirectoryScanner._
 
   /**
    * Scans a given directory structure.
@@ -53,17 +67,66 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
   def scan(root: Path): MediaScanResult = {
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(root, visitor)
-    MediaScanResult(root, visitor.mediaFiles filter filterUndefinedMedium)
+    MediaScanResult(root, createResultMap(visitor.mediumDescriptions, visitor.mediaFiles))
   }
 
   /**
-   * Filters on the undefined medium ID. The resulting map should include this
-   * element only if it actually contains files.
-   * @param e the map entry to be filtered
-   * @return filter result for this entry
+   * Creates the map with result data for a scan operation. As the scanner only
+   * returns a list with all media files and a list with all medium description
+   * files, a transformation has to take place in order to create the map with
+   * all results.
+   * @param mediumDescriptions the list with the medium description files
+   * @param mediaFiles the list with all files
+   * @return the result map
    */
-  private def filterUndefinedMedium(e: (MediumID, List[MediaFile])): Boolean =
-    e._1 != UndefinedMediumID || e._2.nonEmpty
+  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[MediaFile]):
+  Map[MediumID, List[MediaFile]] = {
+    val sortedDescriptions = mediumDescriptions sortWith (descriptionPrefix(_) >
+      descriptionPrefix(_))
+    val start = (mediaFiles, Map.empty[MediumID, List[MediaFile]])
+    val end = sortedDescriptions.foldLeft(start) { (state, path) =>
+      val partition = findFilesForDescription(path, state._1)
+      (partition._2, state._2 + (DefinedMediumID(path) -> partition._1))
+    }
+
+    if (end._1.isEmpty) end._2
+    else {
+      end._2 + (UndefinedMediumID -> end._1)
+    }
+  }
+
+  /**
+   * Finds all files which belong to the given medium description file. All
+   * such files are contained in the first list of the returned tuple. The
+   * second list contains the remaining files.
+   * @param desc the path to the description file
+   * @param mediaFiles the list with all media files
+   * @return a partition with the files for this description and the remaining
+   *         files
+   */
+  private def findFilesForDescription(desc: Path, mediaFiles: List[MediaFile]): (List[MediaFile],
+    List[MediaFile]) = {
+    val prefix = descriptionPrefix(desc)
+    val len = prefix.length
+    mediaFiles partition (f => belongsToMedium(prefix, len, f.path))
+  }
+
+  /**
+   * Checks whether the specified path belongs to a specific medium. The prefix
+   * URI for this medium is specified. This method checks whether the path
+   * starts with this prefix, but is a real sub directory. (Files in the same
+   * directory in which the medium description file is located are not
+   * considered to belong to this medium.)
+   * @param prefix the prefix for the medium
+   * @param prefixLen the length of the prefix
+   * @param path the path to be checked
+   * @return a flag whether this path belongs to this medium
+   */
+  private def belongsToMedium(prefix: String, prefixLen: Int, path: Path): Boolean = {
+    val pathStr = path.toString
+    pathStr.startsWith(prefix) && pathStr.lastIndexOf(FileSeparator) > prefixLen
+  }
+
 }
 
 private object ScanVisitor {
@@ -99,50 +162,31 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
 
   import de.oliver_heger.linedj.media.ScanVisitor._
 
-  /** A stack structure with the list buffers for the current directories. */
-  var filesStack = List(ListBuffer.empty[MediaFile])
+  /** A list with all media files encountered during the scan operation. */
+  private val mediaFileList = ListBuffer.empty[MediaFile]
 
-  /** The buffer for populating the current medium in the next directory. */
-  var nextBuffer = filesStack.head
-
-  /** The map storing the files for all media. */
-  var mediaFilesMap: Map[MediumID, ListBuffer[MediaFile]] = Map(UndefinedMediumID -> nextBuffer)
+  /** A list with all medium description files encountered during the scan. */
+  private val descriptionFileList = ListBuffer.empty[Path]
 
   /**
-   * Creates the map with media files based on the data collected during the
-   * visit operation.
-   * @return the map with media files
+   * Returns a list with all detected media files.
+   * @return the list with all media files
    */
-  def mediaFiles: Map[MediumID, List[MediaFile]] = mediaFilesMap map (e => (e._1, e._2.toList))
+  def mediaFiles: List[MediaFile] = mediaFileList.toList
 
   /**
-   * Creates the list with files that do not belong to a specific medium based
-   * on the information collected during the visit operation.
-   * @return the list with other files
+   * Returns a list with all detected medium description files.
+   * @return the list with medium description files
    */
-  def otherFiles: List[MediaFile] = filesStack.head.toList
+  def mediumDescriptions: List[Path] = descriptionFileList.toList
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     val extension = extractExtension(file)
     if (SettingsExtension == extension) {
-      val buffer = ListBuffer.empty[MediaFile]
-      mediaFilesMap = mediaFilesMap + (DefinedMediumID(file) -> buffer)
-      nextBuffer = buffer
-
+      descriptionFileList += file
     } else if (!exclusions.contains(extension.toUpperCase(Locale.ENGLISH))) {
-      filesStack.head += createMediaFile(file)
+      mediaFileList += createMediaFile(file)
     }
-    FileVisitResult.CONTINUE
-  }
-
-  override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    filesStack = nextBuffer :: filesStack
-    FileVisitResult.CONTINUE
-  }
-
-  override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-    nextBuffer = filesStack.head
-    filesStack = filesStack.tail
     FileVisitResult.CONTINUE
   }
 

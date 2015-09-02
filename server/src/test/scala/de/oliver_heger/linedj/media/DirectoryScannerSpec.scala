@@ -117,9 +117,9 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     createFile(testDirectory, "noMedium1.mp3", OtherFileContent)
     val medium1 = createDir(testDirectory, "medium1")
     createFile(medium1, "noMedium2.mp3", OtherFileContent)
-    createFile(medium1, "medium1.settings", "+")
     createFile(medium1, "README.TXT", "BlaBla")
-    val sub1 = createDir(medium1, "sub1")
+    createFile(medium1, "medium1.settings", "+")
+    val sub1 = createDir(medium1, "aSub1")
     createFile(sub1, "medium1Song1.mp3", "*")
     val sub1Sub = createDir(sub1, "subSub")
     createFile(sub1Sub, "medium1Song2.mp3", "*")
@@ -132,9 +132,9 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     createFile(sub2, "noExtension", "?")
 
     val medium3 = createDir(sub2, "medium3")
-    createFile(medium3, "medium3.settings", "+")
     val sub3 = createDir(medium3, "sub3")
     createFile(sub3, "medium3Song1.mp3", "*")
+    createFile(medium3, "medium3.settings", "+")
 
     val otherDir = createDir(testDirectory, "other")
     createFile(otherDir, "noMedium3.mp3", OtherFileContent)
@@ -200,20 +200,22 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
    * @return an option with a path that was not found
    */
   private def checkMedium(result: MediaScanResult, mediumDesc: String, content: String*):
-  Option[Path] = {
-    val files = result.mediaFiles(DefinedMediumID(toPath(mediumDesc + ".settings"))) map (_.path)
+  Option[String] = {
+    val files = result.mediaFiles(DefinedMediumID(toPath(mediumDesc + ".settings"))) map
+      (_.path.toAbsolutePath.toString)
     files should have length content.length
-    checkContainsAll(files, paths(content: _*))
+    val expPaths = paths(content: _*) map (_.toString)
+    checkContainsAll(files, expPaths)
   }
 
   it should "return the correct content of a medium" in {
     val result = scan()
 
-    checkMedium(result, "medium1/medium1", "medium1/sub1/medium1Song1.mp3",
-      "medium1/subSub/medium1Song2.mp3", "medium1/subSub/medium1Song3.mp3")
-    checkMedium(result, "medium2/medium2", "medium2/sub2/medium2Song1.sub")
+    checkMedium(result, "medium1/medium1", "medium1/aSub1/medium1Song1.mp3",
+      "medium1/aSub1/subSub/medium1Song2.mp3", "medium1/aSub1/subSub/medium1Song3.mp3") shouldBe 'empty
+    checkMedium(result, "medium2/medium2", "medium2/sub2/medium2Song1.mp3") shouldBe 'empty
     checkMedium(result, "medium2/sub2/medium3/medium3", "medium2/sub2/medium3/sub3/medium3Song1" +
-      ".mp3")
+      ".mp3") shouldBe 'empty
   }
 
   it should "determine correct file sizes" in {
