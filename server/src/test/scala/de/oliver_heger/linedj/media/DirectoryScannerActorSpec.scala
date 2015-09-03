@@ -13,10 +13,11 @@ import scala.concurrent.duration._
 
 object DirectoryScannerActorSpec {
   /** A test path. */
-  private val Path = Paths.get("TestPath")
+  private val Path = Paths.get("TestPath", "playlist.settings")
 
   /** A test result object returned by the mock scanner. */
-  private val TestResult = MediaScanResult(Path, Map(DefinedMediumID(Path) -> List(MediaFile(Path, 1))))
+  private val TestResult = MediaScanResult(Path, Map(MediumID.fromDescriptionPath(Path) -> List
+    (MediaFile(Path, 1))))
 }
 
 /**

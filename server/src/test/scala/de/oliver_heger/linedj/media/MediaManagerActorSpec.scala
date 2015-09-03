@@ -624,14 +624,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val Drive3OtherIDData = MediumIDData("Other-3", "", pathMapping(Drive3OtherFiles))
 
     /** The scan result for drive 1. */
-    val Drive1 = MediaScanResult(Drive1Root, Map(DefinedMediumID(Medium1Desc) -> Medium1Content,
-      DefinedMediumID(Medium2Desc) -> Medium2Content, UndefinedMediumID -> Drive1OtherFiles))
+    val Drive1 = MediaScanResult(Drive1Root, Map(
+      MediumID.fromDescriptionPath(Medium1Desc) -> Medium1Content,
+      MediumID.fromDescriptionPath(Medium2Desc) -> Medium2Content,
+      MediumID(Drive1Root.toString, None) -> Drive1OtherFiles))
 
     /** Scan result for drive 2. */
-    val Drive2 = MediaScanResult(Drive2Root, Map(DefinedMediumID(Medium3Desc) -> Medium3Content))
+    val Drive2 = MediaScanResult(Drive2Root, Map(MediumID.fromDescriptionPath(Medium3Desc) ->
+      Medium3Content))
 
     /** Scan result for drive 3. */
-    val Drive3 = MediaScanResult(Drive3Root, Map(UndefinedMediumID -> Drive3OtherFiles))
+    val Drive3 = MediaScanResult(Drive3Root, Map(MediumID(Drive3Root.toString, None) ->
+      Drive3OtherFiles))
 
     /**
      * A map with messages that are expected by collaboration actors and

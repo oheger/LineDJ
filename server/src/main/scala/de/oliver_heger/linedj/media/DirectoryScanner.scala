@@ -67,7 +67,8 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
   def scan(root: Path): MediaScanResult = {
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(root, visitor)
-    MediaScanResult(root, createResultMap(visitor.mediumDescriptions, visitor.mediaFiles))
+    MediaScanResult(root, createResultMap(visitor.mediumDescriptions, visitor.mediaFiles, root
+      .toString))
   }
 
   /**
@@ -77,21 +78,22 @@ private class DirectoryScanner(val excludedExtensions: Set[String]) {
    * all results.
    * @param mediumDescriptions the list with the medium description files
    * @param mediaFiles the list with all files
+   * @param mediumURI the URI for the medium
    * @return the result map
    */
-  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[MediaFile]):
-  Map[MediumID, List[MediaFile]] = {
+  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[MediaFile],
+                              mediumURI: String): Map[MediumID, List[MediaFile]] = {
     val sortedDescriptions = mediumDescriptions sortWith (descriptionPrefix(_) >
       descriptionPrefix(_))
     val start = (mediaFiles, Map.empty[MediumID, List[MediaFile]])
     val end = sortedDescriptions.foldLeft(start) { (state, path) =>
       val partition = findFilesForDescription(path, state._1)
-      (partition._2, state._2 + (DefinedMediumID(path) -> partition._1))
+      (partition._2, state._2 + (MediumID.fromDescriptionPath(path) -> partition._1))
     }
 
     if (end._1.isEmpty) end._2
     else {
-      end._2 + (UndefinedMediumID -> end._1)
+      end._2 + (MediumID(mediumURI, None) -> end._1)
     }
   }
 

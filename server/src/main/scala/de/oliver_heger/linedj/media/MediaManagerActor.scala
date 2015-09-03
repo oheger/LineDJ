@@ -388,7 +388,7 @@ Actor with ActorLogging {
    * @return the resulting mapping
    */
   private def createOtherFilesMapping(scanResult: MediaScanResult): Map[String, MediaFile] = {
-    val otherFiles = scanResult.mediaFiles(UndefinedMediumID)
+    val otherFiles = scanResult.mediaFiles(MediumID(scanResult.root.toString, None))
     val otherURIs = otherFiles map { f => pathToURI(f.path) }
     Map(otherURIs zip otherFiles: _*)
   }

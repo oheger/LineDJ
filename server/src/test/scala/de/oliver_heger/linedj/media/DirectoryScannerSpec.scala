@@ -152,12 +152,19 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     scanner scan testDirectory
   }
 
+  /**
+   * Returns the ID for an undefined medium as is expected to be produced by
+   * the directory scanner.
+   * @return the undefined medium ID
+   */
+  private def undefinedMediumID(): MediumID = MediumID(testDirectory.toString, None)
+
   "A DirectoryScanner" should "find media files in a directory structure" in {
     val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
     val result = scan()
 
     result.root should be (testDirectory)
-    checkContainsAll(extractPaths(result.mediaFiles(UndefinedMediumID)), expected) should be(None)
+    checkContainsAll(extractPaths(result.mediaFiles(undefinedMediumID())), expected) should be(None)
   }
 
   it should "exclude files with configured extensions" in {
@@ -167,7 +174,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     result.mediaFiles foreach { e =>
       checkContainsNone(e._2, excluded) should be(None)
     }
-    checkContainsNone(extractPaths(result.mediaFiles(UndefinedMediumID)), excluded) should be(None)
+    checkContainsNone(extractPaths(result.mediaFiles(undefinedMediumID())), excluded) should be(None)
   }
 
   it should "detect all media directories" in {
@@ -181,7 +188,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
 
   it should "return the correct number of other files" in {
     val result = scan()
-    result.mediaFiles(UndefinedMediumID) should have length 3
+    result.mediaFiles(undefinedMediumID()) should have length 3
   }
 
   it should "not return an entry for other files if none are found" in {
@@ -189,7 +196,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     val scanner = new DirectoryScanner(Exclusions)
     val result = scanner scan paths(1)
 
-    result.mediaFiles.keySet should not contain UndefinedMediumID
+    result.mediaFiles.keySet should not contain undefinedMediumID()
   }
 
   /**
@@ -201,7 +208,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
    */
   private def checkMedium(result: MediaScanResult, mediumDesc: String, content: String*):
   Option[String] = {
-    val files = result.mediaFiles(DefinedMediumID(toPath(mediumDesc + ".settings"))) map
+    val files = result.mediaFiles(MediumID.fromDescriptionPath(toPath(mediumDesc + ".settings"))) map
       (_.path.toAbsolutePath.toString)
     files should have length content.length
     val expPaths = paths(content: _*) map (_.toString)
@@ -221,7 +228,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
   it should "determine correct file sizes" in {
     val result = scan()
 
-    result.mediaFiles(DefinedMediumID(toPath("medium1/medium1.settings"))).head.size should be (1)
-    result.mediaFiles(UndefinedMediumID).head.size should be (OtherFileContent.length)
+    result.mediaFiles(MediumID.fromDescriptionPath(toPath("medium1/medium1.settings"))).head.size should be (1)
+    result.mediaFiles(undefinedMediumID()).head.size should be (OtherFileContent.length)
   }
 }

@@ -31,14 +31,17 @@ import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
   /** ID of a test medium. */
-  private val TestMediumID = DefinedMediumID(path("medium1"))
+  private val TestMediumID = MediumID.fromDescriptionPath(path("medium1"))
 
   /** A list of medium IDs used by the tests. */
-  private val MediaIDs = List(TestMediumID, DefinedMediumID(path("otherMedium")),
-    DefinedMediumID(path("coolMusic")))
+  private val MediaIDs = List(TestMediumID, MediumID.fromDescriptionPath(path("otherMedium")),
+    MediumID.fromDescriptionPath(path("coolMusic")))
 
   /** A test scan result object. */
   private val ScanResult = createScanResult()
+
+  /** The undefined medium ID for the scan result. */
+  private val UndefinedMediumID = MediumID(ScanResult.root.toString, None)
 
   /**
    * Helper method for generating a path.
@@ -77,12 +80,13 @@ object MetaDataManagerActorSpec {
    */
   private def createScanResult(): MediaScanResult = {
     val numbersOfSongs = List(3, 8, 4)
+    val rootPath = path("Root")
     val fileData = MediaIDs zip numbersOfSongs map { e =>
-      (e._1: MediumID, generateMediaFiles(e._1.path, e._2))
+      (e._1: MediumID, generateMediaFiles(e._1.mediumDescriptionPath.get, e._2))
     }
-    val fileMap = Map(fileData: _*) + (UndefinedMediumID -> generateMediaFiles(path("noMedium"),
-      11))
-    MediaScanResult(path("Root"), fileMap)
+    val fileMap = Map(fileData: _*) + (MediumID(rootPath.toString, None) -> generateMediaFiles
+      (path("noMedium"), 11))
+    MediaScanResult(rootPath, fileMap)
   }
 }
 
@@ -133,9 +137,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @param expectedFiles the expected files
    * @param expComplete the expected complete flag
    */
-  private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: DefinedMediumID,
+  private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
                                  expectedFiles: List[MediaFile], expComplete: Boolean): Unit = {
-    checkMetaDataChunk(msg, mediumID.path.toString, expectedFiles, expComplete)
+    checkMetaDataChunk(msg, mediumID.mediumDescriptionPath.get.toString, expectedFiles, expComplete)
   }
 
   /**
@@ -162,7 +166,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
 
     val msg = helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false)
-    msg.mediumID should be(TestMediumID.path.toString)
+    msg.mediumID should be(TestMediumID.mediumDescriptionPath.get.toString)
     msg.data shouldBe 'empty
     msg.complete shouldBe false
   }
@@ -212,7 +216,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     helper.queryAndExpectMetaData(TestMediumID, registerAsListener = true).data shouldBe 'empty
 
-    helper.actor ! RemoveMediumListener(TestMediumID.path.toString, testActor)
+    helper.actor ! RemoveMediumListener(TestMediumID.mediumDescriptionPath.get.toString, testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
       TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
@@ -230,7 +234,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! AddCompletionListener(testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     helper.sendProcessingResults(UndefinedMediumID, ScanResult.mediaFiles(UndefinedMediumID))
-    expectMsg(MediumMetaDataCompleted(TestMediumID.path.toString))
+    expectMsg(MediumMetaDataCompleted(TestMediumID.mediumDescriptionPath.get.toString))
     expectMsg(MediumMetaDataCompleted(""))
   }
 

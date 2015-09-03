@@ -56,6 +56,15 @@ object MediumID {
    * is available).
    */
   val UndefinedMediumID = MediumID("", None)
+
+  /**
+   * Creates a ''MediumID'' object from the path to the description file. The
+   * medium URI is derived from this path.
+   * @param path the path to the description file
+   * @return the new ''MediumID''
+   */
+  def fromDescriptionPath(path: Path): MediumID =
+    MediumID(mediumURI = path.getParent.toString, mediumDescriptionPath = Some(path))
 }
 
 /**

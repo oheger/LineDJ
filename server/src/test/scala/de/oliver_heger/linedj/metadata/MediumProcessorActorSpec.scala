@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.ChannelHandler
-import de.oliver_heger.linedj.media.{DefinedMediumID, MediaFile, MediaScanResult, UndefinedMediumID}
+import de.oliver_heger.linedj.media.{MediaFile, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => eqArg}
@@ -37,7 +37,7 @@ import scala.util.Random
 
 object MediumProcessorActorSpec {
   /** A path to a medium. */
-  private val Medium = path("Medium")
+  private val Medium = Paths.get("Medium", "medium.settings")
 
   /** A test media scan result object. */
   private val ScanResult = createScanResult()
@@ -68,8 +68,8 @@ object MediumProcessorActorSpec {
    */
   private def createScanResult(): MediaScanResult = {
     val root = path("Root")
-    MediaScanResult(root, Map(DefinedMediumID(Medium) -> List(MediaFile(path(1), 10)),
-      UndefinedMediumID -> List(MediaFile(path(2), 20), MediaFile(path(3), 30))))
+    MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(MediaFile(path(1), 10)),
+      MediumID(root.toString, None) -> List(MediaFile(path(2), 20), MediaFile(path(3), 30))))
   }
 
   /**
@@ -265,7 +265,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    */
   private def expectProcessingResult(p: Path): MetaDataProcessingResult = {
     expectMsg(MetaDataProcessingResult(p,
-      if (MediumPaths.head == p) DefinedMediumID(Medium) else UndefinedMediumID, MetaData))
+      if (MediumPaths.head == p) MediumID.fromDescriptionPath(Medium)
+      else MediumID(ScanResult.root.toString, None), MetaData))
   }
 
   /**
@@ -468,7 +469,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create not more readers as files to process" in {
-    val smallScanResult = ScanResult.copy(mediaFiles = ScanResult.mediaFiles - UndefinedMediumID)
+    val smallScanResult = ScanResult.copy(mediaFiles = ScanResult.mediaFiles - MediumID
+      (ScanResult.root.toString, None))
     val helper = new MediumProcessorActorTestHelper(smallScanResult)
 
     helper send ProcessMediaFiles
@@ -513,7 +515,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "react on an exception caused by a reader actor" in {
     val mediaFiles = MediumPaths map (MediaFile(_, 128))
-    val scanResult = ScanResult.copy(mediaFiles = Map(DefinedMediumID(Medium) -> mediaFiles))
+    val scanResult = ScanResult.copy(mediaFiles = Map(MediumID.fromDescriptionPath(Medium) -> mediaFiles))
     val errorPath = MediumPaths.head
     val helper = new MediumProcessorActorTestHelper(scanResult = scanResult, numberOfRealActors = 1)
     val probeMp3Processor, probeId3v1Processor, probeId3v2Processor = TestProbe()
@@ -533,7 +535,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! ProcessMediaFiles
     List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
     expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath, mediumID =
-      DefinedMediumID(Medium)))
+      MediumID.fromDescriptionPath(Medium)))
     expectMsg(errorPath)
 
     helper send createMp3Data(errorPath)
