@@ -30,40 +30,32 @@ import java.nio.file.Path
 case class MediaFile(path: Path, size: Long)
 
 /**
- * A trait representing the ID of a medium.
+ * A data class representing the ID of a medium.
  *
- * A medium is a root of a directory structure containing media files. The
- * medium is described by a medium description file.
+ * A medium is a root of a directory structure containing media files. The URI
+ * to this root directory identifies the medium in a unique way. The medium can
+ * be described by a medium description file; in this case, meta information
+ * is available about this medium.
  *
- * Alternatively, all media files that do not belong to a specific medium are
- * assigned to a synthetic medium with no medium description path. These
- * scenarios are implemented by the implementations of this trait.
+ * All media files that do not belong to a specific medium are collected as
+ * well. The IDs for such mediums do not contain a path to a medium
+ * description file. In addition, a synthetic medium is maintained which
+ * combines all media without a description. This is a global list of media
+ * files which cannot be associated to a specific medium.
+ *
+ * @param mediumURI the URI which identifies this medium
+ * @param mediumDescriptionPath the optional  path to the medium description
+ *                              file
  */
-sealed trait MediumID {
+case class MediumID(mediumURI: String, mediumDescriptionPath: Option[Path])
+
+object MediumID {
   /**
-   * The optional path to the medium description file. If defined, this file
-   * contains information about this medium.
+   * Constant for the ID for the synthetic medium which collects all media
+   * files not assigned to a medium (i.e. for which no medium description file
+   * is available).
    */
-  val mediumDescriptionPath: Option[Path]
-}
-
-/**
- * An implementation of ''MediumID'' for an existing medium. The path to the
- * medium description file actually exists and is passed to the constructor.
- *
- * @param path the path to the medium description file
- */
-case class DefinedMediumID(path: Path) extends MediumID {
-  override val mediumDescriptionPath = Option(path)
-}
-
-/**
- * An implementation of ''MediumID'' representing the synthetic medium that
- * contains all files without a real medium. This implementation does not
- * provide a path to a description file.
- */
-case object UndefinedMediumID extends MediumID {
-  override val mediumDescriptionPath = None
+  val UndefinedMediumID = MediumID("", None)
 }
 
 /**
@@ -71,9 +63,8 @@ case object UndefinedMediumID extends MediumID {
  * raw form).
  *
  * This class consists of a map with ''MediumID'' objects and the files of this
- * medium assigned to it. Files which could not be assigned to a medium are
- * stored under the key [[UndefinedMediumID]]. The medium ID can be used to
- * obtain a path pointing to the corresponding medium description file.
+ * medium assigned to it. The medium ID can be used to obtain a path pointing
+ * to the corresponding medium description file if available.
  *
  * @param root the root path that has been scanned
  * @param mediaFiles a map with files assigned to a medium
