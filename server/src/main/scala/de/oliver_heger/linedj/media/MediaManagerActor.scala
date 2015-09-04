@@ -103,12 +103,11 @@ object MediaManagerActor {
   /**
    * Creates a dummy ''MediumSettingsData'' object for a medium description
    * file which could not be loaded.
-   * @param path the path to the description file
+   * @param mediumID the ID of the affected medium
    * @return the dummy settings data
    */
-  private def createDummySettingsDataForPath(path: Path): MediumSettingsData =
-    MediumInfoParserActor.DummyMediumSettingsData.copy(mediumURI = pathToURI
-      (mediumPathFromDescription(path)))
+  private def createDummySettingsDataForPath(mediumID: MediumID): MediumInfo =
+    MediumInfoParserActor.DummyMediumSettingsData.copy(mediumID = mediumID)
 
   /**
    * Convenience method for returning the current system time.
@@ -160,26 +159,33 @@ Actor with ActorLogging {
   private var loaderActor: ActorRef = _
 
   /** The map with the media currently available. */
-  private var mediaMap = Map.empty[String, MediumInfo]
+  private var mediaMap = Map.empty[MediumID, MediumInfo]
 
   /**
    * A temporary map for storing media ID information. It is used while
    * constructing the information about the currently available media.
    */
-  private val mediaIDData = collection.mutable.Map.empty[String, MediumIDData]
+  private val mediaIDData = collection.mutable.Map.empty[MediumID, MediumIDData]
 
   /**
    * A temporary map for storing media settings data extracted from media
    * description files. It is used while constructing the information about the
    * currently available media.
    */
-  private val mediaSettingsData = collection.mutable.Map.empty[String, MediumSettingsData]
+  private val mediaSettingsData = collection.mutable.Map.empty[MediumID, MediumInfo]
+
+  /**
+   * A temporary set for storing the IDs of the media which are currently
+   * processed. This is needed to associate the content of media description
+   * files with the media they refer to.
+   */
+  private val currentMediumIDs = collection.mutable.Set.empty[MediumID]
 
   /**
    * A map with information about the files contained in the currently
    * available media.
    */
-  private val mediaFiles = collection.mutable.Map.empty[String, Map[String, MediaFile]]
+  private val mediaFiles = collection.mutable.Map.empty[MediumID, Map[String, MediaFile]]
 
   /**
    * Stores references to clients that have asked for the available media
@@ -244,17 +250,16 @@ Actor with ActorLogging {
       processMediumDescription(path, content)
 
     case idData: MediumIDData =>
-      //TODO use correct attributes
-      if (idData.mediumID.mediumURI == MediumIDOtherFiles) {
-        appendMedium(idData.checksum, MediumInfoParserActor.undefinedMediumInfo)
+      if (idData.mediumID.mediumDescriptionPath.isEmpty) {
+        appendMedium(idData.mediumID, MediumInfoParserActor.undefinedMediumInfo)
       } else {
-        mediaIDData += idData.mediumID.mediumURI -> idData
-        createAndStoreMediumInfo(idData.mediumID.mediumURI)
+        mediaIDData += idData.mediumID -> idData
+        createAndStoreMediumInfo(idData.mediumID)
       }
-      mediaFiles += idData.checksum -> idData.fileURIMapping
+      mediaFiles += idData.mediumID -> idData.fileURIMapping
       stopSender()
 
-    case setData: MediumSettingsData =>
+    case setData: MediumInfo =>
       storeSettingsData(setData)
       stopSender()
 
@@ -278,7 +283,9 @@ Actor with ActorLogging {
 
     case FileOperationActor.IOOperationError(path, ex) =>
       log.warning("Loading a description file caused an exception: {}!", ex)
-      storeSettingsData(createDummySettingsDataForPath(path))
+      findMediumIDForDescriptionPath(path) foreach { id =>
+        storeSettingsData(createDummySettingsDataForPath(id))
+      }
 
     case CheckReaderTimeout =>
       checkForReaderActorTimeout()
@@ -342,22 +349,22 @@ Actor with ActorLogging {
    * @param scanResult the data object with scan results
    */
   private def processScanResult(scanResult: MediaScanResult): Unit = {
-    def triggerIDCalculation(mediumPath: Path, mediumURI: String, files: Seq[MediaFile]): Unit = {
+    def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[MediaFile]): Unit = {
       val idActor = createChildActor(Props(classOf[MediumIDCalculatorActor], idCalculator))
-      //TODO pass correct parameters
-      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, MediumID.UndefinedMediumID, scanResult, files)
+      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files)
     }
 
+    currentMediumIDs ++= scanResult.mediaFiles.keySet
     scanResult.mediaFiles foreach { e =>
       e._1.mediumDescriptionPath match {
         case Some(path) =>
           loaderActor ! LoadFile(path)
           val mediumPath = mediumPathFromDescription(path)
-          triggerIDCalculation(mediumPath, pathToURI(mediumPath), e._2)
+          triggerIDCalculation(mediumPath, e._1, e._2)
 
         case _ =>
-          triggerIDCalculation(scanResult.root, MediumIDOtherFiles, e._2)
-          processOtherFiles(scanResult)
+          triggerIDCalculation(scanResult.root, MediumID(pathToURI(scanResult.root), None), e._2)
+          processOtherFiles(scanResult, e._1)
       }
     }
 
@@ -371,15 +378,16 @@ Actor with ActorLogging {
    * of files which do not belong to a medium has to be stored by the actor.
    * This is handled by this method.
    * @param scanResult the data object with scan results
+   * @param mediumID the ID of the medium with other files
    */
-  private def processOtherFiles(scanResult: MediaScanResult): Unit = {
-    if (!mediaMap.contains(MediumIDOtherFiles)) {
+  private def processOtherFiles(scanResult: MediaScanResult, mediumID: MediumID): Unit = {
+    if (!mediaMap.contains(MediumID.UndefinedMediumID)) {
       mediaCount += 1
-      appendMedium(MediumIDOtherFiles, MediumInfoParserActor.undefinedMediumInfo)
+      appendMedium(MediumID.UndefinedMediumID, MediumInfoParserActor.undefinedMediumInfo)
     }
-    val otherMapping = createOtherFilesMapping(scanResult)
-    val currentOtherMapping = mediaFiles.getOrElse(MediumIDOtherFiles, Map.empty)
-    mediaFiles += MediumIDOtherFiles -> (currentOtherMapping ++ otherMapping)
+    val otherMapping = createOtherFilesMapping(scanResult, mediumID)
+    val currentOtherMapping = mediaFiles.getOrElse(MediumID.UndefinedMediumID, Map.empty)
+    mediaFiles += MediumID.UndefinedMediumID -> (currentOtherMapping ++ otherMapping)
   }
 
   /**
@@ -387,10 +395,12 @@ Actor with ActorLogging {
    * mapping will become part of a global mapping for all files that do not
    * belong to a specific medium.
    * @param scanResult the ''MediaScanResult''
+   * @param mediumID the medium ID
    * @return the resulting mapping
    */
-  private def createOtherFilesMapping(scanResult: MediaScanResult): Map[String, MediaFile] = {
-    val otherFiles = scanResult.mediaFiles(MediumID(scanResult.root.toString, None))
+  private def createOtherFilesMapping(scanResult: MediaScanResult, mediumID: MediumID):
+  Map[String, MediaFile] = {
+    val otherFiles = scanResult.mediaFiles(mediumID)
     val otherURIs = otherFiles map { f => pathToURI(f.path) }
     Map(otherURIs zip otherFiles: _*)
   }
@@ -403,9 +413,10 @@ Actor with ActorLogging {
    * @param content the binary content of the description file
    */
   private def processMediumDescription(path: Path, content: Array[Byte]): Unit = {
-    val parserActor = createChildActor(Props(classOf[MediumInfoParserActor], mediumInfoParser))
-    parserActor ! MediumInfoParserActor.ParseMediumInfo(content, pathToURI
-      (mediumPathFromDescription(path)))
+    findMediumIDForDescriptionPath(path) foreach { id =>
+      val parserActor = createChildActor(Props(classOf[MediumInfoParserActor], mediumInfoParser))
+      parserActor ! MediumInfoParserActor.ParseMediumInfo(content, id)
+    }
   }
 
   /**
@@ -413,22 +424,22 @@ Actor with ActorLogging {
    * actor.
    * @param data the data object to be stored
    */
-  private def storeSettingsData(data: MediumSettingsData): Unit = {
-    mediaSettingsData += data.mediumURI -> data
-    createAndStoreMediumInfo(data.mediumURI)
+  private def storeSettingsData(data: MediumInfo): Unit = {
+    mediaSettingsData += data.mediumID -> data
+    createAndStoreMediumInfo(data.mediumID)
   }
 
   /**
    * Checks whether all information for creating a ''MediumInfo'' object is
    * available for the specified medium URI. If so, the object is created and
    * stored in the global map.
-   * @param mediumURI the affected medium URI
+   * @param mediumID the ID of the affected medium
    */
-  private def createAndStoreMediumInfo(mediumURI: String): Unit = {
-    for {idData <- mediaIDData.get(mediumURI)
-         settingsData <- mediaSettingsData.get(mediumURI)
+  private def createAndStoreMediumInfo(mediumID: MediumID): Unit = {
+    for {idData <- mediaIDData.get(mediumID)
+         mediumInfo <- mediaSettingsData.get(mediumID)
     } {
-      appendMedium(idData.checksum, settingsData)
+      appendMedium(mediumID, mediumInfo)
     }
   }
 
@@ -440,7 +451,8 @@ Actor with ActorLogging {
    * @return an option with the ''MediaFile''
    */
   private def fetchMediaFile(sourceID: AudioSourceID): Option[MediaFile] = {
-    mediaFiles get sourceID.mediumID flatMap (_.get(sourceID.uri))
+    //TODO use correct medium ID
+    mediaFiles get MediumID.UndefinedMediumID flatMap (_.get(sourceID.uri))
   }
 
   /**
@@ -493,6 +505,7 @@ Actor with ActorLogging {
     pendingMediaRequest = List.empty
     mediaIDData.clear()
     mediaSettingsData.clear()
+    currentMediumIDs.clear()
   }
 
   /**
@@ -502,7 +515,7 @@ Actor with ActorLogging {
    * @param info the medium info object
    * @return a flag whether the data about media is now complete
    */
-  private def appendMedium(mediumID: String, info: MediumInfo): Boolean = {
+  private def appendMedium(mediumID: MediumID, info: MediumInfo): Boolean = {
     mediaMap += mediumID -> info
     mediaDataAdded()
   }
@@ -579,4 +592,16 @@ Actor with ActorLogging {
     log.warning("Reader actor {} stopped because of timeout!", actor.path)
   }
 
+  /**
+   * Tries to obtain the medium ID for the specified file path. When reading a
+   * medium description file only the path is available. This has to be
+   * translated again to the ID of the affected medium. For this purpose, a set
+   * with the currently processed media IDs is stored.
+   * @param path the path of the description file
+   * @return the medium ID if it could be resolved
+   */
+  private def findMediumIDForDescriptionPath(path: Path): Option[MediumID] = {
+    val optPath = Some(path)
+    currentMediumIDs find(_.mediumDescriptionPath == optPath)
+  }
 }

@@ -133,9 +133,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     manager ! GetAvailableMedia
     val media = expectMsgType[AvailableMedia]
-    media.media(helper.Drive1OtherIDData.checksum) should be(MediumInfoParserActor
+    media.media(MediumID(helper.Drive1Root.toString, None)) should be(MediumInfoParserActor
       .undefinedMediumInfo)
-    media.media(helper.Drive3OtherIDData.checksum) should be(MediumInfoParserActor
+    media.media(MediumID(helper.Drive3Root.toString, None)) should be(MediumInfoParserActor
       .undefinedMediumInfo)
   }
 
@@ -145,7 +145,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     manager ! GetAvailableMedia
     val media = expectMsgType[AvailableMedia]
-    media.media(MediaManagerActor.MediumIDOtherFiles) should be(MediumInfoParserActor
+    media.media(MediumID.UndefinedMediumID) should be(MediumInfoParserActor
       .undefinedMediumInfo)
   }
 
@@ -166,9 +166,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "support queries for the files on a medium" in {
     val helper = prepareHelperForScannedMedia()
 
-    helper.testManagerActor ! GetMediumFiles(helper.Medium1IDData.checksum)
+    helper.testManagerActor ! GetMediumFiles(helper.definedMediumID(1, helper.Medium1Path))
     val msgFiles = expectMsgType[MediumFiles]
-    msgFiles.mediumID should be(helper.Medium1IDData.checksum)
+    msgFiles.mediumID should be(helper.Medium1IDData.mediumID)
     msgFiles.existing shouldBe true
     helper.Medium1IDData.fileURIMapping.keySet should contain theSameElementsAs msgFiles.uris
   }
@@ -176,7 +176,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "answer a query for the files of a non-existing medium" in {
     val helper = prepareHelperForScannedMedia()
 
-    val request = GetMediumFiles("non existing medium ID!")
+    val request = GetMediumFiles(MediumID("non existing path", None))
     helper.testManagerActor ! request
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(request.mediumID)
@@ -188,7 +188,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val expURIs = helper.Drive3OtherFiles map (_.path.toString)
 
-    helper.testManagerActor ! GetMediumFiles(helper.Drive3OtherIDData.checksum)
+    helper.testManagerActor ! GetMediumFiles(MediumID(helper.Drive3Root.toString, None))
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
@@ -198,7 +198,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val expURIs = (helper.Drive1OtherFiles ::: helper.Drive3OtherFiles) map (_.path.toString)
 
-    helper.testManagerActor ! GetMediumFiles(MediaManagerActor.MediumIDOtherFiles)
+    helper.testManagerActor ! GetMediumFiles(MediumID.UndefinedMediumID)
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
@@ -293,7 +293,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.testManagerActor ! GetAvailableMedia
     val msgMedia = expectMsgType[AvailableMedia]
     msgMedia.media should have size 0
-    helper.testManagerActor ! GetMediumFiles("someMedium")
+    helper.testManagerActor ! GetMediumFiles(MediumID("someMedium", None))
     expectMsgType[MediumFiles].uris shouldBe 'empty
   }
 
@@ -337,7 +337,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
     helper.testManagerActor ! GetAvailableMedia
     val mediaMsg = expectMsgType[AvailableMedia]
-    mediaMsg.media(helper.Medium1IDData.checksum).name should be(MediumInfoParserActor
+    mediaMsg.media(helper.definedMediumID(1, helper.Medium1Path)).name should be(MediumInfoParserActor
       .undefinedMediumInfo.name)
   }
 
@@ -489,7 +489,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param medPath the path to the medium
      * @return the medium ID
      */
-    private def definedMediumID(mediumNo: Int, medPath: Path): MediumID =
+    def definedMediumID(mediumNo: Int, medPath: Path): MediumID =
       MediumID.fromDescriptionPath(mediumSettings(medPath, mediumNo))
 
     /**
@@ -547,9 +547,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param mediumNo the medium number
      * @return the settings data object for this medium
      */
-    private def settingsData(mediumRoot: Path, mediumNo: Int): MediumSettingsData =
-      MediumSettingsData(name = s"Medium $mediumNo", description = s"Medium description $mediumNo",
-        mediumURI = mediumRoot.toString, orderMode = "")
+    private def settingsData(mediumRoot: Path, mediumNo: Int): MediumInfo =
+      MediumInfo(name = s"Medium $mediumNo", description = s"Medium description $mediumNo",
+        mediumID = definedMediumID(mediumNo, mediumRoot), orderMode = "", orderParams = "",
+        checksum = "")
 
     /**
      * Generates a request for an ID calculation.
@@ -561,8 +562,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def calcRequest(medPath: Path, mediumNo: Int, scanResult: MediaScanResult, content:
     Seq[MediaFile]): MediumIDCalculatorActor.CalculateMediumID =
-      MediumIDCalculatorActor.CalculateMediumID(medPath, definedMediumID(1, medPath), scanResult,
-        content)
+      MediumIDCalculatorActor.CalculateMediumID(medPath, definedMediumID(mediumNo, medPath),
+        scanResult, content)
 
     /** Root of the first drive. */
     val Drive1Root = path("drive1")
@@ -664,7 +665,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       DirectoryScannerActor.ScanPath(Drive3Root) -> Drive3,
       calcRequest(Medium1Path, 1, Drive1, Medium1Content) -> Medium1IDData,
       calcRequest(Medium2Path, 2, Drive1, Medium2Content) -> Medium2IDData,
-      calcRequest(Medium3Path, 3, Drive3, Medium3Content) -> Medium3IDData,
+      calcRequest(Medium3Path, 3, Drive2, Medium3Content) -> Medium3IDData,
       MediumIDCalculatorActor.CalculateMediumID(Drive1Root, MediumID(Drive1Root.toString, None),
         Drive1, Drive1OtherFiles) -> Drive1OtherIDData,
       MediumIDCalculatorActor.CalculateMediumID(Drive3Root, MediumID(Drive3Root.toString, None),
@@ -675,11 +676,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         Medium2BinaryDesc),
       FileLoaderActor.LoadFile(Medium3Desc) -> FileLoaderActor.FileContent(Medium3Desc,
         Medium3BinaryDesc),
-      MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumURI) ->
+      MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumID) ->
         Medium1SettingsData,
-      MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumURI) ->
+      MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumID) ->
         Medium2SettingsData,
-      MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumURI) ->
+      MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumID) ->
         Medium3SettingsData)
 
     /**
@@ -728,9 +729,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the same passed in data object
      */
     def checkMediaWithDescriptions(avMedia: AvailableMedia): AvailableMedia = {
-      avMedia.media(checksum(1)) should be(Medium1SettingsData)
-      avMedia.media(checksum(2)) should be(Medium2SettingsData)
-      avMedia.media(checksum(3)) should be(Medium3SettingsData)
+      avMedia.media(definedMediumID(1, Medium1Path)) should be(Medium1SettingsData)
+      avMedia.media(definedMediumID(2, Medium2Path)) should be(Medium2SettingsData)
+      avMedia.media(definedMediumID(3, Medium3Path)) should be(Medium3SettingsData)
       avMedia
     }
 

@@ -43,17 +43,25 @@ case class ReaderActorAlive(reader: ActorRef)
  *
  * @param mediumID the ID of the medium in question
  */
-case class GetMediumFiles(mediumID: String)
+case class GetMediumFiles(mediumID: MediumID)
 
 /**
  * A message sent by ''MediaManagerActor'' which contains information about
- * all media currently available. The media currently available are passed as
- * a map with alphanumeric media IDs as keys and the corresponding info
- * objects as values.
+ * all media currently available.
+ *
+ * The media are represented by a map with ''MediumID'' objects as keys and
+ * corresponding data objects as values. The map contains all media for which a
+ * medium description file was found. If a source path contained media files
+ * which could not be assigned to a medium description, a medium is created for
+ * these files as well; in this case, the ''MediumID'' does not contain the
+ * path to a description file. In addition, there is a synthetic medium which
+ * combines all media files not associated to a medium (so it is the union of
+ * all media with undefined description files). This medium (if existing) is
+ * stored under the key ''MediumID.UndefinedMediumID''.
  *
  * @param media a map with information about all media currently available
  */
-case class AvailableMedia(media: Map[String, MediumInfo])
+case class AvailableMedia(media: Map[MediumID, MediumInfo])
 
 /**
  * A message sent by ''MediaManagerActor'' in response to a request for the
@@ -66,4 +74,4 @@ case class AvailableMedia(media: Map[String, MediumInfo])
  * @param uris a sequence with the URIs for the files on this medium
  * @param existing a flag whether the medium exists
  */
-case class MediumFiles(mediumID: String, uris: Set[String], existing: Boolean)
+case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
