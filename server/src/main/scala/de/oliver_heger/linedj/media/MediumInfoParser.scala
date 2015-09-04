@@ -53,17 +53,18 @@ private object MediumInfoParser {
   /**
    * Extracts information about a medium from the given XML document and
    * returns it as a ''MediumSettingsData'' object.
-   * @param mediumURI the URI to the affected medium
+   * @param mediumID the ID to the affected medium
    * @param elem the XML structure to be processed
    * @return the resulting ''MediumSettingsData'' object
    */
-  private def extractMediumInfo(mediumURI: String, elem: xml.NodeSeq): MediumSettingsData = {
+  private def extractMediumInfo(mediumID: MediumID, elem: xml.NodeSeq): MediumInfo = {
     val elemOrder = elem \ ElemOrder
-    MediumSettingsData(name = (elem \ ElemName).text,
+    MediumInfo(name = (elem \ ElemName).text,
       description = (elem \ ElemDesc).text,
       orderMode = (elemOrder \ ElemOrderMode).text,
       orderParams = (elemOrder \ ElemOrderParams \ "_").toString(),
-      mediumURI = mediumURI)
+      mediumID = mediumID,
+      checksum = "")
   }
 }
 
@@ -87,15 +88,15 @@ private class MediumInfoParser {
    * it to a ''MediumInfo'' object if possible. In case of a failure, result is
    * ''None''.
    * @param data the data to be parsed
-   * @param mediumURI the URI of the medium
+   * @param mediumID the ID of the medium
    * @return an option with the resulting ''MediumInfo'' object
    */
-  def parseMediumInfo(data: Array[Byte], mediumURI: String): Option[MediumSettingsData] = {
+  def parseMediumInfo(data: Array[Byte], mediumID: MediumID): Option[MediumInfo] = {
     try {
-      Some(extractMediumInfo(mediumURI, parseMediumDescription(data)))
+      Some(extractMediumInfo(mediumID, parseMediumDescription(data)))
     } catch {
       case ex: Exception =>
-        log.error("Error when parsing medium description for " + mediumURI, ex)
+        log.error("Error when parsing medium description for " + mediumID, ex)
         None
     }
   }

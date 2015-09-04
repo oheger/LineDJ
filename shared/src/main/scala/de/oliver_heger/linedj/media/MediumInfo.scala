@@ -17,39 +17,20 @@
 package de.oliver_heger.linedj.media
 
 /**
- * A trait defining meta data of a medium.
+ * A class defining meta data of a medium.
  *
- * This trait defines some properties with information about a medium. The data
- * which can be queried from an instance can be used e.g. in a UI when
+ * This data class defines some properties with information about a medium. The
+ * data which can be queried from an instance can be used e.g. in a UI when
  * presenting an overview over the media currently available.
- */
-trait MediumInfo {
-  /** The name of the represented medium. */
-  val name: String
-
-  /** An additional description about the represented medium. */
-  val description: String
-
-  /**
-   * The root URI of the represented medium. This information is typically
-   * transient; it is determined when the medium is loaded. It merely serves
-   * informational purpose.
-   */
-  val mediumURI: String
-}
-
-/**
- * An internally used data class storing meta data about a medium.
- * @param name the name of the medium
- * @param description a description of the medium
- * @param mediumURI the medium URI
+ *
+ * @param name the name of the represented medium
+ * @param description an additional description about the represented medium
+ * @param mediumID the ID of the represented medium
  * @param orderMode the default ordering mode for a playlist for this medium
  * @param orderParams additional parameters for sorting the medium; this is a
  *                    plain string whose interpretation depends on the order
  *                    mode
+ * @param checksum an alphanumeric checksum calculated for this medium
  */
-case class MediumSettingsData(override val name: String,
-                                      override val description: String,
-                                      override val mediumURI: String,
-                                      orderMode: String,
-                                      orderParams: String = "") extends MediumInfo
+case class MediumInfo(name: String, description: String, mediumID: MediumID, orderMode: String,
+                      orderParams: String, checksum: String)

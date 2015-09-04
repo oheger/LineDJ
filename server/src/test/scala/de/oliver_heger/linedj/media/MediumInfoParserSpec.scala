@@ -5,8 +5,8 @@ import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{FlatSpec, Matchers}
 
 object MediumInfoParserSpec {
-  /** A test medium URI. */
-  private val MediumURI = "test://TestMediumURI.tst"
+  /** A test medium ID. */
+  private val TestMediumID = MediumID("test://TestMediumURI.tst", None)
 
   /** A test medium name. */
   private val MediumName = "TestMedium"
@@ -62,19 +62,20 @@ class MediumInfoParserSpec extends FlatSpec with Matchers {
 
   "A MediumInfoParser" should "parse a valid description file" in {
     val parser = new MediumInfoParser
-    val info = parser.parseMediumInfo(createMediumSettingsFileContent(), MediumURI).get
+    val info = parser.parseMediumInfo(createMediumSettingsFileContent(), TestMediumID).get
 
-    info.mediumURI should be(MediumURI)
+    info.mediumID should be(TestMediumID)
     info.name should be(MediumName)
     info.description should be(MediumDescription)
     info.orderMode should be(OrderMode)
     info.orderParams should be("<coolness>true</coolness>")
+    info.checksum should be("")
   }
 
   it should "handle exceptions when parsing XML" in {
     val Content = "<configuration><name>Invalid</name><description>test</configuration>"
     val parser = new MediumInfoParser
 
-    parser.parseMediumInfo(FileTestHelper.toBytes(Content), MediumURI) should be(None)
+    parser.parseMediumInfo(FileTestHelper.toBytes(Content), TestMediumID) should be(None)
   }
 }

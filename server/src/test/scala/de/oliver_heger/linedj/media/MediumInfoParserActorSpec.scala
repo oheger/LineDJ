@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.media
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -10,8 +26,8 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import scala.concurrent.duration._
 
 object MediumInfoParserActorSpec {
-  /** Constant for a medium URI. */
-  private val MediumURI = "test://TestMedium"
+  /** Constant for a medium ID. */
+  private val TestMediumID = MediumID("test://TestMedium", None)
 }
 
 /**
@@ -39,28 +55,29 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   "A MediumInfoParserActor" should "handle a successful parse operation" in {
     val parser = mock[MediumInfoParser]
-    val mediumSettingsData = MediumSettingsData(name = "TestMedium", description = "Some desc",
-      mediumURI = MediumURI, orderMode = "Directories")
+    val mediumSettingsData = MediumInfo(name = "TestMedium", description = "Some desc",
+      mediumID = TestMediumID, orderMode = "Directories", orderParams = "", checksum = "")
     val data = new Array[Byte](16)
-    when(parser.parseMediumInfo(data, MediumURI)).thenReturn(Some(mediumSettingsData))
+    when(parser.parseMediumInfo(data, TestMediumID)).thenReturn(Some(mediumSettingsData))
 
     val actor = parserActor(parser)
-    actor ! ParseMediumInfo(data, MediumURI)
+    actor ! ParseMediumInfo(data, TestMediumID)
     expectMsg(mediumSettingsData)
   }
 
   it should "return a default description if a parsing error occurs" in {
     val parser = mock[MediumInfoParser]
     val data = new Array[Byte](16)
-    when(parser.parseMediumInfo(data, MediumURI)).thenReturn(None)
+    when(parser.parseMediumInfo(data, TestMediumID)).thenReturn(None)
 
     val actor = parserActor(parser)
-    actor ! ParseMediumInfo(data, MediumURI)
-    val settings = expectMsgType[MediumSettingsData]
+    actor ! ParseMediumInfo(data, TestMediumID)
+    val settings = expectMsgType[MediumInfo]
     settings.name should be("unknown")
     settings.description should have length 0
-    settings.mediumURI should be(MediumURI)
+    settings.mediumID should be(TestMediumID)
     settings.orderMode should have length 0
     settings.orderParams should have length 0
+    settings.checksum should have length 0
   }
 }

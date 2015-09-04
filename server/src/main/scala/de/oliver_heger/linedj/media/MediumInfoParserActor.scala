@@ -29,17 +29,18 @@ object MediumInfoParserActor {
    * Template for a default settings object to be returned in case of a
    * parsing error.
    */
-  private[media] lazy val DummyMediumSettingsData = MediumSettingsData(name = UnknownMedium,
-    description = "", mediumURI = "", orderMode = "", orderParams = "")
+  private[media] lazy val DummyMediumSettingsData = MediumInfo(name = UnknownMedium,
+    description = "", mediumID = MediumID.UndefinedMediumID, orderMode = "", orderParams = "",
+    checksum = "")
 
   /**
    * A message processed by ''MediumInfoParserActor'' which tells it to parse a
    * medium description. The actor will delegate the received data to its
    * associated parser and send a [[MediumInfo]] object as answer.
    * @param descriptionData the data of the description in binary form
-   * @param mediumURI the medium URI
+   * @param mediumID the medium ID
    */
-  case class ParseMediumInfo(descriptionData: Array[Byte], mediumURI: String)
+  case class ParseMediumInfo(descriptionData: Array[Byte], mediumID: MediumID)
 
   /**
    * Returns a ''MediumInfo'' object for an undefined medium. This object can
@@ -57,7 +58,7 @@ object MediumInfoParserActor {
  * construction time a ''MediumInfoParser'' is passed. This actor accepts a
  * message for parsing a medium description file. The file content is delegated
  * to the associated parser. The result is sent back as a
- * [[MediumSettingsData]] object.
+ * [[MediumInfo]] object.
  *
  * @param parser the parser for medium description data
  */
@@ -66,8 +67,8 @@ class MediumInfoParserActor(parser: MediumInfoParser) extends Actor {
   import MediumInfoParserActor._
 
   override def receive: Receive = {
-    case ParseMediumInfo(desc, mediumURI) =>
-      sender ! parser.parseMediumInfo(desc, mediumURI).getOrElse(DummyMediumSettingsData.copy
-        (mediumURI = mediumURI))
+    case ParseMediumInfo(desc, mediumID) =>
+      sender ! parser.parseMediumInfo(desc, mediumID).getOrElse(DummyMediumSettingsData.copy
+        (mediumID = mediumID))
   }
 }
