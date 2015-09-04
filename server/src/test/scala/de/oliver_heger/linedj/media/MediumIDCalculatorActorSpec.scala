@@ -36,12 +36,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val rootPath = Paths.get("root")
     val uri = "test://SomeMediumURI"
     val content = List(MediaFile(rootPath resolve "test.mp3", 1))
-    val data = MediumIDData("Test-Medium-ID", uri, Map("someFileURI" -> MediaFile(rootPath
-      resolve "file.mp3", 32)))
-    when(calc.calculateMediumID(rootPath, uri, content)).thenReturn(data)
+    val mediumID = MediumID("a path", None)
+    val scanResult = mock[MediaScanResult]
+    val data = MediumIDData("Test-Medium-ID", mediumID, scanResult, Map("someFileURI" ->
+      MediaFile(rootPath resolve "file.mp3", 32)))
+    when(calc.calculateMediumID(rootPath, mediumID, scanResult, content)).thenReturn(data)
 
     val actor = calculatorActor(calc)
-    actor ! CalculateMediumID(rootPath, uri, content)
+    actor ! CalculateMediumID(rootPath, mediumID, scanResult, content)
     expectMsg(data)
   }
 }

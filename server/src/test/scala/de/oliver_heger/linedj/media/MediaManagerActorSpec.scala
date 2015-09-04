@@ -133,9 +133,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     manager ! GetAvailableMedia
     val media = expectMsgType[AvailableMedia]
-    media.media(helper.Drive1OtherIDData.mediumID) should be(MediumInfoParserActor
+    media.media(helper.Drive1OtherIDData.checksum) should be(MediumInfoParserActor
       .undefinedMediumInfo)
-    media.media(helper.Drive3OtherIDData.mediumID) should be(MediumInfoParserActor
+    media.media(helper.Drive3OtherIDData.checksum) should be(MediumInfoParserActor
       .undefinedMediumInfo)
   }
 
@@ -166,9 +166,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "support queries for the files on a medium" in {
     val helper = prepareHelperForScannedMedia()
 
-    helper.testManagerActor ! GetMediumFiles(helper.Medium1IDData.mediumID)
+    helper.testManagerActor ! GetMediumFiles(helper.Medium1IDData.checksum)
     val msgFiles = expectMsgType[MediumFiles]
-    msgFiles.mediumID should be(helper.Medium1IDData.mediumID)
+    msgFiles.mediumID should be(helper.Medium1IDData.checksum)
     msgFiles.existing shouldBe true
     helper.Medium1IDData.fileURIMapping.keySet should contain theSameElementsAs msgFiles.uris
   }
@@ -188,7 +188,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val expURIs = helper.Drive3OtherFiles map (_.path.toString)
 
-    helper.testManagerActor ! GetMediumFiles(helper.Drive3OtherIDData.mediumID)
+    helper.testManagerActor ! GetMediumFiles(helper.Drive3OtherIDData.checksum)
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
@@ -244,7 +244,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    */
   private def createExistingAudioSourceID(helper: MediaManagerTestHelper): AudioSourceID = {
     val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
-    AudioSourceID(helper.Medium1IDData.mediumID, fileURI)
+    AudioSourceID(helper.Medium1IDData.checksum, fileURI)
   }
 
   it should "return a correct download result" in {
@@ -337,7 +337,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
     helper.testManagerActor ! GetAvailableMedia
     val mediaMsg = expectMsgType[AvailableMedia]
-    mediaMsg.media(helper.Medium1IDData.mediumID).name should be(MediumInfoParserActor
+    mediaMsg.media(helper.Medium1IDData.checksum).name should be(MediumInfoParserActor
       .undefinedMediumInfo.name)
   }
 
@@ -484,21 +484,34 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
+     * Generates a ''MediumID'' for the specified medium.
+     * @param mediumNo the medium number
+     * @param medPath the path to the medium
+     * @return the medium ID
+     */
+    private def definedMediumID(mediumNo: Int, medPath: Path): MediumID =
+      MediumID.fromDescriptionPath(mediumSettings(medPath, mediumNo))
+
+    /**
      * Generates a ''MediumIDData'' object for a medium.
      * @param mediumNo the medium number
      * @param medPath the path to the medium
      * @param content the content of this medium
+     * @param scanResult the scan result
      * @return the corresponding ID data
      */
-    private def idData(mediumNo: Int, medPath: Path, content: List[MediaFile]): MediumIDData =
-      MediumIDData(mediumID(mediumNo), medPath.toString, pathMapping(content))
+    private def idData(mediumNo: Int, medPath: Path, content: List[MediaFile],
+                       scanResult: MediaScanResult): MediumIDData =
+      MediumIDData(checksum = checksum(mediumNo),
+        mediumID = definedMediumID(mediumNo, medPath),
+        scanResult = scanResult, fileURIMapping = pathMapping(content))
 
     /**
-     * Returns the medium ID for the given medium.
+     * Returns the checksum for the given medium.
      * @param mediumNo the medium number
-     * @return the ID for this medium
+     * @return the checksum for this medium
      */
-    private def mediumID(mediumNo: Int): String = s"Medium${mediumNo}_ID"
+    private def checksum(mediumNo: Int): String = s"Medium${mediumNo}_ID"
 
     /**
      * Generates a mapping from logic file URIs to physical paths.
@@ -539,14 +552,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         mediumURI = mediumRoot.toString, orderMode = "")
 
     /**
-     * Generates a request for calculating a medium ID.
-     * @param path the medium path
+     * Generates a request for an ID calculation.
+     * @param medPath the medium path
+     * @param mediumNo the medium number
+     * @param scanResult the scan result
      * @param content the medium content
-     * @return the corresponding request
+     * @return the request message
      */
-    private def calcRequest(path: Path, content: Seq[MediaFile]): MediumIDCalculatorActor
-    .CalculateMediumID =
-      MediumIDCalculatorActor.CalculateMediumID(path, path.toString, content)
+    private def calcRequest(medPath: Path, mediumNo: Int, scanResult: MediaScanResult, content:
+    Seq[MediaFile]): MediumIDCalculatorActor.CalculateMediumID =
+      MediumIDCalculatorActor.CalculateMediumID(medPath, definedMediumID(1, medPath), scanResult,
+        content)
 
     /** Root of the first drive. */
     val Drive1Root = path("drive1")
@@ -563,17 +579,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /** Content of the first medium. */
     val Medium1Content = pathList(path(Medium1Path, "data"), 5)
 
-    /** ID data for medium 1. */
-    val Medium1IDData = idData(1, Medium1Path, Medium1Content)
-
     /** Settings data for medium 1. */
     val Medium1SettingsData = settingsData(Medium1Path, 1)
 
     /** Binary content of the description file for medium 1. */
     val Medium1BinaryDesc = new Array[Byte](1)
-
-    /** ID data for other files found on drive 1. */
-    val Drive1OtherIDData = MediumIDData("Other1", "", pathMapping(pathList(Drive1Root, 8)))
 
     /** Root path of medium 2. */
     val Medium2Path = mediumPath(Drive1Root, 2)
@@ -583,9 +593,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /** Content of medium 2. */
     val Medium2Content = pathList(path(Medium2Path, "audio"), 8)
-
-    /** ID data for medium 2. */
-    val Medium2IDData = idData(2, Medium2Path, Medium2Content)
 
     /** Settings data for medium 2. */
     val Medium2SettingsData = settingsData(Medium2Path, 2)
@@ -605,9 +612,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /** Content of medium 3. */
     val Medium3Content = pathList(path(Medium3Path, "music"), 16)
 
-    /** ID data for medium 3. */
-    val Medium3IDData = idData(3, Medium3Path, Medium3Content)
-
     /** Settings data for medium 3. */
     val Medium3SettingsData = settingsData(Medium3Path, 3)
 
@@ -619,9 +623,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /** Drive 3 only has other files without a medium description. */
     val Drive3OtherFiles = pathList(path(Drive3Root, "myMusic"), 32)
-
-    /** ID data for other files found on drive 3. */
-    val Drive3OtherIDData = MediumIDData("Other-3", "", pathMapping(Drive3OtherFiles))
 
     /** The scan result for drive 1. */
     val Drive1 = MediaScanResult(Drive1Root, Map(
@@ -637,6 +638,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val Drive3 = MediaScanResult(Drive3Root, Map(MediumID(Drive3Root.toString, None) ->
       Drive3OtherFiles))
 
+    /** ID data for medium 1. */
+    val Medium1IDData = idData(1, Medium1Path, Medium1Content, Drive1)
+
+    /** ID data for other files found on drive 1. */
+    val Drive1OtherIDData = MediumIDData("Other1", MediumID(Drive1Root.toString, None), Drive1,
+      pathMapping(pathList(Drive1Root, 8)))
+
+    /** ID data for medium 2. */
+    val Medium2IDData = idData(2, Medium2Path, Medium2Content, Drive1)
+
+    /** ID data for medium 3. */
+    val Medium3IDData = idData(3, Medium3Path, Medium3Content, Drive2)
+
+    /** ID data for other files found on drive 3. */
+    val Drive3OtherIDData = MediumIDData("Other-3", MediumID(Drive3Root.toString, None), Drive3,
+      pathMapping(Drive3OtherFiles))
+
     /**
      * A map with messages that are expected by collaboration actors and
      * their corresponding responses.
@@ -644,13 +662,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private val ActorMessages = Map[Any, Any](DirectoryScannerActor.ScanPath(Drive1Root) -> Drive1,
       DirectoryScannerActor.ScanPath(Drive2Root) -> Drive2,
       DirectoryScannerActor.ScanPath(Drive3Root) -> Drive3,
-      calcRequest(Medium1Path, Medium1Content) -> Medium1IDData,
-      calcRequest(Medium2Path, Medium2Content) -> Medium2IDData,
-      calcRequest(Medium3Path, Medium3Content) -> Medium3IDData,
-      MediumIDCalculatorActor.CalculateMediumID(Drive1Root, "", Drive1OtherFiles) ->
-        Drive1OtherIDData,
-      MediumIDCalculatorActor.CalculateMediumID(Drive3Root, "", Drive3OtherFiles) ->
-        Drive3OtherIDData,
+      calcRequest(Medium1Path, 1, Drive1, Medium1Content) -> Medium1IDData,
+      calcRequest(Medium2Path, 2, Drive1, Medium2Content) -> Medium2IDData,
+      calcRequest(Medium3Path, 3, Drive3, Medium3Content) -> Medium3IDData,
+      MediumIDCalculatorActor.CalculateMediumID(Drive1Root, MediumID(Drive1Root.toString, None),
+        Drive1, Drive1OtherFiles) -> Drive1OtherIDData,
+      MediumIDCalculatorActor.CalculateMediumID(Drive3Root, MediumID(Drive3Root.toString, None),
+        Drive3, Drive3OtherFiles) -> Drive3OtherIDData,
       FileLoaderActor.LoadFile(Medium1Desc) -> FileLoaderActor.FileContent(Medium1Desc,
         Medium1BinaryDesc),
       FileLoaderActor.LoadFile(Medium2Desc) -> FileLoaderActor.FileContent(Medium2Desc,
@@ -710,9 +728,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the same passed in data object
      */
     def checkMediaWithDescriptions(avMedia: AvailableMedia): AvailableMedia = {
-      avMedia.media(mediumID(1)) should be(Medium1SettingsData)
-      avMedia.media(mediumID(2)) should be(Medium2SettingsData)
-      avMedia.media(mediumID(3)) should be(Medium3SettingsData)
+      avMedia.media(checksum(1)) should be(Medium1SettingsData)
+      avMedia.media(checksum(2)) should be(Medium2SettingsData)
+      avMedia.media(checksum(3)) should be(Medium3SettingsData)
       avMedia
     }
 

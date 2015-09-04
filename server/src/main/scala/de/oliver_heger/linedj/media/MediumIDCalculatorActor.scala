@@ -30,11 +30,13 @@ object MediumIDCalculatorActor {
    * A message processed by ''MediumIDCalculatorActor'' telling it that it
    * should calculate a medium ID based on the passed in information.
    * @param mediumRoot the root path of the medium
-   * @param mediumURI the medium URI
+   * @param mediumID the medium URI
+   * @param scanResult the associated ''MediaScanResult''
    * @param mediumContent a sequence with the media files on this medium
    */
-  private[media] case class CalculateMediumID(mediumRoot: Path, mediumURI: String, mediumContent:
-  Seq[MediaFile])
+  private[media] case class CalculateMediumID(mediumRoot: Path, mediumID: MediumID,
+                                              scanResult: MediaScanResult,
+                                              mediumContent: Seq[MediaFile])
 
 }
 
@@ -51,7 +53,7 @@ object MediumIDCalculatorActor {
  */
 class MediumIDCalculatorActor(calculator: MediumIDCalculator) extends Actor {
   override def receive: Receive = {
-    case CalculateMediumID(mediumRoot, mediumURI, mediumContent) =>
-      sender ! calculator.calculateMediumID(mediumRoot, mediumURI, mediumContent)
+    case CalculateMediumID(mediumRoot, mediumID, scanResult, mediumContent) =>
+      sender ! calculator.calculateMediumID(mediumRoot, mediumID, scanResult, mediumContent)
   }
 }

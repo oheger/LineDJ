@@ -244,13 +244,14 @@ Actor with ActorLogging {
       processMediumDescription(path, content)
 
     case idData: MediumIDData =>
-      if (idData.mediumURI == MediumIDOtherFiles) {
-        appendMedium(idData.mediumID, MediumInfoParserActor.undefinedMediumInfo)
+      //TODO use correct attributes
+      if (idData.mediumID.mediumURI == MediumIDOtherFiles) {
+        appendMedium(idData.checksum, MediumInfoParserActor.undefinedMediumInfo)
       } else {
-        mediaIDData += idData.mediumURI -> idData
-        createAndStoreMediumInfo(idData.mediumURI)
+        mediaIDData += idData.mediumID.mediumURI -> idData
+        createAndStoreMediumInfo(idData.mediumID.mediumURI)
       }
-      mediaFiles += idData.mediumID -> idData.fileURIMapping
+      mediaFiles += idData.checksum -> idData.fileURIMapping
       stopSender()
 
     case setData: MediumSettingsData =>
@@ -343,7 +344,8 @@ Actor with ActorLogging {
   private def processScanResult(scanResult: MediaScanResult): Unit = {
     def triggerIDCalculation(mediumPath: Path, mediumURI: String, files: Seq[MediaFile]): Unit = {
       val idActor = createChildActor(Props(classOf[MediumIDCalculatorActor], idCalculator))
-      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumURI, files)
+      //TODO pass correct parameters
+      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, MediumID.UndefinedMediumID, scanResult, files)
     }
 
     scanResult.mediaFiles foreach { e =>
@@ -426,7 +428,7 @@ Actor with ActorLogging {
     for {idData <- mediaIDData.get(mediumURI)
          settingsData <- mediaSettingsData.get(mediumURI)
     } {
-      appendMedium(idData.mediumID, settingsData)
+      appendMedium(idData.checksum, settingsData)
     }
   }
 

@@ -10,11 +10,17 @@ object MediumIDCalculatorSpec {
   /** The name of the file with the test medium content. */
   private val MediumFile = "test.plist"
 
-  /** The expected ID of the test medium. */
-  private val MediumID = "17131856"
+  /** The expected checksum of the test medium. */
+  private val CheckSum = "17131856"
 
   /** A medium URI. */
   private val MediumURI = "test://TestMediumURI"
+
+  /** A test medium ID. */
+  private val TestID = MediumID(MediumURI, None)
+
+  /** A scan result associated with the test medium. */
+  private val ScanResult = MediaScanResult(Paths get "RootPat", Map.empty)
 }
 
 /**
@@ -47,37 +53,39 @@ FileTestHelper {
 
   "A MediumIDCalculator" should "calculate the correct medium ID" in {
     val calculator = new MediumIDCalculator
-    calculator.calculateMediumID(testDirectory, MediumURI, createContentList()).mediumID should
-      be(MediumID)
+    calculator.calculateMediumID(testDirectory, TestID, ScanResult, createContentList())
+      .checksum should be(CheckSum)
   }
 
   it should "return the same ID independent on ordering" in {
     val calculator = new MediumIDCalculator
 
     val content = createContentList().reverse
-    calculator.calculateMediumID(testDirectory, MediumURI, content).mediumID should be(MediumID)
+    calculator.calculateMediumID(testDirectory, TestID, ScanResult, content).checksum should be(CheckSum)
   }
 
   it should "return different IDs for different content" in {
     val calculator = new MediumIDCalculator
 
     val content = MediaFile(createPathInDirectory("newTrack.mp3"), 1) :: createContentList().toList
-    calculator.calculateMediumID(testDirectory, MediumURI, content).mediumID should not be MediumID
+    calculator.calculateMediumID(testDirectory, TestID, ScanResult, content)
+      .checksum should not be CheckSum
   }
 
   it should "generate a correct URI path mapping" in {
     val calculator = new MediumIDCalculator
 
     val files = createContentList()
-    val data = calculator.calculateMediumID(testDirectory, MediumURI, files)
+    val data = calculator.calculateMediumID(testDirectory, TestID, ScanResult, files)
     data.fileURIMapping should have size files.size
     data.fileURIMapping.values forall files.contains shouldBe true
   }
 
-  it should "pass through the medium URI" in {
+  it should "pass through the medium ID and scan result" in {
     val calculator = new MediumIDCalculator
 
-    val data = calculator.calculateMediumID(testDirectory, MediumURI, createContentList())
-    data.mediumURI should be (MediumURI)
+    val data = calculator.calculateMediumID(testDirectory, TestID, ScanResult, createContentList())
+    data.mediumID should be (TestID)
+    data.scanResult should be(ScanResult)
   }
 }

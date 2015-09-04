@@ -40,18 +40,20 @@ private class MediumIDCalculator {
    * Calculates an alphanumeric medium ID and URIs for the files on the
    * affected medium for the specified input parameters.
    * @param mediumRoot the root directory of the medium
-   * @param mediumURI the URI to the medium (this information is just passed to the result object)
+   * @param mediumID the ID to the medium (this information is just passed to the result object)
+   * @param scanResult the associated scan result (just passed to the result object)
    * @param mediumContent the files obtained from this medium; note: the files
    *                      are expected to be relative to the medium root path
    * @return an object with the calculated IDs and URIs
    */
-  def calculateMediumID(mediumRoot: Path, mediumURI: String, mediumContent: Seq[MediaFile]):
-  MediumIDData = {
+  def calculateMediumID(mediumRoot: Path, mediumID: MediumID, scanResult: MediaScanResult,
+                        mediumContent: Seq[MediaFile]): MediumIDData = {
     val paths = mediumContent map (_.path)
     val fileURIs = paths map mediumRoot.relativize map (_.toString.replace('\\', '/'))
     val crc = new CRC32
     fileURIs sortWith (_ < _) foreach { s => crc.update(s.getBytes) }
-    MediumIDData(java.lang.Long.toHexString(crc.getValue), mediumURI, Map(fileURIs zip mediumContent: _*))
+    MediumIDData(java.lang.Long.toHexString(crc.getValue), mediumID, scanResult, Map(fileURIs zip
+      mediumContent: _*))
   }
 }
 
@@ -61,8 +63,10 @@ private class MediumIDCalculator {
  * This class stores both the global medium ID and IDs for all the files
  * contained on this medium.
  *
- * @param mediumID the alphanumeric medium ID
+ * @param checksum the checksum calculated for the medium
+ * @param mediumID the ID of the medium
+ * @param scanResult the associated ''MediaScanResult'' object
  * @param fileURIMapping a mapping from logic file URIs to physical paths
  */
-private case class MediumIDData(mediumID: String, mediumURI: String, fileURIMapping: Map[String,
-  MediaFile])
+private case class MediumIDData(checksum: String, mediumID: MediumID, scanResult: MediaScanResult,
+                                fileURIMapping: Map[String, MediaFile])
