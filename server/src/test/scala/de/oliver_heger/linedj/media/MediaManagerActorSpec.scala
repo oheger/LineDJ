@@ -133,9 +133,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     manager ! GetAvailableMedia
     val media = expectMsgType[AvailableMedia]
     media.media(MediumID(helper.Drive1Root.toString, None)) should be(MediumInfoParserActor
-      .undefinedMediumInfo)
+      .undefinedMediumInfo.copy(checksum = helper.Drive1OtherIDData.checksum))
     media.media(MediumID(helper.Drive3Root.toString, None)) should be(MediumInfoParserActor
-      .undefinedMediumInfo)
+      .undefinedMediumInfo.copy(checksum = helper.Drive3OtherIDData.checksum))
   }
 
   it should "include a medium ID for a combined list of other files" in {
@@ -550,7 +550,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def settingsData(mediumRoot: Path, mediumNo: Int): MediumInfo =
       MediumInfo(name = s"Medium $mediumNo", description = s"Medium description $mediumNo",
         mediumID = definedMediumID(mediumNo, mediumRoot), orderMode = "", orderParams = "",
-        checksum = "")
+        checksum = checksum(mediumNo))
 
     /**
      * Generates a request for an ID calculation.
@@ -677,11 +677,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       FileLoaderActor.LoadFile(Medium3Desc) -> FileLoaderActor.FileContent(Medium3Desc,
         Medium3BinaryDesc),
       MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumID) ->
-        Medium1SettingsData,
+        Medium1SettingsData.copy(checksum = ""),
       MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumID) ->
-        Medium2SettingsData,
+        Medium2SettingsData.copy(checksum = ""),
       MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumID) ->
-        Medium3SettingsData)
+        Medium3SettingsData.copy(checksum = ""))
 
     /**
      * A map for storing actors created by the test child actor factory. Each

@@ -33,12 +33,6 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 object MediaManagerActor {
 
   /**
-   * Constant for the medium ID assigned to all other files which do not belong
-   * to any other medium.
-   */
-  val MediumIDOtherFiles = ""
-
-  /**
    * A message processed by ''MediaManagerActor'' telling it to scan for media
    * in the specified root directory structures. This message tells the actor
    * which directory paths can contain media files. These paths are scanned,
@@ -64,6 +58,15 @@ object MediaManagerActor {
    * medium.
    */
   private val UnknownMediumFiles = MediumFiles(null, Set.empty, existing = false)
+
+  /**
+   * Constant for an ID data object for the combined list of media files not
+   * associated to a medium.
+   */
+  private val UnassignedIDData = MediumIDData(checksum = MediumInfoParserActor
+    .undefinedMediumInfo.checksum,
+    mediumID = MediumID.UndefinedMediumID, scanResult = MediaScanResult(null, Map.empty),
+    fileURIMapping = Map.empty)
 
   /**
    * Constant for a ''MediaFile'' referring to a non-existing file.
@@ -250,7 +253,7 @@ Actor with ActorLogging {
 
     case idData: MediumIDData =>
       if (idData.mediumID.mediumDescriptionPath.isEmpty) {
-        appendMedium(idData.mediumID, MediumInfoParserActor.undefinedMediumInfo)
+        appendMedium(idData, MediumInfoParserActor.undefinedMediumInfo)
       } else {
         mediaIDData += idData.mediumID -> idData
         createAndStoreMediumInfo(idData.mediumID)
@@ -382,7 +385,7 @@ Actor with ActorLogging {
   private def processOtherFiles(scanResult: MediaScanResult, mediumID: MediumID): Unit = {
     if (!mediaMap.contains(MediumID.UndefinedMediumID)) {
       mediaCount += 1
-      appendMedium(MediumID.UndefinedMediumID, MediumInfoParserActor.undefinedMediumInfo)
+      appendMedium(UnassignedIDData, MediumInfoParserActor.undefinedMediumInfo)
     }
     val otherMapping = createOtherFilesMapping(scanResult, mediumID)
     val currentOtherMapping = mediaFiles.getOrElse(MediumID.UndefinedMediumID, Map.empty)
@@ -438,7 +441,7 @@ Actor with ActorLogging {
     for {idData <- mediaIDData.get(mediumID)
          mediumInfo <- mediaSettingsData.get(mediumID)
     } {
-      appendMedium(mediumID, mediumInfo)
+      appendMedium(idData, mediumInfo)
     }
   }
 
@@ -509,12 +512,12 @@ Actor with ActorLogging {
   /**
    * Appends another entry to the map with media data. If the data is now
    * complete, the scan operation is terminated.
-   * @param mediumID the ID of the medium
+   * @param idData the ID data object for the medium
    * @param info the medium info object
    * @return a flag whether the data about media is now complete
    */
-  private def appendMedium(mediumID: MediumID, info: MediumInfo): Boolean = {
-    mediaMap += mediumID -> info
+  private def appendMedium(idData: MediumIDData, info: MediumInfo): Boolean = {
+    mediaMap += idData.mediumID -> info.copy(checksum = idData.checksum)
     mediaDataAdded()
   }
 
