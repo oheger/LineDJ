@@ -75,3 +75,33 @@ case class AvailableMedia(media: Map[MediumID, MediumInfo])
  * @param existing a flag whether the medium exists
  */
 case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
+
+/**
+ * A message processed by ''MediaManagerActor'' which requests the download of
+ * a medium file.
+ *
+ * This message class is used to obtain information about a specific file on a
+ * medium (its content plus additional meta data) from the media manager actor.
+ * The desired file is uniquely identified using the medium ID and the
+ * (relative) URI within this medium.
+ *
+ * @param mediumID the ID of the medium the desired source belongs to
+ * @param uri the URI of the desired source relative to the medium
+ */
+case class MediumFileRequest(mediumID: MediumID, uri: String)
+
+/**
+ * A message sent by ''MediaManagerActor'' as a response of a
+ * [[MediumFileRequest]] message.
+ *
+ * Via the information stored here all required information about a media
+ * file to be played by a client can be obtained. The actual audio data is
+ * made available via a ''FileReaderActor'' which can be read chunk-wise. Note
+ * that it is in the responsibility of the receiver of this message to stop the
+ * actor when it is no longer needed.
+ *
+ * @param request the request message identifying the file in question
+ * @param contentReader a reference to a ''FileReaderActor'' for reading the audio data
+ * @param length the length of the file (in bytes)
+ */
+case class MediumFileResponse(request: MediumFileRequest, contentReader: ActorRef, length: Long)

@@ -33,6 +33,7 @@ import akka.actor.ActorRef
 case class AudioSource(uri: String, index: Int, length: Long, skip: Long,
                        skipTime: Long)
 
+//TODO to be replaced by messages in the meta data package
 /**
  * A data class which uniquely identifies an audio source.
  *

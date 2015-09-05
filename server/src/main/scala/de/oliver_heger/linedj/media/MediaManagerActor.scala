@@ -25,7 +25,6 @@ import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
-import de.oliver_heger.linedj.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
 /**
@@ -275,8 +274,8 @@ Actor with ActorLogging {
         (files => MediumFiles(mediumID, files.keySet, existing = true))
       sender ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
 
-    case sourceID: AudioSourceID =>
-      processSourceRequest(sourceID)
+    case request: MediumFileRequest =>
+      processFileRequest(request)
 
     case t: Terminated =>
       handleActorTermination(t.actor)
@@ -295,16 +294,16 @@ Actor with ActorLogging {
   }
 
   /**
-   * Processes the request for an audio source.
-   * @param sourceID the ID of the requested audio source
+   * Processes the request for a medium file.
+   * @param request the file request
    */
-  private def processSourceRequest(sourceID: AudioSourceID): Unit = {
+  private def processFileRequest(request: MediumFileRequest): Unit = {
     val readerActor = createChildActor(Props[FileReaderActor])
     val mediaReaderActor = createChildActor(Props(classOf[MediaFileReaderActor], readerActor,
       id3Extractor))
-    val optFile = fetchMediaFile(sourceID)
+    val optFile = fetchMediaFile(request)
     optFile foreach (f => mediaReaderActor ! ChannelHandler.InitFile(f.path))
-    sender ! AudioSourceDownloadResponse(sourceID, mediaReaderActor, optFile.getOrElse
+    sender ! MediumFileResponse(request, mediaReaderActor, optFile.getOrElse
       (NonExistingFile).size)
 
     readerActorMapping.add(mediaReaderActor -> readerActor, now())
@@ -445,14 +444,13 @@ Actor with ActorLogging {
 
   /**
    * Obtains the ''MediaFile'' object referred to by the given
-   * ''AudioSourceID''. The file is looked up in the data structures managed by
+   * ''MediumFileRequest''. The file is looked up in the data structures managed by
    * this actor. If it cannot be found, result is ''None''.
-   * @param sourceID the ID identifying the desired file
+   * @param request the request identifying the desired file
    * @return an option with the ''MediaFile''
    */
-  private def fetchMediaFile(sourceID: AudioSourceID): Option[MediaFile] = {
-    //TODO use correct medium ID
-    mediaFiles get MediumID.UndefinedMediumID flatMap (_.get(sourceID.uri))
+  private def fetchMediaFile(request: MediumFileRequest): Option[MediaFile] = {
+    mediaFiles get request.mediumID flatMap (_.get(request.uri))
   }
 
   /**

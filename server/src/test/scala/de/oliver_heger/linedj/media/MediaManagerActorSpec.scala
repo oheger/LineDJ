@@ -11,7 +11,6 @@ import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
 import de.oliver_heger.linedj.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
-import de.oliver_heger.linedj.playback.{AudioSourceDownloadResponse, AudioSourceID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => argEq}
@@ -211,16 +210,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Checks whether a request for a non-existing audio source is handled
+   * Checks whether a request for a non-existing media file is handled
    * correctly.
-   * @param sourceID the ID of the source to be requested
+   * @param request the ID of the source to be requested
    */
-  private def checkUnknownSourceIDRequest(sourceID: AudioSourceID): Unit = {
+  private def checkUnknownFileRequest(request: MediumFileRequest): Unit = {
     val helper = prepareHelperForScannedMedia()
 
-    helper.testManagerActor ! sourceID
-    val response = expectMsgType[AudioSourceDownloadResponse]
-    response.sourceID should be(sourceID)
+    helper.testManagerActor ! request
+    val response = expectMsgType[MediumFileResponse]
+    response.request should be(request)
     response.length should be(-1)
     val readerProbe = helper.probesOfType[MediaFileReaderActor].head
     val readRequest = FileReaderActor.ReadData(32)
@@ -228,12 +227,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     readerProbe.expectMsg(readRequest)
   }
 
-  it should "return a download result for an unknown audio source ID" in {
-    checkUnknownSourceIDRequest(AudioSourceID("unknown medium", "unknown URI"))
+  it should "return a file response for an unknown medium ID" in {
+    checkUnknownFileRequest(MediumFileRequest(MediumID("unknown medium", None), "unknown URI"))
   }
 
-  it should "return a download result for a source ID with an unknown URI" in {
-    checkUnknownSourceIDRequest(AudioSourceID(MediaManagerActor.MediumIDOtherFiles, "unknown URI"))
+  it should "return a file response for a request with an unknown URI" in {
+    val helper = new MediaManagerTestHelper
+    checkUnknownFileRequest(MediumFileRequest(helper.Medium1IDData.mediumID, "unknown URI"))
   }
 
   /**
@@ -242,19 +242,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @param helper the test helper
    * @return the audio source
    */
-  private def createExistingAudioSourceID(helper: MediaManagerTestHelper): AudioSourceID = {
+  private def createRequestForExistingFile(helper: MediaManagerTestHelper): MediumFileRequest = {
     val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
-    AudioSourceID(helper.Medium1IDData.checksum, fileURI)
+    MediumFileRequest(helper.Medium1IDData.mediumID, fileURI)
   }
 
   it should "return a correct download result" in {
     val helper = prepareHelperForScannedMedia()
 
-    val sourceID = createExistingAudioSourceID(helper)
-    val file = helper.Medium1IDData.fileURIMapping(sourceID.uri)
-    helper.testManagerActor ! sourceID
-    val response = expectMsgType[AudioSourceDownloadResponse]
-    response.sourceID should be(sourceID)
+    val request = createRequestForExistingFile(helper)
+    val file = helper.Medium1IDData.fileURIMapping(request.uri)
+    helper.testManagerActor ! request
+    val response = expectMsgType[MediumFileResponse]
+    response.request should be(request)
     response.length should be(file.size)
 
     val readerProbe = helper.probesOfType[MediaFileReaderActor].head
@@ -362,9 +362,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "add newly created reader actors to the mapping" in {
     val mapping = mock[MediaReaderActorMapping]
     val helper = prepareHelperForScannedMedia(Some(mapping))
-    helper.testManagerActor ! createExistingAudioSourceID(helper)
+    helper.testManagerActor ! createRequestForExistingFile(helper)
 
-    expectMsgType[AudioSourceDownloadResponse]
+    expectMsgType[MediumFileResponse]
     val (procReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
     verify(mapping).add(argEq((procReader.ref, actReader.ref)), captor.capture())
@@ -374,8 +374,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "stop the underlying reader actor when the processing reader is stopped" in {
     val helper = prepareHelperForScannedMedia()
-    helper.testManagerActor ! createExistingAudioSourceID(helper)
-    expectMsgType[AudioSourceDownloadResponse]
+    helper.testManagerActor ! createRequestForExistingFile(helper)
+    expectMsgType[MediumFileResponse]
     val (procReader, actReader) = fetchReaderActorMapping(helper)
 
     val watcher = TestProbe()
