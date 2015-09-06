@@ -35,19 +35,6 @@ object MetaDataManagerActor {
    */
   def apply(config: ServerConfig): Props = Props(classOf[MetaDataManagerActorImpl], config)
 
-  /** Constant for the undefined medium ID. */
-  private val UndefinedMedium = ""
-
-  /**
-   * Converts the specified medium ID to a string. The string is the path
-   * representation of the medium with a special treatment for the undefined
-   * medium ID.
-   * @param mid the medium ID
-   * @return the corresponding string representation
-   */
-  private def mediumToString(mid: MediumID): String =
-    mid.mediumDescriptionPath map (_.toString) getOrElse UndefinedMedium
-
   /**
    * Helper method for transforming a path to a string representation.
    * @param p the path
@@ -56,11 +43,22 @@ object MetaDataManagerActor {
   private def pathToUri(p: Path): String = p.toString
 
   /**
+   * Returns a flag whether the specified medium ID refers to files not
+   * assigned to a medium, but is not the global undefined medium. Such IDs
+   * have to be treated in a special way because the global undefined medium
+   * has to be updated.
+   * @param mediumID the medium ID to check
+   * @return a flag whether this is an unassigned medium
+   */
+  private def isUnassignedMedium(mediumID: MediumID): Boolean =
+    mediumID.mediumDescriptionPath.isEmpty && mediumID != MediumID.UndefinedMediumID
+
+  /**
    * An internally used helper class for storing and managing the meta data
    * of a medium.
    * @param mediumID the medium ID
    */
-  private class MediumDataHandler(mediumID: String) {
+  private class MediumDataHandler(mediumID: MediumID) {
     /**
      * A set with the names of all files in this medium. This is used to
      * determine whether all data has been fetched.
@@ -199,10 +197,10 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   /**
    * A map for storing the extracted meta data for all media.
    */
-  private val mediaMap = collection.mutable.Map.empty[String, MediumDataHandler]
+  private val mediaMap = collection.mutable.Map.empty[MediumID, MediumDataHandler]
 
   /** Stores the listeners registered for specific media. */
-  private val mediumListeners = collection.mutable.Map.empty[String, List[ActorRef]]
+  private val mediumListeners = collection.mutable.Map.empty[MediumID, List[ActorRef]]
 
   /** A list with the currently registered completion listeners. */
   private var completionListeners = List.empty[ActorRef]
@@ -214,9 +212,13 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
       sr.mediaFiles foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult =>
-      val mediumID = mediumToString(result.mediumID)
-      mediaMap get mediumID foreach processMetaDataResult(mediumID, result)
-      log.info("Received MetaDataProcessingResult for {}.", result.path)
+      handleProcessingResult(result)
+      if (isUnassignedMedium(result.mediumID)) {
+        // update global unassigned list
+        handleProcessingResult(result.copy(mediumID = MediumID.UndefinedMediumID))
+      } else {
+        log.info("Received MetaDataProcessingResult for {}.", result.path)
+      }
 
     case GetMetaData(mediumID, registerAsListener) =>
       val optData = mediaMap get mediumID map (_.metaData)
@@ -251,9 +253,21 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
    * @param e an entry from the map of media files from a scan result object
    */
   private def prepareHandlerForMedium(e: (MediumID, List[MediaFile])): Unit = {
-    val mediumID = mediumToString(e._1)
+    val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2
+
+    if (isUnassignedMedium(mediumID)) {
+      prepareHandlerForMedium((MediumID.UndefinedMediumID, e._2))
+    }
+  }
+
+  /**
+   * Handles a meta data processing result.
+   * @param result the result to be handled
+   */
+  private def handleProcessingResult(result: MetaDataProcessingResult): Unit = {
+    mediaMap get result.mediumID foreach processMetaDataResult(result.mediumID, result)
   }
 
   /**
@@ -264,7 +278,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
    * @param result the processing result
    * @param handler the handler for this medium
    */
-  private def processMetaDataResult(mediumID: String,
+  private def processMetaDataResult(mediumID: MediumID,
                                     result: MetaDataProcessingResult)(handler: MediumDataHandler)
   : Unit = {
     if (handler.storeResult(result, config.metaDataUpdateChunkSize)(handleCompleteChunk(mediumID)
@@ -283,7 +297,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
    * @param mediumID the ID of the affected medium
    * @param chunk the chunk
    */
-  private def handleCompleteChunk(mediumID: String)(chunk: => MetaDataChunk): Unit = {
+  private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit = {
     mediumListeners get mediumID foreach { l =>
       val chunkMsg = chunk
       l foreach (_ ! chunkMsg)

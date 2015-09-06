@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.metadata
 
 import akka.actor.ActorRef
+import de.oliver_heger.linedj.media.MediumID
 
 /**
  * A message supported by ''MetaDataManagerActor'' that queries for the meta
@@ -32,7 +33,7 @@ import akka.actor.ActorRef
  *                           registered as listener if meta data for this
  *                           medium is incomplete yet
  */
-case class GetMetaData(mediumID: String, registerAsListener: Boolean)
+case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean)
 
 /**
  * A message sent as answer for a ''GetMetaData'' request.
@@ -49,7 +50,7 @@ case class GetMetaData(mediumID: String, registerAsListener: Boolean)
  *                 this medium (even if this chunk may not contain the full
  *                 data)
  */
-case class MetaDataChunk(mediumID: String, data: Map[String, MediaMetaData], complete: Boolean)
+case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], complete: Boolean)
 
 /**
  * A message sent as answer for a ''GetMetaData'' request if the specified
@@ -61,7 +62,7 @@ case class MetaDataChunk(mediumID: String, data: Map[String, MediaMetaData], com
  * returned.
  * @param mediumID the ID of the medium in question
  */
-case class UnknownMedium(mediumID: String)
+case class UnknownMedium(mediumID: MediumID)
 
 /**
  * Tells the meta data manager actor to remove a listener for the specified
@@ -78,7 +79,7 @@ case class UnknownMedium(mediumID: String)
  * @param mediumID the ID of the medium
  * @param listener the listener to be removed
  */
-case class RemoveMediumListener(mediumID: String, listener: ActorRef)
+case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
 
 /**
  * A message sent to registered completion listeners notifying them that the
@@ -97,7 +98,7 @@ case class RemoveMediumListener(mediumID: String, listener: ActorRef)
  *
  * @param mediumID the ID of the medium that has been completed
  */
-case class MediumMetaDataCompleted(mediumID: String)
+case class MediumMetaDataCompleted(mediumID: MediumID)
 
 /**
  * Tells the meta data manager actor to add a completion listener.
