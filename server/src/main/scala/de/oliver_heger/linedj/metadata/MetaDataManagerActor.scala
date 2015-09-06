@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.metadata
 
 import java.nio.file.Path
 
-import akka.actor.{ActorLogging, Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.config.ServerConfig
-import de.oliver_heger.linedj.media.{MediaFile, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaFile, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
@@ -208,7 +208,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   private var completionListeners = List.empty[ActorRef]
 
   override def receive: Receive = {
-    case sr: MediaScanResult =>
+    case EnhancedMediaScanResult(sr, _) =>
       val processor = createChildActor(MediumProcessorActor(sr, config))
       processor ! ProcessMediaFiles
       sr.mediaFiles foreach prepareHandlerForMedium

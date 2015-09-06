@@ -31,14 +31,17 @@ import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
   /** ID of a test medium. */
-  private val TestMediumID = MediumID.fromDescriptionPath(path("medium1"))
+  private val TestMediumID = mediumID("medium1")
 
   /** A list of medium IDs used by the tests. */
-  private val MediaIDs = List(TestMediumID, MediumID.fromDescriptionPath(path("otherMedium")),
-    MediumID.fromDescriptionPath(path("coolMusic")))
+  private val MediaIDs = List(TestMediumID, mediumID("otherMedium"),
+    mediumID("coolMusic"))
 
   /** A test scan result object. */
   private val ScanResult = createScanResult()
+
+  /** A test enhanced scan result object. */
+  private val EnhancedScanResult = createEnhancedScanResult(ScanResult)
 
   /** The undefined medium ID for the scan result. */
   private val UndefinedMediumID = MediumID(ScanResult.root.toString, None)
@@ -49,6 +52,16 @@ object MetaDataManagerActorSpec {
    * @return the path
    */
   private def path(s: String): Path = Paths get s
+
+  /**
+   * Generates a medium ID.
+   * @param name a unique name for the ID
+   * @return the medium ID
+   */
+  private def mediumID(name: String): MediumID = {
+    val settingsPath = Paths.get(name, "playlist.settings")
+    MediumID fromDescriptionPath settingsPath
+  }
 
   /**
    * Creates a test meta data object for the specified path.
@@ -82,11 +95,21 @@ object MetaDataManagerActorSpec {
     val numbersOfSongs = List(3, 8, 4)
     val rootPath = path("Root")
     val fileData = MediaIDs zip numbersOfSongs map { e =>
-      (e._1: MediumID, generateMediaFiles(e._1.mediumDescriptionPath.get, e._2))
+      (e._1, generateMediaFiles(e._1.mediumDescriptionPath.get, e._2))
     }
     val fileMap = Map(fileData: _*) + (MediumID(rootPath.toString, None) -> generateMediaFiles
       (path("noMedium"), 11))
     MediaScanResult(rootPath, fileMap)
+  }
+
+  /**
+   * Creates an enhanced scan result. This method adds checksum information.
+   * @param result the plain result
+   * @return the enhanced result
+   */
+  private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
+    EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, "checksum_" + e._1
+      .mediumURI)))
   }
 }
 
@@ -274,7 +297,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the test actor
      */
     def startProcessing(): ActorRef = {
-      actor ! ScanResult
+      actor ! EnhancedScanResult
       actor
     }
 
