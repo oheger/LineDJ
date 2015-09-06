@@ -41,3 +41,18 @@ case class MediaFile(path: Path, size: Long)
  * @param mediaFiles a map with files assigned to a medium
  */
 case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[MediaFile]])
+
+/**
+ * A data class storing the result of a directory scan plus some additional
+ * information which can be useful for further processing.
+ *
+ * The ''MediaManagerActor'' first operates on [[MediaScanResult]] object, but
+ * obtains some additional information about the contained media during
+ * processing. This case class combines the original scan result with this
+ * additional information.
+ *
+ * @param scanResult the original ''MediaScanResult''
+ * @param checksumMapping a map storing checksums for the contained media
+ */
+case class EnhancedMediaScanResult(scanResult: MediaScanResult,
+                                   checksumMapping: Map[MediumID, String])

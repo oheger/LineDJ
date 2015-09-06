@@ -434,10 +434,36 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "pass media scan results to the meta data manager" in {
     val helper = new MediaManagerTestHelper
+    val checkMap1 = Map(helper.Medium1IDData.mediumID -> helper.Medium1IDData.checksum,
+      helper.Medium2IDData.mediumID -> helper.Medium2IDData.checksum,
+      helper.Drive1OtherIDData.mediumID -> helper.Drive1OtherIDData.checksum)
+    val checkMap2 = Map(helper.Medium3IDData.mediumID -> helper.Medium3IDData.checksum)
+    val checkMap3 = Map(helper.Drive3OtherIDData.mediumID -> helper.Drive3OtherIDData.checksum)
     helper.scanMedia()
 
-    val messages = for(i <- 1 to 3) yield helper.mediaManagerActor.expectMsgType[MediaScanResult]
-    messages should contain only (helper.Drive1, helper.Drive2, helper.Drive3)
+    val messages = for (i <- 1 to 3) yield helper.metaDataManagerActor
+      .expectMsgType[EnhancedMediaScanResult]
+    messages should contain only(EnhancedMediaScanResult(helper.Drive1, checkMap1),
+      EnhancedMediaScanResult(helper.Drive2, checkMap2),
+      EnhancedMediaScanResult(helper.Drive3, checkMap3))
+  }
+
+  it should "produce correct enhanced scan results in another scan operation" in {
+    def checkMetaDataMessages(helper: MediaManagerTestHelper): Unit = {
+      for (i <- 1 to 3) {
+        helper.metaDataManagerActor.expectMsgType[EnhancedMediaScanResult]
+      }
+      val Ping = "Ping"  // check that no additional messages are there
+      helper.metaDataManagerActor.ref ! Ping
+      helper.metaDataManagerActor.expectMsg(Ping)
+    }
+
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    checkMetaDataMessages(helper)
+    helper.resetProbes()
+    helper.scanMedia()
+    checkMetaDataMessages(helper)
   }
 
   /**
@@ -449,6 +475,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * be scanned) and media (directory sub structures with a description file
    * and audio data).
    *
+   * @param optMapping an optional mapping for reader actors
    * @param childActorFunc an optional function for injecting child actors
    */
   private class MediaManagerTestHelper(optMapping: Option[MediaReaderActorMapping] = None,
@@ -688,10 +715,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * time a child actor is requested, a ''TestProbe'' is created and stored
      * in this map for the corresponding actor class.
      */
-    private val probes = createTestProbesMap()
+    private var probes = createTestProbesMap()
 
     /** A test probe representing the media manager actor. */
-    val mediaManagerActor = TestProbe()
+    val metaDataManagerActor = TestProbe()
 
     /** A queue for storing scheduler invocations. */
     val schedulerQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
@@ -755,6 +782,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     def probesOfActorClass(actorClass: Class[_]): List[TestProbe] =
       probes.getOrElse(actorClass, Nil)
+
+    /**
+     * Resets the map with test probes.
+     */
+    def resetProbes(): Unit = {
+      probes = createTestProbesMap()
+    }
 
     /**
      * Creates a ''TestProbe'' that simulates a child actor and adds it to the
@@ -855,7 +889,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
       TestActorRef[MediaManagerActor](Props(
-        new MediaManagerActor(createConfiguration(), mediaManagerActor.ref, mapping)
+        new MediaManagerActor(createConfiguration(), metaDataManagerActor.ref, mapping)
         with ChildActorFactory with RecordingSchedulerSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref

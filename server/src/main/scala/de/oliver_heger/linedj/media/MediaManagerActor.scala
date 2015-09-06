@@ -184,6 +184,15 @@ Actor with ActorLogging {
   private val currentMediumIDs = collection.mutable.Set.empty[MediumID]
 
   /**
+   * A temporary map for storing information for the creation of enhanced scan
+   * result objects. Such objects have to be passed to the meta data manager.
+   * In order to construct them, all ''MediumIDData'' objects for the media
+   * contained in a scan result have to be collected.
+   */
+  private val enhancedScanResultMapping = collection.mutable.Map.empty[MediaScanResult,
+    Map[MediumID, String]]
+
+  /**
    * A map with information about the files contained in the currently
    * available media.
    */
@@ -252,14 +261,7 @@ Actor with ActorLogging {
       processMediumDescription(path, content)
 
     case idData: MediumIDData =>
-      if (idData.mediumID.mediumDescriptionPath.isEmpty) {
-        appendMedium(idData, MediumInfoParserActor.undefinedMediumInfo)
-      } else {
-        mediaIDData += idData.mediumID -> idData
-        createAndStoreMediumInfo(idData.mediumID)
-      }
-      mediaFiles += idData.mediumID -> idData.fileURIMapping
-      stopSender()
+      processIDData(idData)
 
     case setData: MediumInfo =>
       storeSettingsData(setData)
@@ -294,6 +296,38 @@ Actor with ActorLogging {
 
     case ReaderActorAlive(reader) =>
       readerActorMapping.updateTimestamp(reader, now())
+  }
+
+  /**
+   * Processes a ''MediumIDData'' object.
+   * @param idData the ''MediumIDData''
+   */
+  private def processIDData(idData: MediumIDData): Unit = {
+    buildEnhancedScanResult(idData) foreach (metaDataManager ! _)
+    if (idData.mediumID.mediumDescriptionPath.isEmpty) {
+      appendMedium(idData, MediumInfoParserActor.undefinedMediumInfo)
+    } else {
+      mediaIDData += idData.mediumID -> idData
+      createAndStoreMediumInfo(idData.mediumID)
+    }
+    mediaFiles += idData.mediumID -> idData.fileURIMapping
+    stopSender()
+  }
+
+  /**
+   * Adds the specified ID data object to the temporary map for building up an
+   * enhanced scan result. If the information is now complete, the enhanced
+   * result is created and returned in the result option.
+   * @param idData the ''MediumIDData''
+   * @return an option with the constructed enhanced scan result
+   */
+  private def buildEnhancedScanResult(idData: MediumIDData): Option[EnhancedMediaScanResult] = {
+    val checksumMapping = enhancedScanResultMapping.getOrElse(idData.scanResult, Map.empty)
+    val newChecksumMapping = checksumMapping + (idData.mediumID -> idData.checksum)
+    enhancedScanResultMapping += (idData.scanResult -> newChecksumMapping)
+    if (newChecksumMapping.size == idData.scanResult.mediaFiles.size)
+      Some(EnhancedMediaScanResult(idData.scanResult, newChecksumMapping))
+    else None
   }
 
   /**
@@ -370,7 +404,6 @@ Actor with ActorLogging {
       }
     }
 
-    metaDataManager ! scanResult  // propagate to meta data manager
     mediaCount += scanResult.mediaFiles.size
     incrementScannedPaths()
   }
@@ -507,6 +540,7 @@ Actor with ActorLogging {
     mediaIDData.clear()
     mediaSettingsData.clear()
     currentMediumIDs.clear()
+    enhancedScanResultMapping.clear()
   }
 
   /**
