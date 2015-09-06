@@ -52,7 +52,7 @@ object LineDJBuild extends Build {
       .settings(defaultSettings: _*)
       .settings(
         name := "linedj-parent"
-      )  aggregate(shared, server)
+      )  aggregate(shared, server, browser)
       
     lazy val shared = Project(id = "shared",
                                  base = file("shared"))
