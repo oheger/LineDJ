@@ -77,7 +77,8 @@ object LineDJBuild extends Build {
       .settings(defaultSettings: _*)
       .settings(
         name := "linedj-browser",
-        libraryDependencies ++= jguiraffeDependencies
+        libraryDependencies ++= jguiraffeDependencies,
+        parallelExecution in Test := false
       ) dependsOn(shared % "compile->compile;test->test")
 }
 
