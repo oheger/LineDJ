@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.browser.media
 
+import java.nio.file.Paths
 import java.util
 import java.util.Locale
 
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.browser.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.media.{AvailableMedia, MediumInfo}
+import de.oliver_heger.linedj.media.{MediumID, AvailableMedia, MediumInfo}
 import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
 import de.oliver_heger.linedj.remoting.MessageBus
 import de.oliver_heger.linedj.remoting.RemoteRelayActor.ServerUnavailable
@@ -46,8 +47,8 @@ object MediaControllerSpec {
   /** Constant for a medium name. */
   private val Medium = "Rock1"
 
-  /** Constant for a test medium URI. */
-  private val MediumURI = mediumURI(Medium)
+  /** Constant for a test medium ID. */
+  private val TestMediumID = mediumID(Medium)
 
   /** A list with the sorted names of available media. */
   private val MediaNames = List(Medium, "Rock2", "Rock3")
@@ -80,11 +81,11 @@ object MediaControllerSpec {
   private val Songs3 = Vector("Running up that Hill", "Hounds of Love", "The Big Sky")
 
   /**
-   * Returns the URI for a test medium.
+   * Returns the ID for a test medium based on its name.
    * @param name the name of the medium
-   * @return the corresponding URI
+   * @return the corresponding test medium ID
    */
-  private def mediumURI(name: String): String = "media://" + name
+  private def mediumID(name: String): MediumID = MediumID("media://" + name, Some(Paths get name))
 
   /**
    * Transforms the given string to upper case.
@@ -100,7 +101,7 @@ object MediaControllerSpec {
    */
   private def createAvailableMediaMsg(): AvailableMedia = {
     val mappings = MediaNames map { m =>
-      (mediumURI(m), mediumInfo(m))
+      (mediumID(m), mediumInfo(m))
     }
     AvailableMedia(Map(mappings: _*))
   }
@@ -136,7 +137,7 @@ object MediaControllerSpec {
    * @param songs a sequence with the songs
    * @return the chunk
    */
-  private def createChunk(mediumID: String = MediumURI, complete: Boolean = false,
+  private def createChunk(mediumID: MediumID = TestMediumID, complete: Boolean = false,
                           songs: Seq[SongData]): MetaDataChunk = {
     val mappings = songs map (s => (s.uri, s.metaData))
     MetaDataChunk(mediumID = mediumID, complete = complete, data = Map(mappings: _*))
@@ -187,9 +188,9 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verInOrder.verify(helper.comboHandler).removeItem(2)
     verInOrder.verify(helper.comboHandler).removeItem(1)
     verInOrder.verify(helper.comboHandler).removeItem(0)
-    verInOrder.verify(helper.comboHandler).addItem(0, MediaNames.head, mediumURI(MediaNames.head))
-    verInOrder.verify(helper.comboHandler).addItem(1, MediaNames(1), mediumURI(MediaNames(1)))
-    verInOrder.verify(helper.comboHandler).addItem(2, MediaNames(2), mediumURI(MediaNames(2)))
+    verInOrder.verify(helper.comboHandler).addItem(0, Medium, TestMediumID)
+    verInOrder.verify(helper.comboHandler).addItem(1, MediaNames(1), mediumID(MediaNames(1)))
+    verInOrder.verify(helper.comboHandler).addItem(2, MediaNames(2), mediumID(MediaNames(2)))
     verInOrder.verify(helper.comboHandler).setEnabled(true)
   }
 
@@ -201,7 +202,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "remove a previous meta data registration" in {
-    val oldMedium = "someMedium"
+    val oldMedium = mediumID("someMedium")
     val helper = new MediaControllerTestHelper
     helper selectMedium oldMedium
     helper.clearReceivedMessages()
@@ -217,7 +218,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.clearReceivedMessages()
 
     helper send AvailableMediaMsg
-    helper selectMedium MediaNames(1)
+    helper selectMedium mediumID(MediaNames(1))
     helper.findMessageType[RemoveMetaDataRegistration] shouldBe 'empty
   }
 
@@ -225,7 +226,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     helper.treeModel.setProperty("someKey", "someValue")
 
-    helper selectMedium MediaNames(1)
+    helper selectMedium mediumID(MediaNames(1))
     helper.treeModel should not be 'empty
     helper.clearReceivedMessages()
 
@@ -237,7 +238,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     helper.tableModel add "someData"
 
-    helper selectMedium MediaNames(1)
+    helper selectMedium mediumID(MediaNames(1))
     helper.tableModel should not be 'empty
     helper.clearReceivedMessages()
 
@@ -298,18 +299,18 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     val callback = helper.selectMedium()
 
-    callback(createChunk(mediumID = MediumURI + "_other", songs = createSongData(Artist1, Album1,
+    callback(createChunk(mediumID = mediumID("another medium ID"), songs = createSongData(Artist1, Album1,
       Songs1)))
     helper.treeModel shouldBe 'empty
   }
 
-  it should "ignore meta data chunks if not medium is selected" in {
+  it should "ignore meta data chunks if no medium is selected" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
     val callback = helper.selectMedium()
     helper send AvailableMediaMsg
 
-    callback(createChunk(mediumID = MediumURI + "_other", songs = createSongData(Artist1, Album1,
+    callback(createChunk(mediumID = mediumID("other"), songs = createSongData(Artist1, Album1,
       Songs1)))
     helper.treeModel shouldBe 'empty
   }
@@ -389,7 +390,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val songs1 = createSongData(Artist1, Album1, Songs1)
     val songs2 = createSongData(Artist1, Album2, Songs2 take 1)
     val songs3 = createSongData(Artist1, Album2, Songs2 drop 1)
-    val OtherMedium = MediumURI + "_other"
+    val OtherMedium = mediumID("_other")
     val helper = new MediaControllerTestHelper
     helper selectMediumAndSendMeta createChunk(songs = songs1 ++ songs2)
     helper selectAlbums createTreePath(Artist1, Album2)
@@ -484,7 +485,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
      * @param mediumID the medium ID
      * @return the function for receiving meta data chunks
      */
-    def verifyMetaDataRequest(mediumID: String = MediumURI): MetaDataChunk => Unit = {
+    def verifyMetaDataRequest(mediumID: MediumID = TestMediumID): MetaDataChunk => Unit = {
       val regMsg = expectMessageType[MetaDataRegistration]
       regMsg.listenerID should be(controller)
       regMsg.mediumID should be(mediumID)
@@ -510,7 +511,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
      * @param mediumID the medium ID
      * @return the function for receiving meta data chunks
      */
-    def selectMedium(mediumID: String = MediumURI): MetaDataChunk => Unit = {
+    def selectMedium(mediumID: MediumID = TestMediumID): MetaDataChunk => Unit = {
       controller selectMedium mediumID
       verifyMetaDataRequest(mediumID)
     }

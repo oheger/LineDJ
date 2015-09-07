@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
+import de.oliver_heger.linedj.media.MediumID
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler,
 TreeNodePath}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
@@ -37,7 +38,7 @@ class SelectionChangeHandlerSpec extends FlatSpec with Matchers with MockitoSuga
     new FormChangeEvent(this, handler, "some name")
 
   "A SelectionChangeHandler" should "react on a changed medium selection" in {
-    val Medium = "Some Test Medium"
+    val Medium = MediumID("Some Test Medium", None)
     val controller = mock[MediaController]
     val listHandler = mock[ListComponentHandler]
     doReturn(Medium).when(listHandler).getData

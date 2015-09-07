@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
+import de.oliver_heger.linedj.media.MediumID
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
@@ -35,7 +36,7 @@ class SelectionChangeHandler(controller: MediaController) extends FormChangeList
   override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
     formChangeEvent.getHandler match {
       case listHandler: ListComponentHandler =>
-        controller selectMedium listHandler.getData.asInstanceOf[String]
+        controller selectMedium listHandler.getData.asInstanceOf[MediumID]
 
       case treeHandler: TreeHandler =>
         controller selectAlbums treeHandler.getSelectedPaths

@@ -22,7 +22,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.browser.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.bus.MessageBusListener
-import de.oliver_heger.linedj.media.{AvailableMedia, MediumInfo}
+import de.oliver_heger.linedj.media.{MediumID, AvailableMedia, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
 import de.oliver_heger.linedj.remoting.MessageBus
 import de.oliver_heger.linedj.remoting.RemoteRelayActor.ServerUnavailable
@@ -117,7 +117,7 @@ MessageBusListener {
    * An option with the currently selected medium URI. This is changed via the
    * combo box with the available media.
    */
-  private var selectedMediumURI: Option[String] = None
+  private var selectedMediumURI: Option[MediumID] = None
 
   /** The underlying model for the view controls. */
   private var models: Option[Models] = None
@@ -144,12 +144,12 @@ MessageBusListener {
    * Selects the specified medium. This method is called when the combo box
    * selection is changed. This causes the data of the new medium to be
    * requested and displayed.
-   * @param mediumURI the URI of the newly selected medium
+   * @param mediumID the URI of the newly selected medium
    */
-  def selectMedium(mediumURI: String): Unit = {
+  def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumURI foreach clearOldMediumSelection
-    messageBus publish MetaDataRegistration(mediumURI, this)(processMetaDataChunk)
-    selectedMediumURI = Some(mediumURI)
+    messageBus publish MetaDataRegistration(mediumID, this)(processMetaDataChunk)
+    selectedMediumURI = Some(mediumID)
     inProgressWidget setVisible true
   }
 
@@ -283,10 +283,10 @@ MessageBusListener {
 
   /**
    * Performs cleanup before a new medium is selected.
-   * @param mediumURI the URI of the last selected medium
+   * @param mediumID the ID of the last selected medium
    */
-  private def clearOldMediumSelection(mediumURI: String): Unit = {
-    messageBus publish RemoveMetaDataRegistration(mediumURI, this)
+  private def clearOldMediumSelection(mediumID: MediumID): Unit = {
+    messageBus publish RemoveMetaDataRegistration(mediumID, this)
     models = None
     treeModel.clear()
     tableModel.clear()
@@ -298,7 +298,7 @@ MessageBusListener {
    * names of the media.
    * @param media the map with available media
    */
-  private def addMediaToComboBox(media: Map[String, MediumInfo]): Unit = {
+  private def addMediaToComboBox(media: Map[MediumID, MediumInfo]): Unit = {
     val orderedMedia = media.toList sortWith (_._2.name < _._2.name)
     orderedMedia.zipWithIndex.foreach(e => comboMedia.addItem(e._2, e._1._2.name, e._1._1))
   }
