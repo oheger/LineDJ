@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.browser.cache
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.bus.MessageBusListener
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
 import de.oliver_heger.linedj.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus}
@@ -33,7 +34,7 @@ object MetaDataCache {
  * Clients may request meta data for one and the same medium multiple times; it
  * therefore makes sense to cache it locally. This is done by this class. It
  * stores chunks of meta data received from the server and is also able to
- * combine them; this is done in form of [[CachedMetaData]] objects.
+ * combine them; this is done in form of [[MetaDataChunk]] objects.
  *
  * This class is not directly accessed by other classes. Rather, interaction
  * takes place via the message bus: A component needing access to the meta data
@@ -60,10 +61,10 @@ class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
   import MetaDataCache._
 
   /** A map for storing the callbacks registered for different media. */
-  var callbacks = Map.empty[String, Map[Any, MetaDataChunk => Unit]]
+  var callbacks = Map.empty[MediumID, Map[Any, MetaDataChunk => Unit]]
 
   /** A map with the already received meta data chunks per medium. */
-  private var receivedChunks = Map.empty[String, MetaDataChunk]
+  private var receivedChunks = Map.empty[MediumID, MetaDataChunk]
 
   override def receive: Receive = {
     case registration: MetaDataRegistration =>

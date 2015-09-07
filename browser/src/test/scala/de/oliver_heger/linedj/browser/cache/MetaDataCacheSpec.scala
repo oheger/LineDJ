@@ -16,7 +16,10 @@
 
 package de.oliver_heger.linedj.browser.cache
 
+import java.nio.file.Paths
+
 import akka.actor.ActorRef
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk,
 RemoveMediumListener}
 import de.oliver_heger.linedj.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
@@ -29,7 +32,7 @@ import scala.collection.mutable.ListBuffer
 
 object MetaDataCacheSpec {
   /** Constant for a test medium. */
-  private val Medium = "Hot Playlist"
+  private val Medium = MediumID("Hot Playlist", Some(Paths get "playlist.settings"))
 
   /**
    * Creates a test chunk with meta data. It contains only a single test song.
@@ -38,7 +41,7 @@ object MetaDataCacheSpec {
    * @param mediumID the medium ID
    * @return the chunk
    */
-  private def createChunk(songIdx: Int, complete: Boolean, mediumID: String = Medium):
+  private def createChunk(songIdx: Int, complete: Boolean, mediumID: MediumID = Medium):
   MetaDataChunk =
     createChunk(List(songIdx), complete, mediumID)
 
@@ -49,7 +52,7 @@ object MetaDataCacheSpec {
    * @param mediumID the medium ID
    * @return the chunk
    */
-  private def createChunk(songIndices: List[Int], complete: Boolean, mediumID: String):
+  private def createChunk(songIndices: List[Int], complete: Boolean, mediumID: MediumID):
   MetaDataChunk = {
     val songMappings = songIndices map (i => s"Song$i" -> MediaMetaData(title = Some(s"Title$i")))
     MetaDataChunk(mediumID, Map(songMappings: _*), complete)
@@ -74,7 +77,7 @@ object MetaDataCacheSpec {
    * @param mediumID the medium ID
    * @return the list buffer receiving callback messages
    */
-  private def register(cache: MetaDataCache, obj: Any, mediumID: String = Medium):
+  private def register(cache: MetaDataCache, obj: Any, mediumID: MediumID = Medium):
   ListBuffer[MetaDataChunk] = {
     val buffer = ListBuffer.empty[MetaDataChunk]
     cache.receive(MetaDataRegistration(mediumID, obj)(createCallback(buffer)))
@@ -108,7 +111,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
    * @param remoteBus the mock for the remote bus
    * @param mediumID the expected medium ID
    */
-  private def verifyRemoteRequest(remoteBus: RemoteMessageBus, mediumID: String = Medium): Unit = {
+  private def verifyRemoteRequest(remoteBus: RemoteMessageBus, mediumID: MediumID = Medium): Unit = {
     verify(remoteBus, times(1)).send(RemoteActors.MetaDataManager,
       GetMetaData(mediumID, registerAsListener = true))
   }
@@ -158,7 +161,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle multiple media" in {
-    val Medium2 = "Another cool playlist"
+    val Medium2 = MediumID("Another cool playlist", None)
     val remoteBus = createRemoteBus()
     val cache = new MetaDataCache(remoteBus)
     val chunk1 = createChunk(0, complete = false)
@@ -236,7 +239,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val cache = new MetaDataCache(remoteBus)
     val buf = register(cache, this)
     val chunk = createChunk(1, complete = false)
-    val Medium2 = Medium + "_other"
+    val Medium2 = MediumID("_other", None)
 
     cache.receive(RemoveMetaDataRegistration(Medium2, this))
     cache.receive(chunk)

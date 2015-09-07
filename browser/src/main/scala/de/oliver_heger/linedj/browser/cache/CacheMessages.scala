@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.cache
 
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MetaDataChunk
 
 /**
@@ -31,7 +32,7 @@ import de.oliver_heger.linedj.metadata.MetaDataChunk
  *                   used to remove the registration again
  * @param listenerCallback the callback function
  */
-case class MetaDataRegistration(mediumID: String, listenerID: Any)(val listenerCallback:
+case class MetaDataRegistration(mediumID: MediumID, listenerID: Any)(val listenerCallback:
                                                                    MetaDataChunk => Unit)
 
 /**
@@ -45,4 +46,4 @@ case class MetaDataRegistration(mediumID: String, listenerID: Any)(val listenerC
  * @param mediumID the ID of the medium
  * @param listenerID the unique listener ID
  */
-case class RemoveMetaDataRegistration(mediumID: String, listenerID: Any)
+case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: Any)
