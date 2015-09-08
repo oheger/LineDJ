@@ -85,7 +85,8 @@ object MediaControllerSpec {
    * @param name the name of the medium
    * @return the corresponding test medium ID
    */
-  private def mediumID(name: String): MediumID = MediumID("media://" + name, Some(Paths get name))
+  private def mediumID(name: String): MediumID = MediumID("media://" + name,
+    Some(Paths.get(name).toString))
 
   /**
    * Transforms the given string to upper case.

@@ -32,7 +32,7 @@ import scala.collection.mutable.ListBuffer
 
 object MetaDataCacheSpec {
   /** Constant for a test medium. */
-  private val Medium = MediumID("Hot Playlist", Some(Paths get "playlist.settings"))
+  private val Medium = MediumID("Hot Playlist", Some(Paths.get("playlist.settings").toString))
 
   /**
    * Creates a test chunk with meta data. It contains only a single test song.

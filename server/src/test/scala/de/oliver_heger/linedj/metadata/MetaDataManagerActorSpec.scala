@@ -95,7 +95,7 @@ object MetaDataManagerActorSpec {
     val numbersOfSongs = List(3, 8, 4)
     val rootPath = path("Root")
     val fileData = MediaIDs zip numbersOfSongs map { e =>
-      (e._1, generateMediaFiles(e._1.mediumDescriptionPath.get, e._2))
+      (e._1, generateMediaFiles(path(e._1.mediumDescriptionPath.get), e._2))
     }
     val fileMap = Map(fileData: _*) + (MediumID(rootPath.toString, None) -> generateMediaFiles
       (path("noMedium"), 11))

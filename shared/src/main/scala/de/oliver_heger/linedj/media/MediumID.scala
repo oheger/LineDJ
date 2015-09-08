@@ -33,10 +33,10 @@ import java.nio.file.Path
  * files which cannot be associated to a specific medium.
  *
  * @param mediumURI the URI which identifies this medium
- * @param mediumDescriptionPath the optional  path to the medium description
- *                              file
+ * @param mediumDescriptionPath the optional path to the medium description
+ *                              file (as string)
  */
-case class MediumID(mediumURI: String, mediumDescriptionPath: Option[Path])
+case class MediumID(mediumURI: String, mediumDescriptionPath: Option[String])
 
 object MediumID {
   /**
@@ -53,5 +53,5 @@ object MediumID {
    * @return the new ''MediumID''
    */
   def fromDescriptionPath(path: Path): MediumID =
-    MediumID(mediumURI = path.getParent.toString, mediumDescriptionPath = Some(path))
+    MediumID(mediumURI = path.getParent.toString, mediumDescriptionPath = Some(path.toString))
 }

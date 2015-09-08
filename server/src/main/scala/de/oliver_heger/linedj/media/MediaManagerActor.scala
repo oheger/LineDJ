@@ -394,8 +394,9 @@ Actor with ActorLogging {
     scanResult.mediaFiles foreach { e =>
       e._1.mediumDescriptionPath match {
         case Some(path) =>
-          loaderActor ! LoadFile(path)
-          val mediumPath = mediumPathFromDescription(path)
+          val settingsPath = Paths get path
+          loaderActor ! LoadFile(settingsPath)
+          val mediumPath = mediumPathFromDescription(settingsPath)
           triggerIDCalculation(mediumPath, e._1, e._2)
 
         case _ =>
@@ -636,7 +637,7 @@ Actor with ActorLogging {
    * @return the medium ID if it could be resolved
    */
   private def findMediumIDForDescriptionPath(path: Path): Option[MediumID] = {
-    val optPath = Some(path)
+    val optPath = Some(path.toString)
     currentMediumIDs find(_.mediumDescriptionPath == optPath)
   }
 }
