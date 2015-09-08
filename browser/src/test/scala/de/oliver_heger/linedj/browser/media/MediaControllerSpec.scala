@@ -32,6 +32,7 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.commons.configuration.tree.{ConfigurationNode, DefaultConfigurationNode,
 DefaultExpressionEngine}
 import org.mockito.Matchers.any
+import org.mockito.Matchers.anyInt
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -42,6 +43,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
+import scala.util.Random
 
 object MediaControllerSpec {
   /** Constant for a medium name. */
@@ -52,6 +54,9 @@ object MediaControllerSpec {
 
   /** A list with the sorted names of available media. */
   private val MediaNames = List(Medium, "Rock2", "Rock3")
+
+  /** The name for the undefined medium. */
+  private val UndefinedMediumName = "The undefined medium!"
 
   /** The message with the available media. */
   private val AvailableMediaMsg = createAvailableMediaMsg()
@@ -96,14 +101,43 @@ object MediaControllerSpec {
   private def toUpper(s: String): String = s toUpperCase Locale.ENGLISH
 
   /**
+   * Creates a medium info object with dummy property values for the specified
+   * medium ID.
+   * @param id the medium ID
+   * @return the undefined medium info
+   */
+  private def undefinedMediumInfo(id: MediumID): MediumInfo =
+    MediumInfo(name = "(undefined)", description = null, mediumID = id, orderMode = null,
+      orderParams = null, checksum = "nocheck")
+
+  /**
+   * Creates a medium info object for a medium without a description file.
+   * @param uri the URI of the medium
+   * @return the undefined medium info
+   */
+  private def undefinedMediumInfo(uri: String): MediumInfo =
+    undefinedMediumInfo(MediumID(uri, None))
+
+  /**
+   * Generates a mapping for a medium info object.
+   * @param info the medium info object
+   * @return the mapping
+   */
+  private def infoMapping(info: MediumInfo): (MediumID, MediumInfo) = (info.mediumID, info)
+
+  /**
    * Creates the message with available media based on the list of media
    * names.
    * @return the message for available media
    */
   private def createAvailableMediaMsg(): AvailableMedia = {
-    val mappings = MediaNames map { m =>
+    val definedMappings = MediaNames map { m =>
       (mediumID(m), mediumInfo(m))
     }
+    val undefinedMappings = List(infoMapping(undefinedMediumInfo("someURI")), infoMapping
+      (undefinedMediumInfo("anotherURI")), infoMapping(undefinedMediumInfo(MediumID
+      .UndefinedMediumID)))
+    val mappings = Random.shuffle(List(definedMappings, undefinedMappings).flatten)
     AvailableMedia(Map(mappings: _*))
   }
 
@@ -192,7 +226,18 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verInOrder.verify(helper.comboHandler).addItem(0, Medium, TestMediumID)
     verInOrder.verify(helper.comboHandler).addItem(1, MediaNames(1), mediumID(MediaNames(1)))
     verInOrder.verify(helper.comboHandler).addItem(2, MediaNames(2), mediumID(MediaNames(2)))
+    verInOrder.verify(helper.comboHandler).addItem(3, UndefinedMediumName, MediumID.UndefinedMediumID)
     verInOrder.verify(helper.comboHandler).setEnabled(true)
+  }
+
+  it should "add an entry for the undefined medium only if it exists" in {
+    val mediaMap = AvailableMediaMsg.media - MediumID.UndefinedMediumID
+    val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 0
+
+    helper send AvailableMedia(mediaMap)
+    verify(helper.comboHandler, never()).removeItem(anyInt())
+    verify(helper.comboHandler, never()).addItem(3, UndefinedMediumName, MediumID.UndefinedMediumID)
   }
 
   it should "query meta data for a newly selected medium" in {
@@ -235,6 +280,33 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.treeModel shouldBe 'empty
   }
 
+  it should "set the root node of the tree model to the medium name" in {
+    val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 0
+    helper send AvailableMediaMsg
+    helper.selectMedium()
+
+    helper.treeModel.getRootNode.getName should be(Medium)
+  }
+
+  it should "use the undefined name for an unknown medium ID" in {
+    val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 0
+    helper send AvailableMediaMsg
+    helper.selectMedium(MediumID("unknown medium", None))
+
+    helper.treeModel.getRootNode.getName should be(UndefinedMediumName)
+  }
+
+  it should "use the undefined name for the undefined medium ID" in {
+    val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 0
+    helper send AvailableMediaMsg
+    helper.selectMedium(MediumID.UndefinedMediumID)
+
+    helper.treeModel.getRootNode.getName should be(UndefinedMediumName)
+  }
+
   it should "clear the table model when another medium is selected" in {
     val helper = new MediaControllerTestHelper
     helper.tableModel add "someData"
@@ -245,6 +317,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper.selectMedium()
     helper.tableModel shouldBe 'empty
+    verify(helper.tableHandler).tableDataChanged()
   }
 
   it should "populate the tree model when meta data arrives" in {
@@ -404,7 +477,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val artistNode = helper.treeModel.getRootNode.getChild(0)
     artistNode.getChildrenCount should be(1)
     helper.tableModel.size() should be(songs3.size)
-    verify(helper.tableHandler, times(2)).tableDataChanged()
+    verify(helper.tableHandler, times(3)).tableDataChanged()
   }
 
   it should "display the in-progress indicator after a medium selection" in {
@@ -458,8 +531,8 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     /** The controller test instance. */
     val controller = new MediaController(messageBus = messageBus, songFactory = songFactory,
-      comboMedia = comboHandler,
-      treeHandler = treeHandler, tableHandler = tableHandler, inProgressWidget = labelInProgress)
+      comboMedia = comboHandler, treeHandler = treeHandler, tableHandler = tableHandler,
+      inProgressWidget = labelInProgress, undefinedMediumName = UndefinedMediumName)
 
     /** Stores the messages published to the message bus. */
     private val publishedMessages = ListBuffer.empty[Any]
@@ -500,7 +573,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
      */
     def prepareMediaListModel(size: Int): ListModel = {
       val model = mock[ListModel]
-      when(model.size()).thenReturn(3)
+      when(model.size()).thenReturn(size)
       when(comboHandler.getListModel).thenReturn(model)
       model
     }

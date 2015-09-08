@@ -178,6 +178,9 @@
         <di:param refName="comp:treeMedia"/>
         <di:param refName="comp:tableMedia"/>
         <di:param refName="widget:mediaLoadingIndicator"/>
+        <di:param>
+          <f:localized resid="undefinedMedium"/>
+        </di:param>
       </di:constructor>
     </di:bean>
 

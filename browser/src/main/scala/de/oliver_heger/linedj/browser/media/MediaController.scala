@@ -99,10 +99,11 @@ object MediaController {
  * @param treeHandler the handler for the tree view
  * @param tableHandler the handler for the table
  * @param inProgressWidget the widget handler for the in-progress indicator
+ * @param undefinedMediumName the name to be used for the undefined medium
  */
 class MediaController(messageBus: MessageBus, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
-                      WidgetHandler) extends
+                      WidgetHandler, undefinedMediumName: String) extends
 MessageBusListener {
 
   import MediaController._
@@ -117,13 +118,16 @@ MessageBusListener {
    * An option with the currently selected medium URI. This is changed via the
    * combo box with the available media.
    */
-  private var selectedMediumURI: Option[MediumID] = None
+  private var selectedMediumID: Option[MediumID] = None
 
   /** The underlying model for the view controls. */
   private var models: Option[Models] = None
 
   /** A set with the keys of the currently selected albums. */
   private var selectedAlbumKeys = Set.empty[AlbumKey]
+
+  /** Stores the available media. */
+  private var availableMedia = Map.empty[MediumID, MediumInfo]
 
   /**
    * Returns the function for handling messages published on the message bus.
@@ -134,10 +138,11 @@ MessageBusListener {
       comboMedia setEnabled false
 
     case AvailableMedia(media) =>
-      selectedMediumURI = None
+      selectedMediumID = None
       removeExistingMediaFromComboBox()
       addMediaToComboBox(media)
       comboMedia setEnabled true
+      availableMedia = media
   }
 
   /**
@@ -147,10 +152,11 @@ MessageBusListener {
    * @param mediumID the URI of the newly selected medium
    */
   def selectMedium(mediumID: MediumID): Unit = {
-    selectedMediumURI foreach clearOldMediumSelection
+    selectedMediumID foreach clearOldMediumSelection
     messageBus publish MetaDataRegistration(mediumID, this)(processMetaDataChunk)
-    selectedMediumURI = Some(mediumID)
+    selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
+    treeModel.getRootNode setName nameForMedium(mediumID)
   }
 
   /**
@@ -167,12 +173,26 @@ MessageBusListener {
   }
 
   /**
+   * Determines the display name for the specified medium ID. There are some
+   * special cases to be taken into account (unknown medium, undefined medium).
+   * @param mediumID the medium ID
+   * @return the name to be displayed for this medium
+   */
+  private def nameForMedium(mediumID: MediumID): String = {
+    val optName = mediumID match {
+      case MediumID.UndefinedMediumID => None
+      case _ => availableMedia.get(mediumID) map (_.name)
+    }
+    optName.getOrElse(undefinedMediumName)
+  }
+
+  /**
    * Processes a chunk of meta data when it arrives. The existing data models
    * for the views are updated accordingly.
    * @param chunk the chunks that was received
    */
   private def processMetaDataChunk(chunk: MetaDataChunk): Unit = {
-    selectedMediumURI foreach { uri =>
+    selectedMediumID foreach { uri =>
       if (chunk.mediumID == uri) {
         addMetaDataChunk(chunk)
       }
@@ -290,6 +310,7 @@ MessageBusListener {
     models = None
     treeModel.clear()
     tableModel.clear()
+    tableHandler.tableDataChanged()
     selectedAlbumKeys = Set.empty
   }
 
@@ -299,7 +320,11 @@ MessageBusListener {
    * @param media the map with available media
    */
   private def addMediaToComboBox(media: Map[MediumID, MediumInfo]): Unit = {
-    val orderedMedia = media.toList sortWith (_._2.name < _._2.name)
+    val orderedMedia = media.toList filter (_._1.mediumDescriptionPath.isDefined) sortWith
+      (_._2.name < _._2.name)
     orderedMedia.zipWithIndex.foreach(e => comboMedia.addItem(e._2, e._1._2.name, e._1._1))
+    if (media contains MediumID.UndefinedMediumID) {
+      comboMedia.addItem(orderedMedia.size, undefinedMediumName, MediumID.UndefinedMediumID)
+    }
   }
 }
