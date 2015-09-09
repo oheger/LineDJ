@@ -499,6 +499,50 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   /**
+   * Adds all test songs to the controller.
+   * @param helper the helper
+   * @return the list of songs that have been added
+   */
+  private def addAllSongsToController(helper: MediaControllerTestHelper): List[Seq[SongData]] = {
+    val songsAlbum1 = createSongData(Artist1, Album1, Songs1)
+    val songsAlbum2 = createSongData(Artist1, Album2, Songs2)
+    val songsAlbum3 = createSongData(Artist2, Album3, Songs3)
+    val songs = songsAlbum1 ++ songsAlbum2 ++ songsAlbum3
+    helper selectMediumAndSendMeta createChunk(songs = songs)
+    List(songsAlbum2, songsAlbum1, songsAlbum3)
+  }
+
+  it should "return the songs of the currently selected albums" in {
+    val helper = new MediaControllerTestHelper
+    val songs = addAllSongsToController(helper)
+    helper.selectAlbums(createTreePath(Artist2, Album3), createTreePath(Artist1, Album1))
+
+    helper.controller.songsForSelectedAlbums should be(songs(1) ++ songs(2))
+  }
+
+  it should "ignore a request for songs if there is no model available" in {
+    val helper = new MediaControllerTestHelper
+
+    helper.controller.songsForSelectedAlbums should have size 0
+  }
+
+  it should "return the songs of the currently selected artists" in {
+    val helper = new MediaControllerTestHelper
+    val songs = addAllSongsToController(helper)
+    helper.selectAlbums(createTreePath(Artist2, Album3),
+      createTreePath(helper.treeModel.getRootNode.getChild(0)))
+
+    helper.controller.songsForSelectedArtists should be(songs.flatten)
+  }
+
+  it should "return the songs of the current medium" in {
+    val helper = new MediaControllerTestHelper
+    val songs = addAllSongsToController(helper)
+
+    helper.controller.songsForSelectedMedium should be(songs.flatten)
+  }
+
+  /**
    * A test helper class managing mock objects for the dependencies of a
    * controller.
    */

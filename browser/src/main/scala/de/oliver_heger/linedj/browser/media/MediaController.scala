@@ -126,6 +126,9 @@ MessageBusListener {
   /** A set with the keys of the currently selected albums. */
   private var selectedAlbumKeys = Set.empty[AlbumKey]
 
+  /** Stores the array with the current selection in the tree view. */
+  private var selectedPaths = Array.empty[TreeNodePath]
+
   /** Stores the available media. */
   private var availableMedia = Map.empty[MediumID, MediumInfo]
 
@@ -166,11 +169,44 @@ MessageBusListener {
    */
   def selectAlbums(paths: Array[TreeNodePath]): Unit = {
     models foreach { m =>
+      selectedPaths = paths
       val keys = fetchSelectedAlbumKeys(paths)
       selectedAlbumKeys = keys.toSet
       fillTableModelForSelection(m.tableModel, keys)
     }
   }
+
+  /**
+   * Returns all songs belonging to selected albums. The songs are returned in
+   * the correct order (defined by artist names and albums).
+   * @return a sequence with the songs of all selected albums
+   */
+  def songsForSelectedAlbums: Seq[SongData] = {
+    val keys = fetchAllAlbumKeys()
+    songsForAlbumKeys(keys filter selectedAlbumKeys.contains)
+  }
+
+  /**
+   * Returns all songs belonging to an artist who is currently selected. This
+   * method not only returns the songs of the currently selected albums, but
+   * also all other songs of artists for whom at least one album is currently
+   * selected. The songs are returned in the correct order (defined by artist
+   * names and albums).
+   * @return a sequence with the songs of all selected artists
+   */
+  def songsForSelectedArtists: Seq[SongData] = {
+    val artistNames = selectedPaths.filter(_.size() == 2).map(_.getTargetNode.getName).toSet ++
+      selectedAlbumKeys.map(_.artist)
+    songsForAlbumKeys(fetchAllAlbumKeys() filter (k => artistNames.contains(k.artist)))
+  }
+
+  /**
+   * Returns all songs belonging to the currently selected medium. The songs
+   * are returned in the correct order (defined by artist name and albums).
+   * @return a sequence with all songs of the current medium
+   */
+  def songsForSelectedMedium: Seq[SongData] =
+    songsForAlbumKeys(fetchAllAlbumKeys())
 
   /**
    * Determines the display name for the specified medium ID. There are some
@@ -327,4 +363,27 @@ MessageBusListener {
       comboMedia.addItem(orderedMedia.size, undefinedMediumName, MediumID.UndefinedMediumID)
     }
   }
+
+  /**
+   * Determines all currently available album keys in the tree model.
+   * @return all album keys in the tree model
+   */
+  private def fetchAllAlbumKeys(): Seq[AlbumKey] = {
+    import collection.JavaConversions._
+    treeModel.getKeys.map(treeModel.getProperty(_).asInstanceOf[AlbumKey]).toSeq
+  }
+
+  /**
+   * Returns a sequence with the songs of all albums identified by the given
+   * sequence of ''AlbumKey'' objects.
+   * @param keys the keys of the albums in question
+   * @return a sequence with the songs of all these albums
+   */
+  private def songsForAlbumKeys(keys: Seq[AlbumKey]): Seq[SongData] =
+    models match {
+      case Some(m) =>
+        keys flatMap m.tableModel.songsFor
+      case None =>
+        Nil
+    }
 }
