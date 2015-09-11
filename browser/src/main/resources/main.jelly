@@ -29,6 +29,16 @@
     tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
     resgrp="application" taskBean="exitTask"/>
 
+  <!-- Actions for adding songs from a medium to the playlist -->
+  <a:action name="addMediumAction" textres="act_addmedium_text"
+    mnemonicres="act_addmedium_mnemo" taskBean="exitTask"/>
+  <a:action name="addArtistAction" textres="act_addartist_text"
+    mnemonicres="act_addartist_mnemo" taskBean="exitTask"/>
+  <a:action name="addAlbumAction" textres="act_addalbum_text"
+    mnemonicres="act_addalbum_mnemo" taskBean="exitTask"/>
+  <a:action name="addSongsAction" textres="act_addsongs_text"
+    mnemonicres="act_addsongs_mnemo" taskBean="exitTask"/>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -57,6 +67,14 @@
       </di:param>
     </di:constructor>
     <di:setProperty property="messageBus" refName="browserApp_MessageBus"/>
+  </di:bean>
+
+  <!-- Popup handler for controls on the media page -->
+  <di:bean name="mediaPopupHandler"
+    beanClass="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
+    <di:constructor>
+      <di:param refName="browserApp_MessageBus"/>
+    </di:constructor>
   </di:bean>
 
   <!-- The main window -->
@@ -114,6 +132,7 @@
             <f:tree name="treeMedia" model="mediaTreeModel" editable="false"
               scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
               rootVisible="true">
+              <a:popup beanName="mediaPopupHandler"/>
             </f:tree>
 
             <f:table name="tableMedia" model="mediaTableModel" multiSelection="true">
@@ -125,6 +144,7 @@
                 columnClass="String"/>
               <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
               <f:column name="duration" percentWidth="15" headerres="media_tcol_duration"/>
+              <a:popup beanName="mediaPopupHandler"/>
             </f:table>
           </f:splitter>
         </f:panel>
