@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.metadata
 
+import de.oliver_heger.linedj.media.MediaFile
 import de.oliver_heger.linedj.mp3.ID3TagProvider
 
 /**
@@ -40,9 +41,11 @@ import de.oliver_heger.linedj.mp3.ID3TagProvider
  * is returned. Otherwise, search continues with meta data from lower versions.
  * This is handled by an [[MetaDataID3Collector]] used by this class.
  *
+ * @param file the ''MediaFile'' for which meta data is collected
  * @param id3Collector the helper object for collecting ID3 data
  */
-private class MetaDataPartsCollector(private[metadata] val id3Collector: MetaDataID3Collector) {
+private class MetaDataPartsCollector(val file: MediaFile,
+                                     private[metadata] val id3Collector: MetaDataID3Collector) {
   /** Stores MP3-related meta data when it arrives. */
   private var mp3MetaData: Option[Mp3MetaData] = None
 
@@ -55,8 +58,9 @@ private class MetaDataPartsCollector(private[metadata] val id3Collector: MetaDat
 
   /**
    * Default constructor. Creates default helper objects.
+   * @param file the ''MediaFile'' for which meta data is collected
    */
-  def this() = this(new MetaDataID3Collector)
+  def this(file: MediaFile) = this(file, new MetaDataID3Collector)
 
   /**
    * Sets MP3-related meta data extracted from an audio file and returns an
@@ -127,7 +131,8 @@ private class MetaDataPartsCollector(private[metadata] val id3Collector: MetaDat
         Some(MediaMetaData(title = combinedID3TagProvider.title, artist = combinedID3TagProvider
           .artist, album = combinedID3TagProvider.album, inceptionYear = combinedID3TagProvider
           .inceptionYear, trackNumber = combinedID3TagProvider.trackNo, duration = Some(data
-          .duration), formatDescription = Some(generateFormatDescription(data))))
+          .duration), formatDescription = Some(generateFormatDescription(data)),
+          size = file.size))
 
       case _ => None
     }

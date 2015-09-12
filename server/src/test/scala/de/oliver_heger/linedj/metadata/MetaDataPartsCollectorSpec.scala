@@ -15,6 +15,9 @@
  */
 package de.oliver_heger.linedj.metadata
 
+import java.nio.file.Paths
+
+import de.oliver_heger.linedj.media.MediaFile
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -38,10 +41,14 @@ object MetaDataPartsCollectorSpec {
   private val Mp3Data = Mp3MetaData(path = null, version = 0, layer = 0, sampleRate = 0,
     minimumBitRat = 0, maximumBitRate = 128000, duration = 60000)
 
+  /** A test media file. */
+  private val File = MediaFile(Paths get "somePath", 20150912211021L)
+
   /** The expected final meta data. */
   private val MetaData = MediaMetaData(title = ID3MetaData.title, artist = ID3MetaData.artist,
     album = ID3MetaData.album, inceptionYear = ID3MetaData.inceptionYear, trackNumber =
-      ID3MetaData.trackNo, duration = Some(Mp3Data.duration), formatDescription = Some("128 kbps"))
+      ID3MetaData.trackNo, duration = Some(Mp3Data.duration), formatDescription = Some("128 kbps"),
+      size = File.size)
 }
 
 /**
@@ -62,19 +69,19 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   "A MetaDataPartsCollector" should "create a default ID3 collector" in {
-    val collector = new MetaDataPartsCollector
+    val collector = new MetaDataPartsCollector(File)
     collector.id3Collector shouldBe a[MetaDataID3Collector]
   }
 
   it should "allow adding undefined meta data" in {
-    val collector = new MetaDataPartsCollector
+    val collector = new MetaDataPartsCollector(File)
 
     collector setMp3MetaData Mp3Data shouldBe 'empty
   }
 
   it should "allow adding undefined ID3v1 meta data" in {
     val id3Collector = mock[MetaDataID3Collector]
-    val collector = new MetaDataPartsCollector(id3Collector)
+    val collector = new MetaDataPartsCollector(File, id3Collector)
 
     collector setID3v1MetaData None shouldBe 'empty
     verifyZeroInteractions(id3Collector)
@@ -82,7 +89,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
 
   it should "pass defined ID3v1 meta data to the ID3 collector" in {
     val id3Collector = mock[MetaDataID3Collector]
-    val collector = new MetaDataPartsCollector(id3Collector)
+    val collector = new MetaDataPartsCollector(File, id3Collector)
 
     collector setID3v1MetaData Some(ID3MetaData) shouldBe 'empty
     verify(id3Collector).addProvider(1, ID3MetaData)
@@ -101,7 +108,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
 
   it should "generate meta data when MP3 data is available and ID3v1 data is added" in {
     val id3Collector = prepareID3Collector()
-    val collector = new MetaDataPartsCollector(id3Collector)
+    val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setMp3MetaData Mp3Data
 
     checkMetaData(collector setID3v1MetaData Some(ID3MetaData))
@@ -109,7 +116,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
 
   it should "generate meta data when ID3v1 data is available and MP3 data is added" in {
     val id3Collector = prepareID3Collector()
-    val collector = new MetaDataPartsCollector(id3Collector)
+    val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setID3v1MetaData Some(ID3MetaData)
 
 
@@ -117,7 +124,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "detect missing ID3v2 information" in {
-    val collector = new MetaDataPartsCollector
+    val collector = new MetaDataPartsCollector(File)
 
     collector.expectID3Data()
     collector setID3v1MetaData Some(ID3MetaData) shouldBe 'empty
@@ -126,7 +133,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
 
   it should "accept ID3 data of other versions" in {
     val id3Collector = prepareID3Collector()
-    val collector = new MetaDataPartsCollector(id3Collector)
+    val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setID3v1MetaData None
     collector.expectID3Data()
     collector setMp3MetaData Mp3Data
