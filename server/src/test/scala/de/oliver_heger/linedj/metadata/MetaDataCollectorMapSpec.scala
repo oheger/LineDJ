@@ -17,11 +17,15 @@ package de.oliver_heger.linedj.metadata
 
 import java.nio.file.Paths
 
+import de.oliver_heger.linedj.media.MediaFile
 import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataCollectorMapSpec {
   /** A test path. */
   private val TestPath = Paths get "MetaDataCollectorMapSpec.tst"
+
+  /** A test media file. */
+  private val TestFile = MediaFile(TestPath, 20150912212258L)
 }
 
 /**
@@ -33,6 +37,7 @@ class MetaDataCollectorMapSpec extends FlatSpec with Matchers {
 
   "A MetaDataCollectorMap" should "create a correct collector" in {
     val map = new MetaDataCollectorMap
-    map getOrCreateCollector TestPath shouldBe a[MetaDataPartsCollector]
+    val collector = map getOrCreateCollector TestFile
+    collector.file should be(TestFile)
   }
 }

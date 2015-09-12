@@ -642,7 +642,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     def installCollector(p: Path): MetaDataPartsCollector = {
       val collector = mock[MetaDataPartsCollector]
-      when(collectorMap.getOrCreateCollector(p)).thenReturn(collector)
+      //TODO pass in correct MediumFile
+      when(collectorMap.getOrCreateCollector(/*p*/null)).thenReturn(collector)
       collector
     }
 

@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.metadata
 import java.nio.file.Path
 
 import akka.actor.{ActorRef, Props}
+import de.oliver_heger.linedj.media.MediaFile
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
@@ -109,10 +110,10 @@ private class MetaDataCollectorMap extends PathItemMap[MetaDataPartsCollector] {
   /**
    * Returns the reference to a ''MetaDataPartsCollector'' associated with the
    * given path. If no such object exists, it is created now.
-   * @param path the path of the media file currently processed
+   * @param file the media file currently processed
    * @return the ''MetaDataPartsCollector'' for this file
    */
-  def getOrCreateCollector(path: Path): MetaDataPartsCollector = {
-    getOrCreateItem(path, new MetaDataPartsCollector)
+  def getOrCreateCollector(file: MediaFile): MetaDataPartsCollector = {
+    getOrCreateItem(file.path, new MetaDataPartsCollector(file))
   }
 }

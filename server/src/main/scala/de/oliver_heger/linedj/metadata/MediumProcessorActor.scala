@@ -173,7 +173,8 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
 
     case msg: ProcessID3FrameData if validPath(msg.path) =>
       id3v2ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
-      collectorMap.getOrCreateCollector(msg.path).expectID3Data()
+      //TODO pass in correct MediaFile object
+      collectorMap.getOrCreateCollector(/*msg.path*/null).expectID3Data()
       if (msg.lastChunk) {
         id3v2ProcessorMap removeItemFor msg.path
       }
@@ -259,8 +260,9 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    */
   private def handleProcessingResult(p: Path)(f: MetaDataPartsCollector => Option[MediaMetaData])
   : Unit = {
+    //TODO pass in correct MediaFile object
     for {manager <- metaDataManager
-         metaData <- f(collectorMap.getOrCreateCollector(p))
+         metaData <- f(collectorMap.getOrCreateCollector(/*p*/null))
     } {
       sendProcessingResult(manager, p, metaData)
 
