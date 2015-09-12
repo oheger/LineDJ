@@ -30,7 +30,9 @@ package de.oliver_heger.linedj.metadata
  * @param duration optional duration of this media file (in milliseconds)
  * @param formatDescription optional format description; this is specific to
  *                          the format of the media file
+ * @param size the size of the media file (in bytes)
  */
 case class MediaMetaData(title: Option[String] = None, artist: Option[String] = None, album:
 Option[String] = None, inceptionYear: Option[Int] = None, trackNumber: Option[Int] = None,
-                         duration: Option[Int] = None, formatDescription: Option[String] = None)
+                         duration: Option[Int] = None, formatDescription: Option[String] = None,
+                         size: Long = 0)
