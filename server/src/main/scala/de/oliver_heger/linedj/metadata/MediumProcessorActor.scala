@@ -46,9 +46,9 @@ object MediumProcessorActor {
    * @param scanResult the scan result
    * @return a sequence with all paths to be processed
    */
-  private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, MediumID)] = {
+  private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, MediaFileData)] = {
     val files = scanResult.mediaFiles.map(e => associateWithMediumID(e._1, e._2)).toList
-    files.flatten map (t => (t._1.path, t._2))
+    files.flatten map (t => (t._1.path, MediaFileData(t._1, t._2)))
   }
 
   /**
@@ -62,6 +62,19 @@ object MediumProcessorActor {
     val mediumPathList = List.fill(files.size)(mediumID)
     files zip mediumPathList
   }
+
+  /**
+   * An internally used data class for storing information about the files to
+   * be processed.
+   *
+   * Normally, the processing is done based on the path to the file. For some
+   * processing steps, however, additional information is required. This is
+   * stored in instances of this class.
+   *
+   * @param file the original ''MediaFile'' object
+   * @param mediumID the ID of the medium the file belongs to
+   */
+  private case class MediaFileData(file: MediaFile, mediumID: MediumID)
 }
 
 /**
@@ -132,7 +145,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   private[metadata] val collectorMap = optCollectorMap getOrElse new MetaDataCollectorMap
 
   /** A map with information about the files currently processed. */
-  private val currentProcessingData = collection.mutable.Map.empty[Path, MediumID]
+  private val currentProcessingData = collection.mutable.Map.empty[Path, MediaFileData]
 
   /**
    * A map keeping track which reader actor processes which file. This is
@@ -173,8 +186,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
 
     case msg: ProcessID3FrameData if validPath(msg.path) =>
       id3v2ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
-      //TODO pass in correct MediaFile object
-      collectorMap.getOrCreateCollector(/*msg.path*/null).expectID3Data()
+      collectorMap.getOrCreateCollector(mediaFileForPath(msg.path)).expectID3Data()
       if (msg.lastChunk) {
         id3v2ProcessorMap removeItemFor msg.path
       }
@@ -233,7 +245,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * @param reader the reader actor
    * @param fileInfo the object for the file to be read
    */
-  private def initiateFileRead(reader: ActorRef, fileInfo: (Path, MediumID)): Unit = {
+  private def initiateFileRead(reader: ActorRef, fileInfo: (Path, MediaFileData)): Unit = {
     reader ! ReadMediaFile(fileInfo._1)
     currentProcessingData += fileInfo
     readerActorMap += (reader -> fileInfo._1)
@@ -260,9 +272,8 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    */
   private def handleProcessingResult(p: Path)(f: MetaDataPartsCollector => Option[MediaMetaData])
   : Unit = {
-    //TODO pass in correct MediaFile object
     for {manager <- metaDataManager
-         metaData <- f(collectorMap.getOrCreateCollector(/*p*/null))
+         metaData <- f(collectorMap.getOrCreateCollector(mediaFileForPath(p)))
     } {
       sendProcessingResult(manager, p, metaData)
 
@@ -274,6 +285,19 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   }
 
   /**
+   * Obtains the ''MediaFile'' object associated with the given path. This
+   * method can be used to convert a path (which is used by most processor
+   * classes) back to a ''MediaFile'' object with all information available
+   * about the file. Note: When this method is called it has already been
+   * verified that the path is valid.
+   * @param p the path
+   * @return the associated ''MediaFile'' object
+   */
+  private def mediaFileForPath(p: Path): MediaFile = {
+    currentProcessingData(p).file
+  }
+
+  /**
    * Sends a processing result message to the manager actor and updates some
    * internal fields indicating that the given path has now been processed.
    * @param manager the meta data manager actor
@@ -281,7 +305,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * @param metaData the meta data to be sent
    */
   private def sendProcessingResult(manager: ActorRef, p: Path, metaData: MediaMetaData): Unit = {
-    manager ! MetaDataProcessingResult(p, currentProcessingData(p), metaData)
+    manager ! MetaDataProcessingResult(p, currentProcessingData(p).mediumID, metaData)
     collectorMap removeItemFor p
     currentProcessingData -= p
   }

@@ -63,13 +63,47 @@ object MediumProcessorActorSpec {
   private def path(idx: Int): Path = path(idx.toString)
 
   /**
+   * Calculates the file size of the test file with the given index.
+   * @param idx the index
+   * @return the size of this test file
+   */
+  private def testFileSize(idx: Int): Int = idx * 10
+
+  /**
+   * Generates a test media file from the specified test index. The path and
+   * the file size are derived from the index.
+   * @param idx the index
+   * @return the corresponding test file
+   */
+  private def mediaFile(idx: Int): MediaFile = MediaFile(path(idx), testFileSize(idx))
+
+  /**
+   * Extracts the index from the given test path.
+   * @param path the path
+   * @return the index of this path
+   */
+  private def extractIndex(path: Path): Int = {
+    val sPath = path.toString
+    val posIdx = sPath lastIndexOf '_'
+    sPath.substring(posIdx + 1).toInt
+  }
+
+  /**
+   * Converts the specified path of a test file back to a ''MediaFile'' object.
+   * @param path the test path
+   * @return the medium file
+   */
+  private def fileFromPath(path: Path): MediaFile = MediaFile(path, testFileSize(extractIndex
+    (path)))
+
+  /**
    * Creates a scan result for a medium which contains a couple of files.
    * @return the test scan result
    */
   private def createScanResult(): MediaScanResult = {
     val root = path("Root")
-    MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(MediaFile(path(1), 10)),
-      MediumID(root.toString, None) -> List(MediaFile(path(2), 20), MediaFile(path(3), 30))))
+    MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(mediaFile(1)),
+      MediumID(root.toString, None) -> List(mediaFile(2), mediaFile(3))))
   }
 
   /**
@@ -642,8 +676,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     def installCollector(p: Path): MetaDataPartsCollector = {
       val collector = mock[MetaDataPartsCollector]
-      //TODO pass in correct MediumFile
-      when(collectorMap.getOrCreateCollector(/*p*/null)).thenReturn(collector)
+      when(collectorMap.getOrCreateCollector(fileFromPath(p))).thenReturn(collector)
       collector
     }
 
