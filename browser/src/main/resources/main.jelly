@@ -22,6 +22,11 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
+  <!-- A transformer for durations -->
+  <di:bean name="durationTransformer"
+    beanClassName="de.oliver_heger.linedj.browser.model.DurationTransformer">
+  </di:bean>
+
   <!-- Definitions for actions and their tasks -->
 
   <!-- The action for application shutdown -->
@@ -143,7 +148,9 @@
               <f:column name="title" percentWidth="40" headerres="media_tcol_title"
                 columnClass="String"/>
               <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
-              <f:column name="duration" percentWidth="15" headerres="media_tcol_duration"/>
+              <f:column name="duration" percentWidth="15" headerres="media_tcol_duration">
+                <f:transformer type="write" beanName="durationTransformer"/>
+              </f:column>
               <a:popup beanName="mediaPopupHandler"/>
             </f:table>
           </f:splitter>
