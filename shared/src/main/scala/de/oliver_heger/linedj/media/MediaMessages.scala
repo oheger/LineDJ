@@ -85,10 +85,17 @@ case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
  * The desired file is uniquely identified using the medium ID and the
  * (relative) URI within this medium.
  *
+ * When requesting a media file it can be specified whether media meta data
+ * (namely ID3 tags) should be contained in the download or not. If the flag is
+ * set to '''false''', a special reader actor is returned which filters out
+ * such information. Otherwise, the media file is read directly.
+ *
  * @param mediumID the ID of the medium the desired source belongs to
  * @param uri the URI of the desired source relative to the medium
+ * @param withMetaData flag whether media meta data contained in the file
+ *                     should be read or skipped
  */
-case class MediumFileRequest(mediumID: MediumID, uri: String)
+case class MediumFileRequest(mediumID: MediumID, uri: String, withMetaData: Boolean)
 
 /**
  * A message sent by ''MediaManagerActor'' as a response of a
