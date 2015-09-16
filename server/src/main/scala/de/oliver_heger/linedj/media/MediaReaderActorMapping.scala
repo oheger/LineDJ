@@ -35,15 +35,19 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
  *
  * This class provides functionality to solve these problems. It implements a
  * mapping from reader actors passed to clients (which are actually processing
- * readers) to their underlying file reader actors. That way all actors
- * involved in a download operation can be determined. Additionally, for each
- * actor a timestamp is stored. It is then possible to check in regular
- * intervals for actors that are timed out - which likely indicates the crash
- * of a client. These actors can then be stopped by the server.
+ * readers) to their underlying file reader actors. The underlying actor is
+ * optional; sometimes reader actors are directly passed to clients. No matter
+ * which way is used, it must be possible to determine all actors involved in a
+ * download operation.
+ *
+ * Additionally, for each actor a timestamp is stored. It is then possible to
+ * check in regular intervals for actors that are timed out - which likely
+ * indicates the crash of a client. These actors can then be stopped by the
+ * server.
  */
 private class MediaReaderActorMapping {
   /** A mapping from processing actors to their underlying actors. */
-  private val actorMapping = collection.mutable.Map.empty[ActorRef, ActorRef]
+  private val actorMapping = collection.mutable.Map.empty[ActorRef, Option[ActorRef]]
 
   /** A map storing the last update time for a reader actor. */
   private val timestamps = collection.mutable.Map.empty[ActorRef, Long]
@@ -56,7 +60,7 @@ private class MediaReaderActorMapping {
    * @param timestamp the timestamp for this mapping
    * @return this object
    */
-  def add(mapping: (ActorRef, ActorRef), timestamp: Long): MediaReaderActorMapping = {
+  def add(mapping: (ActorRef, Option[ActorRef]), timestamp: Long): MediaReaderActorMapping = {
     actorMapping += mapping
     timestamps += mapping._1 -> timestamp
     this
@@ -79,7 +83,7 @@ private class MediaReaderActorMapping {
    */
   def remove(ref: ActorRef): Option[ActorRef] = {
     timestamps remove ref
-    actorMapping remove ref
+    actorMapping.remove(ref).flatten
   }
 
   /**
@@ -92,10 +96,10 @@ private class MediaReaderActorMapping {
    * @return an ''Iterable'' with actor references with a timeout
    */
   def findTimeouts(time: Long, duration: FiniteDuration): Iterable[ActorRef] =
-    timestamps filter { e =>
+    (timestamps filter { e =>
       val stayTime = Duration(time - e._2, TimeUnit.MILLISECONDS)
       stayTime > duration
-    } map (_._1)
+    }).keys
 
   /**
    * Updates the timestamp value of an actor in this mapping. This is used to

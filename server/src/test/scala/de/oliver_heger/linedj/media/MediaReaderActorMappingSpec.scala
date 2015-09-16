@@ -27,11 +27,24 @@ FlatSpecLike with Matchers with BeforeAndAfterAll {
     probe.ref
   }
 
+  /**
+   * Convenience method to add an actor mapping to a test object.
+   * @param mapping the test mapping object
+   * @param client the actor to be passed to the client
+   * @param reader the optional underlying reader actor
+   * @param time the current time for the add operation
+   * @return the mapping object
+   */
+  private def addMapping(mapping: MediaReaderActorMapping, client: ActorRef, reader: ActorRef,
+                         time: Long = 0): MediaReaderActorMapping = {
+    mapping.add(client -> Option(reader), time)
+  }
+
   "A MediaReaderActorMapping" should "allow adding new mappings" in {
     val client, reader = actorRef()
     val mapping = new MediaReaderActorMapping
 
-    mapping.add(client -> reader, 20150502191354L) should be(mapping)
+    addMapping(mapping, client, reader, 20150502191354L) should be(mapping)
     mapping.hasActor(client) shouldBe true
   }
 
@@ -52,7 +65,7 @@ FlatSpecLike with Matchers with BeforeAndAfterAll {
   it should "allow removing an existing mapping" in {
     val client, reader = actorRef()
     val mapping = new MediaReaderActorMapping
-    mapping.add(client -> reader, 20150502194535L)
+    addMapping(mapping, client, reader, 20150502194535L)
 
     mapping.remove(client).get should be(reader)
   }
@@ -63,10 +76,10 @@ FlatSpecLike with Matchers with BeforeAndAfterAll {
     val client3, reader3 = actorRef()
     val client4, reader4 = actorRef()
     val mapping = new MediaReaderActorMapping
-    mapping.add(client1 -> reader1, 1000L)
-      .add(client2 -> reader2, 10000L)
-      .add(client3 -> reader3, 65000L)
-      .add(client4 -> reader4, 70000L)
+    mapping.add(client1 -> Some(reader1), 1000L)
+      .add(client2 -> Some(reader2), 10000L)
+      .add(client3 -> Some(reader3), 65000L)
+      .add(client4 -> Some(reader4), 70000L)
 
     val timeouts = mapping.findTimeouts(90000, 1.minute)
     timeouts.toStream should contain only(client1, client2)
@@ -75,7 +88,7 @@ FlatSpecLike with Matchers with BeforeAndAfterAll {
   it should "also remove timestamps when removing a mapping" in {
     val client, reader = actorRef()
     val mapping = new MediaReaderActorMapping
-    mapping.add(client -> reader, 0)
+    addMapping(mapping, client, reader)
 
     mapping remove client
     mapping.findTimeouts(100000, 10.seconds) shouldBe 'empty
@@ -90,9 +103,18 @@ FlatSpecLike with Matchers with BeforeAndAfterAll {
   it should "allow updating the timestamp of an actor" in {
     val client, reader = actorRef()
     val mapping = new MediaReaderActorMapping
-    mapping.add(client -> reader, 0)
+    addMapping(mapping, client, reader)
 
     mapping.updateTimestamp(client, 95000L) shouldBe true
     mapping.findTimeouts(100000, 10.seconds) shouldBe 'empty
+  }
+
+  it should "support mappings with an undefined underlying actor" in {
+    val client = actorRef()
+    val mapping = new MediaReaderActorMapping
+
+    mapping.add(client -> None, 20150916215901L)
+    mapping hasActor client shouldBe true
+    mapping remove client shouldBe 'empty
   }
 }

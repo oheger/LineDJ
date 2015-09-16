@@ -343,7 +343,7 @@ Actor with ActorLogging {
     sender ! MediumFileResponse(request, mediaReaderActor, optFile.getOrElse
       (NonExistingFile).size)
 
-    readerActorMapping.add(mediaReaderActor -> readerActor, now())
+    readerActorMapping.add(mediaReaderActor -> Some(readerActor), now())
     context watch mediaReaderActor
   }
 

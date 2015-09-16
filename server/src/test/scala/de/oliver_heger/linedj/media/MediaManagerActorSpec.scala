@@ -367,7 +367,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsgType[MediumFileResponse]
     val (procReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
-    verify(mapping).add(argEq((procReader.ref, actReader.ref)), captor.capture())
+    verify(mapping).add(argEq((procReader.ref, Some(actReader.ref))), captor.capture())
     val timestamp = captor.getValue
     Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
   }
@@ -388,8 +388,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val mapping = new MediaReaderActorMapping
     val procReader1, fileReader1, procReader2, fileReader2, watcher = TestProbe()
     val now = System.currentTimeMillis()
-    mapping.add(procReader1.ref -> fileReader1.ref, now - 65 * 1000)
-    mapping.add(procReader2.ref -> fileReader2.ref, now)
+    mapping.add(procReader1.ref -> Some(fileReader1.ref), now - 65 * 1000)
+    mapping.add(procReader2.ref -> Some(fileReader2.ref), now)
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader1.ref
     watcher watch procReader2.ref
@@ -402,7 +402,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "allow updating active reader actors" in {
     val mapping = new MediaReaderActorMapping
     val procReader, fileReader, watcher = TestProbe()
-    mapping.add(procReader.ref -> fileReader.ref, 0L)
+    mapping.add(procReader.ref -> Some(fileReader.ref), 0L)
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader.ref
 
