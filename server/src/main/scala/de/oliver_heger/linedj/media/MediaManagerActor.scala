@@ -335,16 +335,32 @@ Actor with ActorLogging {
    * @param request the file request
    */
   private def processFileRequest(request: MediumFileRequest): Unit = {
-    val readerActor = createChildActor(Props[FileReaderActor])
-    val mediaReaderActor = createChildActor(Props(classOf[MediaFileReaderActor], readerActor,
-      id3Extractor))
+    val (readerActor, optMediaReaderActor) = createActorsForFileRequest(request)
+    val actualReader = optMediaReaderActor getOrElse readerActor
     val optFile = fetchMediaFile(request)
-    optFile foreach (f => mediaReaderActor ! ChannelHandler.InitFile(f.path))
-    sender ! MediumFileResponse(request, mediaReaderActor, optFile.getOrElse
+    optFile foreach (f => actualReader ! ChannelHandler.InitFile(f.path))
+    sender ! MediumFileResponse(request, actualReader, optFile.getOrElse
       (NonExistingFile).size)
 
-    readerActorMapping.add(mediaReaderActor -> Some(readerActor), now())
-    context watch mediaReaderActor
+    val mapping = optMediaReaderActor.map(_ -> Some(readerActor)).getOrElse(readerActor -> None)
+    readerActorMapping.add(mapping, now())
+    context watch actualReader
+  }
+
+  /**
+   * Creates the actors for serving a media file request. If the file is to be
+   * read verbatim, only a reader actor is produced. If meta data is to be
+   * filtered out, a processing reader has to be created which is backed by the
+   * file reader.
+   * @param request the request
+   * @return a tuple with the created reader actors
+   */
+  private def createActorsForFileRequest(request: MediumFileRequest): (ActorRef,
+    Option[ActorRef]) = {
+    val readerActor = createChildActor(Props[FileReaderActor])
+    val mediaReaderActor = if (request.withMetaData) None
+    else Some(createChildActor(Props(classOf[MediaFileReaderActor], readerActor, id3Extractor)))
+    (readerActor, mediaReaderActor)
   }
 
   /**
@@ -596,6 +612,7 @@ Actor with ActorLogging {
    * @param actor the terminated actor
    */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
+    log.info("Removing terminated reader actor from mapping.")
     readerActorMapping remove actor foreach context.stop
   }
 

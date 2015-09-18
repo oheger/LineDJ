@@ -13,7 +13,7 @@ import de.oliver_heger.linedj.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => argEq}
+import org.mockito.Matchers.{eq => argEq, anyLong}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -242,11 +242,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * Creates the ID of an audio source which exists in the directory structures
    * scanned by the test actor.
    * @param helper the test helper
-   * @return the audio source
+   * @param withMetaData a flag whether meta data is to be retrieved
+   * @return the request object
    */
-  private def createRequestForExistingFile(helper: MediaManagerTestHelper): MediumFileRequest = {
+  private def createRequestForExistingFile(helper: MediaManagerTestHelper,
+                                            withMetaData: Boolean = false): MediumFileRequest = {
     val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
-    MediumFileRequest(helper.Medium1IDData.mediumID, fileURI, withMetaData = false)
+    MediumFileRequest(helper.Medium1IDData.mediumID, fileURI, withMetaData)
   }
 
   it should "return a correct download result" in {
@@ -355,8 +357,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @param helper the test helper
    * @return a tuple with the test probes created for the reader actors
    */
-  private def fetchReaderActorMapping(helper: MediaManagerTestHelper): (TestProbe, TestProbe) = {
-    val procReader = helper.probesOfType[MediaFileReaderActor].head
+  private def fetchReaderActorMapping(helper: MediaManagerTestHelper): (Option[TestProbe], TestProbe) = {
+    val procReader = helper.probesOfType[MediaFileReaderActor].headOption
     val actReader = helper.probesOfType[FileReaderActor].head
     (procReader, actReader)
   }
@@ -367,23 +369,47 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.testManagerActor ! createRequestForExistingFile(helper)
 
     expectMsgType[MediumFileResponse]
-    val (procReader, actReader) = fetchReaderActorMapping(helper)
+    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
-    verify(mapping).add(argEq((procReader.ref, Some(actReader.ref))), captor.capture())
+    verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))), captor.capture())
     val timestamp = captor.getValue
     Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
+  }
+
+  it should "respect the withMetaData flag in a media file request" in {
+    val mapping = mock[MediaReaderActorMapping]
+    val helper = prepareHelperForScannedMedia(Some(mapping))
+    helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
+
+    val response = expectMsgType[MediumFileResponse]
+    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
+    response.contentReader should be(actReader.ref)
+    optProcReader shouldBe 'empty
+    verify(mapping).add(argEq((actReader.ref, None)), anyLong())
   }
 
   it should "stop the underlying reader actor when the processing reader is stopped" in {
     val helper = prepareHelperForScannedMedia()
     helper.testManagerActor ! createRequestForExistingFile(helper)
     expectMsgType[MediumFileResponse]
-    val (procReader, actReader) = fetchReaderActorMapping(helper)
+    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
 
     val watcher = TestProbe()
     watcher watch actReader.ref
-    system stop procReader.ref
+    system stop optProcReader.get.ref
     watcher.expectMsgType[Terminated].actor should be (actReader.ref)
+  }
+
+  it should "deal with undefined options when stopping a file reader actor" in {
+    val mapping = new MediaReaderActorMapping
+    val helper = prepareHelperForScannedMedia(optMapping = Some(mapping))
+    helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
+    expectMsgType[MediumFileResponse]
+    val (_, actReader) = fetchReaderActorMapping(helper)
+    mapping hasActor actReader.ref shouldBe true
+
+    system stop actReader.ref
+    awaitCond(!mapping.hasActor(actReader.ref))
   }
 
   it should "stop reader actors that timed out" in {
