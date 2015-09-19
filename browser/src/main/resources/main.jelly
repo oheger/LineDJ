@@ -51,6 +51,28 @@
     </a:menu>
   </a:menubar>
 
+  <!-- Models for UI controls -->
+
+  <!-- The model of the playlist table. -->
+  <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
+
+  <!-- The model of the media tree. -->
+  <di:bean name="mediaTreeModel"
+    beanClass="org.apache.commons.configuration.HierarchicalConfiguration">
+    <di:setProperty property="expressionEngine">
+      <di:bean beanClass="org.apache.commons.configuration.tree.DefaultExpressionEngine">
+        <di:setProperty property="propertyDelimiter" value="|"/>
+      </di:bean>
+    </di:setProperty>
+  </di:bean>
+
+  <!-- The model of the media table. -->
+  <di:bean name="mediaTableModel" beanClass="java.util.ArrayList"/>
+
+  <!-- The model for the media combo box. -->
+  <di:bean name="mediaComboModel"
+    beanClass="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
+
   <!-- The cache for meta data -->
   <di:bean name="metaDataCache"
     beanClass="de.oliver_heger.linedj.browser.cache.MetaDataCache">
@@ -67,6 +89,7 @@
         <di:list>
           <di:element refName="metaDataCache"/>
           <di:element refName="remoteController"/>
+          <di:element refName="playlistController"/>
           <di:element refName="mediaController"/>
         </di:list>
       </di:param>
@@ -94,26 +117,30 @@
     <!-- The main panel -->
     <f:tabbedpane name="tabs">
       <f:borderconstr name="CENTER"/>
+      
+      <!-- Panel for displaying the current playlist -->
+      <f:tab titleres="tab_playlist">
+        <f:panel>
+          <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+            bottomMargin="4" westGap="8" eastGap="8"/>
+          <f:table name="tablePlaylist" model="playlistTableModel" multiSelection="true">
+            <f:borderconstr name="CENTER"/>
+            <f:column name="title" percentWidth="40" headerres="media_tcol_title"
+              columnClass="String"/>
+            <f:column name="artist" percentWidth="25"
+              headerres="media_tcol_artist">
+            </f:column>
+            <f:column name="album" percentWidth="25"
+              headerres="media_tcol_album">
+            </f:column>
+            <f:column name="duration" percentWidth="10" headerres="media_tcol_duration">
+              <f:transformer type="write" beanName="durationTransformer"/>
+            </f:column>
+          </f:table>
+        </f:panel>
+      </f:tab>
 
       <!-- Panel for browsing existing media -->
-
-      <!-- The model of the tree. -->
-      <di:bean name="mediaTreeModel"
-        beanClass="org.apache.commons.configuration.HierarchicalConfiguration">
-        <di:setProperty property="expressionEngine">
-          <di:bean beanClass="org.apache.commons.configuration.tree.DefaultExpressionEngine">
-            <di:setProperty property="propertyDelimiter" value="|"/>
-          </di:bean>
-        </di:setProperty>
-      </di:bean>
-
-      <!-- The model of the table. -->
-      <di:bean name="mediaTableModel" beanClass="java.util.ArrayList"/>
-
-      <!-- The model for the media combo box. -->
-      <di:bean name="mediaComboModel"
-        beanClass="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
-
       <f:tab titleres="tab_media">
         <f:panel>
           <f:borderlayout canShrink="true"/>
@@ -172,6 +199,11 @@
           <!-- <f:icon resource="offline.png"/> -->
         </f:label>
       </f:panel>
+
+      <f:statictext name="statusLine" textres="status_undefined"
+        alignment="center">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
     </f:panel>
 
     <!-- An event listener that delegates the window closing event to the
@@ -193,6 +225,18 @@
       </di:constructor>
       <di:setProperty property="messageBusRegistration"
         refName="browserApp_MessageBusRegistration"/>
+    </di:bean>
+
+    <!-- Playlist controller -->
+    <di:bean name="playlistController"
+      beanClass="de.oliver_heger.linedj.browser.playlist.PlaylistController">
+      <di:constructor>
+        <di:param refName="comp:tablePlaylist"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param>
+          <f:localized resid="status_template"/>
+        </di:param>
+      </di:constructor>
     </di:bean>
 
     <!-- Media controller -->
