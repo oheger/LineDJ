@@ -68,14 +68,13 @@ with MockitoSugar {
 
   "A LocalBufferActor" should "create a correct Props object" in {
     val bufferManager = mock[BufferFileManager]
-    val props = LocalBufferActor(Some(bufferManager))
+    val props = LocalBufferActor(bufferManager)
 
     props.args should have length 1
-    props.args.head should be (Some(bufferManager))
+    props.args.head should be (bufferManager)
     val bufferActor = TestActorRef[LocalBufferActor](props)
     bufferActor.underlyingActor shouldBe a[LocalBufferActor]
     bufferActor.underlyingActor shouldBe a[ChildActorFactory]
-    bufferActor.underlyingActor.bufferManager should be (bufferManager)
   }
 
   /**
@@ -87,15 +86,6 @@ with MockitoSugar {
   private def canonicalPath(path: String): String =
     if (path(path.length - 1) == File.separatorChar) path.substring(0, path.length - 1)
     else path
-
-  it should "create a default buffer file manager" in {
-    val bufferActor = TestActorRef[LocalBufferActor](LocalBufferActor())
-    val bufferManager = bufferActor.underlyingActor.bufferManager
-    bufferManager.prefix should be(FilePrefix)
-    bufferManager.extension should be(FileSuffix)
-    canonicalPath(bufferManager.directory.toString) should be(canonicalPath(System getProperty
-      "java.io.tmpdir"))
-  }
 
   /**
    * Simulates a buffer fill operation via a reader actor. This method behaves
@@ -207,7 +197,7 @@ with MockitoSugar {
    */
   private def propsWithMockFactoryForMultipleReaders(readers: List[ActorRef], writerActor:
   Option[ActorRef], bufferManager: Option[BufferFileManager]): Props = {
-    Props(new LocalBufferActor(bufferManager orElse Some(createBufferFileManager()))
+    Props(new LocalBufferActor(bufferManager getOrElse createBufferFileManager())
       with ChildActorFactory {
       var readerList = readers
 
@@ -437,7 +427,7 @@ with MockitoSugar {
   }
 
   it should "not crash when receiving an unexpected EoF message" in {
-    val bufferActor = TestActorRef(LocalBufferActor())
+    val bufferActor = TestActorRef(propsWithMockFactory())
     bufferActor receive EndOfFile(BufferPath)
   }
 

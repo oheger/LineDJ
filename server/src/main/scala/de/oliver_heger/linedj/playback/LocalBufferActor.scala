@@ -119,18 +119,18 @@ object LocalBufferActor {
    */
   case object SequenceComplete
 
-  private class LocalBufferActorImpl(optBufferManager: Option[BufferFileManager])
-    extends LocalBufferActor(optBufferManager) with ChildActorFactory
+  private class LocalBufferActorImpl(bufferManager: BufferFileManager)
+    extends LocalBufferActor(bufferManager) with ChildActorFactory
 
   /**
    * Creates a ''Props'' object which can be used to create new actor instances
    * of this class. This method should always be used; it guarantees that all
    * required dependencies are satisfied.
-   * @param optBufferManager an option with the object for managing temporary files
+   * @param bufferManager the object for managing temporary files
    * @return a ''Props'' object for creating actor instances
    */
-  def apply(optBufferManager: Option[BufferFileManager] = None): Props =
-    Props(classOf[LocalBufferActorImpl], optBufferManager)
+  def apply(bufferManager: BufferFileManager): Props =
+    Props(classOf[LocalBufferActorImpl], bufferManager)
 }
 
 /**
@@ -158,9 +158,9 @@ object LocalBufferActor {
  * At a time only a single read and a single fill operation are allowed. If a
  * request for another operation arrives, a busy message is returned.
  *
- * @param optBufferManager an option with the object for managing temporary files
+ * @param bufferManager the object for managing temporary files
  */
-class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Actor {
+class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
   this: ChildActorFactory =>
 
   import de.oliver_heger.linedj.playback.LocalBufferActor._
@@ -170,9 +170,6 @@ class LocalBufferActor(optBufferManager: Option[BufferFileManager]) extends Acto
 
   /** The chunk size for I/O operations. */
   val chunkSize = context.system.settings.config.getInt(PropChunkSize)
-
-  /** The object for managing temporary files. */
-  private[playback] lazy val bufferManager = optBufferManager getOrElse createBufferManager()
 
   /** The object for handling a close operation. */
   private var closingState: ClosingState = _
