@@ -22,7 +22,7 @@ import java.util.Locale
 
 import scala.collection.mutable.ListBuffer
 
-object DirectoryScanner {
+object MediaScanner {
   /** The file separator character. */
   private val FileSeparator = System.getProperty("file.separator")
 
@@ -56,8 +56,8 @@ object DirectoryScanner {
  *
  * @param excludedExtensions a set with file extensions to be excluded
  */
-private class DirectoryScanner(val excludedExtensions: Set[String]) {
-  import DirectoryScanner._
+private class MediaScanner(val excludedExtensions: Set[String]) {
+  import MediaScanner._
 
   /**
    * Scans a given directory structure.
@@ -156,7 +156,7 @@ private object ScanVisitor {
 
 /**
  * A ''FileVisitor'' implementation which scans a directory tree for media
- * files. An instance is used internally by [[DirectoryScanner]].
+ * files. An instance is used internally by [[MediaScanner]].
  *
  * @param exclusions a set with file extensions to be ignored
  */

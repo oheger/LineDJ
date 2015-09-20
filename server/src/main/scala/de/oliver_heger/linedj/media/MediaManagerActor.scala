@@ -149,7 +149,7 @@ Actor with ActorLogging {
   val id3Extractor = new ID3HeaderExtractor
 
   /** A helper object for scanning directory structures. */
-  private[media] val directoryScanner = new DirectoryScanner(config.excludedFileExtensions)
+  private[media] val directoryScanner = new MediaScanner(config.excludedFileExtensions)
 
   /** A helper object for calculating media IDs. */
   private[media] val idCalculator = new MediumIDCalculator
@@ -386,10 +386,10 @@ Actor with ActorLogging {
   private def scanMediaRoots(roots: Seq[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
-      val dirScannerActor = createChildActor(Props(classOf[DirectoryScannerActor],
+      val dirScannerActor = createChildActor(Props(classOf[MediaScannerActor],
         directoryScanner))
       context watch dirScannerActor
-      dirScannerActor ! DirectoryScannerActor.ScanPath(Paths.get(root))
+      dirScannerActor ! MediaScannerActor.ScanPath(Paths.get(root))
     }
     mediaDataAdded()
   }

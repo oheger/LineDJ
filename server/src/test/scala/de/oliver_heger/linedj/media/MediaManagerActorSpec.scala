@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 
 object MediaManagerActorSpec {
   /** Class for the directory scanner child actor. */
-  val ClsDirScanner = classOf[DirectoryScannerActor]
+  val ClsDirScanner = classOf[MediaScannerActor]
 
   /** Class for the ID calculator child actor. */
   val ClsIDCalculator = classOf[MediumIDCalculatorActor]
@@ -99,7 +99,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "create default helper objects" in {
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
-    manager.underlyingActor.directoryScanner shouldBe a[DirectoryScanner]
+    manager.underlyingActor.directoryScanner shouldBe a[MediaScanner]
     manager.underlyingActor.directoryScanner.excludedExtensions should be(ExcludedExtensions)
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
@@ -118,7 +118,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
 
     val exitProbe = TestProbe()
-    for {cls <- List[Class[_]](classOf[DirectoryScannerActor], classOf[MediumIDCalculatorActor],
+    for {cls <- List[Class[_]](classOf[MediaScannerActor], classOf[MediumIDCalculatorActor],
       classOf[MediumInfoParserActor])
          probe <- helper.probesOfActorClass(cls)} {
       exitProbe watch probe.ref
@@ -715,9 +715,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * A map with messages that are expected by collaboration actors and
      * their corresponding responses.
      */
-    private val ActorMessages = Map[Any, Any](DirectoryScannerActor.ScanPath(Drive1Root) -> Drive1,
-      DirectoryScannerActor.ScanPath(Drive2Root) -> Drive2,
-      DirectoryScannerActor.ScanPath(Drive3Root) -> Drive3,
+    private val ActorMessages = Map[Any, Any](MediaScannerActor.ScanPath(Drive1Root) -> Drive1,
+      MediaScannerActor.ScanPath(Drive2Root) -> Drive2,
+      MediaScannerActor.ScanPath(Drive3Root) -> Drive3,
       calcRequest(Medium1Path, 1, Drive1, Medium1Content) -> Medium1IDData,
       calcRequest(Medium2Path, 2, Drive1, Medium2Content) -> Medium2IDData,
       calcRequest(Medium3Path, 3, Drive2, Medium3Content) -> Medium3IDData,
@@ -873,7 +873,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * are expected, and corresponding responses are generated.
      */
     private def simulateCollaboratingActors(): Unit = {
-      simulateCollaboratingActorsOfType[DirectoryScannerActor.ScanPath] (classOf[DirectoryScannerActor])
+      simulateCollaboratingActorsOfType[MediaScannerActor.ScanPath] (classOf[MediaScannerActor])
       simulateCollaboratingActorsOfType[MediumIDCalculatorActor.CalculateMediumID] (classOf[MediumIDCalculatorActor])
       simulateFileLoaderActor()
       simulateCollaboratingActorsOfType[MediumInfoParserActor.ParseMediumInfo] (classOf[MediumInfoParserActor])

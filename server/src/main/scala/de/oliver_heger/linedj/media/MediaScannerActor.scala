@@ -19,12 +19,12 @@ package de.oliver_heger.linedj.media
 import java.nio.file.Path
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.media.DirectoryScannerActor.ScanPath
+import de.oliver_heger.linedj.media.MediaScannerActor.ScanPath
 
 /**
  * Companion object.
  */
-object DirectoryScannerActor {
+object MediaScannerActor {
 
   /**
    * A message received by ''DirectoryScannerActor'' telling it to scan a
@@ -41,14 +41,14 @@ object DirectoryScannerActor {
  * An actor implementation which parses a directory structure for media
  * directories and files.
  *
- * This actor implementation makes use of an internal [[DirectoryScanner]]
+ * This actor implementation makes use of an internal [[MediaScanner]]
  * class for the actual scan operation. It reacts on messages for scanning a
  * specific root path. This path is then scanned, and results are sent back to
  * the caller.
  *
  * @param scanner the scanner to be used for scanning directories
  */
-class DirectoryScannerActor(private val scanner: DirectoryScanner) extends Actor {
+class MediaScannerActor(private val scanner: MediaScanner) extends Actor {
   override def receive: Receive = {
     case ScanPath(path) =>
       sender ! scanner.scan(path)

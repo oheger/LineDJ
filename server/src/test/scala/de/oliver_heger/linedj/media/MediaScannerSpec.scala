@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
-object DirectoryScannerSpec {
+object MediaScannerSpec {
   /** A set with file extensions to be excluded. */
   private val Exclusions = Set("TXT", "")
 
@@ -37,9 +37,9 @@ object DirectoryScannerSpec {
 /**
  * Test class for ''DirectoryScanner''.
  */
-class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
+class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
 
-  import de.oliver_heger.linedj.media.DirectoryScannerSpec._
+  import de.oliver_heger.linedj.media.MediaScannerSpec._
 
   after {
     tearDownTestFile()
@@ -147,7 +147,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
    * @return the result of the scan operation
    */
   private def scan(): MediaScanResult = {
-    val scanner = new DirectoryScanner(Exclusions)
+    val scanner = new MediaScanner(Exclusions)
     setUpDirectoryStructure()
     scanner scan testDirectory
   }
@@ -159,7 +159,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
    */
   private def undefinedMediumID(): MediumID = MediumID(testDirectory.toString, None)
 
-  "A DirectoryScanner" should "find media files in a directory structure" in {
+  "A MediaScanner" should "find media files in a directory structure" in {
     val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
     val result = scan()
 
@@ -193,7 +193,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
 
   it should "not return an entry for other files if none are found" in {
     val paths = setUpDirectoryStructure()
-    val scanner = new DirectoryScanner(Exclusions)
+    val scanner = new MediaScanner(Exclusions)
     val result = scanner scan paths(1)
 
     result.mediaFiles.keySet should not contain undefinedMediumID()
