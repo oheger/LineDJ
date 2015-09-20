@@ -23,7 +23,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
-import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
+import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
@@ -69,9 +69,9 @@ object MediaManagerActor {
     fileURIMapping = Map.empty)
 
   /**
-   * Constant for a ''MediaFile'' referring to a non-existing file.
+   * Constant for a ''FileData'' referring to a non-existing file.
    */
-  private val NonExistingFile = MediaFile(path = null, size = -1)
+  private val NonExistingFile = FileData(path = null, size = -1)
 
   private class MediaManagerActorImpl(config: ServerConfig, metaDataManager: ActorRef)
     extends MediaManagerActor(config, metaDataManager) with ChildActorFactory with SchedulerSupport
@@ -196,7 +196,7 @@ Actor with ActorLogging {
    * A map with information about the files contained in the currently
    * available media.
    */
-  private val mediaFiles = collection.mutable.Map.empty[MediumID, Map[String, MediaFile]]
+  private val mediaFiles = collection.mutable.Map.empty[MediumID, Map[String, FileData]]
 
   /**
    * Stores references to clients that have asked for the available media
@@ -337,7 +337,7 @@ Actor with ActorLogging {
   private def processFileRequest(request: MediumFileRequest): Unit = {
     val (readerActor, optMediaReaderActor) = createActorsForFileRequest(request)
     val actualReader = optMediaReaderActor getOrElse readerActor
-    val optFile = fetchMediaFile(request)
+    val optFile = fetchFileData(request)
     optFile foreach (f => actualReader ! ChannelHandler.InitFile(f.path))
     sender ! MediumFileResponse(request, actualReader, optFile.getOrElse
       (NonExistingFile).size)
@@ -401,7 +401,7 @@ Actor with ActorLogging {
    * @param scanResult the data object with scan results
    */
   private def processScanResult(scanResult: MediaScanResult): Unit = {
-    def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[MediaFile]): Unit = {
+    def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[FileData]): Unit = {
       val idActor = createChildActor(Props(classOf[MediumIDCalculatorActor], idCalculator))
       idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files)
     }
@@ -451,7 +451,7 @@ Actor with ActorLogging {
    * @return the resulting mapping
    */
   private def createOtherFilesMapping(scanResult: MediaScanResult, mediumID: MediumID):
-  Map[String, MediaFile] = {
+  Map[String, FileData] = {
     val otherFiles = scanResult.mediaFiles(mediumID)
     val otherURIs = otherFiles map { f => pathToURI(f.path) }
     Map(otherURIs zip otherFiles: _*)
@@ -496,13 +496,13 @@ Actor with ActorLogging {
   }
 
   /**
-   * Obtains the ''MediaFile'' object referred to by the given
+   * Obtains the ''FileData'' object referred to by the given
    * ''MediumFileRequest''. The file is looked up in the data structures managed by
    * this actor. If it cannot be found, result is ''None''.
    * @param request the request identifying the desired file
-   * @return an option with the ''MediaFile''
+   * @return an option with the ''FileData''
    */
-  private def fetchMediaFile(request: MediumFileRequest): Option[MediaFile] = {
+  private def fetchFileData(request: MediumFileRequest): Option[FileData] = {
     mediaFiles get request.mediumID flatMap (_.get(request.uri))
   }
 

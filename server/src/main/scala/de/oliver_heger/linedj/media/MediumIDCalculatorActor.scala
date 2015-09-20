@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.media
 import java.nio.file.Path
 
 import akka.actor.Actor
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.MediumIDCalculatorActor.CalculateMediumID
 
 /**
@@ -36,7 +37,7 @@ object MediumIDCalculatorActor {
    */
   private[media] case class CalculateMediumID(mediumRoot: Path, mediumID: MediumID,
                                               scanResult: MediaScanResult,
-                                              mediumContent: Seq[MediaFile])
+                                              mediumContent: Seq[FileData])
 
 }
 

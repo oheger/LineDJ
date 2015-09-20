@@ -2,6 +2,7 @@ package de.oliver_heger.linedj.media
 
 import java.nio.file.{Files, Path, Paths}
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.io.FileData
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 object MediaScannerSpec {
@@ -105,7 +106,7 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
    * @param files the sequence with file objects
    * @return a sequence with the extracts paths
    */
-  private def extractPaths(files: Seq[MediaFile]): Seq[Path] =
+  private def extractPaths(files: Seq[FileData]): Seq[Path] =
     files map (_.path)
 
   /**

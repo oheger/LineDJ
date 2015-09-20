@@ -4,6 +4,7 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.MediaScannerActor.ScanPath
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -17,7 +18,7 @@ object MediaScannerActorSpec {
 
   /** A test result object returned by the mock scanner. */
   private val TestResult = MediaScanResult(Path, Map(MediumID.fromDescriptionPath(Path) -> List
-    (MediaFile(Path, 1))))
+    (FileData(Path, 1))))
 }
 
 /**

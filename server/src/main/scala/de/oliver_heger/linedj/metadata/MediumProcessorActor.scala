@@ -22,7 +22,8 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.config.ServerConfig
-import de.oliver_heger.linedj.media.{MediaFile, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.media.{MediaScanResult, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {
@@ -57,8 +58,8 @@ object MediumProcessorActor {
    * @param files the list of files
    * @return a list of pairs with the associated medium paths
    */
-  private def associateWithMediumID(mediumID: MediumID, files: List[MediaFile]): List[
-    (MediaFile, MediumID)] = {
+  private def associateWithMediumID(mediumID: MediumID, files: List[FileData]): List[
+    (FileData, MediumID)] = {
     val mediumPathList = List.fill(files.size)(mediumID)
     files zip mediumPathList
   }
@@ -71,10 +72,10 @@ object MediumProcessorActor {
    * processing steps, however, additional information is required. This is
    * stored in instances of this class.
    *
-   * @param file the original ''MediaFile'' object
+   * @param file the original ''FileData'' object
    * @param mediumID the ID of the medium the file belongs to
    */
-  private case class MediaFileData(file: MediaFile, mediumID: MediumID)
+  private case class MediaFileData(file: FileData, mediumID: MediumID)
 }
 
 /**
@@ -285,15 +286,15 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   }
 
   /**
-   * Obtains the ''MediaFile'' object associated with the given path. This
+   * Obtains the ''FileData'' object associated with the given path. This
    * method can be used to convert a path (which is used by most processor
-   * classes) back to a ''MediaFile'' object with all information available
+   * classes) back to a ''FileData'' object with all information available
    * about the file. Note: When this method is called it has already been
    * verified that the path is valid.
    * @param p the path
-   * @return the associated ''MediaFile'' object
+   * @return the associated ''FileData'' object
    */
-  private def mediaFileForPath(p: Path): MediaFile = {
+  private def mediaFileForPath(p: Path): FileData = {
     currentProcessingData(p).file
   }
 

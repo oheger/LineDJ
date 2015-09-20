@@ -20,6 +20,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
@@ -78,11 +79,11 @@ object MetaDataManagerActorSpec {
    * @param count the number of files to generate
    * @return the resulting list
    */
-  private def generateMediaFiles(mediumPath: Path, count: Int): List[MediaFile] = {
+  private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
     @tailrec
-    def loop(current: List[MediaFile], index: Int): List[MediaFile] = {
+    def loop(current: List[FileData], index: Int): List[FileData] = {
       if (index == 0) current
-      else loop(MediaFile(mediumPath.resolve(s"TestFile_$index.mp3"), 20) :: current, index - 1)
+      else loop(FileData(mediumPath.resolve(s"TestFile_$index.mp3"), 20) :: current, index - 1)
     }
 
     loop(Nil, count)
@@ -162,7 +163,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @param expComplete the expected complete flag
    */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
-                                 expectedFiles: List[MediaFile], expComplete: Boolean): Unit = {
+                                 expectedFiles: List[FileData], expComplete: Boolean): Unit = {
     msg.mediumID should be(mediumID)
     msg.data should have size expectedFiles.size
     expectedFiles foreach { m =>
@@ -331,7 +332,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param mediumID the medium ID
      * @param files the list of files
      */
-    def sendProcessingResults(mediumID: MediumID, files: List[MediaFile]): Unit = {
+    def sendProcessingResults(mediumID: MediumID, files: List[FileData]): Unit = {
       files foreach { m =>
         actor ! MetaDataProcessingResult(m.path, mediumID, metaDataFor(m.path))
       }

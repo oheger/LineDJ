@@ -18,16 +18,7 @@ package de.oliver_heger.linedj.media
 
 import java.nio.file.Path
 
-/**
- * A data class representing a file on a medium.
- *
- * The file is uniquely identified by the ''Path'' to the data on disk. In
- * addition, some meta data is provided.
- *
- * @param path the path to the represented file
- * @param size the size of the file
- */
-case class MediaFile(path: Path, size: Long)
+import de.oliver_heger.linedj.io.FileData
 
 /**
  * A data class storing the results of a directory scan for media files (in its
@@ -40,7 +31,7 @@ case class MediaFile(path: Path, size: Long)
  * @param root the root path that has been scanned
  * @param mediaFiles a map with files assigned to a medium
  */
-case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[MediaFile]])
+case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]])
 
 /**
  * A data class storing the result of a directory scan plus some additional

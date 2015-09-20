@@ -17,7 +17,7 @@ package de.oliver_heger.linedj.metadata
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.media.MediaFile
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -42,7 +42,7 @@ object MetaDataPartsCollectorSpec {
     minimumBitRat = 0, maximumBitRate = 128000, duration = 60000)
 
   /** A test media file. */
-  private val File = MediaFile(Paths get "somePath", 20150912211021L)
+  private val File = FileData(Paths get "somePath", 20150912211021L)
 
   /** The expected final meta data. */
   private val MetaData = MediaMetaData(title = ID3MetaData.title, artist = ID3MetaData.artist,

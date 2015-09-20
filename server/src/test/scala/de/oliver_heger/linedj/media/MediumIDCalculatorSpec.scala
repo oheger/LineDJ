@@ -2,6 +2,7 @@ package de.oliver_heger.linedj.media
 
 import java.nio.file.{Path, Paths}
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.io.FileData
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.io.Source
@@ -46,9 +47,9 @@ FileTestHelper {
    * Creates a sequence with paths representing the content of a test medium.
    * @return the sequence with paths
    */
-  private def createContentList(): Seq[MediaFile] = {
+  private def createContentList(): Seq[FileData] = {
     val source = Source.fromInputStream(getClass.getClassLoader.getResourceAsStream(MediumFile))
-    (source.getLines() map (s => MediaFile(toPath(s), s.length))).toSeq
+    (source.getLines() map (s => FileData(toPath(s), s.length))).toSeq
   }
 
   "A MediumIDCalculator" should "calculate the correct medium ID" in {
@@ -67,7 +68,7 @@ FileTestHelper {
   it should "return different IDs for different content" in {
     val calculator = new MediumIDCalculator
 
-    val content = MediaFile(createPathInDirectory("newTrack.mp3"), 1) :: createContentList().toList
+    val content = FileData(createPathInDirectory("newTrack.mp3"), 1) :: createContentList().toList
     calculator.calculateMediumID(testDirectory, TestID, ScanResult, content)
       .checksum should not be CheckSum
   }

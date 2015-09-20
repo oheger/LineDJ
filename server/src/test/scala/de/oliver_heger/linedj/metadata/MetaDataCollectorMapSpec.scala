@@ -17,7 +17,7 @@ package de.oliver_heger.linedj.metadata
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.media.MediaFile
+import de.oliver_heger.linedj.io.FileData
 import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataCollectorMapSpec {
@@ -25,7 +25,7 @@ object MetaDataCollectorMapSpec {
   private val TestPath = Paths get "MetaDataCollectorMapSpec.tst"
 
   /** A test media file. */
-  private val TestFile = MediaFile(TestPath, 20150912212258L)
+  private val TestFile = FileData(TestPath, 20150912212258L)
 }
 
 /**

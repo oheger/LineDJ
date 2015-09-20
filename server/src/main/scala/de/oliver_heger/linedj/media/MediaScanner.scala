@@ -20,6 +20,8 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import java.util.Locale
 
+import de.oliver_heger.linedj.io.FileData
+
 import scala.collection.mutable.ListBuffer
 
 object MediaScanner {
@@ -81,11 +83,11 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
    * @param mediumURI the URI for the medium
    * @return the result map
    */
-  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[MediaFile],
-                              mediumURI: String): Map[MediumID, List[MediaFile]] = {
+  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[FileData],
+                              mediumURI: String): Map[MediumID, List[FileData]] = {
     val sortedDescriptions = mediumDescriptions sortWith (descriptionPrefix(_) >
       descriptionPrefix(_))
-    val start = (mediaFiles, Map.empty[MediumID, List[MediaFile]])
+    val start = (mediaFiles, Map.empty[MediumID, List[FileData]])
     val end = sortedDescriptions.foldLeft(start) { (state, path) =>
       val partition = findFilesForDescription(path, state._1)
       (partition._2, state._2 + (MediumID.fromDescriptionPath(path) -> partition._1))
@@ -106,8 +108,8 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
    * @return a partition with the files for this description and the remaining
    *         files
    */
-  private def findFilesForDescription(desc: Path, mediaFiles: List[MediaFile]): (List[MediaFile],
-    List[MediaFile]) = {
+  private def findFilesForDescription(desc: Path, mediaFiles: List[FileData]): (List[FileData],
+    List[FileData]) = {
     val prefix = descriptionPrefix(desc)
     val len = prefix.length
     mediaFiles partition (f => belongsToMedium(prefix, len, f.path))
@@ -165,7 +167,7 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
   import de.oliver_heger.linedj.media.ScanVisitor._
 
   /** A list with all media files encountered during the scan operation. */
-  private val mediaFileList = ListBuffer.empty[MediaFile]
+  private val mediaFileList = ListBuffer.empty[FileData]
 
   /** A list with all medium description files encountered during the scan. */
   private val descriptionFileList = ListBuffer.empty[Path]
@@ -174,7 +176,7 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
    * Returns a list with all detected media files.
    * @return the list with all media files
    */
-  def mediaFiles: List[MediaFile] = mediaFileList.toList
+  def mediaFiles: List[FileData] = mediaFileList.toList
 
   /**
    * Returns a list with all detected medium description files.
@@ -187,16 +189,16 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
     if (SettingsExtension == extension) {
       descriptionFileList += file
     } else if (!exclusions.contains(extension.toUpperCase(Locale.ENGLISH))) {
-      mediaFileList += createMediaFile(file)
+      mediaFileList += createFileData(file)
     }
     FileVisitResult.CONTINUE
   }
 
   /**
-   * Creates a ''MediaFile'' object for the specified path. This method
-   * obtains the additional meta data required by the ''MediaFile'' class.
+   * Creates a ''FileData'' object for the specified path. This method
+   * obtains the additional meta data required by the ''FileData'' class.
    * @param path the path to the file in question
-   * @return the corresponding ''MediaFile'' object
+   * @return the corresponding ''FileData'' object
    */
-  private def createMediaFile(path: Path): MediaFile = MediaFile(path, Files size path)
+  private def createFileData(path: Path): FileData = FileData(path, Files size path)
 }

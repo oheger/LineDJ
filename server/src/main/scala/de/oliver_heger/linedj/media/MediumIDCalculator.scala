@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.media
 import java.nio.file.Path
 import java.util.zip.CRC32
 
+import de.oliver_heger.linedj.io.FileData
+
 /**
  * An internally used helper class for calculating the IDs of a medium and the
  * files it contains.
@@ -47,7 +49,7 @@ private class MediumIDCalculator {
    * @return an object with the calculated IDs and URIs
    */
   def calculateMediumID(mediumRoot: Path, mediumID: MediumID, scanResult: MediaScanResult,
-                        mediumContent: Seq[MediaFile]): MediumIDData = {
+                        mediumContent: Seq[FileData]): MediumIDData = {
     val paths = mediumContent map (_.path)
     val fileURIs = paths map mediumRoot.relativize map (_.toString.replace('\\', '/'))
     val crc = new CRC32
@@ -69,4 +71,4 @@ private class MediumIDCalculator {
  * @param fileURIMapping a mapping from logic file URIs to physical paths
  */
 private case class MediumIDData(checksum: String, mediumID: MediumID, scanResult: MediaScanResult,
-                                fileURIMapping: Map[String, MediaFile])
+                                fileURIMapping: Map[String, FileData])

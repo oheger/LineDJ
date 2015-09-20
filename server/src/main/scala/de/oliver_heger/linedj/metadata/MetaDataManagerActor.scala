@@ -20,7 +20,8 @@ import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.config.ServerConfig
-import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaFile, MediumID}
+import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
@@ -77,7 +78,7 @@ object MetaDataManagerActor {
      * when all meta data has been fetched.
      * @param files the files that are going to be processed
      */
-    def expectMediaFiles(files: Seq[MediaFile]): Unit = {
+    def expectMediaFiles(files: Seq[FileData]): Unit = {
       mediumPaths ++= files.map(_.path)
     }
 
@@ -252,7 +253,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
    * initialized.
    * @param e an entry from the map of media files from a scan result object
    */
-  private def prepareHandlerForMedium(e: (MediumID, List[MediaFile])): Unit = {
+  private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit = {
     val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2

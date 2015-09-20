@@ -8,7 +8,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.config.ServerConfig
-import de.oliver_heger.linedj.io.{ChannelHandler, FileLoaderActor, FileOperationActor, FileReaderActor}
+import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -534,8 +534,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param count the number of paths to generate
      * @return the list with the generated paths
      */
-    private def pathList(dir: Path, count: Int): List[MediaFile] = {
-      ((1 to count) map { i => MediaFile(path(dir, s"file$i.mp3"), 1000 + i * 10) }).toList
+    private def pathList(dir: Path, count: Int): List[FileData] = {
+      ((1 to count) map { i => FileData(path(dir, s"file$i.mp3"), 1000 + i * 10) }).toList
     }
 
     /**
@@ -555,7 +555,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param scanResult the scan result
      * @return the corresponding ID data
      */
-    private def idData(mediumNo: Int, medPath: Path, content: List[MediaFile],
+    private def idData(mediumNo: Int, medPath: Path, content: List[FileData],
                        scanResult: MediaScanResult): MediumIDData =
       MediumIDData(checksum = checksum(mediumNo),
         mediumID = definedMediumID(mediumNo, medPath),
@@ -573,7 +573,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param content the list with media files
      * @return the path mapping
      */
-    private def pathMapping(content: List[MediaFile]): Map[String, MediaFile] = {
+    private def pathMapping(content: List[FileData]): Map[String, FileData] = {
       Map(content map (f => f.path.toString -> f): _*)
     }
 
@@ -616,7 +616,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the request message
      */
     private def calcRequest(medPath: Path, mediumNo: Int, scanResult: MediaScanResult, content:
-    Seq[MediaFile]): MediumIDCalculatorActor.CalculateMediumID =
+    Seq[FileData]): MediumIDCalculatorActor.CalculateMediumID =
       MediumIDCalculatorActor.CalculateMediumID(medPath, definedMediumID(mediumNo, medPath),
         scanResult, content)
 

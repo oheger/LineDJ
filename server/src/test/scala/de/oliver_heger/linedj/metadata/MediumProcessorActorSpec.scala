@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.config.ServerConfig
-import de.oliver_heger.linedj.io.ChannelHandler
-import de.oliver_heger.linedj.media.{MediaFile, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.io.{ChannelHandler, FileData}
+import de.oliver_heger.linedj.media.{MediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => eqArg}
@@ -75,7 +75,7 @@ object MediumProcessorActorSpec {
    * @param idx the index
    * @return the corresponding test file
    */
-  private def mediaFile(idx: Int): MediaFile = MediaFile(path(idx), testFileSize(idx))
+  private def mediaFile(idx: Int): FileData = FileData(path(idx), testFileSize(idx))
 
   /**
    * Extracts the index from the given test path.
@@ -89,11 +89,11 @@ object MediumProcessorActorSpec {
   }
 
   /**
-   * Converts the specified path of a test file back to a ''MediaFile'' object.
+   * Converts the specified path of a test file back to a ''FileData'' object.
    * @param path the test path
    * @return the medium file
    */
-  private def fileFromPath(path: Path): MediaFile = MediaFile(path, testFileSize(extractIndex
+  private def fileFromPath(path: Path): FileData = FileData(path, testFileSize(extractIndex
     (path)))
 
   /**
@@ -548,7 +548,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "react on an exception caused by a reader actor" in {
-    val mediaFiles = MediumPaths map (MediaFile(_, 128))
+    val mediaFiles = MediumPaths map (FileData(_, 128))
     val scanResult = ScanResult.copy(mediaFiles = Map(MediumID.fromDescriptionPath(Medium) -> mediaFiles))
     val errorPath = MediumPaths.head
     val helper = new MediumProcessorActorTestHelper(scanResult = scanResult, numberOfRealActors = 1)
