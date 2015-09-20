@@ -16,17 +16,16 @@
 
 package de.oliver_heger.linedj.media
 
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
-import java.util.Locale
+import java.nio.file.Path
 
-import de.oliver_heger.linedj.io.FileData
-
-import scala.collection.mutable.ListBuffer
+import de.oliver_heger.linedj.io.{DirectoryScanner, FileData}
 
 object MediaScanner {
   /** The file separator character. */
   private val FileSeparator = System.getProperty("file.separator")
+
+  /** Constant for the extension for medium description files. */
+  private val SettingsExtension = ".settings"
 
   /**
    * Determines the path prefix of a medium description file. This is the
@@ -36,6 +35,14 @@ object MediaScanner {
    */
   private def descriptionPrefix(descFile: Path): String =
     descFile.getParent.toString
+
+  /**
+   * Checks whether the specified file is a medium settings file.
+   * @param file the file to be checked
+   * @return a flag whether this is a settings file
+   */
+  private def isSettingsFile(file: FileData): Boolean =
+    file.path.toString endsWith SettingsExtension
 }
 
 /**
@@ -67,9 +74,10 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
    * @return the result of the scan operation
    */
   def scan(root: Path): MediaScanResult = {
-    val visitor = new ScanVisitor(excludedExtensions)
-    Files.walkFileTree(root, visitor)
-    MediaScanResult(root, createResultMap(visitor.mediumDescriptions, visitor.mediaFiles, root
+    val scanner = new DirectoryScanner(excludedExtensions)
+    val scanResult = scanner scan root
+    val (descriptions, files) = scanResult.files partition isSettingsFile
+    MediaScanResult(root, createResultMap(descriptions.map(_.path).toList, files.toList, root
       .toString))
   }
 
@@ -131,74 +139,4 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
     pathStr.startsWith(prefix) && pathStr.lastIndexOf(FileSeparator) > prefixLen
   }
 
-}
-
-private object ScanVisitor {
-  /** Constant for an undefined file extension. */
-  private val NoExtension = ""
-
-  /** Constant for the extension for medium description files. */
-  private val SettingsExtension = "settings"
-
-  /** Constant for the extension delimiter character. */
-  private val Dot = '.'
-
-  /**
-   * Extracts the file extension from the given path.
-   * @param path the path
-   * @return the extracted extension
-   */
-  def extractExtension(path: Path): String = {
-    val fileName = path.getFileName.toString
-    val pos = fileName lastIndexOf Dot
-    if (pos >= 0) fileName.substring(pos + 1)
-    else NoExtension
-  }
-}
-
-/**
- * A ''FileVisitor'' implementation which scans a directory tree for media
- * files. An instance is used internally by [[MediaScanner]].
- *
- * @param exclusions a set with file extensions to be ignored
- */
-private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Path] {
-
-  import de.oliver_heger.linedj.media.ScanVisitor._
-
-  /** A list with all media files encountered during the scan operation. */
-  private val mediaFileList = ListBuffer.empty[FileData]
-
-  /** A list with all medium description files encountered during the scan. */
-  private val descriptionFileList = ListBuffer.empty[Path]
-
-  /**
-   * Returns a list with all detected media files.
-   * @return the list with all media files
-   */
-  def mediaFiles: List[FileData] = mediaFileList.toList
-
-  /**
-   * Returns a list with all detected medium description files.
-   * @return the list with medium description files
-   */
-  def mediumDescriptions: List[Path] = descriptionFileList.toList
-
-  override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    val extension = extractExtension(file)
-    if (SettingsExtension == extension) {
-      descriptionFileList += file
-    } else if (!exclusions.contains(extension.toUpperCase(Locale.ENGLISH))) {
-      mediaFileList += createFileData(file)
-    }
-    FileVisitResult.CONTINUE
-  }
-
-  /**
-   * Creates a ''FileData'' object for the specified path. This method
-   * obtains the additional meta data required by the ''FileData'' class.
-   * @param path the path to the file in question
-   * @return the corresponding ''FileData'' object
-   */
-  private def createFileData(path: Path): FileData = FileData(path, Files size path)
 }
