@@ -8,8 +8,8 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqParam, _}
 import org.mockito.Mockito._
@@ -188,6 +188,20 @@ with MockitoSugar with FileTestHelper {
     val handler = fetchCompletionHandler(channel)
     handler.failed(new IOException, testActor)
     expectNoMsg()
+  }
+
+  it should "close the channel when it is stopped" in {
+    val channel = mock[AsynchronousFileChannel]
+    val file = createFileReference()
+    val writer = system.actorOf(propsForWriterActorWithChannel(channel))
+    writer ! InitFile(file)
+    writer ! writeRequest()
+
+    system stop writer
+    val probe = TestProbe()
+    probe watch writer
+    probe.expectMsgType[Terminated]
+    verify(channel).close()
   }
 }
 

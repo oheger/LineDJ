@@ -125,6 +125,16 @@ trait ChannelHandler extends Actor {
   override final def receive: Actor.Receive = specialReceive orElse channelReceive
 
   /**
+   * @inheritdoc This implementation makes sure that the channel is closed
+   *             before the actor is stopped.
+   */
+  @throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    closeChannel()
+    super.postStop()
+  }
+
+  /**
    * A special ''Receive'' function used by a concrete implementation. From this
    * function and an internal function which handles channel-specific messages,
    * the final ''Receive'' function is constructed.
