@@ -162,6 +162,23 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     expectMsg(Message)
   }
 
+  it should "answer a request for a remote actor" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(RemoteActors.MediaManager)
+    expectMsg(RemoteRelayActor.RemoteActorResponse(RemoteActors.MediaManager, Some(helper
+      .probeMediaManager.ref)))
+  }
+
+  it should "correctly answer a request for an unavailable remote actor" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper registerRemoteActor helper.probeMediaManager
+
+    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(RemoteActors.MetaDataManager)
+    expectMsg(RemoteRelayActor.RemoteActorResponse(RemoteActors.MetaDataManager, None))
+  }
+
   /**
    * A helper class for testing the relay actor. It manages a set of
    * dependent objects.

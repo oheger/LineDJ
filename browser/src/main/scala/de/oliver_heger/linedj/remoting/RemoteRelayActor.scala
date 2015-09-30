@@ -53,6 +53,25 @@ object RemoteRelayActor {
    */
   case class RemoteMessage(target: RemoteActor, msg: Any)
 
+  /**
+   * A message to be processed by ''RemoteRelayActor'' that requests a
+   * reference to a remote actor. This message is answered by a
+   * [[RemoteActorResponse]] message.
+   *
+   * @param actorType the remote actor type
+   */
+  case class RemoteActorRequest(actorType: RemoteActor)
+
+  /**
+   * A message sent by ''RemoteRelayActor'' as response to a
+   * [[RemoteActorRequest]] message. The reference to the desired remote actor
+   * is returned as an option as it might not be available.
+   *
+   * @param actorType the type of the remote actor
+   * @param optActor the optional reference to the remote actor
+   */
+  case class RemoteActorResponse(actorType: RemoteActor, optActor: Option[ActorRef])
+
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
 
@@ -204,6 +223,9 @@ Actor {
 
     case RemoteMessage(target, msg) =>
       trackingState remoteActorOption target foreach (_ ! msg)
+
+    case RemoteActorRequest(actorType) =>
+      sender ! RemoteActorResponse(actorType, trackingState remoteActorOption actorType)
 
     case msg =>
       messageBus publish msg
