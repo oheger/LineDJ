@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.browser.playlist
 import java.util
 
 import de.oliver_heger.linedj.browser.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Mockito._
@@ -26,6 +27,9 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 
 object PlaylistControllerSpec {
+  /** A test medium ID. */
+  private val Medium = MediumID("someURI", Some("somePath"))
+
   /** The template for the status line. */
   private val StatusLineTemplate = "Count: %d, Duration: %s, Size: %.2f"
 
@@ -47,7 +51,7 @@ object PlaylistControllerSpec {
    * @return the ''SongData''
    */
   private def song(title: String, duration: Int, size: Int): SongData =
-    SongData("song://" + title, MediaMetaData(title = Some(title), duration = Some(duration),
+    SongData(Medium, "song://" + title, MediaMetaData(title = Some(title), duration = Some(duration),
       size = size), null)
 }
 
@@ -92,7 +96,7 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "output an indication in the status line if there are songs with unknown duration" in {
     val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = SongData("song://B", MediaMetaData(title = Some("B"), size = 1024 * 1024), null)
+    val song2 = SongData(Medium, "song://B", MediaMetaData(title = Some("B"), size = 1024 * 1024), null)
     val helper = new PlaylistControllerTestHelper
 
     helper.appendSongs(song1, song2)

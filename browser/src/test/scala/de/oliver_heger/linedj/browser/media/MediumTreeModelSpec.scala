@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.apache.commons.configuration.event.{ConfigurationEvent, ConfigurationListener}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
@@ -79,7 +80,7 @@ object MediumTreeModelSpec {
    * @return the corresponding ''SongData''
    */
   private def song(meta: MediaMetaData): SongData =
-    SongData("testURIDontCare", meta, null)
+    SongData(MediumID("someURI", None), "testURIDontCare", meta, null)
 }
 
 /**

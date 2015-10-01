@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.model
 
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 
 object SongData {
@@ -61,11 +62,13 @@ object SongData {
  * standard. Because these properties are directly displayed in the UI, there
  * are already some format conversions.
  *
+ * @param mediumID the ID of the medium this song belongs to
  * @param uri the URI of this song as obtained from the server
  * @param metaData meta data about this song
  * @param resolver the resolver for unknown names
  */
-case class SongData(uri: String, metaData: MediaMetaData, resolver: UnknownNameResolver)
+case class SongData(mediumID: MediumID, uri: String, metaData: MediaMetaData, resolver:
+UnknownNameResolver)
   extends Ordered[SongData] {
 
   import SongData._

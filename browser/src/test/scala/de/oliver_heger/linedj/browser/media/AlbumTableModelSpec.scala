@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -27,14 +28,18 @@ object AlbumTableModelSpec {
   /** Constant for another album.*/
   private val Album2 = AlbumKey("Supertramp", "Crisis? What Crisis?")
 
+  /** Constant for a test medium ID. */
+  private val Medium = MediumID("someURI", Some("somePath"))
+
   /**
    * Creates a song data object with the specified data.
    * @param name the song name
    * @param track the track number
    * @return the song data object
    */
-  private def song(name:String, track: Int): SongData =
-    SongData("song://" + name, MediaMetaData(title = Some(name), trackNumber = Some(track)), null)
+  private def song(name: String, track: Int): SongData =
+    SongData(Medium, "song://" + name, MediaMetaData(title = Some(name), trackNumber = Some
+      (track)), null)
 
   /**
    * Adds the given songs to a model.
@@ -108,6 +113,6 @@ class AlbumTableModelSpec extends FlatSpec with Matchers {
     val song2 = song(song1.getTitle, 8)
     val model = appendSongs()(Album1, song1)
 
-    model.add(Album2, song2) should be theSameInstanceAs(model)
+    model.add(Album2, song2) should be theSameInstanceAs model
   }
 }

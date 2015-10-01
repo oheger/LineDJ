@@ -16,60 +16,68 @@
 
 package de.oliver_heger.linedj.browser.model
 
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
+object SongDataSpec {
+  /** A test medium ID. */
+  private val Medium = MediumID("someURI", Some("somePath"))
+}
+
 /**
  * Test class for ''SongData''.
  */
 class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
+  import SongDataSpec._
+
   "A SongData" should "have an order on track number" in {
-    val s1 = SongData("s1", MediaMetaData(trackNumber = Some(4)), null)
-    val s2 = SongData("s0", MediaMetaData(trackNumber = Some(5)), null)
+    val s1 = SongData(Medium, "s1", MediaMetaData(trackNumber = Some(4)), null)
+    val s2 = SongData(Medium, "s0", MediaMetaData(trackNumber = Some(5)), null)
     s1 should be < s2
   }
 
   it should "order songs without track number after others" in {
-    val s1 = SongData("s1", MediaMetaData(trackNumber = Some(100)), null)
-    val s2 = SongData("s0", MediaMetaData(), null)
+    val s1 = SongData(Medium, "s1", MediaMetaData(trackNumber = Some(100)), null)
+    val s2 = SongData(Medium, "s0", MediaMetaData(), null)
     s1 should be < s2
   }
 
   it should "return the title from the meta data if available" in {
     val title = "Bohemian Rhapsody"
-    val s = SongData("s0", MediaMetaData(title = Some(title)), null)
+    val s = SongData(Medium, "s0", MediaMetaData(title = Some(title)), null)
     s.getTitle should be(title)
   }
 
   it should "return the last part of the URI as title as fallback" in {
     val uri = "C:\\music\\song.mp3"
-    val s = SongData(uri, MediaMetaData(), null)
+    val s = SongData(Medium, uri, MediaMetaData(), null)
     s.getTitle should be("song")
   }
 
   it should "extract the title from a very simple URI" in {
     val uri = "OnlyAName"
-    val s = SongData(uri, MediaMetaData(), null)
+    val s = SongData(Medium, uri, MediaMetaData(), null)
     s.getTitle should be(uri)
   }
 
   it should "handle URIs with prefix when extracting song titles" in {
     val uri = "song://TestSong.mp3"
-    val s = SongData(uri, MediaMetaData(), null)
+    val s = SongData(Medium, uri, MediaMetaData(), null)
     s.getTitle should be("TestSong")
   }
 
   it should "order songs with same track number by title" in {
-    val s1 = SongData("AA", MediaMetaData(title = Some("Time")), null)
-    val s2 = SongData("song://Queen/A Kind of Magic", MediaMetaData(), null)
+    val s1 = SongData(Medium, "AA", MediaMetaData(title = Some("Time")), null)
+    val s2 = SongData(Medium, "song://Queen/A Kind of Magic", MediaMetaData(), null)
     s2 should be < s1
   }
 
   it should "return the name of the album from meta data" in {
     val Album = "Brothers in Arms"
-    val data = SongData("uri", MediaMetaData(album = Some(Album)), null)
+    val data = SongData(Medium, "uri", MediaMetaData(album = Some(Album)), null)
 
     data.getAlbum should be(Album)
   }
@@ -78,7 +86,7 @@ class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
     val Album = "Undefined album"
     val resolver = mock[UnknownNameResolver]
     when(resolver.unknownAlbumName).thenReturn(Album)
-    val data = SongData("uri", MediaMetaData(), resolver)
+    val data = SongData(Medium, "uri", MediaMetaData(), resolver)
 
     data.getAlbum should be(Album)
     data.getAlbum should be(Album)
@@ -87,7 +95,7 @@ class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "return the name of the artist from meta data" in {
     val Artist = "Dire Straits"
-    val data = SongData("uri", MediaMetaData(artist = Some(Artist)), null)
+    val data = SongData(Medium, "uri", MediaMetaData(artist = Some(Artist)), null)
 
     data.getArtist should be(Artist)
   }
@@ -96,7 +104,7 @@ class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
     val Artist = "Unknown Artist"
     val resolver = mock[UnknownNameResolver]
     when(resolver.unknownArtistName).thenReturn(Artist)
-    val data = SongData("uri", MediaMetaData(), resolver)
+    val data = SongData(Medium, "uri", MediaMetaData(), resolver)
 
     data.getArtist should be(Artist)
     data.getArtist should be(Artist)
@@ -105,26 +113,26 @@ class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "return the duration from meta data" in {
     val Duration = 20150822
-    val data = SongData("uri", MediaMetaData(duration = Some(Duration)), null)
+    val data = SongData(Medium, "uri", MediaMetaData(duration = Some(Duration)), null)
 
     data.getDuration should be(Duration)
   }
 
   it should "return a negative duration if not defined in meta data" in {
-    val data = SongData("uri", MediaMetaData(), null)
+    val data = SongData(Medium, "uri", MediaMetaData(), null)
 
     data.getDuration should be(-1)
   }
 
   it should "return the track number for meta data" in {
     val Track = 8
-    val data = SongData("uri", MediaMetaData(trackNumber = Some(Track)), null)
+    val data = SongData(Medium, "uri", MediaMetaData(trackNumber = Some(Track)), null)
 
     data.getTrackNumber should be(Track.toString)
   }
 
   it should "return an empty string as track number if undefined" in {
-    val data = SongData("uri", MediaMetaData(), null)
+    val data = SongData(Medium, "uri", MediaMetaData(), null)
 
     data.getTrackNumber shouldBe 'empty
   }

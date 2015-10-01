@@ -157,10 +157,12 @@ object MediaControllerSpec {
    * @param artist the artist
    * @param album the album name
    * @param songs the sequence of songs on this album
+   * @param mediumID an optional medium ID
    * @return a corresponding sequence of ''SongData'' objects
    */
-  private def createSongData(artist: String, album: String, songs: Seq[String]): Seq[SongData] = {
-    songs.zipWithIndex.map(e => SongData("song://" + album + "/" + e._1, MediaMetaData(title =
+  private def createSongData(artist: String, album: String, songs: Seq[String],
+                              mediumID: MediumID = TestMediumID): Seq[SongData] = {
+    songs.zipWithIndex.map(e => SongData(mediumID, "song://" + album + "/" + e._1, MediaMetaData(title =
       Some(e._1),
       artist = Some(artist), album = Some(album), trackNumber = Some(e._2)), null))
   }
@@ -461,10 +463,10 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "reset all models when the medium selection changes" in {
+    val OtherMedium = mediumID("_other")
     val songs1 = createSongData(Artist1, Album1, Songs1)
     val songs2 = createSongData(Artist1, Album2, Songs2 take 1)
-    val songs3 = createSongData(Artist1, Album2, Songs2 drop 1)
-    val OtherMedium = mediumID("_other")
+    val songs3 = createSongData(Artist1, Album2, Songs2 drop 1, mediumID = OtherMedium)
     val helper = new MediaControllerTestHelper
     helper selectMediumAndSendMeta createChunk(songs = songs1 ++ songs2)
     helper selectAlbums createTreePath(Artist1, Album2)
@@ -548,8 +550,8 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
    */
   private class MediaControllerTestHelper {
     val songFactory = new SongDataFactory(null) {
-      override def createSongData(uri: String, metaData: MediaMetaData): SongData =
-        SongData(uri, metaData, null)
+      override def createSongData(mediumID: MediumID, uri: String, metaData: MediaMetaData): SongData =
+        SongData(mediumID, uri, metaData, null)
     }
 
     /** A mock for the message bus. */

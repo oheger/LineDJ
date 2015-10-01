@@ -242,7 +242,7 @@ MessageBusListener {
    */
   private def addMetaDataChunk(chunk: MetaDataChunk): Unit = {
     val songData = chunk.data.toList map { e =>
-      val song = songFactory.createSongData(e._1, e._2)
+      val song = songFactory.createSongData(chunk.mediumID, e._1, e._2)
       (createAlbumKey(song), song)
     }
 

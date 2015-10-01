@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.model
 
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
@@ -53,10 +54,11 @@ class SongDataFactory(appCtx: ApplicationContext) extends UnknownNameResolver {
 
   /**
    * Creates a new ''SongData'' instance for the specified data.
+   * @param mediumID the medium ID the songs belong to
    * @param uri the URI of the song
    * @param metaData song meta data
    * @return the ''SongData''
    */
-  def createSongData(uri: String, metaData: MediaMetaData): SongData =
-    SongData(uri, metaData, this)
+  def createSongData(mediumID: MediumID, uri: String, metaData: MediaMetaData): SongData =
+    SongData(mediumID, uri, metaData, this)
 }

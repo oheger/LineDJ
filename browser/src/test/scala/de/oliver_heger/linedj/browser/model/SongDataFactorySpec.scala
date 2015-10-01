@@ -16,24 +16,35 @@
 
 package de.oliver_heger.linedj.browser.model
 
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
+object SongDataFactorySpec {
+  /** Constant for a medium ID. */
+  private val Medium = MediumID("someMedium", Some("somePath"))
+
+  /** Constant for a song URI. */
+  private val Uri = "song://music.mp3"
+}
+
 /**
  * Test class for ''SongDataFactory''.
  */
 class SongDataFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+  import SongDataFactorySpec._
+
   "A SongDataFactory" should "create correct SongData instances" in {
     val context = mock[ApplicationContext]
     val factory = new SongDataFactory(context)
-    val uri = "song://TestSong.mp3"
     val metaData = MediaMetaData(title = Some("Some Title"))
 
-    val songData = factory.createSongData(uri, metaData)
-    songData.uri should be(uri)
+    val songData = factory.createSongData(Medium, Uri, metaData)
+    songData.mediumID should be(Medium)
+    songData.uri should be(Uri)
     songData.metaData should be theSameInstanceAs metaData
     songData.resolver should be(factory)
     verifyZeroInteractions(context)
@@ -45,7 +56,7 @@ class SongDataFactorySpec extends FlatSpec with Matchers with MockitoSugar {
     when(context.getResourceText("unknownAlbum")).thenReturn(UnknownAlbum)
     val factory = new SongDataFactory(context)
 
-    val songData = factory.createSongData("uri", MediaMetaData(title = Some("A song")))
+    val songData = factory.createSongData(Medium, Uri, MediaMetaData(title = Some("A song")))
     songData.getAlbum should be(UnknownAlbum)
   }
 
@@ -55,7 +66,7 @@ class SongDataFactorySpec extends FlatSpec with Matchers with MockitoSugar {
     when(context.getResourceText("unknownArtist")).thenReturn(UnknownArtist)
     val factory = new SongDataFactory(context)
 
-    val songData = factory.createSongData("uri", MediaMetaData(title = Some("A song")))
+    val songData = factory.createSongData(Medium, Uri, MediaMetaData(title = Some("A song")))
     songData.getArtist should be(UnknownArtist)
   }
 }
