@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.remoting.{MessageBus, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.remoting.{ActorFactory, MessageBus, RemoteMessageBus,
+RemoteRelayActor}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
 object RemoteMessageBusFactory {
@@ -61,12 +62,12 @@ private class RemoteMessageBusFactory {
    * @return the newly created ''RemoteMessageBus''
    */
   def recreateRemoteMessageBus(context: ApplicationContext): RemoteMessageBus = {
-    val actorSystem = context.getBeanContext.getBean(BrowserApp.BeanActorSystem)
-      .asInstanceOf[ActorSystem]
-    discardOldRemoteMessageBus(context, actorSystem)
+    val actorFactory = context.getBeanContext.getBean(BrowserApp.BeanActorFactory)
+      .asInstanceOf[ActorFactory]
+    discardOldRemoteMessageBus(context, actorFactory.actorSystem)
     val messageBus = context.getBeanContext.getBean(BrowserApp.BeanMessageBus)
       .asInstanceOf[MessageBus]
-    val relayActor = createRelayActor(context, actorSystem, messageBus)
+    val relayActor = createRelayActor(context, actorFactory, messageBus)
     new RemoteMessageBus(relayActor, messageBus)
   }
 
@@ -89,15 +90,15 @@ private class RemoteMessageBusFactory {
   /**
    * Creates the remote relay actor.
    * @param context the application context
-   * @param actorSystem the actor system
+   * @param actorFactory the actor factory
    * @param messageBus the message bus
    * @return the actor reference
    */
-  private def createRelayActor(context: ApplicationContext, actorSystem: ActorSystem, messageBus:
+  private def createRelayActor(context: ApplicationContext, actorFactory: ActorFactory, messageBus:
   MessageBus): ActorRef = {
     val address = context.getConfiguration.getString(PropServerAddress, DefaultServerAddress)
     val port = context.getConfiguration.getInt(PropServerPort, DefaultServerPort)
-    actorSystem.actorOf(RemoteRelayActor(address, port, messageBus),
+    actorFactory.createActor(RemoteRelayActor(address, port, messageBus),
       RelayActorName)
   }
 }

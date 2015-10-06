@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.bus.UIBus
-import de.oliver_heger.linedj.remoting.RemoteMessageBus
+import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Mockito._
@@ -93,6 +93,14 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
       actorSystem
     }
     system shouldBe 'terminated
+  }
+
+  it should "create an actor factory and store it in the bean context" in {
+    withApplication() { app =>
+      val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
+      val factory = queryBean[ActorFactory](app, BrowserApp.BeanActorFactory)
+      factory.actorSystem should be(actorSystem)
+    }
   }
 
   it should "create a default RemoteMessageBusFactory" in {

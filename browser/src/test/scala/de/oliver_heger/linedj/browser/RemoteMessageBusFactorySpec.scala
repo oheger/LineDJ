@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import de.oliver_heger.linedj.remoting.{MessageBus, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.remoting.{ActorFactory, MessageBus, RemoteMessageBus,
+RemoteRelayActor}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.PropertiesConfiguration
@@ -87,6 +88,9 @@ class RemoteMessageBusFactorySpec extends FlatSpec with Matchers with MockitoSug
     /** A mock for the actor system. */
     val actorSystem = mock[ActorSystem]
 
+    /** A mock for the actor factory. */
+    val actorFactory = createActorFactory()
+
     /** A mock for the application context. */
     val applicationContext = createContext()
 
@@ -109,7 +113,7 @@ class RemoteMessageBusFactorySpec extends FlatSpec with Matchers with MockitoSug
      */
     def expectActorCreation(address: String, port: Int): ActorRef = {
       val ref = mock[ActorRef]
-      when(actorSystem.actorOf(any(classOf[Props]), argEq(RemoteMessageBusFactory.RelayActorName)
+      when(actorFactory.createActor(any(classOf[Props]), argEq(RemoteMessageBusFactory.RelayActorName)
       )).thenAnswer(new Answer[ActorRef] {
         override def answer(invocationOnMock: InvocationOnMock): ActorRef = {
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
@@ -140,12 +144,22 @@ class RemoteMessageBusFactorySpec extends FlatSpec with Matchers with MockitoSug
      */
     private def createContext(): ApplicationContext = {
       installBean(BrowserApp.BeanMessageBus, messageBus)
-      installBean(BrowserApp.BeanActorSystem, actorSystem)
+      installBean(BrowserApp.BeanActorFactory, actorFactory)
 
       val context = mock[ApplicationContext]
       when(context.getBeanContext).thenReturn(beanContext)
       when(context.getConfiguration).thenReturn(config)
       context
+    }
+
+    /**
+     * Creates a mock for the actor factory.
+     * @return the mock actor factory
+     */
+    private def createActorFactory(): ActorFactory = {
+      val factory = mock[ActorFactory]
+      when(factory.actorSystem).thenReturn(actorSystem)
+      factory
     }
   }
 

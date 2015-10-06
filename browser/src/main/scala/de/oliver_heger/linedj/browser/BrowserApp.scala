@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.remoting.RemoteMessageBus
+import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.di.MutableBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -27,6 +27,9 @@ import scala.concurrent.duration._
 object BrowserApp {
   /** The bean name for the actor system started by the application. */
   val BeanActorSystem = "browserApp_ActorSystem"
+
+  /** The bean name for the actor factory created by the application. */
+  val BeanActorFactory = "browserApp_ActorFactory"
 
   /** The bean name for the message bus. */
   val BeanMessageBus = "browserApp_MessageBus"
@@ -110,7 +113,9 @@ Application {
    * @return the modified application context
    */
   private def initActorSystem(context: ApplicationContext): ApplicationContext = {
-    addBean(BeanActorSystem, ActorSystem("BrowserApplication"))
+    val actorSystem = ActorSystem("BrowserApplication")
+    addBean(BeanActorSystem, actorSystem)
+    addBean(BeanActorFactory, new ActorFactory(actorSystem))
     addBean(BeanRemoteMessageBus, remoteMessageBusFactory recreateRemoteMessageBus context)
     context
   }
