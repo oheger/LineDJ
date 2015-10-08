@@ -32,7 +32,8 @@ object LineDJBuild extends Build {
     )
     
     lazy val jguiraffeDependencies = Seq(
-      "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3" exclude("commons-discovery", "commons-discovery") exclude("jdom", "jdom")
+      "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3" exclude("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
     )
     
     val defaultSettings = Seq(

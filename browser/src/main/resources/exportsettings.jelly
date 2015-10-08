@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the dialog with playlist export settings.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- The command to be executed when the OK button is pressed. 
+  <di:bean name="okCommand"
+    beanClass="net.sf.jguiraffe.examples.tutorial.viewset.CreateViewSettingsCommand">
+    <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
+      <di:param refName="viewSettingsModel"/>
+      <di:param refName="action:editRefreshAction"/>
+    </di:constructor>
+  </di:bean>  -->
+
+  <!-- Validators and transformers. -->
+
+  <!-- A toString transformer: This transformer is used to convert arbitrary
+       non-string data types to strings before they are passed to input fields.
+  -->
+  <di:bean name="stringTransformer"
+    beanClassName="net.sf.jguiraffe.transform.ToStringTransformer">
+  </di:bean>
+
+  <!-- The bean defining the settings. -->
+  <di:bean name="exportSettings"
+    beanClassName="de.oliver_heger.linedj.browser.playlist.export.ExportSettings"/>
+
+  <!-- A validator for required input fields.-->
+  <di:bean name="requiredValidator"
+    beanClassName="net.sf.jguiraffe.transform.RequiredValidator">
+  </di:bean>
+
+  <!-- The bean for the form controller.-->
+  <di:bean name="controller"
+    beanClassName="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
+    <di:setProperty property="btnOkName" value="btnOk"/>
+    <di:setProperty property="btnCancelName" value="btnCancel"/>
+  </di:bean>
+
+  <!-- The dialog window -->
+  <w:dialog titleres="exp_settings_title" center="true">
+    <f:borderlayout/>
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:percentlayout columns="4dlu end/preferred 3dlu start/preferred 4dlu"
+        rows="4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+      <f:label textres="exp_lab_target">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+      <f:textfield name="targetDirectory" displayNameres="exp_txt_target"
+        tooltipres="expt_txt_target_tip">
+        <f:percentconstr col="3" row="1"/>
+        <f:validator beanName="requiredValidator"/>
+      </f:textfield>
+
+      <f:radioGroup name="clearMode">
+        <f:radio name="clearModeNone" textres="exp_rad_clear_none">
+          <f:percentconstr col="3" row="3"/>
+        </f:radio>
+        <f:radio name="clearModeOverride" textres="exp_rad_clear_override">
+          <f:percentconstr col="3" row="5"/>
+        </f:radio>
+        <f:radio name="clearModeAll" textres="exp_rad_clear_all">
+          <f:percentconstr col="3" row="7"/>
+        </f:radio>
+      </f:radioGroup>
+    </f:panel>
+
+    <!-- The button bar -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:buttonlayout/>
+      <f:button name="btnOk" textres="exp_btn_ok"
+        mnemonicres="exp_btn_ok_mnemo" default="true"/>
+      <f:button name="btnCancel" textres="exp_btn_cancel"
+        mnemonicres="exp_btn_cancel_mnemo"/>
+    </f:panel>
+
+    <!-- Connect the form controller -->
+    <w:formController beanName="controller" formBeanName="exportSettings">
+    </w:formController>
+  </w:dialog>
+
+</j:jelly>
+

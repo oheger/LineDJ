@@ -34,6 +34,12 @@
     tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
     resgrp="application" taskBean="exitTask"/>
 
+  <!-- Playlist export action -->
+  <a:action name="plExportAction" textres="act_plexport_text"
+    mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask">
+    <f:icon resource="export.png"/>
+  </a:action>
+
   <!-- Actions for adding songs from a medium to the playlist -->
   <a:action name="addMediumAction" textres="act_addmedium_text"
     mnemonicres="act_addmedium_mnemo" taskBean="exitTask"/>
@@ -48,6 +54,9 @@
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
+      <a:menuitem actionName="plExportAction"/>
     </a:menu>
   </a:menubar>
 
@@ -111,6 +120,7 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="plExportAction"/>
       <a:separator/>
     </a:toolbar>
 
@@ -276,6 +286,20 @@
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
     beanClass="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Command and task for the playlist export dialog -->
+  <di:bean name="playlistExportCommand"
+    beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:exportsettings.jelly"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="playlistExportTask"
+    beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="playlistExportCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:plExportAction"/>
   </di:bean>
 
 </j:jelly>
