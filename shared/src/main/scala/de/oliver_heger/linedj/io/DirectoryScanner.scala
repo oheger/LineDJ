@@ -64,6 +64,7 @@ class DirectoryScanner(val excludedExtensions: Set[String] = Set.empty) {
    * @param directory the root directory to be scanned
    * @return an object with the results of the scan operation
    */
+  @throws(classOf[java.io.IOException])
   def scan(directory: Path): ScanResult = {
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(directory, visitor)
