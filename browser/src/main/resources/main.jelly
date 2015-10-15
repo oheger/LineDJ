@@ -290,9 +290,10 @@
 
   <!-- Command and task for the playlist export dialog -->
   <di:bean name="playlistExportCommand"
-    beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    beanClassName="de.oliver_heger.linedj.browser.playlist.export.OpenExportSettingsDlgCommand">
     <di:constructor>
       <di:param value="classpath:exportsettings.jelly"/>
+      <di:param refName="playlistTableModel"/>
     </di:constructor>
   </di:bean>
 

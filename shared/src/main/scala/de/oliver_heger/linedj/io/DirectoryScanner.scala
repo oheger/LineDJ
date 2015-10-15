@@ -56,7 +56,9 @@ case class ScanResult(directories: Seq[Path], files: Seq[FileData])
  * @param excludedExtensions a set with file extensions to be excluded; these
  *                           must be in upper case
  */
-class DirectoryScanner(val excludedExtensions: Set[String] = Set.empty) {
+class DirectoryScanner(val excludedExtensions: Set[String]) {
+  def this() = this(Set.empty)
+
   /**
    * Scans the specified root directory and returns a ''ScanResult'' object
    * with the results. Note that the root directory is also contained in the

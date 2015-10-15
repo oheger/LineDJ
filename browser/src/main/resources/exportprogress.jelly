@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the dialog which displays the progress of an
+     export operation.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- The dialog window -->
+  <w:dialog titleres="exp_settings_title" center="true" closable="false">
+    <f:borderlayout/>
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:percentlayout columns="4dlu end/preferred 3dlu FULL/PREFERRED(10cm)/100 4dlu"
+        rows="4dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+
+      <f:label textres="exp_lab_progress_remove">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+      <f:progressbar name="progressRemove">
+        <f:percentconstr col="3" row="1"/>
+      </f:progressbar>
+      <f:label textres="exp_lab_progress_copy">
+        <f:percentconstr col="1" row="3"/>
+      </f:label>
+      <f:progressbar name="progressCopy">
+        <f:percentconstr col="3" row="3"/>
+      </f:progressbar>
+      <f:label textres="exp_lab_current_path">
+        <f:percentconstr col="1" row="5"/>
+      </f:label>
+      <f:statictext name="textCurrentPath">
+        <f:percentconstr col="3" row="5"/>
+      </f:statictext>
+
+    </f:panel>
+
+    <!-- The button bar -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:buttonlayout/>
+      <f:button name="btnCancel" textres="exp_btn_cancel"
+        mnemonicres="exp_btn_cancel_mnemo"/>
+    </f:panel>
+
+    <!-- Connect the dialog controller -->
+    <di:bean name="controller"
+      beanClassName="de.oliver_heger.linedj.browser.playlist.export.ExportController">
+      <di:constructor>
+        <di:param refName="jguiraffe.applicationContext"/>
+        <di:param refName="browserApp_RemoteMessageBus"/>
+        <di:param refName="browserApp_ActorFactory"/>
+        <di:param refName="exportData"/>
+        <di:param refName="comp:progressRemove"/>
+        <di:param refName="comp:progressCopy"/>
+        <di:param refName="comp:textCurrentPath"/>
+      </di:constructor>
+    </di:bean>
+    <w:controller beanName="controller"/>
+  </w:dialog>
+
+  <!-- Register the controller as listener for the cancel button -->
+  <a:eventListener component="btnCancel" eventType="ACTION"
+    beanName="controller"/>
+
+</j:jelly>
+

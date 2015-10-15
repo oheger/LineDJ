@@ -21,28 +21,26 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
-  <!-- The command to be executed when the OK button is pressed. 
-  <di:bean name="okCommand"
-    beanClass="net.sf.jguiraffe.examples.tutorial.viewset.CreateViewSettingsCommand">
-    <di:constructor>
-      <di:param refName="jguiraffe.applicationContext"/>
-      <di:param refName="viewSettingsModel"/>
-      <di:param refName="action:editRefreshAction"/>
-    </di:constructor>
-  </di:bean>  -->
-
-  <!-- Validators and transformers. -->
-
-  <!-- A toString transformer: This transformer is used to convert arbitrary
-       non-string data types to strings before they are passed to input fields.
-  -->
-  <di:bean name="stringTransformer"
-    beanClassName="net.sf.jguiraffe.transform.ToStringTransformer">
-  </di:bean>
-
   <!-- The bean defining the settings. -->
   <di:bean name="exportSettings"
     beanClassName="de.oliver_heger.linedj.browser.playlist.export.ExportSettings"/>
+
+  <!-- Bean for the directory scanner -->
+  <di:bean name="directoryScanner"
+    beanClassName="de.oliver_heger.linedj.io.DirectoryScanner"/>
+
+  <!-- The command to be executed when the OK button is pressed. -->
+  <di:bean name="okCommand"
+    beanClassName="de.oliver_heger.linedj.browser.playlist.export.OpenExportProgressDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:exportprogress.jelly"/>
+      <di:param refName="exportSettings"/>
+      <di:param refName="exportSongs"/>
+      <di:param refName="directoryScanner"/>
+    </di:constructor>
+  </di:bean>  
+
+  <!-- Validators and transformers. -->
 
   <!-- A validator for required input fields.-->
   <di:bean name="requiredValidator"
@@ -54,6 +52,7 @@
     beanClassName="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
     <di:setProperty property="btnOkName" value="btnOk"/>
     <di:setProperty property="btnCancelName" value="btnCancel"/>
+    <di:setProperty property="okCommand" refName="okCommand"/>
   </di:bean>
 
   <!-- The dialog window -->
