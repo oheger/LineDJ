@@ -162,7 +162,7 @@ FileTestHelper {
     val result = expectMsgType[ReadResult]
     result.data.length should be(BufferSize)
     reader ! ReadData(BufferSize)
-    expectMsgType[EndOfFile].path should be(testFile)
+    expectMsgType[EndOfFile].path should be(testFile.toString)
     result
   }
 
@@ -425,5 +425,22 @@ FileTestHelper {
     result2.length should be (testBytes().length - 8 - 16)
     result2.data.slice(0, result2.length) should be (testBytes().slice(8 + 16, testBytes().length))
     closeActor(reader)
+  }
+
+  "An EndOfFile object" should "support matching against a path" in {
+    val eof = EndOfFile(testFile.toString)
+    eof matches testFile shouldBe true
+    eof matches testFile.resolve("other") shouldBe false
+  }
+
+  it should "handle a null parameter when matching" in {
+    val eof = EndOfFile(testFile.toString)
+    eof matches null shouldBe false
+  }
+
+  it should "handle a null field value when matching" in {
+    val eof = EndOfFile(null)
+    eof matches testFile shouldBe false
+    eof matches null shouldBe false
   }
 }

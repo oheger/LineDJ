@@ -109,7 +109,7 @@ FileTestHelper {
 
   it should "ignore EndOfFile messages from unknown read actors" in {
     val loader = TestActorRef(FileLoaderActor())
-    loader receive EndOfFile(createFileReference())
+    loader receive EndOfFile(createFileReference().toString)
   }
 
   it should "stop a read actor when a file has been read" in {

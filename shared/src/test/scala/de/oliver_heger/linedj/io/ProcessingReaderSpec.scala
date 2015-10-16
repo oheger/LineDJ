@@ -184,7 +184,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with FileT
     readTestFile(processingReader)
 
     processingReader ! ReadData(1)
-    expectMsg(EndOfFile(testFile))
+    expectMsg(EndOfFile(testFile.toString))
   }
 
   it should "clear its read buffer when receiving an init message" in {
@@ -412,7 +412,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with FileT
 
     processingReader ! SkipData(5 * TestData.length)
     processingReader ! ReadData(ChunkSize)
-    expectMsg(EndOfFile(testFile))
+    expectMsg(EndOfFile(testFile.toString))
   }
 
   /**

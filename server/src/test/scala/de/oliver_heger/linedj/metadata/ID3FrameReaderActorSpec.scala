@@ -163,9 +163,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     val chunk = helper.handleReadRequest(requestSize = ReadChunkSize, returnedSize = PartialSize)
     helper.readerProbe.expectMsg(FileReaderActor.ReadData(ReadChunkSize - PartialSize))
-    helper.frameReaderActor ! FileReaderActor.EndOfFile(TestPath)
+    helper.frameReaderActor ! FileReaderActor.EndOfFile(TestPath.toString)
     helper.expectFrameMessage(header, chunk, lastChunk = true)
-    expectMsg(FileReaderActor.EndOfFile(TestPath))
+    expectMsg(FileReaderActor.EndOfFile(TestPath.toString))
   }
 
   /**

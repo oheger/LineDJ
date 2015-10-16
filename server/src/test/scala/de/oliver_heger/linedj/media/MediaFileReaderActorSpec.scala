@@ -120,10 +120,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     } while (read == ChunkSize)
 
     readerProbe.expectMsg(ReadData(ChunkSize - read))
-    reader ! EndOfFile(InitMsg.path)
+    reader ! EndOfFile(InitMsg.path.toString)
     expectAndWriteReadResult(output)
     reader ! ReadData(ChunkSize)
-    expectMsg(EndOfFile(InitMsg.path))
+    expectMsg(EndOfFile(InitMsg.path.toString))
     output
   }
 

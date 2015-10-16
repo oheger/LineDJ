@@ -428,7 +428,7 @@ with MockitoSugar {
 
   it should "not crash when receiving an unexpected EoF message" in {
     val bufferActor = TestActorRef(propsWithMockFactory())
-    bufferActor receive EndOfFile(BufferPath)
+    bufferActor receive EndOfFile(BufferPath.toString)
   }
 
   /**

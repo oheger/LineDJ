@@ -83,7 +83,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val actor = helper.createTestActor()
     helper expectInitialization actor
 
-    actor ! FileReaderActor.EndOfFile(InitFileMessage.path)
+    actor ! FileReaderActor.EndOfFile(InitFileMessage.path.toString)
     helper.probeCollector.expectMsg(MediaFileRead(InitFileMessage.path))
   }
 
@@ -93,7 +93,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper expectInitialization actor
 
     actor ! FileReaderActor.EndOfFile(null)
-    actor ! FileReaderActor.EndOfFile(InitFileMessage.path)
+    actor ! FileReaderActor.EndOfFile(InitFileMessage.path.toString)
     helper.probeCollector.expectMsg(MediaFileRead(InitFileMessage.path))
     val ping = "ping"
     helper.probeCollector.ref ! ping

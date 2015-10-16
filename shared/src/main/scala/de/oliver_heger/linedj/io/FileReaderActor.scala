@@ -33,7 +33,17 @@ object FileReaderActor {
    * A message indicating the end of the file read by the file reader actor.
    * @param path the path of the currently read file
    */
-  case class EndOfFile(path: Path)
+  case class EndOfFile(path: String) {
+    /**
+     * Checks whether the path stored in this instance matches the provided
+     * path. Comparison is null safe; a null value (either stored in the
+     * instance or passed as parameter) never matches.
+     * @param other  the other path to be compared to
+     * @return a flag whether this path matches the stored path
+     */
+    def matches(other: Path): Boolean =
+      other != null && path == other.toString
+  }
 
   /**
    * A message requesting the given amount of data to be read.
@@ -195,7 +205,7 @@ class FileReaderActor(override val channelFactory: FileChannelFactory) extends C
       ReadResult(result, length)
     } else {
       closeChannel()
-      EndOfFile(currentPath)
+      EndOfFile(currentPath.toString)
     }
   }
 }

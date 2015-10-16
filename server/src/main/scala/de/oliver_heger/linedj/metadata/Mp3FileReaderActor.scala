@@ -93,7 +93,7 @@ ActorLogging {
       readerActor ! ReadData(extractionContext.config.metaDataReadChunkSize)
       extractionContext.collectorActor ! ProcessMp3Data(currentPath, result)
 
-    case FileReaderActor.EndOfFile(path) if path == currentPath =>
+    case eof: FileReaderActor.EndOfFile if eof matches currentPath =>
       extractionContext.collectorActor ! MediaFileRead(currentPath)
   }
 }
