@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.browser.playlist.export
 
+import de.oliver_heger.linedj.browser.config.BrowserConfig
 import de.oliver_heger.linedj.browser.model.SongData
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
@@ -26,6 +27,12 @@ object OpenExportSettingsDlgCommand {
    * in the builder data.
    */
   val ExportSongsPropertyKey = "exportSongs"
+
+  /**
+   * The name of the property under which the export settings are stored in the
+   * builder data.
+   */
+  val ExportSettingsPropertyKey = "exportSettings"
 }
 
 /**
@@ -40,9 +47,11 @@ object OpenExportSettingsDlgCommand {
  * to the dialog controller.
  *
  * @param scriptLocator the locator for the builder script
+ * @param config the object with configuration settings
  * @param exportSongs the list with songs to be exported
  */
-class OpenExportSettingsDlgCommand(scriptLocator: Locator, exportSongs: java.util.List[SongData])
+class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: BrowserConfig,
+                                   exportSongs: java.util.List[SongData])
   extends OpenWindowCommand(scriptLocator) {
 
   import OpenExportSettingsDlgCommand._
@@ -55,5 +64,17 @@ class OpenExportSettingsDlgCommand(scriptLocator: Locator, exportSongs: java.uti
   override protected[export] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
     super.prepareBuilderData(builderData)
     builderData.addProperty(ExportSongsPropertyKey, exportSongs)
+    builderData.addProperty(ExportSettingsPropertyKey, createExportSettings())
+  }
+
+  /**
+   * Creates an object with export settings from the central configuration.
+   * @return the object with export settings
+   */
+  private def createExportSettings(): ExportSettings = {
+    val settings = new ExportSettings
+    settings setClearMode config.exportClearMode
+    settings setTargetDirectory config.exportPath
+    settings
   }
 }

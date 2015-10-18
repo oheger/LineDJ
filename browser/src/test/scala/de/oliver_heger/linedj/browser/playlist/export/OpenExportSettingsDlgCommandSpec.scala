@@ -18,12 +18,15 @@ package de.oliver_heger.linedj.browser.playlist.export
 
 import java.util
 
+import de.oliver_heger.linedj.browser.config.BrowserConfig
 import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
+import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
+import org.mockito.Matchers.{eq => argEq}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 
@@ -52,16 +55,32 @@ class OpenExportSettingsDlgCommandSpec extends FlatSpec with Matchers with Mocki
   import OpenExportSettingsDlgCommandSpec._
 
   "An OpenExportSettingsDlgCommand" should "pass its locator to the super class" in {
-    val command = new OpenExportSettingsDlgCommand(Locator, ExportSongs)
+    val command = new OpenExportSettingsDlgCommand(Locator, mock[BrowserConfig], ExportSongs)
 
     command.getLocator should be(Locator)
   }
 
-  it should "initialize the builder data correctly" in {
+  it should "initialize the builder data with the songs to be exported" in {
     val builderData = mock[ApplicationBuilderData]
-    val command = new OpenExportSettingsDlgCommand(Locator, ExportSongs)
+    val command = new OpenExportSettingsDlgCommand(Locator, mock[BrowserConfig], ExportSongs)
 
     command prepareBuilderData builderData
     verify(builderData).addProperty("exportSongs", ExportSongs)
+  }
+
+  it should "initialize the builder data with export settings" in {
+    val builderData = mock[ApplicationBuilderData]
+    val config = mock[BrowserConfig]
+    val ExportPath = "export/path"
+    val ClearMode = ExportSettings.ClearOverride
+    when(config.exportClearMode).thenReturn(ClearMode)
+    when(config.exportPath).thenReturn(ExportPath)
+    val command = new OpenExportSettingsDlgCommand(Locator, config, ExportSongs)
+
+    command prepareBuilderData builderData
+    val captor = ArgumentCaptor.forClass(classOf[ExportSettings])
+    verify(builderData).addProperty(argEq("exportSettings"), captor.capture())
+    captor.getValue.getClearMode should be(ClearMode)
+    captor.getValue.getTargetDirectory should be(ExportPath)
   }
 }

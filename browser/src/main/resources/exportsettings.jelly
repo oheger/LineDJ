@@ -21,10 +21,6 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
-  <!-- The bean defining the settings. -->
-  <di:bean name="exportSettings"
-    beanClassName="de.oliver_heger.linedj.browser.playlist.export.ExportSettings"/>
-
   <!-- Bean for the directory scanner -->
   <di:bean name="directoryScanner"
     beanClassName="de.oliver_heger.linedj.io.DirectoryScanner"/>
