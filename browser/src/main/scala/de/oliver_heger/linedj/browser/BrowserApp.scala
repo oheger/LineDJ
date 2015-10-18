@@ -25,6 +25,9 @@ import org.apache.commons.configuration.Configuration
 import scala.concurrent.duration._
 
 object BrowserApp {
+  /** The bean name for the browser configuration. */
+  val BeanBrowserConfig = "browserApp_Configuration"
+
   /** The bean name for the actor system started by the application. */
   val BeanActorSystem = "browserApp_ActorSystem"
 

@@ -21,6 +21,14 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
+  <!-- The configuration for the browser application -->
+  <di:bean name="browserApp_Configuration"
+    beanClassName="de.oliver_heger.linedj.browser.config.BrowserConfig">
+    <di:constructor>
+      <di:param refName="jguiraffe.application"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The UI message bus -->
   <di:bean name="browserApp_MessageBus"
     beanClassName="de.oliver_heger.linedj.bus.UIBus">

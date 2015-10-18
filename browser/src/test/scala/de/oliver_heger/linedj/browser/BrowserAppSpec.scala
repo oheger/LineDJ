@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
+import de.oliver_heger.linedj.browser.config.BrowserConfig
 import de.oliver_heger.linedj.bus.UIBus
 import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -100,6 +101,13 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
       val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
       val factory = queryBean[ActorFactory](app, BrowserApp.BeanActorFactory)
       factory.actorSystem should be(actorSystem)
+    }
+  }
+
+  it should "create a bean for the BrowserConfig" in {
+    withApplication() { app =>
+      val config = queryBean[BrowserConfig](app, BrowserApp.BeanBrowserConfig)
+      config.userConfiguration should be(app.getUserConfiguration)
     }
   }
 
