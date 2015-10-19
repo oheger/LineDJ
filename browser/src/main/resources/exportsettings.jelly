@@ -51,6 +51,16 @@
     <di:setProperty property="okCommand" refName="okCommand"/>
   </di:bean>
 
+  <!-- Handler for the set defaults button -->
+  <di:bean name="setDefaultsHandler"
+    beanClassName="de.oliver_heger.linedj.browser.playlist.export.SetDefaultSettingsHandler">
+    <di:constructor>
+      <di:param refName="controller"/>
+      <di:param refName="browserApp_Configuration"/>
+      <di:param refName="exportSettings"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The dialog window -->
   <w:dialog titleres="exp_settings_title" center="true">
     <f:borderlayout/>
@@ -88,12 +98,18 @@
         mnemonicres="exp_btn_ok_mnemo" default="true"/>
       <f:button name="btnCancel" textres="exp_btn_cancel"
         mnemonicres="exp_btn_cancel_mnemo"/>
+      <f:button name="btnDefaults" textres="exp_btn_defaults"
+        mnemonicres="exp_btn_defaults_mnemo"/>
     </f:panel>
 
     <!-- Connect the form controller -->
     <w:formController beanName="controller" formBeanName="exportSettings">
     </w:formController>
   </w:dialog>
+
+  <!-- Register the listener for the set defaults button -->
+  <a:eventListener component="btnDefaults" eventType="ACTION"
+    beanName="setDefaultsHandler"/>
 
 </j:jelly>
 
