@@ -24,18 +24,18 @@ object LineDJBuild extends Build {
       "com.typesafe.akka" %% "akka-testkit" % "2.3.12",
       "com.typesafe.akka" %% "akka-remote" % "2.3.12"
     )
-    
+
     lazy val testDependencies = Seq(
       "org.scalatest" %% "scalatest" % "2.1.6" % "test",
       "junit" % "junit" % "4.12" % "test",
       "org.mockito" % "mockito-core" % "1.9.5" % "test"
     )
-    
+
     lazy val jguiraffeDependencies = Seq(
-      "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3" exclude("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
+      "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" changing() exclude("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
     )
-    
+
     val defaultSettings = Seq(
         version := "1.0-SNAPSHOT",
         scalaVersion := "2.11.5",
@@ -44,17 +44,17 @@ object LineDJBuild extends Build {
         libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
         HeaderPlugin.autoImport.headers := Map(
           "scala" -> Apache2_0("2015", "The Developers Team."),
-          "conf" -> Apache2_0("2015", "The Developers Team.", "#")        
+          "conf" -> Apache2_0("2015", "The Developers Team.", "#")
         )
     )
-    
+
     lazy val root = Project(id = "LineDJ",
                             base = file("."))
       .settings(defaultSettings: _*)
       .settings(
         name := "linedj-parent"
       )  aggregate(shared, server, browser)
-      
+
     lazy val shared = Project(id = "shared",
                                  base = file("shared"))
       .settings(defaultSettings: _*)
@@ -78,6 +78,7 @@ object LineDJBuild extends Build {
       .settings(defaultSettings: _*)
       .settings(
         name := "linedj-browser",
+        resolvers += Resolver.mavenLocal,
         libraryDependencies ++= jguiraffeDependencies,
         parallelExecution in Test := false
       ) dependsOn(shared % "compile->compile;test->test")
