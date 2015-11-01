@@ -264,11 +264,11 @@ with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with 
     val reader = prepareReaderForSource()
     val target = createPathInDirectory(TargetFile)
     prepareCopyOperation(actor, reader, target)
+    expectMsg(CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(FileRequest, target), 500))
+    expectMsgType[CopyFileActor.MediumFileCopied]
 
     val reader2 = prepareReaderForSource(FileTestHelper.TestData.substring(0, 200))
     prepareCopyOperation(actor, reader2, target)
-    expectMsg(CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(FileRequest, target), 500))
-    expectMsgType[CopyFileActor.MediumFileCopied]
     expectMsgType[CopyFileActor.MediumFileCopied]
   }
 }
