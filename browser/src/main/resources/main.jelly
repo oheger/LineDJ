@@ -127,7 +127,7 @@
     <!-- The main panel -->
     <f:tabbedpane name="tabs">
       <f:borderconstr name="CENTER"/>
-      
+
       <!-- Panel for displaying the current playlist -->
       <f:tab titleres="tab_playlist">
         <f:panel>
@@ -164,7 +164,8 @@
             <f:combo name="comboMedia" modelRef="mediaComboModel">
               <f:borderconstr name="CENTER"/>
             </f:combo>
-            <f:label name="mediaLoadingIndicator" text="Loading">
+            <f:label name="mediaLoadingIndicator">
+              <f:icon resource="loading.gif"/>
               <f:borderconstr name="EAST"/>
             </f:label>
           </f:panel>
@@ -202,11 +203,11 @@
 
       <f:panel>
         <f:borderconstr name="WEST"/>
-        <f:label name="onlineIndicator" text="online">
-          <!-- <f:icon resource="online.png"/> -->
+        <f:label name="onlineIndicator">
+          <f:icon resource="online.png"/>
         </f:label>
-        <f:label name="offlineIndicator" text="offline">
-          <!-- <f:icon resource="offline.png"/> -->
+        <f:label name="offlineIndicator">
+          <f:icon resource="offline.png"/>
         </f:label>
       </f:panel>
 
