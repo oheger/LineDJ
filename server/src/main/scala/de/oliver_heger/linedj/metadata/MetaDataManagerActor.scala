@@ -213,12 +213,11 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
       sr.mediaFiles foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult =>
+      log.info("Received MetaDataProcessingResult for {}.", result.path)
       handleProcessingResult(result)
       if (isUnassignedMedium(result.mediumID)) {
         // update global unassigned list
         handleProcessingResult(result.copy(mediumID = MediumID.UndefinedMediumID))
-      } else {
-        log.info("Received MetaDataProcessingResult for {}.", result.path)
       }
 
     case GetMetaData(mediumID, registerAsListener) =>
