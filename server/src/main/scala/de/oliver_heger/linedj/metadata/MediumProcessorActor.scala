@@ -187,7 +187,8 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
 
     case msg: ProcessID3FrameData if validPath(msg.path) =>
       id3v2ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
-      collectorMap.getOrCreateCollector(mediaFileForPath(msg.path)).expectID3Data()
+      collectorMap.getOrCreateCollector(mediaFileForPath(msg.path)).expectID3Data(msg.frameHeader
+        .version)
       if (msg.lastChunk) {
         id3v2ProcessorMap removeItemFor msg.path
       }

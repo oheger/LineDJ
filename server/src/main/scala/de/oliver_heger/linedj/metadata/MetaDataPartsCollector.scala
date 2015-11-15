@@ -50,11 +50,11 @@ private class MetaDataPartsCollector(val file: FileData,
   private var mp3MetaData: Option[Mp3MetaData] = None
 
   /**
-   * A counter for outstanding ID3 meta data objects. The counter is
-   * initialized with 1 for ID3v1 meta data which is always expected. ID3 data
-   * for higher versions are announced when they are detected.
+   * A set for the versions of ID3 frames which are outstanding. The set is
+   * initialized with version 1 for ID3v1 meta data which is always expected.
+   * ID3 data for higher versions is announced when it is detected.
    */
-  private var outstandingID3Data = 1
+  private var outstandingID3Data = Set(1)
 
   /**
    * Default constructor. Creates default helper objects.
@@ -85,12 +85,16 @@ private class MetaDataPartsCollector(val file: FileData,
     id3MetaDataAdded(1, provider)
 
   /**
-   * Notifies this object that an ID3 frame has been detected which is now
-   * processed. Final meta data cannot be generated before the results of
-   * this processing are available.
-   */
-  def expectID3Data(): Unit = {
-    outstandingID3Data += 1
+    * Notifies this object that an ID3 frame has been detected which is now
+    * processed. Final meta data cannot be generated before the results of
+    * this processing are available. It may be possible that this method is
+    * invoked multiple times for the same version. This happens if an ID3
+    * frame is so big that it has to be processed in multiple chunks. In this
+    * case, it is counted only once.
+    * @param version the version of the ID3 frame
+    */
+  def expectID3Data(version: Int): Unit = {
+    outstandingID3Data += version
   }
 
   /**
@@ -114,7 +118,7 @@ private class MetaDataPartsCollector(val file: FileData,
   private def id3MetaDataAdded(version: Int, data: Option[ID3TagProvider]): Option[MediaMetaData]
   = {
     data foreach (id3Collector.addProvider(version, _))
-    outstandingID3Data -= 1
+    outstandingID3Data -= version
     createFinalMetaDataIfComplete()
   }
 
@@ -126,7 +130,7 @@ private class MetaDataPartsCollector(val file: FileData,
    */
   private def createFinalMetaDataIfComplete(): Option[MediaMetaData] = {
     mp3MetaData match {
-      case Some(data) if outstandingID3Data == 0 =>
+      case Some(data) if outstandingID3Data.isEmpty =>
         val combinedID3TagProvider = id3Collector.createCombinedID3TagProvider()
         Some(MediaMetaData(title = combinedID3TagProvider.title, artist = combinedID3TagProvider
           .artist, album = combinedID3TagProvider.album, inceptionYear = combinedID3TagProvider

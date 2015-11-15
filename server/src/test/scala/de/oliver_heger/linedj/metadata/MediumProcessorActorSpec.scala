@@ -48,6 +48,9 @@ object MediumProcessorActorSpec {
   /** A list containing all paths on the medium to be processed. */
   private val MediumPaths = List(path(1), path(2), path(3))
 
+  /** Version for test ID3v2 headers. */
+  private val ID3v2Version = 3
+
   /**
    * Generates a test path based on the passed in name.
    * @param name the name
@@ -221,7 +224,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val bytes = new Array[Byte](16)
     val random = new Random
     random nextBytes bytes
-    ProcessID3FrameData(p, ID3Header(2, bytes.length), bytes, lastChunk)
+    ProcessID3FrameData(p, ID3Header(ID3v2Version, bytes.length), bytes, lastChunk)
   }
 
   /**
@@ -237,7 +240,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val collector = helper installCollector frameData.path
 
     helper send frameData
-    verify(collector).expectID3Data()
+    verify(collector).expectID3Data(ID3v2Version)
     probe.expectMsg(frameData)
     helper
   }

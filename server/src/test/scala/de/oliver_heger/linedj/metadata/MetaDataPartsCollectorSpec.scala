@@ -38,8 +38,11 @@ object MetaDataPartsCollectorSpec {
   }
 
   /** A test MP3 meta data object. */
-  private val Mp3Data = Mp3MetaData(path = null, version = 0, layer = 0, sampleRate = 0,
+  private val Mp3Data = Mp3MetaData(path = null, version = 3, layer = 0, sampleRate = 0,
     minimumBitRat = 0, maximumBitRate = 128000, duration = 60000)
+
+  /** A test ID3v2 frame header object. */
+  private val ID3FrameHeader = ID3Header(version = 2, size = 42)
 
   /** A test media file. */
   private val File = FileData(Paths get "somePath", 20150912211021L)
@@ -126,7 +129,7 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
   it should "detect missing ID3v2 information" in {
     val collector = new MetaDataPartsCollector(File)
 
-    collector.expectID3Data()
+    collector.expectID3Data(ID3FrameHeader.version)
     collector setID3v1MetaData Some(ID3MetaData) shouldBe 'empty
     collector setMp3MetaData Mp3Data shouldBe 'empty
   }
@@ -135,11 +138,23 @@ class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSuga
     val id3Collector = prepareID3Collector()
     val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setID3v1MetaData None
-    collector.expectID3Data()
+    collector.expectID3Data(ID3FrameHeader.version)
     collector setMp3MetaData Mp3Data
 
-    val id3Data = ID3FrameMetaData(path = null, frameHeader = ID3Header(3, 42), Some(ID3MetaData))
+    val id3Data = ID3FrameMetaData(path = null, frameHeader = ID3FrameHeader, Some(ID3MetaData))
     checkMetaData(collector addID3Data id3Data)
     verify(id3Collector).addProvider(id3Data.frameHeader.version, ID3MetaData)
+  }
+
+  it should "handle multiple expects of the same ID3v2 version" in {
+    val collector = new MetaDataPartsCollector(File, prepareID3Collector())
+    collector.expectID3Data(ID3FrameHeader.version)
+    collector setID3v1MetaData None
+    collector.expectID3Data(ID3FrameHeader.version)
+    collector setMp3MetaData Mp3Data
+    collector.expectID3Data(ID3FrameHeader.version)
+
+    val id3Data = ID3FrameMetaData(path = null, frameHeader = ID3FrameHeader, Some(ID3MetaData))
+    checkMetaData(collector addID3Data id3Data)
   }
 }
