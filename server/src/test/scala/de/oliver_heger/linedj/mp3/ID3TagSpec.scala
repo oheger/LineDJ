@@ -17,6 +17,12 @@ class ID3TagSpec extends FlatSpec with Matchers {
     tag.asString should be("")
   }
 
+  it should "return an empty string if the tag content consists only of 0 bytes" in {
+    val content = new Array[Byte](3)
+    val tag = ID3Tag("TAG", content)
+    tag.asString should be("")
+  }
+
   it should "handle the absence of an encoding byte" in {
     val text = "This is a test!"
     val tag = ID3Tag("Tag", text.getBytes)

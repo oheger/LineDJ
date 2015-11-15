@@ -47,6 +47,19 @@ object ID3Tag {
    */
   def extractName(data: Array[Byte], ofs: Int, length: Int): String =
     extractString(data, ofs, length, EncISO88591.encName)
+
+  /**
+    * Extracts a string from the given byte array using the specified encoding.
+    * @param buf the byte array
+    * @param ofs the start offset of the string in the buffer
+    * @param len the length of the string
+    * @param enc the name of the encoding
+    * @return the resulting string
+    */
+  private def extractString(buf: Array[Byte], ofs: Int, len: Int,
+                            enc: String): String =
+    if (len <= 0) Blank
+    else new String(buf, ofs, len, enc)
 }
 
 /**
@@ -76,7 +89,6 @@ case class ID3Tag(name: String, private val data: Array[Byte]) {
   def asString: String = {
     data match {
       case Array() => Blank
-      case Array(0) => Blank
       case _ =>
         var ofs = 0
         val encFlag = extractByte(data, 0)
