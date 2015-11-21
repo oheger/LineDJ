@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
+import com.typesafe.sbt.osgi.SbtOsgi._
 import sbt._
 import Keys._
 import de.heikoseeberger.sbtheader.HeaderPlugin
@@ -40,7 +42,7 @@ object Build extends Build {
 
   val defaultSettings = Seq(
     version := "1.0-SNAPSHOT",
-    scalaVersion := "2.11.5",
+    scalaVersion := "2.11.7",
     libraryDependencies ++= akkaDependencies,
     libraryDependencies ++= testDependencies,
     libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
@@ -48,6 +50,10 @@ object Build extends Build {
       "scala" -> Apache2_0("2015", "The Developers Team."),
       "conf" -> Apache2_0("2015", "The Developers Team.", "#")
     )
+  )
+
+  def osgiSettings = defaultOsgiSettings ++ Seq(
+    packagedArtifact in (Compile, packageBin) <<= (artifact in (Compile, packageBin), OsgiKeys.bundle).identityMap
   )
 
   lazy val root = Project(id = "LineDJ",
@@ -59,9 +65,12 @@ object Build extends Build {
 
   lazy val shared = Project(id = "shared",
     base = file("shared"))
+    .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
     .settings(
-      name := "linedj-shared"
+      name := "linedj-shared",
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*")
     )
 
   lazy val server = Project(id = "server",
@@ -77,12 +86,19 @@ object Build extends Build {
 
   lazy val browser = Project(id = "browser",
     base = file("browser"))
+    .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
     .settings(
       name := "linedj-browser",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
-      parallelExecution in Test := false
+      parallelExecution in Test := false,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.browser.*",
+        "de.oliver_heger.linedj.bus.*",
+        "de.oliver_heger.linedj.remoting.*"
+      )
     ) dependsOn (shared % "compile->compile;test->test")
 }
 

@@ -14,3 +14,5 @@
  * limitations under the License.
  */
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "1.5.0")
+
+addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.8.0")
