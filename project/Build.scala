@@ -40,6 +40,11 @@ object Build extends Build {
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
   )
 
+  lazy val osgiDependencies = Seq(
+    "org.osgi" % "org.osgi.core" % "5.0.0" % "provided",
+    "com.typesafe.akka" %% "akka-osgi" % "2.3.12"
+  )
+
   val defaultSettings = Seq(
     version := "1.0-SNAPSHOT",
     scalaVersion := "2.11.7",
@@ -93,12 +98,14 @@ object Build extends Build {
       name := "linedj-browser",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
+      libraryDependencies ++= osgiDependencies,
       parallelExecution in Test := false,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*",
         "de.oliver_heger.linedj.bus.*",
         "de.oliver_heger.linedj.remoting.*"
-      )
+      ),
+      OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.BrowserActivator")
     ) dependsOn (shared % "compile->compile;test->test")
 }
 
