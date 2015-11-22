@@ -17,10 +17,7 @@ package de.oliver_heger.linedj.browser
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
-import net.sf.jguiraffe.di.MutableBeanStore
-import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
-import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
 
@@ -59,22 +56,6 @@ Application {
    * Creates a new instance of ''BrowserApp'' with default settings.
    */
   def this() = this(new RemoteMessageBusFactory)
-
-  /**
-   * Stores the root store of this application. This is necessary because beans
-   * have to be added manually.
-   */
-  private var rootBeanStore: MutableBeanStore = _
-
-  /**
-   * @inheritdoc This implementation stores the root bean store that it can
-   *             later be populated with beans created manually.
-   */
-  override protected def createRootStore(config: Configuration): MutableBeanStore = {
-    val store = super.createRootStore(config)
-    rootBeanStore = store
-    store
-  }
 
   /**
    * @inheritdoc This implementation creates some additional beans, especially
@@ -133,7 +114,7 @@ Application {
    * @return the bean instance
    */
   private def addBean[T](name: String, bean: T): T = {
-    rootBeanStore.addBeanProvider(name, ConstantBeanProvider.getInstance(bean))
+    addBeanDuringApplicationStartup(name, bean)
     bean
   }
 }
