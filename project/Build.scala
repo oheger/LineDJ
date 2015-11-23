@@ -105,7 +105,7 @@ object Build extends Build {
         "de.oliver_heger.linedj.bus.*",
         "de.oliver_heger.linedj.remoting.*"
       ),
-      OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.BrowserActivator")
+      OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.app.BrowserActivator")
     ) dependsOn (shared % "compile->compile;test->test")
 }
 

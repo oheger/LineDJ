@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.bus.{MessageBusRegistration, MessageBusListener}
+import de.oliver_heger.linedj.bus.{MessageBusListener, MessageBusRegistration}
 import de.oliver_heger.linedj.media.GetAvailableMedia
 import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
 import net.sf.jguiraffe.gui.builder.action.ActionStore

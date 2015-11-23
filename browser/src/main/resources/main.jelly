@@ -227,7 +227,7 @@
 
     <!-- Remote controller -->
     <di:bean name="remoteController"
-      beanClass="de.oliver_heger.linedj.browser.RemoteController">
+      beanClass="de.oliver_heger.linedj.browser.app.RemoteController">
       <di:constructor>
         <di:param refName="browserApp_RemoteMessageBus"/>
         <di:param refName="ACTION_STORE"/>

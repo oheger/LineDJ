@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.remoting.{ActorFactory, MessageBus, RemoteMessageBus,
-RemoteRelayActor}
+import de.oliver_heger.linedj.remoting.{ActorFactory, MessageBus, RemoteMessageBus, RemoteRelayActor}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
 object RemoteMessageBusFactory {

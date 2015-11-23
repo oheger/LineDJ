@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
@@ -49,8 +49,8 @@ object BrowserApp {
  * @param optActorSystem an optional actor system which is to be used by the
  *                       application if specified
  */
-class BrowserApp(private[browser] val remoteMessageBusFactory: RemoteMessageBusFactory,
-                 private[browser] val optActorSystem: Option[ActorSystem]) extends
+class BrowserApp(private[app] val remoteMessageBusFactory: RemoteMessageBusFactory,
+                 private[app] val optActorSystem: Option[ActorSystem]) extends
 Application {
 
   import BrowserApp._

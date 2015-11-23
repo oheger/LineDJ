@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
-import net.sf.jguiraffe.gui.app.{ApplicationException, Application}
+import net.sf.jguiraffe.gui.app.{Application, ApplicationException}
 import org.apache.commons.logging.LogFactory
-import org.osgi.framework.{BundleException, BundleContext, BundleActivator}
+import org.osgi.framework.{BundleActivator, BundleContext, BundleException}
 
 /**
   * A bundle activator for starting the browser application from an OSGi

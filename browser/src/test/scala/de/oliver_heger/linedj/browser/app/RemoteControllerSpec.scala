@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
 import de.oliver_heger.linedj.media.GetAvailableMedia
 import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser
+package de.oliver_heger.linedj.browser.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.browser.config.BrowserConfig
@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.bus.UIBus
 import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.Window
-import org.mockito.Mockito._
 import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
