@@ -38,7 +38,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
    * @return the instance of the application
    */
   private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
-    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], mockInitUI))
+    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], None, mockInitUI))
   }
 
   /**
@@ -96,6 +96,21 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
     system shouldBe 'terminated
   }
 
+  it should "allow passing an actor system to the constructor" in {
+    val actorSystem = ActorSystem("BrowserAppSpec")
+    val system = withApplication(runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory],
+      Some(actorSystem), mockInitUI = true))) { app =>
+      queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
+    }
+    system should be(actorSystem)
+    system shouldBe 'terminated
+  }
+
+  it should "pass None for the actor system in the default constructor" in {
+    val app = new BrowserApp
+    app.optActorSystem shouldBe 'empty
+  }
+
   it should "create an actor factory and store it in the bean context" in {
     withApplication() { app =>
       val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
@@ -125,7 +140,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "register message bus listeners correctly" in {
     val remoteBus = mock[RemoteMessageBus]
     val busFactory = mock[RemoteMessageBusFactory]
-    val application = new BrowserAppTestImpl(busFactory, mockInitUI = false)
+    val application = new BrowserAppTestImpl(busFactory, None, mockInitUI = false)
     when(application.remoteMessageBusFactory.recreateRemoteMessageBus(any(classOf[ApplicationContext]))).thenReturn(remoteBus)
 
     withApplication(runApp(application)) { app =>
@@ -143,10 +158,12 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
  * only once; otherwise, JavaFX complains that it is already initialized.
  *
  * @param factory the remote message bus factory
+ * @param actorSystem an optional actor system
  * @param mockInitUI flag whether initialization of the UI should be mocked
  */
-private class BrowserAppTestImpl(factory: RemoteMessageBusFactory, mockInitUI: Boolean)
-  extends BrowserApp(factory) {
+private class BrowserAppTestImpl(factory: RemoteMessageBusFactory, actorSystem: Option[ActorSystem],
+                                 mockInitUI: Boolean)
+  extends BrowserApp(factory, actorSystem) {
   override def initGUI(appCtx: ApplicationContext): Unit = {
     if (!mockInitUI) {
       super.initGUI(appCtx)

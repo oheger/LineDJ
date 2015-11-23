@@ -46,8 +46,11 @@ object BrowserApp {
  * Main class of LineDJ Browser application.
  *
  * @param remoteMessageBusFactory a factory for a remote message bus
+ * @param optActorSystem an optional actor system which is to be used by the
+ *                       application if specified
  */
-class BrowserApp(private[browser] val remoteMessageBusFactory: RemoteMessageBusFactory) extends
+class BrowserApp(private[browser] val remoteMessageBusFactory: RemoteMessageBusFactory,
+                 private[browser] val optActorSystem: Option[ActorSystem]) extends
 Application {
 
   import BrowserApp._
@@ -55,7 +58,7 @@ Application {
   /**
    * Creates a new instance of ''BrowserApp'' with default settings.
    */
-  def this() = this(new RemoteMessageBusFactory)
+  def this() = this(new RemoteMessageBusFactory, None)
 
   /**
    * @inheritdoc This implementation creates some additional beans, especially
@@ -97,7 +100,7 @@ Application {
    * @return the modified application context
    */
   private def initActorSystem(context: ApplicationContext): ApplicationContext = {
-    val actorSystem = ActorSystem("BrowserApplication")
+    val actorSystem = optActorSystem getOrElse ActorSystem("BrowserApplication")
     addBean(BeanActorSystem, actorSystem)
     addBean(BeanActorFactory, new ActorFactory(actorSystem))
     addBean(BeanRemoteMessageBus, remoteMessageBusFactory recreateRemoteMessageBus context)
