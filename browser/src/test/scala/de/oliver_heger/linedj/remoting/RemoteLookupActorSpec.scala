@@ -20,24 +20,23 @@ import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import de.oliver_heger.linedj.ActorSystemTestHelper
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-
 /**
  * Test class for ''RemoteLookupActor''.
  */
 class RemoteLookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
-  def this() = this(ActorSystem("RemoteLookupActorSpec"))
+  def this() = this(ActorSystemTestHelper createActorSystem "RemoteLookupActorSpec")
 
   override protected def afterAll(): Unit = {
     system.shutdown()
-    system awaitTermination 10.seconds
+    ActorSystemTestHelper waitForShutdown system
   }
 
   "A RemoteLookupActor" should "detect the monitored actor when it is started" in {
@@ -45,7 +44,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
     val queue = new SynchronousQueue[ActorRef]
-    when(sequence.nextDelay).then(new Answer[(Int, DelaySequence)] {
+    when(sequence.nextDelay).thenAnswer(new Answer[(Int, DelaySequence)] {
       // Create the monitored actor dynamically
       override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) = {
         queue.put(system.actorOf(Props[ActorToBeMonitored], ActorName))
@@ -67,7 +66,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
     val latch = new CountDownLatch(2)
-    when(sequence.nextDelay).then(new Answer[(Int, DelaySequence)] {
+    when(sequence.nextDelay).thenAnswer(new Answer[(Int, DelaySequence)] {
       // Countdown latch to indicate that the sequence was queried
       override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) = {
         latch.countDown()

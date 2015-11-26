@@ -20,14 +20,13 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.linedj.ActorSystemTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object RemoteRelayActorSpec {
   /** The address of the remote system. */
@@ -48,11 +47,11 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   import RemoteRelayActorSpec._
 
-  def this() = this(ActorSystem("RemoteRelayActorSpec"))
+  def this() = this(ActorSystemTestHelper createActorSystem "RemoteRelayActorSpec")
 
   override protected def afterAll(): Unit = {
     system.shutdown()
-    system awaitTermination 10.seconds
+    ActorSystemTestHelper waitForShutdown system
   }
 
   "A RemoteRelayActor" should "create correct creation properties" in {

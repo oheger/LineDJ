@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.ActorSystem
+import de.oliver_heger.linedj.ActorSystemTestHelper
 import de.oliver_heger.linedj.browser.config.BrowserConfig
 import de.oliver_heger.linedj.bus.UIBus
 import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
@@ -25,12 +26,20 @@ import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 /**
  * Test class for ''BrowserApp''.
  */
-class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
+class BrowserAppSpec extends FlatSpec with Matchers with BeforeAndAfterAll with MockitoSugar with
+ActorSystemTestHelper {
+  /** The name of the test actor system. */
+  override val actorSystemName: String = "BrowserAppSpec"
+
+  override protected def afterAll(): Unit = {
+    shutdownActorSystem()
+  }
+
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
@@ -38,7 +47,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
    * @return the instance of the application
    */
   private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
-    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], None, mockInitUI))
+    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], Some(testActorSystem), mockInitUI))
   }
 
   /**
@@ -88,16 +97,19 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   "A BrowserApp" should "setup an actor system and shut it down gracefully" in {
-    val system = withApplication() { app =>
+    val application = runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], None,
+      mockInitUI = true))
+    val system = withApplication(application) { app =>
       val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
       actorSystem should not be 'terminated
       actorSystem
     }
     system shouldBe 'terminated
+    ActorSystemTestHelper waitForShutdown system
   }
 
   it should "allow passing an actor system to the constructor" in {
-    val actorSystem = ActorSystem("BrowserAppSpec")
+    val actorSystem = testActorSystem
     val system = withApplication(runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory],
       Some(actorSystem), mockInitUI = true))) { app =>
       queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
@@ -140,7 +152,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "register message bus listeners correctly" in {
     val remoteBus = mock[RemoteMessageBus]
     val busFactory = mock[RemoteMessageBusFactory]
-    val application = new BrowserAppTestImpl(busFactory, None, mockInitUI = false)
+    val application = new BrowserAppTestImpl(busFactory, Some(testActorSystem), mockInitUI = false)
     when(application.remoteMessageBusFactory.recreateRemoteMessageBus(any(classOf[ApplicationContext]))).thenReturn(remoteBus)
 
     withApplication(runApp(application)) { app =>

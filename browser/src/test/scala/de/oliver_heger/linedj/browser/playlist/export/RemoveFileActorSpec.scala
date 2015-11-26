@@ -17,14 +17,13 @@
 package de.oliver_heger.linedj.browser.playlist.export
 
 import java.io.IOException
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import akka.testkit.{TestProbe, ImplicitSender, TestKit}
-import de.oliver_heger.linedj.{SupervisionTestActor, FileTestHelper}
-import org.scalatest.{BeforeAndAfter, Matchers, BeforeAndAfterAll, FlatSpecLike}
-import scala.concurrent.duration._
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.linedj.{ActorSystemTestHelper, FileTestHelper, SupervisionTestActor}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
  * Test class for ''RemoveFileActor''.
@@ -32,11 +31,11 @@ import scala.concurrent.duration._
 class RemoveFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with
 FileTestHelper {
-  def this() = this(ActorSystem("RemoveFileActorSpec"))
+  def this() = this(ActorSystemTestHelper createActorSystem "RemoveFileActorSpec")
 
   override protected def afterAll(): Unit = {
     system.shutdown()
-    system awaitTermination 10.seconds
+    ActorSystemTestHelper waitForShutdown system
   }
 
   after {

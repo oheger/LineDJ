@@ -24,10 +24,8 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileReaderActor.ReadData
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, FileReaderActor}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID}
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
+import de.oliver_heger.linedj.{ActorSystemTestHelper, FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object CopyFileActorSpec {
   /** Constant for a test medium file request. */
@@ -66,11 +64,11 @@ with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with 
 
   import CopyFileActorSpec._
 
-  def this() = this(ActorSystem("CopyFileActorSpec"))
+  def this() = this(ActorSystemTestHelper createActorSystem "CopyFileActorSpec")
 
   override protected def afterAll(): Unit = {
     system.shutdown()
-    system awaitTermination 10.seconds
+    ActorSystemTestHelper waitForShutdown system
   }
 
   after {
