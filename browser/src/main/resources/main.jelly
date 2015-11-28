@@ -27,6 +27,12 @@
     beanClassName="de.oliver_heger.linedj.browser.model.DurationTransformer">
   </di:bean>
 
+  <!-- An event filter for the window closing event. -->
+  <di:bean name="windowClosingEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
+  </di:bean>
+
   <!-- Definitions for actions and their tasks -->
 
   <!-- The action for application shutdown -->
@@ -63,28 +69,28 @@
   <!-- Models for UI controls -->
 
   <!-- The model of the playlist table. -->
-  <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
+  <di:bean name="playlistTableModel" beanClassName="java.util.ArrayList"/>
 
   <!-- The model of the media tree. -->
   <di:bean name="mediaTreeModel"
-    beanClass="org.apache.commons.configuration.HierarchicalConfiguration">
+    beanClassName="org.apache.commons.configuration.HierarchicalConfiguration">
     <di:setProperty property="expressionEngine">
-      <di:bean beanClass="org.apache.commons.configuration.tree.DefaultExpressionEngine">
+      <di:bean beanClassName="org.apache.commons.configuration.tree.DefaultExpressionEngine">
         <di:setProperty property="propertyDelimiter" value="|"/>
       </di:bean>
     </di:setProperty>
   </di:bean>
 
   <!-- The model of the media table. -->
-  <di:bean name="mediaTableModel" beanClass="java.util.ArrayList"/>
+  <di:bean name="mediaTableModel" beanClassName="java.util.ArrayList"/>
 
   <!-- The model for the media combo box. -->
   <di:bean name="mediaComboModel"
-    beanClass="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
+    beanClassName="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
 
   <!-- The cache for meta data -->
   <di:bean name="metaDataCache"
-    beanClass="de.oliver_heger.linedj.browser.cache.MetaDataCache">
+    beanClassName="de.oliver_heger.linedj.browser.cache.MetaDataCache">
     <di:constructor>
       <di:param refName="browserApp_RemoteMessageBus"/>
     </di:constructor>
@@ -92,7 +98,7 @@
 
   <!-- Message bus registration -->
   <di:bean name="browserApp_MessageBusRegistration"
-    beanClass="de.oliver_heger.linedj.bus.MessageBusRegistration">
+    beanClassName="de.oliver_heger.linedj.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
@@ -108,7 +114,7 @@
 
   <!-- Popup handler for controls on the media page -->
   <di:bean name="mediaPopupHandler"
-    beanClass="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
+    beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
     <di:constructor>
       <di:param refName="browserApp_MessageBus"/>
     </di:constructor>
@@ -221,13 +227,12 @@
          application exit action.
     -->
     <w:windowEvent actionName="exitAction">
-      <a:eventFilter eventType="WINDOW_CLOSING"
-        class="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter"/>
+      <a:eventFilter beanName="windowClosingEventFilter"/>
     </w:windowEvent>
 
     <!-- Remote controller -->
     <di:bean name="remoteController"
-      beanClass="de.oliver_heger.linedj.browser.app.RemoteController">
+      beanClassName="de.oliver_heger.linedj.browser.app.RemoteController">
       <di:constructor>
         <di:param refName="browserApp_RemoteMessageBus"/>
         <di:param refName="ACTION_STORE"/>
@@ -240,7 +245,7 @@
 
     <!-- Playlist controller -->
     <di:bean name="playlistController"
-      beanClass="de.oliver_heger.linedj.browser.playlist.PlaylistController">
+      beanClassName="de.oliver_heger.linedj.browser.playlist.PlaylistController">
       <di:constructor>
         <di:param refName="comp:tablePlaylist"/>
         <di:param refName="comp:statusLine"/>
@@ -252,7 +257,7 @@
 
     <!-- Media controller -->
     <di:bean name="mediaController"
-      beanClass="de.oliver_heger.linedj.browser.media.MediaController">
+      beanClassName="de.oliver_heger.linedj.browser.media.MediaController">
       <di:constructor>
         <di:param refName="browserApp_MessageBus"/>
         <di:param refName="songDataFactory"/>
@@ -271,7 +276,7 @@
 
   <!-- Selection change listener for media controls -->
   <di:bean name="mediaSelectionChangeListener"
-    beanClass="de.oliver_heger.linedj.browser.media.SelectionChangeHandler">
+    beanClassName="de.oliver_heger.linedj.browser.media.SelectionChangeHandler">
     <di:constructor>
       <di:param refName="mediaController"/>
     </di:constructor>
@@ -286,7 +291,7 @@
 
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
-    beanClass="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
   <!-- Command and task for the playlist export dialog -->
