@@ -16,25 +16,38 @@
 
 package de.oliver_heger.linedj.browser.app
 
+import akka.actor.ActorSystem
+import akka.osgi.ActorSystemActivator
 import net.sf.jguiraffe.gui.app.{Application, ApplicationException}
 import org.apache.commons.logging.LogFactory
-import org.osgi.framework.{BundleActivator, BundleContext, BundleException}
+import org.osgi.framework.{BundleContext, BundleException}
 
 /**
   * A bundle activator for starting the browser application from an OSGi
   * container.
+  *
+  * @param applicationFactory the factory for creating the application
   */
-class BrowserActivator extends BundleActivator {
+class BrowserActivator(private[app] val applicationFactory: ApplicationFactory) extends ActorSystemActivator {
   /** The logger. */
   private val log = LogFactory.getLog(getClass)
 
-  override def start(bundleContext: BundleContext): Unit = {
+  /**
+    * Creates a ''BrowserActivator'' with a default application factory.
+    */
+  def this() = this(new BrowserApplicationFactoryImpl)
+
+  /**
+    * @inheritdoc This implementation creates a new browser application and
+    *             triggers its startup.
+    */
+  override def configure(context: BundleContext, system: ActorSystem): Unit = {
     log.info("Starting Browser application bundle.")
-    val exitHandler = createExitHandler(bundleContext)
+    val exitHandler = createExitHandler(context)
 
     new Thread() {
       override def run(): Unit = {
-        val app = new BrowserApp
+        val app = applicationFactory createApplication Some(system)
         app setExitHandler exitHandler
         try {
           Application.startup(app, Array.empty)
@@ -46,10 +59,6 @@ class BrowserActivator extends BundleActivator {
     }.start()
   }
 
-  override def stop(bundleContext: BundleContext): Unit = {
-    log.info("Stopping Browser application bundle.")
-  }
-
   /**
     * Creates the exit handler for stopping the whole OSGi container when the
     * main application shuts down.
@@ -59,6 +68,7 @@ class BrowserActivator extends BundleActivator {
   private def createExitHandler(bundleContext: BundleContext): Runnable =
     new Runnable {
       override def run(): Unit = {
+        log.info("Application exit handler called.")
         val sysBundle = bundleContext getBundle 0
         try {
           sysBundle.stop()
@@ -68,4 +78,13 @@ class BrowserActivator extends BundleActivator {
         }
       }
     }
+}
+
+/**
+  * A default ''ApplicationFactory'' implementation used by the activator if
+  * no factory has been provided.
+  */
+private class BrowserApplicationFactoryImpl extends ApplicationFactory {
+  override def createApplication(optActorSystem: Option[ActorSystem]): BrowserApp =
+    new BrowserApp(new RemoteMessageBusFactory, optActorSystem)
 }
