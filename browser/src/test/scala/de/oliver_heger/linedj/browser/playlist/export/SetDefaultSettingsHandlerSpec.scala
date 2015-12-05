@@ -38,7 +38,7 @@ class SetDefaultSettingsHandlerSpec extends FlatSpec with Matchers with MockitoS
     val controller = mock[FormController]
     val config = mock[BrowserConfig]
     val settings = new ExportSettings
-    when(controller.validate()).thenAnswer(new Answer[FormValidatorResults] {
+    when(controller.validateAndDisplayMessages()).thenAnswer(new Answer[FormValidatorResults] {
       override def answer(invocationOnMock: InvocationOnMock): FormValidatorResults = {
         settings setClearMode ClearMode
         settings setTargetDirectory ExportPath
@@ -59,7 +59,7 @@ class SetDefaultSettingsHandlerSpec extends FlatSpec with Matchers with MockitoS
     val settings = new ExportSettings
     val results = mock[FormValidatorResults]
     when(results.isValid).thenReturn(false)
-    when(controller.validate()).thenReturn(results)
+    when(controller.validateAndDisplayMessages()).thenReturn(results)
     val handler = new SetDefaultSettingsHandler(controller, config, settings)
 
     handler.actionPerformed(null)

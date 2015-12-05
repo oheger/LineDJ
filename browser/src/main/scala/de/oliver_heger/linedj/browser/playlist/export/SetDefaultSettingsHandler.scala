@@ -41,7 +41,7 @@ ExportSettings) extends FormActionListener {
    * @inheritdoc This method gets called when the monitored button is clicked.
    */
   override def actionPerformed(formActionEvent: FormActionEvent): Unit = {
-    if (controller.validate().isValid) {
+    if (controller.validateAndDisplayMessages().isValid) {
       config.exportClearMode = settings.getClearMode
       config.exportPath = settings.getTargetDirectory
     }
