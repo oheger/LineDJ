@@ -66,7 +66,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, server, browser)
+    ) aggregate(shared, server, client, browser)
 
   lazy val shared = Project(id = "shared",
     base = file("shared"))
@@ -89,6 +89,19 @@ object Build extends Build {
       )
     ) dependsOn (shared % "compile->compile;test->test")
 
+  lazy val client = Project(id = "client",
+    base = file("client"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-client",
+      resolvers += Resolver.mavenLocal,
+      libraryDependencies ++= jguiraffeDependencies,
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*")
+    ) dependsOn (shared % "compile->compile;test->test")
+
   lazy val browser = Project(id = "browser",
     base = file("browser"))
     .enablePlugins(SbtOsgi)
@@ -106,6 +119,6 @@ object Build extends Build {
         "de.oliver_heger.linedj.remoting.*"
       ),
       OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.app.BrowserActivator")
-    ) dependsOn (shared % "compile->compile;test->test")
+    ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
 }
 
