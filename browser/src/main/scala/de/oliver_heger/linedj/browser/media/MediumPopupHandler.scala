@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.model.{SongData, AppendSongs}
-import de.oliver_heger.linedj.remoting.MessageBus
+import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.gui.builder.action._
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler

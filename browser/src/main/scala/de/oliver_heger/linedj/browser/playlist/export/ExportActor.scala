@@ -23,7 +23,7 @@ import akka.actor._
 import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumFileRequest
-import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer

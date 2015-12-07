@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.browser.media
 import java.util
 
 import de.oliver_heger.linedj.browser.model.{AppendSongs, SongData}
-import de.oliver_heger.linedj.remoting.MessageBus
+import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.builder.action.{PopupMenuBuilder, ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData

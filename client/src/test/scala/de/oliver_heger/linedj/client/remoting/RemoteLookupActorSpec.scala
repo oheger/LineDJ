@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.remoting
+package de.oliver_heger.linedj.client.remoting
 
 import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.ActorSystemTestHelper
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer

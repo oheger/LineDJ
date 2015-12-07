@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.remoting
+package de.oliver_heger.linedj.client.remoting
 
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{Actor, ActorRef}
-import de.oliver_heger.linedj.remoting.RemoteActors.RemoteActor
+import de.oliver_heger.linedj.client.remoting.RemoteActors.RemoteActor
 
 /**
  * An enhanced [[MessageBus]] implementation which can be used for

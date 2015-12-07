@@ -99,7 +99,7 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
-      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*")
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.client.*")
     ) dependsOn (shared % "compile->compile;test->test")
 
   lazy val browser = Project(id = "browser",
@@ -114,9 +114,7 @@ object Build extends Build {
       libraryDependencies ++= osgiDependencies,
       parallelExecution in Test := false,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.browser.*",
-        "de.oliver_heger.linedj.bus.*",
-        "de.oliver_heger.linedj.remoting.*"
+        "de.oliver_heger.linedj.browser.*"
       ),
       OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.app.BrowserActivator")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")

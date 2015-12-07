@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.remoting
+package de.oliver_heger.linedj.client.remoting
 
 import akka.actor.Actor.Receive
 import akka.actor.ActorSystem

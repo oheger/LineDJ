@@ -21,10 +21,11 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.ReadData
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, FileReaderActor}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID}
-import de.oliver_heger.linedj.{ActorSystemTestHelper, FileTestHelper, SupervisionTestActor}
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object CopyFileActorSpec {

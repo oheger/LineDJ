@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.ActorSystemTestHelper
 import de.oliver_heger.linedj.browser.config.BrowserConfig
-import de.oliver_heger.linedj.bus.UIBus
-import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
+import de.oliver_heger.linedj.client.bus.UIBus
+import de.oliver_heger.linedj.client.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._

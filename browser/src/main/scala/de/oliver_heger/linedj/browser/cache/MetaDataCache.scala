@@ -17,11 +17,11 @@
 package de.oliver_heger.linedj.browser.cache
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.bus.MessageBusListener
+import de.oliver_heger.linedj.client.bus.MessageBusListener
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
-import de.oliver_heger.linedj.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.remoting.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
+import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus}
 
 object MetaDataCache {
   /** Constant for the chunk for an unknown medium. */

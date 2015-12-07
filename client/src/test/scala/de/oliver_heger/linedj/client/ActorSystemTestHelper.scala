@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj
+package de.oliver_heger.linedj.client
 
 import akka.actor.ActorSystem
 import com.typesafe.config.{Config, ConfigFactory}

@@ -31,7 +31,7 @@
 
   <!-- The UI message bus -->
   <di:bean name="browserApp_MessageBus"
-    beanClassName="de.oliver_heger.linedj.bus.UIBus">
+    beanClassName="de.oliver_heger.linedj.client.bus.UIBus">
     <di:constructor>
       <di:param refName="jguiraffe.guiSynchronizer"/>
     </di:constructor>

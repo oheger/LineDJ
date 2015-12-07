@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.browser.app
 
 import java.util.concurrent.{TimeUnit, CountDownLatch}
-
-import de.oliver_heger.linedj.ActorSystemTestHelper
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

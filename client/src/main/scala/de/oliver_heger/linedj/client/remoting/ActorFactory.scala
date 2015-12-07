@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.remoting
+package de.oliver_heger.linedj.client.remoting
 
-import org.scalatest.{FlatSpec, Matchers}
+import akka.actor.{ActorRef, Props, ActorSystem}
 
 /**
- * Test class for ''RemoteActors''.
+ * A class for creating actors.
+ *
+ * This class holds an instance of an ''ActorSystem'' and provides a method for
+ * creating an actor in this system. Some controller classes need to create
+ * specific actors; therefore, it makes sense to have this functionality on a
+ * central place. This also simplifies testing.
+ *
+ * @param actorSystem the current ''ActorSystem''
  */
-class RemoteActorsSpec extends FlatSpec with Matchers {
-  "The RemoteActors enumeration" should "manage a set with all constants" in {
-    val constants = RemoteActors.values
-    constants should contain only(RemoteActors.MediaManager, RemoteActors.MetaDataManager)
-  }
+class ActorFactory(val actorSystem: ActorSystem) {
+  def createActor(props: Props, name: String): ActorRef =
+    actorSystem.actorOf(props, name)
 }

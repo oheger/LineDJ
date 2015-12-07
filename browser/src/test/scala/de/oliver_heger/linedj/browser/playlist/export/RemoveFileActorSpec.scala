@@ -22,7 +22,8 @@ import java.nio.file.{Files, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.{ActorSystemTestHelper, FileTestHelper, SupervisionTestActor}
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**

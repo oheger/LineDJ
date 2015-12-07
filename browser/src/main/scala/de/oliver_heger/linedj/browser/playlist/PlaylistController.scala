@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.browser.playlist
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.model.{DurationTransformer, SongData, AppendSongs}
-import de.oliver_heger.linedj.bus.MessageBusListener
+import de.oliver_heger.linedj.client.bus.MessageBusListener
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 
 import collection.JavaConversions._

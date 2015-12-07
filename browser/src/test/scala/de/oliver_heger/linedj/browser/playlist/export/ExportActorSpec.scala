@@ -22,14 +22,14 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.ActorSystemTestHelper
 import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.browser.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.browser.playlist.export.ExportActor.ExportResult
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.remoting.{MessageBus, RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.remoting.{MessageBus, RemoteActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

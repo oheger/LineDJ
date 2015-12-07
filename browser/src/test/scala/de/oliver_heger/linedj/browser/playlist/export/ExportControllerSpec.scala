@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
+import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, ProgressBarHandler}

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.bus
+package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.remoting.MessageBus
+import de.oliver_heger.linedj.client.remoting.MessageBus
 
 /**
  * A class that handles the registration of message bus listeners.

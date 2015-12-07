@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.remoting
+package de.oliver_heger.linedj.client.remoting
 
 import akka.actor.{ActorRef, Props, ActorSystem}
 import org.mockito.Mockito._

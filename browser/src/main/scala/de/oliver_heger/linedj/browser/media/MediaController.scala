@@ -21,11 +21,11 @@ import java.util.Locale
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.browser.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.bus.MessageBusListener
+import de.oliver_heger.linedj.client.bus.MessageBusListener
 import de.oliver_heger.linedj.media.{MediumID, AvailableMedia, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
-import de.oliver_heger.linedj.remoting.MessageBus
-import de.oliver_heger.linedj.remoting.RemoteRelayActor.ServerUnavailable
+import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler,
 TreeHandler, TreeNodePath}

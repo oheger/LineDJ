@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.bus
+package de.oliver_heger.linedj.client.bus
 
 import akka.actor.Actor.Receive
 

@@ -98,7 +98,7 @@
 
   <!-- Message bus registration -->
   <di:bean name="browserApp_MessageBusRegistration"
-    beanClassName="de.oliver_heger.linedj.bus.MessageBusRegistration">
+    beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>

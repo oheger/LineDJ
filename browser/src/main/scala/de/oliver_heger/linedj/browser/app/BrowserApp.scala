@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.remoting.{ActorFactory, RemoteMessageBus}
+import de.oliver_heger.linedj.client.remoting.{ActorFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 
 import scala.concurrent.duration._
