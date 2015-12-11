@@ -138,4 +138,11 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     bus.updateConfiguration(address, port)
     expectMsg(RemoteManagementActor.RemoteConfiguration(address, port))
   }
+
+  it should "simplify querying the current server state" in {
+    val bus = createRemoteBus()
+    bus.queryServerState()
+
+    expectMsg(RemoteRelayActor.QueryServerState)
+  }
 }

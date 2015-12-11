@@ -111,6 +111,19 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     expectMsg(RemoteRelayActor.ServerAvailable)
   }
 
+  it should "allow querying the current server state" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors() ! RemoteRelayActor.Activate(enabled = true)
+    expectMsg(RemoteRelayActor.ServerAvailable)
+
+    helper.relayActor ! RemoteRelayActor.QueryServerState
+    expectMsg(RemoteRelayActor.ServerAvailable)
+    helper.unregisterRemoteActor(helper.probeMediaManager)
+    expectMsg(RemoteRelayActor.ServerUnavailable)
+    helper.relayActor ! RemoteRelayActor.QueryServerState
+    expectMsg(RemoteRelayActor.ServerUnavailable)
+  }
+
   it should "allow sending a message to the media manager actor" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(RemoteActors.MediaManager,

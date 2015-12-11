@@ -72,6 +72,13 @@ object RemoteRelayActor {
    */
   case class RemoteActorResponse(actorType: RemoteActor, optActor: Option[ActorRef])
 
+  /**
+    * A message processed by ''RemoteRelayActor'' for querying the current
+    * server state. When this message is received, the current state is
+    * published on the message bus.
+    */
+  case object QueryServerState
+
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
 
@@ -213,6 +220,9 @@ Actor {
   override def receive: Receive = {
     case Activate(enabled) =>
       activated = enabled
+      publish(stateMessage(trackingState))
+
+    case QueryServerState =>
       publish(stateMessage(trackingState))
 
     case RemoteLookupActor.RemoteActorAvailable(path, ref) =>
