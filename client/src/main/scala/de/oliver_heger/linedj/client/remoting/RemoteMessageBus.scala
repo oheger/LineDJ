@@ -71,6 +71,17 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
   }
 
   /**
+    * Sends a message to the remote actor indicating a configuration change.
+    * This will cause a new relay actor to be created using the new remote
+    * address.
+    * @param address the remote address
+    * @param port the remote port
+    */
+  def updateConfiguration(address: String, port: Int): Unit = {
+    relayActor ! RemoteManagementActor.RemoteConfiguration(address, port)
+  }
+
+  /**
    * Wraps a receive function to ensure that it is removed from the message bus
    * when a response message is received.
    * @param r the function to be wrapped

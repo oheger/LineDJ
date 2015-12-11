@@ -129,4 +129,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     expectMsg(PongMsg)
     verify(bus.bus).removeListener(ListenerID)
   }
+
+  it should "simplify changing the remoting configuration" in {
+    val address = "remote.host"
+    val port = 1234
+    val bus = createRemoteBus()
+
+    bus.updateConfiguration(address, port)
+    expectMsg(RemoteManagementActor.RemoteConfiguration(address, port))
+  }
 }
