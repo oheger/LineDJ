@@ -22,10 +22,14 @@ import de.heikoseeberger.sbtheader.HeaderPlugin
 import de.heikoseeberger.sbtheader.license.Apache2_0
 
 object Build extends Build {
+  /** Definition of versions. */
+  lazy val AkkaVersion = "2.3.12"
+  lazy val OsgiVersion = "5.0.0"
+
   lazy val akkaDependencies = Seq(
-    "com.typesafe.akka" %% "akka-actor" % "2.3.12",
-    "com.typesafe.akka" %% "akka-testkit" % "2.3.12",
-    "com.typesafe.akka" %% "akka-remote" % "2.3.12"
+    "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
+    "com.typesafe.akka" %% "akka-testkit" % AkkaVersion,
+    "com.typesafe.akka" %% "akka-remote" % AkkaVersion
   )
 
   lazy val testDependencies = Seq(
@@ -41,8 +45,8 @@ object Build extends Build {
   )
 
   lazy val osgiDependencies = Seq(
-    "org.osgi" % "org.osgi.core" % "5.0.0" % "provided",
-    "com.typesafe.akka" %% "akka-osgi" % "2.3.12"
+    "org.osgi" % "org.osgi.core" % OsgiVersion % "provided",
+    "org.osgi" % "org.osgi.compendium" % OsgiVersion % "provided"
   )
 
   val defaultSettings = Seq(
@@ -66,8 +70,12 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, server, client, browser)
+    ) aggregate(shared, server, actorSystem, client, browser)
 
+  /**
+    * A project with shared code which needs to be available on both client
+    * and server.
+    */
   lazy val shared = Project(id = "shared",
     base = file("shared"))
     .enablePlugins(SbtOsgi)
@@ -78,6 +86,10 @@ object Build extends Build {
       OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*")
     )
 
+  /**
+    * The server project. This contains code to manage the library with
+    * artists, albums, and songs.
+    */
   lazy val server = Project(id = "server",
     base = file("server"))
     .settings(defaultSettings: _*)
@@ -89,6 +101,10 @@ object Build extends Build {
       )
     ) dependsOn (shared % "compile->compile;test->test")
 
+  /**
+    * Project for the client platform. This project contains code shared by
+    * all visual client applications.
+    */
   lazy val client = Project(id = "client",
     base = file("client"))
     .enablePlugins(SbtOsgi)
@@ -104,6 +120,23 @@ object Build extends Build {
         Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test")
 
+  /**
+    * A project providing the client-side actor system. This project uses the
+    * akka OSGi-integration to setup an actor system and making it available as
+    * OSGi service. It can then be used by all client applications.
+    */
+  lazy val actorSystem = Project(id = "actorSystem", base = file("actorSystem"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-actorSystem",
+      libraryDependencies ++= osgiDependencies,
+      libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % AkkaVersion,
+      OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
+      OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
+    )
+
   lazy val browser = Project(id = "browser",
     base = file("browser"))
     .enablePlugins(SbtOsgi)
@@ -117,8 +150,7 @@ object Build extends Build {
       parallelExecution in Test := false,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*"
-      ),
-      OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.browser.app.BrowserActivator")
+      )
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
 }
 
