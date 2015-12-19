@@ -99,7 +99,9 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
-      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.client.*")
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.client.*"),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test")
 
   lazy val browser = Project(id = "browser",
