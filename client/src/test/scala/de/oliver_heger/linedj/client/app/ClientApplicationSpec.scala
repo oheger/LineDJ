@@ -122,21 +122,4 @@ class ClientApplicationSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(appContext).getConfiguration
     verify(clientContext.remoteMessageBus).queryServerState()
   }
-
-  /**
-    * An implementation of ''ClientApplicationContext'' which stores a bunch of
-    * mock objects.
-    */
-  private class ClientApplicationContextImpl extends ClientApplicationContext {
-    override val actorSystem = mock[ActorSystem]
-
-    override val remoteMessageBus = mock[RemoteMessageBus]
-
-    override val messageBus = mock[MessageBus]
-
-    override val stageFactory = mock[StageFactory]
-
-    override val actorFactory = mock[ActorFactory]
-  }
-
 }
