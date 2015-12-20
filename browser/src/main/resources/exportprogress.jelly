@@ -64,8 +64,8 @@
       beanClassName="de.oliver_heger.linedj.browser.playlist.export.ExportController">
       <di:constructor>
         <di:param refName="jguiraffe.applicationContext"/>
-        <di:param refName="browserApp_RemoteMessageBus"/>
-        <di:param refName="browserApp_ActorFactory"/>
+        <di:param refName="LineDJ_RemoteMessageBus"/>
+        <di:param refName="LineDJ_ActorFactory"/>
         <di:param refName="exportData"/>
         <di:param refName="comp:progressRemove"/>
         <di:param refName="comp:progressCopy"/>

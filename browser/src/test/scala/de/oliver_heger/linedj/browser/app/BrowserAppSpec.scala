@@ -16,30 +16,22 @@
 
 package de.oliver_heger.linedj.browser.app
 
-import akka.actor.ActorSystem
+import akka.actor.Actor
 import de.oliver_heger.linedj.browser.config.BrowserConfig
-import de.oliver_heger.linedj.client.ActorSystemTestHelper
-import de.oliver_heger.linedj.client.bus.UIBus
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, RemoteMessageBus}
+import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.Window
-import org.mockito.Matchers._
+import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''BrowserApp''.
  */
-class BrowserAppSpec extends FlatSpec with Matchers with BeforeAndAfterAll with MockitoSugar with
-ActorSystemTestHelper {
-  /** The name of the test actor system. */
-  override val actorSystemName: String = "BrowserAppSpec"
-
-  override protected def afterAll(): Unit = {
-    shutdownActorSystem()
-  }
-
+class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
@@ -47,7 +39,7 @@ ActorSystemTestHelper {
    * @return the instance of the application
    */
   private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
-    runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], Some(testActorSystem), mockInitUI))
+    runApp(new BrowserAppTestImpl(mockInitUI))
   }
 
   /**
@@ -56,7 +48,8 @@ ActorSystemTestHelper {
    * @return the application
    */
   private def runApp(app: BrowserAppTestImpl): BrowserAppTestImpl = {
-    Application.startup(app, Array.empty)
+    app initClientContext new ClientApplicationContextImpl
+    app activate mock[ComponentContext]
     app setExitHandler new Runnable {
       override def run(): Unit = {
         // do nothing
@@ -96,69 +89,19 @@ ActorSystemTestHelper {
     finally app.shutdown()
   }
 
-  "A BrowserApp" should "setup an actor system and shut it down gracefully" in {
-    val application = runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory], None,
-      mockInitUI = true))
-    val system = withApplication(application) { app =>
-      val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
-      actorSystem should not be 'terminated
-      actorSystem
-    }
-    system shouldBe 'terminated
-    ActorSystemTestHelper waitForShutdown system
-  }
-
-  it should "allow passing an actor system to the constructor" in {
-    val actorSystem = testActorSystem
-    val system = withApplication(runApp(new BrowserAppTestImpl(mock[RemoteMessageBusFactory],
-      Some(actorSystem), mockInitUI = true))) { app =>
-      queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
-    }
-    system should be(actorSystem)
-    system shouldBe 'terminated
-  }
-
-  it should "pass None for the actor system in the default constructor" in {
-    val app = new BrowserApp
-    app.optActorSystem shouldBe 'empty
-  }
-
-  it should "create an actor factory and store it in the bean context" in {
-    withApplication() { app =>
-      val actorSystem = queryBean[ActorSystem](app, BrowserApp.BeanActorSystem)
-      val factory = queryBean[ActorFactory](app, BrowserApp.BeanActorFactory)
-      factory.actorSystem should be(actorSystem)
-    }
-  }
-
-  it should "create a bean for the BrowserConfig" in {
+  "A BrowserApp" should "create a bean for the BrowserConfig" in {
     withApplication() { app =>
       val config = queryBean[BrowserConfig](app, BrowserApp.BeanBrowserConfig)
       config.userConfiguration should be(app.getUserConfiguration)
     }
   }
 
-  it should "create a default RemoteMessageBusFactory" in {
-    val app = new BrowserApp
-    app.remoteMessageBusFactory shouldBe a[RemoteMessageBusFactory]
-  }
-
-  it should "create a remote message bus" in {
-    withApplication() { app =>
-      verify(app.remoteMessageBusFactory).recreateRemoteMessageBus(app.getApplicationContext)
-    }
-  }
-
-  ignore should "register message bus listeners correctly" in {
-    val remoteBus = mock[RemoteMessageBus]
-    val busFactory = mock[RemoteMessageBusFactory]
-    val application = new BrowserAppTestImpl(busFactory, Some(testActorSystem), mockInitUI = false)
-    when(application.remoteMessageBusFactory.recreateRemoteMessageBus(any(classOf[ApplicationContext]))).thenReturn(remoteBus)
+  it should "register message bus listeners correctly" in {
+    val application = createApp(mockInitUI = false)
 
     withApplication(runApp(application)) { app =>
-      verify(remoteBus).activate(true)
-      val uiBus = queryBean[UIBus](app, BrowserApp.BeanMessageBus)
-      uiBus.busListeners.size should be > 1
+      val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
+      verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
     }
   }
 }
@@ -169,13 +112,10 @@ ActorSystemTestHelper {
  * been correctly initialized. Note that initialization of the UI is possible
  * only once; otherwise, JavaFX complains that it is already initialized.
  *
- * @param factory the remote message bus factory
- * @param actorSystem an optional actor system
  * @param mockInitUI flag whether initialization of the UI should be mocked
  */
-private class BrowserAppTestImpl(factory: RemoteMessageBusFactory, actorSystem: Option[ActorSystem],
-                                 mockInitUI: Boolean)
-  extends BrowserApp(factory, actorSystem) {
+private class BrowserAppTestImpl(mockInitUI: Boolean)
+  extends BrowserApp {
   override def initGUI(appCtx: ApplicationContext): Unit = {
     if (!mockInitUI) {
       super.initGUI(appCtx)

@@ -21,19 +21,19 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
+  <!-- The specialized window manager -->
+  <di:bean name="jguiraffe.windowManager"
+    beanClassName="de.oliver_heger.linedj.client.app.JavaFxSharedWindowManager">
+    <di:constructor>
+      <di:param refName="jguiraffe.styleSheetProvider"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The configuration for the browser application -->
   <di:bean name="browserApp_Configuration"
     beanClassName="de.oliver_heger.linedj.browser.config.BrowserConfig">
     <di:constructor>
       <di:param refName="jguiraffe.application"/>
-    </di:constructor>
-  </di:bean>
-
-  <!-- The UI message bus -->
-  <di:bean name="browserApp_MessageBus"
-    beanClassName="de.oliver_heger.linedj.client.bus.UIBus">
-    <di:constructor>
-      <di:param refName="jguiraffe.guiSynchronizer"/>
     </di:constructor>
   </di:bean>
 

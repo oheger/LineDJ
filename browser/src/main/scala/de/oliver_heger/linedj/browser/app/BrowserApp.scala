@@ -15,27 +15,12 @@
  */
 package de.oliver_heger.linedj.browser.app
 
-import akka.actor.ActorSystem
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, RemoteMessageBus}
-import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
-
-import scala.concurrent.duration._
+import de.oliver_heger.linedj.client.app.ClientApplication
+import net.sf.jguiraffe.gui.app.Application
 
 object BrowserApp {
   /** The bean name for the browser configuration. */
   val BeanBrowserConfig = "browserApp_Configuration"
-
-  /** The bean name for the actor system started by the application. */
-  val BeanActorSystem = "browserApp_ActorSystem"
-
-  /** The bean name for the actor factory created by the application. */
-  val BeanActorFactory = "browserApp_ActorFactory"
-
-  /** The bean name for the message bus. */
-  val BeanMessageBus = "browserApp_MessageBus"
-
-  /** The bean name for the remote message bus. */
-  val BeanRemoteMessageBus = "browserApp_RemoteMessageBus"
 
   def main(args: Array[String]): Unit = {
     Application.startup(new BrowserApp, args)
@@ -44,80 +29,5 @@ object BrowserApp {
 
 /**
  * Main class of LineDJ Browser application.
- *
- * @param remoteMessageBusFactory a factory for a remote message bus
- * @param optActorSystem an optional actor system which is to be used by the
- *                       application if specified
  */
-class BrowserApp(private[app] val remoteMessageBusFactory: RemoteMessageBusFactory,
-                 private[app] val optActorSystem: Option[ActorSystem]) extends
-Application {
-
-  import BrowserApp._
-
-  /**
-   * Creates a new instance of ''BrowserApp'' with default settings.
-   */
-  def this() = this(new RemoteMessageBusFactory, None)
-
-  /**
-   * @inheritdoc This implementation creates some additional beans, especially
-   *             the actor system.
-   */
-  override protected def createApplicationContext(): ApplicationContext = {
-    initActorSystem(super.createApplicationContext())
-  }
-
-  /**
-   * @inheritdoc This implementation activates the remote message bus after all
-   *             listeners have been registered during the execution of the
-   *             main UI script.
-   */
-  override protected def initGUI(appCtx: ApplicationContext): Unit = {
-    super.initGUI(appCtx)
-
-    val remoteMessageBus = appCtx.getBeanContext.getBean(BeanRemoteMessageBus)
-      .asInstanceOf[RemoteMessageBus]
-    remoteMessageBus activate true
-  }
-
-  /**
-   * @inheritdoc This implementation shuts down the application's actor system.
-   */
-  override protected def onShutdown(): Unit = {
-    val actorSystem = getApplicationContext.getBeanContext.getBean(BeanActorSystem)
-      .asInstanceOf[ActorSystem]
-    actorSystem.shutdown()
-    actorSystem.awaitTermination(10.seconds)
-
-    super.onShutdown()
-  }
-
-  /**
-   * Initializes the actor system and related beans. These are stored in the
-   * global bean context.
-   * @param context the application context
-   * @return the modified application context
-   */
-  private def initActorSystem(context: ApplicationContext): ApplicationContext = {
-    val actorSystem = optActorSystem getOrElse ActorSystem("BrowserApplication")
-    addBean(BeanActorSystem, actorSystem)
-    addBean(BeanActorFactory, new ActorFactory(actorSystem))
-    addBean(BeanRemoteMessageBus, remoteMessageBusFactory recreateRemoteMessageBus context)
-    context
-  }
-
-  /**
-   * Helper method for adding a constant bean to the application's root store.
-   * This can be used to add beans created manually during the initialization
-   * phase.
-   * @param name the name of the bean
-   * @param bean the bean
-   * @tparam T the type of the bean
-   * @return the bean instance
-   */
-  private def addBean[T](name: String, bean: T): T = {
-    addBeanDuringApplicationStartup(name, bean)
-    bean
-  }
-}
+class BrowserApp extends ClientApplication("browser_config.xml")
