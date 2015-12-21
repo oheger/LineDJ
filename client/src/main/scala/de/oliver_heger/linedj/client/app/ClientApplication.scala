@@ -63,7 +63,7 @@ class ClientApplication(configName: String) extends Application {
   import ClientApplication._
 
   /** The client application context. */
-  private var clientContext: ClientApplicationContext = _
+  private var clientContextField: ClientApplicationContext = _
 
   /**
     * Initializes the reference to the ''ClientApplicationContext''. This
@@ -71,8 +71,14 @@ class ClientApplication(configName: String) extends Application {
     * @param context the ''ClientApplicationContext''
     */
   def initClientContext(context: ClientApplicationContext): Unit = {
-    clientContext = context
+    clientContextField = context
   }
+
+  /**
+    * Returns the ''ClientApplicationContext'' used by this application.
+    * @return the ''ClientApplicationContext''
+    */
+  def clientContext: ClientApplicationContext = clientContextField
 
   /**
     * Returns the ''ClientApplicationContext'' used by this application. This

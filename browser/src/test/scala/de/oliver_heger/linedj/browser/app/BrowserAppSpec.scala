@@ -18,20 +18,19 @@ package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
 import de.oliver_heger.linedj.browser.config.BrowserConfig
-import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.client.app.{ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.client.remoting.MessageBus
-import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''BrowserApp''.
  */
-class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
+class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with ApplicationTestSupport {
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
@@ -39,41 +38,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
    * @return the instance of the application
    */
   private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
-    runApp(new BrowserAppTestImpl(mockInitUI))
-  }
-
-  /**
-   * Runs the specified test application.
-   * @param app the application to be started
-   * @return the application
-   */
-  private def runApp(app: BrowserAppTestImpl): BrowserAppTestImpl = {
-    app initClientContext new ClientApplicationContextImpl
-    app activate mock[ComponentContext]
-    app setExitHandler new Runnable {
-      override def run(): Unit = {
-        // do nothing
-      }
-    }
-    app
-  }
-
-  /**
-   * Queries the given application for a bean with a specific name. This bean
-   * is checked against a type. If this type is matched, the bean is returned;
-   * otherwise, an exception is thrown.
-   * @param app the application
-   * @param name the name of the bean
-   * @param m the manifest
-   * @tparam T the expected bean type
-   * @return the bean of this type
-   */
-  private def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T = {
-    app.getApplicationContext.getBeanContext.getBean(name) match {
-      case t: T => t
-      case b =>
-        throw new AssertionError(s"Unexpected bean for name '$name': $b")
-    }
+    activateApp(new BrowserAppTestImpl(mockInitUI))
   }
 
   /**
@@ -99,7 +64,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "register message bus listeners correctly" in {
     val application = createApp(mockInitUI = false)
 
-    withApplication(runApp(application)) { app =>
+    withApplication(activateApp(application)) { app =>
       val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
       verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
     }

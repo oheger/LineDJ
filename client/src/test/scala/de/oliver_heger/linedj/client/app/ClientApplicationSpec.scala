@@ -18,36 +18,18 @@ package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
-import net.sf.jguiraffe.gui.app.{ApplicationContext, Application}
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
-import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ClientApplication''.
   */
-class ClientApplicationSpec extends FlatSpec with Matchers with MockitoSugar {
-
-  /**
-    * Queries the given application for a bean with a specific name. This bean
-    * is checked against a type. If this type is matched, the bean is returned;
-    * otherwise, an exception is thrown.
-    * @param app the application
-    * @param name the name of the bean
-    * @param m the manifest
-    * @tparam T the expected bean type
-    * @return the bean of this type
-    */
-  private def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T = {
-    app.getApplicationContext.getBeanContext.getBean(name) match {
-      case t: T => t
-      case b =>
-        throw new AssertionError(s"Unexpected bean for name '$name': $b")
-    }
-  }
+class ClientApplicationSpec extends FlatSpec with Matchers with MockitoSugar with
+ApplicationTestSupport {
 
   /**
     * Creates a test application.
@@ -59,55 +41,59 @@ class ClientApplicationSpec extends FlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a test application and starts it so that it is correctly
     * initialized.
-    * @return the test application and the context with mock objects
+    * @return the test application
     */
-  private def setUpApp(): (ClientApplication, ClientApplicationContext) = {
-    val app = createApp()
-    val clientContext = new ClientApplicationContextImpl
-    app initClientContext clientContext
-    val compContext = mock[ComponentContext]
-    app activate compContext
-    (app, clientContext)
-  }
+  private def setUpApp(): ClientApplication =
+    activateApp(createApp())
 
   "A ClientApplication" should "use the correct configuration" in {
-    val (app, _) = setUpApp()
+    val app = setUpApp()
 
     app.getConfigResourceName should be("testconfig.xml")
   }
 
+  it should "return a correct client context" in {
+    val context = mock[ClientApplicationContext]
+    val app = createApp()
+
+    app initClientContext context
+    app.clientContext should be(context)
+    verifyZeroInteractions(context)
+  }
+
   it should "define a bean for the stage factory" in {
-    val (app, clientContext) = setUpApp()
+    val app = setUpApp()
 
     queryBean[StageFactory](app, JavaFxSharedWindowManager.BeanStageFactory) should be
-    clientContext.stageFactory
+    app.clientContext.stageFactory
   }
 
   it should "define a bean for the actor system" in {
-    val (app, clientContext) = setUpApp()
+    val app = setUpApp()
 
-    queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(clientContext
+    queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(app.clientContext
       .actorSystem)
   }
 
   it should "define a bean for the actor factory" in {
-    val (app, clientContext) = setUpApp()
+    val app = setUpApp()
 
-    queryBean[ActorFactory](app, ClientApplication.BeanActorFactory) should be(clientContext
+    queryBean[ActorFactory](app, ClientApplication.BeanActorFactory) should be(app.clientContext
       .actorFactory)
   }
 
   it should "define a bean for the message bus" in {
-    val (app, clientContext) = setUpApp()
+    val app = setUpApp()
 
-    queryBean[MessageBus](app, ClientApplication.BeanMessageBus) should be(clientContext.messageBus)
+    queryBean[MessageBus](app, ClientApplication.BeanMessageBus) should be(app.clientContext
+      .messageBus)
   }
 
   it should "define a bean for the remote message bus" in {
-    val (app, clientContext) = setUpApp()
+    val app = setUpApp()
 
     queryBean[RemoteMessageBus](app, ClientApplication.BeanRemoteMessageBus) should be
-    clientContext.remoteMessageBus
+    app.clientContext.remoteMessageBus
   }
 
   it should "query the status of the remote message bus" in {
