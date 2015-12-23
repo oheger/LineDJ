@@ -36,7 +36,7 @@ ApplicationTestSupport {
     * @return the test application
     */
   private def createApp(): ClientApplication =
-    new ClientApplication("testconfig.xml")
+    new ClientApplication("testconfig.xml") with ApplicationSyncStartup
 
   /**
     * Creates a test application and starts it so that it is correctly

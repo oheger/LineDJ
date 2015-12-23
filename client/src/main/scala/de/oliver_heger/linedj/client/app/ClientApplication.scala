@@ -55,10 +55,11 @@ object ClientApplication {
   * While this class is fully functional, in order to implement a valid
   * declarative services component, it has to be extended, and the name of the
   * configuration file has to be passed to the constructor.
-  * @author hacker
-  * @version $Id$
+  *
+  * @param configName the name of the configuration file
   */
-class ClientApplication(configName: String) extends Application {
+class ClientApplication(val configName: String) extends Application {
+  this: ApplicationStartup =>
 
   import ClientApplication._
 
@@ -89,12 +90,11 @@ class ClientApplication(configName: String) extends Application {
 
   /**
     * Activates this component. This method is called by the SCR. It starts
-    * the application.
+    * the application using the mixed in [[ApplicationStartup]] implementation.
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
-    setConfigResourceName(configName)
-    Application.startup(this, Array.empty)
+    startApplication(this, configName)
   }
 
   /**
