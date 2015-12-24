@@ -147,10 +147,11 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
-      parallelExecution in Test := false,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*"
-      )
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
 }
 
