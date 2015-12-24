@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
 import de.oliver_heger.linedj.browser.config.BrowserConfig
-import de.oliver_heger.linedj.client.app.{ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.client.app.{ApplicationSyncStartup, ApplicationAsyncStartup,
+ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
@@ -69,6 +70,13 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
       verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
     }
   }
+
+  it should "construct an instance correctly" in {
+    val app = new BrowserApp
+
+    app shouldBe a[ApplicationAsyncStartup]
+    app.configName should be("browser_config.xml")
+  }
 }
 
 /**
@@ -80,7 +88,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
  * @param mockInitUI flag whether initialization of the UI should be mocked
  */
 private class BrowserAppTestImpl(mockInitUI: Boolean)
-  extends BrowserApp {
+  extends BrowserApp with ApplicationSyncStartup {
   override def initGUI(appCtx: ApplicationContext): Unit = {
     if (!mockInitUI) {
       super.initGUI(appCtx)

@@ -15,7 +15,7 @@
  */
 package de.oliver_heger.linedj.browser.app
 
-import de.oliver_heger.linedj.client.app.ClientApplication
+import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
 import net.sf.jguiraffe.gui.app.Application
 
 object BrowserApp {
@@ -30,4 +30,4 @@ object BrowserApp {
 /**
  * Main class of LineDJ Browser application.
  */
-class BrowserApp extends ClientApplication("browser_config.xml")
+class BrowserApp extends ClientApplication("browser_config.xml") with ApplicationAsyncStartup
