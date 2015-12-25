@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser.app
+package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.media.GetAvailableMedia
 import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.media.GetAvailableMedia
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._
