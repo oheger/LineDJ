@@ -70,7 +70,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, server, actorSystem, client, browser)
+    ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -137,7 +137,11 @@ object Build extends Build {
       OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
     )
 
-  lazy val browser = Project(id = "browser",
+  /**
+    * Project for the media browser client application. This application allows
+    * browsing through the media stored in the music library.
+    */
+  lazy val mediaBrowser = Project(id = "browser",
     base = file("browser"))
     .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
@@ -152,6 +156,26 @@ object Build extends Build {
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
+    ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
+
+  /**
+    * Project for the playlist editor client application. This application
+    * allows creating a playlist from the media stored in the library.
+    */
+  lazy val playlistEditor = Project(id = "pleditor", base = file("pleditor"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-pleditor",
+      resolvers += Resolver.mavenLocal,
+      libraryDependencies ++= jguiraffeDependencies,
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.pleditor.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/pleditorapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
 }
 

@@ -30,7 +30,7 @@
   </di:bean>
 
   <!-- The configuration for the browser application -->
-  <di:bean name="browserApp_Configuration"
+  <di:bean name="pleditorApp_Configuration"
     beanClassName="de.oliver_heger.linedj.pleditor.config.BrowserConfig">
     <di:constructor>
       <di:param refName="jguiraffe.application"/>

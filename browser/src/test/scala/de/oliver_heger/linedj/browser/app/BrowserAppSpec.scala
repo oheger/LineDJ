@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.browser.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.BrowserConfig
 import de.oliver_heger.linedj.client.app.{ApplicationSyncStartup, ApplicationAsyncStartup,
 ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.client.remoting.MessageBus
