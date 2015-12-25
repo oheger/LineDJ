@@ -13,11 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.oliver_heger.linedj.browser.app
+
+package de.oliver_heger.linedj.pleditor.app
 
 import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
 
+object PlaylistEditorApp {
+  /** The bean name for the configuration bean. */
+  val BeanConfig = "pleditorApp_Configuration"
+}
+
 /**
- * Main class of LineDJ Browser application.
- */
-class BrowserApp extends ClientApplication("browser_config.xml") with ApplicationAsyncStartup
+  * The main application class of the LineDJ Playlist Editor application.
+  */
+class PlaylistEditorApp extends ClientApplication("pleditor_config.xml") with
+ApplicationAsyncStartup

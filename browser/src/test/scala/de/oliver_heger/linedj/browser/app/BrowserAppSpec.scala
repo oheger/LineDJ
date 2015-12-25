@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
 import de.oliver_heger.linedj.client.app.{ApplicationSyncStartup, ApplicationAsyncStartup,
 ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.client.remoting.MessageBus
@@ -53,13 +52,6 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
     T): T = {
     try f(app)
     finally app.shutdown()
-  }
-
-  "A BrowserApp" should "create a bean for the BrowserConfig" in {
-    withApplication() { app =>
-      val config = queryBean[BrowserConfig](app, BrowserApp.BeanBrowserConfig)
-      config.userConfiguration should be(app.getUserConfiguration)
-    }
   }
 
   it should "register message bus listeners correctly" in {
