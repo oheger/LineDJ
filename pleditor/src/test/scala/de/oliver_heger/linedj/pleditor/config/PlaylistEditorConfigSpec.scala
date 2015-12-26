@@ -23,7 +23,7 @@ import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 
-object BrowserConfigSpec {
+object PlaylistEditorConfigSpec {
   /**
    * Creates a configuration instance with the specified option.
    * @param key the configuration key
@@ -40,9 +40,9 @@ object BrowserConfigSpec {
 /**
  * Test class for ''BrowserConfig''.
  */
-class BrowserConfigSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaylistEditorConfigSpec extends FlatSpec with Matchers with MockitoSugar {
 
-  import BrowserConfigSpec._
+  import PlaylistEditorConfigSpec._
 
   /**
    * Creates a test ''BrowserConfig'' instance that wraps the specified
@@ -50,10 +50,10 @@ class BrowserConfigSpec extends FlatSpec with Matchers with MockitoSugar {
    * @param wrappedConfig the configuration to be wrapped
    * @return the test ''BrowserConfig''
    */
-  private def createConfig(wrappedConfig: Configuration): BrowserConfig = {
+  private def createConfig(wrappedConfig: Configuration): PlaylistEditorConfig = {
     val app = mock[Application]
     when(app.getUserConfiguration).thenReturn(wrappedConfig)
-    new BrowserConfig(app)
+    new PlaylistEditorConfig(app)
   }
 
   /**
@@ -61,7 +61,7 @@ class BrowserConfigSpec extends FlatSpec with Matchers with MockitoSugar {
    * ''Configuration''.
    * @return a tuple with the test instance and the wrapped configuration
    */
-  private def createEmptyConfig(): (BrowserConfig, Configuration) = {
+  private def createEmptyConfig(): (PlaylistEditorConfig, Configuration) = {
     val config = new PropertiesConfiguration
     (createConfig(config), config)
   }

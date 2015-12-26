@@ -20,7 +20,7 @@ import akka.actor.Actor
 import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication,
 ApplicationSyncStartup, ApplicationTestSupport}
 import de.oliver_heger.linedj.client.remoting.MessageBus
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._
@@ -45,7 +45,7 @@ ApplicationTestSupport {
 
   "A PlaylistEditorApp" should "create a bean for the BrowserConfig" in {
     val app = createApp()
-    val config = queryBean[BrowserConfig](app, PlaylistEditorApp.BeanConfig)
+    val config = queryBean[PlaylistEditorConfig](app, PlaylistEditorApp.BeanConfig)
     config.userConfiguration should be(app.getUserConfiguration)
   }
 

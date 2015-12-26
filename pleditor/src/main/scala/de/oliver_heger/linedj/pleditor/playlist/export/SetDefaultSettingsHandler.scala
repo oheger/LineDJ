@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.playlist.export
 
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}
 import net.sf.jguiraffe.gui.builder.window.ctrl.FormController
 
@@ -35,7 +35,7 @@ import net.sf.jguiraffe.gui.builder.window.ctrl.FormController
  * @param config the configuration object
  * @param settings the object with settings data
  */
-class SetDefaultSettingsHandler(controller: FormController, config: BrowserConfig, settings:
+class SetDefaultSettingsHandler(controller: FormController, config: PlaylistEditorConfig, settings:
 ExportSettings) extends FormActionListener {
   /**
    * @inheritdoc This method gets called when the monitored button is clicked.

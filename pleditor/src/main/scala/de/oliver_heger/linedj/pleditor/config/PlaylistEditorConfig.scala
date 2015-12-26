@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.pleditor.config
 import de.oliver_heger.linedj.pleditor.playlist.export.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
 
-object BrowserConfig {
+object PlaylistEditorConfig {
   /** The prefix for all configuration keys. */
   private val KeyPrefix = "browser."
 
@@ -43,9 +43,9 @@ object BrowserConfig {
  *
  * @param app the main application object
  */
-class BrowserConfig(app: Application) {
+class PlaylistEditorConfig(app: Application) {
 
-  import BrowserConfig._
+  import PlaylistEditorConfig._
 
   /** The wrapped user configuration. */
   val userConfiguration = app.getUserConfiguration

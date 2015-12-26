@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.playlist.export
 
 import java.util
 
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
@@ -55,14 +55,14 @@ class OpenExportSettingsDlgCommandSpec extends FlatSpec with Matchers with Mocki
   import OpenExportSettingsDlgCommandSpec._
 
   "An OpenExportSettingsDlgCommand" should "pass its locator to the super class" in {
-    val command = new OpenExportSettingsDlgCommand(Locator, mock[BrowserConfig], ExportSongs)
+    val command = new OpenExportSettingsDlgCommand(Locator, mock[PlaylistEditorConfig], ExportSongs)
 
     command.getLocator should be(Locator)
   }
 
   it should "initialize the builder data with the songs to be exported" in {
     val builderData = mock[ApplicationBuilderData]
-    val command = new OpenExportSettingsDlgCommand(Locator, mock[BrowserConfig], ExportSongs)
+    val command = new OpenExportSettingsDlgCommand(Locator, mock[PlaylistEditorConfig], ExportSongs)
 
     command prepareBuilderData builderData
     verify(builderData).addProperty("exportSongs", ExportSongs)
@@ -70,7 +70,7 @@ class OpenExportSettingsDlgCommandSpec extends FlatSpec with Matchers with Mocki
 
   it should "initialize the builder data with export settings" in {
     val builderData = mock[ApplicationBuilderData]
-    val config = mock[BrowserConfig]
+    val config = mock[PlaylistEditorConfig]
     val ExportPath = "export/path"
     val ClearMode = ExportSettings.ClearOverride
     when(config.exportClearMode).thenReturn(ClearMode)

@@ -31,7 +31,7 @@
 
   <!-- The configuration for the browser application -->
   <di:bean name="pleditorApp_Configuration"
-    beanClassName="de.oliver_heger.linedj.pleditor.config.BrowserConfig">
+    beanClassName="de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig">
     <di:constructor>
       <di:param refName="jguiraffe.application"/>
     </di:constructor>

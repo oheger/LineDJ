@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.playlist.export
 
 import java.util
 
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
 import net.sf.jguiraffe.gui.builder.window.ctrl.FormController
 import net.sf.jguiraffe.gui.forms.{DefaultFormValidatorResults, FormValidatorResults}
 import net.sf.jguiraffe.transform.ValidationResult
@@ -36,7 +36,7 @@ class SetDefaultSettingsHandlerSpec extends FlatSpec with Matchers with MockitoS
     val ClearMode = ExportSettings.ClearOverride
     val ExportPath = "some/export/path"
     val controller = mock[FormController]
-    val config = mock[BrowserConfig]
+    val config = mock[PlaylistEditorConfig]
     val settings = new ExportSettings
     when(controller.validateAndDisplayMessages()).thenAnswer(new Answer[FormValidatorResults] {
       override def answer(invocationOnMock: InvocationOnMock): FormValidatorResults = {
@@ -55,7 +55,7 @@ class SetDefaultSettingsHandlerSpec extends FlatSpec with Matchers with MockitoS
 
   it should "not update the configuration if validation fails" in {
     val controller = mock[FormController]
-    val config = mock[BrowserConfig]
+    val config = mock[PlaylistEditorConfig]
     val settings = new ExportSettings
     val results = mock[FormValidatorResults]
     when(results.isValid).thenReturn(false)

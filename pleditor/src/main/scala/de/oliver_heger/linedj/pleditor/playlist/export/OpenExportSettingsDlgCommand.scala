@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.playlist.export
 
-import de.oliver_heger.linedj.pleditor.config.BrowserConfig
+import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.browser.model.SongData
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
@@ -50,7 +50,7 @@ object OpenExportSettingsDlgCommand {
  * @param config the object with configuration settings
  * @param exportSongs the list with songs to be exported
  */
-class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: BrowserConfig,
+class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: PlaylistEditorConfig,
                                    exportSongs: java.util.List[SongData])
   extends OpenWindowCommand(scriptLocator) {
 
