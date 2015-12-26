@@ -29,14 +29,6 @@
     </di:constructor>
   </di:bean>
 
-  <!-- The configuration for the browser application -->
-  <di:bean name="browserApp_Configuration"
-    beanClassName="de.oliver_heger.linedj.pleditor.config.BrowserConfig">
-    <di:constructor>
-      <di:param refName="jguiraffe.application"/>
-    </di:constructor>
-  </di:bean>
-
   <!-- The song data factory -->
   <di:bean name="songDataFactory"
     beanClassName="de.oliver_heger.linedj.browser.model.SongDataFactory">

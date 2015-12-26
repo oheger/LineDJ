@@ -40,12 +40,6 @@
     tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
     resgrp="application" taskBean="exitTask"/>
 
-  <!-- Playlist export action -->
-  <a:action name="plExportAction" textres="act_plexport_text"
-    mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask">
-    <f:icon resource="export.png"/>
-  </a:action>
-
   <!-- Actions for adding songs from a medium to the playlist -->
   <a:action name="addMediumAction" textres="act_addmedium_text"
     mnemonicres="act_addmedium_mnemo" taskBean="exitTask"/>
@@ -61,15 +55,9 @@
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
-    <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
-      <a:menuitem actionName="plExportAction"/>
-    </a:menu>
   </a:menubar>
 
   <!-- Models for UI controls -->
-
-  <!-- The model of the playlist table. -->
-  <di:bean name="playlistTableModel" beanClassName="java.util.ArrayList"/>
 
   <!-- The model of the media tree. -->
   <di:bean name="mediaTreeModel"
@@ -104,7 +92,6 @@
         <di:list>
           <di:element refName="metaDataCache"/>
           <di:element refName="remoteController"/>
-          <di:element refName="playlistController"/>
           <di:element refName="mediaController"/>
         </di:list>
       </di:param>
@@ -112,7 +99,7 @@
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
   </di:bean>
 
-  <!-- Popup handler for controls on the media page -->
+  <!-- Popup menu handler -->
   <di:bean name="mediaPopupHandler"
     beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
     <di:constructor>
@@ -126,81 +113,52 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
-      <a:toolbutton actionName="plExportAction"/>
       <a:separator/>
     </a:toolbar>
 
     <!-- The main panel -->
-    <f:tabbedpane name="tabs">
+    <f:panel>
       <f:borderconstr name="CENTER"/>
+      <f:borderlayout canShrink="true"/>
+      <f:panel>
+        <f:borderconstr name="NORTH"/>
+        <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+          bottomMargin="4" westGap="8" eastGap="8"/>
+        <f:label textres="media_lab_media">
+          <f:borderconstr name="WEST"/>
+        </f:label>
+        <f:combo name="comboMedia" modelRef="mediaComboModel">
+          <f:borderconstr name="CENTER"/>
+        </f:combo>
+        <f:label name="mediaLoadingIndicator">
+          <f:icon resource="loading.gif"/>
+          <f:borderconstr name="EAST"/>
+        </f:label>
+      </f:panel>
 
-      <!-- Panel for displaying the current playlist -->
-      <f:tab titleres="tab_playlist">
-        <f:panel>
-          <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
-            bottomMargin="4" westGap="8" eastGap="8"/>
-          <f:table name="tablePlaylist" model="playlistTableModel" multiSelection="true">
-            <f:borderconstr name="CENTER"/>
-            <f:column name="title" percentWidth="40" headerres="media_tcol_title"
-              columnClass="String"/>
-            <f:column name="artist" percentWidth="25"
-              headerres="media_tcol_artist">
-            </f:column>
-            <f:column name="album" percentWidth="25"
-              headerres="media_tcol_album">
-            </f:column>
-            <f:column name="duration" percentWidth="10" headerres="media_tcol_duration">
-              <f:transformer type="write" beanName="durationTransformer"/>
-            </f:column>
-          </f:table>
-        </f:panel>
-      </f:tab>
+      <f:splitter orientation="horizontal" resizeWeight="0.25">
+        <f:borderconstr name="CENTER"/>
+        <f:tree name="treeMedia" model="mediaTreeModel" editable="false"
+          scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
+          rootVisible="true">
+          <a:popup beanName="mediaPopupHandler"/>
+        </f:tree>
 
-      <!-- Panel for browsing existing media -->
-      <f:tab titleres="tab_media">
-        <f:panel>
-          <f:borderlayout canShrink="true"/>
-          <f:panel>
-            <f:borderconstr name="NORTH"/>
-            <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
-              bottomMargin="4" westGap="8" eastGap="8"/>
-            <f:label textres="media_lab_media">
-              <f:borderconstr name="WEST"/>
-            </f:label>
-            <f:combo name="comboMedia" modelRef="mediaComboModel">
-              <f:borderconstr name="CENTER"/>
-            </f:combo>
-            <f:label name="mediaLoadingIndicator">
-              <f:icon resource="loading.gif"/>
-              <f:borderconstr name="EAST"/>
-            </f:label>
-          </f:panel>
-
-          <f:splitter orientation="horizontal" resizeWeight="0.25">
-            <f:borderconstr name="CENTER"/>
-            <f:tree name="treeMedia" model="mediaTreeModel" editable="false"
-              scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
-              rootVisible="true">
-              <a:popup beanName="mediaPopupHandler"/>
-            </f:tree>
-
-            <f:table name="tableMedia" model="mediaTableModel" multiSelection="true">
-              <f:borderconstr name="CENTER"/>
-              <f:column name="artist" percentWidth="35"
-                headerres="media_tcol_artist">
-              </f:column>
-              <f:column name="title" percentWidth="40" headerres="media_tcol_title"
-                columnClass="String"/>
-              <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
-              <f:column name="duration" percentWidth="15" headerres="media_tcol_duration">
-                <f:transformer type="write" beanName="durationTransformer"/>
-              </f:column>
-              <a:popup beanName="mediaPopupHandler"/>
-            </f:table>
-          </f:splitter>
-        </f:panel>
-      </f:tab>
-    </f:tabbedpane>
+        <f:table name="tableMedia" model="mediaTableModel" multiSelection="true">
+          <f:borderconstr name="CENTER"/>
+          <f:column name="artist" percentWidth="35"
+            headerres="media_tcol_artist">
+          </f:column>
+          <f:column name="title" percentWidth="40" headerres="media_tcol_title"
+            columnClass="String"/>
+          <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
+          <f:column name="duration" percentWidth="15" headerres="media_tcol_duration">
+            <f:transformer type="write" beanName="durationTransformer"/>
+          </f:column>
+          <a:popup beanName="mediaPopupHandler"/>
+        </f:table>
+      </f:splitter>
+    </f:panel>
 
     <!-- Statusline -->
     <f:panel>
@@ -216,11 +174,6 @@
           <f:icon resource="offline.png"/>
         </f:label>
       </f:panel>
-
-      <f:statictext name="statusLine" textres="status_undefined"
-        alignment="center">
-        <f:borderconstr name="CENTER"/>
-      </f:statictext>
     </f:panel>
 
     <!-- An event listener that delegates the window closing event to the
@@ -241,18 +194,6 @@
       </di:constructor>
       <di:setProperty property="messageBusRegistration"
         refName="browserApp_MessageBusRegistration"/>
-    </di:bean>
-
-    <!-- Playlist controller -->
-    <di:bean name="playlistController"
-      beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistController">
-      <di:constructor>
-        <di:param refName="comp:tablePlaylist"/>
-        <di:param refName="comp:statusLine"/>
-        <di:param>
-          <f:localized resid="status_template"/>
-        </di:param>
-      </di:constructor>
     </di:bean>
 
     <!-- Media controller -->
@@ -292,22 +233,6 @@
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
     beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
-  </di:bean>
-
-  <!-- Command and task for the playlist export dialog -->
-  <di:bean name="playlistExportCommand"
-    beanClassName="de.oliver_heger.linedj.pleditor.playlist.export.OpenExportSettingsDlgCommand">
-    <di:constructor>
-      <di:param value="classpath:exportsettings.jelly"/>
-      <di:param refName="browserApp_Configuration"/>
-      <di:param refName="playlistTableModel"/>
-    </di:constructor>
-  </di:bean>
-
-  <di:bean name="playlistExportTask"
-    beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
-    <di:setProperty property="commandBeanName" value="playlistExportCommand"/>
-    <di:setProperty property="beforeEnabler" value="action:plExportAction"/>
   </di:bean>
 
 </j:jelly>
