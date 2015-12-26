@@ -56,7 +56,7 @@
     beanClassName="de.oliver_heger.linedj.pleditor.playlist.export.SetDefaultSettingsHandler">
     <di:constructor>
       <di:param refName="controller"/>
-      <di:param refName="browserApp_Configuration"/>
+      <di:param refName="pleditorApp_Configuration"/>
       <di:param refName="exportSettings"/>
     </di:constructor>
   </di:bean>

@@ -46,16 +46,6 @@
     <f:icon resource="export.png"/>
   </a:action>
 
-  <!-- Actions for adding songs from a medium to the playlist -->
-  <a:action name="addMediumAction" textres="act_addmedium_text"
-    mnemonicres="act_addmedium_mnemo" taskBean="exitTask"/>
-  <a:action name="addArtistAction" textres="act_addartist_text"
-    mnemonicres="act_addartist_mnemo" taskBean="exitTask"/>
-  <a:action name="addAlbumAction" textres="act_addalbum_text"
-    mnemonicres="act_addalbum_mnemo" taskBean="exitTask"/>
-  <a:action name="addSongsAction" textres="act_addsongs_text"
-    mnemonicres="act_addsongs_mnemo" taskBean="exitTask"/>
-
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -66,58 +56,21 @@
     </a:menu>
   </a:menubar>
 
-  <!-- Models for UI controls -->
-
   <!-- The model of the playlist table. -->
   <di:bean name="playlistTableModel" beanClassName="java.util.ArrayList"/>
 
-  <!-- The model of the media tree. -->
-  <di:bean name="mediaTreeModel"
-    beanClassName="org.apache.commons.configuration.HierarchicalConfiguration">
-    <di:setProperty property="expressionEngine">
-      <di:bean beanClassName="org.apache.commons.configuration.tree.DefaultExpressionEngine">
-        <di:setProperty property="propertyDelimiter" value="|"/>
-      </di:bean>
-    </di:setProperty>
-  </di:bean>
-
-  <!-- The model of the media table. -->
-  <di:bean name="mediaTableModel" beanClassName="java.util.ArrayList"/>
-
-  <!-- The model for the media combo box. -->
-  <di:bean name="mediaComboModel"
-    beanClassName="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
-
-  <!-- The cache for meta data -->
-  <di:bean name="metaDataCache"
-    beanClassName="de.oliver_heger.linedj.browser.cache.MetaDataCache">
-    <di:constructor>
-      <di:param refName="LineDJ_RemoteMessageBus"/>
-    </di:constructor>
-  </di:bean>
-
   <!-- Message bus registration -->
-  <di:bean name="browserApp_MessageBusRegistration"
+  <di:bean name="pleditorApp_MessageBusRegistration"
     beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
-          <di:element refName="metaDataCache"/>
           <di:element refName="remoteController"/>
           <di:element refName="playlistController"/>
-          <di:element refName="mediaController"/>
         </di:list>
       </di:param>
     </di:constructor>
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
-  </di:bean>
-
-  <!-- Popup handler for controls on the media page -->
-  <di:bean name="mediaPopupHandler"
-    beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
-    <di:constructor>
-      <di:param refName="LineDJ_MessageBus"/>
-    </di:constructor>
   </di:bean>
 
   <!-- The main window -->
@@ -131,76 +84,25 @@
     </a:toolbar>
 
     <!-- The main panel -->
-    <f:tabbedpane name="tabs">
+    <f:panel>
       <f:borderconstr name="CENTER"/>
-
-      <!-- Panel for displaying the current playlist -->
-      <f:tab titleres="tab_playlist">
-        <f:panel>
-          <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
-            bottomMargin="4" westGap="8" eastGap="8"/>
-          <f:table name="tablePlaylist" model="playlistTableModel" multiSelection="true">
-            <f:borderconstr name="CENTER"/>
-            <f:column name="title" percentWidth="40" headerres="media_tcol_title"
-              columnClass="String"/>
-            <f:column name="artist" percentWidth="25"
-              headerres="media_tcol_artist">
-            </f:column>
-            <f:column name="album" percentWidth="25"
-              headerres="media_tcol_album">
-            </f:column>
-            <f:column name="duration" percentWidth="10" headerres="media_tcol_duration">
-              <f:transformer type="write" beanName="durationTransformer"/>
-            </f:column>
-          </f:table>
-        </f:panel>
-      </f:tab>
-
-      <!-- Panel for browsing existing media -->
-      <f:tab titleres="tab_media">
-        <f:panel>
-          <f:borderlayout canShrink="true"/>
-          <f:panel>
-            <f:borderconstr name="NORTH"/>
-            <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
-              bottomMargin="4" westGap="8" eastGap="8"/>
-            <f:label textres="media_lab_media">
-              <f:borderconstr name="WEST"/>
-            </f:label>
-            <f:combo name="comboMedia" modelRef="mediaComboModel">
-              <f:borderconstr name="CENTER"/>
-            </f:combo>
-            <f:label name="mediaLoadingIndicator">
-              <f:icon resource="loading.gif"/>
-              <f:borderconstr name="EAST"/>
-            </f:label>
-          </f:panel>
-
-          <f:splitter orientation="horizontal" resizeWeight="0.25">
-            <f:borderconstr name="CENTER"/>
-            <f:tree name="treeMedia" model="mediaTreeModel" editable="false"
-              scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
-              rootVisible="true">
-              <a:popup beanName="mediaPopupHandler"/>
-            </f:tree>
-
-            <f:table name="tableMedia" model="mediaTableModel" multiSelection="true">
-              <f:borderconstr name="CENTER"/>
-              <f:column name="artist" percentWidth="35"
-                headerres="media_tcol_artist">
-              </f:column>
-              <f:column name="title" percentWidth="40" headerres="media_tcol_title"
-                columnClass="String"/>
-              <f:column name="trackNumber" percentWidth="10" headerres="media_tcol_track"/>
-              <f:column name="duration" percentWidth="15" headerres="media_tcol_duration">
-                <f:transformer type="write" beanName="durationTransformer"/>
-              </f:column>
-              <a:popup beanName="mediaPopupHandler"/>
-            </f:table>
-          </f:splitter>
-        </f:panel>
-      </f:tab>
-    </f:tabbedpane>
+      <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+        bottomMargin="4" westGap="8" eastGap="8"/>
+      <f:table name="tablePlaylist" model="playlistTableModel" multiSelection="true">
+        <f:borderconstr name="CENTER"/>
+        <f:column name="title" percentWidth="40" headerres="media_tcol_title"
+          columnClass="String"/>
+        <f:column name="artist" percentWidth="25"
+          headerres="media_tcol_artist">
+        </f:column>
+        <f:column name="album" percentWidth="25"
+          headerres="media_tcol_album">
+        </f:column>
+        <f:column name="duration" percentWidth="10" headerres="media_tcol_duration">
+          <f:transformer type="write" beanName="durationTransformer"/>
+        </f:column>
+      </f:table>
+    </f:panel>
 
     <!-- Statusline -->
     <f:panel>
@@ -240,7 +142,7 @@
         <di:param refName="widget:offlineIndicator"/>
       </di:constructor>
       <di:setProperty property="messageBusRegistration"
-        refName="browserApp_MessageBusRegistration"/>
+        refName="pleditorApp_MessageBusRegistration"/>
     </di:bean>
 
     <!-- Playlist controller -->
@@ -255,37 +157,8 @@
       </di:constructor>
     </di:bean>
 
-    <!-- Media controller -->
-    <di:bean name="mediaController"
-      beanClassName="de.oliver_heger.linedj.browser.media.MediaController">
-      <di:constructor>
-        <di:param refName="LineDJ_MessageBus"/>
-        <di:param refName="songDataFactory"/>
-        <di:param refName="comp:comboMedia"/>
-        <di:param refName="comp:treeMedia"/>
-        <di:param refName="comp:tableMedia"/>
-        <di:param refName="widget:mediaLoadingIndicator"/>
-        <di:param>
-          <f:localized resid="undefinedMedium"/>
-        </di:param>
-      </di:constructor>
-    </di:bean>
-
     <w:controller beanName="remoteController"/>
   </w:frame>
-
-  <!-- Selection change listener for media controls -->
-  <di:bean name="mediaSelectionChangeListener"
-    beanClassName="de.oliver_heger.linedj.browser.media.SelectionChangeHandler">
-    <di:constructor>
-      <di:param refName="mediaController"/>
-    </di:constructor>
-  </di:bean>
-
-  <a:eventListener component="comboMedia" eventType="CHANGE"
-    beanName="mediaSelectionChangeListener"/>
-  <a:eventListener component="treeMedia" eventType="CHANGE"
-    beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 
@@ -299,7 +172,7 @@
     beanClassName="de.oliver_heger.linedj.pleditor.playlist.export.OpenExportSettingsDlgCommand">
     <di:constructor>
       <di:param value="classpath:exportsettings.jelly"/>
-      <di:param refName="browserApp_Configuration"/>
+      <di:param refName="pleditorApp_Configuration"/>
       <di:param refName="playlistTableModel"/>
     </di:constructor>
   </di:bean>
