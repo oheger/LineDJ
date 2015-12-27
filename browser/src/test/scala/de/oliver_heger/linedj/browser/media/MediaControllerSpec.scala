@@ -212,6 +212,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper send ServerUnavailable
     verify(helper.comboHandler).setEnabled(false)
+    verify(helper.labelInProgress).setVisible(false)
   }
 
   it should "pass available media to the combo handler" in {

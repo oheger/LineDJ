@@ -138,6 +138,7 @@ MessageBusListener {
   override def receive: Receive = {
     case ServerUnavailable =>
       comboMedia setEnabled false
+      inProgressWidget setVisible false
 
     case AvailableMedia(media) =>
       selectedMediumID = None
