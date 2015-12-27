@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser.model
+package de.oliver_heger.linedj.client.model
 
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
 

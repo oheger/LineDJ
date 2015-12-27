@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import org.apache.commons.configuration.HierarchicalConfiguration
 

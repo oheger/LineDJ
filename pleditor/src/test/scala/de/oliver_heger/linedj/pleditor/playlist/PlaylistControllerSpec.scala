@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.playlist
 
 import java.util
 
-import de.oliver_heger.linedj.browser.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}

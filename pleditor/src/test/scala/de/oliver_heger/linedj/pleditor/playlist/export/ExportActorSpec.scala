@@ -22,7 +22,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.client.ActorSystemTestHelper

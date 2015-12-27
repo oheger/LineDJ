@@ -21,18 +21,16 @@ import java.util
 import java.util.Locale
 
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.browser.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.media.{MediumID, AvailableMedia, MediumInfo}
-import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
+import de.oliver_heger.linedj.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model._
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.apache.commons.configuration.tree.{ConfigurationNode, DefaultConfigurationNode,
-DefaultExpressionEngine}
-import org.mockito.Matchers.any
-import org.mockito.Matchers.anyInt
+import org.apache.commons.configuration.tree.{ConfigurationNode, DefaultConfigurationNode, DefaultExpressionEngine}
+import org.mockito.Matchers.{any, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

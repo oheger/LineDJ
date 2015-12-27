@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.pleditor.playlist.export
 
 import java.io.IOException
 import java.nio.file.{Path, Paths}
-
-import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.playlist.export.ExportActor.ExportData
 import de.oliver_heger.linedj.io.{ScanResult, DirectoryScanner}
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}

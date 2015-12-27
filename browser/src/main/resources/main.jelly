@@ -24,7 +24,7 @@
 
   <!-- A transformer for durations -->
   <di:bean name="durationTransformer"
-    beanClassName="de.oliver_heger.linedj.browser.model.DurationTransformer">
+    beanClassName="de.oliver_heger.linedj.client.model.DurationTransformer">
   </di:bean>
 
   <!-- An event filter for the window closing event. -->

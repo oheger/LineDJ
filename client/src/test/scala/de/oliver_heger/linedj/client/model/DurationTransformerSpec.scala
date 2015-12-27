@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser.model
+package de.oliver_heger.linedj.client.model
 
 import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''DurationTransformer''.

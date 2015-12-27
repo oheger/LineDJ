@@ -19,8 +19,7 @@ package de.oliver_heger.linedj.pleditor.playlist.export
 import java.io.IOException
 import java.nio.file.{Path, Paths}
 import java.util
-
-import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.{FileData, ScanResult, DirectoryScanner}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData

@@ -20,7 +20,7 @@ import java.nio.file.Paths
 
 import akka.actor._
 import akka.testkit.{TestProbe, ImplicitSender, TestKit}
-import de.oliver_heger.linedj.browser.model.SongData
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData

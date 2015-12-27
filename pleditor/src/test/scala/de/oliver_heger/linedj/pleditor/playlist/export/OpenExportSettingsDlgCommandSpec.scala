@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.pleditor.playlist.export
 
 import java.util
 
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.browser.model.SongData
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
