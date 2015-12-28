@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
 import de.oliver_heger.linedj.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
+import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model._
 import org.apache.commons.configuration.HierarchicalConfiguration
@@ -82,6 +83,10 @@ object MediaControllerSpec {
 
   /** The songs of the third test album. */
   private val Songs3 = Vector("Running up that Hill", "Hounds of Love", "The Big Sky")
+
+  /** Names of the actions for adding songs to the playlist. */
+  private val AppendActions = List("addMediumAction", "addArtistAction", "addAlbumAction",
+    "addSongsAction")
 
   /**
    * Returns the ID for a test medium based on its name.
@@ -321,6 +326,13 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.tableHandler).tableDataChanged()
   }
 
+  it should "enable the add medium action when a medium is selected" in {
+    val helper = new MediaControllerTestHelper
+
+    helper.selectMedium()
+    helper.verifyAction("addMediumAction", enabled = true)
+  }
+
   it should "populate the tree model when meta data arrives" in {
     val helper = new MediaControllerTestHelper
     val chunk = createChunk(songs = createSongData(Artist1, Album1, Songs1))
@@ -399,6 +411,59 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper selectAlbums createTreePath(Artist1, Album1)
     verify(helper.tableHandler).tableDataChanged()
     helper expectSongsInTable songs
+  }
+
+  /**
+    * Creates a test helper and prepares it for a test which uses an album
+    * selection.
+    * @return the prepared test helper
+    */
+  private def prepareAlbumSelection(): MediaControllerTestHelper = {
+    val songs = createSongData(Artist1, Album1, Songs1)
+    val helper = new MediaControllerTestHelper
+    helper selectMediumAndSendMeta createChunk(songs = songs)
+    helper
+  }
+
+  it should "enable append actions for artist and album when there is a selection" in {
+    val helper = prepareAlbumSelection()
+
+    helper selectAlbums createTreePath(Artist1, Album1)
+    helper.verifyAction("addArtistAction", enabled = true)
+    helper.verifyAction("addAlbumAction", enabled = true)
+  }
+
+  it should "disable append actions if there is no album and artist selection" in {
+    val helper = prepareAlbumSelection()
+
+    helper.selectAlbums()
+    helper.verifyAction("addArtistAction", enabled = false)
+    helper.verifyAction("addAlbumAction", enabled = false)
+  }
+
+  it should "enable append actions correctly if there is an artist, but no album selection" in {
+    val helper = prepareAlbumSelection()
+    val node = new DefaultConfigurationNode(Artist1)
+
+    helper selectAlbums createTreePath(node)
+    helper.verifyAction("addArtistAction", enabled = true)
+    helper.verifyAction("addAlbumAction", enabled = false)
+  }
+
+  it should "disable the append songs action if no songs are selected" in {
+    val helper = new MediaControllerTestHelper
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array.empty[Int])
+
+    helper.controller.songSelectionChanged()
+    helper.verifyAction("addSongsAction", enabled = false)
+  }
+
+  it should "enable the append songs action if songs are selected" in {
+    val helper = new MediaControllerTestHelper
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
+
+    helper.controller.songSelectionChanged()
+    helper.verifyAction("addSongsAction", enabled = true)
   }
 
   it should "update the table model for multiple chunks" in {
@@ -543,6 +608,16 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.controller.songsForSelectedMedium should be(songs.flatten)
   }
 
+  it should "disable all actions in its initialize method" in {
+    val helper = new MediaControllerTestHelper
+
+    helper.controller.initialize()
+    helper.verifyAction("addMediumAction", enabled = false)
+    helper.verifyAction("addArtistAction", enabled = false)
+    helper.verifyAction("addAlbumAction", enabled = false)
+    helper.verifyAction("addSongsAction", enabled = false)
+  }
+
   /**
    * A test helper class managing mock objects for the dependencies of a
    * controller.
@@ -574,10 +649,17 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** The in-progress widget. */
     val labelInProgress = mock[WidgetHandler]
 
+    /** A map with actions managed by the controller. */
+    val actionMap = createActionMap()
+
+    /** The mock action store. */
+    val actionStore = createActionStore(actionMap)
+
     /** The controller test instance. */
     val controller = new MediaController(messageBus = messageBus, songFactory = songFactory,
       comboMedia = comboHandler, treeHandler = treeHandler, tableHandler = tableHandler,
-      inProgressWidget = labelInProgress, undefinedMediumName = UndefinedMediumName)
+      inProgressWidget = labelInProgress, undefinedMediumName = UndefinedMediumName,
+      actionStore = actionStore)
 
     /** Stores the messages published to the message bus. */
     private val publishedMessages = ListBuffer.empty[Any]
@@ -715,6 +797,16 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
+      * Checks whether the enabled state of the action with the given name has
+      * been set to the given value.
+      * @param name the name of the action
+      * @param enabled the expected enabled state
+      */
+    def verifyAction(name: String, enabled: Boolean): Unit = {
+      verify(actionMap(name)).setEnabled(enabled)
+    }
+
+    /**
      * Creates a mock for the message bus. All messages published via the bus
      * are stored in an internal buffer.
      * @return the mock message bus
@@ -762,6 +854,30 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(model)
       handler
+    }
+
+    /**
+      * Creates a map with mock actions for appending songs to the playlist.
+      * @return the map with actions
+      */
+    private def createActionMap(): Map[String, FormAction] = {
+      val mocks = AppendActions map (_ => mock[FormAction])
+      Map(AppendActions zip mocks: _*)
+    }
+
+    /**
+      * Creates a mock action store which allows querying the actions in the
+      * specified map.
+      * @param actions the map with supported actions
+      * @return the mock action store
+      */
+    private def createActionStore(actions: Map[String, FormAction]): ActionStore = {
+      val store = mock[ActionStore]
+      when(store.getAction(any(classOf[String]))).thenAnswer(new Answer[FormAction] {
+        override def answer(invocationOnMock: InvocationOnMock): FormAction =
+          actions(invocationOnMock.getArguments.head.asInstanceOf[String])
+      })
+      store
     }
   }
 

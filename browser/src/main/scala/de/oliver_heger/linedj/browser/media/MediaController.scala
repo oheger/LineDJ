@@ -26,12 +26,25 @@ import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
 import de.oliver_heger.linedj.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
+import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
 
 import scala.annotation.tailrec
 
 object MediaController {
+  /** Name of the action for adding the whole medium. */
+  private val ActionAddMedium = "addMediumAction"
+
+  /** Name of the action for adding the songs of an artist. */
+  private val ActionAddArtist = "addArtistAction"
+
+  /** Name of the action for adding the songs of an album. */
+  private val ActionAddAlbum = "addAlbumAction"
+
+  /** Name of the action for adding the currently selected songs. */
+  private val ActionAddSongs = "addSongsAction"
+
   /**
    * Creates an ''AlbumKey'' object for the specified song.
    * @param song the ''SongData''
@@ -98,11 +111,12 @@ object MediaController {
  * @param treeHandler the handler for the tree view
  * @param tableHandler the handler for the table
  * @param inProgressWidget the widget handler for the in-progress indicator
+ * @param actionStore the ''ActionStore''
  * @param undefinedMediumName the name to be used for the undefined medium
  */
 class MediaController(messageBus: MessageBus, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
-                      WidgetHandler, undefinedMediumName: String) extends
+                      WidgetHandler, actionStore: ActionStore, undefinedMediumName: String) extends
 MessageBusListener {
 
   import MediaController._
@@ -130,6 +144,17 @@ MessageBusListener {
 
   /** Stores the available media. */
   private var availableMedia = Map.empty[MediumID, MediumInfo]
+
+  /**
+    * Initializes this controller. This method sets initial state of some of
+    * the managed objects.
+    */
+  def initialize(): Unit = {
+    enableAction(ActionAddMedium, enabled = false)
+    enableAction(ActionAddArtist, enabled = false)
+    enableAction(ActionAddAlbum, enabled = false)
+    enableAction(ActionAddSongs, enabled = false)
+  }
 
   /**
    * Returns the function for handling messages published on the message bus.
@@ -160,6 +185,7 @@ MessageBusListener {
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
+    enableAction(ActionAddMedium, enabled = true)
   }
 
   /**
@@ -173,7 +199,18 @@ MessageBusListener {
       val keys = fetchSelectedAlbumKeys(paths)
       selectedAlbumKeys = keys.toSet
       fillTableModelForSelection(m.tableModel, keys)
+
+      enableAction(ActionAddArtist, paths.nonEmpty)
+      enableAction(ActionAddAlbum, selectedAlbumKeys.nonEmpty)
     }
+  }
+
+  /**
+    * Notifies this controller that the selection of the song table has
+    * changed. In this case, some actions need to be updated.
+    */
+  def songSelectionChanged(): Unit = {
+    enableAction("addSongsAction", tableHandler.getSelectedIndices.nonEmpty)
   }
 
   /**
@@ -386,4 +423,13 @@ MessageBusListener {
       case None =>
         Nil
     }
+
+  /**
+    * Changes the enabled state of an action.
+    * @param name the action name
+    * @param enabled the new enabled state
+    */
+  private def enableAction(name: String, enabled: Boolean): Unit = {
+    actionStore.getAction(name) setEnabled enabled
+  }
 }
