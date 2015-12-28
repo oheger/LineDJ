@@ -16,57 +16,38 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import java.util
-
-import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
-import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.di.BeanContext
-import net.sf.jguiraffe.gui.builder.action.{PopupMenuBuilder, ActionStore, FormAction}
+import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction, PopupMenuBuilder}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
-import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''MediumPopupHandler''.
  */
 class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
-  "A MediumPopupHandler" should "add an action for adding the current medium" in {
+  "A MediumPopupHandler" should "add actions for appending medium, artist, and album" in {
     val helper = new MediumPopupHandlerTestHelper
 
-    helper.checkAction(helper.actAddMedium)(_.songsForSelectedMedium)
-  }
-
-  it should "add an action for adding the selected artists" in {
-    val helper = new MediumPopupHandlerTestHelper
-
-    helper.checkAction(helper.actAddArtists)(_.songsForSelectedArtists)
-  }
-
-  it should "add an action for adding the selected albums" in {
-    val helper = new MediumPopupHandlerTestHelper
-
-    helper.checkAction(helper.actAddAlbums)(_.songsForSelectedAlbums)
+    helper.invokeHandler().verifyActionAdded(helper.actAddMedium).verifyActionAdded(helper
+      .actAddArtists).verifyActionAdded(helper.actAddAlbums)
   }
 
   it should "add an action for the currently selected songs" in {
     val helper = new MediumPopupHandlerTestHelper
-    val songs = List(mock[SongData], mock[SongData], mock[SongData], mock[SongData])
-    val tableModel = util.Arrays.asList(null, songs.head, null, songs(1), songs(2), null, songs(3))
-    doReturn(tableModel).when(helper.tableHandler).getModel
-    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 3, 4, 6))
+    val actAddSongs = helper prepareAddSongsAction true
 
-    helper.invokeHandler().verifyActionAdded(helper.actAddSongs).verifyActionTask(helper
-      .actAddSongs, songs)
+    helper.invokeHandler().verifyActionAdded(actAddSongs)
   }
 
   it should "not add an action for selected songs if there is no selection" in {
     val helper = new MediumPopupHandlerTestHelper
+    val actAddSongs = helper prepareAddSongsAction false
 
-    helper.invokeHandler().verifyActionNotAdded(helper.actAddSongs)
+    helper.invokeHandler().verifyActionNotAdded(actAddSongs)
   }
 
   /**
@@ -86,23 +67,24 @@ class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** The action for adding the selected songs. */
     val actAddSongs = action()
 
-    /** A mock for the message bus. */
-    val messageBus = mock[MessageBus]
-
     /** A mock for the action store. */
     val actionStore = createActionStore()
-
-    /** A mock for the medium controller. */
-    val controller = mock[MediaController]
-
-    /** A mock for the table handler. */
-    val tableHandler = createTableHandler()
 
     /** A mock for the popup menu builder. */
     private val popupBuilder = createPopupBuilder()
 
     /** The popup handler to be tested. */
-    private val popupHandler = new MediumPopupHandler(messageBus)
+    private val popupHandler = new MediumPopupHandler
+
+    /**
+      * Prepares the action for adding songs. The enabled flag is set.
+      * @param enabled the enabled flag
+      * @return the action for addings songs
+      */
+    def prepareAddSongsAction(enabled: Boolean): FormAction = {
+      when(actAddSongs.isEnabled).thenReturn(enabled)
+      actAddSongs
+    }
 
     /**
      * Verifies that the specified action has been added to the popup builder.
@@ -126,54 +108,13 @@ class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
-     * Prepares the mock controller to expect a request for selected songs. The
-     * songs in question are selected by the passed in function.
-     * @param r the function querying the songs from the controller
-     * @return a list with test song data
-     */
-    def expectSelectionRequest(r: MediaController => Seq[SongData]): Seq[SongData] = {
-      val songs = List(mock[SongData], mock[SongData], mock[SongData])
-      when(r(controller)).thenReturn(songs)
-      songs
-    }
-
-    /**
      * Invokes the test handler.
      * @return this object
      */
     def invokeHandler(): MediumPopupHandlerTestHelper = {
       popupHandler.constructPopup(popupBuilder, createComponentData())
       verify(popupBuilder).create()
-      verifyZeroInteractions(controller)
       this
-    }
-
-    /**
-     * Verifies that the task of the specified action produces the expected
-     * results. This method checks whether the expected message with songs to
-     * be added is published on the message bus.
-     * @param action the action to be verified
-     * @param expSongs the expected songs
-     * @return this object
-     */
-    def verifyActionTask(action: FormAction, expSongs: Seq[SongData]):
-    MediumPopupHandlerTestHelper = {
-      val captorTask = ArgumentCaptor forClass classOf[Runnable]
-      verify(action).setTask(captorTask.capture())
-      captorTask.getValue.run()
-      verify(messageBus).publish(AppendSongs(expSongs))
-      this
-    }
-
-    /**
-     * Executes a test whether an action is correctly added to the popup
-     * builder with a correct action task.
-     * @param action the action to be tested
-     * @param r the function querying the expected songs from the controller
-     */
-    def checkAction(action: FormAction)(r: MediaController => Seq[SongData]): Unit = {
-      val songs = expectSelectionRequest(r)
-      invokeHandler().verifyActionAdded(action).verifyActionTask(action, songs)
     }
 
     /**
@@ -187,8 +128,6 @@ class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
       val context = mock[BeanContext]
       when(builderData.getBeanContext).thenReturn(context)
       doReturn(actionStore).when(context).getBean("ACTION_STORE")
-      doReturn(controller).when(context).getBean("mediaController")
-      doReturn(tableHandler).when(builderData).getComponentHandler("tableMedia")
       builderData
     }
 

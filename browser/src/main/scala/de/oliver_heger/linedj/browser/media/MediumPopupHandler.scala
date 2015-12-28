@@ -16,16 +16,10 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
-import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.gui.builder.action._
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
-import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
 object MediumPopupHandler {
-  /** The name of the bean for the medium controller. */
-  private val BeanController = "mediaController"
-
   /** The name of the action for adding the current medium. */
   private val ActionAddMedium = "addMediumAction"
 
@@ -45,9 +39,6 @@ object MediumPopupHandler {
    * The name of the action for adding the currently selected songs.
    */
   private val ActionAddSongs = "addSongsAction"
-
-  /** The name of the media table component. */
-  private val CompTable = "tableMedia"
 }
 
 /**
@@ -57,65 +48,23 @@ object MediumPopupHandler {
  * page. The menus contain actions for adding parts of the current medium to
  * the playlist under construction. For instance, it is possible to add all
  * songs of currently selected albums or artists.
- *
- * @param messageBus the message bus
  */
-class MediumPopupHandler(messageBus: MessageBus) extends PopupMenuHandler {
+class MediumPopupHandler extends PopupMenuHandler {
 
   import MediumPopupHandler._
 
   override def constructPopup(builder: PopupMenuBuilder, compData: ComponentBuilderData): Unit = {
-    def bean(name: String): Any = compData.getBeanContext getBean name
+    val actionStore = compData.getBeanContext.getBean(ActionBuilder.KEY_ACTION_STORE)
+      .asInstanceOf[ActionStore]
+    builder addAction actionStore.getAction(ActionAddMedium)
+    builder addAction actionStore.getAction(ActionAddArtist)
+    builder addAction actionStore.getAction(ActionAddAlbum)
 
-    val actionStore = bean(ActionBuilder.KEY_ACTION_STORE).asInstanceOf[ActionStore]
-    lazy val controller = bean(BeanController).asInstanceOf[MediaController]
-
-    def fetchAndPrepareAction(name: String)(f: MediaController => Seq[SongData]): FormAction = {
-      val action = actionStore getAction name
-      action setTask createActionTask(f(controller))
-      action
-    }
-
-    builder addAction fetchAndPrepareAction(ActionAddMedium)(_.songsForSelectedMedium)
-    builder addAction fetchAndPrepareAction(ActionAddArtist)(_.songsForSelectedArtists)
-    builder addAction fetchAndPrepareAction(ActionAddAlbum)(_.songsForSelectedAlbums)
-
-    handleSelectedSongs(builder, compData, actionStore)
-    builder.create()
-  }
-
-  /**
-   * Adds an action to add the currently selected songs in the media table if
-   * a selection exists.
-   * @param builder the popup menu builder
-   * @param compData the component builder data
-   * @param actionStore the action store
-   * @return the modified popup builder
-   */
-  private def handleSelectedSongs(builder: PopupMenuBuilder, compData: ComponentBuilderData,
-                                  actionStore: ActionStore): PopupMenuBuilder = {
-    val tableHandler = compData.getComponentHandler(CompTable).asInstanceOf[TableHandler]
-    val selectedIndices = tableHandler.getSelectedIndices
-    if (selectedIndices.nonEmpty) {
+    val action = actionStore.getAction(ActionAddSongs)
+    if (action.isEnabled) {
       builder.addSeparator()
-      val songs = selectedIndices map (tableHandler.getModel.get(_).asInstanceOf[SongData])
-      val action = actionStore getAction ActionAddSongs
-      action setTask createActionTask(songs)
       builder addAction action
     }
-    builder
+    builder.create()
   }
-
-  /**
-   * Creates a task for an action which adds the specified songs to the
-   * playlist under construction.
-   * @param songs the songs to be added
-   * @return the action task
-   */
-  private def createActionTask(songs: => Seq[SongData]): Runnable =
-    new Runnable {
-      override def run(): Unit = {
-        messageBus publish AppendSongs(songs)
-      }
-    }
 }
