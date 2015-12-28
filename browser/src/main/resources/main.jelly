@@ -41,19 +41,37 @@
     resgrp="application" taskBean="exitTask"/>
 
   <!-- Actions for adding songs from a medium to the playlist -->
-  <a:action name="addMediumAction" textres="act_addmedium_text"
-    mnemonicres="act_addmedium_mnemo" taskBean="exitTask"/>
-  <a:action name="addArtistAction" textres="act_addartist_text"
-    mnemonicres="act_addartist_mnemo" taskBean="exitTask"/>
-  <a:action name="addAlbumAction" textres="act_addalbum_text"
-    mnemonicres="act_addalbum_mnemo" taskBean="exitTask"/>
-  <a:action name="addSongsAction" textres="act_addsongs_text"
-    mnemonicres="act_addsongs_mnemo" taskBean="exitTask"/>
+  <a:action name="addMediumAction" textres="act_addmedium_text" tooltipres="act_addmedium_tip"
+    mnemonicres="act_addmedium_mnemo" taskBean="addMediumTask">
+    <f:icon resource="medium.png"/>
+  </a:action>
+
+  <a:action name="addArtistAction" textres="act_addartist_text" tooltipres="act_addartist_tip"
+    mnemonicres="act_addartist_mnemo" taskBean="addArtistTask">
+    <f:icon resource="artist.png"/>
+  </a:action>
+
+  <a:action name="addAlbumAction" textres="act_addalbum_text" tooltipres="act_addalbum_tip"
+    mnemonicres="act_addalbum_mnemo" taskBean="addAlbumTask">
+    <f:icon resource="album.png"/>
+  </a:action>
+
+  <a:action name="addSongsAction" textres="act_addsongs_text" tooltipres="act_addsongs_tip"
+    mnemonicres="act_addsongs_mnemo" taskBean="addSongsTask">
+    <f:icon resource="songs.png"/>
+  </a:action>
 
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_add_text" mnemonicres="menu_add_mnemo">
+      <a:menuitem actionName="addMediumAction"/>
+      <a:menuitem actionName="addArtistAction"/>
+      <a:menuitem actionName="addAlbumAction"/>
+      <a:separator/>
+      <a:menuitem actionName="addSongsAction"/>
     </a:menu>
   </a:menubar>
 
@@ -102,9 +120,6 @@
   <!-- Popup menu handler -->
   <di:bean name="mediaPopupHandler"
     beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
-    <di:constructor>
-      <di:param refName="LineDJ_MessageBus"/>
-    </di:constructor>
   </di:bean>
 
   <!-- The main window -->
@@ -113,7 +128,11 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="addMediumAction"/>
+      <a:toolbutton actionName="addArtistAction"/>
+      <a:toolbutton actionName="addAlbumAction"/>
       <a:separator/>
+      <a:toolbutton actionName="addSongsAction"/>
     </a:toolbar>
 
     <!-- The main panel -->
@@ -206,10 +225,13 @@
         <di:param refName="comp:treeMedia"/>
         <di:param refName="comp:tableMedia"/>
         <di:param refName="widget:mediaLoadingIndicator"/>
+        <di:param refName="ACTION_STORE"/>
         <di:param>
           <f:localized resid="undefinedMedium"/>
         </di:param>
       </di:constructor>
+
+      <di:methodInvocation method="initialize"/>
     </di:bean>
 
     <w:controller beanName="remoteController"/>
@@ -227,6 +249,8 @@
     beanName="mediaSelectionChangeListener"/>
   <a:eventListener component="treeMedia" eventType="CHANGE"
     beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="tableMedia" eventType="CHANGE"
+    beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 
@@ -235,4 +259,36 @@
     beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
+  <!-- Action tasks for adding songs to the playlist -->
+  <di:bean name="addMediumTask"
+    beanClassName="de.oliver_heger.linedj.browser.media.AppendMediumActionTask">
+    <di:constructor>
+      <di:param refName="mediaController"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addArtistTask"
+    beanClassName="de.oliver_heger.linedj.browser.media.AppendArtistActionTask">
+    <di:constructor>
+      <di:param refName="mediaController"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addAlbumTask"
+    beanClassName="de.oliver_heger.linedj.browser.media.AppendAlbumActionTask">
+    <di:constructor>
+      <di:param refName="mediaController"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addSongsTask"
+    beanClassName="de.oliver_heger.linedj.browser.media.AppendSongsActionTask">
+    <di:constructor>
+      <di:param refName="comp:tableMedia"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>
