@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.media.MediumID
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler,
-TreeNodePath}
+import net.sf.jguiraffe.gui.builder.components.model.{TableHandler, ListComponentHandler,
+TreeHandler, TreeNodePath}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito._
@@ -57,5 +57,14 @@ class SelectionChangeHandlerSpec extends FlatSpec with Matchers with MockitoSuga
 
     handler elementChanged createChangeEvent(treeHandler)
     verify(controller).selectAlbums(SelectedPaths)
+  }
+
+  it should "react on a changed songs selection" in {
+    val tableHandler = mock[TableHandler]
+    val controller = mock[MediaController]
+    val handler = new SelectionChangeHandler(controller)
+
+    handler elementChanged createChangeEvent(tableHandler)
+    verify(controller).songSelectionChanged()
   }
 }

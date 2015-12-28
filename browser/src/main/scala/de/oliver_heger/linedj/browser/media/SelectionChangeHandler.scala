@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.media.MediumID
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler}
+import net.sf.jguiraffe.gui.builder.components.model.{TableHandler, ListComponentHandler,
+TreeHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
 /**
@@ -40,6 +41,9 @@ class SelectionChangeHandler(controller: MediaController) extends FormChangeList
 
       case treeHandler: TreeHandler =>
         controller selectAlbums treeHandler.getSelectedPaths
+
+      case _: TableHandler =>
+        controller.songSelectionChanged()
     }
   }
 }
