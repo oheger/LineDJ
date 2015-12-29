@@ -22,9 +22,9 @@ import java.util.Locale
 
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.client.remoting.MessageBus
-import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
-import de.oliver_heger.linedj.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, MessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
+import de.oliver_heger.linedj.media.{GetAvailableMedia, AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -220,6 +220,14 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.labelInProgress).setVisible(false)
   }
 
+  it should "handle a server available message correctly" in {
+    val helper = new MediaControllerTestHelper
+
+    helper send ServerAvailable
+    verify(helper.labelInProgress).setVisible(false)
+    verify(helper.remoteMessageBus).send(RemoteActors.MediaManager, GetAvailableMedia)
+  }
+
   it should "pass available media to the combo handler" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 3
@@ -233,7 +241,17 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verInOrder.verify(helper.comboHandler).addItem(1, MediaNames(1), mediumID(MediaNames(1)))
     verInOrder.verify(helper.comboHandler).addItem(2, MediaNames(2), mediumID(MediaNames(2)))
     verInOrder.verify(helper.comboHandler).addItem(3, UndefinedMediumName, MediumID.UndefinedMediumID)
+    verInOrder.verify(helper.comboHandler).setData(TestMediumID)
     verInOrder.verify(helper.comboHandler).setEnabled(true)
+  }
+
+  it should "handle an empty map with media correctly" in {
+    val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 3
+
+    helper send AvailableMedia(Map.empty)
+    verify(helper.comboHandler, never()).setData(any())
+    verify(helper.comboHandler, never()).setEnabled(true)
   }
 
   it should "add an entry for the undefined medium only if it exists" in {
@@ -631,6 +649,9 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** A mock for the message bus. */
     val messageBus = createMessageBusMock()
 
+    /** A mock for the remote message bus. */
+    val remoteMessageBus = createRemoteMessageBusMock(messageBus)
+
     /** The mock for the combo handler. */
     val comboHandler = mock[ListComponentHandler]
 
@@ -656,10 +677,10 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val actionStore = createActionStore(actionMap)
 
     /** The controller test instance. */
-    val controller = new MediaController(messageBus = messageBus, songFactory = songFactory,
-      comboMedia = comboHandler, treeHandler = treeHandler, tableHandler = tableHandler,
-      inProgressWidget = labelInProgress, undefinedMediumName = UndefinedMediumName,
-      actionStore = actionStore)
+    val controller = new MediaController(remoteMessageBus = remoteMessageBus, songFactory =
+      songFactory, comboMedia = comboHandler, treeHandler = treeHandler, tableHandler =
+      tableHandler, inProgressWidget = labelInProgress, undefinedMediumName =
+      UndefinedMediumName, actionStore = actionStore)
 
     /** Stores the messages published to the message bus. */
     private val publishedMessages = ListBuffer.empty[Any]
@@ -820,6 +841,17 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
         }
       })
       bus
+    }
+
+    /**
+      * Creates a mock for the remote message bus.
+      * @param msgBus the underlying message bus
+      * @return the mock for the remote message bus
+      */
+    private def createRemoteMessageBusMock(msgBus: MessageBus): RemoteMessageBus = {
+      val remoteBus = mock[RemoteMessageBus]
+      when(remoteBus.bus).thenReturn(msgBus)
+      remoteBus
     }
 
     /**

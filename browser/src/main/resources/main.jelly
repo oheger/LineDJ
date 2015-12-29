@@ -219,7 +219,7 @@
     <di:bean name="mediaController"
       beanClassName="de.oliver_heger.linedj.browser.media.MediaController">
       <di:constructor>
-        <di:param refName="LineDJ_MessageBus"/>
+        <di:param refName="LineDJ_RemoteMessageBus"/>
         <di:param refName="songDataFactory"/>
         <di:param refName="comp:comboMedia"/>
         <di:param refName="comp:treeMedia"/>

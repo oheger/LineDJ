@@ -22,9 +22,9 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.bus.MessageBusListener
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.client.remoting.MessageBus
-import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.ServerUnavailable
-import de.oliver_heger.linedj.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
+import de.oliver_heger.linedj.media.{GetAvailableMedia, AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -105,7 +105,7 @@ object MediaController {
  * disabled, so that the user cannot select a new medium for which no meta data
  * is available.
  *
- * @param messageBus the message bus
+ * @param remoteMessageBus the remote message bus
  * @param songFactory the factory for ''SongData'' objects
  * @param comboMedia the handler for the combo with the media
  * @param treeHandler the handler for the tree view
@@ -114,7 +114,7 @@ object MediaController {
  * @param actionStore the ''ActionStore''
  * @param undefinedMediumName the name to be used for the undefined medium
  */
-class MediaController(messageBus: MessageBus, songFactory: SongDataFactory, comboMedia:
+class MediaController(remoteMessageBus: RemoteMessageBus, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
                       WidgetHandler, actionStore: ActionStore, undefinedMediumName: String) extends
 MessageBusListener {
@@ -165,11 +165,16 @@ MessageBusListener {
       comboMedia setEnabled false
       inProgressWidget setVisible false
 
+    case ServerAvailable =>
+      remoteMessageBus.send(RemoteActors.MediaManager, GetAvailableMedia)
+      inProgressWidget setVisible false
+
     case AvailableMedia(media) =>
       selectedMediumID = None
       removeExistingMediaFromComboBox()
-      addMediaToComboBox(media)
-      comboMedia setEnabled true
+      if (addMediaToComboBox(media)) {
+        comboMedia setEnabled true
+      }
       availableMedia = media
   }
 
@@ -181,7 +186,7 @@ MessageBusListener {
    */
   def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumID foreach clearOldMediumSelection
-    messageBus publish MetaDataRegistration(mediumID, this)(processMetaDataChunk)
+    publish(MetaDataRegistration(mediumID, this)(processMetaDataChunk))
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
@@ -379,7 +384,7 @@ MessageBusListener {
    * @param mediumID the ID of the last selected medium
    */
   private def clearOldMediumSelection(mediumID: MediumID): Unit = {
-    messageBus publish RemoveMetaDataRegistration(mediumID, this)
+    publish(RemoveMetaDataRegistration(mediumID, this))
     models = None
     treeModel.clear()
     tableModel.clear()
@@ -391,14 +396,33 @@ MessageBusListener {
    * Adds all available media to the combo box. The entries are ordered by the
    * names of the media.
    * @param media the map with available media
+   * @return a flag whether data is available
    */
-  private def addMediaToComboBox(media: Map[MediumID, MediumInfo]): Unit = {
-    val orderedMedia = media.toList filter (_._1.mediumDescriptionPath.isDefined) sortWith
-      (_._2.name < _._2.name)
-    orderedMedia.zipWithIndex.foreach(e => comboMedia.addItem(e._2, e._1._2.name, e._1._1))
-    if (media contains MediumID.UndefinedMediumID) {
-      comboMedia.addItem(orderedMedia.size, undefinedMediumName, MediumID.UndefinedMediumID)
+  private def addMediaToComboBox(media: Map[MediumID, MediumInfo]): Boolean = {
+    val orderedMedia = generateMediaList(media)
+    orderedMedia.zipWithIndex.foreach(e => comboMedia.addItem(e._2, e._1._2, e._1._1))
+    orderedMedia.headOption match {
+      case Some(e) =>
+        comboMedia setData e._1
+        true
+      case None => false
     }
+  }
+
+  /**
+    * Generates a list with data about media to be added to the model of the
+    * media combo box. The list elements consist of the medium ID and the
+    * display name for this medium.
+    * @param media the map with available media
+    * @return a list with the info to be added to the combo model
+    */
+  private def generateMediaList(media: Map[MediumID, MediumInfo]): List[(MediumID, String)] = {
+    var orderedMedia = media.toList filter (_._1.mediumDescriptionPath.isDefined) sortWith
+      (_._2.name < _._2.name) map (e => (e._1, e._2.name))
+    if (media contains MediumID.UndefinedMediumID) {
+      orderedMedia = orderedMedia ++ List((MediumID.UndefinedMediumID, undefinedMediumName))
+    }
+    orderedMedia
   }
 
   /**
@@ -431,5 +455,13 @@ MessageBusListener {
     */
   private def enableAction(name: String, enabled: Boolean): Unit = {
     actionStore.getAction(name) setEnabled enabled
+  }
+
+  /**
+    * Publishes a message on the message bus.
+    * @param msg the message to be published
+    */
+  private def publish(msg: Any): Unit = {
+    remoteMessageBus.bus publish msg
   }
 }
