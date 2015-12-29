@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.client.bus
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
-import de.oliver_heger.linedj.media.GetAvailableMedia
+import de.oliver_heger.linedj.client.remoting.RemoteRelayActor
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 
@@ -39,20 +38,14 @@ object RemoteController {
  * this should be reflected in the UI: an indicator showing the current state
  * is switched; some actions are only enabled if the server is available.
  *
- * In addition, whenever the server becomes available, this class sends a
- * message to query all available media. This information is important for
- * some components listening on the event bus.
- *
  * An instance of this class is created by the dependency injection
  * framework. The dependencies are automatically injected.
  *
- * @param bus the remote message bus
  * @param actionStore the action store
  * @param serverAvailableIndicator the indicator for the server available
  * @param serverUnavailableIndicator the indicator for the server not available
  */
-class RemoteController(bus: RemoteMessageBus, actionStore: ActionStore,
-                       serverAvailableIndicator: WidgetHandler,
+class RemoteController(actionStore: ActionStore, serverAvailableIndicator: WidgetHandler,
                        serverUnavailableIndicator: WidgetHandler) extends MessageBusListener {
 
   import RemoteController._
@@ -71,7 +64,6 @@ class RemoteController(bus: RemoteMessageBus, actionStore: ActionStore,
       actionStore.enableGroup(ServerActions, true)
       serverAvailableIndicator setVisible true
       serverUnavailableIndicator setVisible false
-      bus.send(RemoteActors.MediaManager, GetAvailableMedia)
   }
 
   /**

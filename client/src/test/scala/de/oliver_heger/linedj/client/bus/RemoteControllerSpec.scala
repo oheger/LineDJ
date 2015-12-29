@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
-import de.oliver_heger.linedj.media.GetAvailableMedia
+import de.oliver_heger.linedj.client.remoting.{RemoteMessageBus, RemoteRelayActor}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._
@@ -45,7 +44,6 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.actionStore).enableGroup(RemoteController.ServerActions, true)
     verify(helper.availableIndicator).setVisible(true)
     verify(helper.unavailableIndicator).setVisible(false)
-    verify(helper.messageBus).send(RemoteActors.MediaManager, GetAvailableMedia)
   }
 
   /**
@@ -65,9 +63,8 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val unavailableIndicator = mock[WidgetHandler]
 
     /** The test instance. */
-    val controller = new RemoteController(bus = messageBus, actionStore = actionStore,
-      serverAvailableIndicator = availableIndicator, serverUnavailableIndicator =
-        unavailableIndicator)
+    val controller = new RemoteController(actionStore = actionStore, serverAvailableIndicator = availableIndicator, serverUnavailableIndicator =
+            unavailableIndicator)
 
     /**
      * Sends a message to the receive method of the test controller.

@@ -136,7 +136,6 @@
     <di:bean name="remoteController"
       beanClassName="de.oliver_heger.linedj.client.bus.RemoteController">
       <di:constructor>
-        <di:param refName="LineDJ_RemoteMessageBus"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="widget:onlineIndicator"/>
         <di:param refName="widget:offlineIndicator"/>
