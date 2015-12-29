@@ -82,9 +82,19 @@ MessageBusListener with FormActionListener {
   /** Stores the managed window. */
   private var window: Window = _
 
+  /** The registration ID for the bus listener. */
+  private var listenerID = 0
+
   override def windowDeiconified(windowEvent: WindowEvent): Unit = {}
 
-  override def windowClosing(windowEvent: WindowEvent): Unit = {}
+  /**
+    * The window is closing. This implementation removes the listener
+    * registration from the message bus.
+    * @param windowEvent the window event
+    */
+  override def windowClosing(windowEvent: WindowEvent): Unit = {
+    remoteBus.bus removeListener listenerID
+  }
 
   override def windowClosed(windowEvent: WindowEvent): Unit = {}
 
@@ -100,7 +110,7 @@ MessageBusListener with FormActionListener {
    * @param windowEvent the window event
    */
   override def windowOpened(windowEvent: WindowEvent): Unit = {
-    remoteBus.bus registerListener receive
+    listenerID = remoteBus.bus registerListener receive
 
     exportActor = actorFactory.createActor(ExportActor(remoteBus), ExportActorName)
     exportActor ! exportData

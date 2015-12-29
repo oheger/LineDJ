@@ -88,7 +88,6 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
     helper.controller.windowActivated(event)
     helper.controller.windowClosed(event)
-    helper.controller.windowClosing(event)
     helper.controller.windowDeactivated(event)
     helper.controller.windowDeiconified(event)
     helper.controller.windowIconified(event)
@@ -98,6 +97,14 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().expectBusListenerRegistration()
+  }
+
+  it should "remove the message bus listener registration when the window is closing" in {
+    val helper = new ExportControllerTestHelper
+    helper.openWindow()
+
+    helper.controller.windowClosing(mock[WindowEvent])
+    verify(helper.remoteMessageBus.bus).removeListener(ListenerID)
   }
 
   it should "create the export actor and start the export" in {
@@ -208,11 +215,10 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     }
 
     /**
-     * Expects that the controller registeres itself as message bus listener.
+     * Expects that the controller registers itself as message bus listener.
      * @return this test helper
      */
     def expectBusListenerRegistration(): ExportControllerTestHelper = {
-      val bus = remoteMessageBus.bus
       fetchMessageBusListener()
       this
     }
