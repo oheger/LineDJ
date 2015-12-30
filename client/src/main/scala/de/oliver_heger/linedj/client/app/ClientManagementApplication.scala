@@ -115,6 +115,9 @@ ClientApplicationContext {
   /** A list with the currently registered client applications. */
   private val registeredClients = new AtomicReference(List.empty[Application])
 
+  /** Flag whether the application is currently shutting down. */
+  private var shutdownInProgress = false
+
   /**
     * Creates a new instance of ''ClientManagementApplication'' with default
     * settings.
@@ -226,8 +229,11 @@ ClientApplicationContext {
     * @param app the client application that was closed
     */
   private def triggerShutdown(app: Application): Unit = {
-    clientApplications filterNot (_ == app) foreach (_.shutdown())
-    shutdown()
+    if (!shutdownInProgress) {
+      shutdownInProgress = true
+      clientApplications filterNot (_ == app) foreach (_.shutdown())
+      shutdown()
+    }
   }
 
   /**

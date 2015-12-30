@@ -24,6 +24,8 @@ import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.mockito.{Mockito, ArgumentCaptor}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -241,6 +243,18 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
   }
 
   it should "implement correct shutdown behavior" in {
+    def initShutdown(client: Application): Runnable = {
+      val captExit = ArgumentCaptor.forClass(classOf[Runnable])
+      verify(client).setExitHandler(captExit.capture())
+      doAnswer(new Answer[Object] {
+        override def answer(invocationOnMock: InvocationOnMock): Object = {
+          captExit.getValue.run()
+          null
+        }
+      }).when(client).shutdown()
+      captExit.getValue
+    }
+
     val client1, client2, client3 = mock[Application]
     val exitHandler = mock[Runnable]
     val app = runApp(new ClientManagementApplicationTestImpl(createRemoteMessageBusFactoryMock
@@ -250,9 +264,10 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
     app addClientApplication client3
     app setExitHandler exitHandler
 
-    val captExit = ArgumentCaptor.forClass(classOf[Runnable])
-    verify(client2).setExitHandler(captExit.capture())
-    captExit.getValue.run()
+    val clientExitHandler = initShutdown(client2)
+    initShutdown(client1)
+    initShutdown(client3)
+    clientExitHandler.run()
     verify(client1, Mockito.times(1)).shutdown()
     verify(client3, Mockito.times(1)).shutdown()
     verify(client2, Mockito.never()).shutdown()
