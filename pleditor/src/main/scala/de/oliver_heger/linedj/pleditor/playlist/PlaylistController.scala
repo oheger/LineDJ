@@ -66,7 +66,6 @@ object PlaylistController {
  */
 class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandler,
                          statusLineTemplate: String) extends MessageBusListener {
-
   import PlaylistController._
 
   /**
@@ -78,6 +77,24 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
       val currentSize = tableHandler.getModel.size()
       tableHandler.getModel addAll songs
       tableHandler.rowsInserted(currentSize, currentSize + songs.size - 1)
-      statusLine setText generateStatusLineText(tableHandler.getModel, statusLineTemplate)
+      updateStatusLine()
+  }
+
+  /**
+    * Updates the current playlist by invoking the specified
+    * ''PlaylistManipulator''.
+    * @param manipulator the ''PlaylistManipulator''
+    */
+  def updatePlaylist(manipulator: PlaylistManipulator): Unit = {
+    manipulator updatePlaylist PlaylistSelectionContext(tableHandler)
+    updateStatusLine()
+  }
+
+  /**
+    * Updates the status line with information about the current playlist. This
+    * method is called after the playlist has been manipulated.
+    */
+  private def updateStatusLine(): Unit = {
+    statusLine setText generateStatusLineText(tableHandler.getModel, statusLineTemplate)
   }
 }

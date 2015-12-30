@@ -103,6 +103,25 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.statusLineHandler).setText(generateStatusLine(2, "> 1:00", 2.0))
   }
 
+  it should "execute a playlist manipulator" in {
+    val song1 = song("A", 60000, 1024 * 1024)
+    val song2 = song("B", 120000, 1572864)
+    val helper = new PlaylistControllerTestHelper
+    helper.appendSongs(song1, song2)
+    val manipulator = new PlaylistManipulator {
+      override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+        context.tableHandler.getModel.remove(1)
+      }
+
+      override def isEnabled(context: PlaylistSelectionContext): Boolean = true
+    }
+
+    helper.controller updatePlaylist manipulator
+    helper.playlistModel should have size 1
+    helper.playlistModel should contain only song1
+    verify(helper.statusLineHandler).setText(generateStatusLine(1, "1:00", 1.0))
+  }
+
   /**
    * A test helper class managing dependent objects.
    */
