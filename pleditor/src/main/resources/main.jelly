@@ -41,9 +41,15 @@
     resgrp="application" taskBean="exitTask"/>
 
   <!-- Playlist export action -->
-  <a:action name="plExportAction" textres="act_plexport_text"
+  <a:action name="plExportAction" textres="act_plexport_text" tooltipres="act_plexport_tip"
     mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask">
     <f:icon resource="export.png"/>
+  </a:action>
+
+  <!-- Actions manipulating the playlist -->
+  <a:action name="plRemoveAction" textres="act_plremove_text" tooltipres="act_plremove_tip"
+            mnemonicres="act_plremove_mnemo" taskBean="removeTask" enabled="false">
+    <f:icon resource="clear.png"/>
   </a:action>
 
   <!-- The main menu -->
@@ -52,6 +58,8 @@
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
+      <a:menuitem actionName="plRemoveAction"/>
+      <a:separator/>
       <a:menuitem actionName="plExportAction"/>
     </a:menu>
   </a:menubar>
@@ -79,8 +87,9 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
-      <a:toolbutton actionName="plExportAction"/>
+      <a:toolbutton actionName="plRemoveAction"/>
       <a:separator/>
+      <a:toolbutton actionName="plExportAction"/>
     </a:toolbar>
 
     <!-- The main panel -->
@@ -180,6 +189,14 @@
     beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="playlistExportCommand"/>
     <di:setProperty property="beforeEnabler" value="action:plExportAction"/>
+  </di:bean>
+
+  <!-- Tasks for actions that manipulate the playlist -->
+  <di:bean name="removeTask"
+           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistRemoveItemsTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
   </di:bean>
 
 </j:jelly>
