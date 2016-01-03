@@ -69,7 +69,8 @@ ApplicationTestSupport {
 
     val enabler = queryBean[PlaylistActionEnabler](app.getMainWindowBeanContext,
       "playlistActionEnabler")
-    enabler.manipulatorMap.keySet should contain allOf ("plRemoveAction", "plMoveUpAction")
+    enabler.manipulatorMap.keySet should contain allOf("plRemoveAction", "plMoveUpAction",
+      "plMoveDownAction")
   }
 }
 
