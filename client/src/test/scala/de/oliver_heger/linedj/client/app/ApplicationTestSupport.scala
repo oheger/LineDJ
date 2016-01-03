@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.client.app
 
+import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.Application
 import org.mockito.Mockito
 import org.osgi.service.component.ComponentContext
@@ -29,6 +30,24 @@ import org.osgi.service.component.ComponentContext
   */
 trait ApplicationTestSupport {
   /**
+    * Queries the given bean context for a bean with a specific name. This bean
+    * is checked against a type. If this type is matched, the bean is returned;
+    * otherwise, an exception is thrown.
+    * @param context the ''BeanContext''
+    * @param name the name of the bean
+    * @param m the manifest
+    * @tparam T the expected bean type
+    * @return the bean of this type
+    */
+  def queryBean[T](context: BeanContext, name: String)(implicit m: Manifest[T]): T = {
+    context.getBean(name) match {
+      case t: T => t
+      case b =>
+        throw new AssertionError(s"Unexpected bean for name '$name': $b")
+    }
+  }
+
+  /**
     * Queries the given application for a bean with a specific name. This bean
     * is checked against a type. If this type is matched, the bean is returned;
     * otherwise, an exception is thrown.
@@ -38,13 +57,8 @@ trait ApplicationTestSupport {
     * @tparam T the expected bean type
     * @return the bean of this type
     */
-  def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T = {
-    app.getApplicationContext.getBeanContext.getBean(name) match {
-      case t: T => t
-      case b =>
-        throw new AssertionError(s"Unexpected bean for name '$name': $b")
-    }
-  }
+  def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T =
+    queryBean(app.getApplicationContext.getBeanContext, name)(m)
 
   /**
     * Creates a ''ClientApplicationContext'' object which provides mock

@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplica
 ApplicationSyncStartup, ApplicationTestSupport}
 import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.pleditor.config.PlaylistEditorConfig
+import de.oliver_heger.linedj.pleditor.playlist.PlaylistActionEnabler
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._
@@ -61,6 +62,14 @@ ApplicationTestSupport {
 
     app shouldBe a[ApplicationAsyncStartup]
     app.configName should be("pleditor_config.xml")
+  }
+
+  it should "create a PlaylistActionEnabler bean for the main window" in {
+    val app = createApp(mockInitUI = false)
+
+    val enabler = queryBean[PlaylistActionEnabler](app.getMainWindowBeanContext,
+      "playlistActionEnabler")
+    enabler.manipulatorMap.keySet should contain("plRemoveAction")
   }
 }
 

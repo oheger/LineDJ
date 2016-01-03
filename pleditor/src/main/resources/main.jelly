@@ -199,4 +199,19 @@
     </di:constructor>
   </di:bean>
 
+  <!-- Enabler for playlist actions -->
+  <di:bean name="playlistActionEnabler"
+           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistActionEnabler">
+    <di:constructor>
+      <di:param refName="ACTION_STORE"/>
+      <di:param refName="comp:tablePlaylist"/>
+      <di:param>
+        <di:map>
+          <di:entry key="plRemoveAction" refName="removeTask"/>
+        </di:map>
+      </di:param>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="tablePlaylist" eventType="CHANGE" beanName="playlistActionEnabler"/>
 </j:jelly>
