@@ -53,6 +53,12 @@
     <f:icon resource="clear.png"/>
   </a:action>
 
+  <a:action name="plMoveTopAction" textres="act_plmovetop_text" tooltipres="act_plmovetop_tip"
+            mnemonicres="act_plmovetop_mnemo" taskBean="moveTopTask"
+            acceleratorDef="ALT HOME" enabled="false">
+    <f:icon resource="move_top.png"/>
+  </a:action>
+
   <a:action name="plMoveUpAction" textres="act_plmoveup_text" tooltipres="act_plmoveup_tip"
             mnemonicres="act_plmoveup_mnemo" taskBean="moveUpTask"
             acceleratorDef="ALT UP" enabled="false">
@@ -71,6 +77,7 @@
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
+      <a:menuitem actionName="plMoveTopAction"/>
       <a:menuitem actionName="plMoveUpAction"/>
       <a:menuitem actionName="plMoveDownAction"/>
       <a:menuitem actionName="plRemoveAction"/>
@@ -102,6 +109,7 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="plMoveTopAction"/>
       <a:toolbutton actionName="plMoveUpAction"/>
       <a:toolbutton actionName="plMoveDownAction"/>
       <a:toolbutton actionName="plRemoveAction"/>
@@ -216,6 +224,13 @@
     </di:constructor>
   </di:bean>
 
+  <di:bean name="moveTopTask"
+           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveTopTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
   <di:bean name="moveUpTask"
            beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveUpTask">
     <di:constructor>
@@ -239,6 +254,7 @@
       <di:param>
         <di:map>
           <di:entry key="plRemoveAction" refName="removeTask"/>
+          <di:entry key="plMoveTopAction" refName="moveTopTask"/>
           <di:entry key="plMoveUpAction" refName="moveUpTask"/>
           <di:entry key="plMoveDownAction" refName="moveDownTask"/>
         </di:map>
