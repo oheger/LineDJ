@@ -23,28 +23,7 @@ package de.oliver_heger.linedj.pleditor.playlist
   * @param controller the ''PlaylistController''
   */
 class PlaylistMoveTopTask(controller: PlaylistController) extends
-AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
-
-  /**
-    * @inheritdoc This implementation creates a partition of the table model
-    *             consisting of selected and not selected elements. The
-    *             resulting model is then constructed by concatenating these
-    *             partitions.
-    */
-  override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
-    import scala.collection.JavaConverters._
-    val selection = context.selectedIndices.toSet
-    val model = context.tableHandler.getModel
-    val indexedModel = model.asScala.toList.zipWithIndex
-    val partition = indexedModel.partition(e => selection contains e._2)
-
-    model.clear()
-    partition._1 foreach (e => model.add(e._1))
-    partition._2 foreach (e => model.add(e._1))
-    context.tableHandler.tableDataChanged()
-    val newSelection = 0 until selection.size
-    context.tableHandler setSelectedIndices newSelection.toArray
-  }
+AbstractPlaylistMoveBorderTask(controller) with PlaylistManipulator {
 
   /**
     * @inheritdoc This implementation returns '''true''' if and only if there
@@ -52,4 +31,21 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     */
   override def isEnabled(context: PlaylistSelectionContext): Boolean =
     context.hasSelection && !context.isFirstElementSelected
+
+  /**
+    * @inheritdoc This implementation adds the selected part first followed by
+    *             the unselected part.
+    */
+  override protected def combinePartitions(context: PlaylistSelectionContext, partition: (List[
+    (AnyRef, Int)], List[(AnyRef, Int)])): Unit = {
+    appendToModel(context, partition._1)
+    appendToModel(context, partition._2)
+  }
+
+  /**
+    * @inheritdoc This implementation returns a selection with comprises all
+    *             elements moved to the top.
+    */
+  override protected def nextSelection(context: PlaylistSelectionContext, oldSelection: Set[Int])
+  : Array[Int] = (0 until oldSelection.size).toArray
 }
