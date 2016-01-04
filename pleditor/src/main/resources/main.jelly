@@ -71,6 +71,12 @@
     <f:icon resource="move_down.png"/>
   </a:action>
 
+  <a:action name="plMoveBottomAction" textres="act_plmovebottom_text" tooltipres="act_plmovebottom_tip"
+            mnemonicres="act_plmovebottom_mnemo" taskBean="moveBottomTask"
+            acceleratorDef="ALT END" enabled="false">
+    <f:icon resource="move_bottom.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -80,6 +86,7 @@
       <a:menuitem actionName="plMoveTopAction"/>
       <a:menuitem actionName="plMoveUpAction"/>
       <a:menuitem actionName="plMoveDownAction"/>
+      <a:menuitem actionName="plMoveBottomAction"/>
       <a:menuitem actionName="plRemoveAction"/>
       <a:separator/>
       <a:menuitem actionName="plExportAction"/>
@@ -112,6 +119,7 @@
       <a:toolbutton actionName="plMoveTopAction"/>
       <a:toolbutton actionName="plMoveUpAction"/>
       <a:toolbutton actionName="plMoveDownAction"/>
+      <a:toolbutton actionName="plMoveBottomAction"/>
       <a:toolbutton actionName="plRemoveAction"/>
       <a:separator/>
       <a:toolbutton actionName="plExportAction"/>
@@ -245,6 +253,13 @@
     </di:constructor>
   </di:bean>
 
+  <di:bean name="moveBottomTask"
+           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveBottomTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- Enabler for playlist actions -->
   <di:bean name="playlistActionEnabler"
            beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistActionEnabler">
@@ -257,6 +272,7 @@
           <di:entry key="plMoveTopAction" refName="moveTopTask"/>
           <di:entry key="plMoveUpAction" refName="moveUpTask"/>
           <di:entry key="plMoveDownAction" refName="moveDownTask"/>
+          <di:entry key="plMoveBottomAction" refName="moveBottomTask"/>
         </di:map>
       </di:param>
     </di:constructor>
