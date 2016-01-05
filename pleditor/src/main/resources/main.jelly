@@ -188,7 +188,7 @@
 
     <!-- Playlist controller -->
     <di:bean name="playlistController"
-      beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistController">
+      beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistController">
       <di:constructor>
         <di:param refName="comp:tablePlaylist"/>
         <di:param refName="comp:statusLine"/>
@@ -210,7 +210,7 @@
 
   <!-- Command and task for the playlist export dialog -->
   <di:bean name="playlistExportCommand"
-    beanClassName="de.oliver_heger.linedj.pleditor.playlist.export.OpenExportSettingsDlgCommand">
+    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.export.OpenExportSettingsDlgCommand">
     <di:constructor>
       <di:param value="classpath:exportsettings.jelly"/>
       <di:param refName="pleditorApp_Configuration"/>
@@ -226,35 +226,35 @@
 
   <!-- Tasks for actions that manipulate the playlist -->
   <di:bean name="removeTask"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistRemoveItemsTask">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistRemoveItemsTask">
     <di:constructor>
       <di:param refName="playlistController"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="moveTopTask"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveTopTask">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistMoveTopTask">
     <di:constructor>
       <di:param refName="playlistController"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="moveUpTask"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveUpTask">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistMoveUpTask">
     <di:constructor>
       <di:param refName="playlistController"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="moveDownTask"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveDownTask">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistMoveDownTask">
     <di:constructor>
       <di:param refName="playlistController"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="moveBottomTask"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistMoveBottomTask">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistMoveBottomTask">
     <di:constructor>
       <di:param refName="playlistController"/>
     </di:constructor>
@@ -262,7 +262,7 @@
 
   <!-- Enabler for playlist actions -->
   <di:bean name="playlistActionEnabler"
-           beanClassName="de.oliver_heger.linedj.pleditor.playlist.PlaylistActionEnabler">
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler">
     <di:constructor>
       <di:param refName="ACTION_STORE"/>
       <di:param refName="comp:tablePlaylist"/>

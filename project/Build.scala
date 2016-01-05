@@ -172,8 +172,9 @@ object Build extends Build {
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.pleditor.*"
+        "de.oliver_heger.linedj.pleditor.ui.*"
       ),
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.pleditor.spi"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/pleditorapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")

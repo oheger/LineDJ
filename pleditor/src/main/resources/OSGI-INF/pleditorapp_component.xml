@@ -22,7 +22,7 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.PlaylistEitorApplication" immediate="true">
-  <implementation class="de.oliver_heger.linedj.pleditor.app.PlaylistEditorApp" />
+  <implementation class="de.oliver_heger.linedj.pleditor.ui.app.PlaylistEditorApp" />
 
   <service>
     <provide interface="net.sf.jguiraffe.gui.app.Application"/>
