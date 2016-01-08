@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The Developers Team.
+ * Copyright 2015-2016 The Developers Team.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ object Build extends Build {
   /** Definition of versions. */
   lazy val AkkaVersion = "2.3.12"
   lazy val OsgiVersion = "5.0.0"
+
+  /** The copyright dates. */
+  val CopyRight = "2015-2016"
 
   lazy val akkaDependencies = Seq(
     "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
@@ -56,8 +59,8 @@ object Build extends Build {
     libraryDependencies ++= testDependencies,
     libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
     HeaderPlugin.autoImport.headers := Map(
-      "scala" -> Apache2_0("2015", "The Developers Team."),
-      "conf" -> Apache2_0("2015", "The Developers Team.", "#")
+      "scala" -> Apache2_0(CopyRight, "The Developers Team."),
+      "conf" -> Apache2_0(CopyRight, "The Developers Team.", "#")
     )
   )
 
