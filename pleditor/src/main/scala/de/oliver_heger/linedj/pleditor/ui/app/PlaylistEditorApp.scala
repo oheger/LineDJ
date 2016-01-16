@@ -17,14 +17,44 @@
 package de.oliver_heger.linedj.pleditor.ui.app
 
 import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
+import net.sf.jguiraffe.gui.app.ApplicationContext
 
 object PlaylistEditorApp {
   /** The bean name for the configuration bean. */
   val BeanConfig = "pleditorApp_Configuration"
+
+  /** The bean name for the reorder service. */
+  val BeanReorderService = "pleditor_reorderService"
 }
 
 /**
   * The main application class of the LineDJ Playlist Editor application.
   */
 class PlaylistEditorApp extends ClientApplication("pleditor_config.xml") with
-ApplicationAsyncStartup
+ApplicationAsyncStartup {
+  import PlaylistEditorApp._
+
+  /** Stores the reference to the reorder service. */
+  private var reorderService: ReorderService = _
+
+  /**
+    * Initializes the reference to the ''ReorderService''. This method is
+    * called by the declarative services runtime.
+    *
+    * @param service the ''ReorderService''
+    */
+  def initReorderService(service: ReorderService): Unit = {
+    reorderService = service
+  }
+
+  /**
+    * @inheritdoc This implementation adds some specific beans for the
+    *             playlist editor application.
+    */
+  override def createApplicationContext(): ApplicationContext = {
+    val context = super.createApplicationContext()
+    addBeanDuringApplicationStartup(BeanReorderService, reorderService)
+    context
+  }
+}

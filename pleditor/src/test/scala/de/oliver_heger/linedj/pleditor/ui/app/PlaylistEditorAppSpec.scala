@@ -22,6 +22,7 @@ ApplicationSyncStartup, ApplicationTestSupport}
 import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler
+import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._
@@ -37,11 +38,15 @@ ApplicationTestSupport {
   /**
     * Creates a new test application instance and starts it up. This instance
     * can then be used to test whether initialization was correctly.
+    *
     * @param mockInitUI flag whether initialization of the UI should be mocked
     * @return the instance of the application
     */
   private def createApp(mockInitUI: Boolean = true): PlaylistEditorAppTestImpl = {
-    activateApp(new PlaylistEditorAppTestImpl(mockInitUI))
+    val reorderService = mock[ReorderService]
+    val app = new PlaylistEditorAppTestImpl(mockInitUI, reorderService)
+    app initReorderService reorderService
+    activateApp(app)
   }
 
   "A PlaylistEditorApp" should "create a bean for the BrowserConfig" in {
@@ -72,6 +77,12 @@ ApplicationTestSupport {
     enabler.manipulatorMap.keySet should contain allOf("plRemoveAction", "plMoveUpAction",
       "plMoveDownAction", "plMoveTopAction", "plMoveBottomAction")
   }
+
+  it should "create a bean for the reorder service" in {
+    val app = createApp()
+
+    queryBean[ReorderService](app, "pleditor_reorderService") should be(app.reorderService)
+  }
 }
 
 /**
@@ -81,8 +92,9 @@ ApplicationTestSupport {
   * only once; otherwise, JavaFX complains that it is already initialized.
   *
   * @param mockInitUI flag whether initialization of the UI should be mocked
+  * @param reorderService the ''ReorderService'' mock
   */
-private class PlaylistEditorAppTestImpl(mockInitUI: Boolean)
+private class PlaylistEditorAppTestImpl(mockInitUI: Boolean, val reorderService: ReorderService)
   extends PlaylistEditorApp with ApplicationSyncStartup {
   override def initGUI(appCtx: ApplicationContext): Unit = {
     if (!mockInitUI) {

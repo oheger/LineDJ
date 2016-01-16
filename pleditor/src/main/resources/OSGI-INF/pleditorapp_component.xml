@@ -30,4 +30,7 @@
 
   <reference interface="de.oliver_heger.linedj.client.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
+
+  <reference interface="de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService"
+             name="reorderService" bind="initReorderService"/>
 </component>
