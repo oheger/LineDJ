@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import net.sf.jguiraffe.gui.builder.components.model.ListModel
+import de.oliver_heger.linedj.client.model.EmptyListModel
 
 /**
  * A class representing the initial empty list model passed to the combo box
@@ -26,12 +26,6 @@ import net.sf.jguiraffe.gui.builder.components.model.ListModel
  * the handler object. Nevertheless, an initial model is needed. This class
  * implements this initial model. It is merely a dummy.
  */
-class EmptyMediumListModel extends ListModel {
+class EmptyMediumListModel extends EmptyListModel {
   override val getType = classOf[String]
-
-  override def getDisplayObject(i: Int): AnyRef = null
-
-  override def size(): Int = 0
-
-  override def getValueObject(i: Int): AnyRef = null
 }
