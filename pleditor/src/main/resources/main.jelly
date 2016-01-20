@@ -77,6 +77,11 @@
     <f:icon resource="move_bottom.png"/>
   </a:action>
 
+  <a:action name="plReorderAction" textres="act_reorder_text" tooltipres="act_reorder_tip"
+            mnemonicres="act_reorder_mnemo" taskBean="reorderTask" enabled="false">
+    <f:icon resource="reorder.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -87,6 +92,7 @@
       <a:menuitem actionName="plMoveUpAction"/>
       <a:menuitem actionName="plMoveDownAction"/>
       <a:menuitem actionName="plMoveBottomAction"/>
+      <a:menuitem actionName="plReorderAction"/>
       <a:menuitem actionName="plRemoveAction"/>
       <a:separator/>
       <a:menuitem actionName="plExportAction"/>
@@ -120,6 +126,7 @@
       <a:toolbutton actionName="plMoveUpAction"/>
       <a:toolbutton actionName="plMoveDownAction"/>
       <a:toolbutton actionName="plMoveBottomAction"/>
+      <a:toolbutton actionName="plReorderAction"/>
       <a:toolbutton actionName="plRemoveAction"/>
       <a:separator/>
       <a:toolbutton actionName="plExportAction"/>
@@ -260,6 +267,21 @@
     </di:constructor>
   </di:bean>
 
+  <!-- Command and task for opening the reorder dialog -->
+  <di:bean name="reorderDlgCommand"
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.OpenReorderDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:reorder.jelly"/>
+      <di:param refName="comp:tablePlaylist"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="reorderTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="reorderDlgCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:plReorderAction"/>
+  </di:bean>
+
   <!-- Enabler for playlist actions -->
   <di:bean name="playlistActionEnabler"
            beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler">
@@ -273,6 +295,7 @@
           <di:entry key="plMoveUpAction" refName="moveUpTask"/>
           <di:entry key="plMoveDownAction" refName="moveDownTask"/>
           <di:entry key="plMoveBottomAction" refName="moveBottomTask"/>
+          <di:entry key="plReorderAction" refName="reorderDlgCommand"/>
         </di:map>
       </di:param>
     </di:constructor>

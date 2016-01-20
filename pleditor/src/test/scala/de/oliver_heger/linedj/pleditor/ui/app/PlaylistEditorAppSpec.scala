@@ -75,7 +75,7 @@ ApplicationTestSupport {
     val enabler = queryBean[PlaylistActionEnabler](app.getMainWindowBeanContext,
       "playlistActionEnabler")
     enabler.manipulatorMap.keySet should contain allOf("plRemoveAction", "plMoveUpAction",
-      "plMoveDownAction", "plMoveTopAction", "plMoveBottomAction")
+      "plMoveDownAction", "plMoveTopAction", "plMoveBottomAction", "plReorderAction")
   }
 
   it should "create a bean for the reorder service" in {

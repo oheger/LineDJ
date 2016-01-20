@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2016 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the dialog for selecting a reorder algorithm.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+         xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- The model for the list box -->
+  <di:bean name="listModel"
+           beanClassName="de.oliver_heger.linedj.pleditor.ui.reorder.EmptyReorderServiceListModel"/>
+
+  <!-- The dialog window -->
+  <w:dialog titleres="rod_title" center="true">
+    <f:borderlayout leftMargin="4dlu" topMargin="4dlu" rightMargin="4dlu" bottomMargin="4dlu"
+                    northGap="5dlu" southGap="5dlu"/>
+    <f:label textres="rod_lab_prompt">
+      <f:borderconstr name="NORTH"/>
+    </f:label>
+    <f:list name="listAlgorithms" modelRef="listModel" scrollWidth="8cm">
+      <f:borderconstr name="CENTER"/>
+    </f:list>
+
+    <!-- The button bar -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:buttonlayout/>
+      <f:button name="btnOk" textres="exp_btn_ok"
+                mnemonicres="rod_btn_ok_mnemo" default="true" command="OK"/>
+      <f:button name="btnCancel" textres="rod_btn_cancel"
+                mnemonicres="rod_btn_cancel_mnemo" command="CANCEL"/>
+    </f:panel>
+
+    <!-- The bean for the form controller.-->
+    <di:bean name="controller"
+             beanClassName="de.oliver_heger.linedj.pleditor.ui.reorder.ReorderController">
+      <di:constructor>
+        <di:param refName="comp:listAlgorithms"/>
+        <di:param refName="comp:btnOk"/>
+        <di:param refName="pleditor_reorderService"/>
+        <di:param refName="jguiraffe.guiSynchronizer"/>
+        <di:param refName="reorderSongs"/>
+        <di:param refName="reorderStartIndex"/>
+      </di:constructor>
+    </di:bean>
+
+    <!-- Connect the form controller -->
+    <w:controller beanName="controller"/>
+  </w:dialog>
+
+  <!-- Register the controller as listener on the buttons and the list -->
+  <a:eventListener component="btnOk" eventType="ACTION" beanName="controller"/>
+  <a:eventListener component="btnCancel" eventType="ACTION" beanName="controller"/>
+  <a:eventListener component="listAlgorithms" eventType="CHANGE" beanName="controller"/>
+
+</j:jelly>
