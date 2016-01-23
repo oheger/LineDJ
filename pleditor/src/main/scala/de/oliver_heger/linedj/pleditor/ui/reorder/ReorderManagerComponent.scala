@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.client.app.ClientApplicationContext
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.osgi.service.component.ComponentContext
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -44,6 +45,9 @@ object ReorderManagerComponent {
 class ReorderManagerComponent extends ReorderService {
 
   import ReorderManagerComponent._
+
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(getClass)
 
   /** The client context. */
   private var clientApplicationContext: ClientApplicationContext = _
@@ -82,10 +86,12 @@ class ReorderManagerComponent extends ReorderService {
     * @param service the new service object
     */
   def reorderServiceAdded(service: PlaylistReorderer): Unit = {
+    log.info("Added playlist reorder service.")
     try {
       reorderManagerActor ! ReorderManagerActor.AddReorderService(service, service.name)
     } catch {
-      case _: Exception =>
+      case e: Exception =>
+        log.warn("Could not add reorder service!", e)
       // in this case, the service could not be asked for its name;
       // we ignore the service
     }

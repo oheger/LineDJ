@@ -52,6 +52,11 @@ object Build extends Build {
     "org.osgi" % "org.osgi.compendium" % OsgiVersion % "provided"
   )
 
+  lazy val logDependencies = Seq(
+    "org.slf4j" % "slf4j-api" % "1.7.10",
+    "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
+  )
+
   val defaultSettings = Seq(
     version := "1.0-SNAPSHOT",
     scalaVersion := "2.11.7",
@@ -98,10 +103,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-server",
-      libraryDependencies ++= Seq(
-        "org.slf4j" % "slf4j-api" % "1.7.10",
-        "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
-      )
+      libraryDependencies ++= logDependencies
     ) dependsOn (shared % "compile->compile;test->test")
 
   /**
@@ -174,6 +176,7 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
+      libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.pleditor.ui.*"
       ),
