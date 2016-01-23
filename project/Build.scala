@@ -73,7 +73,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor)
+    ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -181,5 +181,23 @@ object Build extends Build {
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
-}
 
+  /**
+    * Project for the playlist medium reorder component. This is an
+    * implementation of ''PlaylistReorderer'' which orders playlist elements
+    * based on their URI.
+    */
+  lazy val reorderMedium = Project(id = "reorderMedium", base = file("reorderMedium"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-reorder-medium",
+      resolvers += Resolver.mavenLocal,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.reorder.medium.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn playlistEditor
+}
