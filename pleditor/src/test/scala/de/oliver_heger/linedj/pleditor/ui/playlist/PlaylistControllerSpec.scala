@@ -21,6 +21,7 @@ import java.util
 import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
+import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -35,7 +36,8 @@ object PlaylistControllerSpec {
 
   /**
    * Generates text for the status line based on the specified parameters.
-   * @param count the number of items in the playlist
+    *
+    * @param count the number of items in the playlist
    * @param duration the duration
    * @param size the size
    * @return the text for the status line
@@ -45,7 +47,8 @@ object PlaylistControllerSpec {
 
   /**
    * Creates a song data object for the specified test song.
-   * @param title the song title
+    *
+    * @param title the song title
    * @param duration the duration (in milliseconds)
    * @param size the size (in bytes)
    * @return the ''SongData''
@@ -103,6 +106,22 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.statusLineHandler).setText(generateStatusLine(2, "> 1:00", 2.0))
   }
 
+  it should "select newly added songs" in {
+    val helper = new PlaylistControllerTestHelper
+    helper appendSongs song("A", 60000, 100)
+    verify(helper.tableHandler).setSelectedIndices(Array(0))
+
+    helper.appendSongs(song("B", 2, 2), song("C", 3, 3))
+    verify(helper.tableHandler).setSelectedIndices(Array(1, 2))
+  }
+
+  it should "enable the export action if songs are added" in {
+    val helper = new PlaylistControllerTestHelper
+    helper appendSongs song("Test", 1, 2)
+
+    verify(helper.actionExport).setEnabled(true)
+  }
+
   it should "execute a playlist manipulator" in {
     val song1 = song("A", 60000, 1024 * 1024)
     val song2 = song("B", 120000, 1572864)
@@ -122,6 +141,21 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.statusLineHandler).setText(generateStatusLine(1, "1:00", 1.0))
   }
 
+  it should "update actions after the playlist has been manipulated" in {
+    val helper = new PlaylistControllerTestHelper
+    helper appendSongs song("Test", 1, 2)
+    val manipulator = new PlaylistManipulator {
+      override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+        context.tableHandler.getModel.clear()
+      }
+
+      override def isEnabled(context: PlaylistSelectionContext): Boolean = true
+    }
+
+    helper.controller updatePlaylist manipulator
+    verify(helper.actionExport).setEnabled(false)
+  }
+
   /**
    * A test helper class managing dependent objects.
    */
@@ -135,13 +169,21 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** A mock for the status line handler. */
     val statusLineHandler = mock[StaticTextHandler]
 
+    /** The action for exporting the playlist. */
+    val actionExport = mock[FormAction]
+
+    /** A mock for the action store. */
+    val actionStore = createActionStore()
+
     /** The test controller instance. */
-    val controller = new PlaylistController(tableHandler, statusLineHandler, StatusLineTemplate)
+    val controller = new PlaylistController(tableHandler, statusLineHandler, actionStore,
+      StatusLineTemplate)
 
     /**
      * Adds the given songs to the playlist managed by the controller (in a
      * single chunk).
-     * @param songs the songs to be added
+      *
+      * @param songs the songs to be added
      */
     def appendSongs(songs: SongData*): Unit = {
       controller receive AppendSongs(songs)
@@ -149,12 +191,25 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     /**
      * Creates a mock for the table handler.
-     * @return the mock table handler
+      *
+      * @return the mock table handler
      */
     private def createTableHandler(): TableHandler = {
       val handler = mock[TableHandler]
       doReturn(playlistModel).when(handler).getModel
       handler
+    }
+
+    /**
+      * Creates a mock action store which returns the actions to be managed
+      * by the controller.
+      *
+      * @return the mock action store
+      */
+    private def createActionStore(): ActionStore = {
+      val store = mock[ActionStore]
+      when(store.getAction("plExportAction")).thenReturn(actionExport)
+      store
     }
   }
 

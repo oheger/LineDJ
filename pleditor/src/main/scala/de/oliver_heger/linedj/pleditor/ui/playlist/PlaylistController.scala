@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.bus.MessageBusListener
 import de.oliver_heger.linedj.client.model.{AppendSongs, DurationTransformer, SongData}
+import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 
 import scala.collection.JavaConversions._
@@ -30,9 +31,13 @@ object PlaylistController {
   /** A string serving as indication that there are songs with unknown duration. */
   private val IndicationUnknownDuration = "> "
 
+  /** The name of the export action. */
+  private val ActionExport = "plExportAction"
+
   /**
    * Generates the text to be displayed in the status line based on the
    * specified template.
+   *
    * @param songs the current list with songs in the playlist
    * @param template the template for generating the status line
    * @return the text for the status line
@@ -59,13 +64,15 @@ object PlaylistController {
  *
  * @param tableHandler the handler for the playlist table widget
  * @param statusLine the widget representing the status line
+ * @param actionStore the current ''ActionStore''
  * @param statusLineTemplate a localized template for generating the text for
  *                           the status line; it has to contain 3 %
  *                           placeholders for the number of songs, the
  *                           duration, and the size in MB
  */
 class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandler,
-                         statusLineTemplate: String) extends MessageBusListener {
+                         actionStore: ActionStore, statusLineTemplate: String) extends
+  MessageBusListener {
   import PlaylistController._
 
   /**
@@ -78,16 +85,21 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
       tableHandler.getModel addAll songs
       tableHandler.rowsInserted(currentSize, currentSize + songs.size - 1)
       updateStatusLine()
+      updateActions()
+      val newSelection = currentSize.until(currentSize + songs.size).toArray
+      tableHandler setSelectedIndices newSelection
   }
 
   /**
     * Updates the current playlist by invoking the specified
     * ''PlaylistManipulator''.
+    *
     * @param manipulator the ''PlaylistManipulator''
     */
   def updatePlaylist(manipulator: PlaylistManipulator): Unit = {
     manipulator updatePlaylist PlaylistSelectionContext(tableHandler)
     updateStatusLine()
+    updateActions()
   }
 
   /**
@@ -96,5 +108,14 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     */
   private def updateStatusLine(): Unit = {
     statusLine setText generateStatusLineText(tableHandler.getModel, statusLineTemplate)
+  }
+
+  /**
+    * Adapts the enabled state of managed actions after changes on the
+    * playlist. This affects actions that have to be enabled if and only if the
+    * current playlist contains elements.
+    */
+  private def updateActions(): Unit = {
+    actionStore.getAction(ActionExport) setEnabled !tableHandler.getModel.isEmpty
   }
 }

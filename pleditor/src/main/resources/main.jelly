@@ -42,7 +42,7 @@
 
   <!-- Playlist export action -->
   <a:action name="plExportAction" textres="act_plexport_text" tooltipres="act_plexport_tip"
-    mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask">
+    mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask" enabled="false">
     <f:icon resource="export.png"/>
   </a:action>
 
@@ -200,6 +200,7 @@
       <di:constructor>
         <di:param refName="comp:tablePlaylist"/>
         <di:param refName="comp:statusLine"/>
+        <di:param refName="ACTION_STORE"/>
         <di:param>
           <f:localized resid="status_template"/>
         </di:param>
