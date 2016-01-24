@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers._
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
@@ -59,7 +60,7 @@ ApplicationTestSupport {
     val application = createApp(mockInitUI = false)
 
     val uiBus = queryBean[MessageBus](application, ClientApplication.BeanMessageBus)
-    verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
+    verify(uiBus, Mockito.atLeast(3)).registerListener(any(classOf[Actor.Receive]))
   }
 
   it should "construct an instance correctly" in {

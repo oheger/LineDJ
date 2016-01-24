@@ -110,6 +110,7 @@
         <di:list>
           <di:element refName="remoteController"/>
           <di:element refName="playlistController"/>
+          <di:element refName="reorderHandler"/>
         </di:list>
       </di:param>
     </di:constructor>
@@ -202,6 +203,14 @@
         <di:param>
           <f:localized resid="status_template"/>
         </di:param>
+      </di:constructor>
+    </di:bean>
+
+    <!-- Handler for playlist reorder results -->
+    <di:bean name="reorderHandler"
+      beanClassName="de.oliver_heger.linedj.pleditor.ui.reorder.ReorderResultHandler">
+      <di:constructor>
+        <di:param refName="comp:tablePlaylist"/>
       </di:constructor>
     </di:bean>
 
