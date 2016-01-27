@@ -109,8 +109,9 @@ object MetaDataManagerActorSpec {
    * @return the enhanced result
    */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
+    //TODO set correct URI mapping
     EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, "checksum_" + e._1
-      .mediumURI)))
+      .mediumURI)), null)
   }
 }
 
@@ -229,7 +230,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val UndefinedMediumID2 = MediumID(root2.toString, None)
     val scanResult2 = MediaScanResult(root2, Map(UndefinedMediumID2 ->
       filesForChunk3))
-    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(UndefinedMediumID2 -> "testCheckSum"))
+    //TODO set correct file mapping
+    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(UndefinedMediumID2 -> "testCheckSum"), null)
     helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
     val allFiles = ScanResult.mediaFiles(UndefinedMediumID) ::: filesForChunk3

@@ -207,7 +207,7 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   private var completionListeners = List.empty[ActorRef]
 
   override def receive: Receive = {
-    case EnhancedMediaScanResult(sr, _) =>
+    case EnhancedMediaScanResult(sr, _, _) =>
       val processor = createChildActor(MediumProcessorActor(sr, config))
       processor ! ProcessMediaFiles
       sr.mediaFiles foreach prepareHandlerForMedium

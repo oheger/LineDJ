@@ -465,15 +465,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val checkMap1 = Map(helper.Medium1IDData.mediumID -> helper.Medium1IDData.checksum,
       helper.Medium2IDData.mediumID -> helper.Medium2IDData.checksum,
       helper.Drive1OtherIDData.mediumID -> helper.Drive1OtherIDData.checksum)
+    val fileMapping1 = helper.Medium1IDData.fileURIMapping ++ helper.Medium2IDData.fileURIMapping ++ helper.Drive1OtherIDData.fileURIMapping
     val checkMap2 = Map(helper.Medium3IDData.mediumID -> helper.Medium3IDData.checksum)
+    val fileMapping2 = helper.Medium3IDData.fileURIMapping
     val checkMap3 = Map(helper.Drive3OtherIDData.mediumID -> helper.Drive3OtherIDData.checksum)
+    val fileMapping3 = helper.Drive3OtherIDData.fileURIMapping
     helper.scanMedia()
 
     val messages = for (i <- 1 to 3) yield helper.metaDataManagerActor
       .expectMsgType[EnhancedMediaScanResult]
-    messages should contain only(EnhancedMediaScanResult(helper.Drive1, checkMap1),
-      EnhancedMediaScanResult(helper.Drive2, checkMap2),
-      EnhancedMediaScanResult(helper.Drive3, checkMap3))
+    messages should contain only(EnhancedMediaScanResult(helper.Drive1, checkMap1, fileMapping1),
+      EnhancedMediaScanResult(helper.Drive2, checkMap2, fileMapping2),
+      EnhancedMediaScanResult(helper.Drive3, checkMap3, fileMapping3))
   }
 
   it should "produce correct enhanced scan results in another scan operation" in {

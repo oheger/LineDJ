@@ -190,7 +190,7 @@ Actor with ActorLogging {
    * contained in a scan result have to be collected.
    */
   private val enhancedScanResultMapping = collection.mutable.Map.empty[MediaScanResult,
-    Map[MediumID, String]]
+    List[MediumIDData]]
 
   /**
    * A map with information about the files contained in the currently
@@ -220,7 +220,8 @@ Actor with ActorLogging {
   /**
    * Creates a new instance of ''MediaManagerActor'' with a default reader
    * actor mapping.
-   * @param config the configuration object
+    *
+    * @param config the configuration object
    * @param metaDataManager a reference to the meta data manager actor
    */
   def this(config: ServerConfig, metaDataManager: ActorRef) =
@@ -300,7 +301,8 @@ Actor with ActorLogging {
 
   /**
    * Processes a ''MediumIDData'' object.
-   * @param idData the ''MediumIDData''
+    *
+    * @param idData the ''MediumIDData''
    */
   private def processIDData(idData: MediumIDData): Unit = {
     buildEnhancedScanResult(idData) foreach (metaDataManager ! _)
@@ -318,21 +320,40 @@ Actor with ActorLogging {
    * Adds the specified ID data object to the temporary map for building up an
    * enhanced scan result. If the information is now complete, the enhanced
    * result is created and returned in the result option.
-   * @param idData the ''MediumIDData''
+    *
+    * @param idData the ''MediumIDData''
    * @return an option with the constructed enhanced scan result
    */
   private def buildEnhancedScanResult(idData: MediumIDData): Option[EnhancedMediaScanResult] = {
-    val checksumMapping = enhancedScanResultMapping.getOrElse(idData.scanResult, Map.empty)
-    val newChecksumMapping = checksumMapping + (idData.mediumID -> idData.checksum)
-    enhancedScanResultMapping += (idData.scanResult -> newChecksumMapping)
-    if (newChecksumMapping.size == idData.scanResult.mediaFiles.size)
-      Some(EnhancedMediaScanResult(idData.scanResult, newChecksumMapping))
+    val listIDData = idData :: enhancedScanResultMapping.getOrElse(idData.scanResult, Nil)
+    enhancedScanResultMapping += (idData.scanResult -> listIDData)
+    if (listIDData.size == idData.scanResult.mediaFiles.size)
+      Some(createEnhancedScanResultFromIDData(listIDData))
     else None
   }
 
   /**
-   * Processes the request for a medium file.
-   * @param request the file request
+    * Constructs an ''EnhancedMediaScanResult'' object from all the
+    * ''MediumIDData'' objects that belong to a scan result.
+    *
+    * @param listIDData the list with collected ''MediumIDData'' objects
+    * @return the ''EnhancedMediaScanResult''
+    */
+  private def createEnhancedScanResultFromIDData(listIDData: List[MediumIDData]):
+  EnhancedMediaScanResult = {
+    val (checkSumMapping, uriMapping) = listIDData.foldLeft((Map.empty[MediumID, String], Map
+      .empty[String, FileData])) { (maps, d) =>
+      val chkMap = maps._1 + (d.mediumID -> d.checksum)
+      val uriMap = maps._2 ++ d.fileURIMapping
+      (chkMap, uriMap)
+    }
+    EnhancedMediaScanResult(listIDData.head.scanResult, checkSumMapping, uriMapping)
+  }
+
+  /**
+    * Processes the request for a medium file.
+    *
+    * @param request the file request
    */
   private def processFileRequest(request: MediumFileRequest): Unit = {
     val (readerActor, optMediaReaderActor) = createActorsForFileRequest(request)
@@ -352,7 +373,8 @@ Actor with ActorLogging {
    * read verbatim, only a reader actor is produced. If meta data is to be
    * filtered out, a processing reader has to be created which is backed by the
    * file reader.
-   * @param request the request
+    *
+    * @param request the request
    * @return a tuple with the created reader actors
    */
   private def createActorsForFileRequest(request: MediumFileRequest): (ActorRef,
@@ -367,7 +389,8 @@ Actor with ActorLogging {
    * Processes a request for scanning directory structures. If this request is
    * allowed in the current state of this actor, the scanning of the desired
    * directory structures is initiated.
-   * @param roots a sequence with the root directories to be scanned
+    *
+    * @param roots a sequence with the root directories to be scanned
    */
   private def processScanRequest(roots: Seq[String]): Unit = {
     if (noScanInProgress) {
@@ -381,7 +404,8 @@ Actor with ActorLogging {
 
   /**
    * Initiates scanning of the root directories with media files.
-   * @param roots a sequence with the root directories to be scanned
+    *
+    * @param roots a sequence with the root directories to be scanned
    */
   private def scanMediaRoots(roots: Seq[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
@@ -398,7 +422,8 @@ Actor with ActorLogging {
    * Processes the result of a scan operation of a root directory. This method
    * triggers the calculation of media IDs and parsing of medium description
    * files.
-   * @param scanResult the data object with scan results
+    *
+    * @param scanResult the data object with scan results
    */
   private def processScanResult(scanResult: MediaScanResult): Unit = {
     def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[FileData]): Unit = {
@@ -429,7 +454,8 @@ Actor with ActorLogging {
    * Processes other files in a scan result. Information about a combined list
    * of files which do not belong to a medium has to be stored by the actor.
    * This is handled by this method.
-   * @param scanResult the data object with scan results
+    *
+    * @param scanResult the data object with scan results
    * @param mediumID the ID of the medium with other files
    */
   private def processOtherFiles(scanResult: MediaScanResult, mediumID: MediumID): Unit = {
@@ -446,7 +472,8 @@ Actor with ActorLogging {
    * Creates a URI mapping for other files from a ''MediaScanResult''. This
    * mapping will become part of a global mapping for all files that do not
    * belong to a specific medium.
-   * @param scanResult the ''MediaScanResult''
+    *
+    * @param scanResult the ''MediaScanResult''
    * @param mediumID the medium ID
    * @return the resulting mapping
    */
@@ -461,7 +488,8 @@ Actor with ActorLogging {
    * Processes the data of a medium description (in binary form). This method
    * is called when a description file has been loaded. Now it has to be
    * parsed.
-   * @param path the path to the description file
+    *
+    * @param path the path to the description file
    * @param content the binary content of the description file
    */
   private def processMediumDescription(path: Path, content: Array[Byte]): Unit = {
@@ -474,7 +502,8 @@ Actor with ActorLogging {
   /**
    * Stores a ''MediumSettingsData'' object which has been created by a child
    * actor.
-   * @param data the data object to be stored
+    *
+    * @param data the data object to be stored
    */
   private def storeSettingsData(data: MediumInfo): Unit = {
     mediaSettingsData += data.mediumID -> data
@@ -485,7 +514,8 @@ Actor with ActorLogging {
    * Checks whether all information for creating a ''MediumInfo'' object is
    * available for the specified medium URI. If so, the object is created and
    * stored in the global map.
-   * @param mediumID the ID of the affected medium
+    *
+    * @param mediumID the ID of the affected medium
    */
   private def createAndStoreMediumInfo(mediumID: MediumID): Unit = {
     for {idData <- mediaIDData.get(mediumID)
@@ -499,7 +529,8 @@ Actor with ActorLogging {
    * Obtains the ''FileData'' object referred to by the given
    * ''MediumFileRequest''. The file is looked up in the data structures managed by
    * this actor. If it cannot be found, result is ''None''.
-   * @param request the request identifying the desired file
+    *
+    * @param request the request identifying the desired file
    * @return an option with the ''FileData''
    */
   private def fetchFileData(request: MediumFileRequest): Option[FileData] = {
@@ -516,7 +547,8 @@ Actor with ActorLogging {
 
   /**
    * Checks whether the information about available media is now complete.
-   * @return a flag whether all information is now complete
+    *
+    * @return a flag whether all information is now complete
    */
   private def mediaInformationComplete: Boolean =
     pathsScanned >= pathsToScan && mediaMap.size >= mediaCount
@@ -537,7 +569,8 @@ Actor with ActorLogging {
    * Notifies this object that new media information has been added. If this
    * information is now complete, the scan operation can be terminated, and
    * pending requests can be handled.
-   * @return a flag whether the data about media is now complete
+    *
+    * @return a flag whether the data about media is now complete
    */
   private def mediaDataAdded(): Boolean = {
     if (mediaInformationComplete) {
@@ -563,7 +596,8 @@ Actor with ActorLogging {
   /**
    * Appends another entry to the map with media data. If the data is now
    * complete, the scan operation is terminated.
-   * @param idData the ID data object for the medium
+    *
+    * @param idData the ID data object for the medium
    * @param info the medium info object
    * @return a flag whether the data about media is now complete
    */
@@ -584,7 +618,8 @@ Actor with ActorLogging {
   /**
    * Checks that currently no scan is in progress. This method is used to
    * avoid the processing of multiple scan requests in parallel.
-   * @return a flag whether currently no scan request is in progress
+    *
+    * @return a flag whether currently no scan request is in progress
    */
   private def noScanInProgress: Boolean = pathsScanned < 0
 
@@ -595,7 +630,8 @@ Actor with ActorLogging {
    * Otherwise, this message indicates that a directory scanner actor threw an
    * exception. In this case, the corresponding directory structure is
    * excluded/ignored.
-   * @param actor the affected actor
+    *
+    * @param actor the affected actor
    */
   private def handleActorTermination(actor: ActorRef): Unit = {
     if(readerActorMapping hasActor actor) {
@@ -609,7 +645,8 @@ Actor with ActorLogging {
    * Handles the termination of a reader actor. The terminated actor is only
    * the processing media reader actor. It has to be ensured that the
    * underlying reader actor is stopped as well.
-   * @param actor the terminated actor
+    *
+    * @param actor the terminated actor
    */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
     log.info("Removing terminated reader actor from mapping.")
@@ -638,7 +675,8 @@ Actor with ActorLogging {
 
   /**
    * Stops a reader actor when the timeout was reached.
-   * @param actor the actor to be stopped
+    *
+    * @param actor the actor to be stopped
    */
   private def stopReaderActor(actor: ActorRef): Unit = {
     context stop actor
@@ -650,7 +688,8 @@ Actor with ActorLogging {
    * medium description file only the path is available. This has to be
    * translated again to the ID of the affected medium. For this purpose, a set
    * with the currently processed media IDs is stored.
-   * @param path the path of the description file
+    *
+    * @param path the path of the description file
    * @return the medium ID if it could be resolved
    */
   private def findMediumIDForDescriptionPath(path: Path): Option[MediumID] = {
