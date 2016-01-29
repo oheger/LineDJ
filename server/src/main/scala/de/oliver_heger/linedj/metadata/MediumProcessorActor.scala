@@ -23,28 +23,30 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.media.{MediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {
 
-  private class MediumProcessorActorImpl(data: MediaScanResult, config: ServerConfig)
+  private class MediumProcessorActorImpl(data: EnhancedMediaScanResult, config: ServerConfig)
     extends MediumProcessorActor(data, config) with ChildActorFactory
 
   /**
    * Returns creation properties for a new actor instance.
-   * @param data data about the files to be processed
+    *
+    * @param data data about the files to be processed
    * @param config the server configuration
    * @return properties for creating a new actor instance
    */
-  def apply(data: MediaScanResult, config: ServerConfig): Props =
+  def apply(data: EnhancedMediaScanResult, config: ServerConfig): Props =
     Props(classOf[MediumProcessorActorImpl], data, config)
 
   /**
    * Produces a sequence with all paths to be processed by this actor based on
    * the scan result passed to the constructor. The result list consists of
    * pairs that map the medium root path to a file to be processed.
-   * @param scanResult the scan result
+    *
+    * @param scanResult the scan result
    * @return a sequence with all paths to be processed
    */
   private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, MediaFileData)] = {
@@ -53,7 +55,19 @@ object MediumProcessorActor {
   }
 
   /**
+    * Creates a reverse mapping from paths to URIs based on the URI path
+    * mapping obtained from an enhanced scan result. This is necessary to map
+    * the paths processed by ''MediumProcessorActor'' back to the logic URIs.
+    *
+    * @param uriPathMapping the URI path mapping
+    * @return the path URI mapping
+    */
+  private def createPathUriMapping(uriPathMapping: Map[String, FileData]): Map[Path, String] =
+    uriPathMapping map(e => (e._2.path, e._1))
+
+  /**
    * Produces a list of pairs that assigns each file to its medium.
+    *
    * @param mediumID the medium ID
    * @param files the list of files
    * @return a list of pairs with the associated medium paths
@@ -117,7 +131,7 @@ object MediumProcessorActor {
  * @param optId3v1ProcessorMap optional map for ID3v1 processor actors
  * @param optCollectorMap optional map for meta data collectors
  */
-class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
+class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
                            optMp3ProcessorMap: Option[ProcessorActorMap],
                            optId3v2ProcessorMap: Option[ProcessorActorMap],
                            optId3v1ProcessorMap: Option[ProcessorActorMap],
@@ -155,18 +169,26 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    */
   private val readerActorMap = collection.mutable.Map.empty[ActorRef, Path]
 
+  /**
+    * Stores a mapping from file paths to corresponding URIs. This is required
+    * to generate the result objects.
+    */
+  private val pathUriMapping = createPathUriMapping(data.fileUriMapping)
+
   /** A list with all media files to be processed. */
-  private var mediaFilesToProcess = pathsToBeProcessed(data)
+  private var mediaFilesToProcess = pathsToBeProcessed(data.scanResult)
 
   /** An option for the meta data manager actor which receives all results. */
   private var metaDataManager: Option[ActorRef] = None
 
   /**
    * Constructor to be used for default actor creation.
+    *
    * @param data data about the files to be processed
    * @param config the media server configuration
    */
-  def this(data: MediaScanResult, config: ServerConfig) = this(data, config, None, None, None, None)
+  def this(data: EnhancedMediaScanResult, config: ServerConfig) =
+    this(data, config, None, None, None, None)
 
   override val supervisorStrategy = OneForOneStrategy() {
     case _: IOException => Stop
@@ -220,6 +242,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
 
   /**
    * Creates a new child actor for reading media files.
+    *
    * @return the new child reader actor
    */
   private def createChildReaderActor(): ActorRef = {
@@ -231,6 +254,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   /**
    * Delegates a message from the file reader actor to the corresponding
    * processor actors.
+    *
    * @param msg the message
    * @param path the affected path
    */
@@ -244,6 +268,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   /**
    * Starts reading a new media file. Some status variables are updated
    * accordingly.
+    *
    * @param reader the reader actor
    * @param fileInfo the object for the file to be read
    */
@@ -256,6 +281,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   /**
    * Tells the specified actor to start processing of the next file in the list
    * (if available).
+    *
    * @param reader the reader actor
    */
   private def processNextFile(reader: ActorRef): Unit = {
@@ -269,6 +295,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * Handles a meta data processing result that came in. This method checks
    * whether now all meta data for the specified file is available. If so, the
    * meta data manager is notified. The sending actor is stopped.
+    *
    * @param p the path to the file the meta data belongs to
    * @param f a function for updating the collected meta data
    */
@@ -280,7 +307,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
       sendProcessingResult(manager, p, metaData)
 
       if (currentProcessingData.isEmpty && mediaFilesToProcess.isEmpty) {
-        manager ! MediaFilesProcessed(data)
+        manager ! MediaFilesProcessed(data.scanResult)
       }
     }
     context stop sender()
@@ -292,6 +319,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * classes) back to a ''FileData'' object with all information available
    * about the file. Note: When this method is called it has already been
    * verified that the path is valid.
+    *
    * @param p the path
    * @return the associated ''FileData'' object
    */
@@ -300,14 +328,16 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   }
 
   /**
-   * Sends a processing result message to the manager actor and updates some
-   * internal fields indicating that the given path has now been processed.
-   * @param manager the meta data manager actor
-   * @param p the path
-   * @param metaData the meta data to be sent
-   */
+    * Sends a processing result message to the manager actor and updates some
+    * internal fields indicating that the given path has now been processed.
+    *
+    * @param manager  the meta data manager actor
+    * @param p        the path
+    * @param metaData the meta data to be sent
+    */
   private def sendProcessingResult(manager: ActorRef, p: Path, metaData: MediaMetaData): Unit = {
-    manager ! MetaDataProcessingResult(p, currentProcessingData(p).mediumID, metaData)
+    manager ! MetaDataProcessingResult(p, currentProcessingData(p).mediumID, pathUriMapping(p),
+      metaData)
     collectorMap removeItemFor p
     currentProcessingData -= p
   }
@@ -316,6 +346,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * Handles a crashed read actor. In this case, some cleanup has to be done
    * for the affected file. An empty result message is sent to the manager
    * actor. A new child reader actor is created replacing the crashed one.
+    *
    * @param p the path of the file processed by the crashed actor
    */
   private def handleTerminatedReadActor(p: Path): Unit = {
@@ -328,6 +359,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
 
   /**
    * Checks whether the given path is valid, i.e. it is currently processed.
+    *
    * @param path the path to be checked
    * @return a flag whether this is a valid path
    */
@@ -337,6 +369,7 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
    * Obtains the ''ProcessorActorMap'' for a specific actor class. If it has
    * been defined explicitly, it is used. Otherwise, a new map is created based
    * on the given parameters.
+    *
    * @param optMap an option for the map
    * @param actorClass the actor class
    * @return the resulting ''ProcessorActorMap''
@@ -348,9 +381,10 @@ class MediumProcessorActor(data: MediaScanResult, config: ServerConfig,
   /**
    * Obtains the number of reader actors from the configuration. Handles an
    * unknown root path.
+    *
    * @return the number of processing actors for the path to be processed
    */
   private def processorCountFromConfig: Int = {
-    config.rootFor(data.root) map (_.processorCount) getOrElse 1
+    config.rootFor(data.scanResult.root) map (_.processorCount) getOrElse 1
   }
 }

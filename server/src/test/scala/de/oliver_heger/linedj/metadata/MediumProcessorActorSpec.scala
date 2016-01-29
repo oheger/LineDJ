@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileData}
-import de.oliver_heger.linedj.media.{MediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => eqArg}
@@ -39,8 +39,11 @@ object MediumProcessorActorSpec {
   /** A path to a medium. */
   private val Medium = Paths.get("Medium", "medium.settings")
 
+  /** The enhanced scan result to be processed by the test actor. */
+  private val ExtScanResult = createScanResult()
+
   /** A test media scan result object. */
-  private val ScanResult = createScanResult()
+  private val ScanResult = ExtScanResult.scanResult
 
   /** The number of processing actors for the test root path. */
   private val ProcessorCount = 2
@@ -53,36 +56,49 @@ object MediumProcessorActorSpec {
 
   /**
    * Generates a test path based on the passed in name.
-   * @param name the name
+    *
+    * @param name the name
    * @return the test path
    */
   private def path(name: String): Path = Paths get "TestPath_" + name
 
   /**
    * Generates a test path based on the passed in index.
-   * @param idx the index
+    *
+    * @param idx the index
    * @return the test path
    */
   private def path(idx: Int): Path = path(idx.toString)
 
   /**
    * Calculates the file size of the test file with the given index.
-   * @param idx the index
+    *
+    * @param idx the index
    * @return the size of this test file
    */
   private def testFileSize(idx: Int): Int = idx * 10
 
   /**
+    * Generates a URI for a test song.
+    *
+    * @param idx the index
+    * @return the URI for this test song
+    */
+  private def fileUri(idx: Int): String = "song://TestSong_" + idx
+
+  /**
    * Generates a test media file from the specified test index. The path and
    * the file size are derived from the index.
-   * @param idx the index
+    *
+    * @param idx the index
    * @return the corresponding test file
    */
   private def mediaFile(idx: Int): FileData = FileData(path(idx), testFileSize(idx))
 
   /**
    * Extracts the index from the given test path.
-   * @param path the path
+    *
+    * @param path the path
    * @return the index of this path
    */
   private def extractIndex(path: Path): Int = {
@@ -93,7 +109,8 @@ object MediumProcessorActorSpec {
 
   /**
    * Converts the specified path of a test file back to a ''FileData'' object.
-   * @param path the test path
+    *
+    * @param path the test path
    * @return the medium file
    */
   private def fileFromPath(path: Path): FileData = FileData(path, testFileSize(extractIndex
@@ -101,18 +118,25 @@ object MediumProcessorActorSpec {
 
   /**
    * Creates a scan result for a medium which contains a couple of files.
-   * @return the test scan result
+    *
+    * @return the test scan result
    */
-  private def createScanResult(): MediaScanResult = {
+  private def createScanResult(): EnhancedMediaScanResult = {
     val root = path("Root")
-    MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(mediaFile(1)),
-      MediumID(root.toString, None) -> List(mediaFile(2), mediaFile(3))))
+    val file1 = mediaFile(1)
+    val file2 = mediaFile(2)
+    val file3 = mediaFile(3)
+    val sr = MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(file1),
+      MediumID(root.toString, None) -> List(file2, file3)))
+    val uriMapping = Map(fileUri(1) -> file1, fileUri(2) -> file2, fileUri(3) -> file3)
+    EnhancedMediaScanResult(sr, Map.empty, uriMapping)
   }
 
   /**
    * Prepares a mock for the central configuration. The configuration can be
    * asked for a media root object for the root path of the test scan result.
-   * @param config the mock to be initialized
+    *
+    * @param config the mock to be initialized
    * @param readerCount the number of processor actors to be returned
    * @return the prepared mock object
    */
@@ -145,18 +169,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Creates a test actor reference with a mock configuration.
-   * @return a tuple with the test actor reference and the mock configuration
+    *
+    * @return a tuple with the test actor reference and the mock configuration
    */
   private def createStandardTestActor(): (TestActorRef[MediumProcessorActor], ServerConfig) = {
     val config = mock[ServerConfig]
-    (TestActorRef[MediumProcessorActor](MediumProcessorActor(ScanResult, config)), config)
+    (TestActorRef[MediumProcessorActor](MediumProcessorActor(ExtScanResult, config)), config)
   }
 
   /**
    * Checks whether a default processor actor map was created for a given actor
    * type. This method checks whether correct creation properties have been
    * assigned to the map.
-   * @param actorClass the expected actor class
+    *
+    * @param actorClass the expected actor class
    * @param selector a function selecting the map to be checked
    */
   private def checkDefaultProcessorActorMap(actorClass: Class[_])(selector: MediumProcessorActor
@@ -171,7 +197,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
    * Checks the creation properties of an actor that is passed an extraction
    * context object. The context passed as argument is returned.
-   * @param props the props to be checked
+    *
+    * @param props the props to be checked
    * @param expectedActorClass the expected actor class
    * @return the context extracted from the arguments
    */
@@ -216,7 +243,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Creates a message for processing an ID3 v2 frame.
-   * @param lastChunk flag whether this is the last chunk
+    *
+    * @param lastChunk flag whether this is the last chunk
    * @param p the optional path to the media file
    * @return the message
    */
@@ -230,7 +258,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
    * Helper method for checking whether an ID3v2 frame message is
    * correctly processed.
-   * @param frameData the frame message
+    *
+    * @param frameData the frame message
    * @return the test helper
    */
   private def checkID3v2FrameMessageHandling(frameData: ProcessID3FrameData):
@@ -260,7 +289,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Creates a message for processing MP3 data.
-   * @param p the path to be used for the data
+    *
+    * @param p the path to be used for the data
    * @return the message
    */
   private def createMp3Data(p: Path = path(2)): ProcessMp3Data =
@@ -282,7 +312,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * this method is executed asynchronously the mock cannot easily be verified.
    * Therefore, this answer sends the first argument of the invocation to the
    * test actor - by expecting this message the mock gets actually verified.
-   * @param complete flag whether meta data is now complete; in this case, the
+    *
+    * @param complete flag whether meta data is now complete; in this case, the
    *                 resulting meta data is returned by the answer
    * @return the initialized answer
    */
@@ -296,19 +327,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Expects that a message for a processing result was sent.
-   * @param p the path to the processed file
-   * @return the received result message
-   */
-  private def expectProcessingResult(p: Path): MetaDataProcessingResult = {
+    * Expects that a message for a processing result was sent.
+    *
+    * @param p   the path to the processed file
+    * @param uri the expected URI of the file
+    * @return the received result message
+    */
+  private def expectProcessingResult(p: Path, uri: String): MetaDataProcessingResult = {
     expectMsg(MetaDataProcessingResult(p,
       if (MediumPaths.head == p) MediumID.fromDescriptionPath(Medium)
-      else MediumID(ScanResult.root.toString, None), MetaData))
+      else MediumID(ScanResult.root.toString, None), uri, MetaData))
   }
 
   /**
    * Checks whether the given test probe was stopped.
-   * @param probe the probe
+    *
+    * @param probe the probe
    */
   private def checkActorStopped(probe: TestProbe): Unit = {
     val probeWatch = TestProbe()
@@ -318,7 +352,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Creates an ID3 frame meta data object.
-   * @param p the path to be used
+    *
+    * @param p the path to be used
    * @return the meta data object
    */
   private def createID3FrameMetaData(p: Path): ID3FrameMetaData =
@@ -327,7 +362,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
    * Checks whether a meta data result message for an ID3v2 frame is correctly
    * handled.
-   * @param p the path to the file
+    *
+    * @param p the path to the file
    * @param complete flag whether processing of this file is complete
    * @return the test helper for further verification
    */
@@ -356,13 +392,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val p = path(2)
     val helper = checkID3v2ResultHandling(p, complete = true)
 
-    expectProcessingResult(p)
+    expectProcessingResult(p, fileUri(2))
     verify(helper.collectorMap).removeItemFor(p)
   }
 
   /**
    * Checks whether a meta data result for an ID3v1 frame is correctly handled.
-   * @param p the path to the file
+    *
+    * @param p the path to the file
    * @param complete flag whether processing of this file is complete
    * @return the test helper for further verifications
    */
@@ -393,7 +430,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val p = path(2)
     val helper = checkID3v1ResultHandling(p, complete = true)
 
-    expectProcessingResult(p)
+    expectProcessingResult(p, fileUri(2))
     verify(helper.collectorMap).removeItemFor(p)
   }
 
@@ -408,7 +445,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Creates an MP3 meta data result object.
-   * @param p the target path
+    *
+    * @param p the target path
    * @return the MP3 result object
    */
   private def createMp3Result(p: Path): Mp3MetaData =
@@ -416,7 +454,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Checks whether an MP3 meta data result is correctly handled.
-   * @param p the path to the file
+    *
+    * @param p the path to the file
    * @param complete flag whether processing of this file is complete
    * @return the test helper for further verification
    */
@@ -445,7 +484,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val p = path(2)
     val helper = checkMp3ResultHandling(p, complete = true)
 
-    expectProcessingResult(p)
+    expectProcessingResult(p, fileUri(2))
     verify(helper.collectorMap).removeItemFor(p)
   }
 
@@ -482,7 +521,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "ignore messages for paths that have been fully processed" in {
     val p = path(2)
     val helper = checkID3v1ResultHandling(p, complete = true)
-    expectProcessingResult(p)
+    expectProcessingResult(p, fileUri(2))
 
     helper send createMp3Data(p)
     verifyZeroInteractions(helper.mp3ProcessorMap)
@@ -508,7 +547,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "create not more readers as files to process" in {
     val smallScanResult = ScanResult.copy(mediaFiles = ScanResult.mediaFiles - MediumID
       (ScanResult.root.toString, None))
-    val helper = new MediumProcessorActorTestHelper(smallScanResult)
+    val helper = new MediumProcessorActorTestHelper(ExtScanResult.copy(scanResult = smallScanResult))
 
     helper send ProcessMediaFiles
     helper.numberOfChildrenCreated should be(1)
@@ -538,7 +577,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       helper send processMsg
       probe.expectMsg(processMsg)
       helper.actor.tell(mp3Data, probe.ref)
-      expectProcessingResult(p)
+      val pathIdx = p.toString.last.toString.toInt
+      expectProcessingResult(p, fileUri(pathIdx))
     }
 
     helper.waitForProcessing(2) foreach processPath
@@ -554,7 +594,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val mediaFiles = MediumPaths map (FileData(_, 128))
     val scanResult = ScanResult.copy(mediaFiles = Map(MediumID.fromDescriptionPath(Medium) -> mediaFiles))
     val errorPath = MediumPaths.head
-    val helper = new MediumProcessorActorTestHelper(scanResult = scanResult, numberOfRealActors = 1)
+    val errorUri = fileUri(42)
+    val uriMapping = ExtScanResult.fileUriMapping + (errorUri -> FileData(errorPath, 128))
+    val helper = new MediumProcessorActorTestHelper(numberOfRealActors = 1,
+      scanResult = ExtScanResult.copy(scanResult = scanResult, fileUriMapping = uriMapping))
     val probeMp3Processor, probeId3v1Processor, probeId3v2Processor = TestProbe()
     when(helper.mp3ProcessorMap.removeItemFor(errorPath)).thenReturn(Some(probeMp3Processor.ref))
     when(helper.id3v1ProcessorMap.removeItemFor(errorPath)).thenReturn(Some(probeId3v1Processor
@@ -572,7 +615,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! ProcessMediaFiles
     List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
     expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath, mediumID =
-      MediumID.fromDescriptionPath(Medium)))
+      MediumID.fromDescriptionPath(Medium), uri =  errorUri))
     expectMsg(errorPath)
 
     helper send createMp3Data(errorPath)
@@ -588,7 +631,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * Convenience method for creating a test helper and waiting until its
      * initialization is complete. We wait until all child actors have received
      * messages for paths to be processed.
-     * @return the newly created test helper
+      *
+      * @return the newly created test helper
      */
     def apply(): MediumProcessorActorTestHelper = {
       val helper = new MediumProcessorActorTestHelper
@@ -600,13 +644,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
    * A test helper class managing some mock dependencies passed to a test actor
    * reference.
-   * @param scanResult the object with the files to be processed
+    *
+    * @param scanResult the object with the files to be processed
    * @param numberOfRealActors the number of real child actors to be created;
    *                           per default, test probes are returned for child
    *                           actors; with a value greater zero, a number of
    *                           real reader actors can be created
    */
-  private class MediumProcessorActorTestHelper(scanResult: MediaScanResult = ScanResult,
+  private class MediumProcessorActorTestHelper(scanResult: EnhancedMediaScanResult = ExtScanResult,
                                                 numberOfRealActors: Int = 0) {
     /** A mock for the processor map for ID3v1 processors. */
     val id3v1ProcessorMap = mock[ProcessorActorMap]
@@ -635,7 +680,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Waits until the given number of paths is processed by child reader
      * actors. The paths are returned.
-     * @param pathCount the number of paths to wait for
+      *
+      * @param pathCount the number of paths to wait for
      * @return a set with the paths currently processed
      */
     def waitForProcessing(pathCount: Int): Set[Path] = {
@@ -646,7 +692,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Directly sends the specified message to the test actor (by invoking
      * receive on the test reference).
-     * @param msg the message to be sent
+      *
+      * @param msg the message to be sent
      */
     def send(msg: Any): Unit = {
       actor receive msg
@@ -655,7 +702,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Prepares a mock processor actor map to return a test probe when it is
      * asked for a specific actor instance.
-     * @param map the map to be prepared
+      *
+      * @param map the map to be prepared
      * @param p the expected path
      * @return the test probe
      */
@@ -674,7 +722,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Prepares the mock for the collector map to return a specific mock
      * collector for the given path.
-     * @param p the path
+      *
+      * @param p the path
      * @return the mock collector for this path
      */
     def installCollector(p: Path): MetaDataPartsCollector = {
@@ -686,13 +735,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Returns the number of children that have been created by the test
      * actor using the test child factory implementation.
-     * @return the number of created children
+      *
+      * @return the number of created children
      */
     def numberOfChildrenCreated: Int = childCount.get
 
     /**
      * Creates the properties for the test actor.
-     * @return creation properties for the test actor
+      *
+      * @return creation properties for the test actor
      */
     private def createTestActorProps(): Props = {
       Props(new MediumProcessorActor(scanResult, config,
@@ -715,7 +766,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
      * Creates a mock for the server config.
-     * @return the config mock
+      *
+      * @return the config mock
      */
     private def createConfigMock(): ServerConfig = {
       val config = mock[ServerConfig]

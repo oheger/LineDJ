@@ -37,13 +37,6 @@ object MetaDataManagerActor {
   def apply(config: ServerConfig): Props = Props(classOf[MetaDataManagerActorImpl], config)
 
   /**
-   * Helper method for transforming a path to a string representation.
-   * @param p the path
-   * @return the string representing this path
-   */
-  private def pathToUri(p: Path): String = p.toString
-
-  /**
    * Returns a flag whether the specified medium ID refers to files not
    * assigned to a medium, but is not the global undefined medium. Such IDs
    * have to be treated in a special way because the global undefined medium
@@ -98,7 +91,7 @@ object MetaDataManagerActor {
       Unit): Boolean = {
       mediumPaths -= result.path
       val complete = isComplete
-      nextChunkData = nextChunkData + (pathToUri(result.path) -> result.metaData)
+      nextChunkData = nextChunkData + (result.uri -> result.metaData)
 
       if (nextChunkData.size >= chunkSize || complete) {
         f(createNextChunk(nextChunkData))
@@ -207,10 +200,10 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   private var completionListeners = List.empty[ActorRef]
 
   override def receive: Receive = {
-    case EnhancedMediaScanResult(sr, _, _) =>
-      val processor = createChildActor(MediumProcessorActor(sr, config))
+    case esr: EnhancedMediaScanResult =>
+      val processor = createChildActor(MediumProcessorActor(esr, config))
       processor ! ProcessMediaFiles
-      sr.mediaFiles foreach prepareHandlerForMedium
+      esr.scanResult.mediaFiles foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult =>
       log.info("Received MetaDataProcessingResult for {}.", result.path)

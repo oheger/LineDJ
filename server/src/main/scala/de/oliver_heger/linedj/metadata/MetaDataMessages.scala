@@ -137,9 +137,11 @@ case object ProcessMediaFiles
  *
  * @param path the path to the media file
  * @param mediumID the ID of the medium this file belongs to
+ * @param uri the URI of the file
  * @param metaData an object with the meta data that could be extracted
  */
-case class MetaDataProcessingResult(path: Path, mediumID: MediumID, metaData: MediaMetaData)
+case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
+                                    metaData: MediaMetaData)
 
 /**
  * A message sent by [[MediumProcessorActor]] when all media files in its list

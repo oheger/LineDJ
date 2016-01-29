@@ -55,6 +55,13 @@ object MetaDataManagerActorSpec {
   private def path(s: String): Path = Paths get s
 
   /**
+    * Generates the URI for a path. This is used to construct a URI mapping.
+    * @param path the path
+    * @return the URI for this path
+    */
+  private def uriFor(path: Path): String = "song://" + path.toString
+
+  /**
    * Generates a medium ID.
    * @param name a unique name for the ID
    * @return the medium ID
@@ -109,10 +116,17 @@ object MetaDataManagerActorSpec {
    * @return the enhanced result
    */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
-    //TODO set correct URI mapping
     EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, "checksum_" + e._1
-      .mediumURI)), null)
+      .mediumURI)), createFileUriMapping(result))
   }
+
+  /**
+    * Generates a global URI to file mapping for the given result object.
+    * @param result the ''MediaScanResult''
+    * @return the URI to file mapping for this result
+    */
+  private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
+    result.mediaFiles.values.flatten.map(f => (uriFor(f.path), f)).toMap
 }
 
 /**
@@ -168,7 +182,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     msg.mediumID should be(mediumID)
     msg.data should have size expectedFiles.size
     expectedFiles foreach { m =>
-      msg.data(m.path.toString) should be(metaDataFor(m.path))
+      msg.data(uriFor(m.path)) should be(metaDataFor(m.path))
     }
     msg.complete shouldBe expComplete
   }
@@ -230,8 +244,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val UndefinedMediumID2 = MediumID(root2.toString, None)
     val scanResult2 = MediaScanResult(root2, Map(UndefinedMediumID2 ->
       filesForChunk3))
-    //TODO set correct file mapping
-    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(UndefinedMediumID2 -> "testCheckSum"), null)
+    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(UndefinedMediumID2 -> "testCheckSum"),
+      createFileUriMapping(scanResult2))
     helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
     val allFiles = ScanResult.mediaFiles(UndefinedMediumID) ::: filesForChunk3
@@ -336,7 +350,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     def sendProcessingResults(mediumID: MediumID, files: List[FileData]): Unit = {
       files foreach { m =>
-        actor ! MetaDataProcessingResult(m.path, mediumID, metaDataFor(m.path))
+        actor ! MetaDataProcessingResult(m.path, mediumID, uriFor(m.path), metaDataFor(m.path))
       }
     }
 
@@ -356,7 +370,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
          */
         override def createChildActor(p: Props): ActorRef = {
           if (checkChildActorProps) {
-            val sampleProps = MediumProcessorActor(ScanResult, config)
+            val sampleProps = MediumProcessorActor(EnhancedScanResult, config)
             p.actorClass() should be(sampleProps.actorClass())
             p.args should be(sampleProps.args)
           }
