@@ -3,6 +3,9 @@ package de.oliver_heger.linedj.media
 import java.nio.file.{Path, Paths}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
+import org.mockito.Mockito._
+import org.mockito.Matchers.any
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.io.Source
@@ -28,7 +31,7 @@ object MediumIDCalculatorSpec {
  * Test class for ''MediumIDCalculator''.
  */
 class MediumIDCalculatorSpec extends FlatSpec with Matchers with BeforeAndAfter with
-FileTestHelper {
+FileTestHelper with MockitoSugar {
 
   import MediumIDCalculatorSpec._
 
@@ -38,6 +41,7 @@ FileTestHelper {
 
   /**
    * Converts a string read from the data file to a path.
+   *
    * @param s the string
    * @return the resulting path
    */
@@ -45,6 +49,7 @@ FileTestHelper {
 
   /**
    * Creates a sequence with paths representing the content of a test medium.
+   *
    * @return the sequence with paths
    */
   private def createContentList(): Seq[FileData] = {
@@ -56,6 +61,18 @@ FileTestHelper {
     val calculator = new MediumIDCalculator
     calculator.calculateMediumID(testDirectory, TestID, ScanResult, createContentList())
       .checksum should be(CheckSum)
+  }
+
+  it should "use the provided URI handler" in {
+    val uriHandler = mock[MediaFileUriHandler]
+    val path = toPath("testPath")
+    val content = List(FileData(path, 1))
+    when(uriHandler.generateMediaFileUri(testDirectory, path)).thenReturn(MediumURI)
+    when(uriHandler.removePrefix(any(classOf[String]))).thenReturn("someURI")
+    val calculator = new MediumIDCalculator(uriHandler)
+
+    calculator.calculateMediumID(testDirectory, TestID, ScanResult, content)
+    verify(uriHandler).generateMediaFileUri(testDirectory, path)
   }
 
   it should "return the same ID independent on ordering" in {

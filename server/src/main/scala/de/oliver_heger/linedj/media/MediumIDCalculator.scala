@@ -36,8 +36,16 @@ import de.oliver_heger.linedj.io.FileData
  * these logic file URIs to the underlying physical ''Path'' objects. Based on
  * this information, it is possible to identify specific files in arbitrary
  * media in a unique way.
+ *
+ * @param uriHandler the object for generating URIs for files
  */
-private class MediumIDCalculator {
+private class MediumIDCalculator(val uriHandler: MediaFileUriHandler) {
+  /**
+    * Creates a new instance of ''MediumIDCalculator'' that uses a default
+    * URI handler.
+    */
+  def this() = this(new MediaFileUriHandler)
+
   /**
    * Calculates an alphanumeric medium ID and URIs for the files on the
    * affected medium for the specified input parameters.
@@ -51,9 +59,9 @@ private class MediumIDCalculator {
   def calculateMediumID(mediumRoot: Path, mediumID: MediumID, scanResult: MediaScanResult,
                         mediumContent: Seq[FileData]): MediumIDData = {
     val paths = mediumContent map (_.path)
-    val fileURIs = paths map mediumRoot.relativize map (_.toString.replace('\\', '/'))
+    val fileURIs = paths map (uriHandler.generateMediaFileUri(mediumRoot, _))
     val crc = new CRC32
-    fileURIs sortWith (_ < _) foreach { s => crc.update(s.getBytes) }
+    fileURIs sortWith (_ < _) foreach { s => crc.update(uriHandler.removePrefix(s).getBytes) }
     MediumIDData(java.lang.Long.toHexString(crc.getValue), mediumID, scanResult, Map(fileURIs zip
       mediumContent: _*))
   }
