@@ -60,15 +60,6 @@ object MediaManagerActor {
   private val UnknownMediumFiles = MediumFiles(null, Set.empty, existing = false)
 
   /**
-   * Constant for an ID data object for the combined list of media files not
-   * associated to a medium.
-   */
-  private val UnassignedIDData = MediumIDData(checksum = MediumInfoParserActor
-    .undefinedMediumInfo.checksum,
-    mediumID = MediumID.UndefinedMediumID, scanResult = MediaScanResult(null, Map.empty),
-    fileURIMapping = Map.empty)
-
-  /**
    * Constant for a ''FileData'' referring to a non-existing file.
    */
   private val NonExistingFile = FileData(path = null, size = -1)
@@ -445,46 +436,11 @@ Actor with ActorLogging {
 
         case _ =>
           triggerIDCalculation(scanResult.root, MediumID(pathToURI(scanResult.root), None), e._2)
-          processOtherFiles(scanResult, e._1)
       }
     }
 
     mediaCount += scanResult.mediaFiles.size
     incrementScannedPaths()
-  }
-
-  /**
-   * Processes other files in a scan result. Information about a combined list
-   * of files which do not belong to a medium has to be stored by the actor.
-   * This is handled by this method.
-    *
-    * @param scanResult the data object with scan results
-   * @param mediumID the ID of the medium with other files
-   */
-  private def processOtherFiles(scanResult: MediaScanResult, mediumID: MediumID): Unit = {
-    if (!mediaMap.contains(MediumID.UndefinedMediumID)) {
-      mediaCount += 1
-      appendMedium(UnassignedIDData, MediumInfoParserActor.undefinedMediumInfo)
-    }
-    val otherMapping = createOtherFilesMapping(scanResult, mediumID)
-    val currentOtherMapping = mediaFiles.getOrElse(MediumID.UndefinedMediumID, Map.empty)
-    mediaFiles += MediumID.UndefinedMediumID -> (currentOtherMapping ++ otherMapping)
-  }
-
-  /**
-   * Creates a URI mapping for other files from a ''MediaScanResult''. This
-   * mapping will become part of a global mapping for all files that do not
-   * belong to a specific medium.
-    *
-    * @param scanResult the ''MediaScanResult''
-   * @param mediumID the medium ID
-   * @return the resulting mapping
-   */
-  private def createOtherFilesMapping(scanResult: MediaScanResult, mediumID: MediumID):
-  Map[String, FileData] = {
-    val otherFiles = scanResult.mediaFiles(mediumID)
-    val otherURIs = otherFiles map { f => pathToURI(f.path) }
-    Map(otherURIs zip otherFiles: _*)
   }
 
   /**

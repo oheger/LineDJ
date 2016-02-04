@@ -138,16 +138,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       .undefinedMediumInfo.copy(checksum = helper.Drive3OtherIDData.checksum))
   }
 
-  it should "include a medium ID for a combined list of other files" in {
-    val helper = new MediaManagerTestHelper
-    val manager = helper.scanMedia()
-
-    manager ! GetAvailableMedia
-    val media = expectMsgType[AvailableMedia]
-    media.media(MediumID.UndefinedMediumID) should be(MediumInfoParserActor
-      .undefinedMediumInfo)
-  }
-
   /**
    * Prepares a test helper instance for a test which requires scanned media.
    * @param optMapping an optional reader actor mapping
@@ -188,16 +178,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val expURIs = helper.Drive3OtherFiles map ("path://" + _.path.toString)
 
     helper.testManagerActor ! GetMediumFiles(MediumID(helper.Drive3Root.toString, None))
-    val msgFiles = expectMsgType[MediumFiles]
-    msgFiles.uris.size should be(expURIs.size)
-    msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
-  }
-
-  it should "answer a query for the global list of other files" in {
-    val helper = prepareHelperForScannedMedia()
-    val expURIs = (helper.Drive1OtherFiles ::: helper.Drive3OtherFiles) map (_.path.toString)
-
-    helper.testManagerActor ! GetMediumFiles(MediumID.UndefinedMediumID)
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.uris.size should be(expURIs.size)
     msgFiles.uris.subsetOf(expURIs.toSet) shouldBe true
