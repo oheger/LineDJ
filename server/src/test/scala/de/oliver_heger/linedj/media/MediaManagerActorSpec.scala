@@ -185,7 +185,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "answer a query for other files on a specific root path" in {
     val helper = prepareHelperForScannedMedia()
-    val expURIs = helper.Drive3OtherFiles map (_.path.toString)
+    val expURIs = helper.Drive3OtherFiles map ("path://" + _.path.toString)
 
     helper.testManagerActor ! GetMediumFiles(MediumID(helper.Drive3Root.toString, None))
     val msgFiles = expectMsgType[MediumFiles]
@@ -368,7 +368,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia(Some(mapping))
     helper.testManagerActor ! createRequestForExistingFile(helper)
 
-    expectMsgType[MediumFileResponse]
+    expectMsgType[MediumFileResponse].length should be > 0L
     val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
     verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))), captor.capture())
@@ -386,6 +386,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     response.contentReader should be(actReader.ref)
     optProcReader shouldBe 'empty
     verify(mapping).add(argEq((actReader.ref, None)), anyLong())
+  }
+
+  it should "handle a file request for a file in global undefined medium" in {
+    val helper = prepareHelperForScannedMedia()
+    val targetFileUri = helper.Medium1IDData.fileURIMapping.keys.head
+    val targetFile = helper.Medium1IDData.fileURIMapping(targetFileUri)
+    val fileURI = "ref://" + helper.Medium1IDData.mediumID.mediumURI + ":" + targetFileUri
+    helper.testManagerActor ! MediumFileRequest(MediumID.UndefinedMediumID, fileURI,
+      withMetaData = false)
+
+    val response = expectMsgType[MediumFileResponse]
+    response.length should be (targetFile.size)
+    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
+    readerProbe.expectMsg(ChannelHandler.InitFile(targetFile.path))
   }
 
   it should "stop the underlying reader actor when the processing reader is stopped" in {
@@ -577,7 +591,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the path mapping
      */
     private def pathMapping(content: List[FileData]): Map[String, FileData] = {
-      Map(content map (f => f.path.toString -> f): _*)
+      Map(content map (f => "path://" + f.path.toString -> f): _*)
     }
 
     /**
