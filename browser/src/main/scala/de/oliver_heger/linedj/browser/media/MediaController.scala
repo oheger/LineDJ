@@ -419,7 +419,8 @@ MessageBusListener {
   private def generateMediaList(media: Map[MediumID, MediumInfo]): List[(MediumID, String)] = {
     var orderedMedia = media.toList filter (_._1.mediumDescriptionPath.isDefined) sortWith
       (_._2.name < _._2.name) map (e => (e._1, e._2.name))
-    if (media contains MediumID.UndefinedMediumID) {
+    if (media.size > orderedMedia.size) {
+      // the map contained undefined medium IDs which have been filtered out
       orderedMedia = orderedMedia ++ List((MediumID.UndefinedMediumID, undefinedMediumName))
     }
     orderedMedia

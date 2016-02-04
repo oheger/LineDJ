@@ -138,8 +138,7 @@ object MediaControllerSpec {
       (mediumID(m), mediumInfo(m))
     }
     val undefinedMappings = List(infoMapping(undefinedMediumInfo("someURI")), infoMapping
-      (undefinedMediumInfo("anotherURI")), infoMapping(undefinedMediumInfo(MediumID
-      .UndefinedMediumID)))
+      (undefinedMediumInfo("anotherURI")))
     val mappings = Random.shuffle(List(definedMappings, undefinedMappings).flatten)
     AvailableMedia(Map(mappings: _*))
   }
@@ -255,7 +254,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "add an entry for the undefined medium only if it exists" in {
-    val mediaMap = AvailableMediaMsg.media - MediumID.UndefinedMediumID
+    val mediaMap = AvailableMediaMsg.media filter (e => e._1.mediumDescriptionPath.isDefined)
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
 
