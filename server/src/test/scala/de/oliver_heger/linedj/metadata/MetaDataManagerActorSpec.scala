@@ -170,8 +170,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   /**
    * Checks whether a meta data chunk received from the test actor contains the
-   * expected data for the given medium ID as string. This method also works
-   * for the undefined medium ID.
+   * expected data for the given medium ID. File URIs are expected to follow
+   * default conventions.
    * @param msg the chunk message to be checked
    * @param mediumID the medium ID as string
    * @param expectedFiles the expected files
@@ -179,10 +179,25 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
                                  expectedFiles: List[FileData], expComplete: Boolean): Unit = {
+    checkMetaDataChunkWithUris(msg, mediumID, expectedFiles, expComplete)(uriFor)
+  }
+
+  /**
+    * Checks whether a meta data chunk received from the test actor contains the
+    * expected data for the given medium ID and verifies the URIs in the chunk.
+    * @param msg the chunk message to be checked
+    * @param mediumID the medium ID as string
+    * @param expectedFiles the expected files
+    * @param expComplete the expected complete flag
+    * @param uriGen the URI generator to be used
+    */
+  private def checkMetaDataChunkWithUris(msg: MetaDataChunk, mediumID: MediumID,
+                                         expectedFiles: List[FileData], expComplete: Boolean)
+                                        (uriGen: Path => String): Unit = {
     msg.mediumID should be(mediumID)
     msg.data should have size expectedFiles.size
     expectedFiles foreach { m =>
-      msg.data(uriFor(m.path)) should be(metaDataFor(m.path))
+      msg.data(uriGen(m.path)) should be(metaDataFor(m.path))
     }
     msg.complete shouldBe expComplete
   }
@@ -227,17 +242,24 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "handle the undefined medium even over multiple scan results" in {
+    def refUri(mediumID: MediumID)(path: Path): String =
+      MediaFileUriHandler.PrefixReference + mediumID.mediumURI + ":" + uriFor(path)
+
+    def findUrisInChunk(mediumID: MediumID, chunk: MetaDataChunk, files: Seq[FileData]): Unit = {
+      files.map(d => refUri(mediumID)(d.path)).filterNot(chunk.data.contains) should have length 0
+    }
+
     val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
     helper.startProcessing()
     val filesForChunk1 = ScanResult.mediaFiles(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID, filesForChunk1,
-      expComplete = false)
+    checkMetaDataChunkWithUris(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID,
+      filesForChunk1, expComplete = false)(refUri(UndefinedMediumID))
     val filesForChunk2 = List(ScanResult.mediaFiles(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID, filesForChunk2,
-      expComplete = true)
+    checkMetaDataChunkWithUris(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID,
+      filesForChunk2, expComplete = true)(refUri(UndefinedMediumID))
 
     val filesForChunk3 = generateMediaFiles(path("fileOnOtherMedium"), 4)
     val root2 = path("anotherRootDirectory")
@@ -248,9 +270,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       createFileUriMapping(scanResult2))
     helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
-    val allFiles = ScanResult.mediaFiles(UndefinedMediumID) ::: filesForChunk3
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID, allFiles,
-      expComplete = true)
+    val chunk = expectMsgType[MetaDataChunk]
+    findUrisInChunk(UndefinedMediumID, chunk, ScanResult.mediaFiles(UndefinedMediumID))
+    findUrisInChunk(UndefinedMediumID2, chunk, filesForChunk3)
   }
 
   it should "allow removing a medium listener" in {
