@@ -45,6 +45,9 @@ object ServerConfigSpec {
 
   /** Test value for the chunk size of a meta data notification. */
   private val MetaDataChunkSize = 10
+
+  /** Test value for the maximum message size of meta data chunk messages. */
+  private val MetaDataMaxMsgSize = 150
 }
 
 /**
@@ -80,6 +83,7 @@ with Matchers with BeforeAndAfterAll {
           |     readChunkSize = ${ServerConfigSpec.ReadChunkSize}
           |     tagSizeLimit = ${ServerConfigSpec.TagSizeLimit}
           |     metaDataUpdateChunkSize = ${ServerConfigSpec.MetaDataChunkSize}
+          |     metaDataMaxMessageSize = ${ServerConfigSpec.MetaDataMaxMsgSize}
           |   }
           | }
           |}
@@ -93,7 +97,8 @@ with Matchers with BeforeAndAfterAll {
   /**
    * Convenience method for creating a test configuration object based on the
    * config of the test actor system.
-   * @return the test configuration
+    *
+    * @return the test configuration
    */
   private def createConfig(): ServerConfig = ServerConfig(system.settings.config)
 
@@ -135,6 +140,22 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the meta data chunk size" in {
     createConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+  }
+
+  it should "return the maximum meta data message size" in {
+    createConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+  }
+
+  it should "correct the maximum message size if necessary" in {
+    val oc = createConfig()
+    val config = new ServerConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
+      .readerCheckInterval,
+      readerCheckInitialDelay = oc.readerCheckInitialDelay, metaDataReadChunkSize = oc
+        .metaDataReadChunkSize,
+      tagSizeLimit = oc.tagSizeLimit, excludedFileExtensions = oc.excludedFileExtensions,
+      rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150)
+
+    config.metaDataMaxMessageSize should be(152)
   }
 
   it should "return the file extensions to be excluded" in {

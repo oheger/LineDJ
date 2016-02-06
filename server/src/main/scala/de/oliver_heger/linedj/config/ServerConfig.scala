@@ -53,6 +53,9 @@ object ServerConfig {
   /** The configuration property for the size of meta data update chunks. */
   private val PropMetaDataUpdateChunkSize = MetaExtractionPrefix + "metaDataUpdateChunkSize"
 
+  /** The configuration property for the maximum meta data message size. */
+  private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
+
   /** Constant for the path property of a media root object. */
   private val RootPropPath = ".path"
 
@@ -78,6 +81,7 @@ object ServerConfig {
       metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
       tagSizeLimit = config getInt PropTagSizeLimit,
       metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
+      initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize,
       excludedFileExtensions = obtainExcludedExtensions(config),
       rootMap = createMediaData(config))
   }
@@ -174,22 +178,33 @@ object ServerConfig {
  *                                often a meta data listener receives update
  *                                notifications when new meta data becomes
  *                                available
+ * @param initMetaDataMaxMsgSize the maximum number of entries in a meta data
+ *                               chunk message; there is a limit in the size
+ *                               of remoting messages; therefore, this
+ *                               parameter is important to not exceed this
+ *                               limit; this value should be a multiple of the
+ *                               update chunk size
  * @param excludedFileExtensions the set with file extensions (in upper case)
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  */
-class ServerConfig private(val readerTimeout: FiniteDuration,
+class ServerConfig private[config](val readerTimeout: FiniteDuration,
                            val readerCheckInterval: FiniteDuration,
                            val readerCheckInitialDelay: FiniteDuration,
                            val metaDataReadChunkSize: Int,
                            val tagSizeLimit: Int,
                            val metaDataUpdateChunkSize: Int,
+                           initMetaDataMaxMsgSize: Int,
                            val excludedFileExtensions: Set[String],
                            rootMap: Map[Path, MediaRootData]) {
+  /** The maximum size of meta data chunk messages. */
+  val metaDataMaxMessageSize: Int = calcMaxMessageSize()
+
   /**
    * Returns a set with paths that represent root directories for media files.
    * All media files processed by this application should be contained in one
    * of these directory structures.
+   *
    * @return a set with the root paths for media files
    */
   def mediaRoots: Set[MediaRootData] = rootMap.values.toSet
@@ -198,8 +213,21 @@ class ServerConfig private(val readerTimeout: FiniteDuration,
    * Returns an option for the ''MediaRootData'' object with the specified
    * root path. With this method extended information about a given root
    * path can be obtained.
+   *
    * @param rootPath the root path
    * @return an option for the corresponding ''MediaRootData''
    */
   def rootFor(rootPath: Path): Option[MediaRootData] = rootMap get rootPath
+
+  /**
+    * Calculates the maximum message size based on constructor parameters. This
+    * method ensures that the maximum message size is always a multiple of the
+    * update chunk size. If necessary, the value is rounded upwards.
+    *
+    * @return the maximum meta data chunk message size
+    */
+  private def calcMaxMessageSize(): Int = {
+    if (initMetaDataMaxMsgSize % metaDataUpdateChunkSize == 0) initMetaDataMaxMsgSize
+    else (initMetaDataMaxMsgSize / metaDataUpdateChunkSize + 1) * metaDataUpdateChunkSize
+  }
 }
