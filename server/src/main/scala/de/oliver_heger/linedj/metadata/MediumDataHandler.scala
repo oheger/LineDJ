@@ -40,7 +40,7 @@ private abstract class MediumDataHandler(mediumID: MediumID) {
   private val mediumPaths = collection.mutable.Set.empty[Path]
 
   /** The current data available for the represented medium. */
-  private var currentData = createInitialChunk()
+  private var currentData = List(createInitialChunk())
 
   /** Stores data for the next chunk. */
   private var nextChunkData = Map.empty[String, MediaMetaData]
@@ -64,20 +64,21 @@ private abstract class MediumDataHandler(mediumID: MediumID) {
     *
     * @param result the result to be stored
     * @param chunkSize the chunk size
+    * @param maxChunkSize the maximum size of chunks
     * @param f the function for processing a new chunk of data
     * @return a flag whether this medium is now complete (this value is
     *         returned explicitly so that it is available without having to
     *         evaluate the lazy meta data chunk expression)
     */
-  def storeResult(result: MetaDataProcessingResult, chunkSize: Int)(f: (=> MetaDataChunk) =>
-    Unit): Boolean = {
+  def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
+                 (f: (=> MetaDataChunk) => Unit): Boolean = {
     mediumPaths -= result.path
     val complete = isComplete
     nextChunkData = nextChunkData + (extractUri(result) -> result.metaData)
 
     if (nextChunkData.size >= chunkSize || complete) {
       f(createNextChunk(nextChunkData))
-      currentData = updateCurrentResult(nextChunkData, complete)
+      currentData = updateCurrentResult(nextChunkData, complete, maxChunkSize)
       nextChunkData = Map.empty
       complete
     } else false
@@ -96,11 +97,12 @@ private abstract class MediumDataHandler(mediumID: MediumID) {
     *
     * @return the data managed by this object
     */
-  def metaData: MetaDataChunk = currentData
+  def metaData: Seq[MetaDataChunk] = currentData
 
   /**
     * Extracts the URI to be used when storing the specified result. The URI is
     * different for the global undefined list.
+    *
     * @param result the meta data result
     * @return the URI to be used for the represented file
     */
@@ -112,11 +114,18 @@ private abstract class MediumDataHandler(mediumID: MediumID) {
     *
     * @param data the data to be added
     * @param complete the new completion status
+    * @param maxSize the maximum number of entries in a chunk
     * @return the new data object to be stored
     */
-  private def updateCurrentResult(data: Map[String, MediaMetaData], complete: Boolean):
-  MetaDataChunk =
-    currentData.copy(data = currentData.data ++ data, complete = complete)
+  private def updateCurrentResult(data: Map[String, MediaMetaData], complete: Boolean, maxSize: Int):
+  List[MetaDataChunk] = {
+    val currentChunk = currentData.head.copy(data = currentData.head.data ++ data, complete = complete)
+    val nextData = currentChunk :: currentData.tail
+    val result = if(currentChunk.data.size >= maxSize && !complete)
+      createInitialChunk() :: nextData
+    else nextData
+    if(complete) result.reverse else result
+  }
 
   /**
     * Creates an initial chunk of meta data.

@@ -31,6 +31,9 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
+  /** The maximum message size. */
+  private val MaxMessageSize = 24
+
   /** ID of a test medium. */
   private val TestMediumID = mediumID("medium1")
 
@@ -49,13 +52,15 @@ object MetaDataManagerActorSpec {
 
   /**
    * Helper method for generating a path.
-   * @param s the name of this path
+    *
+    * @param s the name of this path
    * @return the path
    */
   private def path(s: String): Path = Paths get s
 
   /**
     * Generates the URI for a path. This is used to construct a URI mapping.
+    *
     * @param path the path
     * @return the URI for this path
     */
@@ -63,7 +68,8 @@ object MetaDataManagerActorSpec {
 
   /**
    * Generates a medium ID.
-   * @param name a unique name for the ID
+    *
+    * @param name a unique name for the ID
    * @return the medium ID
    */
   private def mediumID(name: String): MediumID = {
@@ -73,7 +79,8 @@ object MetaDataManagerActorSpec {
 
   /**
    * Creates a test meta data object for the specified path.
-   * @param path the path
+    *
+    * @param path the path
    * @return the meta data for this path (following conventions)
    */
   private def metaDataFor(path: Path): MediaMetaData =
@@ -82,7 +89,8 @@ object MetaDataManagerActorSpec {
   /**
    * Generates a number of media files that belong to the specified test
    * medium.
-   * @param mediumPath the path of the medium
+    *
+    * @param mediumPath the path of the medium
    * @param count the number of files to generate
    * @return the resulting list
    */
@@ -112,7 +120,8 @@ object MetaDataManagerActorSpec {
 
   /**
    * Creates an enhanced scan result. This method adds checksum information.
-   * @param result the plain result
+    *
+    * @param result the plain result
    * @return the enhanced result
    */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
@@ -122,6 +131,7 @@ object MetaDataManagerActorSpec {
 
   /**
     * Generates a global URI to file mapping for the given result object.
+    *
     * @param result the ''MediaScanResult''
     * @return the URI to file mapping for this result
     */
@@ -172,7 +182,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * Checks whether a meta data chunk received from the test actor contains the
    * expected data for the given medium ID. File URIs are expected to follow
    * default conventions.
-   * @param msg the chunk message to be checked
+    *
+    * @param msg the chunk message to be checked
    * @param mediumID the medium ID as string
    * @param expectedFiles the expected files
    * @param expComplete the expected complete flag
@@ -185,6 +196,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
     * Checks whether a meta data chunk received from the test actor contains the
     * expected data for the given medium ID and verifies the URIs in the chunk.
+    *
     * @param msg the chunk message to be checked
     * @param mediumID the medium ID as string
     * @param expectedFiles the expected files
@@ -275,6 +287,48 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     findUrisInChunk(UndefinedMediumID2, chunk, filesForChunk3)
   }
 
+  /**
+    * Tells the test actor to process another medium with the specified
+    * content.
+    * @param helper the test helper
+    * @param files the files to be found on this medium
+    * @return a generated ID for the other medium
+    */
+  private def processAnotherMedium(helper: MetaDataManagerActorTestHelper, files: List[FileData])
+  : MediumID = {
+    val root = path("anotherRootDirectory")
+    val medID = MediumID(root.toString, Some("someDescFile.txt"))
+    val scanResult2 = MediaScanResult(root, Map(medID -> files))
+    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(medID -> "testCheckSum"),
+      createFileUriMapping(scanResult2))
+    helper.sendProcessingResults(medID, files)
+    medID
+  }
+
+  it should "split large chunks of meta data into multiple ones" in {
+    val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
+    helper.startProcessing()
+    val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize + 4)
+    val medID = processAnotherMedium(helper, files)
+
+    helper.actor ! GetMetaData(medID, registerAsListener = true)
+    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
+      expComplete = false)
+    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files drop MaxMessageSize,
+      expComplete = true)
+  }
+
+  it should "not split a chunk when processing of this medium is complete" in {
+    val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
+    helper.startProcessing()
+    val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize)
+    val medID = processAnotherMedium(helper, files)
+
+    helper.actor ! GetMetaData(medID, registerAsListener = true)
+    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
+      expComplete = true)
+  }
+
   it should "allow removing a medium listener" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
@@ -318,7 +372,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
    * A test helper class that manages a couple of helper objects needed for
    * more complex tests of a meta data manager actor.
-   * @param checkChildActorProps flag whether the properties passed to child
+    *
+    * @param checkChildActorProps flag whether the properties passed to child
    *                             actors should be checked
    */
   private class MetaDataManagerActorTestHelper(checkChildActorProps: Boolean = true) {
@@ -337,7 +392,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
      * Convenience function for sending a message to the test actor that starts
      * processing.
-     * @return the test actor
+      *
+      * @return the test actor
      */
     def startProcessing(): ActorRef = {
       actor ! EnhancedScanResult
@@ -346,7 +402,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
      * Sends a request for meta data to the test actor.
-     * @param mediumID the medium ID
+      *
+      * @param mediumID the medium ID
      * @param registerAsListener the register as listener flag
      */
     def queryMetaData(mediumID: MediumID, registerAsListener: Boolean): Unit = {
@@ -355,7 +412,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
      * Sends a request for meta data for the test actor and expects a response.
-     * @param mediumID the medium ID
+      *
+      * @param mediumID the medium ID
      * @param registerAsListener the register as listener flag
      * @return the chunk message received from the test actor
      */
@@ -367,7 +425,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
      * Sends processing result objects for the given files to the test actor.
-     * @param mediumID the medium ID
+      *
+      * @param mediumID the medium ID
      * @param files the list of files
      */
     def sendProcessingResults(mediumID: MediumID, files: List[FileData]): Unit = {
@@ -378,7 +437,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
      * Creates the standard test actor.
-     * @return the test actor
+      *
+      * @return the test actor
      */
     private def createTestActor(): ActorRef = system.actorOf(creationProps())
 
@@ -387,7 +447,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         /**
          * Creates a child actor based on the specified ''Props'' object. This
          * implementation uses the actor's context to actually create the child.
-         * @param p the ''Props'' defining the actor to be created
+          *
+          * @param p the ''Props'' defining the actor to be created
          * @return the ''ActorRef'' to the new child actor
          */
         override def createChildActor(p: Props): ActorRef = {
@@ -401,12 +462,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       })
 
     /**
-     * Creats a mock for the central configuration object.
-     * @return the mock configuration
+     * Creates a mock for the central configuration object.
+      *
+      * @return the mock configuration
      */
     private def createConfig() = {
       val config = mock[ServerConfig]
       when(config.metaDataUpdateChunkSize).thenReturn(2)
+      when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
       config
     }
   }

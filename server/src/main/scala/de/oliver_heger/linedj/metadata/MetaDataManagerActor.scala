@@ -122,12 +122,16 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
       }
 
     case GetMetaData(mediumID, registerAsListener) =>
-      val optData = mediaMap get mediumID map (_.metaData)
-      sender ! optData.getOrElse(UnknownMedium(mediumID))
+      mediaMap get mediumID match {
+        case None =>
+          sender ! UnknownMedium(mediumID)
 
-      if (registerAsListener && !optData.map(_.complete).getOrElse(true)) {
-        val newListeners = sender() :: mediumListeners.getOrElse(mediumID, Nil)
-        mediumListeners(mediumID) = newListeners
+        case Some(handler) =>
+          handler.metaData foreach (sender ! _)
+          if(registerAsListener && !handler.isComplete) {
+            val newListeners = sender() :: mediumListeners.getOrElse(mediumID, Nil)
+            mediumListeners(mediumID) = newListeners
+          }
       }
 
     case RemoveMediumListener(mediumID, listener) =>
@@ -201,8 +205,8 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   private def processMetaDataResult(mediumID: MediumID,
                                     result: MetaDataProcessingResult)(handler: MediumDataHandler)
   : Unit = {
-    if (handler.storeResult(result, config.metaDataUpdateChunkSize)(handleCompleteChunk(mediumID)
-    )) {
+    if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
+    (handleCompleteChunk(mediumID))) {
       mediumListeners remove mediumID
       if (completionListeners.nonEmpty) {
         val msg = MediumMetaDataCompleted(mediumID)
