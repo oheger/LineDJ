@@ -68,8 +68,7 @@ object SongData {
  * @param resolver the resolver for unknown names
  */
 case class SongData(mediumID: MediumID, uri: String, metaData: MediaMetaData, resolver:
-UnknownNameResolver)
-  extends Ordered[SongData] {
+UnknownNameResolver) {
 
   import SongData._
 
@@ -105,22 +104,4 @@ UnknownNameResolver)
    */
   lazy val getTrackNumber: String = metaData.trackNumber map (_.toString) getOrElse
     UnknownTrackNumber
-
-  /**
-   * @inheritdoc This implementation sorts songs by track number in the first
-   *             level. If this is the same, they are sorted by title.
-   */
-  override def compare(that: SongData): Int = {
-    val c = extractTrackNumber(metaData) - extractTrackNumber(that.metaData)
-    if (c != 0) c else getTitle compare that.getTitle
-  }
-
-  /**
-   * Extracts the track number from the given meta data object. If it is
-   * undefined, the maximum int value is returned.
-   * @param meta the meta data
-   * @return the track number
-   */
-  private def extractTrackNumber(meta: MediaMetaData): Int =
-    meta.trackNumber getOrElse Integer.MAX_VALUE
 }

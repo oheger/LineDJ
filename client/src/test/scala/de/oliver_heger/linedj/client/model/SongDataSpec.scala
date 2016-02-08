@@ -33,18 +33,6 @@ object SongDataSpec {
 class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
   import SongDataSpec._
 
-  "A SongData" should "have an order on track number" in {
-    val s1 = SongData(Medium, "s1", MediaMetaData(trackNumber = Some(4)), null)
-    val s2 = SongData(Medium, "s0", MediaMetaData(trackNumber = Some(5)), null)
-    s1 should be < s2
-  }
-
-  it should "order songs without track number after others" in {
-    val s1 = SongData(Medium, "s1", MediaMetaData(trackNumber = Some(100)), null)
-    val s2 = SongData(Medium, "s0", MediaMetaData(), null)
-    s1 should be < s2
-  }
-
   it should "return the title from the meta data if available" in {
     val title = "Bohemian Rhapsody"
     val s = SongData(Medium, "s0", MediaMetaData(title = Some(title)), null)
@@ -67,12 +55,6 @@ class SongDataSpec extends FlatSpec with Matchers with MockitoSugar {
     val uri = "song://TestSong.mp3"
     val s = SongData(Medium, uri, MediaMetaData(), null)
     s.getTitle should be("TestSong")
-  }
-
-  it should "order songs with same track number by title" in {
-    val s1 = SongData(Medium, "AA", MediaMetaData(title = Some("Time")), null)
-    val s2 = SongData(Medium, "song://Queen/A Kind of Magic", MediaMetaData(), null)
-    s2 should be < s1
   }
 
   it should "return the name of the album from meta data" in {

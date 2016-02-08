@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.media.AlbumTableModel.AlbumData
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.client.model.{SongTrackNoOrdering, SongData}
 
 private object AlbumTableModel {
   /**
@@ -28,6 +28,7 @@ private object AlbumTableModel {
   /**
    * Creates a new ''AlbumTableModel'' instance wich is initialized with the
    * specified data items.
+   *
    * @param items the data items to be added to the new model
    * @return the new model instance
    */
@@ -40,6 +41,7 @@ private object AlbumTableModel {
   /**
    * A helper class storing information about an album. It allows querying an
    * ordered song list which is dynamically constructed on demand.
+   *
    * @param songs the list of songs
    * @param ordered a flag whether the list is ordered
    */
@@ -49,19 +51,21 @@ private object AlbumTableModel {
 
     /**
      * Creates a new instance that contains the specified song.
+     *
      * @param song the song to be added
      * @return the new instance
      */
     def add(song: SongData): AlbumData = {
-      AlbumData(song :: songs, ordered =ordered && song > songs.head)
+      AlbumData(song :: songs, ordered = ordered && SongTrackNoOrdering.gt(song, songs.head))
     }
 
     /**
      * Creates an ordered list of songs based on the current song list.
+     *
      * @return the ordered list of songs
      */
     private def createOrderedSongs() = if(ordered) songs.reverse
-    else songs.sortWith(_ < _)
+    else songs.sorted(SongTrackNoOrdering)
   }
 }
 
@@ -84,6 +88,7 @@ private class AlbumTableModel(data: Map[AlbumKey, AlbumData], songUris: Set[Stri
   /**
    * Returns a sequence with songs on the specified album. If the album cannot
    * be resolved, result is an empty sequence.
+   *
    * @param key the key of the album
    * @return an ordered sequence with the songs on this album
    */
@@ -92,6 +97,7 @@ private class AlbumTableModel(data: Map[AlbumKey, AlbumData], songUris: Set[Stri
 
   /**
    * Creates a new model instance with the specified song added to an album.
+   *
    * @param key the key of the album
    * @param song the song to be added
    * @return the new album instance
