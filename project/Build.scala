@@ -262,4 +262,24 @@ object Build extends Build {
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
     ) dependsOn playlistEditor
+
+  /**
+    * Project for the playlist random artist reorder component. This is an
+    * implementation of ''PlaylistReorderer'' which produces a random order of
+    * the artists of the songs in the playlist. The songs of an artist are
+    * sorted in album order.
+    */
+  lazy val reorderRandomArtists = Project(id = "reorderRandomArtists", base = file("reorderRandomArtists"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-reorder-random-artists",
+      resolvers += Resolver.mavenLocal,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.reorder.randomartist.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn playlistEditor
 }
