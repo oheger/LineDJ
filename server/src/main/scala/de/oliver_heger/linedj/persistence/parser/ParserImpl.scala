@@ -124,6 +124,8 @@ object ParserImpl extends Parsers[Parser] {
       if (parserIndex == 1) alt else p
   }
 
+  private val EmptyFailure = Failure(get = ParseError(), isCommitted = false, partialData = Nil)
+
   val NoManyPartialData = ManyPartialData(Nil)
 
   private val FirstParser = OrPartialData(1)
@@ -141,6 +143,13 @@ object ParserImpl extends Parsers[Parser] {
     val nextInput = error.get.latestLoc.map(l => l.input.substring(l.offset)).getOrElse("") + nextChunk
     println("Input for continue: " + nextInput)
     p(ParseState(Location(nextInput), error.partialData, lastChunk))
+  }
+
+  def runChunk[A](p: Parser[A])(nextChunk: String, lastChunk: Boolean,
+                                optFailure: Option[Failure] = None): Result[A] = {
+    val failure = optFailure getOrElse EmptyFailure
+    val nextInput = failure.get.latestLoc.map(l => l.input.substring(l.offset)).getOrElse("") + nextChunk
+    p(ParseState(Location(nextInput), lastChunk = lastChunk, partialData = failure.partialData))
   }
 
   // consume no characters and succeed with the given value
