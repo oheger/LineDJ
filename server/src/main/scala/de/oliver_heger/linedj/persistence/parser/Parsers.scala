@@ -23,8 +23,6 @@ import scala.util.matching.Regex
   * @tparam Parser the type of the concrete parsers implementation
   */
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
-  def run[A](p: Parser[A])(input: String): Either[ParseError,A]
-
   implicit def string(s: String): Parser[String]
   implicit def operators[A](p: Parser[A]): ParserOps[A] = ParserOps[A](p)
   implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]):
