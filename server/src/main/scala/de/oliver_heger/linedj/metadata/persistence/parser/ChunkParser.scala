@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.persistence.parser
+package de.oliver_heger.linedj.metadata.persistence.parser
 
 import scala.language.higherKinds
 

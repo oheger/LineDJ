@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.persistence.parser
+package de.oliver_heger.linedj.metadata.persistence.parser
 
-import de.oliver_heger.linedj.persistence.parser.JSONParser.JSONData
-import de.oliver_heger.linedj.persistence.parser.ParserTypes.{Failure, Success}
+import de.oliver_heger.linedj.metadata.persistence.parser.JSONParser.JSONData
+import de.oliver_heger.linedj.metadata.persistence.parser.ParserTypes.{Failure, Success}
 import org.scalatest.{FlatSpec, Matchers}
 
 object JSONParserSpec {

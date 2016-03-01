@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.persistence.parser
+package de.oliver_heger.linedj.metadata.persistence.parser
 
-import de.oliver_heger.linedj.persistence.parser.ParserTypes._
+import de.oliver_heger.linedj.metadata.persistence.parser.ParserTypes._
 
 import scala.reflect.ClassTag
 import scala.util.matching.Regex
