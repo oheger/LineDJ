@@ -48,6 +48,15 @@ object ServerConfigSpec {
 
   /** Test value for the maximum message size of meta data chunk messages. */
   private val MetaDataMaxMsgSize = 150
+
+  /** Test value for the meta data persistence path. */
+  private val MetaDataPersistencePath = Paths get "persistence"
+
+  /** Test value for the meta data persistence chunk size. */
+  private val MetaDataPersistenceChunkSize = 1024
+
+  /** Test value for the meta data persistence parallel count. */
+  private val MetaDataPersistenceParallelCount = 3
 }
 
 /**
@@ -84,6 +93,11 @@ with Matchers with BeforeAndAfterAll {
           |     tagSizeLimit = ${ServerConfigSpec.TagSizeLimit}
           |     metaDataUpdateChunkSize = ${ServerConfigSpec.MetaDataChunkSize}
           |     metaDataMaxMessageSize = ${ServerConfigSpec.MetaDataMaxMsgSize}
+          |   }
+          |   metaDataPersistence {
+          |     path = ${ServerConfigSpec.MetaDataPersistencePath}
+          |     chunkSize = ${ServerConfigSpec.MetaDataPersistenceChunkSize}
+          |     parallelCount = ${ServerConfigSpec.MetaDataPersistenceParallelCount}
           |   }
           | }
           |}
@@ -153,12 +167,26 @@ with Matchers with BeforeAndAfterAll {
       readerCheckInitialDelay = oc.readerCheckInitialDelay, metaDataReadChunkSize = oc
         .metaDataReadChunkSize,
       tagSizeLimit = oc.tagSizeLimit, excludedFileExtensions = oc.excludedFileExtensions,
-      rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150)
+      rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150,
+      metaDataPersistencePath = Paths get "foo", metaDataPersistenceChunkSize = 42,
+      metaDataPersistenceParallelCount = 2)
 
     config.metaDataMaxMessageSize should be(152)
   }
 
   it should "return the file extensions to be excluded" in {
     createConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
+  }
+
+  it should "return the path for meta data persistence" in {
+    createConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
+  }
+
+  it should "return the meta data persistence chunk size" in {
+    createConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
+  }
+
+  it should "return the meta data persistence parallel count" in {
+    createConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
   }
 }

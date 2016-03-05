@@ -56,6 +56,18 @@ object ServerConfig {
   /** The configuration property for the maximum meta data message size. */
   private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
 
+  /** Constant for the prefix for the meta data persistence configuration. */
+  private val MetaPersistencePrefix = ConfigPrefix + "metaDataPersistence."
+
+  /** The configuration property for the meta data persistence path. */
+  private val PropMetaDataPersistencePath = MetaPersistencePrefix + "path"
+
+  /** The configuration property for the meta data persistence chunk size. */
+  private val PropMetaDataPersistenceChunkSize = MetaPersistencePrefix + "chunkSize"
+
+  /** The configuration property for the meta data persistence parallel count. */
+  private val PropMetaDataPersistenceParallelCount = MetaPersistencePrefix + "parallelCount"
+
   /** Constant for the path property of a media root object. */
   private val RootPropPath = ".path"
 
@@ -82,6 +94,9 @@ object ServerConfig {
       tagSizeLimit = config getInt PropTagSizeLimit,
       metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
       initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize,
+      metaDataPersistencePath = Paths.get(config getString PropMetaDataPersistencePath),
+      metaDataPersistenceChunkSize = config getInt PropMetaDataPersistenceChunkSize,
+      metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
       excludedFileExtensions = obtainExcludedExtensions(config),
       rootMap = createMediaData(config))
   }
@@ -184,6 +199,14 @@ object ServerConfig {
  *                               parameter is important to not exceed this
  *                               limit; this value should be a multiple of the
  *                               update chunk size
+ * @param metaDataPersistencePath the path used by meta data persistence; here
+ *                                extracted meta data is stored in files
+ * @param metaDataPersistenceChunkSize the chunk size to be used when reading
+ *                                     or writing files with persistent meta
+ *                                     data
+ * @param metaDataPersistenceParallelCount the number of parallel reader or
+ *                                         writer actors to be created for
+ *                                         reading persistent meta data
  * @param excludedFileExtensions the set with file extensions (in upper case)
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
@@ -195,6 +218,9 @@ class ServerConfig private[config](val readerTimeout: FiniteDuration,
                            val tagSizeLimit: Int,
                            val metaDataUpdateChunkSize: Int,
                            initMetaDataMaxMsgSize: Int,
+                           val metaDataPersistencePath: Path,
+                           val metaDataPersistenceChunkSize: Int,
+                           val metaDataPersistenceParallelCount: Int,
                            val excludedFileExtensions: Set[String],
                            rootMap: Map[Path, MediaRootData]) {
   /** The maximum size of meta data chunk messages. */
