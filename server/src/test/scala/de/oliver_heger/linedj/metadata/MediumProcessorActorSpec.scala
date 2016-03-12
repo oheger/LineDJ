@@ -586,8 +586,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val readMsg = helper.readerActors.head.expectMsgType[ReadMediaFile]
     helper send MediaFileRead(null)
     processPath(readMsg.path)
-
-    expectMsg(MediaFilesProcessed(ScanResult))
   }
 
   it should "react on an exception caused by a reader actor" in {

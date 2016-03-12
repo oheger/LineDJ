@@ -20,7 +20,7 @@ import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 
 /**
@@ -143,18 +143,6 @@ case object ProcessMediaFiles
  */
 case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
                                     metaData: MediaMetaData)
-
-/**
- * A message sent by [[MediumProcessorActor]] when all media files in its list
- * have been processed.
- *
- * The object containing all processed media files is passed. This gives the
- * receiving meta data manager the chance to react on the completion of a meta
- * data extract operation.
- *
- * @param data the object containing the processed media files
- */
-case class MediaFilesProcessed(data: MediaScanResult)
 
 /**
   * A message defining the files of a medium for which no persistent meta data

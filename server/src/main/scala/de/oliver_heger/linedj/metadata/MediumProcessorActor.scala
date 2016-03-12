@@ -305,10 +305,6 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
          metaData <- f(collectorMap.getOrCreateCollector(mediaFileForPath(p)))
     } {
       sendProcessingResult(manager, p, metaData)
-
-      if (currentProcessingData.isEmpty && mediaFilesToProcess.isEmpty) {
-        manager ! MediaFilesProcessed(data.scanResult)
-      }
     }
     context stop sender()
   }
