@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.metadata
 import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.media.{MediumID, MediaScanResult}
+import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
 
 /**
@@ -154,3 +155,17 @@ case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
  * @param data the object containing the processed media files
  */
 case class MediaFilesProcessed(data: MediaScanResult)
+
+/**
+  * A message defining the files of a medium for which no persistent meta data
+  * could be retrieved. A message of this type is sent by the persistent meta
+  * data manager after the available meta data for a medium has been read. The
+  * files listed here could not be resolved; their meta data needs to be
+  * extracted manually.
+  *
+  * @param mediumID the ID of the medium the files belong to
+  * @param files    a list with the unresolved media files
+  * @param result   the original scan result these files belong to
+  */
+case class UnresolvedMetaDataFiles(mediumID: MediumID, files: List[FileData],
+                                   result: EnhancedMediaScanResult)
