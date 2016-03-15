@@ -23,7 +23,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {
@@ -42,17 +42,15 @@ object MediumProcessorActor {
     Props(classOf[MediumProcessorActorImpl], data, config)
 
   /**
-   * Produces a sequence with all paths to be processed by this actor based on
-   * the scan result passed to the constructor. The result list consists of
-   * pairs that map the medium root path to a file to be processed.
+    * Produces a sequence with all paths from the specified message that must
+    * be processed by this actor.
     *
-    * @param scanResult the scan result
-   * @return a sequence with all paths to be processed
-   */
-  private def pathsToBeProcessed(scanResult: MediaScanResult): List[(Path, MediaFileData)] = {
-    val files = scanResult.mediaFiles.map(e => associateWithMediumID(e._1, e._2)).toList
-    files.flatten map (t => (t._1.path, MediaFileData(t._1, t._2)))
-  }
+    * @param procMsg the ''ProcessMediaFiles'' message
+    * @return a sequence with all paths to be processed
+    */
+  private def pathsToBeProcessed(procMsg: ProcessMediaFiles): List[(Path, MediaFileData)] =
+    associateWithMediumID(procMsg.mediumID, procMsg.files) map (t => (t._1.path, MediaFileData(t
+      ._1, t._2)))
 
   /**
     * Creates a reverse mapping from paths to URIs based on the URI path
@@ -170,13 +168,18 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
   private val readerActorMap = collection.mutable.Map.empty[ActorRef, Path]
 
   /**
+    * A list with the reader actors that are free to process another request.
+    */
+  private var availableReaderActors = List.empty[ActorRef]
+
+  /**
     * Stores a mapping from file paths to corresponding URIs. This is required
     * to generate the result objects.
     */
   private val pathUriMapping = createPathUriMapping(data.fileUriMapping)
 
   /** A list with all media files to be processed. */
-  private var mediaFilesToProcess = pathsToBeProcessed(data.scanResult)
+  private var mediaFilesToProcess = List.empty[(Path, MediaFileData)]
 
   /** An option for the meta data manager actor which receives all results. */
   private var metaDataManager: Option[ActorRef] = None
@@ -194,18 +197,19 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
     case _: IOException => Stop
   }
 
+  @throws[Exception](classOf[Exception])
+  override def preStart(): Unit = {
+    super.preStart()
+    availableReaderActors = List.fill(processorCountFromConfig)(createChildReaderActor())
+  }
+
   override def receive: Receive = {
-    case ProcessMediaFiles =>
+    case p: ProcessMediaFiles =>
       if (metaDataManager.isEmpty) {
-        val readerCount = math.min(processorCountFromConfig, mediaFilesToProcess.size)
-        for (i <- 0 until readerCount) {
-          val reader = createChildReaderActor()
-          val fileInfo = mediaFilesToProcess.head
-          initiateFileRead(reader, fileInfo)
-          mediaFilesToProcess = mediaFilesToProcess.tail
-        }
         metaDataManager = Some(sender())
       }
+      mediaFilesToProcess = pathsToBeProcessed(p) ::: mediaFilesToProcess
+      triggerProcessing()
 
     case msg: ProcessID3FrameData if validPath(msg.path) =>
       id3v2ProcessorMap.getOrCreateActorFor(msg.path, this) ! msg
@@ -282,13 +286,38 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
    * Tells the specified actor to start processing of the next file in the list
    * (if available).
     *
-   * @param reader the reader actor
+   * @param reader the reader actor that just finished processing
    */
   private def processNextFile(reader: ActorRef): Unit = {
-    mediaFilesToProcess.headOption foreach { t =>
-      initiateFileRead(reader, t)
-      mediaFilesToProcess = mediaFilesToProcess.tail
-    }
+    availableReaderActors = reader :: availableReaderActors
+    triggerProcessing()
+  }
+
+  /**
+    * Determines the next files to be processed and returns the updated state.
+    * This method is called when new data to be processed arrives or processing
+    * of a file is complete. If possible, reader actors are passed new files to
+    * be processed.
+    *
+    * @param readers a list with the reader actors currently available
+    * @param files   a list with the files to be processed
+    * @return a tuple with processing information and the updated lists
+    */
+  private def nextProcessingData(readers: List[ActorRef], files: List[(Path, MediaFileData)]):
+  (List[(ActorRef, (Path, MediaFileData))], List[ActorRef], List[(Path, MediaFileData)]) = {
+    val procData = readers zip files
+    (procData, readers drop procData.size, files drop procData.size)
+  }
+
+  /**
+    * Starts processing of media files if possible. If free reader actors and
+    * media files are available, processing can continue.
+    */
+  private def triggerProcessing(): Unit = {
+    val (procData, readers, files) = nextProcessingData(availableReaderActors, mediaFilesToProcess)
+    procData foreach(d => initiateFileRead(d._1, d._2))
+    availableReaderActors = readers
+    mediaFilesToProcess = files
   }
 
   /**

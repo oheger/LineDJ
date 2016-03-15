@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.metadata
 
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicReference, AtomicInteger}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -39,11 +39,20 @@ object MediumProcessorActorSpec {
   /** A path to a medium. */
   private val Medium = Paths.get("Medium", "medium.settings")
 
+  /** A root path. */
+  private val RootPath = path("Root")
+
+  /** Constant for a test medium ID. */
+  private val RootMedium = MediumID(RootPath.toString, None)
+
   /** The enhanced scan result to be processed by the test actor. */
   private val ExtScanResult = createScanResult()
 
   /** A test media scan result object. */
   private val ScanResult = ExtScanResult.scanResult
+
+  /** A test message about files to be processed. */
+  private val ProcessMessage = createProcessMessage()
 
   /** The number of processing actors for the test root path. */
   private val ProcessorCount = 2
@@ -122,15 +131,24 @@ object MediumProcessorActorSpec {
     * @return the test scan result
    */
   private def createScanResult(): EnhancedMediaScanResult = {
-    val root = path("Root")
     val file1 = mediaFile(1)
     val file2 = mediaFile(2)
     val file3 = mediaFile(3)
-    val sr = MediaScanResult(root, Map(MediumID.fromDescriptionPath(Medium) -> List(file1),
-      MediumID(root.toString, None) -> List(file2, file3)))
-    val uriMapping = Map(fileUri(1) -> file1, fileUri(2) -> file2, fileUri(3) -> file3)
+    val file4 = mediaFile(4)
+    val sr = MediaScanResult(RootPath, Map(MediumID.fromDescriptionPath(Medium) -> List(file1),
+      RootMedium -> List(file2, file3, file4)))
+    val uriMapping = Map(fileUri(1) -> file1, fileUri(2) -> file2, fileUri(3) -> file3,
+      fileUri(4) -> file4)
     EnhancedMediaScanResult(sr, Map.empty, uriMapping)
   }
+
+  /**
+    * Creates a default message for processing media files.
+    *
+    * @return the default process message
+    */
+  private def createProcessMessage(): ProcessMediaFiles =
+    ProcessMediaFiles(RootMedium, List(mediaFile(2), mediaFile(3)))
 
   /**
    * Prepares a mock for the central configuration. The configuration can be
@@ -173,7 +191,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     * @return a tuple with the test actor reference and the mock configuration
    */
   private def createStandardTestActor(): (TestActorRef[MediumProcessorActor], ServerConfig) = {
-    val config = mock[ServerConfig]
+    val config = prepareConfigMock(mock[ServerConfig])
     (TestActorRef[MediumProcessorActor](MediumProcessorActor(ExtScanResult, config)), config)
   }
 
@@ -232,13 +250,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediumProcessorActorTestHelper
     val paths = helper waitForProcessing ProcessorCount
     paths forall MediumPaths.contains shouldBe true
-  }
-
-  it should "ignore a second Process message" in {
-    val helper = MediumProcessorActorTestHelper()
-
-    helper send ProcessMediaFiles
-    helper.numberOfChildrenCreated should be(2)
   }
 
   /**
@@ -536,6 +547,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val probeId3Processor = helper.installProcessorActor(helper.id3v1ProcessorMap, msgFileRead.path)
 
     helper.actor.tell(msgFileRead, reader.ref)
+    helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(1)))
     val msgNextFile = reader.expectMsgType[ReadMediaFile]
     val allPaths = paths + msgNextFile.path
     allPaths should have size MediumPaths.size
@@ -544,24 +556,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     probeId3Processor.expectMsg(msgFileRead)
   }
 
-  it should "create not more readers as files to process" in {
-    val smallScanResult = ScanResult.copy(mediaFiles = ScanResult.mediaFiles - MediumID
-      (ScanResult.root.toString, None))
-    val helper = new MediumProcessorActorTestHelper(ExtScanResult.copy(scanResult = smallScanResult))
+  it should "pass the correct parent reference to child actors" in {
+    val helper = new MediumProcessorActorTestHelper
 
-    helper send ProcessMediaFiles
-    helper.numberOfChildrenCreated should be(1)
+    helper.parentActorRef.get() should be(helper.actor)
   }
 
   it should "handle an unknown root path" in {
-    val helper = new MediumProcessorActorTestHelper
-    when(helper.config.rootFor(ScanResult.root)).thenReturn(None)
+    val config = prepareConfigMock(mock[ServerConfig])
+    when(config.rootFor(ScanResult.root)).thenReturn(None)
+    val helper = new MediumProcessorActorTestHelper(optConfig = Some(config))
 
-    helper send ProcessMediaFiles
+    helper send ProcessMessage
     helper.numberOfChildrenCreated should be(1)
   }
 
-  it should "process the whole list of files" in {
+  it should "process the whole list of files from multiple process messages" in {
     val helper = new MediumProcessorActorTestHelper
 
     def processPath(p: Path): Unit = {
@@ -581,7 +591,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       expectProcessingResult(p, fileUri(pathIdx))
     }
 
-    helper.waitForProcessing(2) foreach processPath
+    helper.actor ! ProcessMessage
+    val p1 = helper.readerActors.head.expectMsgType[ReadMediaFile].path
+    val p2 = helper.readerActors(1).expectMsgType[ReadMediaFile].path
+    processPath(p1)
+    helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(4)))
+    processPath(p2)
     helper.actor.tell(MediaFileRead(null), helper.readerActors.head.ref)
     val readMsg = helper.readerActors.head.expectMsgType[ReadMediaFile]
     helper send MediaFileRead(null)
@@ -590,10 +605,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "react on an exception caused by a reader actor" in {
     val mediaFiles = MediumPaths map (FileData(_, 128))
-    val scanResult = ScanResult.copy(mediaFiles = Map(MediumID.fromDescriptionPath(Medium) -> mediaFiles))
+    val mid = MediumID.fromDescriptionPath(Medium)
+    val scanResult = ScanResult.copy(mediaFiles = Map(mid -> mediaFiles))
     val errorPath = MediumPaths.head
+    val errorTuple = ExtScanResult.fileUriMapping.find(e => e._2.path == errorPath)
     val errorUri = fileUri(42)
-    val uriMapping = ExtScanResult.fileUriMapping + (errorUri -> FileData(errorPath, 128))
+    val uriMapping = ExtScanResult.fileUriMapping - errorTuple.get._1 + (errorUri -> FileData
+    (errorPath, 128))
     val helper = new MediumProcessorActorTestHelper(numberOfRealActors = 1,
       scanResult = ExtScanResult.copy(scanResult = scanResult, fileUriMapping = uriMapping))
     val probeMp3Processor, probeId3v1Processor, probeId3v2Processor = TestProbe()
@@ -610,10 +628,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       }
     })
 
-    helper.actor ! ProcessMediaFiles
+    helper.actor ! ProcessMediaFiles(mid, scanResult.mediaFiles(mid))
     List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
     expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath, mediumID =
-      MediumID.fromDescriptionPath(Medium), uri =  errorUri))
+      mid, uri =  errorUri))
     expectMsg(errorPath)
 
     helper send createMp3Data(errorPath)
@@ -640,17 +658,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * A test helper class managing some mock dependencies passed to a test actor
-   * reference.
+    * A test helper class managing some mock dependencies passed to a test actor
+    * reference.
     *
-    * @param scanResult the object with the files to be processed
-   * @param numberOfRealActors the number of real child actors to be created;
-   *                           per default, test probes are returned for child
-   *                           actors; with a value greater zero, a number of
-   *                           real reader actors can be created
-   */
+    * @param scanResult         the object with the files to be processed
+    * @param numberOfRealActors the number of real child actors to be created;
+    *                           per default, test probes are returned for child
+    *                           actors; with a value greater zero, a number of
+    *                           real reader actors can be created
+    * @param optConfig          an optional mock for the configuration
+    */
   private class MediumProcessorActorTestHelper(scanResult: EnhancedMediaScanResult = ExtScanResult,
-                                                numberOfRealActors: Int = 0) {
+                                                numberOfRealActors: Int = 0,
+                                               optConfig: Option[ServerConfig] = None) {
     /** A mock for the processor map for ID3v1 processors. */
     val id3v1ProcessorMap = mock[ProcessorActorMap]
 
@@ -667,7 +687,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val readerActors = List.fill(ProcessorCount)(TestProbe())
 
     /** The mock for the server configuration. */
-    val config = createConfigMock()
+    val config = optConfig getOrElse createConfigMock()
+
+    /** A reference for the parent actor passed to newly created children. */
+    val parentActorRef = new AtomicReference[ActorRef]
 
     /** A counter for the child actors created by the factory. */
     private val childCount = new AtomicInteger
@@ -683,8 +706,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return a set with the paths currently processed
      */
     def waitForProcessing(pathCount: Int): Set[Path] = {
-      actor ! ProcessMediaFiles
-      readerActors.map(_.expectMsgType[ReadMediaFile].path).toSet
+      actor ! ProcessMessage
+      readerActors.take(pathCount).map(_.expectMsgType[ReadMediaFile].path).toSet
     }
 
     /**
@@ -754,7 +777,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
           else {
             val expectedProps = Mp3FileReaderActor(null)
             val extrContext = checkCreationProperties(p, expectedProps.actorClass())
-            extrContext.collectorActor should be(actor)
+            extrContext.collectorActor should not be null
+            if (parentActorRef.get() != null) {
+              extrContext.collectorActor should be(parentActorRef.get())
+            } else {
+              parentActorRef set extrContext.collectorActor
+            }
             extrContext.config should be(config)
             readerActors(index - numberOfRealActors).ref
           }

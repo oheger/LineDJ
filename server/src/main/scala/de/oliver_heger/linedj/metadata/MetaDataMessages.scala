@@ -121,13 +121,17 @@ case class ReadMediaFile(path: Path)
 case class MediaFileRead(path: Path)
 
 /**
- * A message received by [[MediumProcessorActor]] telling it to start
- * processing now.
- *
- * This message actually initiates the extraction of meta data by the receiving
- * actor instance.
- */
-case object ProcessMediaFiles
+  * A message received by [[MediumProcessorActor]] telling it to process the
+  * specified media files.
+  *
+  * This message actually initiates the extraction of meta data by the receiving
+  * actor instance. It contains all files of a medium for which no persistent
+  * meta data could be obtained.
+  *
+  * @param mediumID the ID of the medium
+  * @param files    the files to be processed
+  */
+case class ProcessMediaFiles(mediumID: MediumID, files: List[FileData])
 
 /**
  * A message with the result of meta data extraction for a single media file.
