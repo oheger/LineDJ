@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.metadata
 
+import java.nio.file.Path
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileData
@@ -24,16 +26,18 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
 
-  private class MetaDataManagerActorImpl(config: ServerConfig) extends
-  MetaDataManagerActor(config) with ChildActorFactory
+  private class MetaDataManagerActorImpl(config: ServerConfig, persistenceManager: ActorRef)
+    extends MetaDataManagerActor(config, persistenceManager) with ChildActorFactory
 
   /**
-   * Returns creation properties for an actor instance of this type.
+    * Returns creation properties for an actor instance of this type.
     *
-    * @param config the server configuration object
-   * @return creation properties for a new actor instance
-   */
-  def apply(config: ServerConfig): Props = Props(classOf[MetaDataManagerActorImpl], config)
+    * @param config             the server configuration object
+    * @param persistenceManager reference to the persistence manager actor
+    * @return creation properties for a new actor instance
+    */
+  def apply(config: ServerConfig, persistenceManager: ActorRef): Props =
+    Props(classOf[MetaDataManagerActorImpl], config, persistenceManager)
 
   /**
    * Returns a flag whether the specified medium ID refers to files not
@@ -87,8 +91,10 @@ object MetaDataManagerActor {
  * the companion object.
  *
  * @param config the central configuration object
+ * @param persistenceManager reference to the persistence manager actor
  */
-class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging {
+class MetaDataManagerActor(config: ServerConfig, persistenceManager: ActorRef) extends Actor
+  with ActorLogging {
   this: ChildActorFactory =>
 
   import MetaDataManagerActor._
@@ -107,10 +113,12 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
   /** A list with the currently registered completion listeners. */
   private var completionListeners = List.empty[ActorRef]
 
+  /** A map with the processor actors for the different media roots. */
+  private var processorActors = Map.empty[Path, ActorRef]
+
   override def receive: Receive = {
     case esr: EnhancedMediaScanResult =>
-      val processor = createChildActor(MediumProcessorActor(esr, config))
-      processor ! ProcessMediaFiles
+      persistenceManager ! esr
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult =>
@@ -120,6 +128,13 @@ class MetaDataManagerActor(config: ServerConfig) extends Actor with ActorLogging
         // update global unassigned list
         handleProcessingResult(MediumID.UndefinedMediumID, result)
       }
+
+    case UnresolvedMetaDataFiles(mid, files, result) =>
+      val root = result.scanResult.root
+      val actorMap = if(processorActors contains root) processorActors
+      else processorActors + (root -> createChildActor(MediumProcessorActor(result, config)))
+      actorMap(root) ! ProcessMediaFiles(mid, files)
+      processorActors = actorMap
 
     case GetMetaData(mediumID, registerAsListener) =>
       mediaMap get mediumID match {

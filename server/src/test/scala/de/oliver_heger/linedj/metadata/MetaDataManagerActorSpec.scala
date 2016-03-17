@@ -16,6 +16,7 @@
 package de.oliver_heger.linedj.metadata
 
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -155,18 +156,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   "A MetaDataManagerActor" should "send an answer for an unknown medium ID" in {
-    val actor = system.actorOf(MetaDataManagerActor(mock[ServerConfig]))
+    val actor = system.actorOf(MetaDataManagerActor(mock[ServerConfig], TestProbe().ref))
 
     val mediumID = MediumID("unknown medium ID", None)
     actor ! GetMetaData(mediumID, registerAsListener = false)
     expectMsg(UnknownMedium(mediumID))
   }
 
-  it should "create a child actor for processing a scan result" in {
+  it should "pass a scan result to the meta data persistence manager actor" in {
     val helper = new MetaDataManagerActorTestHelper
 
     helper.startProcessing()
-    helper.processorProbe.expectMsg(ProcessMediaFiles)
+    helper.persistenceManager.expectMsg(EnhancedScanResult)
   }
 
   it should "allow querying a complete medium" in {
@@ -288,22 +289,34 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
+    * Generates an alternative scan result and tells the test actor to process
+    * it.
+    * @param helper the test helper
+    * @param files the files to be found in this scan result
+    * @return the alternative scan result
+    */
+  private def processAnotherScanResult(helper: MetaDataManagerActorTestHelper, files: List[FileData]): EnhancedMediaScanResult = {
+    val root = path("anotherRootDirectory")
+    val medID = MediumID(root.toString, Some("someDescFile.txt"))
+    val scanResult2 = MediaScanResult(root, Map(medID -> files))
+    val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> "testCheckSum"),
+      createFileUriMapping(scanResult2))
+    helper.actor ! esr
+    helper.sendProcessingResults(medID, files)
+    esr
+  }
+
+  /**
     * Tells the test actor to process another medium with the specified
     * content.
+    *
     * @param helper the test helper
     * @param files the files to be found on this medium
     * @return a generated ID for the other medium
     */
   private def processAnotherMedium(helper: MetaDataManagerActorTestHelper, files: List[FileData])
-  : MediumID = {
-    val root = path("anotherRootDirectory")
-    val medID = MediumID(root.toString, Some("someDescFile.txt"))
-    val scanResult2 = MediaScanResult(root, Map(medID -> files))
-    helper.actor ! EnhancedMediaScanResult(scanResult2, Map(medID -> "testCheckSum"),
-      createFileUriMapping(scanResult2))
-    helper.sendProcessingResults(medID, files)
-    medID
-  }
+  : MediumID =
+    processAnotherScanResult(helper, files).scanResult.mediaFiles.keys.head
 
   it should "split large chunks of meta data into multiple ones" in {
     val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
@@ -342,7 +355,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "ignore an unknown medium when removing a medium listener" in {
-    val actor = TestActorRef[MediaManagerActor](MetaDataManagerActor(mock[ServerConfig]))
+    val actor = TestActorRef[MediaManagerActor](MetaDataManagerActor(mock[ServerConfig],
+      TestProbe().ref))
     actor receive RemoveMediumListener(mediumID("someMedium"), testActor)
   }
 
@@ -369,6 +383,37 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
   }
 
+  it should "extract meta data from files that could not be resolved" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+
+    val unresolved1 = UnresolvedMetaDataFiles(MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head) drop 1, EnhancedScanResult)
+    val unresolved2 = UnresolvedMetaDataFiles(MediaIDs(1), ScanResult.mediaFiles(MediaIDs(1)),
+      EnhancedScanResult)
+    helper.actor ! unresolved1
+    helper.processorProbe.expectMsg(ProcessMediaFiles(unresolved1.mediumID, unresolved1.files))
+    helper.actor ! unresolved2
+    helper.processorProbe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
+    helper.numberOfChildActors should be(1)
+  }
+
+  it should "create different processor actors for different media roots" in {
+    val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
+    helper.startProcessing()
+    val files = generateMediaFiles(path("otherPath"), 2)
+    val otherResult = processAnotherScanResult(helper, files)
+    val unresolved1 = UnresolvedMetaDataFiles(MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
+    val unresolved2 = UnresolvedMetaDataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
+    helper.actor ! unresolved1
+    helper.processorProbe.expectMsgType[ProcessMediaFiles]
+
+    helper.actor ! unresolved2
+    helper.processorProbe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
+    helper.numberOfChildActors should be(2)
+  }
+
   /**
    * A test helper class that manages a couple of helper objects needed for
    * more complex tests of a meta data manager actor.
@@ -383,11 +428,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     val processorProbe = TestProbe()
 
+    /**
+      * A test probe that simulates the persistence manager actor.
+      */
+    val persistenceManager = TestProbe()
+
     /** The configuration. */
     val config = createConfig()
 
     /** The test actor reference. */
     val actor = createTestActor()
+
+    /** A counter for the number of child actors created by the test actor. */
+    private val childActorCounter = new AtomicInteger
 
     /**
      * Convenience function for sending a message to the test actor that starts
@@ -436,6 +489,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
+      * Returns the number of child actors created by the test actor.
+      * @return the number of child actors
+      */
+    def numberOfChildActors: Int = childActorCounter.get()
+
+    /**
      * Creates the standard test actor.
       *
       * @return the test actor
@@ -443,15 +502,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createTestActor(): ActorRef = system.actorOf(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config) with ChildActorFactory {
-        /**
-         * Creates a child actor based on the specified ''Props'' object. This
-         * implementation uses the actor's context to actually create the child.
-          *
-          * @param p the ''Props'' defining the actor to be created
-         * @return the ''ActorRef'' to the new child actor
-         */
+      Props(new MetaDataManagerActor(config, persistenceManager.ref) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
+          childActorCounter.incrementAndGet()
           if (checkChildActorProps) {
             val sampleProps = MediumProcessorActor(EnhancedScanResult, config)
             p.actorClass() should be(sampleProps.actorClass())
