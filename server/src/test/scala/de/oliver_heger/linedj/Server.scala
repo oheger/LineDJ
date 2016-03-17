@@ -24,6 +24,7 @@ import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediaManagerActor}
 import de.oliver_heger.linedj.metadata.MetaDataManagerActor
+import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataManagerActor
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -47,7 +48,10 @@ object Server {
 
     val system = ActorSystem("LineDJ-Server", completeConfig)
     val serverConfig = ServerConfig(system.settings.config)
-    val metaDataManager = system.actorOf(MetaDataManagerActor(serverConfig), "metaDataManager")
+    val persistentMetaDataManager = system.actorOf(PersistentMetaDataManagerActor(serverConfig),
+      "persistentMetaDataManager")
+    val metaDataManager = system.actorOf(MetaDataManagerActor(serverConfig,
+      persistentMetaDataManager), "metaDataManager")
     val mediaManager = system.actorOf(MediaManagerActor(serverConfig, metaDataManager),
       "mediaManager")
 
