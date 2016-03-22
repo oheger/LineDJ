@@ -23,7 +23,7 @@ import de.heikoseeberger.sbtheader.license.Apache2_0
 
 object Build extends Build {
   /** Definition of versions. */
-  lazy val AkkaVersion = "2.3.12"
+  lazy val AkkaVersion = "2.4.2"
   lazy val OsgiVersion = "5.0.0"
 
   /** The copyright dates. */
@@ -32,7 +32,8 @@ object Build extends Build {
   lazy val akkaDependencies = Seq(
     "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
     "com.typesafe.akka" %% "akka-testkit" % AkkaVersion,
-    "com.typesafe.akka" %% "akka-remote" % AkkaVersion
+    "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
+    "com.typesafe.akka" %% "akka-stream" % AkkaVersion
   )
 
   lazy val testDependencies = Seq(
