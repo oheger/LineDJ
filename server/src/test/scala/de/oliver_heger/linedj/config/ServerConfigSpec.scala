@@ -57,6 +57,9 @@ object ServerConfigSpec {
 
   /** Test value for the meta data persistence parallel count. */
   private val MetaDataPersistenceParallelCount = 3
+
+  /** Test value for the meta data persistence write block size. */
+  private val MetaDataPersistenceWriteBlockSize = 40
 }
 
 /**
@@ -98,14 +101,14 @@ with Matchers with BeforeAndAfterAll {
           |     path = ${ServerConfigSpec.MetaDataPersistencePath}
           |     chunkSize = ${ServerConfigSpec.MetaDataPersistenceChunkSize}
           |     parallelCount = ${ServerConfigSpec.MetaDataPersistenceParallelCount}
+          |     writeBlockSize = ${ServerConfigSpec.MetaDataPersistenceWriteBlockSize}
           |   }
           | }
           |}
        """.stripMargin)))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**
@@ -169,7 +172,7 @@ with Matchers with BeforeAndAfterAll {
       tagSizeLimit = oc.tagSizeLimit, excludedFileExtensions = oc.excludedFileExtensions,
       rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150,
       metaDataPersistencePath = Paths get "foo", metaDataPersistenceChunkSize = 42,
-      metaDataPersistenceParallelCount = 2)
+      metaDataPersistenceParallelCount = 2, metaDataPersistenceWriteBlockSize = 43)
 
     config.metaDataMaxMessageSize should be(152)
   }
@@ -188,5 +191,9 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the meta data persistence parallel count" in {
     createConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
+  }
+
+  it should "return the meta data persistence write block size" in {
+    createConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
   }
 }

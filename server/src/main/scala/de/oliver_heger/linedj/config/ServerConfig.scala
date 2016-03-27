@@ -68,6 +68,9 @@ object ServerConfig {
   /** The configuration property for the meta data persistence parallel count. */
   private val PropMetaDataPersistenceParallelCount = MetaPersistencePrefix + "parallelCount"
 
+  /** The configuration property for the meta data persistence write block size. */
+  private val PropMetaDataPersistenceWriteBlockSize = MetaPersistencePrefix + "writeBlockSize"
+
   /** Constant for the path property of a media root object. */
   private val RootPropPath = ".path"
 
@@ -97,6 +100,7 @@ object ServerConfig {
       metaDataPersistencePath = Paths.get(config getString PropMetaDataPersistencePath),
       metaDataPersistenceChunkSize = config getInt PropMetaDataPersistenceChunkSize,
       metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
+      metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
       excludedFileExtensions = obtainExcludedExtensions(config),
       rootMap = createMediaData(config))
   }
@@ -207,6 +211,9 @@ object ServerConfig {
  * @param metaDataPersistenceParallelCount the number of parallel reader or
  *                                         writer actors to be created for
  *                                         reading persistent meta data
+ * @param metaDataPersistenceWriteBlockSize the number of songs to be processed
+ *                                          on a medium before the meta data
+ *                                          file for this medium is written
  * @param excludedFileExtensions the set with file extensions (in upper case)
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
@@ -221,6 +228,7 @@ class ServerConfig private[config](val readerTimeout: FiniteDuration,
                            val metaDataPersistencePath: Path,
                            val metaDataPersistenceChunkSize: Int,
                            val metaDataPersistenceParallelCount: Int,
+                           val metaDataPersistenceWriteBlockSize: Int,
                            val excludedFileExtensions: Set[String],
                            rootMap: Map[Path, MediaRootData]) {
   /** The maximum size of meta data chunk messages. */
