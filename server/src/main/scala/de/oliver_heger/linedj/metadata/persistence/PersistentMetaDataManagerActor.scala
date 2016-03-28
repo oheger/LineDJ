@@ -21,8 +21,7 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
-import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataManagerActor.{MediumData,
-ScanForMetaDataFiles}
+import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.metadata.{MetaDataProcessingResult, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -30,6 +29,8 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import scala.annotation.tailrec
 
 object PersistentMetaDataManagerActor {
+  /** File extension for meta data files. */
+  val MetaDataFileExtension = ".mdt"
 
   /**
     * An internal message processed by [[PersistentMetaDataManagerActor]] which
@@ -92,6 +93,13 @@ object PersistentMetaDataManagerActor {
       else Some(UnresolvedMetaDataFiles(mediumID = mediumID, result = scanResult,
         files = unresolvedFiles))
     }
+
+    /**
+      * Returns the number of files on the represented medium which could be
+      * resolved.
+      * @return the number of resolved files
+      */
+    def resolvedFilesCount: Int = resolvedFiles.size
   }
 
   private class PersistentMetaDataManagerActorImpl(config: ServerConfig,
@@ -134,6 +142,8 @@ class PersistentMetaDataManagerActor(config: ServerConfig,
                                      PersistentMetaDataFileScanner) extends Actor {
   this: ChildActorFactory =>
 
+  import PersistentMetaDataManagerActor._
+
   /** The shared meta data parser. */
   private val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
 
@@ -162,12 +172,20 @@ class PersistentMetaDataManagerActor(config: ServerConfig,
     */
   private var mediaInProgress = Map.empty[MediumID, MediumData]
 
+  /**
+    * The child actor for writing meta data for media with incomplete
+    * information.
+    */
+  private var writerActor: ActorRef = _
+
   /** The current number of active reader actors. */
   private var activeReaderActors = 0
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     super.preStart()
+    writerActor = createChildActor(Props(classOf[PersistentMetaDataWriterActor],
+      config.metaDataPersistenceWriteBlockSize))
     self ! ScanForMetaDataFiles
   }
 
@@ -193,7 +211,7 @@ class PersistentMetaDataManagerActor(config: ServerConfig,
       val optMediumData = mediaInProgress.values find (_.readerActor == reader)
       optMediumData foreach { d =>
         val unresolvedFiles = d.unresolvedFiles()
-        unresolvedFiles foreach d.listenerActor.!
+        unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor, d.resolvedFilesCount))
         mediaInProgress = mediaInProgress - d.mediumID
       }
   }
@@ -231,13 +249,54 @@ class PersistentMetaDataManagerActor(config: ServerConfig,
   private def processPendingScanResults(pendingResults: List[EnhancedMediaScanResult]): Unit = {
     val (pending, unresolved, requests) = groupPendingScanResults(optMetaDataFiles,
       pendingResults)
-    unresolved foreach sender().!
+    unresolved foreach (processUnresolvedFiles(_, sender(), 0))
     pendingReadRequests = requests ::: pendingReadRequests
     startReaderActors()
     pendingScanResults = pending
   }
 
   /**
+    * Processes an ''UnresolvedMetaDataFiles'' message for a medium for which
+    * no meta data file could be found.
+    *
+    * @param u                the message to be processed
+    * @param metaManagerActor the meta data manager actor
+    * @param resolved         the number of unresolved files
+    */
+  private def processUnresolvedFiles(u: UnresolvedMetaDataFiles, metaManagerActor:
+  ActorRef, resolved: Int): Unit = {
+    metaManagerActor ! u
+    writerActor ! createProcessMediumMessage(u, metaManagerActor, resolved)
+  }
+
+  /**
+    * Creates a ''ProcessMedium'' message based on the specified parameters.
+    *
+    * @param u                the ''UnresolvedMetaDataFiles'' message
+    * @param metaManagerActor the meta data manager actor
+    * @param resolved         the number of unresolved files
+    * @return the message
+    */
+  private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, metaManagerActor: ActorRef,
+                                         resolved: Int): ProcessMedium = {
+    PersistentMetaDataWriterActor.ProcessMedium(mediumID = u.mediumID,
+      target = generateMetaDataPath(u), metaDataManager = metaManagerActor, uriPathMapping = u
+        .result
+        .fileUriMapping, resolvedSize = resolved)
+  }
+
+  /**
+    * Generates the path for a meta data file based on the specified
+    * ''UnresolvedMetaDataFiles'' object.
+    *
+    * @param u the object describing unresolved files on a medium
+    * @return the path for the corresponding meta data file
+    */
+  private def generateMetaDataPath(u: UnresolvedMetaDataFiles): Path =
+    config.metaDataPersistencePath.resolve(u.result.checksumMapping(u.mediumID) +
+      MetaDataFileExtension)
+
+/**
     * Starts as many reader actors for meta data files as possible. For each
     * medium request not yet in progress an actor is started until the maximum
     * number of parallel read actors is reached.

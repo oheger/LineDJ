@@ -25,16 +25,15 @@ import de.oliver_heger.linedj.config.ServerConfig
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataProcessingResult,
-UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.metadata.persistence.parser.{MetaDataParser, ParserImpl}
+import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataProcessingResult, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 object PersistenceMetaDataManagerActorSpec {
@@ -50,11 +49,17 @@ object PersistenceMetaDataManagerActorSpec {
   /** The chunk size when reading meta data files. */
   private val ChunkSize = 42
 
+  /** The persistent meta data write block size. */
+  private val WriteBlockSize = 33
+
   /** The number of media files in a medium. */
   private val FileCount = 8
 
   /** Constant for the reader child actor class. */
   private val ClassReaderChildActor = PersistentMetaDataReaderActor(null, null, 0).actorClass()
+
+  /** Constant for the writer child actor class. */
+  private val ClassWriterChildActor = classOf[PersistentMetaDataWriterActor]
 
   /**
     * Generates a checksum based on the given index.
@@ -183,8 +188,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
   def this() = this(ActorSystem("PersistenceMetaDataManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A PersistenceMetaDataManagerActor" should "create a default file scanner" in {
@@ -219,6 +223,30 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
     unresolvedMsgs should contain allOf(unresolvedMessage(3), unresolvedMessage(4))
     helper.expectNoChildReaderActor()
+  }
+
+  /**
+    * Generates a ''ProcessMedium'' message based on the given parameters.
+    *
+    * @param index    the index
+    * @param resolved the number of resolved songs
+    * @param result   the enhanced scan result
+    * @return the ''ProcessMedium'' message
+    */
+  private def processMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
+  ProcessMedium =
+    PersistentMetaDataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
+      mediumID = mediumID(index), metaDataManager = testActor,
+      uriPathMapping = result.fileUriMapping, resolvedSize = resolved)
+
+  it should "pass unknown media to the writer actor" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2).createTestActor()
+    val result = enhancedScanResult(3)
+
+    actor ! result
+    expectMsgType[UnresolvedMetaDataFiles]
+    helper.writerActor.expectMsg(processMsg(3, 0, result))
   }
 
   it should "create reader actors for known media" in {
@@ -318,6 +346,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     system stop readerActor.ref
     val mid = mediumID(1)
     expectMsg(UnresolvedMetaDataFiles(mid, mediumFiles(mid) drop 3, esr))
+    helper.writerActor.expectMsg(processMsg(1, 3, esr))
   }
 
   it should "remove a processed medium from the in-progress map" in {
@@ -352,6 +381,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
     /** A mock for the file scanner. */
     val fileScanner = mock[PersistentMetaDataFileScanner]
+
+    /** Test probe for the child writer actor. */
+    val writerActor = TestProbe()
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetaDataManagerActor] = _
@@ -441,6 +473,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       when(config.metaDataPersistencePath).thenReturn(FilePath)
       when(config.metaDataPersistenceParallelCount).thenReturn(ParallelCount)
       when(config.metaDataPersistenceChunkSize).thenReturn(ChunkSize)
+      when(config.metaDataPersistenceWriteBlockSize).thenReturn(WriteBlockSize)
       config
     }
 
@@ -472,6 +505,11 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
               val probe = testProbes.poll()
               childActorQueue put probe
               probe.ref
+
+            case ClassWriterChildActor =>
+              p.args should have length 1
+              p.args.head should be(WriteBlockSize)
+              writerActor.ref
           }
         }
       })
