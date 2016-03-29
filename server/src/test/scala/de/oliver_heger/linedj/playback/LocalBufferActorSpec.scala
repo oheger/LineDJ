@@ -1,19 +1,20 @@
 package de.oliver_heger.linedj.playback
 
-import java.io.{ByteArrayOutputStream, File, IOException}
-import java.nio.file.{FileSystems, Path}
+import java.io.{ByteArrayOutputStream, IOException}
+import java.nio.file.{FileSystems, Path, Paths}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.regex.Pattern
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.linedj.io.FileWriterActor.{WriteResult, WriteResultStatus}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -62,8 +63,7 @@ with MockitoSugar {
     """.stripMargin)))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem  system
   }
 
   "A LocalBufferActor" should "create a correct Props object" in {
@@ -76,16 +76,6 @@ with MockitoSugar {
     bufferActor.underlyingActor shouldBe a[LocalBufferActor]
     bufferActor.underlyingActor shouldBe a[ChildActorFactory]
   }
-
-  /**
-   * Creates a canonical path from the given string. This means that a trailing
-   * separator character is removed if it is present.
-   * @param path the path in question
-   * @return the canonical path
-   */
-  private def canonicalPath(path: String): String =
-    if (path(path.length - 1) == File.separatorChar) path.substring(0, path.length - 1)
-    else path
 
   /**
    * Simulates a buffer fill operation via a reader actor. This method behaves
@@ -156,7 +146,7 @@ with MockitoSugar {
     val manager = mock[BufferFileManager]
     when(manager.isFull).thenReturn(false)
     when(manager.read).thenReturn(None)
-    when(manager.createPath()).then(new Answer[Path] {
+    when(manager.createPath()).thenAnswer(new Answer[Path] {
       override def answer(invocation: InvocationOnMock): Path =
         BufferPath.resolve(FilePrefix + System.nanoTime() + FileSuffix)
     })
@@ -322,28 +312,24 @@ with MockitoSugar {
     probe.expectMsg(BufferReadActor(testActor))
   }
 
-  /**
-   * Creates a ''Terminated'' message for the specified actor reference.
-   * @param actor the actor reference
-   * @return the terminated message for this actor
-   */
-  private def termMessage(actor: ActorRef): Terminated = {
-    val termMsg = mock[Terminated]
-    when(termMsg.actor).thenReturn(actor)
-    termMsg
-  }
-
   it should "checkout a temporary file after it has been read" in {
     val bufferManager = createBufferFileManager()
+    val latch = new CountDownLatch(1)
     when(bufferManager.read).thenReturn(Some(BufferPath))
+    when(bufferManager.checkOutAndRemove()).thenAnswer(new Answer[Path] {
+      override def answer(invocation: InvocationOnMock): Path = {
+        latch.countDown()
+        Paths get "somePath"
+      }
+    })
     val probe = TestProbe()
     val bufferActor = TestActorRef(propsWithMockFactory(bufferManager = Some(bufferManager),
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
-    bufferActor receive termMessage(probe.ref)
-    verify(bufferManager).checkOutAndRemove()
+    system stop probe.ref
+    latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "allow multiple read request in series" in {
