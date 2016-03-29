@@ -155,7 +155,7 @@ object MetaDataParser {
     Seq[MetaDataProcessingResult]) = {
     d.foldRight((List.empty[Any], Seq.empty[MetaDataProcessingResult])) { (x, s) =>
       x match {
-        case pd: ManyPartialData[_] =>
+        case pd: ManyPartialData[_] if containsResults(pd) =>
           // Cast is safe because of the structure of the parser
           val data = pd.asInstanceOf[ManyPartialData[Map[String, String]]]
           (ParserImpl.EmptyManyPartialData :: s._1, convertJsonObjects(mediumID, data.results
@@ -165,6 +165,18 @@ object MetaDataParser {
       }
     }
   }
+
+  /**
+    * Checks whether the given partial data object contains results that are to
+    * be extracted by the parser. As there may be different kinds of
+    * ''ManyPartialData'' objects during a parsing operation, the type of the
+    * objects contained has to be checked.
+    *
+    * @param pd the partial data object
+    * @return a flag whether this object contains parsing results
+    */
+  private def containsResults(pd: ManyPartialData[_]): Boolean =
+    pd.results.headOption.exists(_.isInstanceOf[Map[_, _]])
 }
 
 /**

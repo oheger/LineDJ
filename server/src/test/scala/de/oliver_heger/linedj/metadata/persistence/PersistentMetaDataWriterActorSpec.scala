@@ -31,9 +31,8 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
-import de.oliver_heger.linedj.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk,
-MetaDataProcessingResult}
+import de.oliver_heger.linedj.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
+import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataProcessingResult}
 import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.scalatest.mock.MockitoSugar
@@ -246,9 +245,30 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   private def parseMetaData(file: Path, mid: MediumID = TestMedium):
   Seq[MetaDataProcessingResult] = {
     val json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8)
-    val (results, failure) = Parser.processChunk(json, mid, lastChunk = true, None)
+    val (results, failure) = invokeParser(json, mid)
     failure shouldBe 'empty
     results
+  }
+
+  /**
+    * Actually parses a JSON string. This method simulates a real chunk-wise
+    * parsing operation. If the input string is longer than a given threshold,
+    * it is parsed in two chunks. This is the same as in production code.
+    *
+    * @param json the JSON string to be parsed
+    * @param mid  the medium ID
+    * @return a tuple with the results and the optional failure
+    */
+  private def invokeParser(json: String, mid: MediumID): (Seq[MetaDataProcessingResult],
+    Option[ParserTypes.Failure]) = {
+    val split = json.length > 1024
+    if (split) {
+      val (res1, fail1) = Parser.processChunk(json.substring(0, 1024), mid, lastChunk = false, None)
+      val (res2, fail2) = Parser.processChunk(json.substring(1024), mid, lastChunk = true, fail1)
+      (res1.toList ::: res2.toList, fail2)
+    } else {
+      Parser.processChunk(json, mid, lastChunk = true, None)
+    }
   }
 
   it should "write a meta data file when sufficient meta data is available" in {

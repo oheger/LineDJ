@@ -240,6 +240,30 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
     optFailure.get should be(failureOut.copy(partialData = List("foo", "bar", ParserImpl
       .ManyPartialData(Nil), "other")))
   }
+
+  it should "handle a ManyPartialData object without content" in {
+    val partialData = List(ParserImpl.ManyPartialData[Map[String, String]](Nil))
+    val failureOut = Failure(ParseError(), isCommitted = true, partialData)
+    val parser = createParser()
+    expectParserRun(parser, 1, lastChunk = false).thenReturn(failureOut)
+
+    val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
+      None)
+    data should have size 0
+    optFailure.get should be(failureOut)
+  }
+
+  it should "handle a ManyPartialData object with a non-result data type" in {
+    val partialData = List(ParserImpl.ManyPartialData[String](List("test")))
+    val failureOut = Failure(ParseError(), isCommitted = true, partialData)
+    val parser = createParser()
+    expectParserRun(parser, 1, lastChunk = false).thenReturn(failureOut)
+
+    val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
+      None)
+    data should have size 0
+    optFailure.get should be(failureOut)
+  }
 }
 
 /**
