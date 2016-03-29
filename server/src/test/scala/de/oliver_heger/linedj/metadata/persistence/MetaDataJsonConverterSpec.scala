@@ -70,4 +70,17 @@ class MetaDataJsonConverterSpec extends FlatSpec with Matchers {
     parsedData.metaData.size should be(0)
     parsedData.metaData.artist shouldBe 'empty
   }
+
+  it should "quote quotation marks in strings" in {
+    val metaData = MediaMetaData(title = Some("\"Title\""), artist = Some("\"Artist\""),
+      album = Some("\"Album\""), inceptionYear = Some(1988), trackNumber = Some(4),
+      duration = Some(480), formatDescription = Some("\"mp3 128\""), size = 20160323)
+    val quotedData = metaData.copy(title = Some("'Title'"), artist = Some("'Artist'"),
+      album = Some("'Album'"), formatDescription = Some("'mp3 128'"))
+    val path = Paths get "someTestSong.mp3"
+    val uri = "song://someTestSong.mp3"
+
+    val parsedData = convertAndParse(metaData, path, uri)
+    parsedData.metaData should be(quotedData)
+  }
 }
