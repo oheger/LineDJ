@@ -29,7 +29,8 @@ object JSONParserSpec {
   "uri" : "song://testMusic/song1.mp3",
   "title"  : "Roll over Beethoven",
   "artist" : "ELO"
-  },
+  }
+  ,
   {
   "uri"    : "song://testMusic/song2.mp3",
   "title"  : "Sultans of Swing",
@@ -105,8 +106,9 @@ class JSONParserSpec extends FlatSpec with Matchers {
     val result1 = ParserImpl.runChunk(jsonParser)(input1, lastChunk = false).asInstanceOf[Failure]
     val result2 = ParserImpl.runChunk(jsonParser)(input2,
       optFailure = Some(result1), lastChunk = false).asInstanceOf[Failure]
-    val result3 = ParserImpl.runChunk(jsonParser)(input3,
-      optFailure = Some(result2), lastChunk = true).asInstanceOf[Success[JSONData]]
+    val res3 = ParserImpl.runChunk(jsonParser)(input3,
+      optFailure = Some(result2), lastChunk = true)
+    val result3 = res3.asInstanceOf[Success[JSONData]]
     val resultSingle = ParserImpl.runChunk(jsonParser)(JsonText,
       lastChunk = true).asInstanceOf[Success[JSONData]]
     result3.get should be(resultSingle.get)

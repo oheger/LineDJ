@@ -57,7 +57,7 @@ object ParserTypes {
       */
     def readPartialData[T](implicit tag: ClassTag[T]): (Option[T], ParseState) = partialData match {
       case h :: t =>
-        (Some(h.asInstanceOf[T]), ParseState(loc, t))
+        (Some(h.asInstanceOf[T]), copy(partialData = t))
       case _ => (None, this)
     }
 
