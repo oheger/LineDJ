@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.metadata.persistence
 
-import java.nio.file.Path
+import java.nio.file.{Path, StandardOpenOption}
 
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef}
 import akka.event.LoggingAdapter
@@ -25,8 +25,7 @@ import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.{MediumData,
-ProcessMedium, StreamOperationComplete}
+import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium, StreamOperationComplete}
 import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
 
 import scala.concurrent.Future
@@ -172,7 +171,8 @@ class PersistentMetaDataWriterActor(blockSize: Int,
       .map(e => ByteString(processElement(e._1._1, mediumData.process.uriPathMapping(e._1._1), e
         ._1._2, e._2)))
       .concat(Source.single(ByteString("\n]\n", "UTF-8")))
-      .runWith(FileIO.toFile(mediumData.process.target.toFile))
+      .runWith(FileIO.toFile(mediumData.process.target.toFile,
+        Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)))
     result
   }
 

@@ -371,6 +371,16 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     checkProcessingResults(parseMetaData(target2, OtherMedium), 1, 1, OtherMedium)
   }
 
+  it should "override existing files" in {
+    val target = writeFileContent(createFileReference(), FileTestHelper.TestData * 10)
+    val handler = new TestFutureResultHandler(new CountDownLatch(1))
+    val actor = createActorForMedium(handler, target, resolvedSize = 0)
+
+    actor ! chunk(1, 2, complete = true)
+    handler.await()
+    checkProcessingResults(parseMetaData(target), 1, 2)
+  }
+
   /**
     * A specialized ''FutureIOResultHandler'' implementation that can execute
     * additional checks and notify test code on completion of a stream
