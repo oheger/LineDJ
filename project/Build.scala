@@ -314,6 +314,13 @@ object Build extends Build {
     .settings(osgiSettings: _*)
     .settings(
       name := "player-engine",
+      resolvers += Resolver.mavenLocal,
+      libraryDependencies ++= Seq(
+        "javazoom" % "jl" % "1.0" % "runtime",
+        "javazoom" % "tritonus_share" % "1.0" % "runtime",
+        "javazoom" % "mp3spi" % "1.9.4" % "runtime"
+      ),
+      libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.player.engine.impl.*"
       )
