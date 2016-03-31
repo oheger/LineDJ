@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import javax.sound.sampled.SourceDataLine
 
 import akka.actor.Actor
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.playback.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 
 /**
  * Companion object for ''LineWriterActor''.

@@ -1,4 +1,4 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayOutputStream, IOException}
 import java.nio.file.{FileSystems, Path, Paths}
@@ -9,12 +9,13 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
+import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.linedj.io.FileWriterActor.{WriteResult, WriteResultStatus}
-import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -46,9 +47,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 with FlatSpecLike with ImplicitSender with BeforeAndAfterAll with Matchers
 with MockitoSugar {
 
+  import LocalBufferActorSpec._
   import FileTestHelper._
-  import de.oliver_heger.linedj.playback.LocalBufferActor._
-  import de.oliver_heger.linedj.playback.LocalBufferActorSpec._
 
   def this() = this(ActorSystem("LocalBufferActorSpec",
     ConfigFactory.parseString(s"""

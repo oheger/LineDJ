@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, SourceDataLine}
@@ -45,7 +45,7 @@ object PlaybackContext {
  */
 trait PlaybackContext {
 
-  import de.oliver_heger.linedj.playback.PlaybackContext._
+  import PlaybackContext._
 
   /** The format of the represented audio data. */
   val format: AudioFormat

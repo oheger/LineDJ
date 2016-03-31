@@ -1,4 +1,4 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
@@ -6,8 +6,8 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
+import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.ReaderActorAlive
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -56,8 +56,7 @@ object SourceDownloadActorSpec {
  */
 class SourceDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
-
-  import de.oliver_heger.linedj.playback.SourceDownloadActorSpec._
+  import SourceDownloadActorSpec._
 
   def this() = this(ActorSystem("SourceDownloadActorSpec",
   ConfigFactory.parseString(
@@ -71,8 +70,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
      """.stripMargin)))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**

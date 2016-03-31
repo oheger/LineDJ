@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef, Cancellable}
-import de.oliver_heger.linedj.media.ReaderActorAlive
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.playback.LocalBufferActor.{BufferFilled, FillBuffer}
+import de.oliver_heger.linedj.media.ReaderActorAlive
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
 import scala.collection.mutable
@@ -86,7 +86,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   extends Actor {
   me: SchedulerSupport =>
 
-  import de.oliver_heger.linedj.playback.SourceDownloadActor._
+  import SourceDownloadActor._
 
   /** Initial delay for download in progress messages. */
   private val readerAliveDelay = durationProperty(PropReaderAliveDelay)

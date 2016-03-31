@@ -1,4 +1,4 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.util
@@ -8,10 +8,11 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.playback.LineWriterActor.WriteAudioData
-import de.oliver_heger.linedj.playback.PlaybackActor._
+import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
+import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
@@ -73,7 +74,7 @@ object PlaybackActorSpec {
 class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
-  import de.oliver_heger.linedj.playback.PlaybackActorSpec._
+  import PlaybackActorSpec._
 
   def this() = this(ActorSystem("PlaybackActorSpec",
     ConfigFactory.parseString( s"""
@@ -86,8 +87,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     """.stripMargin)))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**

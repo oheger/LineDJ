@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.{Props, Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
-import de.oliver_heger.linedj.playback.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
@@ -132,8 +134,6 @@ object PlaybackActor {
 class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
 
   this: ChildActorFactory =>
-
-  import de.oliver_heger.linedj.playback.PlaybackActor._
 
   /** The size of the in-memory audio buffer hold by this class. */
   private val audioBufferSize = context.system.settings.config.getInt(PropAudioBufferSize)

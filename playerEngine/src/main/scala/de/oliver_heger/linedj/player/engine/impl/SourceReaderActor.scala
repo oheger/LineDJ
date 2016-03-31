@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.playback.LocalBufferActor.{BufferReadActor, ReadBuffer}
-import de.oliver_heger.linedj.playback.PlaybackActor.{GetAudioData, GetAudioSource}
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferReadActor, ReadBuffer}
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
 
 import scala.collection.mutable
 
@@ -112,8 +112,7 @@ object SourceReaderActor {
  * @param bufferActor the local buffer actor
  */
 class SourceReaderActor(bufferActor: ActorRef) extends Actor {
-
-  import de.oliver_heger.linedj.playback.SourceReaderActor._
+  import SourceReaderActor._
 
   /** A queue for storing the audio sources in the current playlist. */
   private val sourceQueue = mutable.Queue.empty[AudioSource]
@@ -371,7 +370,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
    */
   private def adaptSourceLengthInQueue(compl: AudioSourceDownloadCompleted): Boolean = {
     if (sourceQueue.nonEmpty) {
-      val lastSource = sourceQueue(sourceQueue.length - 1)
+      val lastSource = sourceQueue.last
       if (lastSource.length != compl.finalLength) {
         sourceQueue dequeueFirst (_ == lastSource)
         sourceQueue += lastSource.copy(length = compl.finalLength)

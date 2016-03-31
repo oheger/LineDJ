@@ -1,16 +1,14 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.playback.PlaybackActor.{GetAudioData, GetAudioSource}
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object SourceReaderActorSpec {
   /**
@@ -28,14 +26,12 @@ object SourceReaderActorSpec {
  */
 class SourceReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
-
-  import de.oliver_heger.linedj.playback.SourceReaderActorSpec._
+  import SourceReaderActorSpec._
 
   def this() = this(ActorSystem("SourceReaderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**

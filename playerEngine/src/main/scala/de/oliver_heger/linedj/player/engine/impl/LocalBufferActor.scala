@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.{FileSystems, Path}
 
@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
@@ -162,8 +163,6 @@ object LocalBufferActor {
  */
 class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
   this: ChildActorFactory =>
-
-  import de.oliver_heger.linedj.playback.LocalBufferActor._
 
   /** The size of temporary files created by this buffer actor. */
   val temporaryFileSize = context.system.settings.config.getInt(PropFileSize)

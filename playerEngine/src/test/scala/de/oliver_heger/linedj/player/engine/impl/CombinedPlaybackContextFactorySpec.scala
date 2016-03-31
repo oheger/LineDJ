@@ -1,7 +1,8 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
 
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

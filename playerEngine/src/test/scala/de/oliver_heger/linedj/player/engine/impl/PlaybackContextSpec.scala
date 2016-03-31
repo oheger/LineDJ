@@ -1,8 +1,9 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, SourceDataLine}
 
+import de.oliver_heger.linedj.player.engine.PlaybackContext
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}

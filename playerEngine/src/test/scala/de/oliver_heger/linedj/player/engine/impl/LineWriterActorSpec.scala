@@ -1,4 +1,4 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.util
 import javax.sound.sampled.SourceDataLine
@@ -6,12 +6,10 @@ import javax.sound.sampled.SourceDataLine
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.playback.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 /**
  * Test class for ''LineWriterActor''.
@@ -22,8 +20,7 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("LineWriterActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A LineWriterActor" should "handle a WriteAudioData message" in {

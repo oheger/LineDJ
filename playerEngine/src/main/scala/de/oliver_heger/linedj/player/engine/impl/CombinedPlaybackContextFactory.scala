@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
+
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
 
 /**
  * A specialized implementation of a ''PlaybackContextFactory'' which contains

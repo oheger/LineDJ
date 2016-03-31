@@ -80,7 +80,7 @@ object Build extends Build {
     .settings(
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
-      reorderRandomSongs, reorderAlbum, reorderArtist)
+      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -304,4 +304,18 @@ object Build extends Build {
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
     ) dependsOn playlistEditor
+
+  /**
+    * Project for the player engine.
+    */
+  lazy val playerEngine = Project(id = "playerEngine", base = file("playerEngine"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "player-engine",
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.player.engine.impl.*"
+      )
+    ) dependsOn(shared % "compile->compile;test->test")
 }

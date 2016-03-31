@@ -1,6 +1,7 @@
-package de.oliver_heger.linedj.playback
+package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.{Files, Path}
+
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
@@ -16,8 +17,7 @@ object BufferFileManagerSpec {
  * Test class for ''BufferFileManager''.
  */
 class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
-
-  import de.oliver_heger.linedj.playback.BufferFileManagerSpec._
+  import BufferFileManagerSpec._
 
   after {
     tearDownTestFile()
