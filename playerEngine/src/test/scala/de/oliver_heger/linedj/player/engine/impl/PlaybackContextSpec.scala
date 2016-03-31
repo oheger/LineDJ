@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015-2016 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
@@ -19,7 +35,7 @@ class PlaybackContextSpec extends FlatSpec with Matchers with MockitoSugar {
    * @return the test instance
    */
   private def createContext(format: AudioFormat): PlaybackContext =
-    PlaybackContextImpl(mock[SourceDataLine], mock[InputStream], format)
+    PlaybackContext(line = mock[SourceDataLine], stream = mock[InputStream], format = format)
 
   /**
    * Creates an ''AudioFormat'' mock object with the specified frame size.
@@ -41,15 +57,4 @@ class PlaybackContextSpec extends FlatSpec with Matchers with MockitoSugar {
     val context = createContext(createFormat(17))
     context.bufferSize should be(4097)
   }
-
-  /**
-   * A simple internal implementation of the PlaybackContext trait.
-   * @param line the audio line
-   * @param stream the stream
-   * @param format the audio format
-   */
-  private case class PlaybackContextImpl(override val line: SourceDataLine,
-                                         override val stream: InputStream,
-                                         override val format: AudioFormat) extends PlaybackContext
-
 }
