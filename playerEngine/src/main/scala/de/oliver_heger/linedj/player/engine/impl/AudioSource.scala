@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.ActorRef
+import de.oliver_heger.linedj.media.MediumID
 
 /**
  * A data class describing an audio source to be played by the audio player
@@ -33,7 +33,6 @@ import akka.actor.ActorRef
 case class AudioSource(uri: String, index: Int, length: Long, skip: Long,
                        skipTime: Long)
 
-//TODO to be replaced by messages in the meta data package
 /**
  * A data class which uniquely identifies an audio source.
  *
@@ -45,23 +44,7 @@ case class AudioSource(uri: String, index: Int, length: Long, skip: Long,
  * @param mediumID the ID of the medium the desired source belongs to
  * @param uri the URI of the desired source relative to the medium
  */
-case class AudioSourceID(mediumID: String, uri: String)
-
-/**
- * A message class containing information about an audio source that is going
- * to be downloaded.
- *
- * Via the information stored here all required information about an audio
- * source to be played by a client can be obtained. The actual audio data is
- * made available via a ''FileReaderActor'' which can be read chunk-wise. Note
- * that it is in the responsibility of the receiver of this message to stop the
- * actor when it is no longer needed.
- *
- * @param sourceID the ID of the audio source in question
- * @param contentReader a reference to a ''FileReaderActor'' for reading the audio data
- * @param length the length of the audio source (in bytes)
- */
-case class AudioSourceDownloadResponse(sourceID: AudioSourceID, contentReader: ActorRef, length: Long)
+case class AudioSourceID(mediumID: MediumID, uri: String)
 
 /**
  * A data class representing an entry in a playlist.

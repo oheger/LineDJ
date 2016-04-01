@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef, Cancellable}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.media.ReaderActorAlive
+import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, ReaderActorAlive}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
@@ -44,7 +44,7 @@ object SourceDownloadActor {
    * Constant for an error message caused by an unexpected download response
    * message. Responses are only accepted after a request was sent out.
    */
-  val ErrorUnexpectedDownloadResponse = "Unexpected AudioSourceDownloadResponse message!"
+  val ErrorUnexpectedDownloadResponse = "Unexpected MediumFileResponse message!"
 
   /**
    * Constant for an error message caused by an unexpected buffer filled
@@ -61,6 +61,15 @@ object SourceDownloadActor {
 
   /** The property for the interval of download in progress messages. */
   private val PropReaderAliveInterval = ConfigurationPrefix + "downloadProgressMessageInterval"
+
+  /**
+    * Generates a ''MediumFileRequest'' message from the specified source ID.
+    *
+    * @param sourceID the source ID
+    * @return the ''MediumFileRequest''
+    */
+  private def downloadRequest(sourceID: AudioSourceID): MediumFileRequest =
+    MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
 }
 
 /**
@@ -101,7 +110,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   private var currentDownload: Option[AudioSourcePlaylistInfo] = None
 
   /** A download response which is about to be processed. */
-  private var downloadToProcess: Option[AudioSourceDownloadResponse] = None
+  private var downloadToProcess: Option[MediumFileResponse] = None
 
   /** The read actor currently processed by the buffer. */
   private var currentReadActor: Option[ActorRef] = None
@@ -128,7 +137,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
       playlist += src
       downloadIfPossible()
 
-    case response: AudioSourceDownloadResponse =>
+    case response: MediumFileResponse =>
       resetCurrentDownload() match {
         case Some(info) =>
           if (isValidDownloadResponse(response)) {
@@ -170,7 +179,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
    * @param response the response object to be checked
    * @return a flag whether the response is valid
    */
-  private def isValidDownloadResponse(response: AudioSourceDownloadResponse): Boolean =
+  private def isValidDownloadResponse(response: MediumFileResponse): Boolean =
     response.length >= 0
 
   /**
@@ -189,7 +198,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   private def downloadIfPossible(): Unit = {
     if (playlist.nonEmpty && downloadToProcess.isEmpty && currentDownload.isEmpty) {
       val info = playlist.dequeue()
-      srcActor ! info.sourceID
+      srcActor ! downloadRequest(info.sourceID)
       currentDownload = Some(info)
     }
   }
@@ -198,7 +207,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
    * Sets the download to be processed to ''None'' and returns the old value.
    * @return the download to be processed before it was reset
    */
-  private def resetDownloadToProcess(): Option[AudioSourceDownloadResponse] = {
+  private def resetDownloadToProcess(): Option[MediumFileResponse] = {
     val result = downloadToProcess
     downloadToProcess = None
     currentReadActor = None
@@ -212,8 +221,8 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
    * @param response the response
    * @return the new value for the response to be processed
    */
-  private def fillBufferIfPossible(response: AudioSourceDownloadResponse):
-  Option[AudioSourceDownloadResponse] = {
+  private def fillBufferIfPossible(response: MediumFileResponse):
+  Option[MediumFileResponse] = {
     currentReadActor match {
       case Some(_) =>
         Some(response)
