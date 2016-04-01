@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorRef, Cancellable}
+import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, ReaderActorAlive}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
@@ -70,6 +70,20 @@ object SourceDownloadActor {
     */
   private def downloadRequest(sourceID: AudioSourceID): MediumFileRequest =
     MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
+
+  private class SourceDownloadActorImpl(srcActor: ActorRef, bufferActor: ActorRef, readerActor:
+  ActorRef) extends SourceDownloadActor(srcActor, bufferActor, readerActor) with SchedulerSupport
+
+  /**
+    * Creates creation properties for an actor instance of this class.
+    *
+    * @param srcActor    the actor from which audio sources are requested
+    * @param bufferActor the local buffer actor
+    * @param readerActor the actor which reads audio data from the buffer
+    * @return creation properties for a new actor instance
+    */
+  def apply(srcActor: ActorRef, bufferActor: ActorRef, readerActor: ActorRef): Props =
+    Props(classOf[SourceDownloadActorImpl], srcActor, bufferActor, readerActor)
 }
 
 /**

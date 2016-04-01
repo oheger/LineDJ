@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
+import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -330,5 +331,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
     system stop actor
     awaitCond(invocation.cancellable.isCancelled)
+  }
+
+  it should "create correct creation properties" in {
+    val srcActor, bufferActor, readerActor = TestProbe()
+
+    val props = SourceDownloadActor(srcActor.ref, bufferActor.ref, readerActor.ref)
+    props.args should contain theSameElementsInOrderAs List(srcActor.ref, bufferActor.ref,
+      readerActor.ref)
+    classOf[SourceDownloadActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
   }
 }
