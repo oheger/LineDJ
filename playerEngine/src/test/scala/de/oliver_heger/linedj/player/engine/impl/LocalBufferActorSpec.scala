@@ -2,6 +2,7 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayOutputStream, IOException}
 import java.nio.file.{FileSystems, Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.regex.Pattern
 
@@ -78,14 +79,17 @@ with MockitoSugar {
   }
 
   /**
-   * Simulates a buffer fill operation via a reader actor. This method behaves
-   * like a file reader actor and answers requests from the buffer actor. The
-   * provided test data is filled into the buffer.
-   * @param bufferActor the test actor
-   * @param data the data to be filled into the buffer
-   * @return a list with information about the files written into the buffer
-   */
-  private def simulateFilling(bufferActor: ActorRef, data: Array[Byte]): List[FileWriteData] = {
+    * Simulates a buffer fill operation via a reader actor. This method behaves
+    * like a file reader actor and answers requests from the buffer actor. The
+    * provided test data is filled into the buffer.
+    *
+    * @param bufferActor the test actor
+    * @param data        the data to be filled into the buffer
+    * @param maxFiles    the maximum number of files to be created
+    * @return a list with information about the files written into the buffer
+    */
+  private def simulateFilling(bufferActor: ActorRef, data: Array[Byte],
+                              maxFiles: Int = Integer.MAX_VALUE): List[FileWriteData] = {
     val listBuffer = ListBuffer.empty[FileWriteData]
     var currentStream: ByteArrayOutputStream = null
     var currentPath: Path = null
@@ -123,7 +127,7 @@ with MockitoSugar {
         listBuffer += FileWriteData(currentPath, currentStream.toByteArray)
         bufferActor ! CloseAck(testActor)
         bytesWritten = 0
-        false
+        listBuffer.size >= maxFiles
 
       case BufferFilled(actor, sourceLength) =>
         actor should be(testActor)
@@ -140,23 +144,39 @@ with MockitoSugar {
   /**
    * Creates a mock for a buffer file manager. The mock is prepared to give some
    * default answers.
+    *
+    * @param optAppendCounter an optional counter for the number of paths
+    *                         appended to the buffer
    * @return the mock for the ''BufferFileManager''
    */
-  private def createBufferFileManager(): BufferFileManager = {
+  private def createBufferFileManager(optAppendCounter: Option[AtomicInteger] = None):
+  BufferFileManager = {
+    val pathCounter = new AtomicInteger
+    val appendCounter = optAppendCounter.getOrElse(new AtomicInteger)
     val manager = mock[BufferFileManager]
-    when(manager.isFull).thenReturn(false)
+    when(manager.isFull).thenAnswer(new Answer[Boolean] {
+      override def answer(invocation: InvocationOnMock): Boolean =
+        appendCounter.get() >= 2
+    })
     when(manager.read).thenReturn(None)
     when(manager.createPath()).thenAnswer(new Answer[Path] {
       override def answer(invocation: InvocationOnMock): Path =
-        BufferPath.resolve(FilePrefix + System.nanoTime() + FileSuffix)
+        BufferPath.resolve(FilePrefix + pathCounter.incrementAndGet() + FileSuffix)
     })
+    doAnswer(new Answer[AnyRef] {
+      override def answer(invocation: InvocationOnMock): AnyRef = {
+        appendCounter.incrementAndGet()
+        null
+      }
+    }).when(manager).append(any(classOf[Path]))
     manager
   }
 
   /**
    * Helper method for resolving an optional actor reference. If not specified,
    * the test actor is used.
-   * @param ref the optional actor reference
+    *
+    * @param ref the optional actor reference
    * @return the resolved reference
    */
   private def fetchReference(ref: Option[ActorRef]): ActorRef = ref.getOrElse(testActor)
@@ -165,7 +185,8 @@ with MockitoSugar {
    * Creates a ''Props'' object for instantiating a buffer actor with a mock
    * child actor factory that returns the provided actor references. If no
    * actors are specified, the implicit test actor is used.
-   * @param readerActor an optional reader actor
+    *
+    * @param readerActor an optional reader actor
    * @param writerActor an optional writer actor
    * @param bufferManager an optional buffer manager object
    * @return the ''Props'' object with the specified data
@@ -180,7 +201,8 @@ with MockitoSugar {
    * Creates a ''Props'' object for instantiating a buffer actor with a mock
    * child actor factory that returns multiple reader actor references. This
    * method can be used if multiple reader actors are involved.
-   * @param readers a list with reader actors
+    *
+    * @param readers a list with reader actors
    * @param writerActor an optional writer actor
    * @param bufferManager an optional buffer manager object
    * @return the ''Props'' object with the specified data
@@ -210,7 +232,8 @@ with MockitoSugar {
 
   /**
    * Checks whether a correct file name was passed to a write actor.
-   * @param writeData the data object to be checked
+    *
+    * @param writeData the data object to be checked
    */
   private def checkWriteFileName(writeData: FileWriteData): Unit = {
     writeData.path.getFileName.toString should fullyMatch regex (FilePrefix + "\\d+" + Pattern
@@ -242,6 +265,19 @@ with MockitoSugar {
     val writeData2 = fileList(1)
     checkWriteFileName(writeData2)
     writeData2.data should be(toBytes(AdditionalData))
+  }
+
+  it should "create no more temporary files when the buffer is full" in {
+    val appendCounter = new AtomicInteger
+    val bufferManager = createBufferFileManager(Some(appendCounter))
+    val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
+    bufferActor ! FillBuffer(testActor)
+    val fileList = simulateFilling(bufferActor, toBytes(TestData * 3), 2)
+
+    bufferActor ! LocalBufferActor.FillBuffer(testActor)
+    expectMsg(LocalBufferActor.BufferBusy)
+    fileList should have length 2
+    appendCounter.get() should be(2)
   }
 
   it should "send a busy message for simultaneous fill requests" in {
@@ -419,7 +455,8 @@ with MockitoSugar {
 
   /**
    * Prepares a test for the close operation of the buffer.
-   * @return the buffer actor
+    *
+    * @return the buffer actor
    */
   private def prepareClosingTest(): ActorRef = {
     val bufferActor = system.actorOf(propsWithMockFactory())

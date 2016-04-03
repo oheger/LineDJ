@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.{FileSystems, Path}
 
-import akka.actor.{Actor, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
@@ -51,7 +51,8 @@ object LocalBufferActor {
   /**
    * Obtains the path for temporary files. This is the default value for the
    * buffer directory.
-   * @return the temporary path
+    *
+    * @return the temporary path
    */
   private def temporaryPath: Path = FileSystems.getDefault.getPath(System getProperty PropTempDir)
 
@@ -62,14 +63,16 @@ object LocalBufferActor {
    * In reaction of this message, the buffer actor reads the content of the
    * file pointed to by the passed in actor and stores it in a temporary
    * file. From there it can later be read again during audio playback.
-   * @param readerActor the reader actor to be read
+    *
+    * @param readerActor the reader actor to be read
    */
   case class FillBuffer(readerActor: ActorRef)
 
   /**
    * A message sent by the buffer actor after the content of a reader actor
    * has been processed and written into the buffer.
-   * @param readerActor the reader actor that has been read
+    *
+    * @param readerActor the reader actor that has been read
    * @param sourceLength the length of the source filled into the buffer
    */
   case class BufferFilled(readerActor: ActorRef, sourceLength: Long)
@@ -94,7 +97,8 @@ object LocalBufferActor {
    * defined by ''FileReaderActor''. When this is done, the actor must be
    * stopped. This causes the underlying file to be marked as read and
    * removed from the buffer.
-   * @param readerActor the actor for reading data from the buffer
+    *
+    * @param readerActor the actor for reading data from the buffer
    */
   case class BufferReadActor(readerActor: ActorRef)
 
@@ -127,7 +131,8 @@ object LocalBufferActor {
    * Creates a ''Props'' object which can be used to create new actor instances
    * of this class. This method should always be used; it guarantees that all
    * required dependencies are satisfied.
-   * @param bufferManager the object for managing temporary files
+    *
+    * @param bufferManager the object for managing temporary files
    * @return a ''Props'' object for creating actor instances
    */
   def apply(bufferManager: BufferFileManager): Props =
@@ -161,7 +166,7 @@ object LocalBufferActor {
  *
  * @param bufferManager the object for managing temporary files
  */
-class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
+class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   /** The size of temporary files created by this buffer actor. */
@@ -228,8 +233,6 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
 
     case readResult: ArraySource =>
       handleReadResult(readResult)
-      bytesWrittenToFile += readResult.length
-      bytesWrittenForSource += readResult.length
 
     case WriteResult(_, length) =>
       if (bytesWrittenToFile >= temporaryFileSize) {
@@ -310,7 +313,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
   /**
    * A fill operation has been completed. The corresponding message is sent if
    * actually the fill actor is affected.
-   * @param actor the actor responsible for this message
+    *
+    * @param actor the actor responsible for this message
    */
   private def fillOperationCompleted(actor: ActorRef): Unit = {
     fillActor foreach { a =>
@@ -327,34 +331,44 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
    * removed from the buffer.
    */
   private def completeReadOperation(): Unit = {
-    bufferManager.checkOutAndRemove()
+    val removedPath = bufferManager.checkOutAndRemove()
+    log.info("Finished temporary file {}.", removedPath)
     readClient = None
   }
 
   /**
-   * Handles the result of a read operation. The normal processing is that the
-   * data that was read is now written into the current output file. (If none
-   * is open, a new one is created now.) The maximum size of the output file is
-   * ensured; if necessary, the data is split, and only a part is written now.
-   * The remaining data is processed after the write request completed.
-   * @param readResult the object with the result of the read operation
-   */
+    * Handles the result of a read operation. The normal processing is that the
+    * data that was read is now written into the current output file. (If none
+    * is open, a new one is created now.) The maximum size of the output file is
+    * ensured; if necessary, the data is split, and only a part is written now.
+    * The remaining data is processed after the write request completed. If the
+    * buffer is already full, this method does nothing; further action is not
+    * allowed before data has been read from the buffer.
+    *
+    * @param readResult the object with the result of the read operation
+    */
   private def handleReadResult(readResult: ArraySource): Unit = {
-    val (request, pending) = currentAndPendingWriteRequest(readResult)
-    ensureWriteActorInitialized() ! request
-    pendingReadResult = pending
+    if (!bufferManager.isFull) {
+      val (request, pending) = currentAndPendingWriteRequest(readResult)
+      ensureWriteActorInitialized() ! request
+      pendingReadResult = pending
+      bytesWrittenToFile += request.length
+      bytesWrittenForSource += request.length
+    }
   }
 
   /**
-   * Initializes the write actor for a new temporary file if this is necessary.
+    * Initializes the write actor for a new temporary file if this is necessary.
    * This method creates a new temporary file name and passes it to the write
    * actor. This action is needed whenever the maximum size of a temporary file
    * was reached and it has been closed.
-   * @return a reference to the initialized write actor
+    *
+    * @return a reference to the initialized write actor
    */
   private def ensureWriteActorInitialized(): ActorRef = {
     if (currentPath.isEmpty) {
       currentPath = Some(bufferManager.createPath())
+      log.info("Creating new temporary file {}.", currentPath.get)
       writerActor ! InitFile(currentPath.get)
     }
     writerActor
@@ -365,7 +379,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
    * in read result. This method checks whether the data of the passed in
    * result object still fits into the current temporary file. If this is not
    * the case, the request has to be split into two.
-   * @param readResult the read result
+    *
+    * @param readResult the read result
    * @return a tuple with the current and the pending write request
    */
   private def currentAndPendingWriteRequest(readResult: ArraySource): (ArraySource,
@@ -410,7 +425,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
   /**
    * Creates a default buffer manager. This method is called if no buffer manager
    * was passed to the constructor.
-   * @return the default buffer manager
+    *
+    * @return the default buffer manager
    */
   private def createBufferManager(): BufferFileManager =
     new BufferFileManager(temporaryPath, context.system.settings.config.getString(PropFilePrefix),
@@ -438,7 +454,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
     /**
      * Triggers a closing operation. The current state as it affects closing is
      * collected. If possible, the close is already executed.
-     * @return a flag whether this actor could be closed directly
+      *
+      * @return a flag whether this actor could be closed directly
      */
     def initiateClosing(): Boolean = {
       readActorPending = readClient.isDefined
@@ -455,7 +472,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
      * conditions are fulfilled, this actor is closed. The return value
      * indicates whether the caller can continue its current operation
      * ('''true''') or whether it should be aborted ('''false''').
-     * @return a flag whether the current operation can be continued
+      *
+      * @return a flag whether the current operation can be continued
      */
     def writeActorClosed(): Boolean = {
       writeActorPending = false
@@ -468,7 +486,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
      * conditions are fulfilled, this actor is closed. The return value
      * indicates whether the caller can continue its current operation
      * ('''true''') or whether it should be aborted ('''false''').
-     * @return a flag whether the current operation can be continued
+      *
+      * @return a flag whether the current operation can be continued
      */
     def readActorStopped(): Boolean = {
       readActorPending = false
@@ -477,7 +496,8 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor {
 
     /**
      * Closes this actor if all conditions are fulfilled.
-     * @return a flag whether the current operation can be continued
+      *
+      * @return a flag whether the current operation can be continued
      */
     private def closeIfPossible(): Boolean = {
       if (!writeActorPending && !readActorPending) {
