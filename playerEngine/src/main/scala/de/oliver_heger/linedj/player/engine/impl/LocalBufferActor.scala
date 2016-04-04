@@ -103,6 +103,17 @@ object LocalBufferActor {
   case class BufferReadActor(readerActor: ActorRef)
 
   /**
+    * A message processed by [[LocalBufferActor]] that notifies the buffer
+    * that a buffer read operation is complete.
+    *
+    * This message is sent by a client that has received a [[BufferReadActor]]
+    * message when the reader actor has been fully processed.
+    *
+    * @param readerActor the reader actor that has been read
+    */
+  case class BufferReadComplete(readerActor: ActorRef)
+
+  /**
    * A message that is send by the buffer to indicate a request which cannot be
    * handled in the current state.
    *
@@ -259,10 +270,11 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
         serveReadRequest()
       }
 
+    case BufferReadComplete(actor) if actor == readActor =>
+      handleCompletedReadOperation()
+
     case Terminated(actor) if actor == readActor =>
-      completeReadOperation()
-      serveFillRequest()
-      readActor = null
+      handleCompletedReadOperation()
 
     case Terminated(actor) if actor != readActor =>
       fillOperationCompleted(actor)
@@ -291,9 +303,11 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
     case SequenceComplete =>
       sender ! BufferBusy
 
+    case BufferReadComplete(actor) if actor == readActor =>
+      handleCompletedReadOperationOnClosing()
+
     case Terminated(actor) if actor == readActor =>
-      completeReadOperation()
-      closingState.readActorStopped()
+      handleCompletedReadOperationOnClosing()
   }
 
   /**
@@ -325,6 +339,35 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
         context unwatch a
       }
     }
+  }
+
+  /**
+    * Handles a completed read operation. A read operation can either be
+    * completed explicitly by sending a ''BufferReadComplete'' message.
+    * Alternatively, the operation is completed when the reader actor is
+    * stopped.
+    */
+  private def handleCompletedReadOperation(): Unit = {
+    stopReaderActor()
+    serveFillRequest()
+    readActor = null
+  }
+
+  /**
+    * Handles a completed read operation when the actor is in closing state.
+    */
+  private def handleCompletedReadOperationOnClosing(): Unit = {
+    stopReaderActor()
+    closingState.readActorStopped()
+  }
+
+  /**
+    * Stops the current reader actor and completes the read operation.
+    */
+  private def stopReaderActor(): Unit = {
+    context unwatch readActor
+    context stop readActor
+    completeReadOperation()
   }
 
   /**

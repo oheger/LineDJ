@@ -364,6 +364,26 @@ with MockitoSugar {
 
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
+    bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
+    latch.await(5, TimeUnit.SECONDS) shouldBe true
+  }
+
+  it should "react on a terminated reader actor" in {
+    val bufferManager = createBufferFileManager()
+    val latch = new CountDownLatch(1)
+    when(bufferManager.read).thenReturn(Some(BufferPath))
+    when(bufferManager.checkOutAndRemove()).thenAnswer(new Answer[Path] {
+      override def answer(invocation: InvocationOnMock): Path = {
+        latch.countDown()
+        Paths get "somePath"
+      }
+    })
+    val probe = TestProbe()
+    val bufferActor = TestActorRef(propsWithMockFactory(bufferManager = Some(bufferManager),
+      readerActor = Some(probe.ref)))
+
+    bufferActor ! ReadBuffer
+    expectMsg(BufferReadActor(probe.ref))
     system stop probe.ref
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
@@ -379,7 +399,7 @@ with MockitoSugar {
 
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
-    system stop probe.ref
+    bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
     bufferActor ! ReadBuffer
     fishForMessage(max = 3.second) {
       case BufferBusy =>
@@ -389,6 +409,12 @@ with MockitoSugar {
       case BufferReadActor(_) =>
         true
     }
+  }
+
+  it should "ignore a BufferReadComplete message for an unknown actor" in {
+    val bufferActor = TestActorRef(propsWithMockFactory())
+
+    bufferActor receive LocalBufferActor.BufferReadComplete(testActor)
   }
 
   it should "serve a read request when new data is available" in {
@@ -416,7 +442,7 @@ with MockitoSugar {
     expectMsg(BufferBusy)
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
-    system stop probe.ref
+    bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
     expectMsgType[ReadData]
   }
 
@@ -424,7 +450,7 @@ with MockitoSugar {
     def readRequest(bufferActor: ActorRef, readActor: TestProbe): Unit = {
       bufferActor ! ReadBuffer
       expectMsg(BufferReadActor(readActor.ref))
-      system stop readActor.ref
+      bufferActor ! LocalBufferActor.BufferReadComplete(readActor.ref)
     }
 
     val readActor1 = TestProbe()
@@ -493,6 +519,26 @@ with MockitoSugar {
     expectMsg(CloseRequest)
     bufferActor ! CloseAck(testActor)
     expectMsg(CloseAck(bufferActor))
+  }
+
+  it should "wait on closing until a read operation is complete" in {
+    val probe = TestProbe()
+    val bufferManager = createBufferFileManager()
+    when(bufferManager.read).thenReturn(Some(BufferPath))
+    val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager),
+      readerActor = Some(probe.ref)))
+
+    bufferActor ! ReadBuffer
+    expectMsg(BufferReadActor(probe.ref))
+    bufferActor ! CloseRequest
+    bufferActor ! ReadBuffer
+    expectMsg(BufferBusy)
+    bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
+    expectMsg(CloseAck(bufferActor))
+    verify(bufferManager).checkOutAndRemove()
+    val watcher = TestProbe()
+    watcher watch probe.ref
+    watcher.expectMsgType[Terminated].actor should be(probe.ref)
   }
 
   it should "wait on closing until a read actor was stopped" in {
