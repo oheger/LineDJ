@@ -262,6 +262,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
     case Terminated(actor) if actor == readActor =>
       completeReadOperation()
       serveFillRequest()
+      readActor = null
 
     case Terminated(actor) if actor != readActor =>
       fillOperationCompleted(actor)
@@ -413,12 +414,14 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
    * read operation. If this is the case, the request is handled.
    */
   private def serveReadRequest(): Unit = {
-    for {client <- readClient
-         path <- bufferManager.read} {
-      readActor = createChildActor(Props[FileReaderActor])
-      context watch readActor
-      readActor ! InitFile(path)
-      client ! BufferReadActor(readActor)
+    if (readActor == null) {
+      for {client <- readClient
+           path <- bufferManager.read} {
+        readActor = createChildActor(Props[FileReaderActor])
+        context watch readActor
+        readActor ! InitFile(path)
+        client ! BufferReadActor(readActor)
+      }
     }
   }
 

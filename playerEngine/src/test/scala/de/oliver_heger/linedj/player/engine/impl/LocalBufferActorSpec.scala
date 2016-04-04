@@ -602,6 +602,21 @@ with MockitoSugar {
     filledMsg.readerActor should be (fillActor)
     filledMsg.sourceLength should be (0)
   }
+
+  it should "not create multiple reader actors at the same time" in {
+    val bufferManager = createBufferFileManager()
+    when(bufferManager.read).thenReturn(None, Some(BufferPath))
+    val probe = TestProbe()
+    val bufferActor = system.actorOf(
+      propsWithMockFactoryForMultipleReaders(bufferManager = Some(bufferManager),
+        readers = List(testActor, testActor), writerActor = None))
+
+    bufferActor.tell(ReadBuffer, probe.ref)
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, toBytes(TestData * 3), 2)
+    probe.expectMsg(BufferReadActor(testActor))
+    probe.expectNoMsg(1.seconds)
+  }
 }
 
 /**
