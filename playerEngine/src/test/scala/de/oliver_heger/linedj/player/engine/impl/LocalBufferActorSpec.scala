@@ -319,12 +319,14 @@ with MockitoSugar {
     verify(bufferManager).append(fileList.head.path)
   }
 
-  it should "not read new data when the buffer is full" in {
+  it should "not write new data into the buffer when it is full" in {
     val bufferManager = createBufferFileManager()
     when(bufferManager.isFull).thenReturn(true)
     val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
 
     bufferActor ! FillBuffer(testActor)
+    expectMsgType[FileReaderActor.ReadData]
+    bufferActor ! FileReaderActor.ReadResult(testBytes(), 22)
     bufferActor ! FillBuffer(testActor)
     expectMsg(BufferBusy)
   }
@@ -429,21 +431,22 @@ with MockitoSugar {
     probe.expectMsg(BufferReadActor(testActor))
   }
 
-  it should "serve a fill request after space is available again in the buffer" in {
+  it should "continue a fill operation after space is available again in the buffer" in {
     val bufferManager = createBufferFileManager()
     when(bufferManager.read).thenReturn(Some(BufferPath))
-    when(bufferManager.isFull).thenReturn(true, false)
     val probe = TestProbe()
     val bufferActor = TestActorRef(propsWithMockFactory(bufferManager = Some(bufferManager),
       readerActor = Some(probe.ref)))
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, toBytes(TestData * 3), 2)
 
-    bufferActor ! FillBuffer(testActor)
-    bufferActor ! FillBuffer(testActor)
-    expectMsg(BufferBusy)
     bufferActor ! ReadBuffer
     expectMsg(BufferReadActor(probe.ref))
+    probe.expectMsgType[ChannelHandler.InitFile]
+    when(bufferManager.isFull).thenReturn(false)
     bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
-    expectMsgType[ReadData]
+    expectMsgType[ChannelHandler.InitFile]  // next writer actor initialized
+    expectMsgType[ArraySource]  // pending read result to write actor
   }
 
   it should "reset pending fill requests when they have been processed" in {
@@ -465,6 +468,7 @@ with MockitoSugar {
 
     readActor3 watch readActor2.ref
     bufferActor ! FillBuffer(testActor)
+    expectMsgType[FileReaderActor.ReadData]
     readRequest(bufferActor, readActor1)
     expectMsgType[ReadData]
     readRequest(bufferActor, readActor2)

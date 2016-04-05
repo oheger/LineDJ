@@ -219,6 +219,9 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
   /** A flag whether a fill request is pending. */
   private var pendingFillRequest = false
 
+  /** A flag whether currently a read operation is in progress. */
+  private var readOperationInProgress = false
+
   /**
    * @inheritdoc This implementation creates a write actor as a child.
    *             This actor is re-used for creating files in the buffer.
@@ -243,6 +246,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
       }
 
     case readResult: ArraySource =>
+      readOperationInProgress = false
       handleReadResult(readResult)
 
     case WriteResult(_, length) =>
@@ -321,7 +325,12 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
       case Some(result) =>
         handleReadResult(result)
       case None =>
-        fillActor foreach (_ ! ReadData(chunkSize))
+        if (!readOperationInProgress) {
+          fillActor foreach { a =>
+            a ! ReadData(chunkSize)
+            readOperationInProgress = true
+          }
+        }
     }
   }
 
@@ -349,7 +358,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
     */
   private def handleCompletedReadOperation(): Unit = {
     stopReaderActor()
-    serveFillRequest()
+    continueFilling()
     readActor = null
   }
 
@@ -444,7 +453,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
    * whether a fill operation is possible or not.
    */
   private def serveFillRequest(): Unit = {
-    if (pendingFillRequest && !bufferManager.isFull) {
+    if (pendingFillRequest) {
       fillActor.get ! ReadData(chunkSize)
       pendingFillRequest = false
     }
