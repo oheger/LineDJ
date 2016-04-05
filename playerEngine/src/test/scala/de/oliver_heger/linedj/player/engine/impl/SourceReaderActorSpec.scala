@@ -290,7 +290,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsg(audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, arraySourceMock
       (ChunkSize / 2)))
     audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, EndOfFile(null))
-    checkFileReaderTermination(watcher, fileReader)
+    buffer.expectMsg(LocalBufferActor.BufferReadComplete(fileReader.ref))
     buffer.expectMsg(LocalBufferActor.ReadBuffer)
     val nextFileReader = installFileReaderActor(reader)
     expectMsg(audioDataRequest(reader, nextFileReader, ChunkSize, ChunkSize, arraySourceMock

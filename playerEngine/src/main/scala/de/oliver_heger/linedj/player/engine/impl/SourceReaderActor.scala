@@ -309,7 +309,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
 
     } else {
       fetchAndResetCurrentFileReaderActor() foreach { act =>
-        context stop act
+        bufferActor ! LocalBufferActor.BufferReadComplete(act)
         bufferActor ! ReadBuffer
       }
     }
