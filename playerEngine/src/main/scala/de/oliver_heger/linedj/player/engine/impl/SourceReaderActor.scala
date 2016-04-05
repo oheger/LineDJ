@@ -231,6 +231,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     client ! src
     currentSource = Some(src)
     bytesReadInCurrentSource = 0
+    audioSourceRequest = None
     src
   }
 

@@ -106,6 +106,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     msgErr.errorText should include("is still processed")
   }
 
+  it should "reset a pending audio source request after it has been processed" in {
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    val source = audioSource(2)
+
+    reader ! PlaybackActor.GetAudioSource
+    reader ! source
+    reader ! audioSource(3)
+    expectMsg(source)
+    reader ! PlaybackActor.GetAudioSource
+    expectMsgType[PlaybackProtocolViolation]
+  }
+
   it should "support multiple audio sources in the playlist" in {
     val buffer = TestProbe()
     val reader = readerActor(optBufferActor = Some(buffer.ref))
