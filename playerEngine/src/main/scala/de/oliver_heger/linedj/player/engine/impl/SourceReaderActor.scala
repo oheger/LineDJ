@@ -308,6 +308,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
       protocolError(eof, ErrorUnexpectedEndOfFile)
 
     } else {
+      pendingDataRequest = currentDataRequest
       fetchAndResetCurrentFileReaderActor() foreach { act =>
         bufferActor ! LocalBufferActor.BufferReadComplete(act)
         bufferActor ! ReadBuffer

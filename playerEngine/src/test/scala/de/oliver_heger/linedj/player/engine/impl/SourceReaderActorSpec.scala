@@ -293,8 +293,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     buffer.expectMsg(LocalBufferActor.BufferReadComplete(fileReader.ref))
     buffer.expectMsg(LocalBufferActor.ReadBuffer)
     val nextFileReader = installFileReaderActor(reader)
-    expectMsg(audioDataRequest(reader, nextFileReader, ChunkSize, ChunkSize, arraySourceMock
-      (ChunkSize)))
+    nextFileReader.expectMsg(FileReaderActor.ReadData(ChunkSize))
   }
 
   it should "reject an unexpected EndOfFile message" in {
