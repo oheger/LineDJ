@@ -1,8 +1,8 @@
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.io.{ByteArrayOutputStream, InputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, IOException}
 import java.util
-import javax.sound.sampled.SourceDataLine
+import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLine}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -34,10 +34,15 @@ object PlaybackActorSpec {
   /** The size of the chunks to be passed to the line writer actor. */
   private val LineChunkSize = 32
 
+  /** A test audio format. */
+  private val TestAudioFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f, 8, 2, 16,
+    1, true)
+
   /**
-   * Creates a test audio source whose properties are derived from the given
+    * Creates a test audio source whose properties are derived from the given
    * index value.
-   * @param idx the index
+    *
+    * @param idx the index
    * @param skipBytes the number of bytes to be skipped at the beginning
    * @return the test audio source
    */
@@ -47,7 +52,8 @@ object PlaybackActorSpec {
   /**
    * Creates a data array with test content and the given length. The array
    * contains the specified byte value in all elements.
-   * @param byte the byte value for all array elements
+    *
+    * @param byte the byte value for all array elements
    * @param length the length of the array
    * @return the array
    */
@@ -60,7 +66,8 @@ object PlaybackActorSpec {
   /**
    * Creates an ''ArraySource'' object with a test array as content. The array
    * contains a single value in all its elements.
-   * @param byte the byte value for all array elements
+    *
+    * @param byte the byte value for all array elements
    * @param length the length of the array
    * @return the ''ArraySource''
    */
@@ -93,7 +100,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   /**
    * Obtains an actor reference. If the specified option is defined, its value
    * is returned. Otherwise, the test actor is used.
-   * @param optActor an optional actor reference
+    *
+    * @param optActor an optional actor reference
    * @return the final actor reference to be used
    */
   private def fetchActorRef(optActor: Option[ActorRef]): ActorRef =
@@ -102,7 +110,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   /**
    * Creates a ''Props'' object for creating a ''PlaybackActor''. The factory
    * for the line actor and the source actor can be provided optionally.
-   * @param optLineWriter the optional line writer actor
+    *
+    * @param optLineWriter the optional line writer actor
    * @param optSource the optional source actor
    * @return the ''Props'' object
    */
@@ -119,7 +128,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   /**
    * Creates a playback context factory which creates context objects using a
    * ''SimulatedAudioStream''.
-   * @param optLine an optional line mock
+    *
+    * @param optLine an optional line mock
    * @param optStreamFactory an optional stream factory
    * @return the factory
    */
@@ -218,10 +228,30 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsgType[GetAudioData]
   }
 
+  it should "open the line on a newly created playback context" in {
+    val factory = mock[PlaybackContextFactory]
+    val line = mock[SourceDataLine]
+    val context = PlaybackContext(TestAudioFormat, new ByteArrayInputStream(new Array(1)), line)
+    when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenReturn(Some
+    (context))
+
+    val actor = TestActorRef(propsWithMockLineWriter())
+    actor ! AddPlaybackContextFactory(factory)
+    val audioSource = createSource(1)
+    actor ! audioSource
+    expectMsgType[GetAudioData]
+
+    actor receive arraySource(1, PlaybackContextLimit)
+    verify(line).open(TestAudioFormat)
+    verify(line).start()
+    expectMsgType[GetAudioData]
+  }
+
   /**
    * Installs a mock playback context factory in the test actor and returns the
    * mock data line used by this factory.
-   * @param actor the test actor
+    *
+    * @param actor the test actor
    * @return the mock for the current data line
    */
   private def installMockPlaybackContextFactory(actor: ActorRef): SourceDataLine = {
@@ -233,7 +263,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   /**
    * Handles the protocol to send chunks of audio data to the playback actor.
    * This method first expects the request for new audio data.
-   * @param actor the playback actor
+    *
+    * @param actor the playback actor
    * @param audioData the data chunks (as messages) to be sent to the actor
    * @return the reference to the actor
    */
@@ -288,7 +319,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   /**
    * Simulates a line writer actor which receives audio data for playback.
    * The data is collected in an array.
-   * @param playbackActor the playback actor
+    *
+    * @param playbackActor the playback actor
    * @param lineWriter the line writer actor reference
    * @param expLine the expected line
    * @param length the length of audio data to be received
@@ -311,7 +343,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   /**
    * Checks whether a full source can be played.
-   * @param sourceSize the size of the surce
+    *
+    * @param sourceSize the size of the surce
    */
   private def checkPlaybackOfFullSource(sourceSize: Int): Unit = {
     val lineWriter = TestProbe()
@@ -401,10 +434,16 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
-  it should "skip a source if no playback context can be created" in {
+  /**
+    * Helper method for testing a failed creation of a playback context. It is
+    * tested whether the current source is skipped afterwards.
+    *
+    * @param ctx the playback context to be returned by the factory
+    */
+  private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext]): Unit = {
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
-      .thenReturn(None)
+      .thenReturn(ctx)
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     actor ! AddPlaybackContextFactory(mockContextFactory)
@@ -417,6 +456,16 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
     actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
+  }
+
+  it should "skip a source if no playback context can be created" in {
+    checkSkipAfterFailedPlaybackContextCreation(None)
+  }
+
+  it should "skip a source if the line cannot be opened" in {
+    val line = mock[SourceDataLine]
+    doThrow(new LineUnavailableException).when(line).open(any(classOf[AudioFormat]))
+    checkSkipAfterFailedPlaybackContextCreation(Some(PlaybackContext(TestAudioFormat, null, line)))
   }
 
   it should "allow stopping playback" in {
@@ -456,7 +505,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   /**
    * Checks that a playback context has been closed.
-   * @param line the data line
+    *
+    * @param line the data line
    * @param streamFactory the stream factory
    */
   private def assertPlaybackContextClosed(line: SourceDataLine, streamFactory:
@@ -482,6 +532,19 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
 
     assertPlaybackContextClosed(line, streamFactory)
+  }
+
+  it should "ignore exceptions when closing a playback context" in {
+    val stream = mock[InputStream]
+    val line = mock[SourceDataLine]
+    doThrow(new IOException()).when(stream).close()
+    val context = PlaybackContext(TestAudioFormat, stream, line)
+    val dataSource = TestProbe()
+    val actor = TestActorRef[PlaybackActor](PlaybackActor(dataSource.ref))
+
+    actor.underlyingActor.closePlaybackContext(context)
+    verify(stream).close()
+    verify(line).close()
   }
 
   it should "handle a close request if there is no playback context" in {
@@ -557,7 +620,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
  * A simple stream class which should simulate an audio stream. This stream
  * simply reads from a wrapped stream. The byte that was read is incremented by
  * one to simulate a modification.
- * @param wrappedStream the wrapped input stream
+  *
+  * @param wrappedStream the wrapped input stream
  */
 private class SimulatedAudioStream(val wrappedStream: InputStream) extends InputStream {
   /** A flag whether this stream was closed. */
@@ -585,7 +649,8 @@ private class SimulatedAudioStreamFactory {
 
   /**
    * Creates a new simulated audio stream which wraps the passed in stream.
-   * @param wrapped the underlying stream
+    *
+    * @param wrapped the underlying stream
    * @return the simulated audio stream
    */
   def createAudioStream(wrapped: InputStream): InputStream = {

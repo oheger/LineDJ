@@ -16,6 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
+import java.io.IOException
+import javax.sound.sampled.LineUnavailableException
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
@@ -37,7 +40,8 @@ object PlaybackActor {
    * when it can handle additional audio data to be played. The length is an
    * indicator for the amount of data it can handle currently; but it is up to
    * the receiver to ignore it.
-   * @param length a hint for the amount of data that is desired
+    *
+    * @param length a hint for the amount of data that is desired
    */
   case class GetAudioData(length: Int)
 
@@ -52,7 +56,8 @@ object PlaybackActor {
    * A message received by ''PlaybackActor'' telling it to add a new sub
    * ''PlaybackContextFactory''. By sending messages of this type the
    * context factories available can be initialized.
-   * @param factory the factory to be added
+    *
+    * @param factory the factory to be added
    */
   case class AddPlaybackContextFactory(factory: PlaybackContextFactory)
 
@@ -100,7 +105,8 @@ object PlaybackActor {
 
   /**
    * Creates a ''Props'' object for creating an instance of this actor class.
-   * @param dataSource the actor which provides the data to be played
+    *
+    * @param dataSource the actor which provides the data to be played
    * @return a ''Props'' object for creating an instance
    */
   def apply(dataSource: ActorRef): Props = Props(classOf[PlaybackActorImpl], dataSource)
@@ -185,6 +191,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
     case src: AudioSource =>
       if (currentSource.isEmpty) {
+        log.info("Received audio source {}.", src.uri)
         currentSource = Some(src)
         audioDataPending = false
         skipPosition = src.skip
@@ -238,6 +245,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
 
   /**
    * Returns a flag whether playback is currently enabled.
+ *
    * @return a flag whether playback is enabled
    */
   def isPlaying = playbackEnabled
@@ -259,6 +267,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
   /**
    * Checks whether a received message regarding new audio data is valid in the
    * current state. If this is not the case, a protocol error message is sent.
+ *
    * @return a flag whether the message is valid and can be handled
    */
   private def checkAudioDataResponse(msg: Any): Boolean = {
@@ -275,6 +284,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    * Handles new audio data which has been sent to this actor. The
    * data has to be appended to the audio buffer - if this is allowed by the
    * current skip position.
+ *
    * @param data the data source to be added
    */
   private def handleNewAudioData(data: ArraySource): Unit = {
@@ -362,6 +372,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    * data. This method tests the current amount of audio data available against
    * the ''playbackContextLimit'' configuration property. However, if the end
    * of the audio source has already been reached, the limit can be ignored.
+ *
    * @return a flag whether the audio buffer is filled sufficiently
    */
   private def audioBufferFilled: Boolean = {
@@ -373,6 +384,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    * return value is '''true''' if further data for playback is available.
    * If the end of the audio source is reached, it is closed; then playback of
    * the next source can start.
+ *
    * @param bytesRead the number of bytes read from the audio buffer
    * @return a flag whether data for playback is available
    */
@@ -407,6 +419,7 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    * Tries to obtain the current playback context if possible. If a context
    * already exists for the current source, it is directly returned. Otherwise,
    * a new one is created if and only if all preconditions are met.
+   *
    * @return an option for the current playback context
    */
   private def fetchPlaybackContext(): Option[PlaybackContext] = {
@@ -414,12 +427,15 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
   }
 
   /**
-   * Creates a new playback context if this is currently possible.
-   * @return an option for the new playback context
-   */
+    * Creates a new playback context if this is currently possible.
+    *
+    * @return an option for the new playback context
+    */
   private def createPlaybackContext(): Option[PlaybackContext] = {
     if (audioBufferFilled && contextFactory.subFactories.nonEmpty) {
-      playbackContext = contextFactory.createPlaybackContext(audioDataStream, currentSource.get.uri)
+      log.info("Creating playback context for {}.", currentSource.get.uri)
+      playbackContext = initLine(contextFactory.createPlaybackContext(audioDataStream,
+        currentSource.get.uri))
       playbackContext match {
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
@@ -431,24 +447,65 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
   }
 
   /**
+    * Initializes the line in the playback context. The line has to be opened
+    * and started before audio can be played. This may fail; in this case,
+    * result is ''None''.
+    *
+    * @param ctx the optional playback context
+    * @return an option for the resulting playback context
+    */
+  private def initLine(ctx: Option[PlaybackContext]): Option[PlaybackContext] =
+    ctx flatMap { c =>
+      try {
+        c.line.open(c.format)
+        c.line.start()
+        Some(c)
+      } catch {
+        case e: LineUnavailableException =>
+          log.error(e, "Could not open line!")
+          None
+      }
+    }
+
+
+/**
    * Creates the array for processing chunks of the current playback context if
    * the context is defined.
+ *
    * @param context the current context
    * @return the array buffer for the playback context
    */
   private def createChunkBuffer(context: PlaybackContext): Array[Byte] =
     new Array[Byte](context.bufferSize)
 
+  /**
+    * Convenience method for obtaining the current number of bytes in the
+    * audio buffer.
+    *
+    * @return the number of bytes in the audio buffer
+    */
   private def bytesInAudioBuffer = audioDataStream.available()
 
   /**
-   * Closes the playback context if it exists.
-   */
-  private def closePlaybackContext(): Unit = {
-    playbackContext foreach { ctx =>
-      ctx.line.close()
+    * Closes all objects in a playback context, ignoring exceptions.
+    *
+    * @param ctx the context to be closed
+    */
+  private[impl] def closePlaybackContext(ctx: PlaybackContext): Unit = {
+    ctx.line.close()
+    try {
       ctx.stream.close()
+    } catch {
+      case e: IOException =>
+        log.error(e, "Could not close audio input stream!")
     }
+  }
+
+  /**
+    * Closes the playback context if it exists.
+    */
+  private def closePlaybackContext(): Unit = {
+    playbackContext foreach closePlaybackContext
     playbackContext = None
   }
 
