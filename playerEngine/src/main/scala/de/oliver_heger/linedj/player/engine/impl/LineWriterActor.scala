@@ -20,7 +20,7 @@ import javax.sound.sampled.SourceDataLine
 
 import akka.actor.Actor
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, DrainLine, LineDrained, WriteAudioData}
 
 /**
  * Companion object for ''LineWriterActor''.
@@ -28,24 +28,47 @@ import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritt
 object LineWriterActor {
 
   /**
-   * A message which triggers the playback of audio data.
-   *
-   * This message causes the ''LineWriterActor'' actor to write the
-   * specified data into the given line.
-   * @param line the line
-   * @param data the data to be written
-   */
+    * A message which triggers the playback of audio data.
+    *
+    * This message causes the ''LineWriterActor'' actor to write the
+    * specified data into the given line.
+    *
+    * @param line the line
+    * @param data the data to be written
+    */
   case class WriteAudioData(line: SourceDataLine, data: ArraySource)
 
   /**
-   * A message sent by ''LineWriterActor'' when a chunk of audio data has been
-   * written into a line.
-   *
-   * This message can be interpreted as a signal that the actor is now
-   * available to process further audio data.
-   */
-  case object AudioDataWritten
+    * A message that tells a [[LineWriterActor]] to invoke the ''drain()''
+    * method on the specified data line.
+    *
+    * This message is called at the end of the playback of an audio source
+    * before the line is closed. It makes sure that even the very end of the
+    * source gets played.
+    *
+    * @param line the line
+    */
+  case class DrainLine(line: SourceDataLine)
 
+  /**
+    * A message sent by ''LineWriterActor'' when a chunk of audio data has been
+    * written into a line.
+    *
+    * This message can be interpreted as a signal that the actor is now
+    * available to process further audio data. Also, some information about the
+    * chunk that just have been written is provided.
+    *
+    * @param chunkLength the length of the data chunk that has been written
+    */
+  case class AudioDataWritten(chunkLength: Int)
+
+  /**
+    * A message sent by [[LineWriterActor]] after a drain operation has been
+    * completed. When this message is received by a client actor it can be
+    * sure that there is no more pending audio data for playback and close the
+    * line.
+    */
+  case object LineDrained
 }
 
 /**
@@ -66,6 +89,10 @@ class LineWriterActor extends Actor {
   override def receive: Receive = {
     case WriteAudioData(line, data) =>
       line.write(data.data, data.offset, data.length)
-      sender ! AudioDataWritten
+      sender ! AudioDataWritten(data.length)
+
+    case DrainLine(line) =>
+      line.drain()
+      sender ! LineDrained
   }
 }
