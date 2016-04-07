@@ -1,15 +1,15 @@
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, IOException}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
 import java.util
 import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLine}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
@@ -292,6 +292,21 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsgType[GetAudioData]
   }
 
+  it should "request new audio data only if at least a chunk fits into the buffer" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    installMockPlaybackContextFactory(actor)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor, arraySource(1, AudioBufferSize + LineChunkSize - 2))
+
+    lineWriter.expectMsgType[WriteAudioData]
+    // make sure that no GetAudioData request is sent
+    actor ! createSource(2)
+    expectMsgType[PlaybackProtocolViolation]
+  }
+
   it should "report a protocol violation if audio data was played without a request" in {
     val actor = system.actorOf(propsWithMockLineWriter())
 
@@ -310,7 +325,6 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
     actor ! createSource(1)
     sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, 16))
-    expectMsgType[GetAudioData]
 
     lineWriter.expectMsgType[WriteAudioData]
     lineWriter.expectNoMsg(1.seconds)
@@ -397,16 +411,15 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "skip a chunk partially according to the source's skip property" in {
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val srcActor = system.actorOf(Props(classOf[SimulatedSourceActor],
+      List(createSource(1, skipBytes = 7)),
+      List(arraySource(1, 8), arraySource(2, AudioBufferSize), EndOfFile(null))))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+      optSource = Some(srcActor)))
     val line = installMockPlaybackContextFactory(actor)
-
     actor ! StartPlayback
-    expectMsg(GetAudioSource)
-    actor ! createSource(1, skipBytes = 7)
-    sendAudioData(actor, arraySource(1, 8), arraySource(2, AudioBufferSize), EndOfFile(null))
 
     val audioData = gatherPlaybackData(actor, lineWriter, line, AudioBufferSize + 1)
-    expectMsg(GetAudioSource)
     val buffer = ArrayBuffer.empty[Byte]
     buffer += 2
     buffer ++= dataArray(3, AudioBufferSize)
@@ -656,5 +669,35 @@ private class SimulatedAudioStreamFactory {
   def createAudioStream(wrapped: InputStream): InputStream = {
     latestStream = new SimulatedAudioStream(wrapped)
     latestStream
+  }
+}
+
+/**
+  * An actor class simulating a data source for a playback actor. This actor
+  * implementation reacts on ''GetAudioSource'' and ''GetAudioData'' messages.
+  * The responses on these messages are specified by constructor arguments.
+  *
+  * @param sources a list with audio sources to be returned
+  * @param data    a list with messages to be sent for data requests
+  */
+private class SimulatedSourceActor(sources: List[AudioSource], data: List[Any]) extends Actor {
+  /** The current list of audio sources. */
+  private var currentSources = sources
+
+  /** The current list of data messages. */
+  private var currentData = data
+
+  override def receive: Receive = {
+    case GetAudioSource =>
+      if(currentSources.nonEmpty) {
+        sender ! currentSources.head
+        currentSources = currentSources.tail
+      }
+
+    case GetAudioData(_) =>
+      if(currentData.nonEmpty) {
+        sender ! currentData.head
+        currentData = currentData.tail
+      }
   }
 }

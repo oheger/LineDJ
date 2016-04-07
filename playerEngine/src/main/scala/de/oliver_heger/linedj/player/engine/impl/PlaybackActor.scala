@@ -335,10 +335,12 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    * Sends a request for new audio data for the current audio source to the
    * source actor if this is currently allowed.
    */
-  def requestAudioDataFromSourceIfPossible(): Unit = {
+  private def requestAudioDataFromSourceIfPossible(): Unit = {
+    def audioChunkSize: Int = if(audioChunk != null) audioChunk.length else 0
+
     if (!audioDataStream.completed) {
       val remainingCapacity = audioBufferSize - bytesInAudioBuffer
-      if (remainingCapacity > 0) {
+      if (remainingCapacity >= audioChunkSize) {
         dataSource ! GetAudioData(remainingCapacity)
         audioDataPending = true
       }
