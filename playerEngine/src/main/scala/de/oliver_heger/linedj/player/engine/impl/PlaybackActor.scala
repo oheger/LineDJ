@@ -217,14 +217,22 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
         playback()
       }
 
-    case AudioDataWritten =>
+    case AudioDataWritten(length) =>
       if (!audioPlaybackPending) {
         sender ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
           " received!")
       } else {
         audioPlaybackPending = false
-        playback()
+        if (length < audioChunk.length) {
+          lineWriterActor ! LineWriterActor.DrainLine(playbackContext.get.line)
+        } else {
+          playback()
+        }
       }
+
+    case LineWriterActor.LineDrained =>
+      sourceCompleted()
+      playback()
 
     case AddPlaybackContextFactory(factory) =>
       contextFactory = contextFactory addSubFactory factory
@@ -358,9 +366,11 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
         if (isPlaying) {
           if (audioBufferFilled) {
             val len = ctx.stream.read(audioChunk)
-            if (checkSourceEnd(len)) {
+            if (len > 0) {
               lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
               audioPlaybackPending = true
+            } else {
+              lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
             }
             requestAudioDataIfPossible()
           }
@@ -379,22 +389,6 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
    */
   private def audioBufferFilled: Boolean = {
     bytesInAudioBuffer >= playbackContextLimit || audioDataStream.completed
-  }
-
-  /**
-   * Checks whether the current audio source has been completely played. The
-   * return value is '''true''' if further data for playback is available.
-   * If the end of the audio source is reached, it is closed; then playback of
-   * the next source can start.
- *
-   * @param bytesRead the number of bytes read from the audio buffer
-   * @return a flag whether data for playback is available
-   */
-  private def checkSourceEnd(bytesRead: Int): Boolean = {
-    if (bytesRead < audioChunk.length) {
-      sourceCompleted()
-    }
-    bytesRead > 0
   }
 
   /**

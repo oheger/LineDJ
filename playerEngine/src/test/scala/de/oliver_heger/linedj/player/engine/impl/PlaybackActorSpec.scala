@@ -310,7 +310,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "report a protocol violation if audio data was played without a request" in {
     val actor = system.actorOf(propsWithMockLineWriter())
 
-    actor ! LineWriterActor.AudioDataWritten
+    actor ! LineWriterActor.AudioDataWritten(42)
     val errMsg = expectMsgType[PlaybackProtocolViolation]
     errMsg.msg should be(LineWriterActor.AudioDataWritten)
     errMsg.errorText should include("Unexpected AudioDataWritten")
@@ -350,15 +350,34 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
       playMsg.line should be(expLine)
       stream.write(playMsg.data.data, playMsg.data.offset, playMsg.data.length)
       currentLength += playMsg.data.length
-      playbackActor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length), lineWriter.ref)
     }
     stream.toByteArray
   }
 
   /**
+    * Simulates a line writer actor which receives audio data for playback and
+    * a final message to drain the line. The data passed to the line writer
+    * actor is collected and returned as an array.
+    *
+    * @param playbackActor the playback actor
+    * @param lineWriter    the line writer actor reference
+    * @param line          the expected line
+    * @param sourceSize    the length of audio data to be received
+    * @return an array with the received audio data
+    */
+  private def gatherPlaybackDataWithLineDrain(playbackActor: ActorRef, lineWriter: TestProbe, line:
+  SourceDataLine, sourceSize: Int): Array[Byte] = {
+    val data = gatherPlaybackData(playbackActor, lineWriter, line, sourceSize)
+    lineWriter.expectMsg(LineWriterActor.DrainLine(line))
+    playbackActor.tell(LineWriterActor.LineDrained, lineWriter.ref)
+    data
+  }
+
+  /**
    * Checks whether a full source can be played.
     *
-    * @param sourceSize the size of the surce
+    * @param sourceSize the size of the source
    */
   private def checkPlaybackOfFullSource(sourceSize: Int): Unit = {
     val lineWriter = TestProbe()
@@ -370,8 +389,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! createSource(1)
     sendAudioData(actor, arraySource(1, sourceSize), EndOfFile(null))
 
-    gatherPlaybackData(actor, lineWriter, line, sourceSize) should be(dataArray(2, sourceSize))
-    lineWriter.expectNoMsg(1.seconds)
+    gatherPlaybackDataWithLineDrain(actor, lineWriter, line, sourceSize) should be(dataArray(2,
+      sourceSize))
     expectMsg(GetAudioSource)
   }
 
@@ -404,8 +423,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! createSource(1, skipBytes = SkipSize)
     sendAudioData(actor, arraySource(1, SkipSize), arraySource(2, AudioBufferSize), EndOfFile(null))
 
-    gatherPlaybackData(actor, lineWriter, line, AudioBufferSize) should be(dataArray(3,
-      AudioBufferSize))
+    gatherPlaybackDataWithLineDrain(actor, lineWriter, line, AudioBufferSize) should be(dataArray
+    (3, AudioBufferSize))
     expectMsg(GetAudioSource)
   }
 
@@ -441,9 +460,9 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
     actor ! SkipSource
     sendAudioData(actor, arraySource(3, LineChunkSize), EndOfFile(null))
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
@@ -467,7 +486,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
       EndOfFile(null))
 
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
@@ -493,7 +512,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! StopPlayback
     sendAudioData(actor, arraySource(1, PlaybackContextLimit))
     expectMsgType[GetAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
     verify(contextFactory).createPlaybackContext(any(classOf[InputStream]), anyString())
   }
@@ -512,20 +531,23 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! SkipSource
     sendAudioData(actor, arraySource(3, AudioBufferSize), EndOfFile(null))
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
   /**
-   * Checks that a playback context has been closed.
+    * Checks that a playback context has been closed.
     *
-    * @param line the data line
-   * @param streamFactory the stream factory
-   */
+    * @param line          the data line
+    * @param streamFactory the stream factory
+    * @return the time when the playback context was closed
+    */
   private def assertPlaybackContextClosed(line: SourceDataLine, streamFactory:
-  SimulatedAudioStreamFactory): Unit = {
-    streamFactory.latestStream shouldBe 'closed
+  SimulatedAudioStreamFactory): Long = {
+    val closingTime = streamFactory.latestStream.closedAt
+    closingTime should be > 0L
     verify(line).close()
+    closingTime
   }
 
   it should "close the playback context when a source is complete" in {
@@ -542,9 +564,12 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! createSource(25)
     sendAudioData(actor, arraySource(1, LineChunkSize), EndOfFile(null))
     gatherPlaybackData(actor, lineWriter, line, LineChunkSize)
+    lineWriter.expectMsg(LineWriterActor.DrainLine(line))
+    val drainTime = System.nanoTime()
+    actor.tell(LineWriterActor.LineDrained, lineWriter.ref)
     expectMsg(GetAudioSource)
 
-    assertPlaybackContextClosed(line, streamFactory)
+    assertPlaybackContextClosed(line, streamFactory) should be > drainTime
   }
 
   it should "ignore exceptions when closing a playback context" in {
@@ -637,8 +662,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   * @param wrappedStream the wrapped input stream
  */
 private class SimulatedAudioStream(val wrappedStream: InputStream) extends InputStream {
-  /** A flag whether this stream was closed. */
-  var closed = false
+  /** Records the time when this stream was closed. */
+  var closedAt = 0L
 
   override def read(): Int = {
     val result = wrappedStream.read()
@@ -647,7 +672,7 @@ private class SimulatedAudioStream(val wrappedStream: InputStream) extends Input
   }
 
   override def close(): Unit = {
-    closed = true
+    closedAt = System.nanoTime()
     super.close()
   }
 }
