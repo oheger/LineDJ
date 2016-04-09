@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, ReaderActorAlive}
+import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
@@ -41,6 +41,15 @@ object SourceDownloadActor {
   case object ReportReaderActorAlive
 
   /**
+    * Constant for a special ''AudioSourcePlaylistInfo'' that determines the
+    * end of the playlist. Playback will finish before this source. After
+    * this source has been received, no further audio sources can be added to
+    * the playlist.
+    */
+  val PlaylistEnd = AudioSourcePlaylistInfo(AudioSourceID(MediumID.UndefinedMediumID, null), -1,
+    -1, -1)
+
+  /**
    * Constant for an error message caused by an unexpected download response
    * message. Responses are only accepted after a request was sent out.
    */
@@ -52,6 +61,12 @@ object SourceDownloadActor {
    * passed to the buffer actor.
    */
   val ErrorUnexpectedBufferFilled = "Unexpected BufferFilled message!"
+
+  /**
+    * Constant for an error message caused by an audio source added to this
+    * actor after and end of playlist message had been received.
+    */
+  val ErrorSourceAfterPlaylistEnd = "Cannot add audio sources after a playlist end message!"
 
   /** The prefix for configuration properties. */
   private val ConfigurationPrefix = "splaya.playback."
@@ -132,6 +147,9 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   /** Cancellable for periodic download in progress notifications. */
   private var cancellableReaderAlive: Option[Cancellable] = None
 
+  /** A flag whether an end-of-playlist message has been received. */
+  private var playlistClosed = false
+
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     import context.dispatcher
@@ -148,8 +166,19 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
 
   override def receive: Receive = {
     case src: AudioSourcePlaylistInfo =>
-      playlist += src
-      downloadIfPossible()
+      if (playlistClosed) {
+        sender ! PlaybackProtocolViolation(src, ErrorSourceAfterPlaylistEnd)
+      } else {
+        if (src == PlaylistEnd) {
+          if (nothingToProcess()) {
+            bufferActor ! LocalBufferActor.SequenceComplete
+          }
+          playlistClosed = true
+        } else {
+          playlist += src
+          downloadIfPossible()
+        }
+      }
 
     case response: MediumFileResponse =>
       resetCurrentDownload() match {
@@ -172,6 +201,9 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
           resetDownloadToProcess() foreach fillBufferIfPossible
           downloadIfPossible()
           context stop actor
+          if (playlistClosed && nothingToProcess()) {
+            bufferActor ! LocalBufferActor.SequenceComplete
+          }
 
         case None =>
           sender ! PlaybackProtocolViolation(filled, ErrorUnexpectedBufferFilled)
@@ -186,11 +218,23 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   }
 
   /**
+    * Returns a flag if currently no action is triggered by this actor. If this
+    * state is reached at the end of the playlist, the buffer actor can be
+    * closed.
+    *
+    * @return a flag if this actor is currently idle
+    */
+  private def nothingToProcess(): Boolean = {
+    currentReadActor.isEmpty && currentDownload.isEmpty
+  }
+
+  /**
    * Checks whether the specified ''AudioSourceDownloadResponse'' object
    * indicates a valid download. The media manager actor returns responses with
    * a negative length to indicate that a requested source could not be
    * delivered.
-   * @param response the response object to be checked
+    *
+    * @param response the response object to be checked
    * @return a flag whether the response is valid
    */
   private def isValidDownloadResponse(response: MediumFileResponse): Boolean =
@@ -198,6 +242,7 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
 
   /**
    * Sets the current download to ''None''. The old value is returned.
+   *
    * @return the current download before it was reset
    */
   private def resetCurrentDownload(): Option[AudioSourcePlaylistInfo] = {
@@ -207,19 +252,23 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   }
 
   /**
-   * Initiates the download of an audio source if this is currently possible.
-   */
-  private def downloadIfPossible(): Unit = {
+    * Initiates the download of an audio source if this is currently possible.
+    *
+    * @return a flag whether a download could be started
+    */
+  private def downloadIfPossible(): Boolean = {
     if (playlist.nonEmpty && downloadToProcess.isEmpty && currentDownload.isEmpty) {
       val info = playlist.dequeue()
       srcActor ! downloadRequest(info.sourceID)
       currentDownload = Some(info)
-    }
+      true
+    } else false
   }
 
   /**
    * Sets the download to be processed to ''None'' and returns the old value.
-   * @return the download to be processed before it was reset
+    *
+    * @return the download to be processed before it was reset
    */
   private def resetDownloadToProcess(): Option[MediumFileResponse] = {
     val result = downloadToProcess
@@ -232,7 +281,8 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
    * Triggers a new fill operation when a response for a download request is
    * received. If possible, the new content is directly filled into the buffer;
    * otherwise, it has to be parked until the buffer can accept further input.
-   * @param response the response
+    *
+    * @param response the response
    * @return the new value for the response to be processed
    */
   private def fillBufferIfPossible(response: MediumFileResponse):
@@ -250,7 +300,8 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
 
   /**
    * Resolves a configuration property of type duration.
-   * @param key the property key
+    *
+    * @param key the property key
    * @return the value of this property
    */
   private def durationProperty(key: String): FiniteDuration = {

@@ -55,6 +55,7 @@ object Player {
 
     val playListMessages = args.drop(2).zipWithIndex.map(t => playlistInfo(t._1, t._2))
     playListMessages foreach sourceDownloadActor.!
+    sourceDownloadActor ! SourceDownloadActor.PlaylistEnd
     playbackActor ! PlaybackActor.StartPlayback
   }
 

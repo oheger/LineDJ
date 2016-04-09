@@ -195,6 +195,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     errMsg.errorText should include("Unexpected BufferFilled")
   }
 
+  it should "accept no further audio sources after a playlist end message" in {
+    val bufferActor = TestProbe()
+    val actor = createDownloadActor(optBuffer = Some(bufferActor.ref))
+
+    actor ! SourceDownloadActor.PlaylistEnd
+    actor ! createPlaylistInfo(1)
+    val errMsg = expectMsgType[PlaybackProtocolViolation]
+    errMsg.msg should be(createPlaylistInfo(1))
+    errMsg.errorText should be(SourceDownloadActor.ErrorSourceAfterPlaylistEnd)
+    bufferActor.expectMsg(LocalBufferActor.SequenceComplete)
+  }
+
   it should "handle a download response" in {
     val srcActor, bufActor, readActor, contentActor = TestProbe()
     val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
@@ -219,11 +231,40 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     readActor.expectMsg(AudioSource(sourceURI(1), 1, SourceLength, Skip, SkipTime))
     srcActor.expectMsg(downloadRequest(2))
     actor ! createPlaylistInfo(3)
+    actor ! SourceDownloadActor.PlaylistEnd
     actor ! downloadResponse(2, contentActor2.ref, SourceLength + 1)
     readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength + 1, 0, 0))
     actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
     srcActor.expectMsg(downloadRequest(3))
+  }
+
+  it should "not send a SequenceEnd message if a fill operation is in progress" in {
+    val srcActor, bufActor, readActor, contentActor1 = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(downloadRequest(1))
+    actor ! downloadResponse(1, contentActor1.ref, SourceLength)
+    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor1.ref))
+
+    actor ! SourceDownloadActor.PlaylistEnd
+    actor ! createPlaylistInfo(2)
+    expectMsgType[PlaybackProtocolViolation]
+    bufActor.ref ! "ping"  // ensure no message
+    bufActor.expectMsg("ping")
+  }
+
+  it should "send a SequenceEnd message at the end of the playlist" in {
+    val srcActor, bufActor, readActor, contentActor1 = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(downloadRequest(1))
+    actor ! SourceDownloadActor.PlaylistEnd
+    actor ! downloadResponse(1, contentActor1.ref, SourceLength)
+    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor1.ref))
+    actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
+
+    bufActor.expectMsg(LocalBufferActor.SequenceComplete)
   }
 
   it should "ignore download response messages if the length is undefined" in {
