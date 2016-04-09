@@ -43,7 +43,9 @@ object Player {
       "sourceReaderActor")
     val sourceDownloadActor = system.actorOf(SourceDownloadActor(mediaManagerActor, bufferActor,
       sourceReaderActor), "sourceDownloadActor")
-    val playbackActor = system.actorOf(PlaybackActor(sourceReaderActor), "playbackActor")
+    val lineWriterActor = system.actorOf(Props[LineWriterActor], "lineWriterActor")
+    val playbackActor = system.actorOf(PlaybackActor(sourceReaderActor, lineWriterActor),
+      "playbackActor")
     playbackActor ! PlaybackActor.AddPlaybackContextFactory(new Mp3PlaybackContextFactory)
 
     val mediumID = MediumID(args(0), Some(args(1)))

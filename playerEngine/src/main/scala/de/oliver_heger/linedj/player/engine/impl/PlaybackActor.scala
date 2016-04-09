@@ -21,12 +21,11 @@ import javax.sound.sampled.LineUnavailableException
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
  * Companion object of ''PlaybackActor''.
@@ -100,16 +99,15 @@ object PlaybackActor {
    */
   private val PropContextLimit = PropertyPrefix + "playbackContextLimit"
 
-  private class PlaybackActorImpl(dataSource: ActorRef) extends PlaybackActor(dataSource) with
-  ChildActorFactory
-
   /**
-   * Creates a ''Props'' object for creating an instance of this actor class.
+    * Creates a ''Props'' object for creating an instance of this actor class.
     *
     * @param dataSource the actor which provides the data to be played
-   * @return a ''Props'' object for creating an instance
-   */
-  def apply(dataSource: ActorRef): Props = Props(classOf[PlaybackActorImpl], dataSource)
+    * @param lineWriter the actor that passes audio data to a line
+    * @return a ''Props'' object for creating an instance
+    */
+  def apply(dataSource: ActorRef, lineWriter: ActorRef): Props =
+    Props(classOf[PlaybackActor], dataSource, lineWriter)
 }
 
 /**
@@ -136,11 +134,10 @@ object PlaybackActor {
  * description of the message objects defined by the companion object.
  *
  * @param dataSource the actor which provides the data to be played
+ * @param lineWriterActor the actor which passes audio data to a line
  */
-class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
-
-  this: ChildActorFactory =>
-
+class PlaybackActor(dataSource: ActorRef, lineWriterActor: ActorRef) extends Actor
+  with ActorLogging {
   /** The size of the in-memory audio buffer hold by this class. */
   private val audioBufferSize = context.system.settings.config.getInt(PropAudioBufferSize)
 
@@ -149,9 +146,6 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
 
   /** The current playback context factory. */
   private var contextFactory = new CombinedPlaybackContextFactory(Nil)
-
-  /** The line writer actor. */
-  private var lineWriterActor: ActorRef = _
 
   /** The current audio source. */
   private var currentSource: Option[AudioSource] = None
@@ -182,11 +176,6 @@ class PlaybackActor(dataSource: ActorRef) extends Actor with ActorLogging {
 
   /** A flag whether playback is currently enabled. */
   private var playbackEnabled = false
-
-  @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
-    lineWriterActor = createChildActor(Props[LineWriterActor])
-  }
 
   override def receive: Receive = {
     case src: AudioSource =>

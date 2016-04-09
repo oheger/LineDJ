@@ -13,7 +13,6 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -117,13 +116,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
    */
   private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None, optSource:
   Option[ActorRef] = None): Props =
-    Props(new PlaybackActor(fetchActorRef(optSource)) with ChildActorFactory {
-      override def createChildActor(p: Props): ActorRef = {
-        p.actorClass() should be (classOf[LineWriterActor])
-        p.args shouldBe 'empty
-        fetchActorRef(optLineWriter)
-      }
-    })
+    PlaybackActor(fetchActorRef(optSource), fetchActorRef(optLineWriter))
 
   /**
    * Creates a playback context factory which creates context objects using a
@@ -155,12 +148,13 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   "A PlaybackActor" should "create a correct Props object" in {
-    val props = PlaybackActor(testActor)
+    val probe = TestProbe()
+    val props = PlaybackActor(testActor, probe.ref)
     val actor = TestActorRef[PlaybackActor](props)
     actor.underlyingActor shouldBe a[PlaybackActor]
-    actor.underlyingActor shouldBe a[ChildActorFactory]
-    props.args should have length 1
+    props.args should have length 2
     props.args.head should be (testActor)
+    props.args(1) should be(probe.ref)
   }
 
   it should "request data when it is passed an audio source" in {
@@ -578,7 +572,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     doThrow(new IOException()).when(stream).close()
     val context = PlaybackContext(TestAudioFormat, stream, line)
     val dataSource = TestProbe()
-    val actor = TestActorRef[PlaybackActor](PlaybackActor(dataSource.ref))
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(optSource = Some(dataSource.ref)))
 
     actor.underlyingActor.closePlaybackContext(context)
     verify(stream).close()
