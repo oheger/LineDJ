@@ -6,13 +6,12 @@ import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLin
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory, PlayerConfig}
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -36,6 +35,9 @@ object PlaybackActorSpec {
   /** A test audio format. */
   private val TestAudioFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f, 8, 2, 16,
     1, true)
+
+  /** The configuration used by tests. */
+  private val Config = createConfig()
 
   /**
     * Creates a test audio source whose properties are derived from the given
@@ -72,6 +74,15 @@ object PlaybackActorSpec {
    */
   private def arraySource(byte: Int, length: Int): ArraySource = ReadResult(dataArray(byte,
     length), length)
+
+  /**
+    * Creates a configuration object with some default settings.
+    *
+    * @return the configuration object
+    */
+  private def createConfig(): PlayerConfig =
+    PlayerConfig(inMemoryBufferSize = AudioBufferSize, playbackContextLimit = PlaybackContextLimit,
+      actorCreator = (props, name) => null)
 }
 
 /**
@@ -82,15 +93,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   import PlaybackActorSpec._
 
-  def this() = this(ActorSystem("PlaybackActorSpec",
-    ConfigFactory.parseString( s"""
-                                  |splaya {
-                                  | playback {
-                                  |   audioBufferSize = ${PlaybackActorSpec.AudioBufferSize}
-        |   playbackContextLimit = ${PlaybackActorSpec.PlaybackContextLimit}
-        | }
-        |}
-    """.stripMargin)))
+  def this() = this(ActorSystem("PlaybackActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -116,7 +119,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
    */
   private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None, optSource:
   Option[ActorRef] = None): Props =
-    PlaybackActor(fetchActorRef(optSource), fetchActorRef(optLineWriter))
+    PlaybackActor(Config, fetchActorRef(optSource), fetchActorRef(optLineWriter))
 
   /**
    * Creates a playback context factory which creates context objects using a
@@ -149,12 +152,13 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   "A PlaybackActor" should "create a correct Props object" in {
     val probe = TestProbe()
-    val props = PlaybackActor(testActor, probe.ref)
+    val props = PlaybackActor(Config, testActor, probe.ref)
     val actor = TestActorRef[PlaybackActor](props)
     actor.underlyingActor shouldBe a[PlaybackActor]
-    props.args should have length 2
-    props.args.head should be (testActor)
-    props.args(1) should be(probe.ref)
+    props.args should have length 3
+    props.args.head should be(Config)
+    props.args(1) should be (testActor)
+    props.args(2) should be(probe.ref)
   }
 
   it should "request data when it is passed an audio source" in {

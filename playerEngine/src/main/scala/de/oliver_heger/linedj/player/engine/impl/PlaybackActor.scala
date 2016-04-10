@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
+import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory, PlayerConfig}
 
 /**
  * Companion object of ''PlaybackActor''.
@@ -102,12 +102,13 @@ object PlaybackActor {
   /**
     * Creates a ''Props'' object for creating an instance of this actor class.
     *
+    * @param config the configuration of the player engine
     * @param dataSource the actor which provides the data to be played
     * @param lineWriter the actor that passes audio data to a line
     * @return a ''Props'' object for creating an instance
     */
-  def apply(dataSource: ActorRef, lineWriter: ActorRef): Props =
-    Props(classOf[PlaybackActor], dataSource, lineWriter)
+  def apply(config: PlayerConfig, dataSource: ActorRef, lineWriter: ActorRef): Props =
+    Props(classOf[PlaybackActor], config, dataSource, lineWriter)
 }
 
 /**
@@ -133,17 +134,12 @@ object PlaybackActor {
  * For more information about the protocol supported by this actor refer to the
  * description of the message objects defined by the companion object.
  *
+ * @param config the object with configuration settings
  * @param dataSource the actor which provides the data to be played
  * @param lineWriterActor the actor which passes audio data to a line
  */
-class PlaybackActor(dataSource: ActorRef, lineWriterActor: ActorRef) extends Actor
-  with ActorLogging {
-  /** The size of the in-memory audio buffer hold by this class. */
-  private val audioBufferSize = context.system.settings.config.getInt(PropAudioBufferSize)
-
-  /** The number of bytes in the buffer before a playback context can be created. */
-  private val playbackContextLimit = context.system.settings.config.getInt(PropContextLimit)
-
+class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor: ActorRef)
+  extends Actor with ActorLogging {
   /** The current playback context factory. */
   private var contextFactory = new CombinedPlaybackContextFactory(Nil)
 
@@ -336,7 +332,7 @@ class PlaybackActor(dataSource: ActorRef, lineWriterActor: ActorRef) extends Act
     def audioChunkSize: Int = if(audioChunk != null) audioChunk.length else 0
 
     if (!audioDataStream.completed) {
-      val remainingCapacity = audioBufferSize - bytesInAudioBuffer
+      val remainingCapacity = config.inMemoryBufferSize - bytesInAudioBuffer
       if (remainingCapacity >= audioChunkSize) {
         dataSource ! GetAudioData(remainingCapacity)
         audioDataPending = true
@@ -377,7 +373,7 @@ class PlaybackActor(dataSource: ActorRef, lineWriterActor: ActorRef) extends Act
    * @return a flag whether the audio buffer is filled sufficiently
    */
   private def audioBufferFilled: Boolean = {
-    bytesInAudioBuffer >= playbackContextLimit || audioDataStream.completed
+    bytesInAudioBuffer >= config.playbackContextLimit || audioDataStream.completed
   }
 
   /**

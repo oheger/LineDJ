@@ -36,6 +36,7 @@ object Player {
     }
 
     val system = ActorSystem("lineDJ-Player")
+    val config = PlayerConfig(actorCreator = system.actorOf)
     val mediaManagerActor = fetchMediaManagerActor(system)
     val bufferManager = new BufferFileManager(fetchTemporaryPath(), "buffer", ".tmp")
     val bufferActor = system.actorOf(LocalBufferActor(bufferManager), "bufferActor")
@@ -44,7 +45,7 @@ object Player {
     val sourceDownloadActor = system.actorOf(SourceDownloadActor(mediaManagerActor, bufferActor,
       sourceReaderActor), "sourceDownloadActor")
     val lineWriterActor = system.actorOf(Props[LineWriterActor], "lineWriterActor")
-    val playbackActor = system.actorOf(PlaybackActor(sourceReaderActor, lineWriterActor),
+    val playbackActor = system.actorOf(PlaybackActor(config, sourceReaderActor, lineWriterActor),
       "playbackActor")
     playbackActor ! PlaybackActor.AddPlaybackContextFactory(new Mp3PlaybackContextFactory)
 
