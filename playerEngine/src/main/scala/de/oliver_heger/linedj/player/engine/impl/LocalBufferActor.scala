@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -135,19 +136,20 @@ object LocalBufferActor {
    */
   case object SequenceComplete
 
-  private class LocalBufferActorImpl(bufferManager: BufferFileManager)
-    extends LocalBufferActor(bufferManager) with ChildActorFactory
+  private class LocalBufferActorImpl(config: PlayerConfig, bufferManager: BufferFileManager)
+    extends LocalBufferActor(config, bufferManager) with ChildActorFactory
 
   /**
-   * Creates a ''Props'' object which can be used to create new actor instances
-   * of this class. This method should always be used; it guarantees that all
-   * required dependencies are satisfied.
+    * Creates a ''Props'' object which can be used to create new actor instances
+    * of this class. This method should always be used; it guarantees that all
+    * required dependencies are satisfied.
     *
+    * @param config        an object with configuration settings
     * @param bufferManager the object for managing temporary files
-   * @return a ''Props'' object for creating actor instances
-   */
-  def apply(bufferManager: BufferFileManager): Props =
-    Props(classOf[LocalBufferActorImpl], bufferManager)
+    * @return a ''Props'' object for creating actor instances
+    */
+  def apply(config: PlayerConfig, bufferManager: BufferFileManager): Props =
+    Props(classOf[LocalBufferActorImpl], config, bufferManager)
 }
 
 /**
@@ -175,16 +177,12 @@ object LocalBufferActor {
  * At a time only a single read and a single fill operation are allowed. If a
  * request for another operation arrives, a busy message is returned.
  *
+ * @param config an object with configuration settings
  * @param bufferManager the object for managing temporary files
  */
-class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with ActorLogging {
+class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
+  extends Actor with ActorLogging {
   this: ChildActorFactory =>
-
-  /** The size of temporary files created by this buffer actor. */
-  val temporaryFileSize = context.system.settings.config.getInt(PropFileSize)
-
-  /** The chunk size for I/O operations. */
-  val chunkSize = context.system.settings.config.getInt(PropChunkSize)
 
   /** The object for handling a close operation. */
   private var closingState: ClosingState = _
@@ -250,7 +248,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
       handleReadResult(readResult)
 
     case WriteResult(_, length) =>
-      if (bytesWrittenToFile >= temporaryFileSize) {
+      if (bytesWrittenToFile >= config.bufferFileSize) {
         writerActor ! CloseRequest
       } else {
         continueFilling()
@@ -327,7 +325,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
       case None =>
         if (!readOperationInProgress) {
           fillActor foreach { a =>
-            a ! ReadData(chunkSize)
+            a ! ReadData(config.bufferChunkSize)
             readOperationInProgress = true
           }
         }
@@ -438,9 +436,9 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
    */
   private def currentAndPendingWriteRequest(readResult: ArraySource): (ArraySource,
     Option[ArraySource]) = {
-    if (readResult.length + bytesWrittenToFile <= temporaryFileSize) (readResult, None)
+    if (readResult.length + bytesWrittenToFile <= config.bufferFileSize) (readResult, None)
     else {
-      val actLength = temporaryFileSize - bytesWrittenToFile
+      val actLength = config.bufferFileSize - bytesWrittenToFile
       (new ArraySourceImpl(readResult, length = actLength),
         Some(ArraySourceImpl(readResult, actLength)))
     }
@@ -454,7 +452,7 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
    */
   private def serveFillRequest(): Unit = {
     if (pendingFillRequest) {
-      fillActor.get ! ReadData(chunkSize)
+      fillActor.get ! ReadData(config.bufferChunkSize)
       pendingFillRequest = false
     }
   }
@@ -476,16 +474,6 @@ class LocalBufferActor(bufferManager: BufferFileManager) extends Actor with Acto
       }
     }
   }
-
-  /**
-   * Creates a default buffer manager. This method is called if no buffer manager
-   * was passed to the constructor.
-    *
-    * @return the default buffer manager
-   */
-  private def createBufferManager(): BufferFileManager =
-    new BufferFileManager(temporaryPath, context.system.settings.config.getString(PropFilePrefix),
-      context.system.settings.config.getString(PropFileExtension))
 
   /**
    * A class keeping track on information required for gracefully closing this

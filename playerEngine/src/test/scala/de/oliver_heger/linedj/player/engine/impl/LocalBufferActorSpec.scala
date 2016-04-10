@@ -9,14 +9,14 @@ import java.util.regex.Pattern
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import com.typesafe.config.ConfigFactory
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
-import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
 import de.oliver_heger.linedj.io.FileWriterActor.{WriteResult, WriteResultStatus}
+import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -39,6 +39,18 @@ object LocalBufferActorSpec {
 
   /** A path pointing to the test buffer directory. */
   private val BufferPath = FileSystems.getDefault.getPath("test")
+
+  /** A configuration object used by tests. */
+  private val Config = createConfig()
+
+  /**
+    * Creates a test configuration for the player.
+    *
+    * @return the test configuration
+    */
+  private def createConfig(): PlayerConfig =
+    PlayerConfig(bufferFileSize = FileTestHelper.testBytes().length, bufferChunkSize = ChunkSize,
+      actorCreator = (props, name) => null)
 }
 
 /**
@@ -48,20 +60,10 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 with FlatSpecLike with ImplicitSender with BeforeAndAfterAll with Matchers
 with MockitoSugar {
 
-  import LocalBufferActorSpec._
   import FileTestHelper._
+  import LocalBufferActorSpec._
 
-  def this() = this(ActorSystem("LocalBufferActorSpec",
-    ConfigFactory.parseString(s"""
-      |splaya {
-      | buffer {
-      |   fileSize = ${FileTestHelper.testBytes().length}
-      |   chunkSize = ${LocalBufferActorSpec.ChunkSize}
-      |   filePrefix = ${LocalBufferActorSpec.FilePrefix}
-      |   fileExtension = ${LocalBufferActorSpec.FileSuffix}
-      | }
-      |}
-    """.stripMargin)))
+  def this() = this(ActorSystem("LocalBufferActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem  system
@@ -69,10 +71,11 @@ with MockitoSugar {
 
   "A LocalBufferActor" should "create a correct Props object" in {
     val bufferManager = mock[BufferFileManager]
-    val props = LocalBufferActor(bufferManager)
+    val props = LocalBufferActor(Config, bufferManager)
 
-    props.args should have length 1
-    props.args.head should be (bufferManager)
+    props.args should have length 2
+    props.args.head should be(Config)
+    props.args(1) should be(bufferManager)
     val bufferActor = TestActorRef[LocalBufferActor](props)
     bufferActor.underlyingActor shouldBe a[LocalBufferActor]
     bufferActor.underlyingActor shouldBe a[ChildActorFactory]
@@ -209,7 +212,7 @@ with MockitoSugar {
    */
   private def propsWithMockFactoryForMultipleReaders(readers: List[ActorRef], writerActor:
   Option[ActorRef], bufferManager: Option[BufferFileManager]): Props = {
-    Props(new LocalBufferActor(bufferManager getOrElse createBufferFileManager())
+    Props(new LocalBufferActor(Config, bufferManager getOrElse createBufferFileManager())
       with ChildActorFactory {
       var readerList = readers
 

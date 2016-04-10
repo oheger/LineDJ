@@ -39,7 +39,7 @@ object Player {
     val config = PlayerConfig(actorCreator = system.actorOf)
     val mediaManagerActor = fetchMediaManagerActor(system)
     val bufferManager = new BufferFileManager(fetchTemporaryPath(), "buffer", ".tmp")
-    val bufferActor = system.actorOf(LocalBufferActor(bufferManager), "bufferActor")
+    val bufferActor = system.actorOf(LocalBufferActor(config, bufferManager), "bufferActor")
     val sourceReaderActor = system.actorOf(Props(classOf[SourceReaderActor], bufferActor),
       "sourceReaderActor")
     val sourceDownloadActor = system.actorOf(SourceDownloadActor(mediaManagerActor, bufferActor,
