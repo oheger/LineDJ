@@ -16,16 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
 import scala.collection.mutable
-import scala.concurrent.duration._
 
 /**
  * Companion object.
@@ -68,15 +66,6 @@ object SourceDownloadActor {
     */
   val ErrorSourceAfterPlaylistEnd = "Cannot add audio sources after a playlist end message!"
 
-  /** The prefix for configuration properties. */
-  private val ConfigurationPrefix = "splaya.playback."
-
-  /** The property for initial delay for download in progress messages. */
-  private val PropReaderAliveDelay = ConfigurationPrefix + "downloadProgressMessageDelay"
-
-  /** The property for the interval of download in progress messages. */
-  private val PropReaderAliveInterval = ConfigurationPrefix + "downloadProgressMessageInterval"
-
   /**
     * Generates a ''MediumFileRequest'' message from the specified source ID.
     *
@@ -86,19 +75,22 @@ object SourceDownloadActor {
   private def downloadRequest(sourceID: AudioSourceID): MediumFileRequest =
     MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
 
-  private class SourceDownloadActorImpl(srcActor: ActorRef, bufferActor: ActorRef, readerActor:
-  ActorRef) extends SourceDownloadActor(srcActor, bufferActor, readerActor) with SchedulerSupport
+  private class SourceDownloadActorImpl(config: PlayerConfig, srcActor: ActorRef, bufferActor:
+  ActorRef, readerActor: ActorRef) extends SourceDownloadActor(config, srcActor, bufferActor,
+    readerActor) with SchedulerSupport
 
   /**
     * Creates creation properties for an actor instance of this class.
     *
+    * @param config      an object with configuration settings
     * @param srcActor    the actor from which audio sources are requested
     * @param bufferActor the local buffer actor
     * @param readerActor the actor which reads audio data from the buffer
     * @return creation properties for a new actor instance
     */
-  def apply(srcActor: ActorRef, bufferActor: ActorRef, readerActor: ActorRef): Props =
-    Props(classOf[SourceDownloadActorImpl], srcActor, bufferActor, readerActor)
+  def apply(config: PlayerConfig, srcActor: ActorRef, bufferActor: ActorRef, readerActor:
+  ActorRef): Props =
+    Props(classOf[SourceDownloadActorImpl], config, srcActor, bufferActor, readerActor)
 }
 
 /**
@@ -116,21 +108,17 @@ object SourceDownloadActor {
  * reported to an outbound actor. This actor is then able to read data from the
  * local buffer and manage the actual audio playback.
  *
+ * @param config the object with configuration settings
  * @param srcActor the actor from which audio sources are requested
  * @param bufferActor the local buffer actor
  * @param readerActor the actor which reads audio data from the buffer
  */
-class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor: ActorRef)
+class SourceDownloadActor(config: PlayerConfig, srcActor: ActorRef, bufferActor: ActorRef,
+                          readerActor: ActorRef)
   extends Actor {
   me: SchedulerSupport =>
 
   import SourceDownloadActor._
-
-  /** Initial delay for download in progress messages. */
-  private val readerAliveDelay = durationProperty(PropReaderAliveDelay)
-
-  /** Interval for download in progress messages. */
-  private val readerAliveInterval = durationProperty(PropReaderAliveInterval)
 
   /** A queue for the items in the playlist. */
   private val playlist = mutable.Queue.empty[AudioSourcePlaylistInfo]
@@ -154,8 +142,8 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
   override def preStart(): Unit = {
     import context.dispatcher
     super.preStart()
-    cancellableReaderAlive = Some(scheduleMessage(readerAliveDelay, readerAliveInterval, self,
-      ReportReaderActorAlive))
+    cancellableReaderAlive = Some(scheduleMessage(config.downloadInProgressNotificationDelay,
+      config.downloadInProgressNotificationInterval, self, ReportReaderActorAlive))
   }
 
   @throws[Exception](classOf[Exception])
@@ -296,16 +284,5 @@ class SourceDownloadActor(srcActor: ActorRef, bufferActor: ActorRef, readerActor
         currentReadActor = Some(response.contentReader)
         None
     }
-  }
-
-  /**
-   * Resolves a configuration property of type duration.
-    *
-    * @param key the property key
-   * @return the value of this property
-   */
-  private def durationProperty(key: String): FiniteDuration = {
-    val millis = context.system.settings.config.getDuration(key, TimeUnit.MILLISECONDS)
-    FiniteDuration(millis, MILLISECONDS)
   }
 }

@@ -42,8 +42,8 @@ object Player {
     val bufferActor = system.actorOf(LocalBufferActor(config, bufferManager), "bufferActor")
     val sourceReaderActor = system.actorOf(Props(classOf[SourceReaderActor], bufferActor),
       "sourceReaderActor")
-    val sourceDownloadActor = system.actorOf(SourceDownloadActor(mediaManagerActor, bufferActor,
-      sourceReaderActor), "sourceDownloadActor")
+    val sourceDownloadActor = system.actorOf(SourceDownloadActor(config, mediaManagerActor,
+      bufferActor, sourceReaderActor), "sourceDownloadActor")
     val lineWriterActor = system.actorOf(Props[LineWriterActor], "lineWriterActor")
     val playbackActor = system.actorOf(PlaybackActor(config, sourceReaderActor, lineWriterActor),
       "playbackActor")

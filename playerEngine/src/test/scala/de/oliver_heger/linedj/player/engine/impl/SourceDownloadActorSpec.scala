@@ -21,12 +21,12 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import com.typesafe.config.ConfigFactory
-import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.utils.SchedulerSupport
+import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -43,6 +43,9 @@ object SourceDownloadActorSpec {
 
   /** Constant for the interval of download in progress messages. */
   private val ReaderAliveInterval = 4.minutes
+
+  /** A player configuration used by tests. */
+  private val Config = createConfig()
 
   /**
    * Generates a unique URI for the audio source with the specified index.
@@ -91,6 +94,15 @@ object SourceDownloadActorSpec {
   private def downloadResponse(index: Int, actor: ActorRef, length: Long): MediumFileResponse =
     MediumFileResponse(downloadRequest(index), actor, length)
 
+  /**
+    * Creates a test player configuration.
+    *
+    * @return the test configuration
+    */
+  private def createConfig(): PlayerConfig =
+    PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
+      downloadInProgressNotificationInterval = ReaderAliveInterval,
+      actorCreator = (props, name) => null)
 }
 
 /**
@@ -100,16 +112,7 @@ class SourceDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   import SourceDownloadActorSpec._
 
-  def this() = this(ActorSystem("SourceDownloadActorSpec",
-  ConfigFactory.parseString(
-    s"""
-       |splaya {
-       |  playback {
-       |    downloadProgressMessageDelay = ${SourceDownloadActorSpec.ReaderAliveDelay.toString()}
-       |    downloadProgressMessageInterval = ${SourceDownloadActorSpec.ReaderAliveInterval.toString()}
-       |  }
-       |}
-     """.stripMargin)))
+  def this() = this(ActorSystem("SourceDownloadActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -132,7 +135,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     def fetchRef(optRef: Option[ActorRef]): ActorRef = optRef getOrElse testActor
 
     val schedulerQueue = optQueue getOrElse new LinkedBlockingQueue[SchedulerInvocation]
-    Props(new SourceDownloadActor(fetchRef(optSource), fetchRef(optBuffer), fetchRef
+    Props(new SourceDownloadActor(Config, fetchRef(optSource), fetchRef(optBuffer), fetchRef
       (optReader)) with RecordingSchedulerSupport {
       override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
     })
@@ -377,8 +380,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   it should "create correct creation properties" in {
     val srcActor, bufferActor, readerActor = TestProbe()
 
-    val props = SourceDownloadActor(srcActor.ref, bufferActor.ref, readerActor.ref)
-    props.args should contain theSameElementsInOrderAs List(srcActor.ref, bufferActor.ref,
+    val props = SourceDownloadActor(Config, srcActor.ref, bufferActor.ref, readerActor.ref)
+    props.args should contain theSameElementsInOrderAs List(Config, srcActor.ref, bufferActor.ref,
       readerActor.ref)
     classOf[SourceDownloadActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
