@@ -36,13 +36,13 @@ object Player {
     }
 
     val system = ActorSystem("lineDJ-Player")
-    val config = PlayerConfig(actorCreator = system.actorOf)
     val mediaManagerActor = fetchMediaManagerActor(system)
+    val config = PlayerConfig(actorCreator = system.actorOf, mediaManagerActor = mediaManagerActor)
     val bufferManager = new BufferFileManager(fetchTemporaryPath(), "buffer", ".tmp")
     val bufferActor = system.actorOf(LocalBufferActor(config, bufferManager), "bufferActor")
     val sourceReaderActor = system.actorOf(Props(classOf[SourceReaderActor], bufferActor),
       "sourceReaderActor")
-    val sourceDownloadActor = system.actorOf(SourceDownloadActor(config, mediaManagerActor,
+    val sourceDownloadActor = system.actorOf(SourceDownloadActor(config,
       bufferActor, sourceReaderActor), "sourceDownloadActor")
     val lineWriterActor = system.actorOf(Props[LineWriterActor], "lineWriterActor")
     val playbackActor = system.actorOf(PlaybackActor(config, sourceReaderActor, lineWriterActor),

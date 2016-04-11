@@ -50,7 +50,7 @@ object LocalBufferActorSpec {
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(bufferFileSize = FileTestHelper.testBytes().length, bufferChunkSize = ChunkSize,
-      actorCreator = (props, name) => null)
+      actorCreator = (props, name) => null, mediaManagerActor = null)
 }
 
 /**

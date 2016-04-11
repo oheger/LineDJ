@@ -82,7 +82,7 @@ object PlaybackActorSpec {
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(inMemoryBufferSize = AudioBufferSize, playbackContextLimit = PlaybackContextLimit,
-      actorCreator = (props, name) => null)
+      actorCreator = (props, name) => null, mediaManagerActor = null)
 }
 
 /**

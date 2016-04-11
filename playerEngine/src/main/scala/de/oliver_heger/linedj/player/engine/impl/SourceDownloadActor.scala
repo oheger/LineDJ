@@ -75,22 +75,22 @@ object SourceDownloadActor {
   private def downloadRequest(sourceID: AudioSourceID): MediumFileRequest =
     MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
 
-  private class SourceDownloadActorImpl(config: PlayerConfig, srcActor: ActorRef, bufferActor:
-  ActorRef, readerActor: ActorRef) extends SourceDownloadActor(config, srcActor, bufferActor,
-    readerActor) with SchedulerSupport
+  private class SourceDownloadActorImpl(config: PlayerConfig, bufferActor: ActorRef,
+                                        readerActor: ActorRef)
+    extends SourceDownloadActor(config, bufferActor, readerActor)
+    with SchedulerSupport
 
   /**
     * Creates creation properties for an actor instance of this class.
     *
     * @param config      an object with configuration settings
-    * @param srcActor    the actor from which audio sources are requested
     * @param bufferActor the local buffer actor
     * @param readerActor the actor which reads audio data from the buffer
     * @return creation properties for a new actor instance
     */
-  def apply(config: PlayerConfig, srcActor: ActorRef, bufferActor: ActorRef, readerActor:
+  def apply(config: PlayerConfig, bufferActor: ActorRef, readerActor:
   ActorRef): Props =
-    Props(classOf[SourceDownloadActorImpl], config, srcActor, bufferActor, readerActor)
+    Props(classOf[SourceDownloadActorImpl], config, bufferActor, readerActor)
 }
 
 /**
@@ -109,12 +109,10 @@ object SourceDownloadActor {
  * local buffer and manage the actual audio playback.
  *
  * @param config the object with configuration settings
- * @param srcActor the actor from which audio sources are requested
  * @param bufferActor the local buffer actor
  * @param readerActor the actor which reads audio data from the buffer
  */
-class SourceDownloadActor(config: PlayerConfig, srcActor: ActorRef, bufferActor: ActorRef,
-                          readerActor: ActorRef)
+class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerActor: ActorRef)
   extends Actor {
   me: SchedulerSupport =>
 
@@ -202,7 +200,7 @@ class SourceDownloadActor(config: PlayerConfig, srcActor: ActorRef, bufferActor:
       sender ! CloseAck(self)
 
     case ReportReaderActorAlive =>
-      currentReadActor foreach (srcActor ! ReaderActorAlive(_))
+      currentReadActor foreach (config.mediaManagerActor ! ReaderActorAlive(_))
   }
 
   /**
@@ -247,7 +245,7 @@ class SourceDownloadActor(config: PlayerConfig, srcActor: ActorRef, bufferActor:
   private def downloadIfPossible(): Boolean = {
     if (playlist.nonEmpty && downloadToProcess.isEmpty && currentDownload.isEmpty) {
       val info = playlist.dequeue()
-      srcActor ! downloadRequest(info.sourceID)
+      config.mediaManagerActor ! downloadRequest(info.sourceID)
       currentDownload = Some(info)
       true
     } else false

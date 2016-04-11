@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine
 
+import java.nio.file.Path
+
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 
@@ -63,6 +65,15 @@ object PlayerConfig {
   *                         buffer
   * @param bufferFileExtension the extension of temporary files created by the
   *                            local buffer
+  * @param bufferTempPath an optional path to a directory in which to store
+  *                       temporary files created by the local buffer actor
+  * @param bufferTempPathParts a sequence of path names; this property is
+  *                            evaluated if ''bufferTempPath'' is undefined; in
+  *                            this case, the temporary buffer directory is
+  *                            created below the current user's home
+  *                            directory; the path components specified here
+  *                            are resolved as subdirectories of the user's
+  *                            home directory
   * @param downloadInProgressNotificationDelay the initial delay for a download
   *                                            in progress notification; such
   *                                            notifications are sent to the
@@ -78,6 +89,8 @@ object PlayerConfig {
   * @param blockingDispatcherName an optional name of a dispatcher for actors
   *                               that do blocking calls; if defined, such
   *                               actors are deployed on this dispatcher
+  * @param mediaManagerActor a reference to the ''MediaManagerActor''; this
+  *                          actor is queried for downloads of media files
   * @param actorCreator the function for creating new actors
   */
 case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
@@ -86,7 +99,10 @@ case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
                         bufferChunkSize: Int = 8192,
                         bufferFilePrefix: String = "Buffer",
                         bufferFileExtension: String = ".tmp",
+                        bufferTempPath: Option[Path] = None,
+                        bufferTempPathParts: Seq[String] = List(".lineDJ", "temp"),
                         downloadInProgressNotificationDelay: FiniteDuration = 2.minutes,
                         downloadInProgressNotificationInterval: FiniteDuration = 3.minutes,
                         blockingDispatcherName: Option[String] = None,
+                        mediaManagerActor: ActorRef,
                         actorCreator: ActorCreator)

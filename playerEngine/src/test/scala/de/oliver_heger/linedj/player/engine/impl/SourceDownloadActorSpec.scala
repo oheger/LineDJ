@@ -44,9 +44,6 @@ object SourceDownloadActorSpec {
   /** Constant for the interval of download in progress messages. */
   private val ReaderAliveInterval = 4.minutes
 
-  /** A player configuration used by tests. */
-  private val Config = createConfig()
-
   /**
    * Generates a unique URI for the audio source with the specified index.
     *
@@ -93,16 +90,6 @@ object SourceDownloadActorSpec {
     */
   private def downloadResponse(index: Int, actor: ActorRef, length: Long): MediumFileResponse =
     MediumFileResponse(downloadRequest(index), actor, length)
-
-  /**
-    * Creates a test player configuration.
-    *
-    * @return the test configuration
-    */
-  private def createConfig(): PlayerConfig =
-    PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
-      downloadInProgressNotificationInterval = ReaderAliveInterval,
-      actorCreator = (props, name) => null)
 }
 
 /**
@@ -135,7 +122,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     def fetchRef(optRef: Option[ActorRef]): ActorRef = optRef getOrElse testActor
 
     val schedulerQueue = optQueue getOrElse new LinkedBlockingQueue[SchedulerInvocation]
-    Props(new SourceDownloadActor(Config, fetchRef(optSource), fetchRef(optBuffer), fetchRef
+    Props(new SourceDownloadActor(createConfig(fetchRef(optSource)), fetchRef(optBuffer), fetchRef
       (optReader)) with RecordingSchedulerSupport {
       override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
     })
@@ -155,6 +142,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   Option[BlockingQueue[SchedulerInvocation]] = None): ActorRef =
     system.actorOf(propsForActor(optSource = optSource, optBuffer = optBuffer, optReader =
       optReader, optQueue = optQueue))
+
+  /**
+    * Creates a test player configuration.
+    *
+    * @param mediaManager a reference to the media manager actor
+    * @return the test configuration
+    */
+  private def createConfig(mediaManager: ActorRef): PlayerConfig =
+    PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
+      downloadInProgressNotificationInterval = ReaderAliveInterval,
+      actorCreator = (props, name) => null, mediaManagerActor = mediaManager)
 
   /**
    * Convenience method for creating a download test actor which is initialized
@@ -380,8 +378,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   it should "create correct creation properties" in {
     val srcActor, bufferActor, readerActor = TestProbe()
 
-    val props = SourceDownloadActor(Config, srcActor.ref, bufferActor.ref, readerActor.ref)
-    props.args should contain theSameElementsInOrderAs List(Config, srcActor.ref, bufferActor.ref,
+    val config = createConfig(srcActor.ref)
+    val props = SourceDownloadActor(config, bufferActor.ref, readerActor.ref)
+    props.args should contain theSameElementsInOrderAs List(config, bufferActor.ref,
       readerActor.ref)
     classOf[SourceDownloadActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
