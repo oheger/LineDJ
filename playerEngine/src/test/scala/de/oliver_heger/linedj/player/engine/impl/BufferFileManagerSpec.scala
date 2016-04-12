@@ -1,8 +1,9 @@
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 object BufferFileManagerSpec {
@@ -25,7 +26,8 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
 
   /**
    * Creates a default test instance of ''BufferFileManager''.
-   * @return the test manager instance
+    *
+    * @return the test manager instance
    */
   private def createManager(): BufferFileManager =
     new BufferFileManager(testDirectory, FilePrefix, FileSuffix)
@@ -160,7 +162,8 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
 
   /**
    * Creates a temporary file with the specified name.
-   * @param name the file name
+    *
+    * @param name the file name
    * @return the newly created path
    */
   private def createFileWithName(name: String): Path =
@@ -169,7 +172,8 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
   /**
    * Creates a temporary file with a name that matches the data files managed
    * by this buffer.
-   * @param index the index for generating unique names
+    *
+    * @param index the index for generating unique names
    * @return the newly created path
    */
   private def createFileWithMatchingName(index: Int): Path =
@@ -185,5 +189,41 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
     val paths = listManagedDirectory()
     paths.toSeq should have length 1
     paths should contain(path)
+  }
+
+  /**
+    * Creates a test player configuration.
+    *
+    * @return the test configuration
+    */
+  private def createConfig(): PlayerConfig =
+    PlayerConfig(bufferFilePrefix = FilePrefix, bufferFileExtension = FileSuffix,
+      mediaManagerActor = null, actorCreator = (props, name) => null,
+      bufferTempPathParts = List("lineDJTest", "temp"),
+      bufferTempPath = Some(createPathInDirectory("bufferTemp")))
+
+  it should "initialize itself from a player configuration" in {
+    val config = createConfig()
+    val manager = BufferFileManager(config)
+
+    manager.prefix should be(FilePrefix)
+    manager.extension should be(FileSuffix)
+    manager.directory should be(config.bufferTempPath.get)
+  }
+
+  it should "create the buffer temp directory if necessary" in {
+    val config = createConfig()
+    val manager = BufferFileManager(config)
+
+    Files.exists(manager.directory) shouldBe true
+  }
+
+  it should "create a buffer directory below the user's directory" in {
+    val expectedPath = Paths.get(System.getProperty("user.home"), "lineDJTest", "temp")
+    val config = createConfig().copy(bufferTempPath = None)
+    val manager = BufferFileManager(config)
+
+    manager.directory should be(expectedPath)
+    Files delete expectedPath
   }
 }

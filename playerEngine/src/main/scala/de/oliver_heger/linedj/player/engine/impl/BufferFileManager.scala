@@ -17,10 +17,50 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
+import java.nio.file._
+
+import de.oliver_heger.linedj.player.engine.PlayerConfig
+
+object BufferFileManager {
+  /** The system property pointing to the user's home directory. */
+  private val PropUserHome = "user.home"
+
+  /**
+    * Creates a new instance of ''BufferFileManager'' based on the specified
+    * ''PlayerConfig'' object. The options related to the buffer manager are
+    * evaluated. Especially, the temporary directory is determined and
+    * created if necessary.
+    *
+    * @param config the ''PlayerConfig''
+    * @return the newly created ''BufferFileManager'' instance
+    */
+  def apply(config: PlayerConfig): BufferFileManager = {
+    val path: Path = determineTempDirectory(config)
+    new BufferFileManager(Files createDirectories path, config.bufferFilePrefix, config
+      .bufferFileExtension)
+  }
+
+  /**
+    * Determines the path to the temporary directory based on the specified
+    * player configuration. This method evaluates the ''bufferTempPath'' and
+    * ''bufferTempPathParts'' configuration options. If a path is provided, it
+    * is used. Otherwise, a subdirectory of the user's home directory is used
+    * as temporary buffer path.
+    *
+    * @param config the ''PlayerConfig''
+    * @return the temporary directory for the buffer
+    */
+  private def determineTempDirectory(config: PlayerConfig): Path =
+    config.bufferTempPath match {
+      case Some(p) => p
+      case None =>
+        val home = Paths get System.getProperty(PropUserHome)
+        config.bufferTempPathParts.foldLeft(home)((p, d) => p resolve d)
+    }
+}
 
 /**
- * A helper class for managing temporary files for [[LocalBufferActor]].
+  * A helper class for managing temporary files for [[LocalBufferActor]].
  *
  * The data streamed into and from the buffer is kept in temporary files. These
  * files are created (up to a number of 2) when data comes in. They are then
@@ -55,6 +95,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
   /**
    * Returns a flag whether this buffer is already full. This is case if it
    * contains two files. Then no more files can be appended.
+   *
    * @return a flag whether this buffer is full
    */
   def isFull: Boolean = content(1).isDefined
@@ -64,6 +105,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    * this method has no effect. Note that this method does not change the
    * content of this buffer; only the specified file is deleted, no matter
    * whether it is contained in this buffer or not.
+   *
    * @param path the path to be removed
    * @return the path that was passed in
    */
@@ -75,6 +117,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
   /**
    * Returns an option for the next file to be read from the buffer.
    * If there is no such file, result is ''None''.
+   *
    * @return an option for the next file to be read
    */
   def read: Option[Path] = content(0)
@@ -82,6 +125,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
   /**
    * Appends the specified path to this buffer. It is stored as the last
    * element.
+   *
    * @param path the path to be appended
    */
   def append(path: Path): Unit = {
@@ -96,6 +140,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
   /**
    * Removes the first path from this buffer and returns it. If the buffer is
    * empty, an exception is thrown.
+   *
    * @return the first path in this buffer which has been removed
    */
   def checkOut(): Path = {
@@ -109,6 +154,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    * Checks out the first path from this buffer and removes it from disk. This
    * is a combination of the methods ''checkOut()'' and ''removePath()''. If
    * the buffer is empty, an exception is thrown.
+   *
    * @return the path which has been removed
    */
   def checkOutAndRemove(): Path = removePath(checkOut())
@@ -117,6 +163,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    * Removes the paths that are currently stored in this buffer. This is
    * useful for instance when the application is shut down; then some cleanup
    * has to be done.
+   *
    * @return a sequence with the paths which were contained in this buffer
    */
   def removeContainedPaths(): Seq[Path] = {
