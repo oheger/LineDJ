@@ -61,6 +61,15 @@ object PlaybackActor {
   case class AddPlaybackContextFactory(factory: PlaybackContextFactory)
 
   /**
+    * A message received by ''PlaybackActor'' telling it to remove the
+    * specified ''PlaybackContextFactory''. This message should be sent when a
+    * playback context factory becomes unavailable.
+    *
+    * @param factory the factory to be removed
+    */
+  case class RemovePlaybackContextFactory(factory: PlaybackContextFactory)
+
+  /**
    * A message received by ''PlaybackActor'' telling it to start or resume
    * playback. This message enables playback. If all criteria are fulfilled
    * (e.g. sufficient data is available, a playback context can be created),
@@ -173,6 +182,13 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /** A flag whether playback is currently enabled. */
   private var playbackEnabled = false
 
+  /**
+    * Returns the ''CombinedPlaybackContextFactory'' used by this actor.
+    *
+    * @return the ''CombinedPlaybackContextFactory''
+    */
+  def combinedPlaybackContextFactory: CombinedPlaybackContextFactory = contextFactory
+
   override def receive: Receive = {
     case src: AudioSource =>
       if (currentSource.isEmpty) {
@@ -220,7 +236,10 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       playback()
 
     case AddPlaybackContextFactory(factory) =>
-      contextFactory = contextFactory addSubFactory factory
+      contextFactory = combinedPlaybackContextFactory addSubFactory factory
+
+    case RemovePlaybackContextFactory(factory) =>
+      contextFactory = combinedPlaybackContextFactory removeSubFactory factory
 
     case StartPlayback =>
       playbackEnabled = true

@@ -650,6 +650,17 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(CloseAck(actor))
     assertPlaybackContextClosed(line, streamFactory)
   }
+
+  it should "support removing a playback context factory" in {
+    val factory1 = mock[PlaybackContextFactory]
+    val factory2 = mock[PlaybackContextFactory]
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter())
+    actor receive PlaybackActor.AddPlaybackContextFactory(factory1)
+    actor receive PlaybackActor.AddPlaybackContextFactory(factory2)
+
+    actor receive PlaybackActor.RemovePlaybackContextFactory(factory1)
+    actor.underlyingActor.combinedPlaybackContextFactory.subFactories should contain only factory2
+  }
 }
 
 /**
