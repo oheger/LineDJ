@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import java.nio.file.{Files, Path, Paths}
-
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.impl._
 
 import scala.concurrent.Await
@@ -38,16 +37,8 @@ object Player {
     val system = ActorSystem("lineDJ-Player")
     val mediaManagerActor = fetchMediaManagerActor(system)
     val config = PlayerConfig(actorCreator = system.actorOf, mediaManagerActor = mediaManagerActor)
-    val bufferManager = new BufferFileManager(fetchTemporaryPath(), "buffer", ".tmp")
-    val bufferActor = system.actorOf(LocalBufferActor(config, bufferManager), "bufferActor")
-    val sourceReaderActor = system.actorOf(Props(classOf[SourceReaderActor], bufferActor),
-      "sourceReaderActor")
-    val sourceDownloadActor = system.actorOf(SourceDownloadActor(config,
-      bufferActor, sourceReaderActor), "sourceDownloadActor")
-    val lineWriterActor = system.actorOf(Props[LineWriterActor], "lineWriterActor")
-    val playbackActor = system.actorOf(PlaybackActor(config, sourceReaderActor, lineWriterActor),
-      "playbackActor")
-    playbackActor ! PlaybackActor.AddPlaybackContextFactory(new Mp3PlaybackContextFactory)
+    val player = AudioPlayer(config)
+    player addPlaybackContextFactory new Mp3PlaybackContextFactory
 
     val mediumID = MediumID(args(0), Some(args(1)))
 
@@ -56,23 +47,10 @@ object Player {
       AudioSourcePlaylistInfo(source, 0, 0)
     }
 
-    val playListMessages = args.drop(2) map playlistInfo
-    playListMessages foreach sourceDownloadActor.!
-    sourceDownloadActor ! SourceDownloadActor.PlaylistEnd
-    playbackActor ! PlaybackActor.StartPlayback
-  }
-
-  /**
-    * Determines the directory where to store temporary files. This directory
-    * is located in the user's home directory. If it does not exist yet, it is
-    * created.
-    *
-    * @return the path where to store temporary files
-    */
-  private def fetchTemporaryPath(): Path = {
-    val home = Paths get System.getProperty("user.home")
-    val tempPath = home.resolve(".lineDJ").resolve("temp")
-    Files createDirectories tempPath
+    val playListSources = args.drop(2) map playlistInfo
+    playListSources foreach player.addToPlaylist
+    player.closePlaylist()
+    player.startPlayback()
   }
 
   /**
