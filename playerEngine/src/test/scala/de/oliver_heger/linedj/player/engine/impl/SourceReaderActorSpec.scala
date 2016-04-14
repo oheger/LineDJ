@@ -18,7 +18,7 @@ object SourceReaderActorSpec {
    * @return the test audio source
    */
   private def audioSource(index: Int, length: Int = 10000): AudioSource =
-    AudioSource(s"testSource$index.mp3", index, length, 0, 0)
+    AudioSource(s"testSource$index.mp3", length, 0, 0)
 }
 
 /**

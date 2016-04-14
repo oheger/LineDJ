@@ -24,14 +24,12 @@ import de.oliver_heger.linedj.media.MediumID
  * in the current playlist. It is mainly used internally by the engine.
  *
  * @param uri the URI of the source
- * @param index the index of this source in the current playlist
  * @param length the length of the source (in bytes)
  * @param skip the skip position (i.e. the part of the stream at the beginning
  *             which is to be ignored; actual playback starts after this position)
  * @param skipTime the skip time
  */
-case class AudioSource(uri: String, index: Int, length: Long, skip: Long,
-                       skipTime: Long)
+case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long)
 
 /**
  * A data class which uniquely identifies an audio source.
@@ -54,8 +52,7 @@ case class AudioSourceID(mediumID: MediumID, uri: String)
  * to request actual audio content from a media manager and initiate playback.
  *
  * @param sourceID the ID of the audio source in question
- * @param index the index of this source in the current playlist
  * @param skip the skip position
  * @param skipTime the skip time
  */
-case class AudioSourcePlaylistInfo(sourceID: AudioSourceID, index: Int, skip: Long, skipTime: Long)
+case class AudioSourcePlaylistInfo(sourceID: AudioSourceID, skip: Long, skipTime: Long)

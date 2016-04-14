@@ -68,7 +68,7 @@ object SourceDownloadActorSpec {
    */
   private def createPlaylistInfo(index: Int, skip: Long = 0, skipTime: Long = 0):
   AudioSourcePlaylistInfo =
-    AudioSourcePlaylistInfo(sourceID(index), index, skip, skipTime)
+    AudioSourcePlaylistInfo(sourceID(index), skip, skipTime)
 
   /**
     * Generates a ''MediumFileRequest'' based on the given index.
@@ -215,7 +215,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! createPlaylistInfo(1)
     actor ! downloadResponse(1, contentActor.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor.ref))
-    readActor.expectMsg(AudioSource(sourceURI(1), 1, SourceLength, 0, 0))
+    readActor.expectMsg(AudioSource(sourceURI(1), SourceLength, 0, 0))
   }
 
   it should "handle multiple items on the playlist" in {
@@ -229,12 +229,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! createPlaylistInfo(2)
     actor ! downloadResponse(1, contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor1.ref))
-    readActor.expectMsg(AudioSource(sourceURI(1), 1, SourceLength, Skip, SkipTime))
+    readActor.expectMsg(AudioSource(sourceURI(1), SourceLength, Skip, SkipTime))
     srcActor.expectMsg(downloadRequest(2))
     actor ! createPlaylistInfo(3)
     actor ! SourceDownloadActor.PlaylistEnd
     actor ! downloadResponse(2, contentActor2.ref, SourceLength + 1)
-    readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength + 1, 0, 0))
+    readActor.expectMsg(AudioSource(sourceURI(2), SourceLength + 1, 0, 0))
     actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
     srcActor.expectMsg(downloadRequest(3))
@@ -278,7 +278,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! downloadResponse(1, contentActor1.ref, -1)
     srcActor.expectMsg(downloadRequest(2))
     actor ! downloadResponse(2, contentActor2.ref, SourceLength)
-    readActor.expectMsg(AudioSource(sourceURI(2), 2, SourceLength, 0, 0))
+    readActor.expectMsg(AudioSource(sourceURI(2), SourceLength, 0, 0))
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
   }
 

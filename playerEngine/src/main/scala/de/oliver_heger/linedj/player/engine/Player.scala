@@ -51,12 +51,12 @@ object Player {
 
     val mediumID = MediumID(args(0), Some(args(1)))
 
-    def playlistInfo(uri: String, index: Int): AudioSourcePlaylistInfo = {
+    def playlistInfo(uri: String): AudioSourcePlaylistInfo = {
       val source = AudioSourceID(mediumID, uri)
-      AudioSourcePlaylistInfo(source, index, 0, 0)
+      AudioSourcePlaylistInfo(source, 0, 0)
     }
 
-    val playListMessages = args.drop(2).zipWithIndex.map(t => playlistInfo(t._1, t._2))
+    val playListMessages = args.drop(2) map playlistInfo
     playListMessages foreach sourceDownloadActor.!
     sourceDownloadActor ! SourceDownloadActor.PlaylistEnd
     playbackActor ! PlaybackActor.StartPlayback

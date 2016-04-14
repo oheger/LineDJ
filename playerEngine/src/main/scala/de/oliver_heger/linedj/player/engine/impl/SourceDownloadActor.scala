@@ -44,8 +44,7 @@ object SourceDownloadActor {
     * this source has been received, no further audio sources can be added to
     * the playlist.
     */
-  val PlaylistEnd = AudioSourcePlaylistInfo(AudioSourceID(MediumID.UndefinedMediumID, null), -1,
-    -1, -1)
+  val PlaylistEnd = AudioSourcePlaylistInfo(AudioSourceID(MediumID.UndefinedMediumID, null), -1, -1)
 
   /**
    * Constant for an error message caused by an unexpected download response
@@ -170,8 +169,8 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
       resetCurrentDownload() match {
         case Some(info) =>
           if (isValidDownloadResponse(response)) {
-            readerActor ! AudioSource(uri = info.sourceID.uri, index = info.index, length =
-              response.length, skip = info.skip, skipTime = info.skipTime)
+            readerActor ! AudioSource(uri = info.sourceID.uri, length =
+                          response.length, skip = info.skip, skipTime = info.skipTime)
             downloadToProcess = fillBufferIfPossible(response)
           }
           downloadIfPossible()

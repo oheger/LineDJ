@@ -48,7 +48,7 @@ object PlaybackActorSpec {
    * @return the test audio source
    */
   private def createSource(idx: Int, skipBytes: Int = 0): AudioSource =
-    AudioSource(s"audiSource$idx.mp3", idx, 20 * (idx + 1), skipBytes, 0)
+    AudioSource(s"audiSource$idx.mp3", 20 * (idx + 1), skipBytes, 0)
 
   /**
    * Creates a data array with test content and the given length. The array
