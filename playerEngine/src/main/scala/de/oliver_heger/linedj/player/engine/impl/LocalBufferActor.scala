@@ -439,7 +439,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     if (readResult.length + bytesWrittenToFile <= config.bufferFileSize) (readResult, None)
     else {
       val actLength = config.bufferFileSize - bytesWrittenToFile
-      (new ArraySourceImpl(readResult, length = actLength),
+      (new ArraySourceImpl(readResult.data, length = actLength),
         Some(ArraySourceImpl(readResult, actLength)))
     }
   }
