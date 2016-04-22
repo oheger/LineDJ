@@ -105,4 +105,17 @@ case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
                         downloadInProgressNotificationInterval: FiniteDuration = 3.minutes,
                         blockingDispatcherName: Option[String] = None,
                         mediaManagerActor: ActorRef,
-                        actorCreator: ActorCreator)
+                        actorCreator: ActorCreator) {
+  /**
+    * Modifies the specified ''Props'' to use the blocking dispatcher if none
+    * is specified. Otherwise, the ''Props'' are returned unchanged.
+    *
+    * @param props the ''Props'' to be modified
+    * @return the modified ''Props''
+    */
+  def applyBlockingDispatcher(props: Props): Props =
+    blockingDispatcherName match {
+      case Some(n) => props withDispatcher n
+      case None => props
+    }
+}

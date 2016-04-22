@@ -61,9 +61,8 @@ object AudioPlayer {
     * @param config the ''PlayerConfig''
     * @return creation properties for the line writer actor
     */
-  private[facade] def createLineWriterActorProps(config: PlayerConfig): Props = {
-    config.blockingDispatcherName.foldLeft(Props[LineWriterActor])((p, n) => p withDispatcher n)
-  }
+  private[facade] def createLineWriterActorProps(config: PlayerConfig): Props =
+    config applyBlockingDispatcher Props[LineWriterActor]
 }
 
 /**
