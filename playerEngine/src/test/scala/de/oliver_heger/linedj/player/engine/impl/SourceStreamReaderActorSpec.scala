@@ -18,12 +18,15 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.SupervisionTestActor
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
 import scala.concurrent.duration._
 
 object SourceStreamReaderActorSpec {
@@ -244,11 +247,56 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
   }
 
   it should "create a correct Props object" in {
-    val props = SourceStreamReaderActor(Config, AudioStreamRef)
+    val listener = TestProbe()
+    val props = SourceStreamReaderActor(Config, AudioStreamRef, listener.ref)
 
     classOf[SourceStreamReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should contain theSameElementsAs List(Config, AudioStreamRef)
+    props.args should contain theSameElementsAs List(Config, AudioStreamRef, listener.ref)
+  }
+
+  it should "notify the source listener when an audio stream is passed in" in {
+    val helper = new SourceStreamReaderActorTestHelper
+    helper.createTestActor(AudioStreamRef)
+
+    helper.probeSourceListener.expectMsg(AudioSource(AudioStreamRef.uri, Long.MaxValue, 0, 0))
+  }
+
+  it should "notify the source listener when the audio stream has been resolved" in {
+    val helper = new SourceStreamReaderActorTestHelper
+    val actor = helper.createTestActor(PlaylistStreamRef)
+    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
+
+    helper.probeSourceListener.expectMsg(AudioSource(AudioStreamRef.uri, Long.MaxValue, 0, 0))
+  }
+
+  it should "define a delegating supervision strategy" in {
+    val strategy = OneForOneStrategy() {
+      case _: java.io.IOException => Stop
+    }
+    val probe = TestProbe()
+    val parent = SupervisionTestActor(system, strategy,
+      SourceStreamReaderActor(Config.copy(blockingDispatcherName = None),
+        StreamReference("http://non-existing.err/test.m3u"), probe.ref))
+    val actor = parent.underlyingActor.childActor
+
+    probe watch actor
+    probe.expectMsgType[Terminated]
+  }
+
+  it should "handle a ClearBuffer message" in {
+    val helper = new SourceStreamReaderActorTestHelper
+    val actor = helper.createTestActor(AudioStreamRef)
+
+    actor ! StreamBufferActor.ClearBuffer
+    helper.probeBufferActor.expectMsg(StreamBufferActor.ClearBuffer)
+  }
+
+  it should "ignore a ClearBuffer message if there is no buffer actor" in {
+    val helper = new SourceStreamReaderActorTestHelper
+    val actor = helper.createTestActor(PlaylistStreamRef)
+
+    actor receive StreamBufferActor.ClearBuffer
   }
 
   /**
@@ -260,6 +308,9 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     /** Test probe for the m3u reader actor. */
     val m3uReaderActor = TestProbe()
+
+    /** Test probe for an audio source listener actor. */
+    val probeSourceListener = TestProbe()
 
     /** A counter for the child actors that have been created. */
     private val childCount = new AtomicInteger
@@ -288,7 +339,8 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return the properties
       */
     private def createProps(streamRef: StreamReference): Props =
-      Props(new SourceStreamReaderActor(Config, streamRef) with ChildActorFactory {
+      Props(new SourceStreamReaderActor(Config, streamRef, probeSourceListener.ref)
+        with ChildActorFactory {
         /**
           * @inheritdoc This implementation returns corresponding test
           *             probes after testing the arguments.

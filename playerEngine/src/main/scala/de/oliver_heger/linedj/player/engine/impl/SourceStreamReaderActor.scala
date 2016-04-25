@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.SupervisorStrategy.Escalate
+import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
@@ -43,8 +44,9 @@ object SourceStreamReaderActor {
   private def needToResolveAudioStream(ref: StreamReference): Boolean =
     ref.uri endsWith ExtM3u
 
-  private class SourceStreamReaderActorImpl(config: PlayerConfig, streamRef: StreamReference)
-    extends SourceStreamReaderActor(config, streamRef) with ChildActorFactory
+  private class SourceStreamReaderActorImpl(config: PlayerConfig, streamRef: StreamReference,
+                                            sourceListener: ActorRef)
+    extends SourceStreamReaderActor(config, streamRef, sourceListener) with ChildActorFactory
 
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
@@ -52,10 +54,12 @@ object SourceStreamReaderActor {
     *
     * @param config    the player configuration
     * @param streamRef the reference to the audio stream for playback
+    * @param sourceListener reference to an actor that is sent an audio source
+    *                       message when the final audio stream is available
     * @return creation properties for a new actor instance
     */
-  def apply(config: PlayerConfig, streamRef: StreamReference): Props =
-    Props(classOf[SourceStreamReaderActorImpl], config, streamRef)
+  def apply(config: PlayerConfig, streamRef: StreamReference, sourceListener: ActorRef): Props =
+    Props(classOf[SourceStreamReaderActorImpl], config, streamRef, sourceListener)
 }
 
 /**
@@ -75,6 +79,11 @@ object SourceStreamReaderActor {
   * and thus an empty read result is returned. In this case, the request is
   * repeated.
   *
+  * It is sometimes necessary to know to the actual URL of the audio stream
+  * that is played. Therefore, this actor sends an ''AudioSource'' message to a
+  * listener actor passed to the constructor when the final audio stream is
+  * determined.
+  *
   * Supervision is implemented by delegating to the parent actor.
   *
   * An instance of this actor class can only be used for reading a single
@@ -82,8 +91,11 @@ object SourceStreamReaderActor {
   *
   * @param config    the player configuration
   * @param streamRef the reference to the audio stream for playback
+  * @param sourceListener reference to an actor that is sent an audio source
+  *                       message when the final audio stream is available
   */
-class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) extends Actor {
+class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
+                              sourceListener: ActorRef) extends Actor {
   this: ChildActorFactory =>
 
   import SourceStreamReaderActor._
@@ -97,6 +109,11 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) 
   /** Stores the client that triggered a request for audio data. */
   private var dataClient: Option[ActorRef] = None
 
+  /** The delegating supervisor strategy. */
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+    case _: java.io.IOException => Escalate
+  }
+
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     if (needToResolveAudioStream(streamRef)) {
@@ -104,6 +121,7 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) 
       m3uReader ! M3uReaderActor.ResolveAudioStream(streamRef)
     } else {
       bufferActor = createBufferActor(streamRef)
+      sourceListener ! createAudioSourceMsg(streamRef)
     }
   }
 
@@ -111,6 +129,7 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) 
     case M3uReaderActor.AudioStreamResolved(m3uRef, ref) if streamRef == m3uRef =>
       if (bufferActor.isEmpty) {
         bufferActor = createBufferActor(ref)
+        sourceListener ! createAudioSourceMsg(ref)
         pendingDataRequest foreach bufferActor.get.!
       }
 
@@ -130,6 +149,9 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) 
       } else {
         pendingDataRequest foreach sendDataRequest
       }
+
+    case StreamBufferActor.ClearBuffer =>
+      bufferActor foreach (_ ! StreamBufferActor.ClearBuffer)
 
     case CloseRequest =>
       val bufferRef = bufferActor match {
@@ -177,4 +199,14 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference) 
   private def createBufferActor(ref: StreamReference): Option[ActorRef] =
     Some(createChildActor(config.applyBlockingDispatcher(Props(classOf[StreamBufferActor],
       config, ref))))
+
+  /**
+    * Creates an audio source message referencing the specified stream. This
+    * message is sent to the audio source listener.
+    *
+    * @param ref the stream reference to the current audio stream
+    * @return the ''AudioSource'' message
+    */
+  private def createAudioSourceMsg(ref: StreamReference): AudioSource =
+    AudioSource(ref.uri, Long.MaxValue, 0, 0)
 }
