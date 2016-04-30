@@ -18,25 +18,10 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
-
-  /**
-    * A message processed by [[RadioDataSourceActor]] identifying a new radio
-    * stream to be played.
-    *
-    * When this message is received, playback of the current stream - if any -
-    * stops, and a source reader actor is created for the new stream. The
-    * default extension is of use if the resolved stream URI does not have an
-    * extension. However, this is required to select the correct audio codec
-    * when creating the playback context.
-    *
-    * @param uri              the URI of the stream to be played
-    * @param defaultExtension an optional default extension
-    */
-  case class RadioSource(uri: String, defaultExtension: Option[String] = None)
 
   /**
     * A message processed by [[RadioDataSourceActor]] telling it to clear

@@ -23,7 +23,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -109,7 +109,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
 
-    actor ! RadioDataSourceActor.RadioSource(uri)
+    actor ! RadioSource(uri)
     helper.expectChildCreation().checkProps(uri, actor)
   }
 
@@ -135,7 +135,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
-    actor ! RadioDataSourceActor.RadioSource(audioStreamUri, ext)
+    actor ! RadioSource(audioStreamUri, ext)
     val creation = helper.expectChildCreation()
 
     creation.tell(actor, createSource(audioStreamUri))
@@ -169,7 +169,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! PlaybackActor.GetAudioSource
 
     val src = audioSource(1)
-    actor ! RadioDataSourceActor.RadioSource(src.uri)
+    actor ! RadioSource(src.uri)
     helper.expectChildCreationAndAudioSource(actor, src)
     expectMsg(src)
   }
@@ -204,7 +204,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! PlaybackActor.GetAudioSource
 
     val src = audioSource(1)
-    actor ! RadioDataSourceActor.RadioSource(src.uri)
+    actor ! RadioSource(src.uri)
     actor ! audioSource(28)
     val creation = helper.expectChildCreation()
     creation.tell(actor, src)
@@ -217,7 +217,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     actor receive audioSource(28)
     val src = audioSource(1)
-    actor ! RadioDataSourceActor.RadioSource(src.uri)
+    actor ! RadioSource(src.uri)
     val creation = helper.expectChildCreation()
     creation.tell(actor, src)
     actor ! PlaybackActor.GetAudioSource
@@ -308,10 +308,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
 
-    actor ! RadioDataSourceActor.RadioSource(uri1)
+    actor ! RadioSource(uri1)
     val childCreation1 = helper.expectChildCreation()
     childCreation1.checkProps(uri1, actor)
-    actor ! RadioDataSourceActor.RadioSource(uri2)
+    actor ! RadioSource(uri2)
     val childCreation2 = helper.expectChildCreation()
     childCreation2.checkProps(uri2, actor)
     childCreation1.probe.expectMsg(CloseRequest)
@@ -327,12 +327,12 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
-    actor ! RadioDataSourceActor.RadioSource(streamUri(1))
+    actor ! RadioSource(streamUri(1))
     helper.expectChildCreationAndAudioSource(actor, audioSource(1))
     expectMsgType[AudioSource]
 
     val src = audioSource(2)
-    actor ! RadioDataSourceActor.RadioSource(src.uri)
+    actor ! RadioSource(src.uri)
     val childCreation = helper.expectChildCreationAndAudioSource(actor, src)
     actor ! DataRequest
     expectMsg(FileReaderActor.EndOfFile(null))
@@ -351,7 +351,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.handleAudioSourceRequest(actor, 1)
     actor ! DataRequest
 
-    actor ! RadioDataSourceActor.RadioSource(streamUri(2))
+    actor ! RadioSource(streamUri(2))
     expectMsg(EndOfFile(null))
     // check whether pending request was reset
     actor ! DataRequest
@@ -362,9 +362,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val src1 = audioSource(1)
-    actor ! RadioDataSourceActor.RadioSource(src1.uri)
+    actor ! RadioSource(src1.uri)
     val childCreation = helper.expectChildCreationAndAudioSource(actor, src1)
-    actor ! RadioDataSourceActor.RadioSource(streamUri(2))
+    actor ! RadioSource(streamUri(2))
     childCreation.probe.expectMsg(CloseRequest)
 
     childCreation.tell(actor, CloseAck(childCreation.probe.ref))
@@ -386,7 +386,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   it should "not react on Terminated messages from older sources" in {
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
-    actor ! RadioDataSourceActor.RadioSource(streamUri(1))
+    actor ! RadioSource(streamUri(1))
     val childCreation = helper.expectChildCreation()
     val childCreation2 = helper.handleAudioSourceRequest(actor, 2)
     childCreation.probe.expectMsg(CloseRequest)
@@ -413,11 +413,11 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }))
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
-    actor ! RadioDataSourceActor.RadioSource(streamUri(1))
+    actor ! RadioSource(streamUri(1))
     val childCreation1 = helper.expectChildCreation()
-    actor ! RadioDataSourceActor.RadioSource(streamUri(2))
+    actor ! RadioSource(streamUri(2))
     val childCreation2 = helper.expectChildCreation()
-    actor ! RadioDataSourceActor.RadioSource(streamUri(3))
+    actor ! RadioSource(streamUri(3))
     val childCreation3 = helper.expectChildCreationAndAudioSource(actor, audioSource(3))
     messages.clear() // in case of any startup messages
 
@@ -437,7 +437,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val src = audioSource(1)
-    actor ! RadioDataSourceActor.RadioSource(src.uri)
+    actor ! RadioSource(src.uri)
     val childCreation = helper.expectChildCreationAndAudioSource(actor, src)
 
     actor ! RadioDataSourceActor.ClearSourceBuffer
@@ -507,7 +507,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def handleAudioSourceRequest(actor: ActorRef, srcIdx: Int): ChildActorCreation = {
       val src = audioSource(srcIdx)
-      actor ! RadioDataSourceActor.RadioSource(src.uri)
+      actor ! RadioSource(src.uri)
       val creation = expectChildCreationAndAudioSource(actor, src)
       actor ! PlaybackActor.GetAudioSource
       expectMsgType[AudioSource]
