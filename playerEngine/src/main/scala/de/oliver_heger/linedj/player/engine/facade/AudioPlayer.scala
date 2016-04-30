@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
 
 object AudioPlayer {
   /**
@@ -36,33 +36,11 @@ object AudioPlayer {
       "sourceReaderActor")
     val downloadActor = config.actorCreator(SourceDownloadActor(config, bufferActor, readerActor)
       , "sourceDownloadActor")
-    val lineWriterActor = createLineWriterActor(config)
+    val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor),
       "playbackActor")
     new AudioPlayer(playbackActor, downloadActor)
   }
-
-  /**
-    * Creates the line writer actor for the audio player. This is a bit tricky
-    * because this actor is to be deployed on an alternative dispatcher as it
-    * executes blocking operations. An alternative dispatcher is only used if
-    * one is defined in the configuration.
-    *
-    * @param config the ''PlayerConfig''
-    * @return the reference to the line writer actor
-    */
-  private[facade] def createLineWriterActor(config: PlayerConfig): ActorRef =
-    config.actorCreator(createLineWriterActorProps(config), "lineWriterActor")
-
-  /**
-    * Creates the properties for the line writer actor to be used by this audio
-    * player.
-    *
-    * @param config the ''PlayerConfig''
-    * @return creation properties for the line writer actor
-    */
-  private[facade] def createLineWriterActorProps(config: PlayerConfig): Props =
-    config applyBlockingDispatcher Props[LineWriterActor]
 }
 
 /**
@@ -71,28 +49,8 @@ object AudioPlayer {
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
   */
-class AudioPlayer private(playbackActor: ActorRef, downloadActor: ActorRef) {
-  /**
-    * Adds the specified ''PlaybackContextFactory'' to this audio player.
-    * Before audio files can be played, corresponding factories supporting
-    * this audio format have to be added.
-    *
-    * @param factory the ''PlaybackContextFactory'' to be added
-    */
-  def addPlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playbackActor ! PlaybackActor.AddPlaybackContextFactory(factory)
-  }
-
-  /**
-    * Removes the specified ''PlaybackContextFactory'' from this audio player.
-    * Audio files handled by this factory can no longer be played.
-    *
-    * @param factory the ''PlaybackContextFactory'' to be removed
-    */
-  def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playbackActor ! PlaybackActor.RemovePlaybackContextFactory(factory)
-  }
-
+class AudioPlayer private(protected override val playbackActor: ActorRef,
+                          downloadActor: ActorRef) extends PlayerControl {
   /**
     * Adds the specified ''AudioSourcePlaylistInfo'' object to the playlist
     * of this audio player.
@@ -125,29 +83,5 @@ class AudioPlayer private(playbackActor: ActorRef, downloadActor: ActorRef) {
     */
   def closePlaylist(): Unit = {
     downloadActor ! SourceDownloadActor.PlaylistEnd
-  }
-
-  /**
-    * Starts audio playback. Provided that sufficient audio data has been
-    * loaded, playback will start.
-    */
-  def startPlayback(): Unit = {
-    playbackActor ! PlaybackActor.StartPlayback
-  }
-
-  /**
-    * Stops audio playback. Playback is paused and can be continued by calling
-    * ''startPlayback()''.
-    */
-  def stopPlayback(): Unit = {
-    playbackActor ! PlaybackActor.StopPlayback
-  }
-
-  /**
-    * Skips the current audio source. Playback continues (if enabled) with the
-    * next source in the playlist (if any).
-    */
-  def skipCurrentSource(): Unit = {
-    playbackActor ! PlaybackActor.SkipSource
   }
 }

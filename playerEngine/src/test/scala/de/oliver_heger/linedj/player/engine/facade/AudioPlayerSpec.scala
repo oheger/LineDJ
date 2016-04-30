@@ -20,8 +20,8 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -52,31 +52,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     tearDownTestFile()
   }
 
-  "An AudioPlayer" should "allow adding a playback context factory" in {
-    val factory = mock[PlaybackContextFactory]
-    val helper = new AudioPlayerTestHelper
-
-    helper.player addPlaybackContextFactory factory
-    helper.playbackActor.expectMsg(PlaybackActor.AddPlaybackContextFactory(factory))
-  }
-
-  it should "allow removing a playback context factory" in {
-    val factory = mock[PlaybackContextFactory]
-    val helper = new AudioPlayerTestHelper
-
-    helper.player removePlaybackContextFactory factory
-    helper.playbackActor.expectMsg(PlaybackActor.RemovePlaybackContextFactory(factory))
-  }
-
-  it should "deploy the line writer actor on a default dispatcher if no blocking one is defined" in {
-    val helper = new AudioPlayerTestHelper
-    val config = helper.config.copy(blockingDispatcherName = None)
-
-    val props = AudioPlayer createLineWriterActorProps config
-    props should be(Props[LineWriterActor])
-  }
-
-  it should "support adding playlist info objects to the playlist" in {
+  "An AudioPlayer" should "support adding playlist info objects to the playlist" in {
     val info = AudioSourcePlaylistInfo(AudioSourceID(MediumID("someMedium", None), "someURI"), 0, 0)
     val helper = new AudioPlayerTestHelper
 
