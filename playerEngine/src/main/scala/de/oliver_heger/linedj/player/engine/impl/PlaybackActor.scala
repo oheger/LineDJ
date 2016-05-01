@@ -93,21 +93,6 @@ object PlaybackActor {
    */
   case object SkipSource
 
-  /** The prefix for all configuration properties related to this actor. */
-  private val PropertyPrefix = "splaya.playback."
-
-  /** Configuration property for the maximum audio buffer size. */
-  private val PropAudioBufferSize = PropertyPrefix + "audioBufferSize"
-
-  /**
-   * Configuration property for the minimum number of bytes in the audio buffer before a
-   * playback context can be created. The creation of a playback context may read
-   * data from the current audio buffer. Therefore, it has to be ensured that
-   * the buffer is filled to a certain degree. This property controls the number
-   * of bytes which must be available in the buffer.
-   */
-  private val PropContextLimit = PropertyPrefix + "playbackContextLimit"
-
   /**
     * Creates a ''Props'' object for creating an instance of this actor class.
     *
@@ -396,12 +381,14 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   }
 
   /**
-   * Sets internal flags that cause the current source to be skipped.
-   */
+    * Sets internal flags that cause the current source to be skipped.
+    */
   private def enterSkipMode(): Unit = {
-    skipPosition = currentSource.get.length + 1
-    audioDataStream.clear()
-    requestAudioDataIfPossible()
+    currentSource foreach { s =>
+      skipPosition = s.length + 1
+      audioDataStream.clear()
+      requestAudioDataIfPossible()
+    }
   }
 
   /**

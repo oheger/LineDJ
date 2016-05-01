@@ -498,6 +498,12 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     checkSkipAfterFailedPlaybackContextCreation(Some(PlaybackContext(TestAudioFormat, null, line)))
   }
 
+  it should "ignore a skip message if no source is currently open" in {
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter())
+
+    actor receive PlaybackActor.SkipSource
+  }
+
   it should "allow stopping playback" in {
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
