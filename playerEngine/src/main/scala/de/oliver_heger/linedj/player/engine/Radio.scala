@@ -16,12 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import java.net.URL
-import java.nio.charset.StandardCharsets
-
+import akka.actor.ActorSystem
+import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.impl.Mp3PlaybackContextFactory
-
-import scala.io.Source
 
 /**
   * Demo class for playing radio streams.
@@ -33,44 +30,14 @@ object Radio {
       System.exit(1)
     }
 
-    var streamUri = determineStreamUrl(args.head)
-    val url = new URL(streamUri)
-    if (!streamUri.endsWith(".mp3")) {
-      streamUri = streamUri + ".mp3"
-    }
-
+    val system = ActorSystem("lineDJ-radioPlayer")
+    val config = PlayerConfig(mediaManagerActor = null, actorCreator = system.actorOf,
+      inMemoryBufferSize = 16384, bufferChunkSize = 4096, playbackContextLimit = 8192)
+    val player = RadioPlayer(config)
     val factory = new Mp3PlaybackContextFactory
-    val context = factory.createPlaybackContext(url.openStream(), streamUri).get
-    var len = 0
-    context.line.open(context.format)
-    context.line.start()
-    val buffer = new Array[Byte](4 * context.bufferSize)
+    player addPlaybackContextFactory factory
 
-    do {
-      len = context.stream.read(buffer)
-      if (len > 0) {
-        println(s"Playing $len bytes.")
-        context.line.write(buffer, 0, len)
-      }
-    } while (len >= 0)
-  }
-
-  /**
-    * Determines the URL of the actual stream. If the entry point into the
-    * stream is a m3u file, it is read to extract the URL for playback.
-    *
-    * @param url the input url
-    * @return the url for playback
-    */
-  private def determineStreamUrl(url: String): String = {
-    if (url endsWith "m3u") {
-      val in = new URL(url).openStream()
-      try {
-        val lines = Source.fromInputStream(in, StandardCharsets.UTF_8.toString).getLines()
-        lines.filter(!_.startsWith("#")).toList.head
-      } finally {
-        in.close()
-      }
-    } else url
+    player.startPlayback()
+    player switchToSource RadioSource(args.head, Some("mp3"))
   }
 }
