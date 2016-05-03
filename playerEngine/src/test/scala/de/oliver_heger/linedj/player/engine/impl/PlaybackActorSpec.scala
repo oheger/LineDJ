@@ -495,14 +495,18 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     audioData should be (buffer.toArray)
   }
 
-  it should "allow skipping playback of the current source" in {
+  /**
+    * Helper method for checking whether the current source can be skipped.
+    * @param src the source to be used
+    */
+  private def checkSkipOfCurrentSource(src: AudioSource): Unit = {
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
-    actor ! createSource(1)
+    actor ! src
     sendAudioData(actor, arraySource(1, LineChunkSize), arraySource(2, PlaybackContextLimit))
     val playMsg = lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
     playMsg.line should be(line)
@@ -514,6 +518,14 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
     actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
+  }
+
+  it should "allow skipping playback of the current source" in {
+    checkSkipOfCurrentSource(createSource(1))
+  }
+
+  it should "allow skipping a source of infinite length" in {
+    checkSkipOfCurrentSource(AudioSource.infinite("some infinite audio source"))
   }
 
   /**
@@ -551,6 +563,22 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     val line = mock[SourceDataLine]
     doThrow(new LineUnavailableException).when(line).open(any(classOf[AudioFormat]))
     checkSkipAfterFailedPlaybackContextCreation(Some(PlaybackContext(TestAudioFormat, null, line)))
+  }
+
+  it should "skip an infinite source if no playback context can be created" in {
+    val mockContextFactory = mock[PlaybackContextFactory]
+    when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
+      .thenReturn(None)
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    actor ! AddPlaybackContextFactory(mockContextFactory)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+
+    actor ! AudioSource.infinite("some infinite source URI")
+    sendAudioData(actor, arraySource(1, AudioBufferSize))
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
   }
 
   it should "try only once to create a playback context for a source" in {

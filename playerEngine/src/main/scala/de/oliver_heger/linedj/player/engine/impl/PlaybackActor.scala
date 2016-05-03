@@ -197,7 +197,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
-        if (skipPosition > currentSource.get.length) {
+        if (skipPosition > currentSource.get.length || currentSource.get.isInfinite) {
           sourceCompleted()
         }
         playback()
@@ -234,7 +234,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       stopPlayback()
 
     case SkipSource =>
-      enterSkipMode()
+      enterSkipMode(afterError = false)
 
     case CloseRequest =>
       handleCloseRequest()
@@ -264,16 +264,24 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /**
    * Checks whether a received message regarding new audio data is valid in the
    * current state. If this is not the case, a protocol error message is sent.
- *
+   *
    * @return a flag whether the message is valid and can be handled
    */
   private def checkAudioDataResponse(msg: Any): Boolean = {
-    if (!audioDataPending) {
-      sender ! PlaybackProtocolViolation(msg, "Received unexpected data!")
-      false
-    } else {
+    if(skipPosition < 0) {
+      // outstanding data request after skip
       audioDataPending = false
-      true
+      enterSkipMode(afterError = true)
+      false
+    }
+    else {
+      if (!audioDataPending) {
+        sender ! PlaybackProtocolViolation(msg, "Received unexpected data!")
+        false
+      } else {
+        audioDataPending = false
+        true
+      }
     }
   }
 
@@ -382,12 +390,35 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
 
   /**
     * Sets internal flags that cause the current source to be skipped.
+    *
+    * @param afterError a flag whether an error has occurred; in this case,
+    *                   playback is stopped for an infinite source (because
+    *                   there is typically no playlist to continue with)
     */
-  private def enterSkipMode(): Unit = {
+  private def enterSkipMode(afterError: Boolean): Unit = {
     currentSource foreach { s =>
-      skipPosition = s.length + 1
       audioDataStream.clear()
-      requestAudioDataIfPossible()
+      if (afterError && s.isInfinite) {
+        skipInfiniteSource()
+      } else {
+        skipPosition = if(s.isInfinite) 0 else s.length + 1
+        requestAudioDataIfPossible()
+      }
+    }
+  }
+
+  /**
+    * Sets internal flags to skip an infinite source. This method is called
+    * when there was a problem with playback of this source. In this case,
+    * playback stops after all messages for this source have been processed.
+    * (We need to wait until a pending data request comes back.)
+    */
+  private def skipInfiniteSource(): Unit = {
+    playbackEnabled = false
+    if (audioDataPending) {
+      skipPosition = -1
+    } else {
+      sourceCompleted()
     }
   }
 
@@ -427,7 +458,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
         case None =>
-          enterSkipMode()
+          enterSkipMode(afterError = true)
       }
       playbackContext
     } else None

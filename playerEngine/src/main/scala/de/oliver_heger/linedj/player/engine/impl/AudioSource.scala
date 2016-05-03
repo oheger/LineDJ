@@ -18,6 +18,23 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import de.oliver_heger.linedj.media.MediumID
 
+object AudioSource {
+  /**
+    * Constant for a length indicating an infinite source. This is used for
+    * instance for internet radio streams.
+    */
+  val InfiniteLength = Long.MaxValue
+
+  /**
+    * Creates a source with an infinite length for the specified URI. For such
+    * sources skip information is irrelevant.
+    *
+    * @param uri the URI of the source
+    * @return the new ''AudioSource''
+    */
+  def infinite(uri: String): AudioSource = apply(uri, InfiniteLength, 0, 0)
+}
+
 /**
  * A data class describing an audio source to be played by the audio player
  * engine. This class contains some meta data about the source and its position
@@ -29,7 +46,14 @@ import de.oliver_heger.linedj.media.MediumID
  *             which is to be ignored; actual playback starts after this position)
  * @param skipTime the skip time
  */
-case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long)
+case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long) {
+  /**
+    * Checks whether this is a source with an infinite length.
+    *
+    * @return '''true''' if the length is infinite, '''false''' otherwise
+    */
+  def isInfinite: Boolean = length == AudioSource.InfiniteLength
+}
 
 /**
  * A data class which uniquely identifies an audio source.
