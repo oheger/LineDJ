@@ -337,7 +337,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
 
     if (!audioDataStream.completed) {
       val remainingCapacity = config.inMemoryBufferSize - bytesInAudioBuffer
-      if (remainingCapacity >= audioChunkSize) {
+      if (remainingCapacity > 0 && remainingCapacity >= audioChunkSize) {
         dataSource ! GetAudioData(remainingCapacity)
         audioDataPending = true
       }
@@ -361,8 +361,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
             } else {
               lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
             }
-            requestAudioDataIfPossible()
           }
+          requestAudioDataIfPossible()
         }
       }
     }
@@ -373,7 +373,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * data. This method tests the current amount of audio data available against
    * the ''playbackContextLimit'' configuration property. However, if the end
    * of the audio source has already been reached, the limit can be ignored.
- *
+   *
    * @return a flag whether the audio buffer is filled sufficiently
    */
   private def audioBufferFilled: Boolean = {
@@ -419,7 +419,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * @return an option for the new playback context
     */
   private def createPlaybackContext(): Option[PlaybackContext] = {
-    if (audioBufferFilled && contextFactory.subFactories.nonEmpty) {
+    if (audioBufferFilled && bytesInAudioBuffer > 0) {
       log.info("Creating playback context for {}.", currentSource.get.uri)
       playbackContext = initLine(contextFactory.createPlaybackContext(audioDataStream,
         currentSource.get.uri))

@@ -48,7 +48,7 @@ object PlaybackActorSpec {
    * @return the test audio source
    */
   private def createSource(idx: Int, skipBytes: Int = 0): AudioSource =
-    AudioSource(s"audiSource$idx.mp3", 20 * (idx + 1), skipBytes, 0)
+    AudioSource(s"audiSource$idx.mp3", 3 * AudioBufferSize + 20 * (idx + 1), skipBytes, 0)
 
   /**
    * Creates a data array with test content and the given length. The array
@@ -137,17 +137,32 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenAnswer(new
         Answer[Option[PlaybackContext]] {
       override def answer(invocationOnMock: InvocationOnMock): Option[PlaybackContext] = {
-        val factory = optStreamFactory getOrElse new SimulatedAudioStreamFactory
-        val stream = factory createAudioStream invocationOnMock.getArguments()(0)
-          .asInstanceOf[InputStream]
-        val context = mock[PlaybackContext]
-        when(context.stream).thenReturn(stream)
-        when(context.bufferSize).thenReturn(LineChunkSize)
-        when(context.line).thenReturn(optLine.getOrElse(mock[SourceDataLine]))
-        Some(context)
+        createPlaybackContextFromMock(optLine, optStreamFactory, invocationOnMock)
       }
     })
     factory
+  }
+
+  /**
+    * Creates a ''PlaybackContext'' from a mock factory that can be used by
+    * tests.
+    *
+    * @param optLine          an optional line mock
+    * @param optStreamFactory an optional stream factory
+    * @param invocationOnMock the current mock invocation
+    * @return an option with the context
+    */
+  private def createPlaybackContextFromMock(optLine: Option[SourceDataLine], optStreamFactory:
+  Option[SimulatedAudioStreamFactory], invocationOnMock: InvocationOnMock): Some[PlaybackContext]
+  = {
+    val factory = optStreamFactory getOrElse new SimulatedAudioStreamFactory
+    val stream = factory createAudioStream invocationOnMock.getArguments()(0)
+      .asInstanceOf[InputStream]
+    val context = mock[PlaybackContext]
+    when(context.stream).thenReturn(stream)
+    when(context.bufferSize).thenReturn(LineChunkSize)
+    when(context.line).thenReturn(optLine.getOrElse(mock[SourceDataLine]))
+    Some(context)
   }
 
   "A PlaybackActor" should "create a correct Props object" in {
@@ -190,6 +205,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "receive data until the buffer is full" in {
     val actor = system.actorOf(propsWithMockLineWriter())
+    installMockPlaybackContextFactory(actor)
 
     actor ! createSource(1)
     expectMsgType[GetAudioData]
@@ -223,6 +239,28 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
     actor receive arraySource(1, PlaybackContextLimit)
     verify(factory).createPlaybackContext(any(classOf[InputStream]), eqArg(audioSource.uri))
+    expectMsgType[GetAudioData]
+  }
+
+  it should "fetch audio data after the playback context was created if necessary" in {
+    val factory = mock[PlaybackContextFactory]
+    when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenAnswer(new
+        Answer[Option[PlaybackContext]] {
+      override def answer(invocation: InvocationOnMock): Option[PlaybackContext] = {
+        val stream = invocation.getArguments.head.asInstanceOf[InputStream]
+        stream.read(new Array[Byte](AudioBufferSize - 1)) // read data from stream
+        createPlaybackContextFromMock(None, None, invocation)
+      }
+    })
+
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(TestProbe().ref)))
+    actor ! AddPlaybackContextFactory(factory)
+    val audioSource = createSource(1)
+    actor ! audioSource
+    actor ! StartPlayback
+    expectMsgType[GetAudioData]
+
+    actor ! arraySource(1, AudioBufferSize)
     expectMsgType[GetAudioData]
   }
 
@@ -303,6 +341,20 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     // make sure that no GetAudioData request is sent
     actor ! createSource(2)
     expectMsgType[PlaybackProtocolViolation]
+  }
+
+  it should "not send a data request if the buffer is full" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    installMockPlaybackContextFactory(actor)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    val request = expectMsgType[PlaybackActor.GetAudioData]
+
+    actor ! arraySource(2, request.length)
+    lineWriter.expectMsgType[WriteAudioData]
+    expectMsgType[PlaybackActor.GetAudioData].length should be > 0
   }
 
   it should "report a protocol violation if audio data was played without a request" in {
@@ -469,8 +521,10 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     * tested whether the current source is skipped afterwards.
     *
     * @param ctx the playback context to be returned by the factory
+    * @return the mock playback context factory
     */
-  private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext]): Unit = {
+  private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext]):
+  PlaybackContextFactory = {
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
       .thenReturn(ctx)
@@ -486,6 +540,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
     actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
+    mockContextFactory
   }
 
   it should "skip a source if no playback context can be created" in {
@@ -496,6 +551,12 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     val line = mock[SourceDataLine]
     doThrow(new LineUnavailableException).when(line).open(any(classOf[AudioFormat]))
     checkSkipAfterFailedPlaybackContextCreation(Some(PlaybackContext(TestAudioFormat, null, line)))
+  }
+
+  it should "try only once to create a playback context for a source" in {
+    val factory = checkSkipAfterFailedPlaybackContextCreation(None)
+
+    verify(factory).createPlaybackContext(any(classOf[InputStream]), anyString())
   }
 
   it should "ignore a skip message if no source is currently open" in {
