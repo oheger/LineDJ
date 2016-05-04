@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayInputStream, IOException, InputStream}
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
@@ -218,7 +218,7 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     actor ! CloseRequest
     expectMsg(CloseAck(actor))
-    stream.closed.get() shouldBe true
+    stream.closed.get() should be(1)
   }
 
   it should "read no more data after a close request" in {
@@ -250,9 +250,40 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val superActor = SupervisionTestActor(system, strategy, createTestActorProps(stream))
     val actor = superActor.underlyingActor.childActor
 
+    awaitTermination(actor)
+  }
+
+  /**
+    * Waits until the specified actor is terminated.
+    *
+    * @param actor the actor in question
+    */
+  private def awaitTermination(actor: ActorRef): Unit = {
     val probe = TestProbe()
     probe watch actor
     probe.expectMsgType[Terminated].actor should be(actor)
+  }
+
+  it should "close the stream on stop if this has not been done before" in {
+    val stream = new MonitoringStream
+    val actor = createTestActor(stream)
+    stream.expectRead()
+
+    system stop actor
+    awaitTermination(actor)
+    stream.closed.get() should be(1)
+  }
+
+  it should "close the wrapped stream only once" in {
+    val stream = new MonitoringStream
+    val actor = createTestActor(stream)
+    stream.expectRead()
+    actor ! CloseRequest
+    expectMsg(CloseAck(actor))
+
+    system stop actor
+    awaitTermination(actor)
+    stream.closed.get() should be(1)
   }
 }
 
@@ -331,7 +362,7 @@ private class MonitoringStream extends TestBufferedStream {
   val readQueue = new java.util.concurrent.LinkedBlockingQueue[ReadOperation]
 
   /** A flag whether this stream has been closed. */
-  val closed = new AtomicBoolean
+  val closed = new AtomicInteger
 
   /**
     * Expects a read operation on this stream and returns the corresponding
@@ -388,7 +419,7 @@ private class MonitoringStream extends TestBufferedStream {
     * @inheritdoc Records this close operation.
     */
   override def close(): Unit = {
-    closed set true
+    closed.incrementAndGet()
     super.close()
   }
 }

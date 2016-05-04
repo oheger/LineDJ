@@ -83,6 +83,12 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     self ! InitStream
   }
 
+  @scala.throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    closeStream()
+    super.postStop()
+  }
+
   override def receive: Receive = {
     case InitStream =>
       stream = streamRef.openStream()
@@ -104,7 +110,7 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
       triggerFillBuffer()
 
     case CloseRequest =>
-      if (stream != null) stream.close()
+      closeStream()
       sender ! CloseAck(self)
       context become closed
   }
@@ -155,4 +161,12 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     */
   private def remainingCapacity: Int =
     config.inMemoryBufferSize - buffer.available()
+
+  /**
+    * Closes the wrapped stream if this has not been done yet.
+    */
+  private def closeStream(): Unit = {
+    if (stream != null) stream.close()
+    stream = null
+  }
 }
