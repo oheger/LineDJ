@@ -11,7 +11,7 @@ import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContext, PlaybackContextFactory, PlayerConfig}
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

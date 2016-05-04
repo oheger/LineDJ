@@ -23,7 +23,7 @@ import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.SupervisionTestActor
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

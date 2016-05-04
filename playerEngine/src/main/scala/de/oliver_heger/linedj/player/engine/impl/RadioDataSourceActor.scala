@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {

@@ -20,7 +20,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.mock.MockitoSugar

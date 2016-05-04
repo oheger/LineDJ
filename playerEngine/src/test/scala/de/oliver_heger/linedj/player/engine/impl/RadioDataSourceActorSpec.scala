@@ -23,7 +23,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

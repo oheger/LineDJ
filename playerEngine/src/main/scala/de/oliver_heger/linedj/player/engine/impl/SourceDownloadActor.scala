@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.impl
 import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 

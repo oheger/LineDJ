@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.impl
+package de.oliver_heger.linedj.player.engine
 
 import de.oliver_heger.linedj.media.MediumID
 

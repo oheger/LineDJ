@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContext, PlaybackContextFactory, PlayerConfig}
 
 /**
  * Companion object of ''PlaybackActor''.

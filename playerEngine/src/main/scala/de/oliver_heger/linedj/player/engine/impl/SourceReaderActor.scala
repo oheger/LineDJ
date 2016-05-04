@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferReadActor, ReadBuffer}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
 

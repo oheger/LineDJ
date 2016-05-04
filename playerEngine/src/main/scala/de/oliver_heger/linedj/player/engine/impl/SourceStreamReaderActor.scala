@@ -20,7 +20,7 @@ import akka.actor.SupervisorStrategy.Escalate
 import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.GetAudioData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
