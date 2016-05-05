@@ -17,14 +17,20 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
+import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 object AudioPlayerSpec {
   /** Prefix for buffer files. */
@@ -103,6 +109,23 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     helper.player.skipCurrentSource()
     helper.playbackActor.expectMsg(PlaybackActor.SkipSource)
+  }
+
+  it should "correctly implement the close() method" in {
+    val helper = new AudioPlayerTestHelper
+    def expectCloseRequest(p: TestProbe): Unit = {
+      p.expectMsg(CloseRequest)
+    }
+
+    implicit val ec = system.dispatcher
+    implicit val timeout = Timeout(100.milliseconds)
+    intercept[AskTimeoutException] {
+      Await.result(helper.player.close(), 1.second)
+    }
+    expectCloseRequest(helper.sourceDownloadActor)
+    expectCloseRequest(helper.sourceReaderActor)
+    expectCloseRequest(helper.bufferActor)
+    expectCloseRequest(helper.playbackActor)
   }
 
   /**

@@ -43,7 +43,7 @@ object AudioPlayer {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor),
       "playbackActor")
-    new AudioPlayer(playbackActor, downloadActor)
+    new AudioPlayer(playbackActor, downloadActor, List(bufferActor, readerActor))
   }
 }
 
@@ -52,9 +52,14 @@ object AudioPlayer {
   *
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
+  *
+  * @param playbackActor the playback actor
+  * @param downloadActor the actor handling downloads
+  * @param otherActors a list with other actors to be managed by this player
   */
 class AudioPlayer private(protected override val playbackActor: ActorRef,
-                          downloadActor: ActorRef) extends PlayerControl {
+                          downloadActor: ActorRef, otherActors: List[ActorRef])
+  extends PlayerControl {
   /**
     * Adds the specified ''AudioSourcePlaylistInfo'' object to the playlist
     * of this audio player.
@@ -89,5 +94,6 @@ class AudioPlayer private(protected override val playbackActor: ActorRef,
     downloadActor ! SourceDownloadActor.PlaylistEnd
   }
 
-  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] = ???
+  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
+    closeActors(playbackActor :: downloadActor :: otherActors)
 }
