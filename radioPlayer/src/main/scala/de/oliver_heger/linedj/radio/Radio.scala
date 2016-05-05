@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.radio
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.impl.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 
 /**
   * Demo class for playing radio streams.

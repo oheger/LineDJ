@@ -20,7 +20,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.impl.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
