@@ -33,7 +33,8 @@ object Radio {
 
     val system = ActorSystem("lineDJ-radioPlayer")
     val config = PlayerConfig(mediaManagerActor = null, actorCreator = system.actorOf,
-      inMemoryBufferSize = 16384, bufferChunkSize = 4096, playbackContextLimit = 8192)
+      inMemoryBufferSize = 16384, bufferChunkSize = 4096, playbackContextLimit = 8192,
+      blockingDispatcherName = Some("blocking-io-dispatcher"))
     val player = RadioPlayer(config)
     val factory = new Mp3PlaybackContextFactory
     player addPlaybackContextFactory factory

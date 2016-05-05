@@ -316,9 +316,9 @@ object Build extends Build {
       name := "player-engine",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= Seq(
-        "javazoom" % "jl" % "1.0" % "runtime",
-        "javazoom" % "tritonus_share" % "1.0" % "runtime",
-        "javazoom" % "mp3spi" % "1.9.4" % "runtime"
+        "javazoom" % "jl" % "1.0",
+        "javazoom" % "tritonus_share" % "1.0",
+        "javazoom" % "mp3spi" % "1.9.4"
       ),
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(

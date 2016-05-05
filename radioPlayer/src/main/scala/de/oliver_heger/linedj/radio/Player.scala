@@ -37,7 +37,8 @@ object Player {
 
     val system = ActorSystem("lineDJ-Player")
     val mediaManagerActor = fetchMediaManagerActor(system)
-    val config = PlayerConfig(actorCreator = system.actorOf, mediaManagerActor = mediaManagerActor)
+    val config = PlayerConfig(actorCreator = system.actorOf, mediaManagerActor = mediaManagerActor,
+      blockingDispatcherName = Some("blocking-io-dispatcher"))
     val player = AudioPlayer(config)
     player addPlaybackContextFactory new Mp3PlaybackContextFactory
 
