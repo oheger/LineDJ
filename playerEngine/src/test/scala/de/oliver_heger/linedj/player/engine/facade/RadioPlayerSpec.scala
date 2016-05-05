@@ -17,12 +17,17 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
+import akka.util.Timeout
+import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
-import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor,
-RadioDataSourceActor}
+import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.concurrent.duration._
+import scala.concurrent.Await
 
 object RadioPlayerSpec {
   /** The name of the dispatcher for blocking actors. */
@@ -64,6 +69,18 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player.config should be(helper.config)
+  }
+
+  it should "correctly implement the close() method" in {
+    val helper = new RadioPlayerTestHelper
+    implicit val ec = system.dispatcher
+    implicit val timeout = Timeout(100.milliseconds)
+
+    intercept[AskTimeoutException] {
+      Await.result(helper.player.close(), 1.second)
+    }
+    helper.probeSourceActor.expectMsg(CloseRequest)
+    helper.probePlaybackActor.expectMsg(CloseRequest)
   }
 
   /**

@@ -67,8 +67,8 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param source identifies the radio stream to be played
     */
   def switchToSource(source: RadioSource): Unit = {
-    sourceActor ! source
     playbackActor ! PlaybackActor.SkipSource
+    sourceActor ! source
   }
 
   /**
@@ -81,5 +81,6 @@ class RadioPlayer private(val config: PlayerConfig,
     super.startPlayback()
   }
 
-  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] = ???
+  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
+    closeActors(List(playbackActor, sourceActor))
 }
