@@ -17,8 +17,12 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.ActorRef
+import akka.util.Timeout
+import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.impl.{PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object RadioPlayer {
   /**
@@ -76,4 +80,6 @@ class RadioPlayer private(val config: PlayerConfig,
     sourceActor ! RadioDataSourceActor.ClearSourceBuffer
     super.startPlayback()
   }
+
+  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] = ???
 }

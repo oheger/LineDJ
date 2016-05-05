@@ -17,8 +17,13 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, Props}
+import akka.pattern.ask
+import akka.util.Timeout
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object PlayerControl {
   /** The default name of the line writer actor. */
@@ -109,5 +114,37 @@ trait PlayerControl {
     */
   def skipCurrentSource(): Unit = {
     playbackActor ! PlaybackActor.SkipSource
+  }
+
+  /**
+    * Closes this player. This is an asynchronous process. It typically
+    * requires several actors used by this player to be closed; a safe shutdown
+    * is possible only after these actors have confirmed this request. The
+    * returned future can be used by the caller to find out when the close
+    * operation is completed.
+    *
+    * @param ec      the execution context for the future
+    * @param timeout the timeout when waiting for answers
+    * @return a ''Future'' for the ''CloseAck'' messages from child actors
+    */
+  def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]]
+
+  /**
+    * Closes the provided actors by sending them a ''CloseRequest'' message and
+    * returns a ''Future'' to find out when this request has been answered by
+    * all. This method can be ued in concrete implementations to achieve a
+    * robust close handling. Typically, implementations of ''close()'' will
+    * call this method to close all child actors which require close handling.
+    *
+    * @param actors  a sequence of actors to be closed
+    * @param ec      the execution context for the future
+    * @param timeout the timeout when waiting for answers
+    * @return a future for the ''CloseAck'' messages received from the actors
+    */
+  protected def closeActors(actors: Seq[ActorRef])
+                           (implicit ec: ExecutionContext, timeout: Timeout):
+  Future[Seq[CloseAck]] = {
+    val futureRequests = actors.map(_ ? CloseRequest)
+    Future.sequence(futureRequests).mapTo[Seq[CloseAck]]
   }
 }

@@ -17,9 +17,13 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, Props}
+import akka.util.Timeout
+import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object AudioPlayer {
   /**
@@ -84,4 +88,6 @@ class AudioPlayer private(protected override val playbackActor: ActorRef,
   def closePlaylist(): Unit = {
     downloadActor ! SourceDownloadActor.PlaylistEnd
   }
+
+  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] = ???
 }
