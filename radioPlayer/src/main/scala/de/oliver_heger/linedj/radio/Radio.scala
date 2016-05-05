@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine
+package de.oliver_heger.linedj.radio
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.impl.Mp3PlaybackContextFactory
 
 /**
   * Demo class for playing radio streams.

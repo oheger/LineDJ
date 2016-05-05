@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine
+package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.impl._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
