@@ -23,7 +23,7 @@ import de.heikoseeberger.sbtheader.license.Apache2_0
 
 object Build extends Build {
   /** Definition of versions. */
-  lazy val AkkaVersion = "2.4.2"
+  lazy val AkkaVersion = "2.4.4"
   lazy val OsgiVersion = "5.0.0"
 
   /** The copyright dates. */
@@ -80,7 +80,7 @@ object Build extends Build {
     .settings(
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
-      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine)
+      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -324,5 +324,21 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.player.engine.impl.*"
       )
-    ) dependsOn(shared % "compile->compile;test->test")
+  ) dependsOn(shared % "compile->compile;test->test")
+
+  /**
+    * Project for the radio player. This project implements a UI for an
+    * internet radio player.
+    */
+  lazy val radioPlayer = Project(id = "radioPlayer", base = file("radioPlayer"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "radio-player",
+      resolvers += Resolver.mavenLocal,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.radio.*"
+      )
+    ) dependsOn(client % "compile->compile;test->test", playerEngine)
 }
