@@ -80,7 +80,8 @@ object Build extends Build {
     .settings(
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
-      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer)
+      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
+      mp3PlaybackContextFactory)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -314,6 +315,23 @@ object Build extends Build {
     .settings(osgiSettings: _*)
     .settings(
       name := "player-engine",
+      libraryDependencies ++= logDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.player.engine.impl.*"
+      )
+  ) dependsOn(shared % "compile->compile;test->test")
+
+  /**
+    * Project for the mp3 playback context factory. This is a separate OSGi
+    * bundle adding support for mp3 files to the player engine.
+    */
+  lazy val mp3PlaybackContextFactory = Project(id = "mp3PlaybackContextFactory",
+    base = file("mp3PbCtxFactory"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "mp3-playback-context-factory",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= Seq(
         "javazoom" % "jl" % "1.0",
@@ -322,9 +340,9 @@ object Build extends Build {
       ),
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.player.engine.impl.*"
+        "de.oliver_heger.linedj.player.engine.mp3.*"
       )
-  ) dependsOn(shared % "compile->compile;test->test")
+    ) dependsOn playerEngine
 
   /**
     * Project for the radio player. This project implements a UI for an
@@ -340,5 +358,5 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.radio.*"
       )
-    ) dependsOn(client % "compile->compile;test->test", playerEngine)
+    ) dependsOn(client % "compile->compile;test->test", playerEngine, mp3PlaybackContextFactory)
 }
