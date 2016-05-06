@@ -316,8 +316,10 @@ object Build extends Build {
     .settings(
       name := "player-engine",
       libraryDependencies ++= logDependencies,
-      OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.player.engine.impl.*"
+      OsgiKeys.exportPackage := Seq(
+        "de.oliver_heger.linedj.player.engine", "de.oliver_heger.linedj.player.engine.facade"),
+        OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.player.engine.impl"
       )
   ) dependsOn(shared % "compile->compile;test->test")
 
@@ -341,7 +343,9 @@ object Build extends Build {
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.player.engine.mp3.*"
-      )
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml")
     ) dependsOn playerEngine
 
   /**
