@@ -34,6 +34,13 @@ object ClientApplication {
 
   /** The bean for the remote message bus. */
   val BeanRemoteMessageBus = BeanPrefix + "RemoteMessageBus"
+
+  /**
+    * The name of a blocking dispatcher in the actor system configuration.
+    * Client applications can use this dispatcher for actors that do blocking
+    * operations of any kind.
+    */
+  val BlockingDispatcherName = "blocking-dispatcher"
 }
 
 /**
