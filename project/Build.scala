@@ -359,6 +359,8 @@ object Build extends Build {
     .settings(
       name := "radio-player",
       resolvers += Resolver.mavenLocal,
+      libraryDependencies ++= jguiraffeDependencies,
+      libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.radio.*"
       )
