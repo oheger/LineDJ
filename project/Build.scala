@@ -363,6 +363,8 @@ object Build extends Build {
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.radio.*"
-      )
-    ) dependsOn(client % "compile->compile;test->test", playerEngine, mp3PlaybackContextFactory)
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(client % "compile->compile;test->test", playerEngine, mp3PlaybackContextFactory)
 }
