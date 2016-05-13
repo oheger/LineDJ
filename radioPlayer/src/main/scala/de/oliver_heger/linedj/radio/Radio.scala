@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
 /**
   * Demo class for playing radio streams.
@@ -36,8 +35,8 @@ object Radio {
       inMemoryBufferSize = 16384, bufferChunkSize = 4096, playbackContextLimit = 8192,
       blockingDispatcherName = Some("blocking-io-dispatcher"))
     val player = RadioPlayer(config)
-    val factory = new Mp3PlaybackContextFactory
-    player addPlaybackContextFactory factory
+//    val factory = new Mp3PlaybackContextFactory
+//    player addPlaybackContextFactory factory
 
     player.startPlayback()
     player switchToSource RadioSource(args.head, Some("mp3"))

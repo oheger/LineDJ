@@ -18,9 +18,8 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -40,7 +39,7 @@ object Player {
     val config = PlayerConfig(actorCreator = system.actorOf, mediaManagerActor = mediaManagerActor,
       blockingDispatcherName = Some("blocking-io-dispatcher"))
     val player = AudioPlayer(config)
-    player addPlaybackContextFactory new Mp3PlaybackContextFactory
+//    player addPlaybackContextFactory new Mp3PlaybackContextFactory
 
     val mediumID = MediumID(args(0), Some(args(1)))
 

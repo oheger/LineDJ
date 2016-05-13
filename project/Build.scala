@@ -366,5 +366,5 @@ object Build extends Build {
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(client % "compile->compile;test->test", playerEngine, mp3PlaybackContextFactory)
+  ) dependsOn(client % "compile->compile;test->test", playerEngine)
 }
