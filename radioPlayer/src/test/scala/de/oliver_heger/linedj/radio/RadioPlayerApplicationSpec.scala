@@ -21,22 +21,21 @@ import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
 
 import akka.pattern.AskTimeoutException
 import akka.util.Timeout
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup,
-ApplicationTestSupport, ClientApplicationContext}
+import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext}
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
+import net.sf.jguiraffe.gui.builder.window.Window
+import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
-import org.mockito.Matchers._
-import org.mockito.Matchers.{eq => eqArg}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.{ExecutionContextExecutor, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Promise}
 import scala.util.Random
 
 /**
@@ -171,11 +170,22 @@ class RadioPlayerApplicationSpec extends FlatSpec with Matchers with MockitoSuga
     helper.shutDownTest(promise)
   }
 
+  it should "create a correct bean for the radio controller" in {
+    val helper = new RadioPlayerApplicationTestHelper(mockUI = false)
+    val app = helper.activateRadioApp()
+
+    val ctrl = queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
+    ctrl.player should be(helper.player)
+    ctrl.config should be(app.getUserConfiguration)
+  }
+
   /**
     * A test helper class managing dependencies of a test instance and
     * providing some useful functionality.
+    *
+    * @param mockUI a flag whether the UI should be skipped
     */
-  private class RadioPlayerApplicationTestHelper {
+  private class RadioPlayerApplicationTestHelper(mockUI: Boolean = true) {
     /** A mock for the radio player. */
     val player = createPlayerMock()
 
@@ -184,7 +194,13 @@ class RadioPlayerApplicationSpec extends FlatSpec with Matchers with MockitoSuga
 
     /** The application to be tested. */
     val app = new RadioPlayerApplication(playerFactory) with ApplicationSyncStartup {
-      override def initGUI(appCtx: ApplicationContext): Unit = {}
+      override def initGUI(appCtx: ApplicationContext): Unit = {
+        if (!mockUI) {
+          super.initGUI(appCtx)
+        }
+      }
+
+      override def showMainWindow(window: Window): Unit = {}
 
       override def onShutdown(): Unit = super.onShutdown()
     }

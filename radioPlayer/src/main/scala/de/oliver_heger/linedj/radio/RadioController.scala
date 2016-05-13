@@ -63,7 +63,7 @@ object RadioController {
   * @param actionStore  the object for accessing actions
   * @param comboSources the combo box with the radio sources
   */
-class RadioController(player: RadioPlayer, config: Configuration, actionStore: ActionStore,
+class RadioController(val player: RadioPlayer, val config: Configuration, actionStore: ActionStore,
                       comboSources: ListComponentHandler) extends WindowListener with
   FormChangeListener {
 

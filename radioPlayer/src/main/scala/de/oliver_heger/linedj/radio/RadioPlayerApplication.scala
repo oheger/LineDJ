@@ -101,6 +101,15 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   }
 
   /**
+    * @inheritdoc This implementation adds a bean for the user configuration
+    *             to the central bean context.
+    */
+  override def initGUI(appCtx: ApplicationContext): Unit = {
+    addBeanDuringApplicationStartup("radioApp_config", getUserConfiguration)
+    super.initGUI(appCtx)
+  }
+
+  /**
     * @inheritdoc This implementation closes the player.
     */
   override protected def onShutdown(): Unit = {
