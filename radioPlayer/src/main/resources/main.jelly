@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2016 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the main window of the LineDJ Radio player
+    application.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- An event filter for the window closing event. -->
+  <di:bean name="windowClosingEventFilter"
+    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
+  </di:bean>
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+    resgrp="application" taskBean="exitTask"/>
+
+  <!-- Actions for playback control -->
+  <a:action name="startPlaybackAction" textres="act_start_playback_text"
+    tooltipres="act_start_playback_tip" mnemonicres="act_start_playback_mnemo"
+    taskBean="startPlaybackTask">
+    <f:icon resource="media-playback-start.png"/>
+  </a:action>
+
+  <a:action name="stopPlaybackAction" textres="act_stop_playback_text"
+            tooltipres="act_stop_playback_tip" mnemonicres="act_stop_playback_mnemo"
+            taskBean="stopPlaybackTask">
+    <f:icon resource="media-playback-stop.png"/>
+  </a:action>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_playback_text" mnemonicres="menu_playback_mnemo">
+      <a:menuitem actionName="startPlaybackAction"/>
+      <a:menuitem actionName="stopPlaybackAction"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- The model of the radio sources combo box. -->
+  <di:bean name="radioSourcesModel" beanClassName="de.oliver_heger.linedj.radio.EmptyRadioSourcesListModel"/>
+
+  <!-- The main window -->
+  <w:frame titleres="main_title" menu="mainMenu">
+    <f:borderlayout canShrink="false"/>
+    <!-- A tool bar at the top of the window's content -->
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="startPlaybackAction"/>
+      <a:toolbutton actionName="stopPlaybackAction"/>
+    </a:toolbar>
+
+    <!-- The main panel -->
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:percentlayout columns="8dlu end/preferred 3dlu full/preferred(5cm)/100 8dlu"
+         rows="6dlu preferred 6dlu"/>
+      <f:label textres="lab_station">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+
+      <f:combo name="comboStations" modelRef="radioSourcesModel" editable="false">
+        <f:percentconstr col="3" row="1"/>
+      </f:combo>
+    </f:panel>
+
+    <!-- Statusline -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+
+      <f:statictext name="statusLine" text=""
+                    alignment="left">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <!-- An event listener that delegates the window closing event to the
+         application exit action.
+    -->
+    <w:windowEvent actionName="exitAction">
+      <a:eventFilter beanName="windowClosingEventFilter"/>
+    </w:windowEvent>
+
+    <!-- Radio controller -->
+    <di:bean name="radioController"
+      beanClassName="de.oliver_heger.linedj.radio.RadioController">
+      <di:constructor>
+        <di:param refName="radioApp_player"/>
+        <di:param refName="jguiraffe.configuration"/>
+        <di:param refName="ACTION_STORE"/>
+        <di:param refName="comp:comboStations"/>
+      </di:constructor>
+    </di:bean>
+
+    <w:controller beanName="radioController"/>
+  </w:frame>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Tasks for playback control. -->
+  <di:bean name="startPlaybackTask"
+           beanClassName="de.oliver_heger.linedj.radio.StartPlaybackTask">
+    <di:constructor>
+      <di:param refName="radioController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="stopPlaybackTask"
+           beanClassName="de.oliver_heger.linedj.radio.StopPlaybackTask">
+    <di:constructor>
+      <di:param refName="radioController"/>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="comboStations" eventType="CHANGE" beanName="radioController"/>
+</j:jelly>
