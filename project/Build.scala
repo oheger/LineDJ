@@ -336,16 +336,17 @@ object Build extends Build {
       name := "mp3-playback-context-factory",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= Seq(
-        "javazoom" % "jl" % "1.0",
-        "javazoom" % "tritonus_share" % "1.0",
-        "javazoom" % "mp3spi" % "1.9.4"
+        "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2-SNAPSHOT",
+        "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3-SNAPSHOT",
+        "com.googlecode.soundlibs" % "mp3spi" % "1.9.5-2-SNAPSHOT"
       ),
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.player.engine.mp3.*"
       ),
       OsgiKeys.additionalHeaders :=
-        Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml")
+        Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml",
+          "SPI-Consumer" -> "javax.sound.sampled.AudioSystem#getAudioInputStream")
     ) dependsOn playerEngine
 
   /**
