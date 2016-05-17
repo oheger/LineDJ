@@ -497,6 +497,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   /**
     * Helper method for checking whether the current source can be skipped.
+    *
     * @param src the source to be used
     */
   private def checkSkipOfCurrentSource(src: AudioSource): Unit = {
@@ -663,6 +664,24 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
 
     assertPlaybackContextClosed(line, streamFactory) should be > drainTime
+  }
+
+  it should "ignore empty read results for infinite sources" in {
+    val lineWriter = TestProbe()
+    val streamFactory = mock[SimulatedAudioStreamFactory]
+    val audioStream = mock[InputStream]
+    when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0, 32)
+    when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! AudioSource.infinite("infiniteURI")
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit), arraySource(2, 32))
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    expectMsgType[GetAudioData]
   }
 
   it should "ignore exceptions when closing a playback context" in {

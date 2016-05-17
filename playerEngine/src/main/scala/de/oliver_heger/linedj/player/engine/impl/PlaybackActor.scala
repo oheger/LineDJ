@@ -197,7 +197,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
-        if (skipPosition > currentSource.get.length || currentSource.get.isInfinite) {
+        if (skipPosition > currentSource.get.length || currentSourceIsInfinite) {
           sourceCompleted()
         }
         playback()
@@ -367,7 +367,9 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
               lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
               audioPlaybackPending = true
             } else {
-              lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+              if (!currentSourceIsInfinite) {
+                lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+              }
             }
           }
           requestAudioDataIfPossible()
@@ -375,6 +377,14 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       }
     }
   }
+
+  /**
+    * Returns a flag whether the current source is infinite.
+    *
+    * @return a flag whether the current source is infinite
+    */
+  private def currentSourceIsInfinite: Boolean =
+    currentSource.exists(_.isInfinite)
 
   /**
    * Checks whether the audio buffer is filled sufficiently to extract audio
