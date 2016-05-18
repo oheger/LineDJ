@@ -47,7 +47,7 @@ private class RadioPlayerFactory {
     */
   private def createPlayerConfig(clientApplicationContext: ClientApplicationContext):
   PlayerConfig =
-    PlayerConfig(inMemoryBufferSize = 16384, playbackContextLimit = 8192,
+    PlayerConfig(inMemoryBufferSize = 64 * 1024, playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
       mediaManagerActor = null, actorCreator = clientApplicationContext.actorFactory.createActor)

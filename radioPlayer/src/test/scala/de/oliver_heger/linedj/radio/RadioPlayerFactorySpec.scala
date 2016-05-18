@@ -47,7 +47,7 @@ class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
     val factory = new RadioPlayerFactory
 
     val player = factory createRadioPlayer createApplicationContext()
-    player.config.inMemoryBufferSize should be(16384)
+    player.config.inMemoryBufferSize should be(65536)
     player.config.bufferChunkSize should be(4096)
     player.config.playbackContextLimit should be(8192)
     player.config.mediaManagerActor should be(null)
