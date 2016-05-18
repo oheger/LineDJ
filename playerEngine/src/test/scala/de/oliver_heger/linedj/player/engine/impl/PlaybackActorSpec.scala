@@ -529,6 +529,23 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     checkSkipOfCurrentSource(AudioSource.infinite("some infinite audio source"))
   }
 
+  it should "handle an EoF message for an infinite source" in {
+    val lineWriter = TestProbe()
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(optLineWriter =
+      Some(lineWriter.ref)))
+    installMockPlaybackContextFactory(actor)
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! AudioSource.infinite("src://infinite")
+
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit+1))
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
+    expectMsgType[GetAudioData]
+    actor ! EndOfFile(null)
+    expectMsg(GetAudioSource)
+    actor receive arraySource(2, PlaybackContextLimit + 1)
+  }
+
   /**
     * Helper method for testing a failed creation of a playback context. It is
     * tested whether the current source is skipped afterwards.

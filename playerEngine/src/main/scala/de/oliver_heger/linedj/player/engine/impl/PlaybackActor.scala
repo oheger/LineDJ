@@ -188,7 +188,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       }
 
     case data: ArraySource =>
-      if (checkAudioDataResponse(data)) {
+      if (checkAudioDataResponse(data) && currentSource.isDefined) {
         handleNewAudioData(data)
         playback()
       }
