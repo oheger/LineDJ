@@ -716,6 +716,23 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
   }
 
+  it should "flush the in-memory buffer if playback hangs" in {
+    val lineWriter = TestProbe()
+    val streamFactory = mock[SimulatedAudioStreamFactory]
+    val audioStream = mock[InputStream]
+    when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0, 32)
+    when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! AudioSource.infinite("infiniteURI")
+    sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, AudioBufferSize))
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+  }
+
   it should "ignore exceptions when closing a playback context" in {
     val stream = mock[InputStream]
     val line = mock[SourceDataLine]

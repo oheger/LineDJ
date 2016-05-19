@@ -369,6 +369,11 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
             } else {
               if (!currentSourceIsInfinite) {
                 lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+              } else {
+                if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
+                  log.warning("Playback stalled! Flushing buffer.")
+                  audioDataStream.clear()
+                }
               }
             }
           }
