@@ -209,7 +209,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
           " received!")
       } else {
         audioPlaybackPending = false
-        if (length < audioChunk.length) {
+        if (length < audioChunk.length && !currentSourceIsInfinite) {
           lineWriterActor ! LineWriterActor.DrainLine(playbackContext.get.line)
         } else {
           playback()

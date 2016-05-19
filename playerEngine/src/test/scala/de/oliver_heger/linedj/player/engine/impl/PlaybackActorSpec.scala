@@ -701,6 +701,21 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsgType[GetAudioData]
   }
 
+  it should "not terminate an infinite source on a smaller read result" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! AudioSource.infinite("src://infinite.org")
+    sendAudioData(actor, arraySource(1, AudioBufferSize))
+    expectMsgType[GetAudioData]
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize - 1), lineWriter.ref)
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+  }
+
   it should "ignore exceptions when closing a playback context" in {
     val stream = mock[InputStream]
     val line = mock[SourceDataLine]
