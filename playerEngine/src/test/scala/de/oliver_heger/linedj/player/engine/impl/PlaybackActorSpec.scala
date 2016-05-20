@@ -757,15 +757,14 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor.underlyingActor should not be 'playing
   }
 
-  it should "reject messages after receiving a close request" in {
+  it should "ignore messages after receiving a close request" in {
     val actor = system.actorOf(propsWithMockLineWriter())
     installMockPlaybackContextFactory(actor)
 
     actor ! CloseRequest
     expectMsgType[CloseAck]
     actor ! StartPlayback
-    val errMsg = expectMsgType[PlaybackProtocolViolation]
-    errMsg.errorText should include ("Actor is closing")
+    expectNoMsg(200.milliseconds)
   }
 
   it should "handle a close request if a playback context is active" in {
@@ -792,7 +791,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "handle a close request while audio data is currently played" in {
     val line = mock[SourceDataLine]
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(
+      optLineWriter = Some(lineWriter.ref)))
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))
@@ -806,10 +806,9 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
 
     actor ! CloseRequest
-    actor ! createSource(4)
-    expectMsgType[PlaybackProtocolViolation]
+    actor receive createSource(4)
     verify(line, never()).close()
-    actor.tell(LineWriterActor.AudioDataWritten, lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
     expectMsg(CloseAck(actor))
     assertPlaybackContextClosed(line, streamFactory)
   }

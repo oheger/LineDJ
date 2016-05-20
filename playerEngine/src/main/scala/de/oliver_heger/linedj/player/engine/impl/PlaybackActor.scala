@@ -254,11 +254,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * Then the close operation can be actually performed.
    */
   private def closing: Receive = {
-    case AudioDataWritten =>
+    case AudioDataWritten(_) =>
       closeActor()
-
-    case msg =>
-      sender ! PlaybackProtocolViolation(msg, "Actor is closing!")
   }
 
   /**
