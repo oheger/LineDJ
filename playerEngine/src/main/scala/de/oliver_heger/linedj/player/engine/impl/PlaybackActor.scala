@@ -358,7 +358,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     if (!audioPlaybackPending) {
       fetchPlaybackContext() foreach { ctx =>
         if (isPlaying) {
-          if (audioBufferFilled) {
+          if (audioBufferFilled(ctx.bufferSize)) {
             val len = ctx.stream.read(audioChunk)
             if (len > 0) {
               lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
@@ -389,15 +389,16 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     currentSource.exists(_.isInfinite)
 
   /**
-   * Checks whether the audio buffer is filled sufficiently to extract audio
-   * data. This method tests the current amount of audio data available against
-   * the ''playbackContextLimit'' configuration property. However, if the end
-   * of the audio source has already been reached, the limit can be ignored.
-   *
-   * @return a flag whether the audio buffer is filled sufficiently
-   */
-  private def audioBufferFilled: Boolean = {
-    bytesInAudioBuffer >= config.playbackContextLimit || audioDataStream.completed
+    * Checks whether the audio buffer is filled sufficiently to extract audio
+    * data. This method tests the current amount of audio data available against
+    * the passed in value. However, if the end of the audio source has already
+    * been reached, the limit can be ignored.
+    *
+    * @param limit the number of bytes that must be contained in the buffer
+    * @return a flag whether the audio buffer is filled sufficiently
+    */
+  private def audioBufferFilled(limit: Int): Boolean = {
+    bytesInAudioBuffer >= limit || audioDataStream.completed
   }
 
   /**
@@ -462,7 +463,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * @return an option for the new playback context
     */
   private def createPlaybackContext(): Option[PlaybackContext] = {
-    if (audioBufferFilled && bytesInAudioBuffer > 0) {
+    if (audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0) {
       log.info("Creating playback context for {}.", currentSource.get.uri)
       playbackContext = initLine(contextFactory.createPlaybackContext(audioDataStream,
         currentSource.get.uri))

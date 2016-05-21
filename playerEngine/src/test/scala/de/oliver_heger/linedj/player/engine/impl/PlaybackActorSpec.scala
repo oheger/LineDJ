@@ -452,6 +452,20 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     checkPlaybackOfFullSource(2 * LineChunkSize)
   }
 
+  it should "not play audio data if the in-memory buffer is almost empty" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val line = installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit))
+    gatherPlaybackData(actor, lineWriter, line, PlaybackContextLimit - LineChunkSize)
+    expectMsgType[GetAudioData]
+    lineWriter.expectNoMsg(100.milliseconds)
+  }
+
   it should "report a protocol error when receiving an unexpected EoF message" in {
     val actor = system.actorOf(propsWithMockLineWriter())
 
@@ -780,7 +794,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     expectMsg(GetAudioSource)
     actor ! createSource(2)
     sendAudioData(actor, arraySource(1, PlaybackContextLimit))
-    gatherPlaybackData(actor, lineWriter, line, LineChunkSize)
+    gatherPlaybackData(actor, lineWriter, line, PlaybackContextLimit - LineChunkSize)
     expectMsgType[GetAudioData]
 
     actor ! CloseRequest
