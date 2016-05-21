@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import scala.concurrent.duration._
 
 object RadioDataSourceActorSpec {
   /** Constant for an URI for test radio streams. */
@@ -402,6 +403,17 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! CloseRequest
 
     expectMsg(CloseAck(actor))
+  }
+
+  it should "propagate a CloseRequest to the current source reader" in {
+    val helper = new RadioDataSourceActorTestHelper
+    val actor = helper.createTestActor()
+    actor ! RadioSource(streamUri(1))
+    val childCreation = helper.expectChildCreation()
+
+    actor ! CloseRequest
+    childCreation.probe.expectMsg(CloseRequest)
+    expectNoMsg(100.milliseconds)
   }
 
   it should "not send a CloseAck before all Ack from source readers are received" in {

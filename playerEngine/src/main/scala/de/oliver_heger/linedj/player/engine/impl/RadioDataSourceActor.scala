@@ -217,6 +217,10 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
       stopCurrentSource()
 
     case CloseRequest =>
+      currentSourceReader foreach { r =>
+        r ! CloseRequest
+        pendingCloseAck += 1
+      }
       sendCloseAckIfPossible(sender)
       context become closing(sender())
   }
