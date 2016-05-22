@@ -67,7 +67,6 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param source identifies the radio stream to be played
     */
   def switchToSource(source: RadioSource): Unit = {
-    playbackActor ! PlaybackActor.SkipSource
     sourceActor ! source
   }
 

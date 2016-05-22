@@ -54,7 +54,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     helper.player switchToSource source
     helper.probeSourceActor.expectMsg(source)
-    helper.probePlaybackActor.expectMsg(PlaybackActor.SkipSource)
   }
 
   it should "clear the buffer when playback starts" in {
