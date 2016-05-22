@@ -336,9 +336,9 @@ object Build extends Build {
       name := "mp3-playback-context-factory",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= Seq(
-        "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2-SNAPSHOT",
-        "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3-SNAPSHOT",
-        "com.googlecode.soundlibs" % "mp3spi" % "1.9.5-2-SNAPSHOT"
+        "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2",
+        "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3",
+        "com.googlecode.soundlibs" % "mp3spi" % "1.9.5-2"
       ),
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
