@@ -259,6 +259,7 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
   private def stopCurrentSource(): Unit = {
     newSource = true
     pendingAudioDataRequest = servePending(pendingAudioDataRequest, SourceEndMessage)
+    currentAudioSource = None
   }
 
   /**

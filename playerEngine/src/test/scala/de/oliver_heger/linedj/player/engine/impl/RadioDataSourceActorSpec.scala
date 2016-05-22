@@ -236,6 +236,20 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     errMsg.errorText should be("Request for audio source already pending!")
   }
 
+  it should "reset the current audio source when playback of a new source starts" in {
+    val helper = new RadioDataSourceActorTestHelper
+    val actor = helper.createTestActor()
+    val src = audioSource(1)
+    actor ! RadioSource(src.uri)
+    helper.expectChildCreationAndAudioSource(actor, src)
+    val src2 = audioSource(2)
+    actor ! RadioSource(src2.uri)
+
+    actor ! PlaybackActor.GetAudioSource
+    helper.expectChildCreationAndAudioSource(actor, src2)
+    expectMsg(src2)
+  }
+
   it should "handle a request for audio data" in {
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
