@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+import com.github.oheger.sbt.spifly.SbtSpiFly
+import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
+import com.typesafe.sbt.osgi.SbtOsgi.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
-import com.typesafe.sbt.osgi.SbtOsgi._
-import sbt._
-import Keys._
 import de.heikoseeberger.sbtheader.HeaderPlugin
 import de.heikoseeberger.sbtheader.license.Apache2_0
+import sbt.Keys._
+import sbt._
 
 object Build extends Build {
   /** Definition of versions. */
@@ -68,10 +70,6 @@ object Build extends Build {
       "scala" -> Apache2_0(CopyRight, "The Developers Team."),
       "conf" -> Apache2_0(CopyRight, "The Developers Team.", "#")
     )
-  )
-
-  def osgiSettings = defaultOsgiSettings ++ Seq(
-    packagedArtifact in (Compile, packageBin) <<= (artifact in (Compile, packageBin), OsgiKeys.bundle).identityMap
   )
 
   lazy val root = Project(id = "LineDJ",
@@ -329,9 +327,10 @@ object Build extends Build {
     */
   lazy val mp3PlaybackContextFactory = Project(id = "mp3PlaybackContextFactory",
     base = file("mp3PbCtxFactory"))
-    .enablePlugins(SbtOsgi)
+    .enablePlugins(SbtOsgi, SbtSpiFly)
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
+    .settings(spiFlySettings: _*)
     .settings(
       name := "mp3-playback-context-factory",
       resolvers += Resolver.mavenLocal,

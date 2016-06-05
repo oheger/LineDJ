@@ -16,3 +16,6 @@
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "1.5.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.8.0")
+
+addSbtPlugin("com.github.oheger.sbt" % "sbt-spifly" % "0.1.0")
+
