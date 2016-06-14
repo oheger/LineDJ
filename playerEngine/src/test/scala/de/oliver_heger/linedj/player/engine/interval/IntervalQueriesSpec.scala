@@ -160,4 +160,88 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
       case r => fail("Unexpected result: " + r)
     }
   }
+
+  "A combined query" should "return a correct Before result" in {
+    val date = todayAt(20, 26, 10, 5)
+    val coarser = IntervalQueries.hours(21, 23)
+    val finer = IntervalQueries.minutes(30, 35)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case Before(start) =>
+        start.value should be(todayAt(21, 30))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "take the finer query into account when returning a Before result" in {
+    val date = todayAt(22, 36, 8, 1)
+    val coarser = IntervalQueries.hours(23, 24)
+    val finer = IntervalQueries.minutes(0, 10)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case Before(start) =>
+        start.value should be(todayAt(23, 0))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return an After result if no later date is possible" in {
+    val date = todayAt(21, 49, 22, 11)
+    val coarser = IntervalQueries.hours(20, 22)
+    val finer = IntervalQueries.minutes(30, 45)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) should be(After)
+  }
+
+  it should "switch to the next possible date if the finer query is After" in {
+    val date = todayAt(21, 56, 1, 2)
+    val coarser = IntervalQueries.hours(21, 23)
+    val finer = IntervalQueries.minutes(30, 45)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case Before(start) =>
+        start.value should be(todayAt(22, 30))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return the Before result of finer if coarser is Inside" in {
+    val date = todayAt(22, 1, 8, 4)
+    val coarser = IntervalQueries.hours(22, 23)
+    val finer = IntervalQueries.minutes(5, 15)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case Before(start) =>
+        start.value should be(todayAt(22, 5))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return the Inside result of finer if coarser is Inside" in {
+    val date = todayAt(22, 4, 12, 18)
+    val coarser = IntervalQueries.hours(22, 23)
+    val finer = IntervalQueries.minutes(4, 8)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case Inside(until, next) =>
+        until.value should be(todayAt(22, 8))
+        next.get.value should be(todayAt(22, 5))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return After if coarser is After" in {
+    val date = todayAt(22, 9, 1, 111)
+    val coarser = IntervalQueries.hours(20, 22)
+    val finer = IntervalQueries.minutes(0, 60)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) should be(After)
+  }
 }

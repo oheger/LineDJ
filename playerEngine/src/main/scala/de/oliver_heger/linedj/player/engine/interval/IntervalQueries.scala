@@ -78,6 +78,42 @@ object IntervalQueries {
     fieldRange(ChronoField.MONTH_OF_YEAR, from, until)
 
   /**
+    * Combines two interval queries to a single one. The order of the parameter
+    * is important. The first query must use a larger time unit than the second
+    * one, i.e. the second query must refine the first one. For instance, the
+    * first query could be an interval of hours, the second one an interval of
+    * minutes. The resulting query returns an ''Inside'' result if and only if
+    * the passed in date lies in the hours interval and in the minutes
+    * interval.
+    *
+    * @param coarser the query on a larger temporal unit
+    * @param finer   the query on a finer temporal unit
+    * @return the combined interval query
+    */
+  def combine(coarser: IntervalQuery, finer: IntervalQuery): IntervalQuery = date => {
+    coarser(date) match {
+      case rb@Before(start) =>
+        finer(start.value) match {
+          case f: Before => f
+          case _ => rb
+        }
+
+      case Inside(until, next) =>
+        finer(date) match {
+          case After =>
+            next match {
+              case Some(d) =>
+                finer(d.value)
+              case _ => After
+            }
+          case r => r
+        }
+
+      case After => After
+    }
+  }
+
+  /**
     * Creates an ''IntervalQuery'' for an interval in a specific temporal
     * unit.
     *
