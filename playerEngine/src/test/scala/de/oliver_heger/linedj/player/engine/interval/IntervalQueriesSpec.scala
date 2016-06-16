@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.interval
 
-import java.time.{LocalDate, LocalDateTime, LocalTime, Month}
+import java.time._
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside}
 import org.scalatest.{FlatSpec, Matchers}
@@ -243,5 +243,47 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val combined = IntervalQueries.combine(coarser, finer)
 
     combined(date) should be(After)
+  }
+
+  "A weekDay query" should "return a correct After result" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 41)
+    val query = IntervalQueries.weekDays(DayOfWeek.MONDAY.getValue, DayOfWeek.WEDNESDAY.getValue)
+
+    query(date) should be(After)
+  }
+
+  it should "return a correct Before result" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 45)
+    val query = IntervalQueries.weekDays(DayOfWeek.FRIDAY.getValue, DayOfWeek.SUNDAY.getValue)
+
+    query(date) match {
+      case Before(start) =>
+        start.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 0, 0))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return a correct Inside result if there is a next date" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 52)
+    val query = IntervalQueries.weekDays(DayOfWeek.WEDNESDAY.getValue, DayOfWeek.FRIDAY.getValue)
+
+    query(date) match {
+      case Inside(until, next) =>
+        until.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 0, 0))
+        next.get.value should be(LocalDateTime.of(2016, Month.JUNE, 16, 0, 0))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return a correct Inside result if there is no next date" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 19, 22, 2)
+    val query = IntervalQueries.weekDays(DayOfWeek.THURSDAY.getValue, DayOfWeek.SUNDAY.getValue + 1)
+
+    query(date) match {
+      case Inside(until, next) =>
+        until.value should be(LocalDateTime.of(2016, Month.JUNE, 20, 0, 0))
+        next shouldBe 'empty
+      case r => fail("Unexpected result: " + r)
+    }
   }
 }

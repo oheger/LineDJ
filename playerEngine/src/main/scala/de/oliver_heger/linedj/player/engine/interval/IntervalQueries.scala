@@ -38,6 +38,12 @@ object IntervalQueries {
     .SECOND_OF_MINUTE, ChronoField.NANO_OF_SECOND)
 
   /**
+    * The index of the field for hours. This has a special meaning for
+    * day-of-week intervals; therefore, it is stored as a constant.
+    */
+  private lazy val IdxHourField = Fields indexOf ChronoField.HOUR_OF_DAY
+
+  /**
     * Creates an ''IntervalQuery'' for an hour interval.
     *
     * @param from  the start hour (inclusive)
@@ -76,6 +82,22 @@ object IntervalQueries {
     */
   def months(from: Int, until: Int): IntervalQuery =
     fieldRange(ChronoField.MONTH_OF_YEAR, from, until)
+
+  /**
+    * Creates an ''IntervalQuery'' for an interval of days in a week. As
+    * arguments constants for the days can be passed in (mind the correct
+    * order, so that from is actually less than until).
+    *
+    * @param from  the start day (inclusive)
+    * @param until the end day (exclusive)
+    * @return the new interval query
+    */
+  def weekDays(from: Int, until: Int): IntervalQuery = {
+    val fSet = (date: LocalDateTime, value: Int) => trimTo(date.`with`(ChronoField.DAY_OF_WEEK,
+      value), IdxHourField, 0)
+    val fInc = (date: LocalDateTime) => date plusDays 1
+    fieldRangeF(ChronoField.DAY_OF_WEEK, fSet, fInc, from, until)
+  }
 
   /**
     * Combines two interval queries to a single one. The order of the parameter
@@ -124,17 +146,38 @@ object IntervalQueries {
     */
   private def fieldRange(field: ChronoField, from: Int, until: Int): IntervalQuery = {
     val fieldIdx = Fields indexOf field
+    val fSet = (date: LocalDateTime, value: Int) => trimTo(date, fieldIdx, value)
+    val fInc = (date: LocalDateTime) => increase(date, fieldIdx)
+    fieldRangeF(field, fSet, fInc, from, until)
+  }
+
+  /**
+    * A generic method for creating an interval query for a range interval. How
+    * the relevant date field is set and how an increment is done is specified
+    * in form of functions. Therefore, this method also works with date fields
+    * that are not in a logical sequence of intervals, e.g. day of week or week
+    * of year.
+    *
+    * @param field the ''ChronoField'' determining the unit
+    * @param fSet the function to set a field in the date
+    * @param fInc the function to increment the date
+    * @param from the start of the interval (inclusive)
+    * @param until the end of the interval (exclusive)
+    * @return the new interval query
+    */
+  private def fieldRangeF(field: ChronoField, fSet: (LocalDateTime, Int) => LocalDateTime,
+                          fInc: LocalDateTime => LocalDateTime, from: Int, until: Int):
+  IntervalQuery =
     date => {
       if (date.get(field) >= until) After
       else if (date.get(field) < from) {
-        Before(new LazyDate(trimTo(date, fieldIdx, from)))
+        Before(new LazyDate(fSet(date, from)))
       } else {
-        Inside(new LazyDate(increase(trimTo(date, fieldIdx, until - 1), fieldIdx)),
+        Inside(new LazyDate(fInc(fSet(date, until - 1))),
           if (date.get(field) == until - 1) None
-          else Some(new LazyDate(trimTo(date, fieldIdx, date.get(field) + 1))))
+          else Some(new LazyDate(fSet(date, date.get(field) + 1))))
       }
     }
-  }
 
   /**
     * Increases the specified field of the given date. The method checks
