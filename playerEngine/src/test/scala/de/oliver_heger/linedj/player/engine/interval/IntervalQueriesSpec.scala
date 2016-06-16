@@ -57,29 +57,20 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val date = todayAt(22, 5)
     val query = IntervalQueries.hours(14, 22)
 
-    query(date) should be(After)
-  }
-
-  it should "return a correct Inside result if there is a next date" in {
-    val date = todayAt(21, 9)
-    val query = IntervalQueries.hours(21, 23)
-
     query(date) match {
-      case Inside(until, next) =>
-        until.value should be(todayAt(23, 0))
-        next.get.value should be(todayAt(22, 0))
+      case After(f) =>
+        f(date) should be(todayAt(0, 0) plusDays 1)
       case r => fail("Unexpected result: " + r)
     }
   }
 
-  it should "return a correct Inside result if there is no next date" in {
-    val date = todayAt(21, 31)
-    val query = IntervalQueries.hours(21, 22)
+  it should "return a correct Inside result" in {
+    val date = todayAt(21, 9)
+    val query = IntervalQueries.hours(21, 23)
 
     query(date) match {
-      case Inside(until, next) =>
-        until.value should be(todayAt(22, 0))
-        next shouldBe 'empty
+      case Inside(until) =>
+        until.value should be(todayAt(23, 0))
       case r => fail("Unexpected result: " + r)
     }
   }
@@ -89,7 +80,7 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val query = IntervalQueries.hours(21, 24)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         val expUntil = todayAt(0, 0) plusDays 1
         until.value should be(expUntil)
       case r => fail("Unexpected result: " + r)
@@ -111,7 +102,11 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val date = todayAt(21, 55)
     val query = IntervalQueries.minutes(30, 55)
 
-    query(date) should be(After)
+    query(date) match {
+      case After(f) =>
+        f(date) should be(todayAt(22, 0))
+      case r => fail("Unexpected result: " + r)
+    }
   }
 
   it should "return a correct Inside result" in {
@@ -119,33 +114,30 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val query = IntervalQueries.minutes(55, 60)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(todayAt(22, 0))
-        next.get.value should be(todayAt(21, 58))
       case r => fail("Unexpected result: " + r)
     }
   }
 
-  "Day intervals" should "be supported" in {
+  "Day interval queries" should "be supported" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 11, 21, 52, 15, 1)
     val query = IntervalQueries.days(8, 14)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(LocalDateTime.of(2016, Month.JUNE, 14, 0, 0))
-        next.get.value should be(LocalDateTime.of(2016, Month.JUNE, 12, 0, 0))
       case r => fail("Unexpected result: " + r)
     }
   }
 
-  "A month interval query" should "be supported" in {
+  "Month interval queries" should "be supported" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 11, 22, 1, 49, 22)
     val query = IntervalQueries.months(Month.MAY.getValue, Month.AUGUST.getValue)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(LocalDateTime.of(2016, Month.AUGUST, 1, 0, 0))
-        next.get.value should be(LocalDateTime.of(2016, Month.JULY, 1, 0, 0))
       case r => fail("Unexpected result: " + r)
     }
   }
@@ -155,7 +147,7 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val query = IntervalQueries.months(Month.JUNE.getValue, Month.DECEMBER.getValue + 1)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(LocalDateTime.of(2017, Month.JANUARY.getValue, 1, 0, 0))
       case r => fail("Unexpected result: " + r)
     }
@@ -187,13 +179,30 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     }
   }
 
-  it should "return an After result if no later date is possible" in {
+  it should "return the After result of the coarser query" in {
     val date = todayAt(21, 49, 22, 11)
-    val coarser = IntervalQueries.hours(20, 22)
+    val coarser = IntervalQueries.hours(18, 21)
     val finer = IntervalQueries.minutes(30, 45)
     val combined = IntervalQueries.combine(coarser, finer)
 
-    combined(date) should be(After)
+    combined(date) match {
+      case After(f) =>
+        f(date) should be(todayAt(0, 0) plusDays 1)
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return an After result if the finer query is After and no cycle is possible" in {
+    val date = todayAt(22, 9, 44, 111)
+    val coarser = IntervalQueries.hours(20, 23)
+    val finer = IntervalQueries.minutes(0, 8)
+    val combined = IntervalQueries.combine(coarser, finer)
+
+    combined(date) match {
+      case After(f) =>
+        f(date) should be(todayAt(0, 0) plusDays 1)
+      case r => fail("Unexpected result: " + r)
+    }
   }
 
   it should "switch to the next possible date if the finer query is After" in {
@@ -229,27 +238,21 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     val combined = IntervalQueries.combine(coarser, finer)
 
     combined(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(todayAt(22, 8))
-        next.get.value should be(todayAt(22, 5))
       case r => fail("Unexpected result: " + r)
     }
-  }
-
-  it should "return After if coarser is After" in {
-    val date = todayAt(22, 9, 1, 111)
-    val coarser = IntervalQueries.hours(20, 22)
-    val finer = IntervalQueries.minutes(0, 60)
-    val combined = IntervalQueries.combine(coarser, finer)
-
-    combined(date) should be(After)
   }
 
   "A weekDay query" should "return a correct After result" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 41)
     val query = IntervalQueries.weekDays(DayOfWeek.MONDAY.getValue, DayOfWeek.WEDNESDAY.getValue)
 
-    query(date) should be(After)
+    query(date) match {
+      case After(f) =>
+        f(date) should be(LocalDateTime.of(2016, Month.JUNE, 20, 0, 0))
+      case r => fail("Unexpected result: " + r)
+    }
   }
 
   it should "return a correct Before result" in {
@@ -263,26 +266,13 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     }
   }
 
-  it should "return a correct Inside result if there is a next date" in {
+  it should "return a correct Inside result" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 52)
     val query = IntervalQueries.weekDays(DayOfWeek.WEDNESDAY.getValue, DayOfWeek.FRIDAY.getValue)
 
     query(date) match {
-      case Inside(until, next) =>
+      case Inside(until) =>
         until.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 0, 0))
-        next.get.value should be(LocalDateTime.of(2016, Month.JUNE, 16, 0, 0))
-      case r => fail("Unexpected result: " + r)
-    }
-  }
-
-  it should "return a correct Inside result if there is no next date" in {
-    val date = LocalDateTime.of(2016, Month.JUNE, 19, 22, 2)
-    val query = IntervalQueries.weekDays(DayOfWeek.THURSDAY.getValue, DayOfWeek.SUNDAY.getValue + 1)
-
-    query(date) match {
-      case Inside(until, next) =>
-        until.value should be(LocalDateTime.of(2016, Month.JUNE, 20, 0, 0))
-        next shouldBe 'empty
       case r => fail("Unexpected result: " + r)
     }
   }

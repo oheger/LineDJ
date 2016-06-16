@@ -44,13 +44,17 @@ object IntervalTypes {
     * is possible to find out how long the interval is going to last.
     *
     * @param until     the end date of the interval
-    * @param nextStart the next start date of the interval if available
     */
-  case class Inside(until: LazyDate, nextStart: Option[LazyDate]) extends IntervalQueryResult
+  case class Inside(until: LazyDate) extends IntervalQueryResult
 
   /**
     * The result ''after'': the queried date lies after the time interval.
+    * A result contains a function to cycle the current date to a future
+    * position, so that the interval query will return a ''Before'' result for
+    * it. This is useful when combining queries or making queries cyclic.
+    *
+    * @param cycle the function to shift the current date to another cycle
     */
-  case object After extends IntervalQueryResult
+  case class After(cycle: LocalDateTime => LocalDateTime) extends IntervalQueryResult
 
 }

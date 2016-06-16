@@ -19,8 +19,7 @@ package de.oliver_heger.linedj.player.engine.interval
 import java.time.LocalDateTime
 import java.time.temporal.ChronoField
 
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside,
-IntervalQuery}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 
 import scala.annotation.tailrec
 
@@ -112,7 +111,20 @@ object IntervalQueries {
     * @param finer   the query on a finer temporal unit
     * @return the combined interval query
     */
-  def combine(coarser: IntervalQuery, finer: IntervalQuery): IntervalQuery = date => {
+  def combine(coarser: IntervalQuery, finer: IntervalQuery): IntervalQuery =
+    date => processCombinedQuery(coarser, finer, date)
+
+  /**
+    * Helper method that processes a current date against a coarser and a finer
+    * interval query.
+    *
+    * @param coarser the coarser query
+    * @param finer   the finer query
+    * @param date    the current date
+    * @return the query result
+    */
+  @tailrec private def processCombinedQuery(coarser: IntervalQuery, finer: IntervalQuery, date:
+  LocalDateTime): IntervalQueryResult = {
     coarser(date) match {
       case rb@Before(start) =>
         finer(start.value) match {
@@ -120,18 +132,14 @@ object IntervalQueries {
           case _ => rb
         }
 
-      case Inside(until, next) =>
+      case Inside(_) =>
         finer(date) match {
-          case After =>
-            next match {
-              case Some(d) =>
-                finer(d.value)
-              case _ => After
-            }
+          case After(f) =>
+            processCombinedQuery(coarser, finer, f(date))
           case r => r
         }
 
-      case After => After
+      case ra@After(_) => ra
     }
   }
 
@@ -169,13 +177,13 @@ object IntervalQueries {
                           fInc: LocalDateTime => LocalDateTime, from: Int, until: Int):
   IntervalQuery =
     date => {
-      if (date.get(field) >= until) After
+      if (date.get(field) >= until) After { d =>
+          fInc(fSet(date, date.range(field).getMaximum.toInt))
+        }
       else if (date.get(field) < from) {
         Before(new LazyDate(fSet(date, from)))
       } else {
-        Inside(new LazyDate(fInc(fSet(date, until - 1))),
-          if (date.get(field) == until - 1) None
-          else Some(new LazyDate(fSet(date, date.get(field) + 1))))
+        Inside(new LazyDate(fInc(fSet(date, until - 1))))
       }
     }
 
