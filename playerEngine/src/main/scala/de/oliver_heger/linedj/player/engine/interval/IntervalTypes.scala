@@ -22,6 +22,10 @@ import java.time.LocalDateTime
   * An object defining the central data types used by the interval framework.
   */
 object IntervalTypes {
+  /**
+    * An interval query checks the relation of a date to a specific temporal
+    * interval.
+    */
   type IntervalQuery = LocalDateTime => IntervalQueryResult
 
   /**
@@ -57,4 +61,12 @@ object IntervalTypes {
     */
   case class After(cycle: LocalDateTime => LocalDateTime) extends IntervalQueryResult
 
+  /**
+    * A comparator function for interval query results. Such a function can be
+    * used to sort a list of results based on some criteria; this is done using
+    * ''sortBy()'' passing in the comparator as less-than function. A
+    * function result of '''true''' means that the first query result is
+    * preferred in terms of this comparator function.
+    */
+  type ResultComparator = (IntervalQueryResult, IntervalQueryResult) => Boolean
 }

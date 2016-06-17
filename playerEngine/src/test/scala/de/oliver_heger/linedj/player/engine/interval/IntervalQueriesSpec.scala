@@ -326,4 +326,71 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
       case r => fail("Unexpected result: " + r)
     }
   }
+
+  "LongestInside result comparator" should "return true for After results" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = After(d => d.plusDays(1))
+
+    val comp = IntervalQueries.LongestInside
+    comp(r1, r2) shouldBe true
+    comp(r2, r1) shouldBe true
+  }
+
+  it should "compare a Before with an After" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = Before(new LazyDate(todayAt(22, 12)))
+
+    IntervalQueries.LongestInside(r1, r2) shouldBe false
+    IntervalQueries.LongestInside(r2, r1) shouldBe true
+  }
+
+  it should "compare an Inside with an After" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = Inside(new LazyDate(todayAt(22, 17)))
+
+    IntervalQueries.LongestInside(r1, r2) shouldBe false
+    IntervalQueries.LongestInside(r2, r1) shouldBe true
+  }
+
+  it should "compare an Inside with a Before" in {
+    val r1 = Before(new LazyDate(todayAt(22, 18, 10)))
+    val r2 = Inside(new LazyDate(todayAt(22, 19, 1)))
+
+    IntervalQueries.LongestInside(r1, r2) shouldBe false
+    IntervalQueries.LongestInside(r2, r1) shouldBe true
+  }
+
+  it should "compare two Before results" in {
+    val r1 = Before(new LazyDate(todayAt(22, 18, 10)))
+    val r2 = Before(new LazyDate(todayAt(22, 23, 1)))
+
+    IntervalQueries.LongestInside(r1, r2) shouldBe true
+    IntervalQueries.LongestInside(r2, r1) shouldBe false
+  }
+
+  it should "compare two Inside results" in {
+    val r1 = Inside(new LazyDate(todayAt(22, 26, 22)))
+    val r2 = Inside(new LazyDate(todayAt(22, 19, 1)))
+
+    IntervalQueries.LongestInside(r1, r2) shouldBe true
+    IntervalQueries.LongestInside(r2, r1) shouldBe false
+  }
+
+  it should "sort a list of results" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = Before(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 18, 20, 59)))
+    val r3 = Inside(new LazyDate(todayAt(21, 0)))
+    val r4 = After(identity[LocalDateTime])
+    val r5 = Before(new LazyDate(todayAt(22, 1)))
+    val r6 = Inside(new LazyDate(todayAt(23, 59)))
+    val r7 = Inside(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 20, 1, 28)))
+    val inputList = List(r1, r2, r3, r4, r5, r6, r7)
+
+    val sortedList = inputList.sortWith(IntervalQueries.LongestInside)
+    sortedList.take(5) should be(List(r7, r6, r3, r2, r5))
+    sortedList.drop(5).forall {
+      case After(_) => true
+      case _ => false
+    } shouldBe true
+  }
 }

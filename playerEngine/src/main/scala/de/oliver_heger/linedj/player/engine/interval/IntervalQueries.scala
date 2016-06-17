@@ -43,6 +43,22 @@ object IntervalQueries {
   private lazy val IdxHourField = Fields indexOf ChronoField.HOUR_OF_DAY
 
   /**
+    * Returns a pre-defined ''ResultComparator'' that prefers ''Inside''
+    * results with later ''until'' dates. This function implements the
+    * following ordering:
+    * $ - ''Inside'' results are less than all other results
+    * $ - ''Before'' results are less than ''After'' results
+    * $ - Two ''Inside'' results are compared by their ''until'' date; the one
+    * with the larger date is considered less
+    * $ - Two ''Before'' results are compared by their ''start'' date; the one
+    * with the smaller date is considered less
+    * $ - For two ''After'' results this function returns '''true'''
+    *
+    * @return the ''longest inside'' result comparator
+    */
+  val LongestInside: ResultComparator = longestInsideCompare
+
+  /**
     * Creates an ''IntervalQuery'' for an hour interval.
     *
     * @param from  the start hour (inclusive)
@@ -241,4 +257,27 @@ object IntervalQueries {
     Fields.splitAt(fieldIdx + 1)._2.foldLeft(date.`with`(Fields(fieldIdx), value))((d, f) =>
       d.`with`(f, f.range().getMinimum))
   }
+
+  /**
+    * Implements the result comparator for the ''longest Inside result''.
+    *
+    * @param r1 the first result
+    * @param r2 the second result
+    * @return the result of the comparison
+    */
+  private def longestInsideCompare(r1: IntervalQueryResult, r2: IntervalQueryResult): Boolean =
+    r2 match {
+      case After(_) => true
+      case Before(d2) =>
+        r1 match {
+          case After(_) => false
+          case Inside(_) => true
+          case Before(d1) => d1.value.compareTo(d2.value) < 0
+        }
+      case Inside(d2) =>
+        r1 match {
+          case Inside(d1) => d1.value.compareTo(d2.value) > 0
+          case _ => false
+        }
+    }
 }
