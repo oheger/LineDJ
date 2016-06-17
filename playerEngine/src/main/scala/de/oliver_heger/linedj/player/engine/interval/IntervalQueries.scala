@@ -115,6 +115,26 @@ object IntervalQueries {
     date => processCombinedQuery(coarser, finer, date)
 
   /**
+    * Wraps the specified interval query in a cyclic query. The resulting
+    * query will not return an ''After''. If the wrapped query returns such a
+    * result, the current date is set to the next cycle (based on the cycle
+    * function in the result), and the query is invoked again. This should
+    * yield a ''Before'' or an ''Inside'' result.
+    *
+    * @param wrapped the query to be wrapped
+    * @return the resulting cyclic query
+    */
+  def cyclic(wrapped: IntervalQuery): IntervalQuery = {
+    @tailrec def cycleQuery(date: LocalDateTime): IntervalQueryResult =
+      wrapped(date) match {
+        case After(f) => cycleQuery(f(date))
+        case r => r
+      }
+
+    date => cycleQuery(date)
+  }
+
+  /**
     * Helper method that processes a current date against a coarser and a finer
     * interval query.
     *

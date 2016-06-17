@@ -276,4 +276,54 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
       case r => fail("Unexpected result: " + r)
     }
   }
+
+  "A cyclic query" should "return a non-After result from the wrapped query" in {
+    val date = todayAt(21, 13, 11, 8)
+    val wrapped = IntervalQueries.hours(21, 22)
+    val cyclic = IntervalQueries.cyclic(wrapped)
+
+    cyclic(date) match {
+      case Inside(until) =>
+        until.value should be(todayAt(22, 0))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "cycle the current date for an After result" in {
+    val date = todayAt(21, 20, 25, 11)
+    val wrapped = IntervalQueries.hours(18, 21)
+    val cyclic = IntervalQueries.cyclic(wrapped)
+
+    cyclic(date) match {
+      case Before(start) =>
+        start.value should be(todayAt(18, 0) plusDays 1)
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "cycle correctly over multiple units in the inner unit" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 17, 21, 26, 2)
+    val daysQuery = IntervalQueries.days(10, 18)
+    val minutesQuery = IntervalQueries.minutes(10, 20)
+    val query = IntervalQueries.cyclic(IntervalQueries.combine(daysQuery, minutesQuery))
+
+    query(date) match {
+      case Before(start) =>
+        start.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 22, 10))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "cycle correctly over multiple units in the outer unit" in {
+    val date = LocalDateTime.of(2016, Month.JUNE, 17, 21, 34, 8, 42)
+    val daysQuery = IntervalQueries.days(10, 17)
+    val minutesQuery = IntervalQueries.minutes(1, 12)
+    val query = IntervalQueries.cyclic(IntervalQueries.combine(daysQuery, minutesQuery))
+
+    query(date) match {
+      case Before(start) =>
+        start.value should be(LocalDateTime.of(2016, Month.JULY, 10, 0, 1))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
 }
