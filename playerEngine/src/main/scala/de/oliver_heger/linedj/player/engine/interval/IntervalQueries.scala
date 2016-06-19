@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.interval
 
 import java.time.LocalDateTime
-import java.time.temporal.ChronoField
+import java.time.temporal.{ChronoField, TemporalField}
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 
@@ -57,6 +57,20 @@ object IntervalQueries {
     * @return the ''longest inside'' result comparator
     */
   val LongestInside: ResultComparator = longestInsideCompare
+
+  /**
+    * A ''ResultSelector'' function that selects the ''longest Inside result''.
+    * This function uses the comparator returned by [[LongestInside]] to
+    * compare two result objects. The preferred one is selected.
+    */
+  val LongestInsideSelector: ResultSelector = longestInsideSelect
+
+  /**
+    * A special ''Before'' result with a date in the very far future. This
+    * result may be used as default value for queries that can return an
+    * optional result.
+    */
+  val BeforeForEver = Before(new LazyDate(forEverDate()))
 
   /**
     * Creates an ''IntervalQuery'' for an hour interval.
@@ -148,6 +162,40 @@ object IntervalQueries {
       }
 
     date => cycleQuery(date)
+  }
+
+  /*
+   * TODO add support for stopping the iteration over all queries when a
+   * certain result is found
+   */
+  /**
+    * Combines a sequence of interval queries to a single one. All queries in
+    * the sequence are evaluated, and the specified ''ResultSelector'' is used
+    * to select the best result. If this yields ''None'', the specified
+    * default result is returned.
+    *
+    * @param queries       the sequence of queries to be combined
+    * @param selector      the ''ResultSelector''
+    * @param defaultResult the default result to be returned
+    * @return the sequence interval query
+    */
+  def sequence(queries: TraversableOnce[IntervalQuery], selector: ResultSelector =
+  LongestInsideSelector, defaultResult: IntervalQueryResult = BeforeForEver): IntervalQuery =
+    date =>
+      selectResult(queries map (q => q(date)), selector) getOrElse defaultResult
+
+  /**
+    * Selects a query result from the specified sequence using the provided
+    * ''ResultSelector''.
+    *
+    * @param results  the sequence of results to be processed
+    * @param selector the ''ResultSelector''
+    * @return the selected result
+    */
+  def selectResult(results: TraversableOnce[IntervalQueryResult], selector: ResultSelector):
+  Option[IntervalQueryResult] = {
+    val initSel: Option[IntervalQueryResult] = None
+    results.foldLeft(initSel)(selector(_, _))
   }
 
   /**
@@ -280,4 +328,32 @@ object IntervalQueries {
           case _ => false
         }
     }
+
+  /**
+    * Implements the ''longest Inside'' selector.
+    *
+    * @param sel     the current selection
+    * @param current the current element
+    * @return the new selected element
+    */
+  private def longestInsideSelect(sel: Option[IntervalQueryResult], current: IntervalQueryResult)
+  : Option[IntervalQueryResult] =
+    sel match {
+      case None => Some(current)
+      case s@Some(r) =>
+        if (longestInsideCompare(r, current)) s else Some(current)
+    }
+
+  /**
+    * Calculates a date that lies in the very far future. This date is used
+    * by the default ''BeforeForEver'' result.
+    *
+    * @return the date in the far future
+    */
+  private def forEverDate(): LocalDateTime = {
+    def max(field: TemporalField): Int = field.range().getMaximum.toInt
+
+    LocalDateTime.of(max(ChronoField.YEAR), max(ChronoField.MONTH_OF_YEAR), max(ChronoField
+      .DAY_OF_MONTH), max(ChronoField.HOUR_OF_DAY), max(ChronoField.MINUTE_OF_HOUR))
+  }
 }

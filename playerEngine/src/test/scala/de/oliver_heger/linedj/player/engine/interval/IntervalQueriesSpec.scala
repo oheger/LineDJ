@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.interval
 
 import java.time._
+import java.time.temporal.ChronoField
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside}
 import org.scalatest.{FlatSpec, Matchers}
@@ -392,5 +393,70 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
       case After(_) => true
       case _ => false
     } shouldBe true
+  }
+
+  "Longest Inside Selector" should "replace an Option result by the current result" in {
+    val r = After(identity[LocalDateTime])
+
+    IntervalQueries.LongestInsideSelector(None, r).get should be(r)
+  }
+
+  it should "compare two results correctly" in {
+    val r1 = Before(new LazyDate(todayAt(21, 27)))
+    val r2 = Inside(new LazyDate(todayAt(21, 28)))
+
+    IntervalQueries.LongestInsideSelector(Some(r2), r1).get should be(r2)
+  }
+
+  it should "select None from an empty list" in {
+    IntervalQueries.selectResult(List.empty,
+      IntervalQueries.LongestInsideSelector) shouldBe 'empty
+  }
+
+  it should "select the correct result from a list" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = Before(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 18, 20, 59)))
+    val r3 = Inside(new LazyDate(todayAt(21, 36)))
+    val r4 = After(identity[LocalDateTime])
+    val r5 = Before(new LazyDate(todayAt(22, 1)))
+    val r6 = Inside(new LazyDate(todayAt(23, 59)))
+    val r7 = Inside(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 20, 1, 28)))
+    val inputList = List(r1, r2, r3, r4, r5, r6, r7)
+
+    IntervalQueries.selectResult(inputList,
+      IntervalQueries.LongestInsideSelector).get should be(r7)
+  }
+
+  "A sequence query" should "support an empty sequence" in {
+    val defResult = Inside(new LazyDate(todayAt(22, 22)))
+    val query = IntervalQueries.sequence(List.empty, IntervalQueries.LongestInsideSelector,
+      defResult)
+
+    query(todayAt(21, 51)) should be(defResult)
+  }
+
+  it should "support default values" in {
+    val date = todayAt(21, 59)
+    val query = IntervalQueries.sequence(List.empty)
+
+    query(date) match {
+      case Before(start) =>
+        start.value.getYear should be(date.range(ChronoField.YEAR).getMaximum)
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "return the correct combined result" in {
+    val date = todayAt(17, 54, 10, 28)
+    val queries = List(IntervalQueries.hours(1, 10), IntervalQueries.hours(20, 22),
+      IntervalQueries.hours(17, 18), IntervalQueries.hours(13, 17),
+      IntervalQueries.hours(17, 20))
+    val query = IntervalQueries.sequence(queries)
+
+    query(date) match {
+      case Inside(until) =>
+        until.value should be(todayAt(20, 0))
+      case r => fail("Unexpected result: " + r)
+    }
   }
 }

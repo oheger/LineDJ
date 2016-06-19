@@ -69,4 +69,16 @@ object IntervalTypes {
     * preferred in terms of this comparator function.
     */
   type ResultComparator = (IntervalQueryResult, IntervalQueryResult) => Boolean
+
+  /**
+    * Definition of a function type to select a result from a sequence of
+    * results. This type is used when multiple queries are evaluated or
+    * combined to a single one. At the beginning of the processing, there is
+    * not yet a selected result, therefore, an option is passed in. The
+    * function can then decide whether the current result replaces the stored
+    * result or not. It may also throw away a stored result by returning
+    * ''None''.
+    */
+  type ResultSelector = (Option[IntervalQueryResult], IntervalQueryResult) =>
+    Option[IntervalQueryResult]
 }
