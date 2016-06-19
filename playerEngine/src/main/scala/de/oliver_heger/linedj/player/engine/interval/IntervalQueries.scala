@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.interval
 
-import java.time.LocalDateTime
+import java.time.{DayOfWeek, LocalDateTime}
 import java.time.temporal.{ChronoField, TemporalField}
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
@@ -126,6 +126,52 @@ object IntervalQueries {
       value), IdxHourField, 0)
     val fInc = (date: LocalDateTime) => date plusDays 1
     fieldRangeF(ChronoField.DAY_OF_WEEK, fSet, fInc, from, until)
+  }
+
+  /**
+    * Convenience function that returns a ''weekDays'' query which selects all
+    * working days (from Monday to Friday).
+    *
+    * @return a day-of-week query for work days
+    */
+  def workDays(): IntervalQuery =
+    weekDays(DayOfWeek.MONDAY.getValue, DayOfWeek.FRIDAY.getValue + 1)
+
+  /**
+    * Convenience function that returns a ''weekDays'' query which selects the
+    * days on a week end (Saturday and Sunday).
+    *
+    * @return a day-of-week query for the week end
+    */
+  def weekEnd(): IntervalQuery =
+    weekDays(DayOfWeek.SATURDAY.getValue, DayOfWeek.SUNDAY.getValue + 1)
+
+  /**
+    * Creates an ''IntervalQuery'' that selects exactly the specified days of
+    * week. In contrast to ''weekDays()'' which operates on an interval of
+    * days, this function accepts a set with days. It creates a minimum number
+    * of intervals to cover all the specified days.
+    *
+    * @param days a set with the numeric values representing the selected days
+    * @return the new interval query
+    */
+  def weekDaySet(days: Set[Int]): IntervalQuery = {
+    @tailrec def createIntervalQueries(days: List[Int], startDay: Int, currentEnd: Int,
+                                       queries: List[IntervalQuery]): List[IntervalQuery] = {
+      def lastInterval(): IntervalQuery = weekDays(startDay, currentEnd + 1)
+
+      days match {
+        case d :: x =>
+          if (d == currentEnd + 1) createIntervalQueries(x, startDay, d, queries)
+          else createIntervalQueries(x, d, d, lastInterval() :: queries)
+        case _ =>
+          lastInterval() :: queries
+      }
+    }
+
+    val dayList = days.toList.sorted
+    val queries = dayList.headOption map (d => createIntervalQueries(dayList.tail, d, d, Nil))
+    sequence(queries getOrElse List.empty)
   }
 
   /**

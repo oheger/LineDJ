@@ -24,6 +24,11 @@ import org.scalatest.{FlatSpec, Matchers}
 
 object IntervalQueriesSpec {
   /**
+    * A list that assigns a day of week to a concrete date.
+    */
+  private val DayList = createDayList()
+
+  /**
     * Produces a date at the current day with the specified time.
     *
     * @param hour   the hour
@@ -34,6 +39,35 @@ object IntervalQueriesSpec {
     */
   private def todayAt(hour: Int, minute: Int, second: Int = 0, nanos: Int = 0): LocalDateTime =
     LocalDateTime.of(LocalDate.now(), LocalTime.of(hour, minute, second, nanos))
+
+  /**
+    * Produces a list with tuples that assign a day of week to a date. This is
+    * used for tests of week day intervals.
+    *
+    * @return the list with dates and day of weeks
+    */
+  private def createDayList(): Seq[(Int, LocalDateTime)] = {
+    val date = LocalDateTime.of(2016, Month.JUNE, 19, 18, 16)
+    (DayOfWeek.MONDAY.getValue to DayOfWeek.SUNDAY.getValue) map { day =>
+      (day, date plusDays day)
+    }
+  }
+
+  /**
+    * Processes the given interval query against the test dates in the list of
+    * days. A sequence is returned with all days of week for which the query
+    * returned an ''Inside'' result.
+    *
+    * @param q the query to be checked
+    * @return a sequence with the days for which Inside was returned
+    */
+  private def findInsideDays(q: IntervalTypes.IntervalQuery): Seq[Int] =
+    DayList map (d => (d._1, q(d._2))) filter {
+      _._2 match {
+        case Inside(_) => true
+        case _ => false
+      }
+    } map (_._1)
 }
 
 /**
@@ -276,6 +310,38 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
         until.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 0, 0))
       case r => fail("Unexpected result: " + r)
     }
+  }
+
+  it should "have a convenience method for work days" in {
+    findInsideDays(IntervalQueries.workDays()) should be(List(DayOfWeek.MONDAY.getValue,
+      DayOfWeek.TUESDAY.getValue, DayOfWeek.WEDNESDAY.getValue, DayOfWeek.THURSDAY.getValue,
+      DayOfWeek.FRIDAY.getValue))
+  }
+
+  it should "have a convenience method for the week end" in {
+    findInsideDays(IntervalQueries.weekEnd()) should be(List(DayOfWeek.SATURDAY.getValue,
+      DayOfWeek.SUNDAY.getValue))
+  }
+
+  it should "support an empty set of days" in {
+    val query = IntervalQueries.weekDaySet(Set.empty)
+
+    query(LocalDateTime.now()) should be(IntervalQueries.BeforeForEver)
+  }
+
+  it should "have a convenience method for a set of week days" in {
+    val days = Set(DayOfWeek.MONDAY.getValue, DayOfWeek.TUESDAY.getValue,
+      DayOfWeek.WEDNESDAY.getValue, DayOfWeek.FRIDAY.getValue, DayOfWeek.SUNDAY.getValue)
+
+    findInsideDays(IntervalQueries.weekDaySet(days)) should be(List(DayOfWeek.MONDAY.getValue,
+      DayOfWeek.TUESDAY.getValue, DayOfWeek.WEDNESDAY.getValue, DayOfWeek.FRIDAY.getValue,
+      DayOfWeek.SUNDAY.getValue))
+  }
+
+  it should "handle a set with all days" in {
+    val allDays = DayOfWeek.MONDAY.getValue to DayOfWeek.SUNDAY.getValue
+
+    findInsideDays(IntervalQueries.weekDaySet(allDays.toSet)) should be(allDays)
   }
 
   "A cyclic query" should "return a non-After result from the wrapped query" in {
