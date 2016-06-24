@@ -59,6 +59,13 @@ object IntervalQueries {
   val LongestInside: ResultComparator = longestInsideCompare
 
   /**
+    * A pre-defined ''ResultComparator'' that prefers results which are not
+    * or only short inside a temporal interval. This comparator is the
+    * negation of the ''LongestInside'' comparator.
+    */
+  val ShortestInside: ResultComparator = shortestInsideCompare
+
+  /**
     * A ''ResultSelector'' function that selects the ''longest Inside result''.
     * This function uses the comparator returned by [[LongestInside]] to
     * compare two result objects. The preferred one is selected.
@@ -374,6 +381,16 @@ object IntervalQueries {
           case _ => false
         }
     }
+
+  /**
+    * Implements the result comparator for the ''shortest Inside result''.
+    *
+    * @param r1 the first result
+    * @param r2 the second result
+    * @return the result of the comparison
+    */
+  private def shortestInsideCompare(r1: IntervalQueryResult, r2: IntervalQueryResult): Boolean =
+    !longestInsideCompare(r1, r2)
 
   /**
     * Implements the ''longest Inside'' selector.

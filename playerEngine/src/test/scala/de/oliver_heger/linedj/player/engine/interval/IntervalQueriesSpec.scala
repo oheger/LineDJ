@@ -445,20 +445,32 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
 
   it should "sort a list of results" in {
     val r1 = After(identity[LocalDateTime])
-    val r2 = Before(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 18, 20, 59)))
+    val r2 = Before(new LazyDate(todayAt(20, 59) plusDays 1))
     val r3 = Inside(new LazyDate(todayAt(21, 0)))
     val r4 = After(identity[LocalDateTime])
     val r5 = Before(new LazyDate(todayAt(22, 1)))
     val r6 = Inside(new LazyDate(todayAt(23, 59)))
-    val r7 = Inside(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 20, 1, 28)))
+    val r7 = Inside(new LazyDate(todayAt(1, 28) plusDays 1))
     val inputList = List(r1, r2, r3, r4, r5, r6, r7)
 
     val sortedList = inputList.sortWith(IntervalQueries.LongestInside)
-    sortedList.take(5) should be(List(r7, r6, r3, r2, r5))
+    sortedList.take(5) should be(List(r7, r6, r3, r5, r2))
     sortedList.drop(5).forall {
       case After(_) => true
       case _ => false
     } shouldBe true
+  }
+
+  it should "have an inverse counterpart" in {
+    val r1 = After(identity[LocalDateTime])
+    val r2 = Before(new LazyDate(todayAt(20, 45)))
+    val r3 = Inside(new LazyDate(todayAt(21, 0)))
+    val r4 = Before(new LazyDate(todayAt(20, 46)))
+
+    IntervalQueries.ShortestInside(r1, r2) shouldBe true
+    IntervalQueries.ShortestInside(r3, r1) shouldBe false
+    IntervalQueries.ShortestInside(r2, r3) shouldBe true
+    IntervalQueries.ShortestInside(r4, r2) shouldBe true
   }
 
   "Longest Inside Selector" should "replace an Option result by the current result" in {
@@ -481,12 +493,12 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
 
   it should "select the correct result from a list" in {
     val r1 = After(identity[LocalDateTime])
-    val r2 = Before(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 18, 20, 59)))
+    val r2 = Before(new LazyDate(todayAt(20, 59) plusDays 2))
     val r3 = Inside(new LazyDate(todayAt(21, 36)))
     val r4 = After(identity[LocalDateTime])
     val r5 = Before(new LazyDate(todayAt(22, 1)))
     val r6 = Inside(new LazyDate(todayAt(23, 59)))
-    val r7 = Inside(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 20, 1, 28)))
+    val r7 = Inside(new LazyDate(todayAt(1, 28) plusDays 1))
     val inputList = List(r1, r2, r3, r4, r5, r6, r7)
 
     IntervalQueries.selectResult(inputList,
