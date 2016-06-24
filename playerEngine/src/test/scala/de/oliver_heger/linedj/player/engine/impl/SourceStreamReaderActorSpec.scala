@@ -277,7 +277,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val probe = TestProbe()
     val parent = SupervisionTestActor(system, strategy,
       SourceStreamReaderActor(Config.copy(blockingDispatcherName = None),
-        StreamReference("http://non-existing.err/test.m3u"), probe.ref))
+        StreamReference("err://non-existing.err/test.m3u"), probe.ref))
     val actor = parent.underlyingActor.childActor
 
     probe watch actor
