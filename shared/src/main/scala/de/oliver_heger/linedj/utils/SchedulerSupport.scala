@@ -33,17 +33,31 @@ import scala.concurrent.duration.FiniteDuration
  */
 trait SchedulerSupport extends Actor {
   /**
-   * Schedules a message for being sent periodically to a receiver. This
-   * implementation delegates to the default scheduler of the system.
-   * @param initialDelay the initial delay
-   * @param interval the interval
-   * @param receiver the receiver
-   * @param message the message to be sent
-   * @param ec an implicit execution context
-   * @return an option for canceling task execution
-   */
+    * Schedules a message for being sent periodically to a receiver. This
+    * implementation delegates to the default scheduler of the system.
+    *
+    * @param initialDelay the initial delay
+    * @param interval     the interval
+    * @param receiver     the receiver
+    * @param message      the message to be sent
+    * @param ec           an implicit execution context
+    * @return an object for canceling task execution
+    */
   def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver: ActorRef,
                       message: Any)
                      (implicit ec: ExecutionContext): Cancellable =
     context.system.scheduler.schedule(initialDelay, interval, receiver, message)
+
+  /**
+    * Schedules a message for being sent once to a receiver after a given delay.
+    *
+    * @param delay    the delay
+    * @param receiver the receiver
+    * @param message  the message to be sent
+    * @param ec       an implicit execution context
+    * @return an object for canceling task execution
+    */
+  def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any)
+                         (implicit ec: ExecutionContext): Cancellable =
+    context.system.scheduler.scheduleOnce(delay, receiver, message)
 }

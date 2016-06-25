@@ -1,7 +1,7 @@
 package de.oliver_heger.linedj
 
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, Cancellable}
 import de.oliver_heger.linedj.utils.SchedulerSupport
@@ -39,21 +39,27 @@ object RecordingSchedulerSupport {
    * @param cancellable the ''Cancellable'' returned to the caller
    */
   case class SchedulerInvocation(initialDelay: FiniteDuration, interval: FiniteDuration,
-                                 receiver: ActorRef, message: Any, cancellable: Cancellable)
+                                 receiver: ActorRef, message: Any, cancellable: CancellableImpl)
 
   /**
    * A straight-forward implementation of ''Cancellable'' which just stores the
    * cancel flag.
    */
-  private class CancellableImpl extends Cancellable {
-    private val cancelFlag = new AtomicBoolean
+  class CancellableImpl extends Cancellable {
+    private val cancelFlag = new AtomicInteger
 
     override def cancel(): Boolean = {
-      cancelFlag set true
-      true
+      cancelFlag.incrementAndGet() == 1
     }
 
-    override def isCancelled: Boolean = cancelFlag.get
+    override def isCancelled: Boolean = cancelFlag.get > 0
+
+    /**
+      * Returns the number of invocations of the ''cancel()'' method.
+      *
+      * @return the number of ''cancel()'' calls
+      */
+    def cancelCount: Int = cancelFlag.get()
   }
 
 }
@@ -86,12 +92,33 @@ trait RecordingSchedulerSupport extends SchedulerSupport {
    */
   override def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver:
   ActorRef, message: Any)(implicit ec: ExecutionContext): Cancellable = {
-    if (ec == null) {
-      throw new AssertionError("No execution context!")
-    }
+    assertExecutionContext(ec)
 
     val cancellable = new CancellableImpl
     queue put SchedulerInvocation(initialDelay, interval, receiver, message, cancellable)
     cancellable
+  }
+
+  /**
+    * @inheritdoc Records this invocation.
+    */
+  override def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any)
+                                  (implicit ec: ExecutionContext): Cancellable = {
+    assertExecutionContext(ec)
+
+    val cancellable = new CancellableImpl
+    queue put SchedulerInvocation(delay, null, receiver, message, cancellable)
+    cancellable
+  }
+
+  /**
+    * Verifies that an execution context is present.
+    *
+    * @param ec the execution context to be checked
+    */
+  private def assertExecutionContext(ec: ExecutionContext): Unit = {
+    if (ec == null) {
+      throw new AssertionError("No execution context!")
+    }
   }
 }

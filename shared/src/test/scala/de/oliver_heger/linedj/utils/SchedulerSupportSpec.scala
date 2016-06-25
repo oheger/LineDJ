@@ -22,8 +22,7 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("SchedulerSupportSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A SchedulerSupport object" should "correctly delegate to the scheduler" in {
@@ -51,6 +50,27 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
     }))
 
     receiver.expectMsg(message)
+    receiver.expectMsg(message)
+    receiver.expectNoMsg(1.second)
+  }
+
+  it should "support one-time schedules" in {
+    val delay = FiniteDuration(50, MILLISECONDS)
+    val receiver = TestProbe()
+    val message = "Hello!"
+    system.actorOf(Props(new SchedulerSupport {
+      @throws[Exception](classOf[Exception])
+      override def preStart(): Unit = {
+        super.preStart()
+        import context.dispatcher
+        scheduleMessageOnce(delay, self, message)
+      }
+
+      override def receive: Receive = {
+        case s: String => receiver.ref ! s
+      }
+    }))
+
     receiver.expectMsg(message)
     receiver.expectNoMsg(1.second)
   }
