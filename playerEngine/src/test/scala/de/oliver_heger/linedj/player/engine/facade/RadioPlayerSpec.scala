@@ -23,7 +23,9 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor, RadioDataSourceActor}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import de.oliver_heger.linedj.player.engine.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -53,7 +55,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player switchToSource source
-    helper.probeSourceActor.expectMsg(source)
+    helper.probeSchedulerActor.expectMsg(source)
   }
 
   it should "clear the buffer when playback starts" in {
@@ -80,6 +82,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
     helper.probeSourceActor.expectMsg(CloseRequest)
     helper.probePlaybackActor.expectMsg(CloseRequest)
+    helper.probeSchedulerActor.expectMsg(CloseRequest)
+  }
+
+  it should "support exclusions for radio sources" in {
+    val helper = new RadioPlayerTestHelper
+    val exclusions = Map(RadioSource("1") -> List(IntervalQueries.hours(1, 2)),
+      RadioSource("2") -> List(IntervalQueries.hours(4, 5)))
+
+    helper.player.initSourceExclusions(exclusions)
+    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(exclusions))
   }
 
   /**
@@ -95,6 +107,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the line writer actor. */
     val probeLineWriterActor = TestProbe()
+
+    /** Test probe for the scheduler actor. */
+    val probeSchedulerActor = TestProbe()
 
     /** The test player configuration. */
     val config = createPlayerConfig()
@@ -124,6 +139,14 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.args should have length 1
           props.args.head should be(config)
           probeSourceActor.ref
+
+        case "radioSchedulerActor" =>
+          classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
+          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+          classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
+          props.args should have length 1
+          props.args.head should be(probeSourceActor.ref)
+          probeSchedulerActor.ref
 
         case "radioPlaybackActor" =>
           classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true

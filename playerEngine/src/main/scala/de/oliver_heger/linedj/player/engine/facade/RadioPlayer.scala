@@ -20,6 +20,8 @@ import akka.actor.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.impl.{PlaybackActor, RadioDataSourceActor}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,8 +38,10 @@ object RadioPlayer {
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
     val playbackActor = config.actorCreator(PlaybackActor(config, sourceActor, lineWriterActor),
       "radioPlaybackActor")
+    val schedulerActor = config.actorCreator(RadioSchedulerActor(sourceActor),
+      "radioSchedulerActor")
 
-    new RadioPlayer(config, playbackActor, sourceActor)
+    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor)
   }
 }
 
@@ -55,10 +59,11 @@ object RadioPlayer {
   * @param config        the configuration for this player
   * @param playbackActor reference to the playback actor
   * @param sourceActor   reference to the radio source actor
+  * @param schedulerActor reference to the scheduler actor
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override protected val playbackActor: ActorRef,
-                          sourceActor: ActorRef)
+                          sourceActor: ActorRef, schedulerActor: ActorRef)
   extends PlayerControl {
   /**
     * Switches to the specified radio source. Playback of the current radio
@@ -67,7 +72,19 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param source identifies the radio stream to be played
     */
   def switchToSource(source: RadioSource): Unit = {
-    sourceActor ! source
+    schedulerActor ! source
+  }
+
+  /**
+    * Initializes information about exclusion intervals for radio sources. If
+    * this information is set, the radio player keeps track when a source
+    * should not be played. It can then automatically switch to a replacement
+    * source until the exclusion interval for the current source is over.
+    *
+    * @param exclusions a map with information about exclusion intervals
+    */
+  def initSourceExclusions(exclusions: Map[RadioSource, Seq[IntervalQuery]]): Unit = {
+    schedulerActor ! RadioSchedulerActor.RadioSourceData(exclusions)
   }
 
   /**
@@ -81,5 +98,5 @@ class RadioPlayer private(val config: PlayerConfig,
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(playbackActor, sourceActor))
+    closeActors(List(playbackActor, sourceActor, schedulerActor))
 }
