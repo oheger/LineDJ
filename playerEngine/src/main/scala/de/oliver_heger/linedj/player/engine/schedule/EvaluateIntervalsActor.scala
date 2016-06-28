@@ -39,9 +39,11 @@ object EvaluateIntervalsActor {
     * @param source  the radio source
     * @param refDate the reference date for query evaluation
     * @param queries a sequence with the interval queries of this source
+    * @param stateCount an internal counter; this is used to detect outdated
+    *                   messages that are received after state changes
     */
   private[schedule] case class EvaluateSource(source: RadioSource, refDate: LocalDateTime,
-                                              queries: Seq[IntervalQuery])
+                                              queries: Seq[IntervalQuery], stateCount: Int = 0)
 
   /**
     * A response message sent by [[EvaluateIntervalsActor]] in reaction on an
