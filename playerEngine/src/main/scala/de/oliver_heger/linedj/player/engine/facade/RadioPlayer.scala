@@ -21,7 +21,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.impl.{PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
 import scala.concurrent.{ExecutionContext, Future}

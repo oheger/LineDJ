@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.schedule
+package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.TimeUnit
@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
 import scala.concurrent.duration._

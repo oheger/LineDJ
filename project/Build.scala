@@ -315,10 +315,10 @@ object Build extends Build {
       name := "player-engine",
       libraryDependencies ++= logDependencies,
       OsgiKeys.exportPackage := Seq(
-        "de.oliver_heger.linedj.player.engine", "de.oliver_heger.linedj.player.engine.facade"),
-        OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.player.engine.impl"
-      )
+        "!de.oliver_heger.linedj.player.engine.impl",
+        "de.oliver_heger.linedj.player.engine.*"),
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.player.engine.impl.*")
   ) dependsOn(shared % "compile->compile;test->test")
 
   /**

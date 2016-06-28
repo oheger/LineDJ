@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.schedule
+package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.LinkedBlockingQueue
@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.schedule.EvaluateIntervalsActor
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
 .EvaluateReplacementSources
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Mockito._

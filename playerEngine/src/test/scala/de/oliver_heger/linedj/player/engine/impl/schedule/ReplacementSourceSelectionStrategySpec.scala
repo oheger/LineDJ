@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.schedule
+package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.{LocalDateTime, Month}
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.schedule
+package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.{LocalDateTime, Month}
 import java.util.concurrent.atomic.AtomicReference
@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.schedule.EvaluateIntervalsActor
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
 .EvaluateReplacementSources
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

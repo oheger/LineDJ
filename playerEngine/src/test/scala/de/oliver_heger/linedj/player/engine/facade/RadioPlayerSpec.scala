@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

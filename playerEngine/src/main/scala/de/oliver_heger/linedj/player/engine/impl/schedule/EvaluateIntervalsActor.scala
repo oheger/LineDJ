@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.schedule
+package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.LocalDateTime
 
@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery,
 IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.schedule.EvaluateIntervalsActor
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
 .{EvaluateReplacementSources, EvaluateReplacementSourcesResponse, EvaluateSource,
 EvaluateSourceResponse}
 
