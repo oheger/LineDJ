@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
@@ -59,51 +60,13 @@ object RadioControllerSpec {
   private def sourceName(idx: Int): String = RadioSourceName + idx
 
   /**
-    * Determines whether the radio source with the given index has a default
-    * file extension. All sources with an odd index have.
-    *
-    * @param idx the index
-    * @return a flag whether this source has a default extension
-    */
-  private def hasDefaultExt(idx: Int): Boolean = idx % 2 != 0
-
-  /**
     * Generates a radio source object based on the given index.
     *
     * @param idx the index
     * @return the radio source for this index
     */
   private def radioSource(idx: Int): RadioSource =
-    RadioSource(RadioSourceURI + idx, if (hasDefaultExt(idx)) Some("mp3") else None)
-
-  /**
-    * Creates a configuration that contains the given number of radio sources.
-    * All sources are defined with their name and URI. Sources with an odd
-    * index have a default file extension.
-    *
-    * @param count the number of radio sources
-    * @return the configuration defining the number of radio sources
-    */
-  private def createSourceConfiguration(count: Int): Configuration = {
-    val sources = (1 to count) map (i => (sourceName(i), radioSource(i)))
-    createSourceConfiguration(sources)
-  }
-
-  /**
-    * Creates a configuration that contains the specified radio sources.
-    *
-    * @param sources a list with the sources to be contained
-    * @return the configuration with these radio sources
-    */
-  private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): Configuration = {
-    val config = new HierarchicalConfiguration
-    sources foreach { t =>
-      config.addProperty("radio.sources.source(-1).name", t._1)
-      config.addProperty("radio.sources.source.uri", t._2.uri)
-      t._2.defaultExtension foreach (config.addProperty("radio.sources.source.extension", _))
-    }
-    config
-  }
+    RadioSource(RadioSourceURI + idx)
 }
 
 /**
@@ -120,7 +83,45 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     */
   private def event(): WindowEvent = mock[WindowEvent]
 
-  "A RadioController" should "add radio sources to the combo box" in {
+  /**
+    * Creates a mock source configuration that contains the given number of
+    * radio sources. All sources are defined with their name and URI.
+    *
+    * @param count the number of radio sources
+    * @return the configuration defining the number of radio sources
+    */
+  private def createSourceConfiguration(count: Int): RadioSourceConfig = {
+    val sources = (1 to count) map (i => (sourceName(i), radioSource(i)))
+    createSourceConfiguration(sources)
+  }
+
+  /**
+    * Creates a configuration that contains the specified radio sources.
+    *
+    * @param sources a list with the sources to be contained
+    * @return the configuration with these radio sources
+    */
+  private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): RadioSourceConfig = {
+    val config = mock[RadioSourceConfig]
+    when(config.sources).thenReturn(sources)
+    config
+  }
+
+  "A RadioController" should "create a default source config factory" in {
+    val helper = new RadioControllerTestHelper
+    val config = new HierarchicalConfiguration
+    config.addProperty("radio.sources.source.name", RadioSourceName)
+    config.addProperty("radio.sources.source.uri", RadioSourceURI)
+
+    val ctrl = new RadioController(helper.player, config, helper.actionStore,
+      helper.comboHandler)
+    val srcConfig = ctrl.configFactory(config)
+    srcConfig.sources should have size 1
+    srcConfig.sources.head._1 should be(RadioSourceName)
+    srcConfig.sources.head._2.uri should be(RadioSourceURI)
+  }
+
+  it should "add radio sources to the combo box" in {
     val helper = new RadioControllerTestHelper
     helper.createInitializedController(createSourceConfiguration(4))
 
@@ -128,38 +129,16 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       .verifyNoMoreInteractionWithCombo()
   }
 
-  it should "filter out incomplete source configuration entries" in {
-    val sources = List((sourceName(1), radioSource(1)), (sourceName(2), RadioSource(null)),
-      (sourceName(3), radioSource(3)))
-    val config = createSourceConfiguration(sources)
-    config.addProperty("radio.sources.source(-1).uri", "someURI")
-    val helper = new RadioControllerTestHelper
-
-    helper.createInitializedController(config)
-    helper.verifySourcesAddedToCombo(1, 3).verifySelectedSource(1)
-      .verifyNoMoreInteractionWithCombo()
-  }
-
-  it should "order radio sources by name" in {
-    val sources = List((sourceName(8), radioSource(8)), (sourceName(2), radioSource(2)),
-      (sourceName(3), radioSource(3)), (sourceName(9), radioSource(9)))
-    val helper = new RadioControllerTestHelper
-
-    helper.createInitializedController(createSourceConfiguration(sources))
-    helper.verifySourcesAddedToCombo(2, 3, 8, 9).verifySelectedSource(2)
-      .verifyNoMoreInteractionWithCombo()
-  }
-
   it should "handle missing source configurations correctly" in {
     val helper = new RadioControllerTestHelper
 
-    helper.createInitializedController(new HierarchicalConfiguration)
+    helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
     helper.verifySourcesAddedToCombo().verifyNoMoreInteractionWithCombo()
   }
 
   it should "disable playback actions if there are no sources" in {
     val helper = new RadioControllerTestHelper
-    helper.createInitializedController(new HierarchicalConfiguration)
+    helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
 
     helper.verifyAction(StartPlaybackAction, enabled = false)
       .verifyAction(StopPlaybackAction, enabled = false)
@@ -182,10 +161,11 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "start playback with the stored source from the configuration" in {
-    val config = createSourceConfiguration(4)
+    val srcConfig = createSourceConfiguration(4)
+    val config = new HierarchicalConfiguration
     config.addProperty("radio.current", sourceName(2))
     val helper = new RadioControllerTestHelper
-    helper.createInitializedController(config)
+    helper.createInitializedController(srcConfig, config)
 
     helper.verifySelectedSource(2).verifySwitchSource(radioSource(2)).verifyStartPlayback()
       .verifyNoMoreInteractionWithPlayer()
@@ -193,17 +173,19 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "store the current source in the configuration after startup" in {
     val helper = new RadioControllerTestHelper
-    val config = createSourceConfiguration(1)
-    helper.createInitializedController(config)
+    val srcConfig = createSourceConfiguration(1)
+    val config = new HierarchicalConfiguration
+    helper.createInitializedController(srcConfig, config)
 
     config getString "radio.current" should be(sourceName(1))
   }
 
   it should "ignore the stored source if it cannot be resolved" in {
-    val config = createSourceConfiguration(3)
+    val srcConfig = createSourceConfiguration(3)
+    val config = new HierarchicalConfiguration
     config.addProperty("radio.current", sourceName(4))
     val helper = new RadioControllerTestHelper
-    helper.createInitializedController(config)
+    helper.createInitializedController(srcConfig, config)
 
     helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
       .verifyNoMoreInteractionWithPlayer()
@@ -211,7 +193,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "react on changes in the radio sources selection" in {
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(new HierarchicalConfiguration)
+    val ctrl = helper.createController(createSourceConfiguration(0))
     val src = radioSource(2)
     doReturn(src).when(helper.comboHandler).getData
 
@@ -220,9 +202,10 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "update the current source in the config after a change in the combo selection" in {
-    val config = createSourceConfiguration(3)
+    val srcConfig = createSourceConfiguration(3)
+    val config = new HierarchicalConfiguration
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createInitializedController(config)
+    val ctrl = helper.createInitializedController(srcConfig, config)
     val src = radioSource(2)
     doReturn(src).when(helper.comboHandler).getData
 
@@ -232,11 +215,11 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "handle an empty selection in the sources combo box" in {
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(new HierarchicalConfiguration)
+    val ctrl = helper.createController(createSourceConfiguration(0))
     doReturn(null).when(helper.comboHandler).getData
 
     ctrl elementChanged mock[FormChangeEvent]
-    helper.verifyNoMoreInteractionWithPlayer()
+    helper.verifyNoMoreInteractionWithPlayer(exclusions = false)
   }
 
   it should "ignore change events while populating the sources combo box" in {
@@ -266,6 +249,17 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper verifySwitchSource selectedSource
   }
 
+  it should "send exclusion data to the radio player" in {
+    val srcConfig = createSourceConfiguration(2)
+    val exclusions = Map(radioSource(1) -> List(IntervalQueries.hours(0, 8)),
+      radioSource(2) -> List(IntervalQueries.hours(9, 12)))
+    when(srcConfig.exclusions).thenReturn(exclusions)
+    val helper = new RadioControllerTestHelper
+
+    helper.createInitializedController(srcConfig)
+    verify(helper.player).initSourceExclusions(exclusions)
+  }
+
   /**
     * Helper method for testing that an event is ignored. It is only checked
     * that the event is not touched.
@@ -275,7 +269,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   private def checkIgnoredEvent(f: (RadioController, WindowEvent) => Unit): Unit = {
     val ev = event()
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(new HierarchicalConfiguration)
+    val ctrl = helper.createController(createSourceConfiguration(0))
     f(ctrl, ev)
     verifyZeroInteractions(ev)
   }
@@ -306,7 +300,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "allow starting playback" in {
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(new HierarchicalConfiguration)
+    val ctrl = helper.createController(createSourceConfiguration(0))
 
     ctrl.startPlayback()
     helper.verifyStartPlayback().verifyAction(StartPlaybackAction, enabled = false)
@@ -315,7 +309,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "allow stopping playback" in {
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(new HierarchicalConfiguration)
+    val ctrl = helper.createController(createSourceConfiguration(0))
 
     ctrl.stopPlayback()
     helper.verifyStopPlayback().verifyAction(StartPlaybackAction, enabled = true)
@@ -341,21 +335,31 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /**
       * Creates a test instance of a radio controller.
       *
+      * @param srcConfig     the configuration for the radio sources
       * @param configuration the configuration
       * @return the test instance
       */
-    def createController(configuration: Configuration): RadioController =
-      new RadioController(player, configuration, actionStore, comboHandler)
+    def createController(srcConfig: RadioSourceConfig,
+                         configuration: Configuration = new HierarchicalConfiguration):
+    RadioController =
+      new RadioController(player, configuration, actionStore, comboHandler,
+        c => {
+          c should be(configuration)
+          srcConfig
+        })
 
     /**
       * Creates a radio controller test instance and initializes it by sending
       * it a window opened event.
       *
+      * @param srcConfig     the configuration for the radio sources
       * @param configuration the configuration
       * @return the test instance
       */
-    def createInitializedController(configuration: Configuration): RadioController = {
-      val ctrl = createController(configuration)
+    def createInitializedController(srcConfig: RadioSourceConfig,
+                                    configuration: Configuration = new HierarchicalConfiguration)
+    : RadioController = {
+      val ctrl = createController(srcConfig, configuration)
       ctrl windowOpened event()
       ctrl
     }
@@ -460,9 +464,13 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /**
       * Verifies that further interaction occurred with the player.
       *
+      * @param exclusions a flag whether setting of exclusions should be respected
       * @return this test helper
       */
-    def verifyNoMoreInteractionWithPlayer(): RadioControllerTestHelper = {
+    def verifyNoMoreInteractionWithPlayer(exclusions: Boolean = true): RadioControllerTestHelper = {
+      if (exclusions) {
+        verify(player).initSourceExclusions(any())
+      }
       verifyNoMoreInteractions(player)
       this
     }

@@ -22,23 +22,11 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
 
 object RadioController {
-  /** Configuration key for the radio sources. */
-  private val KeySources = "radio.sources.source"
-
-  /** Configuration key for the name of a radio source. */
-  private val KeySourceName = "name"
-
-  /** Configuration key for the URI of a radio source. */
-  private val KeySourceURI = "uri"
-
-  /** Configuration name for the extension of a radio source. */
-  private val KeySourceExtension = "extension"
-
   /** Configuration key for the current source. */
   private val KeyCurrentSource = "radio.current"
 
@@ -64,8 +52,13 @@ object RadioController {
   * @param comboSources the combo box with the radio sources
   */
 class RadioController(val player: RadioPlayer, val config: Configuration, actionStore: ActionStore,
-                      comboSources: ListComponentHandler) extends WindowListener with
-  FormChangeListener {
+                      comboSources: ListComponentHandler,
+                      val configFactory: Configuration => RadioSourceConfig)
+  extends WindowListener with FormChangeListener {
+
+  def this(player: RadioPlayer, config: Configuration, actionStore: ActionStore,
+    comboSources: ListComponentHandler) = this(player, config, actionStore, comboSources,
+    RadioSourceConfig.apply)
 
   import RadioController._
 
@@ -97,7 +90,9 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
   override def windowOpened(windowEvent: WindowEvent): Unit = {
     sourcesUpdating = true
     try {
-      radioSources = updateSourceCombo()
+      val srcConfig = configFactory(config)
+      player initSourceExclusions srcConfig.exclusions
+      radioSources = updateSourceCombo(srcConfig)
       enableAction(ActionStartPlayback, enabled = false)
       enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
 
@@ -145,28 +140,11 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
     *
     * @return the list of currently available radio sources
     */
-  private def updateSourceCombo(): Seq[(String, RadioSource)] = {
+  private def updateSourceCombo(srcConfig: RadioSourceConfig): Seq[(String, RadioSource)] = {
     clearSourceCombo()
-    val sources = readSourcesFromConfig()
+    val sources = srcConfig.sources
     sources.zipWithIndex foreach { t => comboSources.addItem(t._2, t._1._1, t._1._2) }
     sources
-  }
-
-  /**
-    * Reads the defined radio sources from the configuration.
-    *
-    * @return a sequence with the extracted radio sources
-    */
-  private def readSourcesFromConfig(): Seq[(String, RadioSource)] = {
-    val srcConfigs = config.asInstanceOf[HierarchicalConfiguration].configurationsAt(KeySources)
-    import collection.JavaConversions._
-    val sources = srcConfigs filter { c =>
-      c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
-    } map { c =>
-      (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString
-      (KeySourceExtension))))
-    }
-    sources sortWith (_._1 < _._1)
   }
 
   /**
