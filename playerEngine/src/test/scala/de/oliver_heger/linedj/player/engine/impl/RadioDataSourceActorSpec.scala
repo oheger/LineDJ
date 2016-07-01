@@ -146,7 +146,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   it should "provide an AudioSource for the current stream" in {
     val uri = streamUri(1)
-    checkAudioSource(uri, uri)
+    checkAudioSource(uri, uri + "." + Mp3Ext.get)
   }
 
   it should "append a file extension to the audio source URI if possible" in {
@@ -162,6 +162,11 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   it should "not modify the audio source if no default extension is provided" in {
     val uri = streamUri(1, withExtension = false)
     checkAudioSource(uri, uri, None)
+  }
+
+  it should "not modify the audio source if it already ends with the correct extension" in {
+    val uri = streamUri(1, withExtension = false) + "." + Mp3Ext.get
+    checkAudioSource(uri, uri)
   }
 
   it should "park an audio source request until the source becomes available" in {

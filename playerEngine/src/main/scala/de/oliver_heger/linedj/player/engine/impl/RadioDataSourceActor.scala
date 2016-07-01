@@ -71,7 +71,10 @@ object RadioDataSourceActor {
 
   /**
     * Adapts the URI of the given audio source with the specified default file
-    * extension if necessary.
+    * extension. The extension is simply added to the URI, no matter if there
+    * is already an extension. Note that the resulting URI does not need to be
+    * correct; the extension is evaluated by the playback actor when the
+    * playback context is created.
     *
     * @param src        the audio source in question
     * @param defaultExt the default file extension
@@ -79,10 +82,8 @@ object RadioDataSourceActor {
     */
   private def updateAudioSourceWithDefaultFileExtension(src: AudioSource, defaultExt: String):
   AudioSource = {
-    val idxDot = src.uri.lastIndexOf('.')
-    if (src.uri.lastIndexOf('/') > idxDot || idxDot < 0) {
-      src.copy(uri = src.uri + '.' + defaultExt)
-    }
+    val dotExt = '.' + defaultExt
+    if (!src.uri.endsWith(dotExt)) src.copy(uri = src.uri + dotExt)
     else src
   }
 
