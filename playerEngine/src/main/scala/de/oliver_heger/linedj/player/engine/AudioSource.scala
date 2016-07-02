@@ -26,6 +26,12 @@ object AudioSource {
   val InfiniteLength = Long.MaxValue
 
   /**
+    * Constant representing an error source. This value is used if an error
+    * occurs when copying audio data.
+    */
+  val ErrorSource = AudioSource("ERROR", 0, 0, 0)
+
+  /**
     * Creates a source with an infinite length for the specified URI. For such
     * sources skip information is irrelevant.
     *

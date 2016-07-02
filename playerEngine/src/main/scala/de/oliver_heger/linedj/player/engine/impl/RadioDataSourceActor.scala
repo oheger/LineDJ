@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -165,6 +166,14 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
     */
   private var newSource = true
 
+  /**
+    * This actor uses a supervision strategy that stops a child actor when it
+    * encounters an IO exception.
+    */
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+    case _: java.io.IOException => Stop
+  }
+
   override def receive: Receive = {
     case r: RadioSource =>
       currentSourceReader foreach { r =>
@@ -215,7 +224,9 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
 
     case Terminated(_) =>
       log.warning("Actor for current data source died!")
+      pendingAudioSourceRequest = servePending(pendingAudioSourceRequest, AudioSource.ErrorSource)
       stopCurrentSource()
+      currentSourceReader = None
 
     case CloseRequest =>
       currentSourceReader foreach { r =>

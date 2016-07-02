@@ -39,7 +39,8 @@ object RadioDataSourceActorSpec {
   private val Mp3Ext = Some("mp3")
 
   /** A test configuration used when creating the test actor. */
-  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null)
+  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null,
+    inMemoryBufferSize = 1024)
 
   /** A request for audio data. */
   private val DataRequest = PlaybackActor.GetAudioData(512)
@@ -81,7 +82,7 @@ object RadioDataSourceActorSpec {
   * Test class for ''RadioDataSourceActor''.
   */
 class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
 
   import RadioDataSourceActorSpec._
 
@@ -89,6 +90,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    tearDownTestFile()
   }
 
   /**
@@ -403,6 +405,20 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     expectMsg(EndOfFile(null))
   }
 
+  it should "return an error source after the reader actor dies" in {
+    val helper = new RadioDataSourceActorTestHelper
+    val actor = helper.createTestActor()
+    val src = audioSource(1)
+    actor ! RadioSource(src.uri)
+    val childCreation = helper.expectChildCreation()
+
+    actor ! PlaybackActor.GetAudioSource
+    system stop childCreation.probe.ref
+    expectMsg(AudioSource.ErrorSource)
+    actor ! DataRequest
+    expectMsg(FileReaderActor.EndOfFile(null))
+  }
+
   it should "not react on Terminated messages from older sources" in {
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
@@ -489,6 +505,24 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
     props.args should have length 1
     props.args.head should be(Config)
+  }
+
+  it should "use a correct supervision strategy" in {
+    val path = createDataFile()
+    val queue = new LinkedBlockingQueue[ActorRef]
+    val actor = system.actorOf(Props(new RadioDataSourceActor(Config) with ChildActorFactory {
+      override def createChildActor(p: Props): ActorRef = {
+        val child = super.createChildActor(p)
+        queue offer child
+        child
+      }
+    }))
+
+    actor ! RadioSource(path.toUri.toString)
+    val childActor = pollQueue[ActorRef](queue)
+    val probe = TestProbe()
+    probe watch childActor
+    probe.expectMsgType[Terminated]
   }
 
   /**
