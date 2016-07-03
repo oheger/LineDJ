@@ -197,7 +197,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
-        if (skipPosition > currentSource.get.length || currentSourceIsInfinite) {
+        if (skipPosition > currentSource.get.length || currentSourceIsInfinite || bytesInAudioBuffer == 0) {
           sourceCompleted()
         }
         playback()

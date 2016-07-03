@@ -452,6 +452,19 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     checkPlaybackOfFullSource(2 * LineChunkSize)
   }
 
+  it should "handle a source with no data" in {
+    val lineWriter = TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val line = installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    sendAudioData(actor,  EndOfFile(null))
+    expectMsg(GetAudioSource)
+    verifyZeroInteractions(line)
+  }
+
   it should "not play audio data if the in-memory buffer is almost empty" in {
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
