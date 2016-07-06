@@ -59,8 +59,9 @@ object LineWriterActor {
     * chunk that just have been written is provided.
     *
     * @param chunkLength the length of the data chunk that has been written
+    * @param duration the (approximated) duration of the chunk of data
     */
-  case class AudioDataWritten(chunkLength: Int)
+  case class AudioDataWritten(chunkLength: Int, duration: Long)
 
   /**
     * A message sent by [[LineWriterActor]] after a drain operation has been
@@ -88,8 +89,9 @@ object LineWriterActor {
 class LineWriterActor extends Actor {
   override def receive: Receive = {
     case WriteAudioData(line, data) =>
+      val startTime = System.nanoTime()
       line.write(data.data, data.offset, data.length)
-      sender ! AudioDataWritten(data.length)
+      sender ! AudioDataWritten(data.length, System.nanoTime() - startTime)
 
     case DrainLine(line) =>
       line.drain()

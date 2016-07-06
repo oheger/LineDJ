@@ -17,13 +17,17 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.util
+import java.util.concurrent.TimeUnit
 import javax.sound.sampled.SourceDataLine
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import org.mockito.Matchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -39,18 +43,30 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
     TestKit shutdownActorSystem system
   }
 
-  "A LineWriterActor" should "handle a WriteAudioData message" in {
-    val line = mock[SourceDataLine]
+  /**
+    * Creates a mock data source with some test values.
+    *
+    * @param dataArray the array wrapped by the source
+    * @return the mock for the data source
+    */
+  private def createArraySource(dataArray: Array[Byte]): ArraySource = {
     val data = mock[ArraySource]
-    val dataArray = new Array[Byte](64)
     util.Arrays.fill(dataArray, 0.toByte)
     when(data.data).thenReturn(dataArray)
     when(data.length).thenReturn(42)
     when(data.offset).thenReturn(4)
+    data
+  }
+
+  "A LineWriterActor" should "handle a WriteAudioData message" in {
+    val line = mock[SourceDataLine]
+    val dataArray = new Array[Byte](64)
+    val data = createArraySource(dataArray)
     val actor = system.actorOf(Props[LineWriterActor])
 
     actor ! WriteAudioData(line, data)
-    expectMsg(AudioDataWritten(42))
+    val written = expectMsgType[AudioDataWritten]
+    written.chunkLength should be(42)
     verify(line).write(dataArray, 4, 42)
   }
 
@@ -61,5 +77,26 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
     actor ! LineWriterActor.DrainLine(line)
     expectMsg(LineWriterActor.LineDrained)
     verify(line).drain()
+  }
+
+  it should "measure the playback time" in {
+    val line = mock[SourceDataLine]
+    val dataArray = new Array[Byte](32)
+    val data = createArraySource(dataArray)
+    val actor = system.actorOf(Props[LineWriterActor])
+    when(line.write(argEq(dataArray), anyInt(), anyInt())).thenAnswer(new Answer[Int] {
+      override def answer(invocation: InvocationOnMock): Int = {
+        Thread.sleep(50)
+        42
+      }
+    })
+
+    val startTime = System.nanoTime()
+    actor ! WriteAudioData(line, data)
+    val written = expectMsgType[AudioDataWritten]
+    val endTime = System.nanoTime()
+    val duration = endTime - startTime
+    written.duration should be <= duration
+    written.duration should be >= TimeUnit.MILLISECONDS.toNanos(50)
   }
 }

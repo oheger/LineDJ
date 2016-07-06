@@ -360,7 +360,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   it should "report a protocol violation if audio data was played without a request" in {
     val actor = system.actorOf(propsWithMockLineWriter())
 
-    actor ! LineWriterActor.AudioDataWritten(42)
+    actor ! LineWriterActor.AudioDataWritten(42, 0)
     val errMsg = expectMsgType[PlaybackProtocolViolation]
     errMsg.msg should be(LineWriterActor.AudioDataWritten)
     errMsg.errorText should include("Unexpected AudioDataWritten")
@@ -400,7 +400,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
       playMsg.line should be(expLine)
       stream.write(playMsg.data.data, playMsg.data.offset, playMsg.data.length)
       currentLength += playMsg.data.length
-      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length), lineWriter.ref)
+      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length, 0), lineWriter.ref)
     }
     stream.toByteArray
   }
@@ -542,9 +542,9 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
     actor ! SkipSource
     sendAudioData(actor, arraySource(3, LineChunkSize), EndOfFile(null))
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
@@ -566,7 +566,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! AudioSource.infinite("src://infinite")
 
     sendAudioData(actor, arraySource(1, PlaybackContextLimit+1))
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     expectMsgType[GetAudioData]
     actor ! EndOfFile(null)
     expectMsg(GetAudioSource)
@@ -595,7 +595,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
       EndOfFile(null))
 
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1, 0), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
     mockContextFactory
   }
@@ -650,7 +650,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! StopPlayback
     sendAudioData(actor, arraySource(1, PlaybackContextLimit))
     expectMsgType[GetAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1, 0), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
     verify(contextFactory).createPlaybackContext(any(classOf[InputStream]), anyString())
   }
@@ -669,7 +669,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! SkipSource
     sendAudioData(actor, arraySource(3, AudioBufferSize), EndOfFile(null))
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(1), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(1, 0), lineWriter.ref)
     lineWriter.expectMsgType[PlaybackProtocolViolation]
   }
 
@@ -739,7 +739,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     sendAudioData(actor, arraySource(1, AudioBufferSize))
     expectMsgType[GetAudioData]
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize - 1), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize - 1, 0), lineWriter.ref)
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
   }
 
@@ -835,7 +835,7 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     actor ! CloseRequest
     actor receive createSource(4)
     verify(line, never()).close()
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize), lineWriter.ref)
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     expectMsg(CloseAck(actor))
     assertPlaybackContextClosed(line, streamFactory)
   }

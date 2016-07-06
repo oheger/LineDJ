@@ -203,7 +203,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         playback()
       }
 
-    case AudioDataWritten(length) =>
+    case AudioDataWritten(length, _) =>
       if (!audioPlaybackPending) {
         sender ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
           " received!")
@@ -254,7 +254,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * Then the close operation can be actually performed.
    */
   private def closing: Receive = {
-    case AudioDataWritten(_) =>
+    case AudioDataWritten(_, _) =>
       closeActor()
   }
 
