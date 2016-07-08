@@ -1,7 +1,6 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
-import java.time.LocalDateTime
 import java.util
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLine}
@@ -11,9 +10,9 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine._
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -23,7 +22,6 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
-import scala.reflect.ClassTag
 
 object PlaybackActorSpec {
   /** Constant for the maximum size of the audio buffer. */
@@ -92,7 +90,8 @@ object PlaybackActorSpec {
  * Test class for ''PlaybackActor''.
  */
 class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
+with EventTestSupport {
 
   import PlaybackActorSpec._
 
@@ -168,21 +167,6 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     when(context.bufferSize).thenReturn(LineChunkSize)
     when(context.line).thenReturn(optLine.getOrElse(mock[SourceDataLine]))
     Some(context)
-  }
-
-  /**
-    * Expects that an event is received and checks the event time.
-    *
-    * @param probe the probe for the event actor
-    * @param t     the class tag
-    * @tparam T the expected event type
-    * @return the received event
-    */
-  private def expectEvent[T <: PlayerEvent](probe: TestProbe)(implicit t: ClassTag[T]): T = {
-    val event = probe.expectMsgType[T]
-    val diff = java.time.Duration.between(event.time, LocalDateTime.now())
-    diff.toMillis should be < 250L
-    event
   }
 
   "A PlaybackActor" should "create a correct Props object" in {
