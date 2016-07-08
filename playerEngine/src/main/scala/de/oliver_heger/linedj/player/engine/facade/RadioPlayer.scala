@@ -34,7 +34,7 @@ object RadioPlayer {
     * @return the new ''RadioPlayer'' instance
     */
   def apply(config: PlayerConfig): RadioPlayer = {
-    val sourceActor = config.actorCreator(RadioDataSourceActor(config), "radioDataSourceActor")
+    val sourceActor = config.actorCreator(RadioDataSourceActor(config, null), "radioDataSourceActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
     val playbackActor = config.actorCreator(PlaybackActor(config, sourceActor, lineWriterActor, null),
       "radioPlaybackActor")

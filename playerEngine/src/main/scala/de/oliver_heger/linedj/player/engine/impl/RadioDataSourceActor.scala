@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.impl
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
@@ -34,18 +34,19 @@ object RadioDataSourceActor {
     */
   case object ClearSourceBuffer
 
-  private class RadioDataSourceActorImpl(config: PlayerConfig)
-    extends RadioDataSourceActor(config) with ChildActorFactory
+  private class RadioDataSourceActorImpl(config: PlayerConfig, eventManager: ActorRef)
+    extends RadioDataSourceActor(config, eventManager) with ChildActorFactory
 
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
     * @param config the player configuration
+    * @param eventManager the actor for generating events
     * @return the ''Props'' for creating a new actor instance
     */
-  def apply(config: PlayerConfig): Props =
-    Props(classOf[RadioDataSourceActorImpl], config)
+  def apply(config: PlayerConfig, eventManager: ActorRef): Props =
+    Props(classOf[RadioDataSourceActorImpl], config, eventManager)
 
   /** Error message for an unexpected audio source request. */
   private val ErrPendingSourceRequest = "Request for audio source already pending!"
@@ -136,8 +137,10 @@ object RadioDataSourceActor {
   * next request for audio data.
   *
   * @param config the audio player configuration
+  * @param eventManager the actor for generating events
   */
-class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging {
+class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
+  extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import RadioDataSourceActor._
@@ -183,6 +186,7 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
       currentSourceReader = Some(createSourceReaderActor(r))
       currentRadioSource = r
       stopCurrentSource()
+      eventManager ! RadioSourceChangedEvent(r)
       log.info("Next radio source for playback: {}.", r.uri)
 
     case src: AudioSource if fromCurrentReader() =>
@@ -224,6 +228,7 @@ class RadioDataSourceActor(config: PlayerConfig) extends Actor with ActorLogging
 
     case Terminated(_) =>
       log.warning("Actor for current data source died!")
+      eventManager ! RadioSourceErrorEvent(currentRadioSource)
       pendingAudioSourceRequest = servePending(pendingAudioSourceRequest, AudioSource.ErrorSource)
       stopCurrentSource()
       currentSourceReader = None

@@ -23,10 +23,12 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
 object RadioDataSourceActorSpec {
   /** Constant for an URI for test radio streams. */
@@ -82,7 +84,8 @@ object RadioDataSourceActorSpec {
   * Test class for ''RadioDataSourceActor''.
   */
 class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
+  with EventTestSupport {
 
   import RadioDataSourceActorSpec._
 
@@ -499,18 +502,19 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "create correct Props" in {
-    val props = RadioDataSourceActor(Config)
+    val eventMan = TestProbe()
+    val props = RadioDataSourceActor(Config, eventMan.ref)
 
     classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
     classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-    props.args should have length 1
-    props.args.head should be(Config)
+    props.args should be(List(Config, eventMan.ref))
   }
 
   it should "use a correct supervision strategy" in {
     val path = createDataFile()
     val queue = new LinkedBlockingQueue[ActorRef]
-    val actor = system.actorOf(Props(new RadioDataSourceActor(Config) with ChildActorFactory {
+    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, TestProbe().ref)
+      with ChildActorFactory {
       override def createChildActor(p: Props): ActorRef = {
         val child = super.createChildActor(p)
         queue offer child
@@ -525,12 +529,38 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     probe.expectMsgType[Terminated]
   }
 
+  it should "fire an event when a new source is started" in {
+    val helper = new RadioDataSourceActorTestHelper
+    val actor = helper.createTestActor()
+    val source = RadioSource("someURI")
+
+    actor ! source
+    val event = helper.expectPlayerEvent[RadioSourceChangedEvent]
+    event.source should be(source)
+  }
+
+  it should "fire an event when the current source causes an error" in {
+    val helper = new RadioDataSourceActorTestHelper
+    val actor = helper.createTestActor()
+    val source = RadioSource("someURI")
+
+    actor ! source
+    helper.expectPlayerEvent[RadioSourceChangedEvent]
+    val creation = helper.expectChildCreation()
+    system stop creation.probe.ref
+    val event = helper.expectPlayerEvent[RadioSourceErrorEvent]
+    event.source should be(source)
+  }
+
   /**
     * A test helper class managing dependencies of the test actor.
     */
   private class RadioDataSourceActorTestHelper {
     /** A queue for querying data about child actors created by the test actor. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
+
+    /** Test probe for the event manager actor. */
+    private val eventManager = TestProbe()
 
     /**
       * Creates a test actor instance.
@@ -580,12 +610,23 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
 
     /**
+      * Convenience method for expecting a player event to be fired by the test
+      * actor.
+      *
+      * @param t the class tag
+      * @tparam T the type of the expected event
+      * @return the event
+      */
+    def expectPlayerEvent[T <: PlayerEvent](implicit t: ClassTag[T]): T =
+      expectEvent[T](eventManager)
+
+    /**
       * Creates the ''Props'' for the test actor.
       *
       * @return the ''Props'' for the test actor
       */
     private def createProps(): Props =
-      Props(new RadioDataSourceActor(Config) with ChildActorFactory {
+      Props(new RadioDataSourceActor(Config, eventManager.ref) with ChildActorFactory {
         /**
           * @inheritdoc This implementation returns a test probe. The probe and
           *             the passed ''Props'' are stored in the child creation
