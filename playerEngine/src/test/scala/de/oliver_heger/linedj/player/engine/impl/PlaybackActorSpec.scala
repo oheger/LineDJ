@@ -1,7 +1,9 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
+import java.time.LocalDateTime
 import java.util
+import java.util.concurrent.TimeUnit
 import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLine}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -11,7 +13,7 @@ import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContext, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine._
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -21,6 +23,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
 object PlaybackActorSpec {
   /** Constant for the maximum size of the audio buffer. */
@@ -110,16 +113,18 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     optActor getOrElse testActor
 
   /**
-   * Creates a ''Props'' object for creating a ''PlaybackActor''. The factory
-   * for the line actor and the source actor can be provided optionally.
+    * Creates a ''Props'' object for creating a ''PlaybackActor''. The factory
+    * for the line actor and the source actor can be provided optionally.
     *
     * @param optLineWriter the optional line writer actor
-   * @param optSource the optional source actor
-   * @return the ''Props'' object
-   */
+    * @param optSource     the optional source actor
+    * @param optEventMan   the optional event manager actor test probe
+    * @return the ''Props'' object
+    */
   private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None, optSource:
-  Option[ActorRef] = None): Props =
-    PlaybackActor(Config, fetchActorRef(optSource), fetchActorRef(optLineWriter))
+  Option[ActorRef] = None, optEventMan: Option[TestProbe] = None): Props =
+    PlaybackActor(Config, fetchActorRef(optSource), fetchActorRef(optLineWriter),
+      optEventMan.getOrElse(TestProbe()).ref)
 
   /**
    * Creates a playback context factory which creates context objects using a
@@ -165,21 +170,45 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     Some(context)
   }
 
+  /**
+    * Expects that an event is received and checks the event time.
+    *
+    * @param probe the probe for the event actor
+    * @param t     the class tag
+    * @tparam T the expected event type
+    * @return the received event
+    */
+  private def expectEvent[T <: PlayerEvent](probe: TestProbe)(implicit t: ClassTag[T]): T = {
+    val event = probe.expectMsgType[T]
+    val diff = java.time.Duration.between(event.time, LocalDateTime.now())
+    diff.toMillis should be < 250L
+    event
+  }
+
   "A PlaybackActor" should "create a correct Props object" in {
-    val probe = TestProbe()
-    val props = PlaybackActor(Config, testActor, probe.ref)
+    val probeLine = TestProbe()
+    val probeEvent = TestProbe()
+    val props = PlaybackActor(Config, testActor, probeLine.ref, probeEvent.ref)
     val actor = TestActorRef[PlaybackActor](props)
     actor.underlyingActor shouldBe a[PlaybackActor]
-    props.args should have length 3
-    props.args.head should be(Config)
-    props.args(1) should be (testActor)
-    props.args(2) should be(probe.ref)
+    props.args should be(List(Config, testActor, probeLine.ref, probeEvent.ref))
   }
 
   it should "request data when it is passed an audio source" in {
     val actor = system.actorOf(propsWithMockLineWriter())
     actor ! createSource(1)
     expectMsg(GetAudioData(AudioBufferSize))
+  }
+
+  it should "fire an event when an audio source is started" in {
+    val eventMan = TestProbe()
+    val source = createSource(1)
+    val actor = system.actorOf(propsWithMockLineWriter(optEventMan = Some(eventMan)))
+
+    actor ! source
+    expectMsgType[GetAudioData]
+    val event = expectEvent[AudioSourceStartedEvent](eventMan)
+    event.source should be(source)
   }
 
   it should "report a protocol violation if too many audio sources are sent" in {
@@ -381,17 +410,18 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
   }
 
   /**
-   * Simulates a line writer actor which receives audio data for playback.
-   * The data is collected in an array.
+    * Simulates a line writer actor which receives audio data for playback.
+    * The data is collected in an array.
     *
     * @param playbackActor the playback actor
-   * @param lineWriter the line writer actor reference
-   * @param expLine the expected line
-   * @param length the length of audio data to be received
-   * @return an array with the received audio data
-   */
+    * @param lineWriter    the line writer actor reference
+    * @param expLine       the expected line
+    * @param length        the length of audio data to be received
+    * @param chunkDuration the duration to be set for a chunk of written data
+    * @return an array with the received audio data
+    */
   private def gatherPlaybackData(playbackActor: ActorRef, lineWriter: TestProbe, expLine:
-  SourceDataLine, length: Int): Array[Byte] = {
+  SourceDataLine, length: Int, chunkDuration: Long = 0): Array[Byte] = {
     val stream = new ByteArrayOutputStream(length)
     var currentLength = 0
 
@@ -400,7 +430,8 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
       playMsg.line should be(expLine)
       stream.write(playMsg.data.data, playMsg.data.offset, playMsg.data.length)
       currentLength += playMsg.data.length
-      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length, 0), lineWriter.ref)
+      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length, chunkDuration),
+        lineWriter.ref)
     }
     stream.toByteArray
   }
@@ -414,34 +445,45 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     * @param lineWriter    the line writer actor reference
     * @param line          the expected line
     * @param sourceSize    the length of audio data to be received
+    * @param chunkDuration the duration to be set for a chunk of written data
     * @return an array with the received audio data
     */
   private def gatherPlaybackDataWithLineDrain(playbackActor: ActorRef, lineWriter: TestProbe, line:
-  SourceDataLine, sourceSize: Int): Array[Byte] = {
-    val data = gatherPlaybackData(playbackActor, lineWriter, line, sourceSize)
+  SourceDataLine, sourceSize: Int, chunkDuration: Long = 0): Array[Byte] = {
+    val data = gatherPlaybackData(playbackActor, lineWriter, line, sourceSize, chunkDuration)
     lineWriter.expectMsg(LineWriterActor.DrainLine(line))
     playbackActor.tell(LineWriterActor.LineDrained, lineWriter.ref)
     data
   }
 
   /**
-   * Checks whether a full source can be played.
+    * Checks whether a full source can be played.
     *
-    * @param sourceSize the size of the source
-   */
-  private def checkPlaybackOfFullSource(sourceSize: Int): Unit = {
-    val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    * @param sourceSize       the size of the source
+    * @param optEventMan      an optional test probe for the event actor
+    * @param optLineWriter    an optional test probe for the line writer actor
+    * @param playbackDuration the playback duration of the source
+    * @return the audio source that was played and the test actor
+    */
+  private def checkPlaybackOfFullSource(sourceSize: Int, optEventMan: Option[TestProbe] = None,
+                                        optLineWriter: Option[TestProbe] = None,
+                                        playbackDuration: Long = 0):
+  (AudioSource, ActorRef) = {
+    val lineWriter = optLineWriter getOrElse TestProbe()
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+      optEventMan = optEventMan))
     val line = installMockPlaybackContextFactory(actor)
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
-    actor ! createSource(1)
+    val source = createSource(1)
+    actor ! source
     sendAudioData(actor, arraySource(1, sourceSize), EndOfFile(null))
 
-    gatherPlaybackDataWithLineDrain(actor, lineWriter, line, sourceSize) should be(dataArray(2,
-      sourceSize))
+    gatherPlaybackDataWithLineDrain(actor, lineWriter, line, sourceSize,
+      playbackDuration) should be(dataArray(2, sourceSize))
     expectMsg(GetAudioSource)
+    (source, actor)
   }
 
   it should "be able to play a complete audio source" in {
@@ -450,6 +492,15 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
 
   it should "handle a source with a specific size" in {
     checkPlaybackOfFullSource(2 * LineChunkSize)
+  }
+
+  it should "fire an event when the current source is completed" in {
+    val eventMan = TestProbe()
+    val (source, _) = checkPlaybackOfFullSource(PlaybackContextLimit - 10, Some(eventMan))
+
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    val event = expectEvent[AudioSourceFinishedEvent](eventMan)
+    event.source should be(source)
   }
 
   it should "handle a source with no data" in {
@@ -477,6 +528,55 @@ with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with 
     gatherPlaybackData(actor, lineWriter, line, PlaybackContextLimit - LineChunkSize)
     expectMsgType[GetAudioData]
     lineWriter.expectNoMsg(100.milliseconds)
+  }
+
+  it should "generate playback progress events" in {
+    val lineWriter = TestProbe()
+    val eventMan = TestProbe()
+    val Chunks = 5
+    val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
+      testActor, lineWriter.ref, eventMan.ref))
+    val line = installMockPlaybackContextFactory(actor)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! createSource(1)
+    val audioData = (1 to Chunks) map (i => arraySource(i.toByte, LineChunkSize))
+    sendAudioData(actor, audioData: _*)
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    gatherPlaybackData(actor, lineWriter, line, Chunks * LineChunkSize,
+      TimeUnit.MILLISECONDS.toNanos(250))
+    val event = expectEvent[PlaybackProgressEvent](eventMan)
+    event.bytesProcessed should be((Chunks - 1) * LineChunkSize)
+    event.playbackTime should be(1)
+
+    sendAudioData(actor, arraySource(8, LineChunkSize))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize,
+      TimeUnit.MILLISECONDS.toNanos(2250))
+    val event2 = expectEvent[PlaybackProgressEvent](eventMan)
+    event2.bytesProcessed should be((Chunks + 1) * LineChunkSize)
+    event2.playbackTime should be(3)
+    expectMsgType[GetAudioData]
+  }
+
+  it should "reset progress counters when playback of a new source starts" in {
+    val eventMan = TestProbe()
+    val lineWriter = TestProbe()
+    val (_, actor) = checkPlaybackOfFullSource(LineChunkSize, Some(eventMan),
+      Some(lineWriter), TimeUnit.SECONDS.toNanos(2))
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    expectEvent[PlaybackProgressEvent](eventMan)
+    expectEvent[AudioSourceFinishedEvent](eventMan)
+
+    actor ! createSource(2)
+    sendAudioData(actor, arraySource(12, LineChunkSize), EndOfFile(null))
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, TimeUnit.SECONDS.toNanos(1)),
+      lineWriter.ref)
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    val event = expectEvent[PlaybackProgressEvent](eventMan)
+    event.bytesProcessed should be(LineChunkSize)
+    event.playbackTime should be(1)
   }
 
   it should "report a protocol error when receiving an unexpected EoF message" in {

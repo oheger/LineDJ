@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import javax.sound.sampled.LineUnavailableException
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
@@ -25,12 +26,14 @@ import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContext, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine._
 
 /**
  * Companion object of ''PlaybackActor''.
  */
 object PlaybackActor {
+  /** The number of nanoseconds per second. */
+  private val NanosPerSecond = TimeUnit.SECONDS.toNanos(1)
 
   /**
    * A message sent by ''PlaybackActor'' to request new audio data.
@@ -99,10 +102,12 @@ object PlaybackActor {
     * @param config the configuration of the player engine
     * @param dataSource the actor which provides the data to be played
     * @param lineWriter the actor that passes audio data to a line
+    * @param eventActor the actor for event generation
     * @return a ''Props'' object for creating an instance
     */
-  def apply(config: PlayerConfig, dataSource: ActorRef, lineWriter: ActorRef): Props =
-    Props(classOf[PlaybackActor], config, dataSource, lineWriter)
+  def apply(config: PlayerConfig, dataSource: ActorRef, lineWriter: ActorRef,
+            eventActor: ActorRef): Props =
+    Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor)
 }
 
 /**
@@ -131,8 +136,10 @@ object PlaybackActor {
  * @param config the object with configuration settings
  * @param dataSource the actor which provides the data to be played
  * @param lineWriterActor the actor which passes audio data to a line
+ * @param eventActor the actor for event generation
  */
-class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor: ActorRef)
+class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor: ActorRef,
+                    eventActor: ActorRef)
   extends Actor with ActorLogging {
   /** The current playback context factory. */
   private var contextFactory = new CombinedPlaybackContextFactory(Nil)
@@ -158,6 +165,15 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /** The number of bytes processed from the current audio source so far. */
   private var bytesProcessed = 0L
 
+  /** The number of bytes that have been played so far. */
+  private var bytesPlayed = 0L
+
+  /** The current remainder of nano seconds for the playback time. */
+  private var playbackNanos = 0L
+
+  /** The current playback time in seconds for the current source. */
+  private var playbackSeconds = 0L
+
   /** A flag whether a request for audio data is pending. */
   private var audioDataPending = false
 
@@ -178,10 +194,14 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     case src: AudioSource =>
       if (currentSource.isEmpty) {
         log.info("Received audio source {}.", src.uri)
+        eventActor ! AudioSourceStartedEvent(source = src)
         currentSource = Some(src)
         audioDataPending = false
         skipPosition = src.skip
         bytesProcessed = 0
+        bytesPlayed = 0
+        playbackNanos = 0
+        playbackSeconds = 0
         requestAudioDataIfPossible()
       } else {
         sender ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
@@ -203,12 +223,13 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         playback()
       }
 
-    case AudioDataWritten(length, _) =>
+    case AudioDataWritten(length, duration) =>
       if (!audioPlaybackPending) {
         sender ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
           " received!")
       } else {
         audioPlaybackPending = false
+        updatePlaybackProgress(length, duration)
         if (length < audioChunk.length && !currentSourceIsInfinite) {
           lineWriterActor ! LineWriterActor.DrainLine(playbackContext.get.line)
         } else {
@@ -295,6 +316,23 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       audioDataStream append skipSource
     }
     bytesProcessed += data.length
+  }
+
+  /**
+    * Updates the progress counters for the playback of the current source.
+    * If necessary, a playback progress event is fired.
+    *
+    * @param length   the length of the current chunk
+    * @param duration the playback duration of the current chunk
+    */
+  private def updatePlaybackProgress(length: Int, duration: Long): Unit = {
+    bytesPlayed += length
+    playbackNanos += duration
+    if (playbackNanos >= NanosPerSecond) {
+      playbackSeconds += playbackNanos / NanosPerSecond
+      playbackNanos = playbackNanos % NanosPerSecond
+      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds)
+    }
   }
 
   /**
@@ -442,8 +480,9 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   private def sourceCompleted(): Unit = {
     log.info("Finished playback of audio source {}.", currentSource.get)
     audioDataStream.clear()
-    currentSource = None
     closePlaybackContext()
+    eventActor ! AudioSourceFinishedEvent(source = currentSource.get)
+    currentSource = None
   }
 
   /**

@@ -41,7 +41,7 @@ object AudioPlayer {
     val downloadActor = config.actorCreator(SourceDownloadActor(config, bufferActor, readerActor)
       , "sourceDownloadActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor),
+    val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor, null),
       "playbackActor")
     new AudioPlayer(playbackActor, downloadActor, List(bufferActor, readerActor))
   }

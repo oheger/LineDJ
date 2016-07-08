@@ -54,3 +54,18 @@ case class AudioSourceStartedEvent(source: AudioSource,
 case class AudioSourceFinishedEvent(source: AudioSource,
                                     override val time: LocalDateTime = LocalDateTime.now())
   extends PlayerEvent
+
+/**
+  * A player event indicating a progress during playback.
+  *
+  * Events of this type are generated about every second by the playback actor.
+  * They can be used for instance to display the playback time or a progress
+  * bar.
+  *
+  * @param bytesProcessed the number of bytes processed for the current source
+  * @param playbackTime   the accumulated playback duration (in seconds)
+  * @param time           the time when this event was generated
+  */
+case class PlaybackProgressEvent(bytesProcessed: Long, playbackTime: Long,
+                                 override val time: LocalDateTime = LocalDateTime.now())
+  extends PlayerEvent
