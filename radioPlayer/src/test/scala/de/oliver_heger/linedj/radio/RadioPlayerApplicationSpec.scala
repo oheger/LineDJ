@@ -17,22 +17,29 @@
 package de.oliver_heger.linedj.radio
 
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
 
+import akka.NotUsed
+import akka.actor.ActorSystem
 import akka.pattern.AskTimeoutException
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Source}
+import akka.testkit.TestKit
 import akka.util.Timeout
+import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext}
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
+import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Promise}
@@ -41,8 +48,15 @@ import scala.util.Random
 /**
   * Test class for ''RadioPlayerApplication''.
   */
-class RadioPlayerApplicationSpec extends FlatSpec with Matchers with MockitoSugar with
-  ApplicationTestSupport {
+class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
+  with ApplicationTestSupport {
+  def this() = this(ActorSystemTestHelper createActorSystem "RadioPlayerApplicationSpec")
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+  }
+
   "A RadioPlayerApplication" should "define a correct default constructor" in {
     val app = new RadioPlayerApplication
 
@@ -177,6 +191,32 @@ class RadioPlayerApplicationSpec extends FlatSpec with Matchers with MockitoSuga
     val ctrl = queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
     ctrl.player should be(helper.player)
     ctrl.config should be(app.getUserConfiguration)
+  }
+
+  it should "register a listener sink at the radio player" in {
+    val helper = new RadioPlayerApplicationTestHelper
+    helper.activateRadioApp()
+
+    val captor = ArgumentCaptor.forClass(classOf[Sink[Any, NotUsed]])
+    verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_,_]])
+
+    implicit val materializer = ActorMaterializer()
+    val eventQueue = new LinkedBlockingQueue[RadioPlayerEvent]
+    when(helper.app.clientApplicationContext.messageBus.publish(any(classOf[RadioPlayerEvent])))
+      .thenAnswer(new Answer[Object] {
+      override def answer(invocation: InvocationOnMock): Object = {
+        eventQueue offer invocation.getArguments.head.asInstanceOf[RadioPlayerEvent]
+        null
+      }
+    })
+    val playerEvent = AudioSourceStartedEvent(AudioSource.infinite("testRadioSource"))
+    val source = Source.single[Any](playerEvent)
+    val sink = captor.getValue.asInstanceOf[Sink[Any,NotUsed]]
+    source.runWith(sink)
+    val publishedEvent = eventQueue.poll(3, TimeUnit.SECONDS)
+    publishedEvent should not be null
+    publishedEvent.event should be(playerEvent)
+    publishedEvent.player should be(helper.player)
   }
 
   /**

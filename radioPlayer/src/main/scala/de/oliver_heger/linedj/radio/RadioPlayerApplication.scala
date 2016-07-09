@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.radio
 
+import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
@@ -95,6 +96,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   override def createApplicationContext(): ApplicationContext = {
     val context = super.createApplicationContext()
     val playerBean = playerFactory.createRadioPlayer(clientApplicationContext)
+    playerBean registerEventSink createPlayerListenerSink(playerBean)
     initPlayer(playerBean)
     addBeanDuringApplicationStartup("radioApp_player", playerBean)
     context
@@ -146,5 +148,20 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
       player = Some(p)
     }
     pendingPlaybackContextFactories = Nil
+  }
+
+  /**
+    * Creates a sink for listening for radio player events. All received events
+    * are wrapped in [[RadioPlayerEvent]] objects and published on the message
+    * bus.
+    *
+    * @param player the radio player
+    * @return the event listener sink
+    */
+  private def createPlayerListenerSink(player: RadioPlayer): Sink[PlayerEvent, _] = {
+    val messageBus = clientContext.messageBus
+    Sink.foreach[PlayerEvent] { e =>
+      messageBus.publish(RadioPlayerEvent(e, player))
+    }
   }
 }
