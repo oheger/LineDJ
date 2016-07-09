@@ -41,9 +41,10 @@ object AudioPlayer {
     val downloadActor = config.actorCreator(SourceDownloadActor(config, bufferActor, readerActor)
       , "sourceDownloadActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor, null),
-      "playbackActor")
-    new AudioPlayer(playbackActor, downloadActor, List(bufferActor, readerActor))
+    val eventActor = config.actorCreator(Props[EventManagerActor], "eventManagerActor")
+    val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor,
+      eventActor), "playbackActor")
+    new AudioPlayer(playbackActor, downloadActor, eventActor, List(bufferActor, readerActor))
   }
 }
 
@@ -55,10 +56,13 @@ object AudioPlayer {
   *
   * @param playbackActor the playback actor
   * @param downloadActor the actor handling downloads
+  * @param eventManagerActor the actor for managing event listeners
   * @param otherActors a list with other actors to be managed by this player
   */
 class AudioPlayer private(protected override val playbackActor: ActorRef,
-                          downloadActor: ActorRef, otherActors: List[ActorRef])
+                          downloadActor: ActorRef,
+                          protected override val eventManagerActor: ActorRef,
+                          otherActors: List[ActorRef])
   extends PlayerControl {
   /**
     * Adds the specified ''AudioSourcePlaylistInfo'' object to the playlist

@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.{PlaybackActor, RadioDataSourceActor}
+import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
@@ -34,14 +34,16 @@ object RadioPlayer {
     * @return the new ''RadioPlayer'' instance
     */
   def apply(config: PlayerConfig): RadioPlayer = {
-    val sourceActor = config.actorCreator(RadioDataSourceActor(config, null), "radioDataSourceActor")
+    val eventActor = config.actorCreator(Props[EventManagerActor], "radioEventManagerActor")
+    val sourceActor = config.actorCreator(RadioDataSourceActor(config, eventActor),
+      "radioDataSourceActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
-    val playbackActor = config.actorCreator(PlaybackActor(config, sourceActor, lineWriterActor, null),
-      "radioPlaybackActor")
+    val playbackActor = config.actorCreator(PlaybackActor(config, sourceActor, lineWriterActor,
+      eventActor), "radioPlaybackActor")
     val schedulerActor = config.actorCreator(RadioSchedulerActor(sourceActor),
       "radioSchedulerActor")
 
-    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor)
+    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor, eventActor)
   }
 }
 
@@ -63,7 +65,8 @@ object RadioPlayer {
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override protected val playbackActor: ActorRef,
-                          sourceActor: ActorRef, schedulerActor: ActorRef)
+                          sourceActor: ActorRef, schedulerActor: ActorRef,
+                          override protected val eventManagerActor: ActorRef)
   extends PlayerControl {
   /**
     * Switches to the specified radio source. Playback of the current radio

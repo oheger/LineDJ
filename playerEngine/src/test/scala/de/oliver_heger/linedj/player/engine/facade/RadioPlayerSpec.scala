@@ -22,7 +22,7 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
-import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor, RadioDataSourceActor}
+import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
@@ -94,6 +94,13 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(exclusions))
   }
 
+  it should "pass the event actor to the super class" in {
+    val helper = new RadioPlayerTestHelper
+
+    helper.player removeEventSink 20160709
+    helper.probeEventActor.expectMsgType[EventManagerActor.RemoveSink]
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
@@ -110,6 +117,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the scheduler actor. */
     val probeSchedulerActor = TestProbe()
+
+    /** Test probe for the event manager actor. */
+    val probeEventActor = TestProbe()
 
     /** The test player configuration. */
     val config = createPlayerConfig()
@@ -136,8 +146,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         case "radioDataSourceActor" =>
           classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
           classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-          props.args should have length 1
-          props.args.head should be(config)
+          props.args should be(List(config, probeEventActor.ref))
           probeSourceActor.ref
 
         case "radioSchedulerActor" =>
@@ -148,10 +157,15 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.args.head should be(probeSourceActor.ref)
           probeSchedulerActor.ref
 
+        case "radioEventManagerActor" =>
+          props.actorClass() should be(classOf[EventManagerActor])
+          props.args should have size 0
+          probeEventActor.ref
+
         case "radioPlaybackActor" =>
           classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true
           props.args should contain theSameElementsAs List(config, probeSourceActor.ref,
-            probeLineWriterActor.ref)
+            probeLineWriterActor.ref, probeEventActor.ref)
           probePlaybackActor.ref
       }
     }

@@ -16,21 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
+import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.impl.{LineWriterActor, PlaybackActor}
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /**
   * Test class for ''PlayerControl''.
@@ -91,6 +92,31 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor])
   }
 
+  it should "support adding event listeners" in {
+    def createSink(): Sink[PlayerEvent, Any] =
+      Sink.foreach[PlayerEvent](println)
+
+    val helper = new PlayerControlTestHelper
+    val player = helper.createPlayerControl()
+    val sink1 = createSink()
+    val sink2 = createSink()
+
+    val regID1 = player registerEventSink sink1
+    val regID2 = player registerEventSink sink2
+    regID1 should not be regID2
+    helper.probeEventManagerActor.expectMsg(EventManagerActor.RegisterSink(regID1, sink1))
+    helper.probeEventManagerActor.expectMsg(EventManagerActor.RegisterSink(regID2, sink2))
+  }
+
+  it should "support removing event listeners" in {
+    val SinkID = 20160708
+    val helper = new PlayerControlTestHelper
+    val player = helper.createPlayerControl()
+
+    player removeEventSink SinkID
+    helper.probeEventManagerActor.expectMsg(EventManagerActor.RemoveSink(SinkID))
+  }
+
   /**
     * Creates a list of test actors that just react on a close request by
     * sending the corresponding ACK.
@@ -145,12 +171,16 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     /** The test playback actor. */
     val probePlaybackActor = TestProbe()
 
+    /** The test event manager actor. */
+    val probeEventManagerActor = TestProbe()
+
     /**
       * Creates a test instance of ''PlayerControl''.
       *
       * @return the test instance
       */
-    def createPlayerControl(): PlayerControlImpl = new PlayerControlImpl(probePlaybackActor.ref)
+    def createPlayerControl(): PlayerControlImpl = new PlayerControlImpl(probePlaybackActor.ref,
+      probeEventManagerActor.ref)
   }
 }
 
@@ -158,8 +188,10 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   * A test implementation of the trait which wraps the specified actor.
   *
   * @param playbackActor the playback actor
+  * @param eventManagerActor the event manager actor
   */
-private class PlayerControlImpl(override val playbackActor: ActorRef) extends PlayerControl {
+private class PlayerControlImpl(override val playbackActor: ActorRef,
+                                override val eventManagerActor: ActorRef) extends PlayerControl {
   override def closeActors(actors: Seq[ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
 

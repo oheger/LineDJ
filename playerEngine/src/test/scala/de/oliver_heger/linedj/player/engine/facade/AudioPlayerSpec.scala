@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
+import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
@@ -128,6 +129,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     expectCloseRequest(helper.playbackActor)
   }
 
+  it should "pass the event actor to the super class" in {
+    val helper = new AudioPlayerTestHelper
+    val sink = Sink.ignore
+
+    helper.player.registerEventSink(sink)
+    helper.eventActor.expectMsgType[EventManagerActor.RegisterSink]
+  }
+
   /**
     * A test helper class collecting all required dependencies.
     */
@@ -146,6 +155,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the source download actor. */
     val sourceDownloadActor = TestProbe()
+
+    /** Test probe for the event actor. */
+    val eventActor = TestProbe()
 
     /** The test player configuration. */
     val config = createPlayerConfig()
@@ -193,10 +205,15 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
             sourceReaderActor.ref)
           sourceDownloadActor.ref
 
+        case "eventManagerActor" =>
+          props.actorClass() should be(classOf[EventManagerActor])
+          props.args should have size 0
+          eventActor.ref
+
         case "playbackActor" =>
           classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true
           props.args should contain theSameElementsAs List(config, sourceReaderActor.ref,
-            lineWriterActor.ref)
+            lineWriterActor.ref, eventActor.ref)
           playbackActor.ref
       }
     }
