@@ -16,12 +16,15 @@
 
 package de.oliver_heger.linedj.radio
 
+import de.oliver_heger.linedj.client.model.DurationTransformer
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
-import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
+import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
@@ -35,6 +38,12 @@ object RadioController {
 
   /** The name of the stop playback action. */
   private val ActionStopPlayback = "stopPlaybackAction"
+
+  /** Resource key for the status text for normal playback. */
+  private val ResKeyStatusPlaybackNormal = "txt_status_playback"
+
+  /** Resource key for the status text for replacement playback. */
+  private val ResKeyStatusPlaybackReplace = "txt_status_replacement"
 }
 
 /**
@@ -48,22 +57,33 @@ object RadioController {
   *
   * @param player       the radio player to be managed
   * @param config       the current configuration (containing radio sources)
+  * @param applicationContext the application context
   * @param actionStore  the object for accessing actions
   * @param comboSources the combo box with the radio sources
+  * @param statusText handler for the status line
+  * @param playbackTime handler for the field with the playback time
+  * @param configFactory the factory for creating a radio source configuration
   */
-class RadioController(val player: RadioPlayer, val config: Configuration, actionStore: ActionStore,
-                      comboSources: ListComponentHandler,
+class RadioController(val player: RadioPlayer, val config: Configuration,
+                      applicationContext: ApplicationContext, actionStore: ActionStore,
+                      comboSources: ListComponentHandler, statusText: StaticTextHandler,
+                      playbackTime: StaticTextHandler,
                       val configFactory: Configuration => RadioSourceConfig)
   extends WindowListener with FormChangeListener {
 
-  def this(player: RadioPlayer, config: Configuration, actionStore: ActionStore,
-    comboSources: ListComponentHandler) = this(player, config, actionStore, comboSources,
-    RadioSourceConfig.apply)
+  def this(player: RadioPlayer, config: Configuration, applicationContext: ApplicationContext,
+           actionStore: ActionStore, comboSources: ListComponentHandler,
+           statusText: StaticTextHandler, playbackTime: StaticTextHandler) =
+    this(player, config, applicationContext, actionStore, comboSources, statusText, playbackTime,
+      RadioSourceConfig.apply)
 
   import RadioController._
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]
+
+  /** Stores the current radio source. */
+  private var currentSource: RadioSource = _
 
   /**
     * A flag that indicates that radio sources are currently updated. In this
@@ -136,6 +156,29 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
   }
 
   /**
+    * Notifies this controller that playback of the specified radio source has
+    * just started. This method is typically invoked in reaction of a player
+    * event. The controller updates the UI. It must be called in the event
+    * thread.
+    *
+    * @param src the source that is played
+    */
+  def radioSourcePlaybackStarted(src: RadioSource): Unit = {
+    statusText setText generateStatusText(src)
+  }
+
+  /**
+    * Notifies this controller about a change of the playback time for the
+    * current radio source. This method is invoked when a corresponding event
+    * from the player is received. It must be called in the event thread.
+    *
+    * @param time the updated playback time
+    */
+  def playbackTimeProgress(time: Long): Unit = {
+    playbackTime setText DurationTransformer.formatDuration(time * 1000)
+  }
+
+  /**
     * Updates the combo box with the radio sources from the configuration.
     *
     * @return the list of currently available radio sources
@@ -162,6 +205,22 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
   }
 
   /**
+    * Generates the text for the status line when playback of a source starts.
+    *
+    * @param src the source which is currently played
+    * @return the corresponding text for the status line
+    */
+  private def generateStatusText(src: RadioSource): String = {
+    if (src == currentSource) {
+      applicationContext.getResourceText(ResKeyStatusPlaybackNormal)
+    } else {
+      val srcData = radioSources.find(_._2 == src)
+      applicationContext.getResourceText(new Message(null, ResKeyStatusPlaybackReplace,
+        srcData.map(_._1) getOrElse src.uri))
+    }
+  }
+
+  /**
     * Starts playback of a radio source if sources are available. The source to
     * be played is obtained from the configuration; it this fails, playback
     * starts with the first available source.
@@ -169,8 +228,8 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
     * @param sources the list of available sources
     */
   private def startPlaybackIfPossible(sources: Seq[(String, RadioSource)]): Unit = {
-    val currentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
-    currentSource foreach { s =>
+    val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
+    optCurrentSource foreach { s =>
       player switchToSource s._2
       player.startPlayback()
       comboSources setData s._2
@@ -185,6 +244,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration, action
     * @param src information about the current source
     */
   private def storeCurrentSource(src: (String, RadioSource)): Unit = {
+    currentSource = src._2
     config.setProperty(KeyCurrentSource, src._1)
   }
 

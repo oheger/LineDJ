@@ -19,10 +19,12 @@ package de.oliver_heger.linedj.radio
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
+import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.Mockito
 import org.mockito.Mockito._
@@ -38,6 +40,9 @@ object RadioControllerSpec {
 
   /** Prefix for a radio source URI. */
   private val RadioSourceURI = "http://rad.io/"
+
+  /** A text resource for the status line. */
+  private val StatusText = "Text for the status line"
 
   /** The number of entries in the combo box. */
   private val ComboSize = 3
@@ -113,8 +118,8 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     config.addProperty("radio.sources.source.name", RadioSourceName)
     config.addProperty("radio.sources.source.uri", RadioSourceURI)
 
-    val ctrl = new RadioController(helper.player, config, helper.actionStore,
-      helper.comboHandler)
+    val ctrl = new RadioController(helper.player, config, helper.applicationContext,
+      helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler)
     val srcConfig = ctrl.configFactory(config)
     srcConfig.sources should have size 1
     srcConfig.sources.head._1 should be(RadioSourceName)
@@ -260,6 +265,42 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.player).initSourceExclusions(exclusions)
   }
 
+  it should "update the status text when the current source is played" in {
+    val helper = new RadioControllerTestHelper().expectResource("txt_status_playback")
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl radioSourcePlaybackStarted radioSource(1)
+    verify(helper.statusHandler).setText(StatusText)
+  }
+
+  it should "update the status text if a replacement source is played" in {
+    val replaceSrc = radioSource(2)
+    val msg = new Message(null, "txt_status_replacement", sourceName(2))
+    val helper = new RadioControllerTestHelper().expectMessageResource(msg)
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+
+    ctrl radioSourcePlaybackStarted replaceSrc
+    verify(helper.statusHandler).setText(StatusText)
+  }
+
+  it should "update the status text if an unknown replacement source is played" in {
+    val replaceSrc = radioSource(2)
+    val msg = new Message(null, "txt_status_replacement", replaceSrc.uri)
+    val helper = new RadioControllerTestHelper().expectMessageResource(msg)
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl radioSourcePlaybackStarted replaceSrc
+    verify(helper.statusHandler).setText(StatusText)
+  }
+
+  it should "update the playback time" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl playbackTimeProgress 65
+    verify(helper.playbackTimeHandler).setText("1:05")
+  }
+
   /**
     * Helper method for testing that an event is ignored. It is only checked
     * that the event is not touched.
@@ -323,8 +364,17 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** Mock for the radio player. */
     val player = mock[RadioPlayer]
 
+    /** Mock for the application context. */
+    val applicationContext = mock[ApplicationContext]
+
     /** Mock for the combo box handler. */
     val comboHandler = createComboHandlerMock()
+
+    /** Mock for the status line handler. */
+    val statusHandler = mock[StaticTextHandler]
+
+    /** Mock for the handler for the playback time. */
+    val playbackTimeHandler = mock[StaticTextHandler]
 
     /** A map with mock actions. */
     private val actions = createActionMap()
@@ -342,8 +392,8 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     def createController(srcConfig: RadioSourceConfig,
                          configuration: Configuration = new HierarchicalConfiguration):
     RadioController =
-      new RadioController(player, configuration, actionStore, comboHandler,
-        c => {
+      new RadioController(player, configuration, applicationContext, actionStore, comboHandler,
+        statusHandler, playbackTimeHandler, c => {
           c should be(configuration)
           srcConfig
         })
@@ -476,6 +526,32 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
+      * Prepares the mock application context for a resource request based on a
+      * resource key.
+      *
+      * @param key  the resource key
+      * @param text the text to be returned
+      * @return this test helper
+      */
+    def expectResource(key: AnyRef, text: String = StatusText): RadioControllerTestHelper = {
+      when(applicationContext.getResourceText(key)).thenReturn(text)
+      this
+    }
+
+    /**
+      * Prepares the mock application context for a resource request based on a
+      * ''Message'' object.
+      *
+      * @param msg  the expected message object
+      * @param text the text to be returned
+      * @return this test helper
+      */
+    def expectMessageResource(msg: Message, text: String = StatusText): RadioControllerTestHelper = {
+      when(applicationContext.getResourceText(msg)).thenReturn(text)
+      this
+    }
+
+    /**
       * Creates a mock for the combo box handler.
       *
       * @return the mock combo box handler
@@ -500,12 +576,12 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /**
       * Creates a mock for the action store that manages the specified actions.
       *
-      * @param actioMap a map with supported actions
+      * @param actionMap a map with supported actions
       * @return the mock action store
       */
-    private def createActionStore(actioMap: Map[String, FormAction]): ActionStore = {
+    private def createActionStore(actionMap: Map[String, FormAction]): ActionStore = {
       val store = mock[ActionStore]
-      actioMap foreach { e =>
+      actionMap foreach { e =>
         when(store.getAction(e._1)).thenReturn(e._2)
       }
       store

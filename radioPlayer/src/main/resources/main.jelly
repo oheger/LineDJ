@@ -90,10 +90,13 @@
     <f:panel>
       <f:borderconstr name="SOUTH"/>
       <f:borderlayout canShrink="false"/>
-
-      <f:statictext name="statusLine" text=""
+      <f:statictext name="statusLine" textres="txt_status_init"
                     alignment="left">
         <f:borderconstr name="CENTER"/>
+      </f:statictext>
+      <f:statictext name="playbackTime" text="00:00:00"
+                    alignment="right">
+        <f:borderconstr name="EAST"/>
       </f:statictext>
     </f:panel>
 
@@ -110,8 +113,11 @@
       <di:constructor>
         <di:param refName="radioApp_player"/>
         <di:param refName="radioApp_config"/>
+        <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="comp:comboStations"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param refName="comp:playbackTime"/>
       </di:constructor>
     </di:bean>
 
