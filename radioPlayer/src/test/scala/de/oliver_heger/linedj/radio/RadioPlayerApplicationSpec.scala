@@ -20,14 +20,15 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
 
 import akka.NotUsed
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorSystem}
 import akka.pattern.AskTimeoutException
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext}
+import de.oliver_heger.linedj.client.app._
+import de.oliver_heger.linedj.client.remoting.MessageBus
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
@@ -211,12 +212,20 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     })
     val playerEvent = AudioSourceStartedEvent(AudioSource.infinite("testRadioSource"))
     val source = Source.single[Any](playerEvent)
-    val sink = captor.getValue.asInstanceOf[Sink[Any,NotUsed]]
+    val sink = captor.getValue
     source.runWith(sink)
     val publishedEvent = eventQueue.poll(3, TimeUnit.SECONDS)
     publishedEvent should not be null
     publishedEvent.event should be(playerEvent)
     publishedEvent.player should be(helper.player)
+  }
+
+  it should "register message bus listeners" in {
+    val helper = new RadioPlayerApplicationTestHelper(mockUI = false)
+    val app = helper.activateRadioApp()
+
+    val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
+    verify(uiBus).registerListener(any(classOf[Actor.Receive]))
   }
 
   /**

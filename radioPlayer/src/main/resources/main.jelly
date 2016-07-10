@@ -62,6 +62,19 @@
   <!-- The model of the radio sources combo box. -->
   <di:bean name="radioSourcesModel" beanClassName="de.oliver_heger.linedj.radio.EmptyRadioSourcesListModel"/>
 
+  <!-- Message bus registration -->
+  <di:bean name="LineDJ_messageBusRegistration"
+           beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="radioPlayerEventListener"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+  </di:bean>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:borderlayout canShrink="false"/>
@@ -123,6 +136,15 @@
 
     <w:controller beanName="radioController"/>
   </w:frame>
+
+  <!-- MessageBus listener for player events. -->
+  <di:bean name="radioPlayerEventListener"
+    beanClassName="de.oliver_heger.linedj.radio.RadioPlayerEventListener">
+    <di:constructor>
+      <di:param refName="radioController"/>
+      <di:param refName="radioApp_player"/>
+    </di:constructor>
+  </di:bean>
 
   <!-- Action tasks and commands -->
 

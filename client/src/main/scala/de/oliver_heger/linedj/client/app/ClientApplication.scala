@@ -36,6 +36,13 @@ object ClientApplication {
   val BeanRemoteMessageBus = BeanPrefix + "RemoteMessageBus"
 
   /**
+    * The bean for the message bus registration. If a bean with this name is
+    * available in the bean context for the main window, it is requested and
+    * thus initialized automatically.
+    */
+  val BeanMessageBusRegistration = BeanPrefix + "messageBusRegistration"
+
+  /**
     * The name of a blocking dispatcher in the actor system configuration.
     * Client applications can use this dispatcher for actors that do blocking
     * operations of any kind.
@@ -51,6 +58,12 @@ object ClientApplication {
   * arbitrary main window. However, it implements functionality to obtain some
   * central platform beans from the [[ClientApplicationContext]] and make them
   * available in its own ''BeanContext''.
+  *
+  * There is also some support for registering listeners on the system-wide
+  * message bus: If the Jelly script for the main window defines a bean named
+  * ''LineDJ_messageBusRegistration'', this bean is fetched during startup and
+  * thus initialized. This typically causes the registration of the listeners
+  * used by this application.
   *
   * This class is intended to be used as a declarative services component. It
   * needs a static reference to a [[ClientApplicationContext]] service; as soon
@@ -128,6 +141,10 @@ class ClientApplication(val configName: String) extends Application {
     */
   override def initGUI(appCtx: ApplicationContext): Unit = {
     super.initGUI(appCtx)
+    if (getMainWindowBeanContext containsBean BeanMessageBusRegistration) {
+      // trigger initialization of this bean
+      getMainWindowBeanContext getBean BeanMessageBusRegistration
+    }
     clientApplicationContext.remoteMessageBus.queryServerState()
   }
 }
