@@ -37,7 +37,6 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
       @throws[Exception](classOf[Exception])
       override def preStart(): Unit = {
         super.preStart()
-        import context.dispatcher
         cancellable = scheduleMessage(delay, interval, self, message)
       }
 
@@ -62,7 +61,6 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
       @throws[Exception](classOf[Exception])
       override def preStart(): Unit = {
         super.preStart()
-        import context.dispatcher
         scheduleMessageOnce(delay, self, message)
       }
 

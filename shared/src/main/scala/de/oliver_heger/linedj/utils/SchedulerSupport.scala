@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.utils
 
 import akka.actor.{Actor, ActorRef, Cancellable}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -32,6 +31,8 @@ import scala.concurrent.duration.FiniteDuration
  * correctly used.
  */
 trait SchedulerSupport extends Actor {
+  import context.dispatcher
+
   /**
     * Schedules a message for being sent periodically to a receiver. This
     * implementation delegates to the default scheduler of the system.
@@ -40,12 +41,10 @@ trait SchedulerSupport extends Actor {
     * @param interval     the interval
     * @param receiver     the receiver
     * @param message      the message to be sent
-    * @param ec           an implicit execution context
     * @return an object for canceling task execution
     */
   def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver: ActorRef,
-                      message: Any)
-                     (implicit ec: ExecutionContext): Cancellable =
+                      message: Any): Cancellable =
     context.system.scheduler.schedule(initialDelay, interval, receiver, message)
 
   /**
@@ -54,10 +53,8 @@ trait SchedulerSupport extends Actor {
     * @param delay    the delay
     * @param receiver the receiver
     * @param message  the message to be sent
-    * @param ec       an implicit execution context
     * @return an object for canceling task execution
     */
-  def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any)
-                         (implicit ec: ExecutionContext): Cancellable =
+  def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any): Cancellable =
     context.system.scheduler.scheduleOnce(delay, receiver, message)
 }

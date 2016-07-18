@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorRef, Cancellable}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object RecordingSchedulerSupport {
@@ -91,9 +90,7 @@ trait RecordingSchedulerSupport extends SchedulerSupport {
    *             queue
    */
   override def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver:
-  ActorRef, message: Any)(implicit ec: ExecutionContext): Cancellable = {
-    assertExecutionContext(ec)
-
+  ActorRef, message: Any): Cancellable = {
     val cancellable = new CancellableImpl
     queue put SchedulerInvocation(initialDelay, interval, receiver, message, cancellable)
     cancellable
@@ -102,23 +99,10 @@ trait RecordingSchedulerSupport extends SchedulerSupport {
   /**
     * @inheritdoc Records this invocation.
     */
-  override def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any)
-                                  (implicit ec: ExecutionContext): Cancellable = {
-    assertExecutionContext(ec)
-
+  override def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any):
+  Cancellable = {
     val cancellable = new CancellableImpl
     queue put SchedulerInvocation(delay, null, receiver, message, cancellable)
     cancellable
-  }
-
-  /**
-    * Verifies that an execution context is present.
-    *
-    * @param ec the execution context to be checked
-    */
-  private def assertExecutionContext(ec: ExecutionContext): Unit = {
-    if (ec == null) {
-      throw new AssertionError("No execution context!")
-    }
   }
 }
