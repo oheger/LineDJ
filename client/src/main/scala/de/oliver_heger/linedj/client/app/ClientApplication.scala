@@ -141,7 +141,8 @@ class ClientApplication(val configName: String) extends Application {
     */
   override def initGUI(appCtx: ApplicationContext): Unit = {
     super.initGUI(appCtx)
-    if (getMainWindowBeanContext containsBean BeanMessageBusRegistration) {
+    if (getMainWindowBeanContext != null &&
+      getMainWindowBeanContext.containsBean(BeanMessageBusRegistration)) {
       // trigger initialization of this bean
       getMainWindowBeanContext getBean BeanMessageBusRegistration
     }
