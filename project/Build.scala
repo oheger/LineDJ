@@ -25,7 +25,7 @@ import sbt._
 
 object Build extends Build {
   /** Definition of versions. */
-  lazy val AkkaVersion = "2.4.4"
+  lazy val AkkaVersion = "2.4.8"
   lazy val OsgiVersion = "5.0.0"
 
   /** The copyright dates. */
@@ -45,7 +45,7 @@ object Build extends Build {
   )
 
   lazy val jguiraffeDependencies = Seq(
-    "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" changing() exclude
+    "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3.1" exclude
       ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
     "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
   )
@@ -62,7 +62,7 @@ object Build extends Build {
 
   val defaultSettings = Seq(
     version := "1.0-SNAPSHOT",
-    scalaVersion := "2.11.7",
+    scalaVersion := "2.11.8",
     libraryDependencies ++= akkaDependencies,
     libraryDependencies ++= testDependencies,
     libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
