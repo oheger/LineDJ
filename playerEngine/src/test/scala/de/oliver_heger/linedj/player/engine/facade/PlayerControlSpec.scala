@@ -26,7 +26,7 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{DelayActor, PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -67,7 +67,18 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player.startPlayback()
-    helper.probePlaybackActor.expectMsg(PlaybackActor.StartPlayback)
+    helper.expectDelayedMessage(PlaybackActor.StartPlayback, helper.probePlaybackActor.ref,
+      DelayActor.NoDelay)
+  }
+
+  it should "allow starting playback with a delay" in {
+    val helper = new PlayerControlTestHelper
+    val player = helper.createPlayerControl()
+    val Delay = 1.minute
+
+    player.startPlayback(Delay)
+    helper.expectDelayedMessage(PlaybackActor.StartPlayback, helper.probePlaybackActor.ref,
+      Delay)
   }
 
   it should "allow stopping playback" in {
@@ -75,7 +86,18 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player.stopPlayback()
-    helper.probePlaybackActor.expectMsg(PlaybackActor.StopPlayback)
+    helper.expectDelayedMessage(PlaybackActor.StopPlayback, helper.probePlaybackActor.ref,
+      DelayActor.NoDelay)
+  }
+
+  it should "allow stopping playback with a delay" in {
+    val helper = new PlayerControlTestHelper
+    val player = helper.createPlayerControl()
+    val Delay = 30.seconds
+
+    player.stopPlayback(Delay)
+    helper.expectDelayedMessage(PlaybackActor.StopPlayback, helper.probePlaybackActor.ref,
+      Delay)
   }
 
   it should "allow skipping the current source" in {
@@ -174,13 +196,27 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     /** The test event manager actor. */
     val probeEventManagerActor = TestProbe()
 
+    /** The test delay actor. */
+    val probeDelayActor = TestProbe()
+
     /**
       * Creates a test instance of ''PlayerControl''.
       *
       * @return the test instance
       */
     def createPlayerControl(): PlayerControlImpl = new PlayerControlImpl(probePlaybackActor.ref,
-      probeEventManagerActor.ref)
+      probeEventManagerActor.ref, probeDelayActor.ref)
+
+    /**
+      * Expects a delayed invocation using the delay actor.
+      *
+      * @param msg    the message
+      * @param target the target actor
+      * @param delay  the delay
+      */
+    def expectDelayedMessage(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
+      probeDelayActor.expectMsg(DelayActor.Propagate(msg, target, delay))
+    }
   }
 }
 
@@ -191,7 +227,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   * @param eventManagerActor the event manager actor
   */
 private class PlayerControlImpl(override val playbackActor: ActorRef,
-                                override val eventManagerActor: ActorRef) extends PlayerControl {
+                                override val eventManagerActor: ActorRef,
+                                override val delayActor: ActorRef) extends PlayerControl {
   override def closeActors(actors: Seq[ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
 

@@ -23,9 +23,10 @@ import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{DelayActor, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object PlayerControl {
@@ -65,10 +66,14 @@ object PlayerControl {
   * This trait assumes that a concrete player makes use of a
   * ''PlaybackActor''. It already implements some common methods for typical
   * interactions with this actor. There are also some other helper functions
-  * that can be used by player implementations.
+  * that can be used by player implementations. For instance, there is
+  * support for the registration of event listeners and for delayed invocations
+  * of operations.
   *
-  * A class extending this trait has to provide access to the ''PlaybackActor''
-  * so that it can be accessed by methods in this trait.
+  * A class extending this trait has to provide access to a number of actors
+  * that are referenced by methods of this trait. That way, functionality
+  * using these actors can already be implemented while the concrete logic of
+  * creating the required actors is left to concrete implementations.
   */
 trait PlayerControl {
   /** The actor responsible for playback. */
@@ -76,6 +81,9 @@ trait PlayerControl {
 
   /** The actor for generating events. */
   protected val eventManagerActor: ActorRef
+
+  /** The actor for delayed invocations. */
+  protected val delayActor: ActorRef
 
   /** A counter for generating unique sink registration IDs. */
   private val regIdCounter = new AtomicInteger
@@ -103,18 +111,24 @@ trait PlayerControl {
 
   /**
     * Starts audio playback. Provided that sufficient audio data has been
-    * loaded, playback will start.
+    * loaded, playback will start. Optionally, it is possible to specify a
+    * delay. The start of playback will then be scheduled after that delay.
+    *
+    * @param delay a delay for starting playback
     */
-  def startPlayback(): Unit = {
-    playbackActor ! PlaybackActor.StartPlayback
+  def startPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+    invokeDelayed(PlaybackActor.StartPlayback, playbackActor, delay)
   }
 
   /**
     * Stops audio playback. Playback is paused and can be continued by calling
-    * ''startPlayback()''.
+    * ''startPlayback()''. Optionally, it is possible to specify a delay when
+    * playback should stop.
+    *
+    * @param delay a delay for stopping playback
     */
-  def stopPlayback(): Unit = {
-    playbackActor ! PlaybackActor.StopPlayback
+  def stopPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+    invokeDelayed(PlaybackActor.StopPlayback, playbackActor, delay)
   }
 
   /**
@@ -161,6 +175,18 @@ trait PlayerControl {
     * @return a ''Future'' for the ''CloseAck'' messages from child actors
     */
   def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]]
+
+  /**
+    * Invokes an actor with a delay. This method sends a corresponding message
+    * to the ''DelayActor''.
+    *
+    * @param msg    the message
+    * @param target the target actor
+    * @param delay  the delay
+    */
+  protected def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
+    delayActor ! DelayActor.Propagate(msg, target, delay)
+  }
 
   /**
     * Closes the provided actors by sending them a ''CloseRequest'' message and

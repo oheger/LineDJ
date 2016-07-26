@@ -100,4 +100,6 @@ class AudioPlayer private(protected override val playbackActor: ActorRef,
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(playbackActor :: downloadActor :: otherActors)
+
+  override protected val delayActor: ActorRef = null
 }

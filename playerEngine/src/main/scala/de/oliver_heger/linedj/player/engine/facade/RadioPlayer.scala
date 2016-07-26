@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object RadioPlayer {
@@ -95,11 +96,13 @@ class RadioPlayer private(val config: PlayerConfig,
     *             source actor to make sure that no outdated audio data is
     *             played.
     */
-  override def startPlayback(): Unit = {
+  override def startPlayback(delay: FiniteDuration = null): Unit = {
     sourceActor ! RadioDataSourceActor.ClearSourceBuffer
     super.startPlayback()
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(List(playbackActor, sourceActor, schedulerActor))
+
+  override protected val delayActor: ActorRef = null
 }
