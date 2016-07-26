@@ -21,7 +21,7 @@ import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{DelayActor, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
@@ -55,15 +55,35 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player switchToSource source
-    helper.probeSchedulerActor.expectMsg(source)
+    helper.expectDelayed(source, helper.probeSchedulerActor, DelayActor.NoDelay)
   }
 
-  it should "clear the buffer when playback starts" in {
+  it should "support switching the radio source with a delay" in {
+    val source = RadioSource("Radio Download")
+    val helper = new RadioPlayerTestHelper
+    val Delay = 5.minutes
+
+    helper.player.switchToSource(source, Delay)
+    helper.expectDelayed(source, helper.probeSchedulerActor, Delay)
+  }
+
+  it should "clear the buffer when playback starts and there is no delay" in {
     val helper = new RadioPlayerTestHelper
 
     helper.player.startPlayback()
-    helper.probePlaybackActor.expectMsg(PlaybackActor.StartPlayback)
+    helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
+      DelayActor.NoDelay)
     helper.probeSourceActor.expectMsg(RadioDataSourceActor.ClearSourceBuffer)
+  }
+
+  it should "not clear the buffer for a delayed start of playback" in {
+    val helper = new RadioPlayerTestHelper
+    val Delay = 1.second
+
+    helper.player.startPlayback(Delay)
+    helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
+      Delay)
+    helper.probeSourceActor.expectNoMsg(150.millis)
   }
 
   it should "provide access to its current config" in {
@@ -83,6 +103,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.probeSourceActor.expectMsg(CloseRequest)
     helper.probePlaybackActor.expectMsg(CloseRequest)
     helper.probeSchedulerActor.expectMsg(CloseRequest)
+    helper.probeDelayActor.expectMsg(CloseRequest)
   }
 
   it should "support exclusions for radio sources" in {
@@ -121,11 +142,25 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** Test probe for the event manager actor. */
     val probeEventActor = TestProbe()
 
+    /** Test probe for the delay actor. */
+    val probeDelayActor = TestProbe()
+
     /** The test player configuration. */
     val config = createPlayerConfig()
 
     /** The player to be tested. */
     val player = RadioPlayer(config)
+
+    /**
+      * Expect a delayed invocation via the delay actor.
+      *
+      * @param msg    the message
+      * @param target the target test probe
+      * @param delay  the delay
+      */
+    def expectDelayed(msg: Any, target: TestProbe, delay: FiniteDuration): Unit = {
+      probeDelayActor.expectMsg(DelayActor.Propagate(msg, target.ref, delay))
+    }
 
     /**
       * An actor creator function. This implementation checks the parameters
@@ -161,6 +196,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.actorClass() should be(classOf[EventManagerActor])
           props.args should have size 0
           probeEventActor.ref
+
+        case "radioDelayActor" =>
+          props should be(DelayActor())
+          probeDelayActor.ref
 
         case "radioPlaybackActor" =>
           classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true

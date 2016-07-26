@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{DelayActor, PlayerConfig, RadioSource}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,8 +43,10 @@ object RadioPlayer {
       eventActor), "radioPlaybackActor")
     val schedulerActor = config.actorCreator(RadioSchedulerActor(sourceActor),
       "radioSchedulerActor")
+    val delayActor = config.actorCreator(DelayActor(), "radioDelayActor")
 
-    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor, eventActor)
+    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor, eventActor,
+      delayActor)
   }
 }
 
@@ -59,24 +61,29 @@ object RadioPlayer {
   * As this class is a facade of multiple actors, accessing it from multiple
   * threads is safe.
   *
-  * @param config        the configuration for this player
-  * @param playbackActor reference to the playback actor
-  * @param sourceActor   reference to the radio source actor
-  * @param schedulerActor reference to the scheduler actor
+  * @param config            the configuration for this player
+  * @param playbackActor     reference to the playback actor
+  * @param sourceActor       reference to the radio source actor
+  * @param schedulerActor    reference to the scheduler actor
+  * @param eventManagerActor reference to the event manager actor
+  * @param delayActor        reference to the delay actor
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override protected val playbackActor: ActorRef,
                           sourceActor: ActorRef, schedulerActor: ActorRef,
-                          override protected val eventManagerActor: ActorRef)
+                          override protected val eventManagerActor: ActorRef,
+                          override protected val delayActor: ActorRef)
   extends PlayerControl {
   /**
     * Switches to the specified radio source. Playback of the current radio
     * stream - if any - is stopped. Then the new stream is opened and played.
+    * It is possible to specify a delay when this should happen.
     *
     * @param source identifies the radio stream to be played
+    * @param delay an optional delay for this operation
     */
-  def switchToSource(source: RadioSource): Unit = {
-    schedulerActor ! source
+  def switchToSource(source: RadioSource, delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+    invokeDelayed(source, schedulerActor, delay)
   }
 
   /**
@@ -94,15 +101,19 @@ class RadioPlayer private(val config: PlayerConfig,
   /**
     * @inheritdoc This implementation also sends a clear buffer message to the
     *             source actor to make sure that no outdated audio data is
-    *             played.
+    *             played. Note: This happens only if no delay is specified!
+    *             Normally, for this player playback should not be started with
+    *             a delay. Rather, the ''switchToSource()'' method should be
+    *             invoked with a delay; this causes the start of audio
+    *             streaming at the desired time.
     */
-  override def startPlayback(delay: FiniteDuration = null): Unit = {
-    sourceActor ! RadioDataSourceActor.ClearSourceBuffer
-    super.startPlayback()
+  override def startPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+    if (delay <= DelayActor.NoDelay) {
+      sourceActor ! RadioDataSourceActor.ClearSourceBuffer
+    }
+    super.startPlayback(delay)
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(playbackActor, sourceActor, schedulerActor))
-
-  override protected val delayActor: ActorRef = null
+    closeActors(List(playbackActor, sourceActor, schedulerActor, delayActor))
 }
