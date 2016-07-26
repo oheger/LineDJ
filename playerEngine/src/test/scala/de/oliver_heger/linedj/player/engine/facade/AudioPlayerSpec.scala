@@ -24,7 +24,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, DelayActor, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.mock.MockitoSugar
@@ -95,14 +95,16 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player.startPlayback()
-    helper.playbackActor.expectMsg(PlaybackActor.StartPlayback)
+    helper.delayActor.expectMsg(DelayActor.Propagate(PlaybackActor.StartPlayback,
+      helper.playbackActor.ref, DelayActor.NoDelay))
   }
 
   it should "support stopping playback" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.stopPlayback()
-    helper.playbackActor.expectMsg(PlaybackActor.StopPlayback)
+    helper.delayActor.expectMsg(DelayActor.Propagate(PlaybackActor.StopPlayback,
+      helper.playbackActor.ref, DelayActor.NoDelay))
   }
 
   it should "allow skipping the current source" in {
@@ -127,6 +129,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     expectCloseRequest(helper.sourceReaderActor)
     expectCloseRequest(helper.bufferActor)
     expectCloseRequest(helper.playbackActor)
+    expectCloseRequest(helper.delayActor)
   }
 
   it should "pass the event actor to the super class" in {
@@ -158,6 +161,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the event actor. */
     val eventActor = TestProbe()
+
+    /** Test probe for the delay actor. */
+    val delayActor = TestProbe()
 
     /** The test player configuration. */
     val config = createPlayerConfig()
@@ -209,6 +215,12 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.actorClass() should be(classOf[EventManagerActor])
           props.args should have size 0
           eventActor.ref
+
+        case "delayActor" =>
+          classOf[DelayActor] isAssignableFrom props.actorClass() shouldBe true
+          classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
+          props.args shouldBe 'empty
+          delayActor.ref
 
         case "playbackActor" =>
           classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true

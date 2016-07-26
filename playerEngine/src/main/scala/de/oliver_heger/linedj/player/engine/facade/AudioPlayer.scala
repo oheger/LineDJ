@@ -20,7 +20,7 @@ import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, DelayActor, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,9 +42,11 @@ object AudioPlayer {
       , "sourceDownloadActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val eventActor = config.actorCreator(Props[EventManagerActor], "eventManagerActor")
+    val delayActor = config.actorCreator(DelayActor(), "delayActor")
     val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor,
       eventActor), "playbackActor")
-    new AudioPlayer(playbackActor, downloadActor, eventActor, List(bufferActor, readerActor))
+    new AudioPlayer(playbackActor, downloadActor, eventActor, delayActor,
+      List(bufferActor, readerActor))
   }
 }
 
@@ -57,11 +59,13 @@ object AudioPlayer {
   * @param playbackActor the playback actor
   * @param downloadActor the actor handling downloads
   * @param eventManagerActor the actor for managing event listeners
+  * @param delayActor the actor for delayed execution
   * @param otherActors a list with other actors to be managed by this player
   */
 class AudioPlayer private(protected override val playbackActor: ActorRef,
                           downloadActor: ActorRef,
                           protected override val eventManagerActor: ActorRef,
+                          protected override val delayActor: ActorRef,
                           otherActors: List[ActorRef])
   extends PlayerControl {
   /**
@@ -99,7 +103,5 @@ class AudioPlayer private(protected override val playbackActor: ActorRef,
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(playbackActor :: downloadActor :: otherActors)
-
-  override protected val delayActor: ActorRef = null
+    closeActors(playbackActor :: downloadActor :: delayActor :: otherActors)
 }
