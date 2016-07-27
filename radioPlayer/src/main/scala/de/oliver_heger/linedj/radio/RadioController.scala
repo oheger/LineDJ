@@ -28,10 +28,27 @@ import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
+import scala.concurrent.duration._
 
 object RadioController {
+  /**
+    * Constant for an initial delay before starting playback (in milliseconds).
+    *
+    * It might be necessary to wait for a while until the audio player engine
+    * is set up, and all playback context factories have been registered. The
+    * time to wait can be specified in the configuration. If this is not done,
+    * this default value is used.
+    */
+  val DefaultInitialDelay = 5000
+
+  /** Common prefix for all configuration keys. */
+  private val ConfigKeyPrefix = "radio."
+
   /** Configuration key for the current source. */
-  private val KeyCurrentSource = "radio.current"
+  private val KeyCurrentSource = ConfigKeyPrefix + "current"
+
+  /** Configuration key for the initial delay. */
+  private val KeyInitialDelay = ConfigKeyPrefix + "initialDelay"
 
   /** The name of the start playback action. */
   private val ActionStartPlayback = "startPlaybackAction"
@@ -116,7 +133,8 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
       enableAction(ActionStartPlayback, enabled = false)
       enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
 
-      startPlaybackIfPossible(radioSources)
+      startPlaybackIfPossible(radioSources,
+        config.getInt(KeyInitialDelay, DefaultInitialDelay).millis)
     } finally sourcesUpdating = false
   }
 
@@ -226,11 +244,13 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * starts with the first available source.
     *
     * @param sources the list of available sources
+    * @param delay a delay for switching to the radio source
     */
-  private def startPlaybackIfPossible(sources: Seq[(String, RadioSource)]): Unit = {
+  private def startPlaybackIfPossible(sources: Seq[(String, RadioSource)],
+                                      delay: FiniteDuration): Unit = {
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
-      player switchToSource s._2
+      player.switchToSource(s._2, delay)
       player.startPlayback()
       comboSources setData s._2
       storeCurrentSource(s)

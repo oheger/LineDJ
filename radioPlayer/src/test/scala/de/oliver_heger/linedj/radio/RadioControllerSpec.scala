@@ -26,13 +26,16 @@ import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.mockito.Matchers._
+import org.mockito.Matchers.{eq => argEq}
 import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.mockito.Matchers._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.concurrent.duration._
 
 object RadioControllerSpec {
   /** Prefix for a radio source name. */
@@ -162,7 +165,6 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.createInitializedController(createSourceConfiguration(1))
 
     helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
-      .verifyNoMoreInteractionWithPlayer()
   }
 
   it should "start playback with the stored source from the configuration" in {
@@ -173,7 +175,16 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.createInitializedController(srcConfig, config)
 
     helper.verifySelectedSource(2).verifySwitchSource(radioSource(2)).verifyStartPlayback()
-      .verifyNoMoreInteractionWithPlayer()
+  }
+
+  it should "start playback with a configured delay" in {
+    val helper = new RadioControllerTestHelper
+    val config = new HierarchicalConfiguration
+    val Delay = 1.second
+    config.addProperty("radio.initialDelay", Delay.toMillis)
+    helper.createInitializedController(createSourceConfiguration(1), config)
+
+    helper.verifySwitchSource(radioSource(1), Delay).verifyStartPlayback()
   }
 
   it should "store the current source in the configuration after startup" in {
@@ -193,7 +204,6 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.createInitializedController(srcConfig, config)
 
     helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
-      .verifyNoMoreInteractionWithPlayer()
   }
 
   it should "react on changes in the radio sources selection" in {
@@ -203,7 +213,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     doReturn(src).when(helper.comboHandler).getData
 
     ctrl elementChanged mock[FormChangeEvent]
-    helper.verifySwitchSource(radioSource(2))
+    helper.verifySwitchSource(radioSource(2), null)
   }
 
   it should "update the current source in the config after a change in the combo selection" in {
@@ -224,7 +234,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     doReturn(null).when(helper.comboHandler).getData
 
     ctrl elementChanged mock[FormChangeEvent]
-    helper.verifyNoMoreInteractionWithPlayer(exclusions = false)
+    verifyZeroInteractions(helper.player)
   }
 
   it should "ignore change events while populating the sources combo box" in {
@@ -240,7 +250,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     ctrl windowOpened event()
     helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
-      .verifyNoMoreInteractionWithPlayer()
+    verify(helper.player, never()).switchToSource(argEq(radioSource(2)), any[FiniteDuration])
   }
 
   it should "reset the sources update flag after the update" in {
@@ -251,7 +261,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     doReturn(selectedSource).when(helper.comboHandler).getData
     ctrl.elementChanged(null)
-    helper verifySwitchSource selectedSource
+    helper.verifySwitchSource(selectedSource, null)
   }
 
   it should "send exclusion data to the radio player" in {
@@ -486,8 +496,9 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       * @param src the source
       * @return this test helper
       */
-    def verifySwitchSource(src: RadioSource): RadioControllerTestHelper = {
-      verify(player).switchToSource(src)
+    def verifySwitchSource(src: RadioSource, delay: FiniteDuration = 5.seconds):
+    RadioControllerTestHelper = {
+      verify(player).switchToSource(src, delay)
       this
     }
 
@@ -508,20 +519,6 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       */
     def verifyStopPlayback(): RadioControllerTestHelper = {
       verify(player).stopPlayback()
-      this
-    }
-
-    /**
-      * Verifies that further interaction occurred with the player.
-      *
-      * @param exclusions a flag whether setting of exclusions should be respected
-      * @return this test helper
-      */
-    def verifyNoMoreInteractionWithPlayer(exclusions: Boolean = true): RadioControllerTestHelper = {
-      if (exclusions) {
-        verify(player).initSourceExclusions(any())
-      }
-      verifyNoMoreInteractions(player)
       this
     }
 
