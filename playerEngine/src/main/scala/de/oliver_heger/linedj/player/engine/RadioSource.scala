@@ -16,6 +16,29 @@
 
 package de.oliver_heger.linedj.player.engine
 
+object RadioSource {
+  /**
+    * A ranking function for radio sources.
+    *
+    * This is used by some parts of the radio player engine to select a
+    * specific source if there are multiple options; for instance, if the
+    * desired source cannot be played due to an error, and now a replacement
+    * source is needed.
+    *
+    * The ranking function assigns a numeric value to a radio source. Sources
+    * with a higher ranking are preferred over sources with a lower ranking. It
+    * is up to a concrete application to map this to specific numeric values.
+    */
+  type Ranking = RadioSource => Int
+
+  /**
+    * A dummy ranking function that assigns the same numeric value - zero - to
+    * all radio sources. This is useful if all sources should be treated the
+    * same way and there is no prioritization.
+    */
+  val NoRanking: Ranking = _ => 0
+}
+
 /**
   * A data class identifying a radio stream to be played.
   *
