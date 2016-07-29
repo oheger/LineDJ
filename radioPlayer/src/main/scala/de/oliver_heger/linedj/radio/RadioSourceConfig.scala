@@ -31,6 +31,12 @@ import org.slf4j.LoggerFactory
   * This object allows the creation of ''RadioSourceConfig'' instances.
   */
 object RadioSourceConfig {
+  /**
+    * Constant for a default value ranking. This ranking is assigned to a
+    * radio source if no explicit value is specified in the configuration.
+    */
+  val DefaultRanking = 0
+
   /** Configuration key for the radio sources. */
   private val KeySources = "radio.sources.source"
 
@@ -39,6 +45,9 @@ object RadioSourceConfig {
 
   /** Configuration key for the URI of a radio source. */
   private val KeySourceURI = "uri"
+
+  /** Configuration key for the ranking of a radio source. */
+  private val KeySourceRanking = "ranking"
 
   /** Configuration key for the extension of a radio source. */
   private val KeySourceExtension = "extension"
@@ -74,16 +83,18 @@ object RadioSourceConfig {
   def apply(config: Configuration): RadioSourceConfig = {
     val srcData = readSourcesFromConfig(config)
     val sources = srcData map (t => (t._1, t._2))
-    val exclusions = srcData map(t => (t._2, t._3))
-    RadioSourceConfigImpl(sources, exclusions.toMap)
+    val exclusions = srcData map(t => (t._2, t._4))
+    val ranking = srcData.map(t => (t._2, t._3)).toMap
+    RadioSourceConfigImpl(sources, exclusions.toMap, ranking)
   }
 
   /**
     * Reads the defined radio sources from the configuration.
     *
-    * @return a sequence with the extracted radio sources
+    * @return a sequence with the extracted radio sources: the name, the source
+    *         itself, the ranking, and the associated interval queries
     */
-  private def readSourcesFromConfig(config: Configuration): Seq[(String, RadioSource,
+  private def readSourcesFromConfig(config: Configuration): Seq[(String, RadioSource, Int,
     Seq[IntervalQuery])] = {
     val srcConfigs = config.asInstanceOf[HierarchicalConfiguration].configurationsAt(KeySources)
     import collection.JavaConversions._
@@ -91,9 +102,9 @@ object RadioSourceConfig {
       c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
     } map { c =>
       (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString
-      (KeySourceExtension))), readExclusions(c))
+      (KeySourceExtension))), c.getInt(KeySourceRanking, DefaultRanking), readExclusions(c))
     }
-    sources.seq sortWith (_._1 < _._1)
+    sources.seq sortWith compareSources
   }
 
   /**
@@ -112,6 +123,19 @@ object RadioSourceConfig {
       }
     }
   }
+
+  /**
+    * Compares two elements from the sequence of radio source data. This is
+    * used to order the radio sources based on their ranking and their name.
+    *
+    * @param t1 the first tuple
+    * @param t2 the second tuple
+    * @return '''true''' if t1 is less than t2
+    */
+  private def compareSources(t1: (String, RadioSource, Int, Seq[_]),
+                             t2: (String, RadioSource, Int, Seq[_])): Boolean =
+  if (t1._3 != t2._3) t1._3 > t2._3
+  else t1._1 < t2._1
 
   /**
     * Tries to parse an interval query from an exclusion element in the
@@ -186,10 +210,16 @@ object RadioSourceConfig {
     *
     * @param sources    the list with sources
     * @param exclusions the map with exclusions
+    * @param rankingMap a map with source rankings
     */
   private case class RadioSourceConfigImpl(override val sources: Seq[(String, RadioSource)],
                                            override val exclusions: Map[RadioSource,
-                                             Seq[IntervalQuery]]) extends RadioSourceConfig
+                                             Seq[IntervalQuery]],
+                                           rankingMap: Map[RadioSource, Int])
+    extends RadioSourceConfig {
+    override def ranking(source: RadioSource): Int =
+      rankingMap.getOrElse(source, DefaultRanking)
+  }
 
 }
 
@@ -213,6 +243,7 @@ object RadioSourceConfig {
   *   <source>
   *     <name>HR 1</name>
   *     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
+  *     <ranking>42</ranking>
   *     <extension>mp3</extension>
   *     <exclusions>
   *       <exclusion>
@@ -250,4 +281,13 @@ trait RadioSourceConfig {
     * @return a map with exclusions for radio sources
     */
   def exclusions: Map[RadioSource, Seq[IntervalQuery]]
+
+  /**
+    * Returns a ranking for the specified radio source. The ranking is an
+    * arbitrary numeric value which is read from the configuration.
+    *
+    * @param source the source to be ranked
+    * @return the ranking for this source
+    */
+  def ranking(source: RadioSource): Int
 }

@@ -57,6 +57,16 @@ object RadioSourceConfigSpec {
     RadioSource(RadioSourceURI + idx, if (hasDefaultExt(idx)) Some("mp3") else None)
 
   /**
+    * Produces a tuple of radio source data with ranking.
+    *
+    * @param idx     the index of the radio source
+    * @param ranking the ranking
+    * @return the tuple with the source name, the source, and the ranking
+    */
+  private def sourceWithRanking(idx: Int, ranking: Int): (String, RadioSource, Int) =
+  (sourceName(idx), radioSource(idx), ranking)
+
+  /**
     * Creates a configuration that contains the given number of radio sources.
     * All sources are defined with their name and URI. Sources with an odd
     * index have a default file extension.
@@ -65,21 +75,27 @@ object RadioSourceConfigSpec {
     * @return the configuration defining the number of radio sources
     */
   private def createSourceConfiguration(count: Int): Configuration = {
-    val sources = (1 to count) map (i => (sourceName(i), radioSource(i)))
+    val sources = (1 to count) map (i => (sourceName(i), radioSource(i), -1))
     createSourceConfiguration(sources)
   }
 
   /**
-    * Creates a configuration that contains the specified radio sources.
+    * Creates a configuration that contains the specified radio sources. The
+    * passed in list contains tuples defining a radio source each: its name,
+    * its URI, and its ranking. Ranking values less than zero are ignored and
+    * not written into the configuration.
     *
-    * @param sources a list with the sources to be contained
+    * @param sources a list with the sources to be contained (with ranking)
     * @return the configuration with these radio sources
     */
-  private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): Configuration = {
+  private def createSourceConfiguration(sources: Seq[(String, RadioSource, Int)]): Configuration = {
     val config = new HierarchicalConfiguration
     sources foreach { t =>
       config.addProperty("radio.sources.source(-1).name", t._1)
       config.addProperty("radio.sources.source.uri", t._2.uri)
+      if (t._3 > 0) {
+        config.addProperty("radio.sources.source.ranking", t._3)
+      }
       t._2.defaultExtension foreach (config.addProperty("radio.sources.source.extension", _))
     }
     config
@@ -163,6 +179,21 @@ class RadioSourceConfigSpec extends FlatSpec with Matchers {
       (sourceName(3), radioSource(3)), (sourceName(9), radioSource(9)))
     val sourcesSorted = List((sourceName(2), radioSource(2)), (sourceName(3), radioSource(3)),
       (sourceName(8), radioSource(8)), (sourceName(9), radioSource(9)))
+    val config = createSourceConfiguration(sources map (t => (t._1, t._2, -1)))
+
+    val sourceConfig = RadioSourceConfig(config)
+    sourceConfig.sources should be(sourcesSorted)
+  }
+
+  it should "order radio sources by ranking" in {
+    val sources = List(sourceWithRanking(1, 1), sourceWithRanking(2, 17),
+      sourceWithRanking(3, -1), sourceWithRanking(4, 8),
+      sourceWithRanking(5, 1))
+    val sourcesSorted = List((sourceName(2), radioSource(2)),
+      (sourceName(4), radioSource(4)),
+      (sourceName(1), radioSource(1)),
+      (sourceName(5), radioSource(5)),
+      (sourceName(3), radioSource(3)))
     val config = createSourceConfiguration(sources)
 
     val sourceConfig = RadioSourceConfig(config)
@@ -320,5 +351,23 @@ class RadioSourceConfigSpec extends FlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 30, 6, 27))
     assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 22, 0),
       LocalDateTime.of(2016, Month.JULY, 2, 9, 0))
+  }
+
+  it should "return correct rankings for sources" in {
+    val sources = List(sourceWithRanking(1, 5), sourceWithRanking(2, 42),
+      sourceWithRanking(3, -1))
+    val config = createSourceConfiguration(sources)
+    val sourceConfig = RadioSourceConfig(config)
+
+    sourceConfig ranking radioSource(1) should be(5)
+    sourceConfig ranking radioSource(2) should be(42)
+    sourceConfig ranking radioSource(3) should be(RadioSourceConfig.DefaultRanking)
+  }
+
+  it should "return the default ranking for an unknown source" in {
+    val config = createSourceConfiguration(4)
+    val sourceConfig = RadioSourceConfig(config)
+
+    sourceConfig ranking radioSource(28) should be(RadioSourceConfig.DefaultRanking)
   }
 }
