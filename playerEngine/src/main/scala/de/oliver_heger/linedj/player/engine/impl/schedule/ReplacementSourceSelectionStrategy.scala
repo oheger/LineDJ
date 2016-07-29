@@ -60,10 +60,13 @@ class ReplacementSourceSelectionStrategy {
     *
     * @param replacements a list with data about replacement sources
     * @param untilDate    the date when the original source can be played again
+    * @param rankingFunc  the function for ranking sources
     * @return an option with the replacement source selection
     */
   def findReplacementSource(replacements: Seq[(RadioSource, IntervalQueryResult)],
-                            untilDate: LocalDateTime): Option[ReplacementSourceSelection] = {
+                            untilDate: LocalDateTime,
+                            rankingFunc: RadioSource.Ranking):
+  Option[ReplacementSourceSelection] = {
     val srcSorted = replacements.sortWith((e1, e2) => IntervalQueries.ShortestInside(e1._2, e2._2))
     val fullReplacements = findFullReplacementSources(srcSorted, untilDate)
     random.shuffle(fullReplacements).headOption.map(t =>

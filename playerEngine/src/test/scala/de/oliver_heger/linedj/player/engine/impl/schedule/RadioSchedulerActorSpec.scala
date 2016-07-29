@@ -332,7 +332,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val untilRepl = until plusMinutes -2
     val resp = helper.handleSourceEvaluation(radioSource(2), Inside(new LazyDate(until)))
     val replSrc = radioSource(3)
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until))
+    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
+      RadioSource.NoRanking))
       .thenReturn(Some(ReplacementSourceSelection(replSrc, untilRepl)))
 
     helper receive replacementResponse(resp)
@@ -345,8 +346,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val until = LocalDateTime.now() plusMinutes 5
     val source = radioSource(2)
     val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)))
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until))
-      .thenReturn(None)
+    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
+      RadioSource.NoRanking)).thenReturn(None)
 
     helper receive replacementResponse(resp)
     helper.expectRadioSource(source)
@@ -361,12 +362,26 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.expectRadioSource(source)
     val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)), sendSource =
       false)
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until))
-      .thenReturn(None)
+    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
+      RadioSource.NoRanking)).thenReturn(None)
 
     helper receive replacementResponse(resp)
     helper.expectNoRadioSource()
       .expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 5.minutes)
+  }
+
+  it should "pass the ranking function to the selection strategy" in {
+    val helper = new RadioSchedulerActorTestHelper
+    val until = LocalDateTime.now() plusHours 2
+    val source = radioSource(3)
+    val ranking: RadioSource.Ranking = s => s.uri.length
+    val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)),
+      r = ranking)
+    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
+      ranking)).thenReturn(None)
+
+    helper receive replacementResponse(resp)
+    verify(helper.selectionStrategy).findReplacementSource(ReplacementResults, until, ranking)
   }
 
   it should "ignore outdated replacement source messages" in {
@@ -433,10 +448,12 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /**
       * Sends a message with data about radio sources to the test actor.
       *
+      * @param r an optional ranking function
       * @return this helper
       */
-    def sendSourceData(): RadioSchedulerActorTestHelper = {
-      receive(RadioSchedulerActor.RadioSourceData(RadioSourceQueries))
+    def sendSourceData(r: RadioSource.Ranking = RadioSource.NoRanking):
+    RadioSchedulerActorTestHelper = {
+      receive(RadioSchedulerActor.RadioSourceData(RadioSourceQueries, r))
       this
     }
 
@@ -476,11 +493,13 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param source     the source
       * @param result     the result of the source evaluation
       * @param sendSource flag whether the source should be sent to the actor
+      * @param r          an optional ranking function
       * @return the response message
       */
     def handleSourceEvaluation(source: RadioSource, result: IntervalQueryResult, sendSource:
-    Boolean = true): EvaluateIntervalsActor.EvaluateSourceResponse = {
-      sendSourceData()
+    Boolean = true, r: RadioSource.Ranking = RadioSource.NoRanking):
+    EvaluateIntervalsActor.EvaluateSourceResponse = {
+      sendSourceData(r)
       if (sendSource) {
         receive(source)
       }

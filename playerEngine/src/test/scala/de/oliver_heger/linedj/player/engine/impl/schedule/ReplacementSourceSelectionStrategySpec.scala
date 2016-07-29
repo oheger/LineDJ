@@ -52,7 +52,7 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
       (radioSource(2), Before(new LazyDate(LocalDateTime.of(2016, Month.JUNE, 24, 20, 25)))))
     val strategy = new ReplacementSourceSelectionStrategy
 
-    val replacement = strategy.findReplacementSource(sources, until).get
+    val replacement = strategy.findReplacementSource(sources, until, RadioSource.NoRanking).get
     replacement.source should be(bestFittingSource)
     replacement.untilDate should be(until)
   }
@@ -61,7 +61,8 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
     val sources = List.empty[(RadioSource, IntervalQueryResult)]
     val strategy = new ReplacementSourceSelectionStrategy
 
-    strategy.findReplacementSource(sources, LocalDateTime.now()) shouldBe 'empty
+    strategy.findReplacementSource(sources, LocalDateTime.now(),
+      RadioSource.NoRanking) shouldBe 'empty
   }
 
   it should "return None if the best replacement is worse than the original source" in {
@@ -70,7 +71,7 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
       (radioSource(2), Inside(new LazyDate(until plusSeconds 1))))
     val strategy = new ReplacementSourceSelectionStrategy
 
-    strategy.findReplacementSource(sources, until) shouldBe 'empty
+    strategy.findReplacementSource(sources, until, RadioSource.NoRanking) shouldBe 'empty
   }
 
   it should "return an Inside result with a shorter until date" in {
@@ -79,7 +80,7 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
       (radioSource(2), Inside(new LazyDate(until plusSeconds -1))))
     val strategy = new ReplacementSourceSelectionStrategy
 
-    val replacement = strategy.findReplacementSource(sources, until)
+    val replacement = strategy.findReplacementSource(sources, until, RadioSource.NoRanking)
     replacement.get.source should be(radioSource(2))
     replacement.get.untilDate should be(until)
   }
@@ -91,7 +92,7 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
       (radioSource(2), Before(new LazyDate(startBefore))))
     val strategy = new ReplacementSourceSelectionStrategy
 
-    val replacement = strategy.findReplacementSource(sources, until)
+    val replacement = strategy.findReplacementSource(sources, until, RadioSource.NoRanking)
     replacement.get.source should be(radioSource(2))
     replacement.get.untilDate should be(startBefore)
   }
@@ -109,7 +110,7 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
     val strategy = new ReplacementSourceSelectionStrategy
 
     val results = (1 to 100).foldLeft(Set.empty[RadioSource])((s, _) => {
-      val replacement = strategy.findReplacementSource(sources, until)
+      val replacement = strategy.findReplacementSource(sources, until, RadioSource.NoRanking)
       replacement.get.untilDate should be(until)
       s + replacement.get.source
     })

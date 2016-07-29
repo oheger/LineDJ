@@ -22,9 +22,9 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
 import scala.concurrent.duration._
@@ -40,8 +40,10 @@ object RadioSchedulerActor {
     * be played.
     *
     * @param sourceQueries a map with information about radio sources
+    * @param rankingFunc   an optional ranking function for sources
     */
-  case class RadioSourceData(sourceQueries: Map[RadioSource, Seq[IntervalQuery]])
+  case class RadioSourceData(sourceQueries: Map[RadioSource, Seq[IntervalQuery]],
+                             rankingFunc: RadioSource.Ranking = RadioSource.NoRanking)
 
   /**
     * An internal message used by this actor class to trigger a check for the
@@ -119,6 +121,12 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     */
   private var radioSourceQueries = Map.empty[RadioSource, Seq[IntervalQuery]]
 
+  /**
+    * Stores the current ranking function for radio sources. This is needed by
+    * the replacement source selection strategy.
+    */
+  private var rankingFunc = RadioSource.NoRanking
+
   /** The current radio source. */
   private var currentSource: Option[RadioSource] = None
 
@@ -148,9 +156,10 @@ class RadioSchedulerActor(sourceActor: ActorRef,
   }
 
   override def receive: Receive = {
-    case RadioSourceData(data) =>
+    case RadioSourceData(data, r) =>
       stateChanged()
       radioSourceQueries = data
+      rankingFunc = r
       currentSource foreach (src => triggerSourceEval(src))
 
     case src: RadioSource =>
@@ -182,7 +191,8 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     case resp: EvaluateIntervalsActor.EvaluateReplacementSourcesResponse if validState(resp
       .request.currentSourceResponse.request.stateCount) =>
       val untilDate = fetchUntilDate(resp)
-      val (src, date) = selectionStrategy.findReplacementSource(resp.results, untilDate) match {
+      val (src, date) = selectionStrategy.findReplacementSource(resp.results, untilDate,
+        rankingFunc) match {
         case Some(repSel) => (repSel.source, repSel.untilDate)
         case None => (resp.request.currentSourceResponse.request.source, untilDate)
       }
@@ -280,7 +290,6 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     */
   private def scheduleCheckAt(resp: EvaluateIntervalsActor.EvaluateSourceResponse, date:
   LocalDateTime): Unit = {
-    import context.dispatcher
     val delay = calcScheduleDelay(resp.request.refDate, date)
     cancellable = Some(scheduleMessageOnce(delay, self,
       CheckSchedule(resp.request.stateCount)))
