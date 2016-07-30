@@ -99,6 +99,22 @@ class RadioPlayer private(val config: PlayerConfig,
   }
 
   /**
+    * Forces a check of the current interval against its exclusion intervals.
+    * Normally these checks are done by the player engine itself when
+    * necessary. If playback of a replacement source fails, however, it can
+    * make sense to enforce such a check to select a different replacement
+    * source.
+    *
+    * @param exclusions a set with radio sources to be excluded (i.e. that
+    *                   must not be used as replacement sources)
+    * @param delay      an optional delay for this operation
+    */
+  def checkCurrentSource(exclusions: Set[RadioSource],
+                         delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+    invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
+  }
+
+  /**
     * @inheritdoc This implementation also sends a clear buffer message to the
     *             source actor to make sure that no outdated audio data is
     *             played. Note: This happens only if no delay is specified!

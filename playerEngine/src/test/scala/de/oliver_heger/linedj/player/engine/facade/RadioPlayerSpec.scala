@@ -122,6 +122,25 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.probeEventActor.expectMsgType[EventManagerActor.RemoveSink]
   }
 
+  it should "support a check for the current radio source with a delay" in {
+    val helper = new RadioPlayerTestHelper
+    val Delay = 2.minutes
+    val Exclusions = Set(RadioSource("ex1"), RadioSource("ex2"))
+
+    helper.player.checkCurrentSource(Exclusions, Delay)
+    helper.expectDelayed(RadioSchedulerActor.CheckCurrentSource(Exclusions), helper
+      .probeSchedulerActor, Delay)
+  }
+
+  it should "support a check for the current radio source with default delay" in {
+    val helper = new RadioPlayerTestHelper
+    val Exclusions = Set.empty[RadioSource]
+
+    helper.player checkCurrentSource Exclusions
+    helper.expectDelayed(RadioSchedulerActor.CheckCurrentSource(Exclusions), helper
+      .probeSchedulerActor, DelayActor.NoDelay)
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
