@@ -116,4 +116,23 @@ class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
     })
     results should be(Set(rep1, rep2, rep3))
   }
+
+  it should "apply the source ranking on the sources filling the gap" in {
+    val until = LocalDateTime.of(2016, Month.JULY, 30, 15, 58, 40)
+    val rep1 = radioSource(1)
+    val rep2 = radioSource(2)
+    val rep3 = radioSource(3)
+    val sources = List((rep1, Before(new LazyDate(until))),
+      (radioSource(4), Inside(new LazyDate(until))),
+      (rep2, Before(new LazyDate(until plusDays 1))),
+      (radioSource(5), Before(new LazyDate(until plusSeconds -1))),
+      (rep3, Before(new LazyDate(until plusMinutes 1))))
+    val ranking: RadioSource.Ranking = s =>
+      if(s == rep2) 1 else 0
+    val strategy = new ReplacementSourceSelectionStrategy
+
+    val replacement = strategy.findReplacementSource(sources, until, ranking)
+    replacement.get.untilDate should be(until)
+    replacement.get.source should be(rep2)
+  }
 }

@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.player.engine.impl.schedule
 import java.time.LocalDateTime
 
 import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.RadioSource.Ranking
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside,
-IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 
 import scala.util.Random
 
@@ -49,6 +49,12 @@ case class ReplacementSourceSelection(source: RadioSource, untilDate: LocalDateT
   * switch back to the original source. It returns an option with the selected
   * replacement source. Result can be ''None'' if no source can be found that
   * is suitable as a replacement.
+  *
+  * This implementation prefers radio sources that completely fill the time
+  * the original source must not be played. If there are multiple candidate
+  * sources, the ranking is taken into account. If this still does not result
+  * in a single source, a random source from the potential candidates is
+  * selected.
   */
 class ReplacementSourceSelectionStrategy {
   /** A random for selecting a source if there are multiple options. */
@@ -69,9 +75,29 @@ class ReplacementSourceSelectionStrategy {
   Option[ReplacementSourceSelection] = {
     val srcSorted = replacements.sortWith((e1, e2) => IntervalQueries.ShortestInside(e1._2, e2._2))
     val fullReplacements = findFullReplacementSources(srcSorted, untilDate)
-    random.shuffle(fullReplacements).headOption.map(t =>
-      ReplacementSourceSelection(t._1, untilDate)) orElse bestFittingSource(srcSorted, untilDate)
+    bestRankedFullReplacement(fullReplacements, untilDate,
+      rankingFunc) orElse bestFittingSource(srcSorted, untilDate)
   }
+
+  /**
+    * Tries to find a replacement source from the sources that fully bridge the
+    * affected time interval. If such sources exist, the ranking function is
+    * applied on them. On the sources with the highest ranking a random source
+    * is selected.
+    *
+    * @param fullReplacements sequence of candidate sources
+    * @param untilDate        the until date
+    * @param rankingFunc      the ranking function
+    * @return an option with a replacement source
+    */
+  private def bestRankedFullReplacement(fullReplacements: Seq[(RadioSource,
+    IntervalQueryResult)], untilDate: LocalDateTime, rankingFunc: Ranking):
+  Option[ReplacementSourceSelection] =
+  if (fullReplacements.nonEmpty) {
+    val rankingGroups = fullReplacements.groupBy(e => rankingFunc(e._1))
+    val rep = random.shuffle(rankingGroups(rankingGroups.keys.max)).head
+    Some(ReplacementSourceSelection(rep._1, untilDate))
+  } else None
 
   /**
     * Determines a best-fitting source from the given sorted list of sources.
