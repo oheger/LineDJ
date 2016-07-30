@@ -41,15 +41,18 @@ object EvaluateIntervalsActorSpec {
   /**
     * Generates a request message for multiple sources.
     *
-    * @param date   the reference date
-    * @param srcMap the map with sources and their queries
+    * @param date       the reference date
+    * @param srcMap     the map with sources and their queries
+    * @param exclusions a set with sources to be excluded
     * @return the request message
     */
   private def createMultiSourcesRequest(date: LocalDateTime, srcMap: Map[RadioSource,
-    List[IntervalQuery]]): EvaluateReplacementSources =
-    EvaluateIntervalsActor.EvaluateReplacementSources(srcMap,
-      EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
-        EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty)))
+    List[IntervalQuery]], exclusions: Set[RadioSource] = Set.empty):
+  EvaluateReplacementSources =
+  EvaluateIntervalsActor.EvaluateReplacementSources(srcMap,
+    EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
+      EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty,
+        exclusions = exclusions)))
 }
 
 /**
@@ -177,6 +180,23 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     val srcMap = Map(radioSource(1) -> List(IntervalQueries.hours(18, 20)),
       radioSource(0) -> List(IntervalQueries.hours(19, 22)))
     val request = createMultiSourcesRequest(date, srcMap)
+    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+
+    actor ! request
+    val response = expectMsgType[EvaluateIntervalsActor.EvaluateReplacementSourcesResponse]
+    val results = response.results.toMap
+    results should have size 1
+    results contains radioSource(1) shouldBe true
+  }
+
+  it should "drop sources defined as exclusion sources" in {
+    val date = LocalDateTime.of(2016, Month.JULY, 30, 16, 40, 37)
+    val srcMap = Map(radioSource(1) -> List(IntervalQueries.hours(16, 20)),
+      radioSource(0) -> List(IntervalQueries.hours(19, 22)),
+      radioSource(2) -> List(IntervalQueries.hours(1, 2)),
+      radioSource(8) -> List(IntervalQueries.hours(4, 5)))
+    val request = createMultiSourcesRequest(date, srcMap,
+      exclusions = Set(radioSource(2), radioSource(8), radioSource(11)))
     val actor = system.actorOf(Props[EvaluateIntervalsActor])
 
     actor ! request

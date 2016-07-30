@@ -41,9 +41,11 @@ object EvaluateIntervalsActor {
     * @param queries a sequence with the interval queries of this source
     * @param stateCount an internal counter; this is used to detect outdated
     *                   messages that are received after state changes
+    * @param exclusions a set with radio sources to be excluded
     */
   private[schedule] case class EvaluateSource(source: RadioSource, refDate: LocalDateTime,
-                                              queries: Seq[IntervalQuery], stateCount: Int = 0)
+                                              queries: Seq[IntervalQuery], stateCount: Int = 0,
+                                              exclusions: Set[RadioSource] = Set.empty)
 
   /**
     * A response message sent by [[EvaluateIntervalsActor]] in reaction on an
@@ -109,10 +111,11 @@ class EvaluateIntervalsActor extends Actor {
       } pipeTo sender()
 
     case req: EvaluateReplacementSources =>
-      Future.sequence(req.sources.toList filterNot {
-        t => t._1 == req.currentSourceResponse.request.source
+      val sr = req.currentSourceResponse.request
+      Future.sequence(req.sources.toList filterNot { t =>
+        t._1 == sr.source || sr.exclusions.contains(t._1)
       } map { t =>
-        evaluateQueries(t._2, req.currentSourceResponse.request.refDate)
+        evaluateQueries(t._2, sr.refDate)
           .map(r => (t._1, r))
       }) map { seq =>
         EvaluateReplacementSourcesResponse(seq, req)
