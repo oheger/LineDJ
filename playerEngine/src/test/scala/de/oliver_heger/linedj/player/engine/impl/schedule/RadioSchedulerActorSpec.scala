@@ -188,6 +188,22 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     eval2.source should be(src)
     eval2.queries should be(RadioSourceQueries(src))
     eval2.stateCount should be(eval.stateCount)
+    eval.exclusions shouldBe 'empty
+  }
+
+  it should "process a CheckCurrentSource message" in {
+    val src = radioSource(1)
+    val exclusions = Set(radioSource(6), radioSource(7))
+    val helper = new RadioSchedulerActorTestHelper
+    helper receive src
+    val eval = helper.sendSourceData().expectSourceEvaluation()
+
+    helper receive RadioSchedulerActor.CheckCurrentSource(exclusions)
+    val eval2 = helper.expectSourceEvaluationForNow()
+    eval2.source should be(src)
+    eval2.queries should be(RadioSourceQueries(src))
+    eval2.stateCount should not be eval.stateCount
+    eval2.exclusions should be(exclusions)
   }
 
   it should "ignore a CheckSchedule message if there is no current source" in {
@@ -293,6 +309,16 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       .stateCount), 1.day)
 
     helper receive radioSource(1)
+    schedule.cancellable.isCancelled shouldBe true
+  }
+
+  it should "cancel a scheduled check if a check is forced" in {
+    val helper = new RadioSchedulerActorTestHelper
+    val resp = helper.handleSourceEvaluation(radioSource(2), BeforeForEver)
+    val schedule = helper.expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request
+      .stateCount), 1.day)
+
+    helper receive RadioSchedulerActor.CheckCurrentSource(Set.empty)
     schedule.cancellable.isCancelled shouldBe true
   }
 

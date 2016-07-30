@@ -46,6 +46,18 @@ object RadioSchedulerActor {
                              rankingFunc: RadioSource.Ranking = RadioSource.NoRanking)
 
   /**
+    * A message processed by [[RadioSchedulerActor]] that forces a new check of
+    * the current source. The actor will re-evaluate all interval queries to
+    * find a replacement source if necessary. The passed in exclusion sources
+    * are not taken into account. This is useful if playback of a replacement
+    * source caused an error, and now a replacement for the replacement source
+    * has to be found.
+    *
+    * @param exclusions a set of sources to be excluded
+    */
+  case class CheckCurrentSource(exclusions: Set[RadioSource])
+
+  /**
     * An internal message used by this actor class to trigger a check for the
     * current source. For the current source it is evaluated how long it can be
     * played. Then an evaluation has to be started to find a replacement
@@ -170,9 +182,11 @@ class RadioSchedulerActor(sourceActor: ActorRef,
       }
 
     case CheckSchedule(state) if validState(state) =>
-      log.info("Checking current radio source.")
-      currentSource foreach triggerSourceEval
-      cancellable = None
+      checkCurrentSource(Set.empty)
+
+    case CheckCurrentSource(exclusions) =>
+      stateChanged()
+      checkCurrentSource(exclusions)
 
     case resp: EvaluateIntervalsActor.EvaluateSourceResponse if validState(
       resp.request.stateCount) =>
@@ -205,6 +219,18 @@ class RadioSchedulerActor(sourceActor: ActorRef,
   }
 
   /**
+    * Performs a check whether the current source (if defined) can be played
+    * now. If this is not the case, a replacement source has to be found.
+    *
+    * @param exclusions sources to be excluded
+    */
+  private def checkCurrentSource(exclusions: Set[RadioSource]): Unit = {
+    log.info("Checking current radio source.")
+    currentSource foreach (triggerSourceEval(_, exclusions))
+    cancellable = None
+  }
+
+  /**
     * The state of the actor has changed. This has to be recorded so that
     * outdated response messages can be detected.
     */
@@ -228,14 +254,16 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     * '''true''' if such a request was sent. If the source has no associated
     * interval queries, no request is sent, and result is '''false'''.
     *
-    * @param src the source in question
+    * @param src        the source in question
+    * @param exclusions sources to be excluded
     * @return a flag whether a request was sent
     */
-  private def triggerSourceEval(src: RadioSource): Boolean = {
+  private def triggerSourceEval(src: RadioSource,
+                                exclusions: Set[RadioSource] = Set.empty): Boolean = {
     val queries = radioSourceQueries.getOrElse(src, List.empty)
     if (queries.nonEmpty) {
       evaluateIntervalsActor ! EvaluateIntervalsActor.EvaluateSource(src, LocalDateTime.now(),
-        queries, stateCounter)
+        queries, stateCounter, exclusions)
       true
     } else false
   }
