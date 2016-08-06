@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -40,6 +41,13 @@ class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSu
 
     helper sendEvent PlaybackProgressEvent(100, PlaybackTime)
     verify(helper.controller).playbackTimeProgress(PlaybackTime)
+  }
+
+  it should "delegate radio source error events" in {
+    val errorEvent = RadioSourceErrorEvent(RadioSource("errorSource"))
+    val helper = new RadioPlayerEventListenerTestHelper
+
+    helper.sendEvent(errorEvent).verifyErrorEvent(errorEvent)
   }
 
   it should "ignore other events" in {
@@ -89,9 +97,31 @@ class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSu
       * @return the radio player event
       */
     def createRadioPlayerEvent(event: PlayerEvent, optSource: Option[RadioPlayer]):
-    RadioPlayerEvent = {
+    RadioPlayerEvent =
       RadioPlayerEvent(event, optSource getOrElse player)
+
+    /**
+      * Verifies whether the controller received the specified error event
+      * (ignoring the timestamp which might be different).
+      *
+      * @param event the expected event
+      * @return this test helper
+      */
+    def verifyErrorEvent(event: RadioSourceErrorEvent): RadioPlayerEventListenerTestHelper =
+    verifyErrorSource(event.source)
+
+    /**
+      * Verifies that the controller was notified about a playback error for the
+      * specified radio source.
+      *
+      * @param source the radio source
+      * @return this test helper
+      */
+    def verifyErrorSource(source: RadioSource): RadioPlayerEventListenerTestHelper = {
+      val captor = ArgumentCaptor.forClass(classOf[RadioSourceErrorEvent])
+      verify(controller).playbackError(captor.capture())
+      captor.getValue.source should be(source)
+      this
     }
   }
-
 }

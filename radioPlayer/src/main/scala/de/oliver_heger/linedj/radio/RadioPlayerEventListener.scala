@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.bus.MessageBusListener
-import de.oliver_heger.linedj.player.engine.{PlaybackProgressEvent, RadioSourceChangedEvent}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 
 /**
@@ -27,6 +27,13 @@ import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
   * This class processes a subset of radio player events by delegating to the
   * [[RadioController]]. This is mainly related to UI updates, but also to
   * error handling when the current radio source crashes.
+  *
+  * Most events of interest can be directly forwarded to the controller. One
+  * exception is a finished event for an audio source. As radio sources are
+  * infinite sources, a finish event indicates an error. Unfortunately, the
+  * finished event relates to an audio source, not a radio source. Therefore,
+  * the radio source from the previous source changed event is stored and
+  * passed in this case.
   *
   * @param controller the radio controller
   * @param player     the radio player
@@ -40,6 +47,8 @@ class RadioPlayerEventListener(controller: RadioController, player: RadioPlayer)
           controller radioSourcePlaybackStarted source
         case PlaybackProgressEvent(_, time, _) =>
           controller playbackTimeProgress time
+        case ev: RadioSourceErrorEvent =>
+          controller playbackError ev
         case _ => // ignore other events
       }
   }
