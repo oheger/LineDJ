@@ -75,6 +75,11 @@
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
   </di:bean>
 
+  <!-- The error handling strategy -->
+  <di:bean name="errorHandlingStrategy"
+           beanClassName="de.oliver_heger.linedj.radio.ErrorHandlingStrategy"
+  />
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:borderlayout canShrink="false"/>
@@ -102,7 +107,7 @@
     <!-- Statusline -->
     <f:panel>
       <f:borderconstr name="SOUTH"/>
-      <f:borderlayout canShrink="false"/>
+      <f:borderlayout canShrink="false" leftMargin="5" rightMargin="5"/>
       <f:statictext name="statusLine" textres="txt_status_init"
                     alignment="left">
         <f:borderconstr name="CENTER"/>
@@ -131,6 +136,7 @@
         <di:param refName="comp:comboStations"/>
         <di:param refName="comp:statusLine"/>
         <di:param refName="comp:playbackTime"/>
+        <di:param refName="errorHandlingStrategy"/>
       </di:constructor>
     </di:bean>
 

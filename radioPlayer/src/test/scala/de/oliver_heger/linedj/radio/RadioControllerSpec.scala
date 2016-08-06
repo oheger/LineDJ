@@ -16,16 +16,19 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.RadioSource
+import java.util.concurrent.atomic.AtomicInteger
+
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Matchers.{eq => argEq}
 import org.mockito.Mockito
@@ -122,7 +125,8 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     config.addProperty("radio.sources.source.uri", RadioSourceURI)
 
     val ctrl = new RadioController(helper.player, config, helper.applicationContext,
-      helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler)
+      helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler,
+      helper.errorHandlingStrategy)
     val srcConfig = ctrl.configFactory(config)
     srcConfig.sources should have size 1
     srcConfig.sources.head._1 should be(RadioSourceName)
@@ -367,6 +371,71 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       .verifyAction(StopPlaybackAction, enabled = false)
   }
 
+  it should "pass a correct configuration to the error handling strategy" in {
+    val playerConfig = new PropertiesConfiguration
+    playerConfig.addProperty("radio.error.maxRetries", 10)
+    val srcConfig = createSourceConfiguration(4)
+    val helper = new RadioControllerTestHelper
+    val (answer, _) = helper.expectErrorStrategyCall()
+    val ctrl = helper.createInitializedController(srcConfig, playerConfig)
+
+    ctrl playbackError RadioSourceErrorEvent(radioSource(1))
+    answer.config.sourcesConfig should be(srcConfig)
+    answer.config.maxRetries should be(10)
+  }
+
+  it should "invoke the error handling strategy correctly" in {
+    val srcConfig = createSourceConfiguration(8)
+    val helper = new RadioControllerTestHelper
+    val (answer, _) = helper.expectErrorStrategyCall()
+    val error = RadioSourceErrorEvent(srcConfig.sources(2)._2)
+    val ctrl = helper.createInitializedController(srcConfig)
+
+    ctrl playbackError error
+    answer.errorSource should be(error.source)
+    answer.currentSource should be(srcConfig.sources.head._2)
+    answer.previousState should be(ErrorHandlingStrategy.NoError)
+  }
+
+  it should "invoke the player action from the error handling strategy" in {
+    val helper = new RadioControllerTestHelper
+    val (_, counter) = helper.expectErrorStrategyCall()
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+
+    ctrl playbackError RadioSourceErrorEvent(radioSource(1))
+    counter.get() should be(1)
+  }
+
+  it should "record the next error state" in {
+    val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 10000)
+    val helper = new RadioControllerTestHelper
+    helper.expectErrorStrategyCall(nextState)
+    val error = RadioSourceErrorEvent(radioSource(3))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(8))
+    ctrl playbackError error
+
+    reset(helper.errorHandlingStrategy)
+    val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl playbackError error
+    answer.previousState should be(nextState)
+  }
+
+  it should "clear the error state when the user selects another source" in {
+    val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 15000)
+    val helper = new RadioControllerTestHelper
+    helper.expectErrorStrategyCall(nextState)
+    val error = RadioSourceErrorEvent(radioSource(1))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(8))
+    ctrl playbackError error
+
+    doReturn(radioSource(2)).when(helper.comboHandler).getData
+    ctrl elementChanged mock[FormChangeEvent]
+    reset(helper.errorHandlingStrategy)
+    val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl playbackError error
+    answer.previousState should be(ErrorHandlingStrategy.NoError)
+  }
+
   /**
     * A helper class managing the dependencies of the test object.
     */
@@ -386,6 +455,9 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** Mock for the handler for the playback time. */
     val playbackTimeHandler = mock[StaticTextHandler]
 
+    /** Mock for the error handling strategy. */
+    val errorHandlingStrategy = mock[ErrorHandlingStrategy]
+
     /** A map with mock actions. */
     private val actions = createActionMap()
 
@@ -403,7 +475,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
                          configuration: Configuration = new HierarchicalConfiguration):
     RadioController =
       new RadioController(player, configuration, applicationContext, actionStore, comboHandler,
-        statusHandler, playbackTimeHandler, c => {
+        statusHandler, playbackTimeHandler, errorHandlingStrategy, c => {
           c should be(configuration)
           srcConfig
         })
@@ -549,6 +621,29 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
+      * Prepares the mock error handling strategy to expect an invocation. An
+      * answer is set that records the invocation. Also, a player action is
+      * created that records its invocation.
+      *
+      * @param nextState            the next state to be returned
+      * @return the mock answer for the strategy and a counter for action calls
+      */
+    def expectErrorStrategyCall(nextState: ErrorHandlingStrategy.State =
+                                ErrorHandlingStrategy.NoError):
+    (ErrorStrategyAnswer, AtomicInteger) = {
+      val counter = new AtomicInteger
+      val action: ErrorHandlingStrategy.PlayerAction = p => {
+        p should be(player)
+        counter.incrementAndGet()
+      }
+      val answer = new ErrorStrategyAnswer(action, nextState)
+      when(errorHandlingStrategy.handleError(any[ErrorHandlingStrategy.Config],
+        any[ErrorHandlingStrategy.State], any[RadioSourceErrorEvent], any[RadioSource]))
+        .thenAnswer(answer)
+      (answer, counter)
+    }
+
+    /**
       * Creates a mock for the combo box handler.
       *
       * @return the mock combo box handler
@@ -582,6 +677,50 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
         when(store.getAction(e._1)).thenReturn(e._2)
       }
       store
+    }
+  }
+
+  /**
+    * An answer class to check an invocation of the error handling strategy.
+    *
+    * @param action the action to be returned
+    * @param state  the next state to be returned
+    */
+  private class ErrorStrategyAnswer(action: ErrorHandlingStrategy.PlayerAction,
+                                    state: ErrorHandlingStrategy.State)
+    extends Answer[(ErrorHandlingStrategy.PlayerAction, ErrorHandlingStrategy.State)] {
+    /** The config passed to the strategy. */
+    var config: ErrorHandlingStrategy.Config = _
+
+    /** The previous state passed to the strategy. */
+    var previousState: ErrorHandlingStrategy.State = _
+
+    /** The radio source causing an error. */
+    var errorSource: RadioSource = _
+
+    /** The current source. */
+    var currentSource: RadioSource = _
+
+    /**
+      * Verifies that the expected parameters were passed to this action.
+      *
+      * @param expPreviousState the expected previous error state
+      * @param expErrorSource   the expected error source
+      * @param expCurrentSource the expected current source
+      */
+    def verify(expPreviousState: ErrorHandlingStrategy.State,
+               expErrorSource: RadioSource, expCurrentSource: RadioSource): Unit = {
+      previousState should be(expPreviousState)
+      errorSource should be(expErrorSource)
+      currentSource should be(expCurrentSource)
+    }
+
+    override def answer(invocation: InvocationOnMock): (PlayerAction, State) = {
+      config = invocation.getArguments.head.asInstanceOf[ErrorHandlingStrategy.Config]
+      previousState = invocation.getArguments()(1).asInstanceOf[ErrorHandlingStrategy.State]
+      errorSource = invocation.getArguments()(2).asInstanceOf[RadioSourceErrorEvent].source
+      currentSource = invocation.getArguments()(3).asInstanceOf[RadioSource]
+      (action, state)
     }
   }
 

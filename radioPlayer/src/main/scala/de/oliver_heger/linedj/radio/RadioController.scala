@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.client.model.DurationTransformer
-import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
@@ -79,28 +79,37 @@ object RadioController {
   * @param comboSources the combo box with the radio sources
   * @param statusText handler for the status line
   * @param playbackTime handler for the field with the playback time
+  * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
   * @param configFactory the factory for creating a radio source configuration
   */
 class RadioController(val player: RadioPlayer, val config: Configuration,
                       applicationContext: ApplicationContext, actionStore: ActionStore,
                       comboSources: ListComponentHandler, statusText: StaticTextHandler,
                       playbackTime: StaticTextHandler,
+                      errorHandlingStrategy: ErrorHandlingStrategy,
                       val configFactory: Configuration => RadioSourceConfig)
   extends WindowListener with FormChangeListener {
 
   def this(player: RadioPlayer, config: Configuration, applicationContext: ApplicationContext,
            actionStore: ActionStore, comboSources: ListComponentHandler,
-           statusText: StaticTextHandler, playbackTime: StaticTextHandler) =
+           statusText: StaticTextHandler, playbackTime: StaticTextHandler,
+           errorHandlingStrategy: ErrorHandlingStrategy) =
     this(player, config, applicationContext, actionStore, comboSources, statusText, playbackTime,
-      RadioSourceConfig.apply)
+      errorHandlingStrategy, RadioSourceConfig.apply)
 
   import RadioController._
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]
 
+  /** The configuration for the error handling strategy. */
+  private var errorHandlingConfig: ErrorHandlingStrategy.Config = _
+
   /** Stores the current radio source. */
   private var currentSource: RadioSource = _
+
+  /** Stores the current error state. */
+  private var errorState = ErrorHandlingStrategy.NoError
 
   /**
     * A flag that indicates that radio sources are currently updated. In this
@@ -128,6 +137,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     sourcesUpdating = true
     try {
       val srcConfig = configFactory(config)
+      errorHandlingConfig = ErrorHandlingStrategy.createConfig(config, srcConfig)
       player initSourceExclusions srcConfig.exclusions
       radioSources = updateSourceCombo(srcConfig)
       enableAction(ActionStartPlayback, enabled = false)
@@ -151,6 +161,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
 
         val nextSource = radioSources find(t => t._2 == source)
         nextSource foreach storeCurrentSource
+        resetErrorState()
       }
     }
   }
@@ -197,6 +208,20 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   }
 
   /**
+    * Notifies this controller that there was an error when playing a radio
+    * source. This will trigger an invocation of the error handling
+    * strategy.
+    *
+    * @param error the error event
+    */
+  def playbackError(error: RadioSourceErrorEvent): Unit = {
+    val (action, nextState) = errorHandlingStrategy.handleError(errorHandlingConfig,
+      errorState, error, currentSource)
+    action(player)
+    errorState = nextState
+  }
+
+  /**
     * Updates the combo box with the radio sources from the configuration.
     *
     * @return the list of currently available radio sources
@@ -220,6 +245,14 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     }
 
     removeComboEntry(comboSources.getListModel.size() - 1)
+  }
+
+  /**
+    * Resets the error state for radio playback. The controller now assumes
+    * that there is no error.
+    */
+  private def resetErrorState(): Unit = {
+    errorState = ErrorHandlingStrategy.NoError
   }
 
   /**
