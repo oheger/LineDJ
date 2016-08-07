@@ -107,7 +107,12 @@
     <!-- Statusline -->
     <f:panel>
       <f:borderconstr name="SOUTH"/>
-      <f:borderlayout canShrink="false" leftMargin="5" rightMargin="5"/>
+      <f:borderlayout canShrink="false" leftMargin="4dlu" rightMargin="4dlu"
+      westGap="3dlu" eastGap="3dlu"/>
+      <f:label name="errorIndicator">
+        <f:borderconstr name="WEST"/>
+        <f:icon resource="error.png"/>
+      </f:label>
       <f:statictext name="statusLine" textres="txt_status_init"
                     alignment="left">
         <f:borderconstr name="CENTER"/>
@@ -136,6 +141,7 @@
         <di:param refName="comp:comboStations"/>
         <di:param refName="comp:statusLine"/>
         <di:param refName="comp:playbackTime"/>
+        <di:param refName="widget:errorIndicator"/>
         <di:param refName="errorHandlingStrategy"/>
       </di:constructor>
     </di:bean>

@@ -18,19 +18,19 @@ package de.oliver_heger.linedj.radio
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
+import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
-import org.mockito.Matchers._
-import org.mockito.Matchers.{eq => argEq}
+import org.mockito.Matchers.{eq => argEq, _}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -62,6 +62,12 @@ object RadioControllerSpec {
   /** A list with the names of the actions managed by the controller. */
   private val ActionNames = List(StartPlaybackAction, StopPlaybackAction)
 
+  /** The recovery time in the player configuration (in seconds). */
+  private val RecoveryTime = 300L
+
+  /** The minimum number of failed sources to recover from. */
+  private val MinFailedSources = 3
+
   /**
     * Generates the name for the source with the given index.
     *
@@ -78,6 +84,32 @@ object RadioControllerSpec {
     */
   private def radioSource(idx: Int): RadioSource =
     RadioSource(RadioSourceURI + idx)
+
+  /**
+    * Creates a configuration with settings for recovery.
+    *
+    * @return the configuration
+    */
+  private def createRecoveryConfiguration(): Configuration = {
+    val config = new HierarchicalConfiguration
+    config.addProperty("radio.error.recovery.time", RecoveryTime)
+    config.addProperty("radio.error.recovery.minFailedSources", MinFailedSources)
+    config
+  }
+
+  /**
+    * Creates an error state with the given number of blacklisted sources and
+    * the given active source.
+    *
+    * @param srcCount  the number of blacklisted sources
+    * @param activeSrc the active radio source
+    * @return the state
+    */
+  private def createBlacklistState(srcCount: Int, activeSrc: RadioSource): ErrorHandlingStrategy
+  .State = {
+    val blackList = (1 to srcCount).map(i => radioSource(i)).toSet
+    ErrorHandlingStrategy.NoError.copy(blacklist = blackList, activeSource = Option(activeSrc))
+  }
 }
 
 /**
@@ -126,7 +158,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     val ctrl = new RadioController(helper.player, config, helper.applicationContext,
       helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler,
-      helper.errorHandlingStrategy)
+      helper.errorIndicator, helper.errorHandlingStrategy)
     val srcConfig = ctrl.configFactory(config)
     srcConfig.sources should have size 1
     srcConfig.sources.head._1 should be(RadioSourceName)
@@ -139,6 +171,14 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper.verifySourcesAddedToCombo(1, 2, 3, 4).verifySelectedSource(1)
       .verifyNoMoreInteractionWithCombo()
+  }
+
+  it should "hide the error indicator initially" in {
+    val helper = new RadioControllerTestHelper
+    helper.createInitializedController(createSourceConfiguration(1),
+      resetErrorIndicator = false)
+
+    verify(helper.errorIndicator).setVisible(false)
   }
 
   it should "handle missing source configurations correctly" in {
@@ -406,34 +446,103 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     counter.get() should be(1)
   }
 
+  it should "display the error indicator when a playback error was detected" in {
+    val helper = new RadioControllerTestHelper
+    helper.expectErrorStrategyCall()
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+
+    ctrl playbackError RadioSourceErrorEvent(radioSource(1))
+    verify(helper.errorIndicator).setVisible(true)
+  }
+
   it should "record the next error state" in {
     val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 10000)
     val helper = new RadioControllerTestHelper
-    helper.expectErrorStrategyCall(nextState)
-    val error = RadioSourceErrorEvent(radioSource(3))
     val ctrl = helper.createInitializedController(createSourceConfiguration(8))
-    ctrl playbackError error
+    helper.injectErrorState(ctrl, nextState, 3)
 
-    reset(helper.errorHandlingStrategy)
     val (answer, _) = helper.expectErrorStrategyCall()
-    ctrl playbackError error
+    ctrl playbackError RadioSourceErrorEvent(radioSource(3))
     answer.previousState should be(nextState)
   }
 
   it should "clear the error state when the user selects another source" in {
     val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 15000)
     val helper = new RadioControllerTestHelper
-    helper.expectErrorStrategyCall(nextState)
-    val error = RadioSourceErrorEvent(radioSource(1))
     val ctrl = helper.createInitializedController(createSourceConfiguration(8))
-    ctrl playbackError error
+    helper.injectErrorState(ctrl, nextState, 1)
 
     doReturn(radioSource(2)).when(helper.comboHandler).getData
     ctrl elementChanged mock[FormChangeEvent]
-    reset(helper.errorHandlingStrategy)
+    verify(helper.errorIndicator).setVisible(false)
     val (answer, _) = helper.expectErrorStrategyCall()
-    ctrl playbackError error
+    ctrl playbackError RadioSourceErrorEvent(radioSource(1))
     answer.previousState should be(ErrorHandlingStrategy.NoError)
+  }
+
+  it should "recover from an error after the configured time" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(8),
+      createRecoveryConfiguration())
+    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources, radioSource(7)), 1)
+
+    ctrl playbackTimeProgress RecoveryTime
+    helper.verifySwitchSource(radioSource(1), null)
+    verify(helper.errorIndicator).setVisible(false)
+    val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl playbackError RadioSourceErrorEvent(radioSource(2))
+    answer.previousState should be(ErrorHandlingStrategy.NoError)
+  }
+
+  it should "not change the source on recovery if it is already played" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4),
+      createRecoveryConfiguration())
+    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources + 1,
+      radioSource(1)), 1)
+
+    ctrl playbackTimeProgress RecoveryTime
+    verify(helper.errorIndicator).setVisible(false)
+    verifyNoMoreInteractions(helper.player)
+  }
+
+  it should "not recover from error if not in error state" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      createRecoveryConfiguration())
+
+    ctrl playbackTimeProgress RecoveryTime
+    helper.verifyNoRecovery()
+  }
+
+  it should "not recover if the recovery time is not yet reached" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      createRecoveryConfiguration())
+    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources,
+      radioSource(1)), 1)
+
+    ctrl playbackTimeProgress RecoveryTime - 1
+    helper.verifyNoRecovery()
+  }
+
+  it should "not recover if the number of blacklisted sources is too small" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      createRecoveryConfiguration())
+    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources - 1,
+      radioSource(1)), 1)
+
+    ctrl playbackTimeProgress RecoveryTime
+    helper.verifyNoRecovery()
+  }
+
+  it should "use default values for recovery settings" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl.errorRecoveryTime should be(600)
+    ctrl.minFailedSourcesForRecovery should be(1)
   }
 
   /**
@@ -455,6 +564,9 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** Mock for the handler for the playback time. */
     val playbackTimeHandler = mock[StaticTextHandler]
 
+    /** Mock for the error indicator control. */
+    val errorIndicator = mock[WidgetHandler]
+
     /** Mock for the error handling strategy. */
     val errorHandlingStrategy = mock[ErrorHandlingStrategy]
 
@@ -475,7 +587,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
                          configuration: Configuration = new HierarchicalConfiguration):
     RadioController =
       new RadioController(player, configuration, applicationContext, actionStore, comboHandler,
-        statusHandler, playbackTimeHandler, errorHandlingStrategy, c => {
+        statusHandler, playbackTimeHandler, errorIndicator, errorHandlingStrategy, c => {
           c should be(configuration)
           srcConfig
         })
@@ -484,15 +596,22 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       * Creates a radio controller test instance and initializes it by sending
       * it a window opened event.
       *
-      * @param srcConfig     the configuration for the radio sources
-      * @param configuration the configuration
+      * @param srcConfig           the configuration for the radio sources
+      * @param configuration       the configuration
+      * @param resetErrorIndicator flag whether the error indicator mock
+      *                            should be reset (the indicator is hidden
+      *                            at initialization time)
       * @return the test instance
       */
     def createInitializedController(srcConfig: RadioSourceConfig,
-                                    configuration: Configuration = new HierarchicalConfiguration)
+                                    configuration: Configuration = new HierarchicalConfiguration,
+                                    resetErrorIndicator: Boolean = true)
     : RadioController = {
       val ctrl = createController(srcConfig, configuration)
       ctrl windowOpened event()
+      if (resetErrorIndicator) {
+        reset(errorIndicator)
+      }
       ctrl
     }
 
@@ -641,6 +760,33 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
         any[ErrorHandlingStrategy.State], any[RadioSourceErrorEvent], any[RadioSource]))
         .thenAnswer(answer)
       (answer, counter)
+    }
+
+    /**
+      * Invokes the given test controller to bring it into a specific error
+      * state.
+      *
+      * @param ctrl  the controller
+      * @param state the error state
+      * @param idx   the index of the source for the error event
+      */
+    def injectErrorState(ctrl: RadioController, state: ErrorHandlingStrategy.State,
+                         idx: Int): (ErrorStrategyAnswer, AtomicInteger) = {
+      val t = expectErrorStrategyCall(state)
+      ctrl playbackError RadioSourceErrorEvent(radioSource(idx))
+      reset(errorIndicator, errorHandlingStrategy, player)
+      t
+    }
+
+    /**
+      * Verifies that no error recovery has been done. This is done via the
+      * error indicator mock.
+      *
+      * @return this test helper
+      */
+    def verifyNoRecovery(): RadioControllerTestHelper = {
+      verify(errorIndicator, never()).setVisible(false)
+      this
     }
 
     /**
