@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import akka.actor.{Actor, ActorRef, Cancellable, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
@@ -93,7 +93,7 @@ object DelayActor {
   * message for this target actor comes in. So only a single message can be
   * pending for one actor.
   */
-class DelayActor extends Actor {
+class DelayActor extends Actor with ActorLogging {
   this: SchedulerSupport =>
 
   import DelayActor._
@@ -114,8 +114,10 @@ class DelayActor extends Actor {
       }
 
     case DelayedInvocation(prop, seqNo) =>
+      log.debug("Received delayed invocation.")
       pendingSchedules.remove(prop.target) match {
         case Some(DelayData(_, seq)) if seqNo == seq =>
+          log.debug("Propagating: {}.", prop)
           propagate(prop)
         case _ => // outdated or unexpected
       }
@@ -134,10 +136,11 @@ class DelayActor extends Actor {
     * @return the internal data for this delayed invocation
     */
   private def scheduleInvocation(p: Propagate): DelayData = {
+    log.debug("Scheduling invocation for {}.", p)
     val currentCount = sequenceCounter
     sequenceCounter += 1
     DelayData(scheduleMessageOnce(p.delay, self,
-      DelayedInvocation(p, 0)), currentCount)
+      DelayedInvocation(p, currentCount)), currentCount)
   }
 
   /**

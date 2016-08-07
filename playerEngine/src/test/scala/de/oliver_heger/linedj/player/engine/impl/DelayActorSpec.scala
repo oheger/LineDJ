@@ -115,6 +115,18 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper.targetProbe.expectMsg(Message)
   }
 
+  it should "support multiple delayed invocations" in {
+    val helper = new DelayActorTestHelper
+    val delay = 1.hour
+    val invocation = helper.propagate(delay).expectSchedule(delay)
+    helper send invocation.message
+    helper.targetProbe.expectMsg(Message)
+
+    val invocation2 = helper.propagate(delay).expectSchedule(delay)
+    helper send invocation2.message
+    helper.targetProbe.expectMsg(Message)
+  }
+
   it should "reset the Cancellable when the invocation is done" in {
     val helper = new DelayActorTestHelper
     val delay = 1.minute
