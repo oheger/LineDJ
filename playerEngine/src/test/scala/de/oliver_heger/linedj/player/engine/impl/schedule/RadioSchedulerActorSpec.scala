@@ -344,7 +344,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     schedule.cancellable.cancelCount should be(0)
   }
 
-  it should "trigger the evaluation of all sources if the current on is Inside" in {
+  it should "trigger the evaluation of all sources if the current one is Inside" in {
     val helper = new RadioSchedulerActorTestHelper
     val until = LocalDateTime.now() plusMinutes 5
     val resp = helper.handleSourceEvaluation(radioSource(2), Inside(new LazyDate(until)))
@@ -394,6 +394,15 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper receive replacementResponse(resp)
     helper.expectNoRadioSource()
       .expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 5.minutes)
+  }
+
+  it should "start playback for a received source even if it is the current one" in {
+    val helper = new RadioSchedulerActorTestHelper
+    val source = radioSource(3)
+    helper receive source
+
+    helper.expectRadioSource(source).receive(source)
+    helper.expectRadioSource(source)
   }
 
   it should "pass the ranking function to the selection strategy" in {

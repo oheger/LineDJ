@@ -177,6 +177,7 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     case src: RadioSource =>
       stateChanged()
       currentSource = Some(src)
+      playedSource = null  // force a restart of the source
       if (!triggerSourceEval(src)) {
         playSource(src)
       }
