@@ -417,7 +417,8 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val srcConfig = createSourceConfiguration(4)
     val helper = new RadioControllerTestHelper
     val (answer, _) = helper.expectErrorStrategyCall()
-    val ctrl = helper.createInitializedController(srcConfig, playerConfig)
+    val ctrl = helper.createInitializedController(srcConfig, playerConfig,
+      playbackSrcIdx = 1)
 
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
     answer.config.sourcesConfig should be(srcConfig)
@@ -429,7 +430,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val (answer, _) = helper.expectErrorStrategyCall()
     val error = RadioSourceErrorEvent(srcConfig.sources(2)._2)
-    val ctrl = helper.createInitializedController(srcConfig)
+    val ctrl = helper.createInitializedController(srcConfig, playbackSrcIdx = 2)
 
     ctrl playbackError error
     answer.errorSource should be(error.source)
@@ -440,16 +441,27 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "invoke the player action from the error handling strategy" in {
     val helper = new RadioControllerTestHelper
     val (_, counter) = helper.expectErrorStrategyCall()
-    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      playbackSrcIdx = 1)
 
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
     counter.get() should be(1)
   }
 
+  it should "not handle a playback error if there is no playback source" in {
+    val helper = new RadioControllerTestHelper
+    val (_, counter) = helper.expectErrorStrategyCall()
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+
+    ctrl playbackError RadioSourceErrorEvent(radioSource(1))
+    counter.get() should be(0)
+  }
+
   it should "display the error indicator when a playback error was detected" in {
     val helper = new RadioControllerTestHelper
     helper.expectErrorStrategyCall()
-    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      playbackSrcIdx = 1)
 
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
     verify(helper.errorIndicator).setVisible(true)
@@ -458,10 +470,12 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "record the next error state" in {
     val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 10000)
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createInitializedController(createSourceConfiguration(8))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(8),
+      playbackSrcIdx = 1)
     helper.injectErrorState(ctrl, nextState, 3)
 
     val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl radioSourcePlaybackStarted radioSource(3)
     ctrl playbackError RadioSourceErrorEvent(radioSource(3))
     answer.previousState should be(nextState)
   }
@@ -469,13 +483,15 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "clear the error state when the user selects another source" in {
     val nextState = ErrorHandlingStrategy.NoError.copy(retryMillis = 15000)
     val helper = new RadioControllerTestHelper
-    val ctrl = helper.createInitializedController(createSourceConfiguration(8))
+    val ctrl = helper.createInitializedController(createSourceConfiguration(8),
+      playbackSrcIdx = 1)
     helper.injectErrorState(ctrl, nextState, 1)
 
     doReturn(radioSource(2)).when(helper.comboHandler).getData
     ctrl elementChanged mock[FormChangeEvent]
     verify(helper.errorIndicator).setVisible(false)
     val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl radioSourcePlaybackStarted radioSource(1)
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
     answer.previousState should be(ErrorHandlingStrategy.NoError)
   }
@@ -483,13 +499,14 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "recover from an error after the configured time" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(8),
-      createRecoveryConfiguration())
+      createRecoveryConfiguration(), playbackSrcIdx = 7)
     helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources, radioSource(7)), 1)
 
     ctrl playbackTimeProgress RecoveryTime
     helper.verifySwitchSource(radioSource(1), null)
     verify(helper.errorIndicator).setVisible(false)
     val (answer, _) = helper.expectErrorStrategyCall()
+    ctrl radioSourcePlaybackStarted radioSource(2)
     ctrl playbackError RadioSourceErrorEvent(radioSource(2))
     answer.previousState should be(ErrorHandlingStrategy.NoError)
   }
@@ -497,7 +514,7 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "not change the source on recovery if it is already played" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(4),
-      createRecoveryConfiguration())
+      createRecoveryConfiguration(), playbackSrcIdx = 1)
     helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources + 1,
       radioSource(1)), 1)
 
@@ -543,6 +560,32 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     ctrl.errorRecoveryTime should be(600)
     ctrl.minFailedSourcesForRecovery should be(1)
+  }
+
+  it should "handle an event about a failed playback context creation" in {
+    val srcConfig = createSourceConfiguration(8)
+    val helper = new RadioControllerTestHelper
+    val (answer, _) = helper.expectErrorStrategyCall()
+    val errorSource = radioSource(1)
+    val ctrl = helper.createInitializedController(srcConfig)
+    ctrl radioSourcePlaybackStarted errorSource
+
+    ctrl.playbackContextCreationFailed()
+    answer.errorSource should be(errorSource)
+    verify(helper.player).startPlayback(delay = 100.millis)
+  }
+
+  it should "not handle a failed playback context creation after a playback error" in {
+    val srcConfig = createSourceConfiguration(8)
+    val helper = new RadioControllerTestHelper
+    val (_, counter) = helper.expectErrorStrategyCall()
+    val errorSource = radioSource(1)
+    val ctrl = helper.createInitializedController(srcConfig)
+    ctrl radioSourcePlaybackStarted errorSource
+    ctrl playbackError RadioSourceErrorEvent(errorSource)
+
+    ctrl.playbackContextCreationFailed()
+    counter.get() should be(1)
   }
 
   /**
@@ -601,14 +644,20 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       * @param resetErrorIndicator flag whether the error indicator mock
       *                            should be reset (the indicator is hidden
       *                            at initialization time)
+      * @param playbackSrcIdx      an index for the current source to be set;
+      *                            negative for none
       * @return the test instance
       */
     def createInitializedController(srcConfig: RadioSourceConfig,
                                     configuration: Configuration = new HierarchicalConfiguration,
-                                    resetErrorIndicator: Boolean = true)
+                                    resetErrorIndicator: Boolean = true,
+                                    playbackSrcIdx: Int = -1)
     : RadioController = {
       val ctrl = createController(srcConfig, configuration)
       ctrl windowOpened event()
+      if (playbackSrcIdx >= 0) {
+        ctrl radioSourcePlaybackStarted radioSource(playbackSrcIdx)
+      }
       if (resetErrorIndicator) {
         reset(errorIndicator)
       }

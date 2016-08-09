@@ -67,6 +67,13 @@ object RadioController {
   /** Default minimum number of blacklisted sources before recovery. */
   private val DefaultMinFailuresForRecovery = 1
 
+  /**
+    * A delay for restarting the audio player after a playback context
+    * creation failure. Here a delay is needed to prevent the audio buffer
+    * from being cleared.
+    */
+  private val DelayAfterContextCreationFailure = 100.millis
+
   /** The name of the start playback action. */
   private val ActionStartPlayback = "startPlaybackAction"
 
@@ -129,6 +136,12 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
 
   /** Stores the current radio source. */
   private var currentSource: RadioSource = _
+
+  /**
+    * The source that is currently played. This is not necessary the current
+    * source, e.g. if a replacement source is currently active.
+    */
+  private var playbackSource: RadioSource = _
 
   /** Stores the current error state. */
   private var errorState = ErrorHandlingStrategy.NoError
@@ -256,6 +269,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     */
   def radioSourcePlaybackStarted(src: RadioSource): Unit = {
     statusText setText generateStatusText(src)
+    playbackSource = currentSource
   }
 
   /**
@@ -281,11 +295,29 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     */
   def playbackError(error: RadioSourceErrorEvent): Unit = {
     log.warn("Received playback error event {}!", error)
-    errorIndicator setVisible true
-    val (action, nextState) = errorHandlingStrategy.handleError(errorHandlingConfig,
-      errorState, error, currentSource)
-    action(player)
-    errorState = nextState
+    if (playbackSource != null) {
+      errorIndicator setVisible true
+      val (action, nextState) = errorHandlingStrategy.handleError(errorHandlingConfig,
+        errorState, error, currentSource)
+      action(player)
+      errorState = nextState
+      playbackSource = null
+    }
+  }
+
+  /**
+    * Notifies this controller that there was an error when creating the
+    * playback context for the current source. This has to be handled in the
+    * same way as a playback error, except that the player has to be started
+    * again. Note that both errors may occur for the same source; only one
+    * should be handled. This method must be invoked in the event thread.
+    */
+  def playbackContextCreationFailed(): Unit = {
+    log.warn("Playback context creation failed!")
+    if (playbackSource != null) {
+      player.startPlayback(delay = DelayAfterContextCreationFailure)
+      playbackError(RadioSourceErrorEvent(playbackSource))
+    }
   }
 
   /**
