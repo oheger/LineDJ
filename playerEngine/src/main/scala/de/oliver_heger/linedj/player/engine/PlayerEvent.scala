@@ -56,6 +56,19 @@ case class AudioSourceFinishedEvent(source: AudioSource,
   extends PlayerEvent
 
 /**
+  * A player event indicating an error if the playback context for the current
+  * audio source cannot be created. This typically means that playback is
+  * aborted.
+  *
+  * @param source the affected audio source
+  * @param time   the time when this event was generated
+  */
+case class PlaybackContextCreationFailedEvent(source: AudioSource,
+                                              override val time: LocalDateTime = LocalDateTime
+                                                .now())
+  extends PlayerEvent
+
+/**
   * A player event indicating a progress during playback.
   *
   * Events of this type are generated about every second by the playback actor.

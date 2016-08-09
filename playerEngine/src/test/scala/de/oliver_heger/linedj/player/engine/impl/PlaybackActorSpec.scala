@@ -662,15 +662,18 @@ with EventTestSupport {
     * tested whether the current source is skipped afterwards.
     *
     * @param ctx the playback context to be returned by the factory
+    * @param evMan an optional event manager probe
     * @return the mock playback context factory
     */
-  private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext]):
+  private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext],
+                                                          evMan: Option[TestProbe] = None):
   PlaybackContextFactory = {
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
       .thenReturn(ctx)
     val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+      optEventMan = evMan))
     actor ! AddPlaybackContextFactory(mockContextFactory)
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -692,6 +695,15 @@ with EventTestSupport {
     val line = mock[SourceDataLine]
     doThrow(new LineUnavailableException).when(line).open(any(classOf[AudioFormat]))
     checkSkipAfterFailedPlaybackContextCreation(Some(PlaybackContext(TestAudioFormat, null, line)))
+  }
+
+  it should "generate a failure event if no playback context can be created" in {
+    val eventMan = TestProbe()
+    checkSkipAfterFailedPlaybackContextCreation(ctx = None, evMan = Some(eventMan))
+    eventMan.expectMsgType[AudioSourceStartedEvent]
+
+    val event = expectEvent[PlaybackContextCreationFailedEvent](eventMan)
+    event.source should be(createSource(1))
   }
 
   it should "skip an infinite source if no playback context can be created" in {

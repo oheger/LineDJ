@@ -510,6 +510,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
         case None =>
+          log.warning("Could not create playback context for {}!", currentSource.get.uri)
+          eventActor ! PlaybackContextCreationFailedEvent(currentSource.get)
           enterSkipMode(afterError = true)
       }
       playbackContext
