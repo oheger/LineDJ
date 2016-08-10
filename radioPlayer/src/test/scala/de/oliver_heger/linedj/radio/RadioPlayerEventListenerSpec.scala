@@ -50,6 +50,14 @@ class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSu
     helper.sendEvent(errorEvent).verifyErrorEvent(errorEvent)
   }
 
+  it should "delegate playback context creation failure events" in {
+    val pcEvent = PlaybackContextCreationFailedEvent(AudioSource.infinite("failed"))
+    val helper = new RadioPlayerEventListenerTestHelper
+
+    helper.sendEvent(pcEvent)
+    verify(helper.controller).playbackContextCreationFailed()
+  }
+
   it should "ignore other events" in {
     val helper = new RadioPlayerEventListenerTestHelper
 

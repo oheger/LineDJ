@@ -49,6 +49,8 @@ class RadioPlayerEventListener(controller: RadioController, player: RadioPlayer)
           controller playbackTimeProgress time
         case ev: RadioSourceErrorEvent =>
           controller playbackError ev
+        case PlaybackContextCreationFailedEvent(_, _) =>
+          controller.playbackContextCreationFailed()
         case _ => // ignore other events
       }
   }
