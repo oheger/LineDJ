@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.{DelayActor, RadioSource, RadioSourceErrorEvent}
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration,
-PropertiesConfiguration}
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -177,7 +176,9 @@ class ErrorHandlingStrategySpec extends FlatSpec with Matchers with MockitoSugar
 
     val (action, next) = strategy.handleError(StrategyConfig, state, errorEvent(1),
       CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(radioSource(2), DelayActor.NoDelay)
+    val player = checkPlayerAction(action)
+    verify(player).switchToSource(radioSource(2), RetryInterval.millis)
+    verify(player).startPlayback(RetryInterval.millis)
     next.retryMillis should be(0)
   }
 
@@ -213,7 +214,9 @@ class ErrorHandlingStrategySpec extends FlatSpec with Matchers with MockitoSugar
 
     val (action, _) = strategy.handleError(StrategyConfig,
       next.copy(retryMillis = ExceededRetryTime), errorEvent(2), CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(radioSource(3), DelayActor.NoDelay)
+    val player = checkPlayerAction(action)
+    verify(player).switchToSource(radioSource(3), RetryInterval.millis)
+    verify(player).startPlayback(RetryInterval.millis)
   }
 
   it should "handle the case that all sources are blacklisted" in {

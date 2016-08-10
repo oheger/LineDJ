@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.{DelayActor, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
@@ -219,7 +219,7 @@ object ErrorHandlingStrategy {
         val nextBlacklist = previous.blacklist + currentSource
         val nextSource =
           config.sourcesConfig.sources.dropWhile(t => nextBlacklist.contains(t._2)).head._2
-        val action = switchSourceAction(nextSource, DelayActor.NoDelay)
+        val action = switchSourceAction(nextSource, config.retryInterval)
         (action, previous.copy(retryMillis = 0, blacklist = nextBlacklist,
           activeSource = Some(nextSource)))
       }
@@ -269,7 +269,10 @@ object ErrorHandlingStrategy {
     * @return the player action
     */
   private def switchSourceAction(source: RadioSource, delay: FiniteDuration): PlayerAction =
-  p => p.switchToSource(source, delay)
+  p => {
+    p.switchToSource(source, delay)
+    p.startPlayback(delay)
+  }
 
   /**
     * Checks whether all sources are currently blacklisted. (This indicates a
