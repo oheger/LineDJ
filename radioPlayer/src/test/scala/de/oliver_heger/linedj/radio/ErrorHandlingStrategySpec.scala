@@ -16,11 +16,14 @@
 
 package de.oliver_heger.linedj.radio
 
+import java.time.LocalDateTime
+
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
-import org.mockito.Mockito
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
+import org.mockito.Matchers.any
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -69,7 +72,8 @@ object ErrorHandlingStrategySpec {
     * @return the error event
     */
   private def errorEvent(idx: Int): RadioSourceErrorEvent =
-  RadioSourceErrorEvent(radioSource(idx))
+  RadioSourceErrorEvent(radioSource(idx),
+    time = LocalDateTime.now().withNano(0))
 
   /**
     * Creates a configuration with the retry settings.
@@ -94,10 +98,26 @@ object ErrorHandlingStrategySpec {
     val config = Mockito.mock(classOf[RadioSourceConfig])
     val sources = (1 to SourceCount) map { i =>
       val src = radioSource(i)
+      when(config.ranking(src)).thenReturn(SourceCount - i)
       (src.uri, src)
     }
     when(config.sources).thenReturn(sources)
     config
+  }
+
+  /**
+    * Adds a ranking function to the source configuration. The first half of
+    * the sources has ranking 1, the other half has ranking 0.
+    *
+    * @param srcConfig the sources configuration
+    * @return the modified sources configuration
+    */
+  private def addRanking(srcConfig: RadioSourceConfig): RadioSourceConfig = {
+    (1 to SourceCount) foreach { i =>
+      val rankValue = if (i <= SourceCount / 2) 1 else 0
+      when(srcConfig.ranking(radioSource(i))).thenReturn(rankValue)
+    }
+    srcConfig
   }
 }
 
@@ -256,6 +276,33 @@ class ErrorHandlingStrategySpec extends FlatSpec with Matchers with MockitoSugar
 
     val config = ErrorHandlingStrategy.createConfig(playerConfig, RadioSourceConfig(playerConfig))
     config.retryIncrementFactor should be(1.1)
+  }
+
+  it should "select different replacement sources per ranking" in {
+    val errorSource = radioSource(2)
+    val strategy = new ErrorHandlingStrategy
+    val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime)
+    val rankingStrategyConfig = ErrorHandlingStrategy.createConfig(createPlayerConfig(),
+      addRanking(StrategyConfig.sourcesConfig))
+
+    // Generates an error event with a deterministic time
+    def timedErrorEvent(idx: Int): RadioSourceErrorEvent =
+    RadioSourceErrorEvent(errorSource, LocalDateTime.now().withNano(idx * 1000))
+
+    // Fetches the replacement source from the action
+    def replacementSource(action: ErrorHandlingStrategy.PlayerAction): RadioSource = {
+      val captor = ArgumentCaptor.forClass(classOf[RadioSource])
+      verify(checkPlayerAction(action)).switchToSource(captor.capture(), any[FiniteDuration])
+      captor.getValue
+    }
+
+    val sources = (1 to SourceCount).foldLeft(Set.empty[RadioSource]) { (s, i) =>
+      val (action, _) = strategy.handleError(rankingStrategyConfig, state, timedErrorEvent(i),
+        errorSource)
+      s + replacementSource(action)
+    }
+    val expected = (1 to (SourceCount / 2)).filterNot(_ == 2) map radioSource
+    sources should be(expected.toSet)
   }
 
   "An ErrorHandlingStrategyState" should "return the number of blacklisted sources" in {

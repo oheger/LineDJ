@@ -211,17 +211,16 @@ object ErrorHandlingStrategy {
     val currentSource = previous.activeSource getOrElse ctrlSource
     val retry = math.max(previous.retryMillis, config.retryInterval.toMillis)
     if (retry > config.maxRetryInterval) {
-      if (allSourcesBlacklisted(config, previous)) {
-        (switchSourceAction(ctrlSource, config.maxRetryInterval.millis),
-          previous.copy(activeSource = Some(ctrlSource)))
-      } else {
+      val nextBlacklist = previous.blacklist + currentSource
+      selectReplacementSource(config, nextBlacklist, error) match {
+        case Some(src) =>
+          val action = switchSourceAction(src, config.retryInterval)
+          (action, previous.copy(retryMillis = 0, blacklist = nextBlacklist,
+            activeSource = Some(src)))
 
-        val nextBlacklist = previous.blacklist + currentSource
-        val nextSource =
-          config.sourcesConfig.sources.dropWhile(t => nextBlacklist.contains(t._2)).head._2
-        val action = switchSourceAction(nextSource, config.retryInterval)
-        (action, previous.copy(retryMillis = 0, blacklist = nextBlacklist,
-          activeSource = Some(nextSource)))
+        case None =>
+          (switchSourceAction(ctrlSource, config.maxRetryInterval.millis),
+            previous.copy(activeSource = Some(ctrlSource)))
       }
     } else {
 
@@ -244,6 +243,37 @@ object ErrorHandlingStrategy {
     val action: PlayerAction = p => p.checkCurrentSource(failedSources ++ previous.blacklist,
       config.retryInterval)
     (action, previous.copy(replacementBlacklist = failedSources))
+  }
+
+  /**
+    * Selects a replacement source from the sources configuration using the
+    * specified blacklist. This method should produce some variety: It does
+    * not simply return the next highest ranked source from the list of sources
+    * because (as the sources are sorted alphabetically) this would yield a
+    * deterministic sequence. Rather, all sources with the next highest
+    * ranking are determined, and the time of the event is used as random
+    * source to select one of them. If there are no more sources left to
+    * choose from, result is ''None''.
+    *
+    * @param config    the configuration settings for the strategy
+    * @param blacklist the set of sources to be excluded
+    * @param error     the current error event
+    * @return an option with the selected source
+    */
+  private def selectReplacementSource(config: Config, blacklist: Set[RadioSource],
+                                      error: RadioSourceErrorEvent): Option[RadioSource] = {
+    def blacklisted(e: (String, RadioSource)): Boolean =
+      blacklist contains e._2
+
+    val nextCandidates = config.sourcesConfig.sources dropWhile blacklisted
+    val nextSource = nextCandidates.headOption map { e =>
+      val ranking = config.sourcesConfig.ranking(e._2)
+      val rankedCandidates = nextCandidates.takeWhile(t =>
+        config.sourcesConfig.ranking(t._2) == ranking) filterNot blacklisted
+      val idx = (error.time.getNano / 1000) % (rankedCandidates.size + 1)
+      (e :: rankedCandidates.toList).drop(idx).head._2
+    }
+    nextSource
   }
 
   /**
@@ -274,16 +304,6 @@ object ErrorHandlingStrategy {
     p.startPlayback(delay)
   }
 
-  /**
-    * Checks whether all sources are currently blacklisted. (This indicates a
-    * severe problem with the internet connection.)
-    *
-    * @param config the configuration
-    * @param state  the current state
-    * @return a flag whether all sources are blacklisted
-    */
-  private def allSourcesBlacklisted(config: Config, state: State): Boolean =
-  state.blacklist.size >= config.sourcesConfig.sources.size
 }
 
 /**
