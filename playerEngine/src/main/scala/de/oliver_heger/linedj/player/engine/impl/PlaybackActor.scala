@@ -28,6 +28,8 @@ import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritt
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import de.oliver_heger.linedj.player.engine._
 
+import scala.util.{Failure, Success, Try}
+
 /**
  * Companion object of ''PlaybackActor''.
  */
@@ -397,19 +399,24 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       fetchPlaybackContext() foreach { ctx =>
         if (isPlaying) {
           if (audioBufferFilled(ctx.bufferSize)) {
-            val len = ctx.stream.read(audioChunk)
-            if (len > 0) {
-              lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
-              audioPlaybackPending = true
-            } else {
-              if (!currentSourceIsInfinite) {
-                lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
-              } else {
-                if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
-                  log.warning("Playback stalled! Flushing buffer.")
-                  audioDataStream.clear()
+            readFromAudioStream(ctx) match {
+              case Success(len) =>
+                if (len > 0) {
+                  lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
+                  audioPlaybackPending = true
+                } else {
+                  if (!currentSourceIsInfinite) {
+                    lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+                  } else {
+                    if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
+                      log.warning("Playback stalled! Flushing buffer.")
+                      audioDataStream.clear()
+                    }
+                  }
                 }
-              }
+              case Failure(exception) =>
+                log.error(exception, "Error when reading audio stream!")
+                playbackError(PlaybackErrorEvent(currentSource.get))
             }
           }
           requestAudioDataIfPossible()
@@ -417,6 +424,16 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       }
     }
   }
+
+  /**
+    * Reads data from the current audio stream of the playback context with
+    * exception handling.
+    *
+    * @param ctx the context
+    * @return a ''Try'' object with the number of bytes read
+    */
+  private def readFromAudioStream(ctx: PlaybackContext): Try[Int] =
+  Try(ctx.stream.read(audioChunk))
 
   /**
     * Returns a flag whether the current source is infinite.
@@ -511,11 +528,22 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
           audioChunk = createChunkBuffer(ctx)
         case None =>
           log.warning("Could not create playback context for {}!", currentSource.get.uri)
-          eventActor ! PlaybackContextCreationFailedEvent(currentSource.get)
-          enterSkipMode(afterError = true)
+          val event = PlaybackContextCreationFailedEvent(currentSource.get)
+          playbackError(event)
       }
       playbackContext
     } else None
+  }
+
+  /**
+    * Handles an error during playback. Sends the specified error event to the
+    * event manager actor, then tries to close the current source if possible.
+    *
+    * @param errorEvent the error event
+    */
+  private def playbackError(errorEvent: PlayerEvent): Unit = {
+    eventActor ! errorEvent
+    enterSkipMode(afterError = true)
   }
 
   /**

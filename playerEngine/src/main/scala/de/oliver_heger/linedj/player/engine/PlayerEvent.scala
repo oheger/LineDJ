@@ -69,6 +69,18 @@ case class PlaybackContextCreationFailedEvent(source: AudioSource,
   extends PlayerEvent
 
 /**
+  * A player event indicating an error during playback. This typically
+  * indicates a problem with the input stream read by the player.
+  *
+  * @param source the affected audio source
+  * @param time   the time when this event was generated
+  */
+case class PlaybackErrorEvent(source: AudioSource,
+                              override val time: LocalDateTime = LocalDateTime
+                                .now())
+  extends PlayerEvent
+
+/**
   * A player event indicating a progress during playback.
   *
   * Events of this type are generated about every second by the playback actor.
