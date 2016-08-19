@@ -195,8 +195,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystemTestHelper createActorSystem "ExportActorSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   "An ExportActor" should "generate operations for copying files" in {
@@ -234,8 +233,8 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   }
 
   it should "replace invalid characters in file names" in {
-    val title = "Song: My *, \"<Love>|Pet/Heart Come\\ - yes?"
-    val replacedTitle = "Song_ My _, __Love__Pet_Heart Come_ - yes_"
+    val title = "Song:\t My *, \"<Love>|Pet/Heart Come\\ - yes?"
+    val replacedTitle = "Song__ My _, __Love__Pet_Heart Come_ - yes_"
     val songList = List(SongData(medium(1), songUri(1), MediaMetaData(title = Some(title)), null))
     val data = ExportActor.ExportData(songList, TestScanResult, ExportPath, clearTarget = false,
       overrideFiles = false)

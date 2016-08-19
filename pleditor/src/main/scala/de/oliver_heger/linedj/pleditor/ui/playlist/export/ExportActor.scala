@@ -128,7 +128,7 @@ object ExportActor {
     Props(classOf[ExportActorImpl], remoteMessageBus)
 
   /** An expression defining illegal characters in a song title. */
-  private val InvalidCharacters = "[:*?\"<>|/\\\\]".r
+  private val InvalidCharacters = "[:*?\"<>\t|/\\\\]".r
 
   /**
    * Initializes data for the export operation based on the given data
