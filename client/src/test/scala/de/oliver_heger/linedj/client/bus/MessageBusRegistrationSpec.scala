@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.client.bus
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.comm.{MessageBus, MessageBusListener}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}

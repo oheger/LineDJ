@@ -19,11 +19,11 @@ package de.oliver_heger.linedj.browser.cache
 import java.nio.file.Paths
 
 import akka.actor.ActorRef
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk,
-RemoveMediumListener}
+import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, RemoveMediumListener}
 import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.remoting.{MessageBus, RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}

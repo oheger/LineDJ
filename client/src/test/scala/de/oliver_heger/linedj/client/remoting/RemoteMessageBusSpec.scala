@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.client.remoting
 import akka.actor.Actor.Receive
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
+import de.oliver_heger.linedj.client.comm.MessageBus
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._

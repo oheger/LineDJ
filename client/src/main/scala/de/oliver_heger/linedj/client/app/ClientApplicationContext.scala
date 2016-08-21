@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
+import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 
 /**

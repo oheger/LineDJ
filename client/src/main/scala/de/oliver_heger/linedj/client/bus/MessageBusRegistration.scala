@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.comm.{MessageBus, MessageBusListener}
 
 /**
  * A class that handles the registration of message bus listeners.

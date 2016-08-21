@@ -17,11 +17,11 @@
 package de.oliver_heger.linedj.client.bus
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 
 /**
- * An implementation of the [[de.oliver_heger.linedj.client.remoting.MessageBus]]
+ * An implementation of the [[MessageBus]]
  * trait for a UI application.
  *
  * This implementation is mainly based on a ''GUISynchronizer'' in order to

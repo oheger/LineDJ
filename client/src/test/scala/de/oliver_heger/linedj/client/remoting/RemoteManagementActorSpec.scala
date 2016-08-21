@@ -21,6 +21,7 @@ import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

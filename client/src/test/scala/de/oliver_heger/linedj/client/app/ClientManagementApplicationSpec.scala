@@ -16,17 +16,18 @@
 
 package de.oliver_heger.linedj.client.app
 
-import java.util.concurrent.{TimeUnit, CountDownLatch}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
+import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.mockito.{Mockito, ArgumentCaptor}
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.osgi.framework.{Bundle, BundleContext}

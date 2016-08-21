@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.browser.media
 
 import java.util
 
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
-import de.oliver_heger.linedj.client.remoting.MessageBus
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec

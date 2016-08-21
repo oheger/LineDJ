@@ -17,10 +17,11 @@
 package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.client.remoting.{RemoteManagementActor, MessageBus, ActorFactory}
+import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.remoting.RemoteManagementActor
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''RemoteMessageBusFactory''.

@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.client.remoting
 
-import akka.actor.{Props, ActorRef, Actor}
+import akka.actor.{Actor, ActorRef, Props}
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.remoting.RemoteManagementActor.RemoteConfiguration
 import de.oliver_heger.linedj.utils.ChildActorFactory
 

@@ -22,8 +22,8 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.app.ClientApplicationContext
+import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
@@ -49,8 +49,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
   def this() = this(ActorSystemTestHelper createActorSystem "ReorderManagerComponentSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   /**

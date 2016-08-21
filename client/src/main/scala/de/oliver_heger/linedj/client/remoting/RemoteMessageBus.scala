@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.client.remoting
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{Actor, ActorRef}
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.remoting.RemoteActors.RemoteActor
 
 /**

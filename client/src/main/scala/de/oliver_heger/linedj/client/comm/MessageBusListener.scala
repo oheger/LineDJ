@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.remoting
+package de.oliver_heger.linedj.client.comm
 
-import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.actor.Actor.Receive
 
 /**
- * A class for creating actors.
+ * A trait defining an object that needs to listen on the message bus.
  *
- * This class holds an instance of an ''ActorSystem'' and provides a method for
- * creating an actor in this system. Some controller classes need to create
- * specific actors; therefore, it makes sense to have this functionality on a
- * central place. This also simplifies testing.
- *
- * @param actorSystem the current ''ActorSystem''
+ * Such objects are typically declared via the dependency injection framework.
+ * When the application starts up the registration at the message bus is done.
+ * The trait just defines a single function for obtaining the ''Receive''
+ * function which handles events published to the message bus.
  */
-class ActorFactory(val actorSystem: ActorSystem) {
-  def createActor(props: Props, name: String): ActorRef =
-    actorSystem.actorOf(props, name)
+trait MessageBusListener {
+  /**
+   * Returns the function for handling messages published on the message bus.
+   * @return the message handling function
+   */
+  def receive: Receive
 }

@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.pleditor.ui.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication,
-ApplicationSyncStartup, ApplicationTestSupport}
-import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
@@ -29,7 +28,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''PlaylistEditorApp''.

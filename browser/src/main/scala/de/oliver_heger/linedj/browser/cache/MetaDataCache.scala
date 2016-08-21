@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.cache
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.bus.MessageBusListener
+import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
 import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}

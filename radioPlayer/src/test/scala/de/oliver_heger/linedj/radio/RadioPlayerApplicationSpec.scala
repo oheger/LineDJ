@@ -28,7 +28,7 @@ import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.app._
-import de.oliver_heger.linedj.client.remoting.MessageBus
+import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer

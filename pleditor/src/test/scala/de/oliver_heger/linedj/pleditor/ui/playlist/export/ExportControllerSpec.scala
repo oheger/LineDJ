@@ -19,28 +19,28 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.export
 import java.nio.file.Paths
 
 import akka.actor._
-import akka.testkit.{TestProbe, ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.client.remoting.{ActorFactory, MessageBus, RemoteMessageBus}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, ProgressBarHandler}
+import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
-import net.sf.jguiraffe.gui.builder.window.{WindowEvent, Window}
+import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import net.sf.jguiraffe.resources.Message
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.{eq => eqArg}
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, BeforeAndAfterAll, FlatSpecLike}
-import scala.concurrent.duration._
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ExportControllerSpec {
   /** The number of test songs to be exported. */
@@ -78,8 +78,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   def this() = this(ActorSystem("ExportControllerSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "An ExportController" should "have dummy implementations for window listener methods" in {
