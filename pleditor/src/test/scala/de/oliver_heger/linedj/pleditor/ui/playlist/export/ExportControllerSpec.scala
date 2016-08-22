@@ -22,7 +22,7 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData

@@ -21,7 +21,7 @@ import java.nio.file.Path
 import akka.actor.Actor.Receive
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBusListener}
-import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}

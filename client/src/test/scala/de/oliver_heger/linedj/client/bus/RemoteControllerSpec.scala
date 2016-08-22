@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.client.remoting.{RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.mediaifc.{RemoteMessageBus, RemoteRelayActor}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._

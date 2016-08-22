@@ -20,7 +20,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.remoting.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}

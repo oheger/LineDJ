@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.remoting
+package de.oliver_heger.linedj.client.mediaifc
 
 /**
  * An object defining an enumeration for the remote actors available.

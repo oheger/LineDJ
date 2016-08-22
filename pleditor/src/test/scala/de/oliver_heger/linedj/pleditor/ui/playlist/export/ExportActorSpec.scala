@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

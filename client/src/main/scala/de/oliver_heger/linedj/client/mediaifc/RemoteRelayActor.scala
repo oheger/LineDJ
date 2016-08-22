@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.remoting
+package de.oliver_heger.linedj.client.mediaifc
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.remoting.RemoteActors.RemoteActor
+import de.oliver_heger.linedj.client.mediaifc.RemoteActors.RemoteActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RemoteRelayActor {

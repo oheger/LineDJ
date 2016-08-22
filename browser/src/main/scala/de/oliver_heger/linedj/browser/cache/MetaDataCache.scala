@@ -20,8 +20,8 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
-import de.oliver_heger.linedj.client.remoting.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.remoting.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
+import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus}
 
 object MetaDataCache {
   /** Constant for the chunk for an unknown medium. */
