@@ -127,7 +127,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "allow sending a message to the media manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(RemoteActors.MediaManager,
+    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(MediaActors.MediaManager,
       Message)
 
     helper.probeMediaManager.expectMsg(Message)
@@ -135,7 +135,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "allow sending a message to the meta data manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(RemoteActors.MetaDataManager,
+    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager,
       Message)
 
     helper.probeMetaDataManager.expectMsg(Message)
@@ -146,10 +146,10 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper activateAndExpectState RemoteRelayActor.ServerUnavailable
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RemoteRelayActor.RemoteMessage(RemoteActors.MetaDataManager, "ignore")
+    helper.relayActor ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager, "ignore")
     helper registerRemoteActor helper.probeMetaDataManager
     expectMsg(RemoteRelayActor.ServerAvailable)
-    helper.relayActor ! RemoteRelayActor.RemoteMessage(RemoteActors.MetaDataManager, Message)
+    helper.relayActor ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager, Message)
     helper.probeMetaDataManager.expectMsg(Message)
   }
 
@@ -179,8 +179,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(RemoteActors.MediaManager)
-    expectMsg(RemoteRelayActor.RemoteActorResponse(RemoteActors.MediaManager, Some(helper
+    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager)
+    expectMsg(RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(helper
       .probeMediaManager.ref)))
   }
 
@@ -188,8 +188,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(RemoteActors.MetaDataManager)
-    expectMsg(RemoteRelayActor.RemoteActorResponse(RemoteActors.MetaDataManager, None))
+    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MetaDataManager)
+    expectMsg(RemoteRelayActor.RemoteActorResponse(MediaActors.MetaDataManager, None))
   }
 
   /**

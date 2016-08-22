@@ -22,7 +22,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
@@ -166,7 +166,7 @@ MessageBusListener {
       inProgressWidget setVisible false
 
     case ServerAvailable =>
-      remoteMessageBus.send(RemoteActors.MediaManager, GetAvailableMedia)
+      remoteMessageBus.send(MediaActors.MediaManager, GetAvailableMedia)
       inProgressWidget setVisible false
 
     case AvailableMedia(media) =>

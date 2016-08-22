@@ -23,7 +23,7 @@ import akka.actor._
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumFileRequest
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer
@@ -314,7 +314,7 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
   override def preStart(): Unit = {
     super.preStart()
 
-    remoteMessageBus.relayActor ! RemoteRelayActor.RemoteActorRequest(RemoteActors.MediaManager)
+    remoteMessageBus.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager)
     removeFileActor = createChildActor(Props[RemoveFileActor])
     context watch removeFileActor
   }
@@ -337,7 +337,7 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
    * @return the function for handling messages in the preparation phase
    */
   private def prepareReceive: Receive = {
-    case RemoteRelayActor.RemoteActorResponse(RemoteActors.MediaManager, Some(actor)) =>
+    case RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(actor)) =>
       copyFileActor = createChildActor(Props(classOf[CopyFileActor], self, actor))
       context watch copyFileActor
       startExportIfPossible()

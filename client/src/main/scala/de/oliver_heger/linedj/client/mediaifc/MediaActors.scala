@@ -17,33 +17,34 @@
 package de.oliver_heger.linedj.client.mediaifc
 
 /**
- * An object defining an enumeration for the remote actors available.
+ * An object defining an enumeration for the actors used by the interface to
+ * the media archive.
  *
- * This enumeration is used when communicating with the remote actor system.
+ * This enumeration is used when communicating with the media archive.
  * The actors which are tracked and which can be accessed from the client are
  * identified by specific constants. Via these constants, they can be uniquely
  * identified, e.g. when sending messages to them.
  *
- * Each constant is assigned the name of the represented remote actor. This is
- * used internally to construct paths to the remote actor system.
+ * Each constant is assigned the name of the represented media actor. This is
+ * used internally to construct paths to the actors in the actor system.
  */
-object RemoteActors {
+object MediaActors {
 
   /**
-   * Base class for all constants representing remote actors.
-   * @param name the name of the remote actor
+   * Base class for all constants representing media actors.
+   * @param name the name of the media actor
    */
-  sealed abstract class RemoteActor(val name: String)
+  sealed abstract class MediaActor(val name: String)
 
   /**
    * Constant for the ''MediaManager'' remote actor.
    */
-  case object MediaManager extends RemoteActor("mediaManager")
+  case object MediaManager extends MediaActor("mediaManager")
 
   /**
    * Constant for the ''MetaDataManager'' remote actor.
    */
-  case object MetaDataManager extends RemoteActor("metaDataManager")
+  case object MetaDataManager extends MediaActor("metaDataManager")
 
   /**
    * A set with all constants defined by the ''RemoteActors''

@@ -33,7 +33,7 @@ object RemoteMessageBusSpec {
   private val Message = new Object
 
   /** Constant for the test message wrapped in a remote message. */
-  private val RemoteMessage = RemoteRelayActor.RemoteMessage(RemoteActors.MediaManager, Message)
+  private val RemoteMessage = RemoteRelayActor.RemoteMessage(MediaActors.MediaManager, Message)
 
   /** ID for a message listener registration. */
   private val ListenerID = 20150731
@@ -88,7 +88,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   "A RemoteMessageBus" should "simplify sending remote messages" in {
     val bus = createRemoteBus()
 
-    bus.send(RemoteActors.MediaManager, Message)
+    bus.send(MediaActors.MediaManager, Message)
     expectMsg(RemoteMessage)
     verifyZeroInteractions(bus.bus)
   }

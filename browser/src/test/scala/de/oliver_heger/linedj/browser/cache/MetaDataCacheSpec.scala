@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, RemoveMediumListener}
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -112,7 +112,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
    * @param mediumID the expected medium ID
    */
   private def verifyRemoteRequest(remoteBus: RemoteMessageBus, mediumID: MediumID = Medium): Unit = {
-    verify(remoteBus, times(1)).send(RemoteActors.MetaDataManager,
+    verify(remoteBus, times(1)).send(MediaActors.MetaDataManager,
       GetMetaData(mediumID, registerAsListener = true))
   }
 
@@ -217,7 +217,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(RemoveMetaDataRegistration(Medium, this))
     cache.receive(createChunk(1, complete = false))
     verifyReceivedChunks(buf)
-    verify(remoteBus).send(RemoteActors.MetaDataManager, RemoveMediumListener(Medium, remoteBus
+    verify(remoteBus).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium, remoteBus
       .relayActor))
   }
 
@@ -230,7 +230,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(RemoveMetaDataRegistration(Medium, "other"))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
-    verify(remoteBus, never()).send(RemoteActors.MetaDataManager, RemoveMediumListener(Medium,
+    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium,
       remoteBus.relayActor))
   }
 
@@ -244,7 +244,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(RemoveMetaDataRegistration(Medium2, this))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
-    verify(remoteBus, never()).send(RemoteActors.MetaDataManager, RemoveMediumListener(Medium2,
+    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium2,
       remoteBus.relayActor))
   }
 
@@ -260,7 +260,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(chunk)
     verifyReceivedChunks(buf1, chunk)
     verifyReceivedChunks(buf2)
-    verify(remoteBus, never()).send(RemoteActors.MetaDataManager, RemoveMediumListener(Medium,
+    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium,
       remoteBus.relayActor))
   }
 

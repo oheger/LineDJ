@@ -23,7 +23,7 @@ import org.scalatest.{FlatSpec, Matchers}
  */
 class RemoteActorsSpec extends FlatSpec with Matchers {
   "The RemoteActors enumeration" should "manage a set with all constants" in {
-    val constants = RemoteActors.values
-    constants should contain only(RemoteActors.MediaManager, RemoteActors.MetaDataManager)
+    val constants = MediaActors.values
+    constants should contain only(MediaActors.MediaManager, MediaActors.MetaDataManager)
   }
 }

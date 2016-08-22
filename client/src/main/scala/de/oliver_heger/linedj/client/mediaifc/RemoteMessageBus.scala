@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.RemoteActors.RemoteActor
+import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 
 /**
  * An enhanced [[MessageBus]] implementation which can be used for
@@ -52,7 +52,7 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
    * @param target the target actor
    * @param msg the message
    */
-  def send(target: RemoteActor, msg: Any): Unit = {
+  def send(target: MediaActor, msg: Any): Unit = {
     relayActor ! RemoteRelayActor.RemoteMessage(target, msg)
   }
 
@@ -64,7 +64,7 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
    * @param msg the message
    * @param responseListener the handler for the response
    */
-  def ask(target: RemoteActor, msg: Any)(responseListener: Actor.Receive): Unit = {
+  def ask(target: MediaActor, msg: Any)(responseListener: Actor.Receive): Unit = {
     val refListenerID = new AtomicInteger
     val listenerID = bus registerListener wrapReceive(responseListener, refListenerID)
     refListenerID set listenerID

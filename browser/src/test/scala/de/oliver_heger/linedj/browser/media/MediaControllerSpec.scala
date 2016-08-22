@@ -23,7 +23,7 @@ import java.util.Locale
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
@@ -225,7 +225,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper send ServerAvailable
     verify(helper.labelInProgress).setVisible(false)
-    verify(helper.remoteMessageBus).send(RemoteActors.MediaManager, GetAvailableMedia)
+    verify(helper.remoteMessageBus).send(MediaActors.MediaManager, GetAvailableMedia)
   }
 
   it should "pass available media to the combo handler" in {

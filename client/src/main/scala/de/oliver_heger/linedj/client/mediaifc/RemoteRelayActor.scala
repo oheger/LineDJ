@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.mediaifc
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.RemoteActors.RemoteActor
+import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RemoteRelayActor {
@@ -52,7 +52,7 @@ object RemoteRelayActor {
    * @param target the remote actor type which receives the message
    * @param msg the message to be sent
    */
-  case class RemoteMessage(target: RemoteActor, msg: Any)
+  case class RemoteMessage(target: MediaActor, msg: Any)
 
   /**
    * A message to be processed by ''RemoteRelayActor'' that requests a
@@ -61,7 +61,7 @@ object RemoteRelayActor {
    *
    * @param actorType the remote actor type
    */
-  case class RemoteActorRequest(actorType: RemoteActor)
+  case class RemoteActorRequest(actorType: MediaActor)
 
   /**
    * A message sent by ''RemoteRelayActor'' as response to a
@@ -71,7 +71,7 @@ object RemoteRelayActor {
    * @param actorType the type of the remote actor
    * @param optActor the optional reference to the remote actor
    */
-  case class RemoteActorResponse(actorType: RemoteActor, optActor: Option[ActorRef])
+  case class RemoteActorResponse(actorType: MediaActor, optActor: Option[ActorRef])
 
   /**
     * A message processed by ''RemoteRelayActor'' for querying the current
@@ -102,14 +102,14 @@ object RemoteRelayActor {
    * allows access to a specific remote actor.
    * @param trackedActors a map with information about tracked actors
    */
-  private class RemoteActorTrackingState(trackedActors: Map[RemoteActor, ActorRef]) {
+  private class RemoteActorTrackingState(trackedActors: Map[MediaActor, ActorRef]) {
     /**
      * Returns a flag whether all remote actors are currently available. This
      * is used as indication that the server is now available.
      * @return '''true''' if all tracked remote actors are available
      */
     def trackingComplete: Boolean =
-      trackedActors.size == RemoteActors.values.size
+      trackedActors.size == MediaActors.values.size
 
     /**
      * Returns an updated tracking state object when a remote actor becomes
@@ -118,7 +118,7 @@ object RemoteRelayActor {
      * @param ref the actor reference
      * @return the updated tracking state
      */
-    def remoteActorFound(a: Option[RemoteActor], ref: ActorRef): RemoteActorTrackingState =
+    def remoteActorFound(a: Option[MediaActor], ref: ActorRef): RemoteActorTrackingState =
       updateState(a) { (act, m) => m + (act -> ref) }
 
     /**
@@ -127,7 +127,7 @@ object RemoteRelayActor {
      * @param a option for the type of the remote actor
      * @return the updated tracking state
      */
-    def remoteActorLost(a: Option[RemoteActor]): RemoteActorTrackingState =
+    def remoteActorLost(a: Option[MediaActor]): RemoteActorTrackingState =
       updateState(a) { (act, m) => m - act }
 
     /**
@@ -136,7 +136,7 @@ object RemoteRelayActor {
      * @param a the remote actor type
      * @return an option for the reference to this remote actor
      */
-    def remoteActorOption(a: RemoteActor): Option[ActorRef] = trackedActors get a
+    def remoteActorOption(a: MediaActor): Option[ActorRef] = trackedActors get a
 
     /**
      * Calculates the new tracking state based on a function to be applied on
@@ -147,8 +147,8 @@ object RemoteRelayActor {
      * @param f the function to update the state map
      * @return the new tracking state
      */
-    private def updateState(a: Option[RemoteActor])
-                           (f: (RemoteActor, Map[RemoteActor, ActorRef]) => Map[RemoteActor,
+    private def updateState(a: Option[MediaActor])
+                           (f: (MediaActor, Map[MediaActor, ActorRef]) => Map[MediaActor,
                              ActorRef]): RemoteActorTrackingState = {
       a map (ra => new RemoteActorTrackingState(f(ra, trackedActors))) getOrElse this
     }
@@ -272,8 +272,8 @@ Actor {
    * corresponding remote actor type.
    * @return the map
    */
-  private def createLookupPathMapping(): Map[String, RemoteActor] = {
-    val mapping = RemoteActors.values map (a => lookupPath(a) -> a)
+  private def createLookupPathMapping(): Map[String, MediaActor] = {
+    val mapping = MediaActors.values map (a => lookupPath(a) -> a)
     Map(mapping.toSeq: _*)
   }
 
@@ -283,6 +283,6 @@ Actor {
    * @param actor the remote actor
    * @return the lookup path to this actor
    */
-  private def lookupPath(actor: RemoteActor): String =
+  private def lookupPath(actor: MediaActor): String =
     s"akka.tcp://LineDJ-Server@$remoteAddress:$remotePort/user/${actor.name}"
 }

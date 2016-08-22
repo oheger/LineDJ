@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -470,7 +470,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     val data = ExportActor.ExportData(songs(4), TestScanResultWithSingleRemoveFile, ExportPath,
       clearTarget = true, overrideFiles = true)
     val exportActor = system.actorOf(ExportActor(helper.remoteBus))
-    exportActor ! RemoteRelayActor.RemoteActorResponse(RemoteActors.MediaManager,
+    exportActor ! RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager,
       Some(TestProbe().ref))
 
     exportActor ! data // the first remove operation will fail
@@ -534,7 +534,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * @return a reference to the test actor
      */
     def prepareActor(data: ExportActor.ExportData): ActorRef = {
-      relayActor.expectMsg(RemoteRelayActor.RemoteActorRequest(RemoteActors.MediaManager))
+      relayActor.expectMsg(RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager))
       initializeMediaManager()
       exportActor ! data
       exportActor
@@ -544,7 +544,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * Initializes the dependency to the media manager actor.
      */
     def initializeMediaManager(): Unit = {
-      exportActor ! RemoteRelayActor.RemoteActorResponse(RemoteActors.MediaManager, Some
+      exportActor ! RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some
       (mediaManagerActor.ref))
     }
 

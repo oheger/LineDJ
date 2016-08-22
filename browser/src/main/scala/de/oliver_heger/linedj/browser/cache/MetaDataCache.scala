@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.mediaifc.{RemoteActors, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
 
 object MetaDataCache {
   /** Constant for the chunk for an unknown medium. */
@@ -71,7 +71,7 @@ class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
       val currentChunk = receivedChunks.getOrElse(registration.mediumID, UndefinedChunk)
       val callBacksForMedium = callbacks.getOrElse(registration.mediumID, Map.empty)
       if (!currentChunk.complete && callBacksForMedium.isEmpty) {
-        remoteBus.send(RemoteActors.MetaDataManager, GetMetaData(registration.mediumID,
+        remoteBus.send(MediaActors.MetaDataManager, GetMetaData(registration.mediumID,
           registerAsListener = true))
       }
       callbacks = callbacks + (registration.mediumID -> (callBacksForMedium + (registration
@@ -96,7 +96,7 @@ class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
         if (newListeners.nonEmpty) {
           callbacks = callbacks + (mediumID -> newListeners)
         } else {
-          remoteBus.send(RemoteActors.MetaDataManager, RemoveMediumListener(mediumID, remoteBus
+          remoteBus.send(MediaActors.MetaDataManager, RemoveMediumListener(mediumID, remoteBus
             .relayActor))
           callbacks = callbacks - mediumID
         }
