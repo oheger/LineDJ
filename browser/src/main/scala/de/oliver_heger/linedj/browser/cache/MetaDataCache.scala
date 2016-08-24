@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.browser.cache
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.{GetMetaData, MetaDataChunk, RemoveMediumListener}
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
+import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.metadata.MetaDataChunk
 
 object MetaDataCache {
   /** Constant for the chunk for an unknown medium. */
@@ -54,9 +54,9 @@ object MetaDataCache {
  * If the connection to the server is lost and later reestablished, the cache
  * is cleared, and all registered listeners are removed.
  *
- * @param remoteBus the remote message bus
+ * @param mediaFacade the facade to the media archive
  */
-class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
+class MetaDataCache(mediaFacade: MediaFacade) extends MessageBusListener {
 
   import MetaDataCache._
 
@@ -71,8 +71,7 @@ class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
       val currentChunk = receivedChunks.getOrElse(registration.mediumID, UndefinedChunk)
       val callBacksForMedium = callbacks.getOrElse(registration.mediumID, Map.empty)
       if (!currentChunk.complete && callBacksForMedium.isEmpty) {
-        remoteBus.send(MediaActors.MetaDataManager, GetMetaData(registration.mediumID,
-          registerAsListener = true))
+        mediaFacade.queryMetaDataAndRegisterListener(registration.mediumID)
       }
       callbacks = callbacks + (registration.mediumID -> (callBacksForMedium + (registration
         .listenerID -> registration.listenerCallback)))
@@ -96,8 +95,7 @@ class MetaDataCache(remoteBus: RemoteMessageBus) extends MessageBusListener {
         if (newListeners.nonEmpty) {
           callbacks = callbacks + (mediumID -> newListeners)
         } else {
-          remoteBus.send(MediaActors.MetaDataManager, RemoveMediumListener(mediumID, remoteBus
-            .relayActor))
+          mediaFacade.removeMetaDataListener(mediumID)
           callbacks = callbacks - mediumID
         }
       }

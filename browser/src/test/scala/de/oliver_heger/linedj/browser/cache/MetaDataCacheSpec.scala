@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.browser.cache
 
 import java.nio.file.Paths
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, RemoveMediumListener}
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
+import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -93,27 +92,24 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   import MetaDataCacheSpec._
 
   /**
-   * Creates a mock for the remote message bus.
-   * @return the remote message bus
-   */
-  private def createRemoteBus(): RemoteMessageBus = {
-    val remoteBus = mock[RemoteMessageBus]
+    * Creates a mock for the media facade.
+    *
+    * @return the media facade mock
+    */
+  private def createMediaFacade(): MediaFacade = {
+    val facade = mock[MediaFacade]
     val bus = mock[MessageBus]
-    val actor = mock[ActorRef]
-    when(remoteBus.bus).thenReturn(bus)
-    when(remoteBus.relayActor).thenReturn(actor)
-    remoteBus
+    when(facade.bus).thenReturn(bus)
+    facade
   }
 
   /**
-   * Verifies that a request for meta data was sent via the remote message
-   * bus.
-   * @param remoteBus the mock for the remote bus
+   * Verifies that a request for meta data was sent via the facade.
+   * @param facade the mock for the media facade
    * @param mediumID the expected medium ID
    */
-  private def verifyRemoteRequest(remoteBus: RemoteMessageBus, mediumID: MediumID = Medium): Unit = {
-    verify(remoteBus, times(1)).send(MediaActors.MetaDataManager,
-      GetMetaData(mediumID, registerAsListener = true))
+  private def verifyMetaDataRequest(facade: MediaFacade, mediumID: MediumID = Medium): Unit = {
+    verify(facade, times(1)).queryMetaDataAndRegisterListener(mediumID)
   }
 
   /**
@@ -127,15 +123,15 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   "A MetaDataCache" should "send a remote request for a medium not completely stored" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     register(cache, this)
 
-    verifyRemoteRequest(remoteBus)
+    verifyMetaDataRequest(facade)
   }
 
   it should "send received meta data to a registered listener" in {
-    val cache = new MetaDataCache(createRemoteBus())
+    val cache = new MetaDataCache(createMediaFacade())
     val chunks = register(cache, this)
     val chunk = createChunk(0, complete = false)
 
@@ -144,8 +140,8 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle multiple listeners" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val chunk1 = createChunk(0, complete = false)
     val chunk2 = createChunk(1, complete = false)
     val chunk3 = createChunk(2, complete = true)
@@ -155,15 +151,15 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
 
     val buf2 = register(cache, "other")
     cache.receive(chunk3)
-    verifyRemoteRequest(remoteBus)
+    verifyMetaDataRequest(facade)
     verifyReceivedChunks(buf1, chunk1, chunk2, chunk3)
     verifyReceivedChunks(buf2, createChunk(List(0, 1), complete = false, Medium), chunk3)
   }
 
   it should "handle multiple media" in {
     val Medium2 = MediumID("Another cool playlist", None)
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val chunk1 = createChunk(0, complete = false)
     val chunk2 = createChunk(1, complete = false, mediumID = Medium2)
     val buf1 = register(cache, this)
@@ -171,14 +167,14 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val buf2 = register(cache, "other", Medium2)
     cache.receive(chunk1)
     cache.receive(chunk2)
-    verifyRemoteRequest(remoteBus)
-    verifyRemoteRequest(remoteBus, Medium2)
+    verifyMetaDataRequest(facade)
+    verifyMetaDataRequest(facade, Medium2)
     verifyReceivedChunks(buf1, chunk1)
     verifyReceivedChunks(buf2, chunk2)
   }
 
   it should "accept a chunk of data for which no listeners are registered" in {
-    val cache = new MetaDataCache(createRemoteBus())
+    val cache = new MetaDataCache(createMediaFacade())
     val chunk = createChunk(1, complete = false)
 
     cache.receive(chunk)
@@ -187,7 +183,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "remove callbacks if all chunks for a medium have been received" in {
-    val cache = new MetaDataCache(createRemoteBus())
+    val cache = new MetaDataCache(createMediaFacade())
     val chunk1 = createChunk(1, complete = false)
     val chunk2 = createChunk(2, complete = true)
     val buf = register(cache, this)
@@ -199,44 +195,42 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "not send a request for new data if the chunks are already complete" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val chunk = createChunk(List(1, 2, 3), complete = true, Medium)
     cache.receive(chunk)
 
     val buf = register(cache, this)
     verifyReceivedChunks(buf, chunk)
-    verifyZeroInteractions(remoteBus)
+    verifyZeroInteractions(facade)
   }
 
   it should "allow removing a listener" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val buf = register(cache, this)
 
     cache.receive(RemoveMetaDataRegistration(Medium, this))
     cache.receive(createChunk(1, complete = false))
     verifyReceivedChunks(buf)
-    verify(remoteBus).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium, remoteBus
-      .relayActor))
+    verify(facade).removeMetaDataListener(Medium)
   }
 
   it should "ignore a request to remove an unknown listener" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val buf = register(cache, this)
     val chunk = createChunk(1, complete = false)
 
     cache.receive(RemoveMetaDataRegistration(Medium, "other"))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
-    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium,
-      remoteBus.relayActor))
+    verify(facade, never()).removeMetaDataListener(Medium)
   }
 
   it should "ignore a request to remove listeners for an unknown medium" in {
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val buf = register(cache, this)
     val chunk = createChunk(1, complete = false)
     val Medium2 = MediumID("_other", None)
@@ -244,14 +238,13 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(RemoveMetaDataRegistration(Medium2, this))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
-    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium2,
-      remoteBus.relayActor))
+    verify(facade, never()).removeMetaDataListener(Medium2)
   }
 
   it should "not remove the remote medium listener if there are remaining listeners" in {
     val ListenerID2 = "AnotherTestListener"
-    val remoteBus = createRemoteBus()
-    val cache = new MetaDataCache(remoteBus)
+    val facade = createMediaFacade()
+    val cache = new MetaDataCache(facade)
     val buf1 = register(cache, this)
     val buf2 = register(cache, ListenerID2)
     val chunk = createChunk(1, complete = false)
@@ -260,12 +253,11 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(chunk)
     verifyReceivedChunks(buf1, chunk)
     verifyReceivedChunks(buf2)
-    verify(remoteBus, never()).send(MediaActors.MetaDataManager, RemoveMediumListener(Medium,
-      remoteBus.relayActor))
+    verify(facade, never()).removeMetaDataListener(Medium)
   }
 
   it should "clean the cache when the server becomes available again" in {
-    val cache = new MetaDataCache(createRemoteBus())
+    val cache = new MetaDataCache(createMediaFacade())
     cache.receive(createChunk(1, complete = false))
 
     cache.receive(ServerAvailable)
@@ -274,7 +266,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "remove all listeners when the server becomes unavailable" in {
-    val cache = new MetaDataCache(createRemoteBus())
+    val cache = new MetaDataCache(createMediaFacade())
     val buf = register(cache, this)
 
     cache.receive(ServerUnavailable)
