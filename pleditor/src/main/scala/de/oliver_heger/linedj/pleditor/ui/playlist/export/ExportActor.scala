@@ -20,13 +20,16 @@ import java.nio.file.Path
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
+import akka.pattern.pipe
+import akka.util.Timeout
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumFileRequest
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus, RemoteRelayActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration._
 
 object ExportActor {
 
@@ -116,16 +119,41 @@ object ExportActor {
                             currentSize: Long, currentPath: Path, operationType: OperationType
   .Value)
 
-  private class ExportActorImpl(remoteMessageBus: RemoteMessageBus)
-    extends ExportActor(remoteMessageBus) with ChildActorFactory
+  /**
+    * An internally used message class the actor sends to itself when the
+    * future for fetching the media manager actor is fulfilled.
+    *
+    * @param manager the media manager actor
+    */
+  private [export] case class MediaManagerFetched(manager: ActorRef)
+
+  private class ExportActorImpl(mediaFacade: MediaFacade)
+    extends ExportActor(mediaFacade) with ChildActorFactory
+
+  /**
+    * A special instance of an ''ExportResult'' that represents an error during
+    * initialization. Such an error is not related to a file operation;
+    * therefore, the corresponding properties are undefined. This instance is
+    * published on the message bus if the export operation cannot be started.
+    */
+  val InitializationError = ExportResult(Some(ExportError(null, null)))
+
+  /**
+    * Constant representing a successful result. This instance is published on
+    * the message bus if the export operation has been successful.
+    */
+  val ResultSuccess = ExportResult(error = None)
+
+  /** Timeout to be used when fetching the media manager actor. */
+  private [export] implicit val FetchActorTimeout = Timeout(10.seconds)
 
   /**
    * Returns a ''Props'' object for creating an instance of this actor class.
-   * @param remoteMessageBus the remote message bus
+   * @param mediaFacade the facade to the media archive
    * @return creation properties for an actor instance
    */
-  def apply(remoteMessageBus: RemoteMessageBus): Props =
-    Props(classOf[ExportActorImpl], remoteMessageBus)
+  def apply(mediaFacade: MediaFacade): Props =
+    Props(classOf[ExportActorImpl], mediaFacade)
 
   /** An expression defining illegal characters in a song title. */
   private val InvalidCharacters = "[:*?\"<>\t|/\\\\]".r
@@ -272,9 +300,9 @@ object ExportActor {
  * published on the message bus. This is also done in case of an error so that
  * it is possible to give feedback to the user.
  *
- * @param remoteMessageBus the remote message bus
+ * @param mediaFacade the facade to the media archive
  */
-class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
+class ExportActor(mediaFacade: MediaFacade) extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import ExportActor._
@@ -314,7 +342,10 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
   override def preStart(): Unit = {
     super.preStart()
 
-    remoteMessageBus.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager)
+    import context.dispatcher
+    mediaFacade.requestActor(MediaActors.MediaManager).map(o =>
+      MediaManagerFetched(o.get)) pipeTo self
+
     removeFileActor = createChildActor(Props[RemoveFileActor])
     context watch removeFileActor
   }
@@ -337,10 +368,14 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
    * @return the function for handling messages in the preparation phase
    */
   private def prepareReceive: Receive = {
-    case RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(actor)) =>
+    case MediaManagerFetched(actor) =>
       copyFileActor = createChildActor(Props(classOf[CopyFileActor], self, actor))
       context watch copyFileActor
       startExportIfPossible()
+
+    case Status.Failure(err) =>
+      log.error(err, "Could not obtain media manager actor!")
+      completeExport(InitializationError)
 
     case data: ExportData =>
       val (ops, size) = initializeExportData(data)
@@ -376,9 +411,8 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
       exportOperations = Nil
 
     case _: Terminated =>
-      publish(ExportResult(Some(ExportError(currentOperation.affectedPath, currentOperation
-        .operationType))))
-      context become Actor.emptyBehavior
+      completeExport(ExportResult(Some(ExportError(currentOperation.affectedPath,
+        currentOperation.operationType))))
   }
 
   /**
@@ -434,11 +468,13 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
   }
 
   /**
-   * Performs actions for completing an export operation. This method is called
-   * after everything is done.
-   */
-  private def completeExport(): Unit = {
-    publish(ExportResult(None))
+    * Performs actions for completing an export operation. This method is called
+    * after everything is done (either successful or after an error).
+    *
+    * @param result the result message to publish on the message bus
+    */
+  private def completeExport(result: ExportResult = ResultSuccess): Unit = {
+    publish(result)
     context become Actor.emptyBehavior
   }
 
@@ -458,7 +494,7 @@ class ExportActor(remoteMessageBus: RemoteMessageBus) extends Actor {
    * @param msg the message to be published
    */
   private def publish(msg: Any): Unit = {
-    remoteMessageBus.bus publish msg
+    mediaFacade.bus publish msg
   }
 }
 

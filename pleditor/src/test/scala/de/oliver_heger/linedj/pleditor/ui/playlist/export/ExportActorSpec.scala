@@ -19,18 +19,17 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.export
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
 import de.oliver_heger.linedj.media.{MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.metadata.MediaMetaData
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
+import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -39,6 +38,7 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
+import scala.concurrent.Promise
 import scala.reflect.ClassTag
 
 object ExportActorSpec {
@@ -65,11 +65,6 @@ object ExportActorSpec {
 
   /** A test message. */
   private val PingMsg = "PING"
-
-  /** A strategy for stopping failed actors. */
-  private val StopStrategy = OneForOneStrategy() {
-    case _: Exception => Stop
-  }
 
   /**
    * Generates a path on the target export medium with the given name.
@@ -469,9 +464,8 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     val helper = new ExportActorTestHelper
     val data = ExportActor.ExportData(songs(4), TestScanResultWithSingleRemoveFile, ExportPath,
       clearTarget = true, overrideFiles = true)
-    val exportActor = system.actorOf(ExportActor(helper.remoteBus))
-    exportActor ! RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager,
-      Some(TestProbe().ref))
+    val exportActor = system.actorOf(ExportActor(helper.mediaFacade))
+    exportActor ! ExportActor.MediaManagerFetched(TestProbe().ref)
 
     exportActor ! data // the first remove operation will fail
     val msg = helper.expectMessageOnBus[ExportActor.ExportResult]
@@ -503,6 +497,29 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     error.errorType should be(ExportActor.OperationType.Copy)
   }
 
+  it should "handle an error when fetching the media manager" in {
+    val helper = new ExportActorTestHelper
+
+    helper.promiseActorRequest.failure(new IllegalStateException("test exception"))
+    helper.expectMessageOnBus[Any] should be(ExportActor.InitializationError)
+  }
+
+  it should "raise an init error if the media manager cannot be fetched" in {
+    val helper = new ExportActorTestHelper
+
+    helper.promiseActorRequest.success(None)
+    helper.expectMessageOnBus[Any] should be(ExportActor.InitializationError)
+  }
+
+  it should "react on no more messages after an initialization error" in {
+    val helper = new ExportActorTestHelper
+    helper.promiseActorRequest.failure(new IllegalStateException("test exception"))
+    helper.expectMessageOnBus[ExportActor.ExportResult]
+
+    helper sendDirect ExportActor.CancelExport
+    helper.messageQueue.isEmpty shouldBe true
+  }
+
   /**
    * A test helper class managing some dependencies of the actor under test.
    */
@@ -513,14 +530,16 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     /** Test probe for the copy file actor. */
     val copyFileActor = TestProbe()
 
-    /** Test probe for the remote relay actor. */
-    val relayActor = TestProbe()
-
     /** A queue for receiving messages produced by the test actor. */
     val messageQueue = new LinkedBlockingQueue[Any]
 
-    /** A mock for the remote message bus. */
-    val remoteBus = createRemoteMessageBus(messageQueue, relayActor.ref)
+    /**
+      * A promise for serving a request for the media actor.
+      */
+    val promiseActorRequest = Promise[Option[ActorRef]]()
+
+    /** A mock for the media facade. */
+    val mediaFacade = createMediaFacade(messageQueue, promiseActorRequest)
 
     /** The test actor. */
     val exportActor = TestActorRef[ExportActor](actorProps())
@@ -534,7 +553,6 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * @return a reference to the test actor
      */
     def prepareActor(data: ExportActor.ExportData): ActorRef = {
-      relayActor.expectMsg(RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager))
       initializeMediaManager()
       exportActor ! data
       exportActor
@@ -544,8 +562,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * Initializes the dependency to the media manager actor.
      */
     def initializeMediaManager(): Unit = {
-      exportActor ! RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some
-      (mediaManagerActor.ref))
+      promiseActorRequest.success(Some(mediaManagerActor.ref))
     }
 
     /**
@@ -635,7 +652,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * @return the properties
      */
     private def actorProps(): Props = {
-      Props(new ExportActor(remoteBus) with ChildActorFactory {
+      Props(new ExportActor(mediaFacade) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassRemoveFileActor =>
@@ -652,25 +669,28 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     }
 
     /**
-     * Creates a mock for the remote message bus. All messages published on
-     * this bus are recorded in a queue.
-     * @param queue the queue for receiving messages
-     * @param actor the remote relay actor
-     * @return the mock message bus
-     */
-    private def createRemoteMessageBus(queue: LinkedBlockingQueue[Any], actor: ActorRef):
-    RemoteMessageBus = {
-      val bus = mock[RemoteMessageBus]
+      * Creates a mock for the media facade. All messages published on
+      * this bus are recorded in a queue.
+      *
+      * @param queue   the queue for receiving messages
+      * @param promise the promise for serving the actor request
+      * @return the mock facade
+      */
+    private def createMediaFacade(queue: LinkedBlockingQueue[Any],
+                                  promise: Promise[Option[ActorRef]]):
+    MediaFacade = {
+      val facade = mock[MediaFacade]
       val msgBus = mock[MessageBus]
-      when(bus.bus).thenReturn(msgBus)
-      when(bus.relayActor).thenReturn(actor)
+      when(facade.bus).thenReturn(msgBus)
+      when(facade.requestActor(MediaActors.MediaManager)(ExportActor.FetchActorTimeout))
+        .thenReturn(promise.future)
       doAnswer(new Answer[Object] {
         override def answer(invocationOnMock: InvocationOnMock): Object = {
           queue offer invocationOnMock.getArguments.head
           null
         }
       }).when(msgBus).publish(org.mockito.Matchers.any())
-      bus
+      facade
     }
   }
 

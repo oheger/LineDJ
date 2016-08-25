@@ -112,7 +112,8 @@ MessageBusListener with FormActionListener {
   override def windowOpened(windowEvent: WindowEvent): Unit = {
     listenerID = remoteBus.bus registerListener receive
 
-    exportActor = actorFactory.createActor(ExportActor(remoteBus), ExportActorName)
+    //TODO use correct parameter for actor creation
+    exportActor = actorFactory.createActor(ExportActor(null), ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
   }
