@@ -21,9 +21,9 @@ import java.util.Locale
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, RemoteMessageBus}
 import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.metadata.MetaDataChunk
 import net.sf.jguiraffe.gui.builder.action.ActionStore
@@ -105,7 +105,7 @@ object MediaController {
  * disabled, so that the user cannot select a new medium for which no meta data
  * is available.
  *
- * @param remoteMessageBus the remote message bus
+ * @param mediaFacade the facade to the media archive
  * @param songFactory the factory for ''SongData'' objects
  * @param comboMedia the handler for the combo with the media
  * @param treeHandler the handler for the tree view
@@ -114,7 +114,7 @@ object MediaController {
  * @param actionStore the ''ActionStore''
  * @param undefinedMediumName the name to be used for the undefined medium
  */
-class MediaController(remoteMessageBus: RemoteMessageBus, songFactory: SongDataFactory, comboMedia:
+class MediaController(mediaFacade: MediaFacade, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
                       WidgetHandler, actionStore: ActionStore, undefinedMediumName: String) extends
 MessageBusListener {
@@ -166,7 +166,7 @@ MessageBusListener {
       inProgressWidget setVisible false
 
     case ServerAvailable =>
-      remoteMessageBus.send(MediaActors.MediaManager, GetAvailableMedia)
+      mediaFacade.send(MediaActors.MediaManager, GetAvailableMedia)
       inProgressWidget setVisible false
 
     case AvailableMedia(media) =>
@@ -463,6 +463,6 @@ MessageBusListener {
     * @param msg the message to be published
     */
   private def publish(msg: Any): Unit = {
-    remoteMessageBus.bus publish msg
+    mediaFacade.bus publish msg
   }
 }
