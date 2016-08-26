@@ -21,8 +21,8 @@ import java.nio.file.Paths
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MediaMetaData
@@ -103,7 +103,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.openWindow()
 
     helper.controller.windowClosing(mock[WindowEvent])
-    verify(helper.remoteMessageBus.bus).removeListener(ListenerID)
+    verify(helper.mediaFacade.bus).removeListener(ListenerID)
   }
 
   it should "create the export actor and start the export" in {
@@ -159,6 +159,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       .expectErrorMessage("exp_failure_copy").expectShutdown()
   }
 
+  it should "handle the end of an export whose initialization failed" in {
+    val helper = new ExportControllerTestHelper
+
+    helper.openWindow().sendMessage(ExportActor.InitializationError)
+      .expectErrorMessage(new Message(null, "exp_failure_init")).expectShutdown()
+  }
+
   it should "react on the cancel button" in {
     val handler = mock[ComponentHandler[_]]
     val actionEvent = new FormActionEvent(this, handler, "someControl", "someCommand")
@@ -175,13 +182,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
    */
   private class ExportControllerTestHelper {
     /** Mock for the remote message bus. */
-    val remoteMessageBus = createRemoteMessageBus()
+    val mediaFacade = createRemoteMediaFacade()
 
     /** Test probe for the export actor. */
     val exportActor = TestProbe()
 
     /** Mock for the actor factory. */
-    val factory = createActorFactory(exportActor, remoteMessageBus)
+    val factory = createActorFactory(exportActor, mediaFacade)
 
     /** Mock for the remove progress bar handler. */
     val progressRemove = mock[ProgressBarHandler]
@@ -199,7 +206,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val applicationContext = mock[ApplicationContext]
 
     /** The test controller. */
-    val controller = new ExportController(applicationContext, remoteMessageBus, factory,
+    val controller = new ExportController(applicationContext, mediaFacade, factory,
       TestExportData, progressRemove, progressCopy, textFile)
 
     /**
@@ -255,12 +262,23 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     }
 
     /**
-     * Expects an error message to be displayed for a failed export.
-     * @param resKey the resource key of the error message
-     * @return this test helper
-     */
-    def expectErrorMessage(resKey: String): ExportControllerTestHelper = {
-      verify(applicationContext).messageBox(new Message(null, resKey, TestPath.toString),
+      * Expects an error message to be displayed for a failed export.
+      *
+      * @param resKey the resource key of the error message
+      * @return this test helper
+      */
+    def expectErrorMessage(resKey: String): ExportControllerTestHelper =
+    expectErrorMessage(new Message(null, resKey, TestPath.toString))
+
+    /**
+      * Expects the specified message object to be displayed for a failed
+      * export.
+      *
+      * @param msg the message object
+      * @return this test helper
+      */
+    def expectErrorMessage(msg: Message): ExportControllerTestHelper = {
+      verify(applicationContext).messageBox(msg,
         "exp_failure_title", MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
       this
     }
@@ -271,30 +289,30 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      */
     private def fetchMessageBusListener(): Actor.Receive = {
       val captor = ArgumentCaptor.forClass(classOf[Actor.Receive])
-      verify(remoteMessageBus.bus).registerListener(captor.capture())
+      verify(mediaFacade.bus).registerListener(captor.capture())
       captor.getValue
     }
 
     /**
-     * Creates a mock for the remote message bus.
-     * @return the remote message bus
+     * Creates a mock for the media facade.
+     * @return the media facade mock
      */
-    private def createRemoteMessageBus(): RemoteMessageBus = {
-      val remoteBus = mock[RemoteMessageBus]
+    private def createRemoteMediaFacade(): MediaFacade = {
+      val facade = mock[MediaFacade]
       val bus = mock[MessageBus]
-      when(remoteBus.bus).thenReturn(bus)
+      when(facade.bus).thenReturn(bus)
       when(bus.registerListener(org.mockito.Matchers.any[Actor.Receive])).thenReturn(ListenerID)
-      remoteBus
+      facade
     }
 
     /**
      * Creates a mock actor factory. The factory returns the test probe for the
      * export actor. It also verifies the creation properties.
      * @param actor the probe for the export actor
-     * @param remoteBus the remote message bus
+     * @param facade the media facade
      * @return the mock for the actor factory
      */
-    private def createActorFactory(actor: TestProbe, remoteBus: RemoteMessageBus): ActorFactory = {
+    private def createActorFactory(actor: TestProbe, facade: MediaFacade): ActorFactory = {
       val factory = mock[ActorFactory]
       when(factory.actorSystem).thenReturn(system)
       when(factory.createActor(org.mockito.Matchers.any[Props], eqArg("playlistExportActor")))
@@ -303,7 +321,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
           classOf[ExportActor].isAssignableFrom(props.actorClass()) shouldBe true
           classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-          props.args should contain only remoteBus
+          props.args should contain only facade
           actor.ref
         }
       })

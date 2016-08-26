@@ -21,7 +21,8 @@ import java.nio.file.Path
 import akka.actor.Actor.Receive
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBusListener}
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportError
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}
@@ -42,6 +43,9 @@ object ExportController {
   /** The resource key for a failed copy operation. */
   private val ResErrorCopy = "exp_failure_copy"
 
+  /** The resource key for a failed initialization. */
+  private val ResErrorInit = "exp_failure_init"
+
   /**
    * Transforms the given path to a string to be displayed to the user.
    * @param p the path
@@ -61,14 +65,14 @@ object ExportController {
  * closed.
  *
  * @param applicationContext the application context
- * @param remoteBus the remote message bus
+ * @param mediaFacade the facade to the media archive
  * @param actorFactory the factory for actors
  * @param exportData describes the export operation
  * @param progressRemove handler for the progress bar for remove operations
  * @param progressCopy handler for the progress bar for copy operations
  * @param currentFile handler for the text for the current file
  */
-class ExportController(applicationContext: ApplicationContext, remoteBus: RemoteMessageBus,
+class ExportController(applicationContext: ApplicationContext, mediaFacade: MediaFacade,
                        actorFactory: ActorFactory, exportData: ExportActor.ExportData,
                        progressRemove: ProgressBarHandler, progressCopy: ProgressBarHandler,
                        currentFile: StaticTextHandler) extends WindowListener with
@@ -93,7 +97,7 @@ MessageBusListener with FormActionListener {
     * @param windowEvent the window event
     */
   override def windowClosing(windowEvent: WindowEvent): Unit = {
-    remoteBus.bus removeListener listenerID
+    mediaFacade.bus removeListener listenerID
   }
 
   override def windowClosed(windowEvent: WindowEvent): Unit = {}
@@ -110,10 +114,9 @@ MessageBusListener with FormActionListener {
    * @param windowEvent the window event
    */
   override def windowOpened(windowEvent: WindowEvent): Unit = {
-    listenerID = remoteBus.bus registerListener receive
+    listenerID = mediaFacade.bus registerListener receive
 
-    //TODO use correct parameter for actor creation
-    exportActor = actorFactory.createActor(ExportActor(null), ExportActorName)
+    exportActor = actorFactory.createActor(ExportActor(mediaFacade), ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
   }
@@ -153,12 +156,33 @@ MessageBusListener with FormActionListener {
       shutdown()
 
     case ExportActor.ExportResult(Some(error)) =>
-      val errorResource = if (error.errorType == ExportActor.OperationType.Remove) ResErrorRemove
-      else ResErrorCopy
-      applicationContext.messageBox(new Message(null, errorResource, pathString
-      (error.errorPath)), ResErrorTitle, MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
+      applicationContext.messageBox(createErrorMessage(error), ResErrorTitle,
+        MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
       shutdown()
   }
+
+  /**
+    * Creates the ''Message'' object for an error message for the specified
+    * export error.
+    *
+    * @param error the export error
+    * @return the message object
+    */
+  private def createErrorMessage(error: ExportError): Message =
+  if (ExportActor.InitializationError.error.get == error)
+    new Message(null, ResErrorInit)
+  else new Message(null, fetchErrorResource(error), pathString(error.errorPath))
+
+  /**
+    * Obtains the resource key for an error message for the specified export
+    * error.
+    *
+    * @param error the export error
+    * @return the resource key for displaying an error message
+    */
+  private def fetchErrorResource(error: ExportError): String =
+  if (error.errorType == ExportActor.OperationType.Remove) ResErrorRemove
+  else ResErrorCopy
 
   /**
    * Performs a shutdown after the export is done. Closes the associated window
