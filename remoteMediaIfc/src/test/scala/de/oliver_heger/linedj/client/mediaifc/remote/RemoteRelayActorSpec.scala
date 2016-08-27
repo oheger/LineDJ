@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.client.mediaifc.MediaActors
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

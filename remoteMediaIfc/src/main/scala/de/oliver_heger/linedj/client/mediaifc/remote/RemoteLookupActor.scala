@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor._
-import de.oliver_heger.linedj.client.mediaifc.RemoteLookupActor.{RemoteActorAvailable,
-RemoteActorUnavailable}
+import de.oliver_heger.linedj.client.mediaifc.remote.RemoteLookupActor.{RemoteActorAvailable, RemoteActorUnavailable}
 
 import scala.concurrent.duration._
 

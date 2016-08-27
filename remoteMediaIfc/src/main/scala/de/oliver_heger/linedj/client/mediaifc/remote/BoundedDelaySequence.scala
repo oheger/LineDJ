@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 /**
  * An implementation of [[DelaySequence]] which produces an increasing sequence

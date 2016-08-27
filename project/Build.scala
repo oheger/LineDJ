@@ -79,7 +79,7 @@ object Build extends Build {
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
-      mp3PlaybackContextFactory)
+      mp3PlaybackContextFactory, remoteMediaIfc)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -367,4 +367,22 @@ object Build extends Build {
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(client % "compile->compile;test->test", playerEngine)
+
+  /**
+    * Project for the remote media interface. This project establishes a
+    * connection to a media archive running on a remote host.
+    */
+  lazy val remoteMediaIfc = Project(id = "remoteMediaIfc", base = file("remoteMediaIfc"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "remote-MediaIfc",
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.client.mediaifc.remote.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn(client % "compile->compile;test->test")
 }

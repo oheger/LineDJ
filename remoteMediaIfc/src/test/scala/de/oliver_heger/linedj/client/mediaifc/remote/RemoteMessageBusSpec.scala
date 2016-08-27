@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor.Actor.Receive
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.client.mediaifc.MediaActors
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._

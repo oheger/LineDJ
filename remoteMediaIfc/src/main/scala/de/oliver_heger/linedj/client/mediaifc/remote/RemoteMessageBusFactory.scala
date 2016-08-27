@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.app
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.{RemoteManagementActor, RemoteMessageBus}
 
 object RemoteMessageBusFactory {
   /** The name of the remote management actor. */

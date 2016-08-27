@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc
+package de.oliver_heger.linedj.client.mediaifc.remote
 
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
