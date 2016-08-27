@@ -20,16 +20,16 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.{ArgumentCaptor, Mockito}
-import org.mockito.Matchers._
-import org.mockito.Mockito._
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
@@ -38,7 +38,8 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * Test class for ''ClientManagementApplication''.
   */
-class ClientManagementApplicationSpec extends FlatSpec with Matchers with MockitoSugar {
+class ClientManagementApplicationSpec extends FlatSpec with Matchers with MockitoSugar
+with ApplicationTestSupport {
   /**
     * Creates a mock component context which allows access to the bundle
     * context.
@@ -52,34 +53,21 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
   }
 
   /**
-    * Starts the specified application. Optionally, the component context can
+    * Starts the specified application. The reference to the media facade
+    * factory is initialized. Optionally, the component context can
     * be provided.
-    * @param app the application
+    *
+    * @param app              the application
+    * @param optCompCtx       an optional component context
+    * @param optFacadeFactory an optional media facade factory
     * @return the same application
     */
   private def runApp(app: ClientManagementApplication, optCompCtx: Option[ComponentContext] =
-  None): ClientManagementApplication = {
+  None, optFacadeFactory: Option[MediaFacadeFactory] = None): ClientManagementApplication = {
+    app.initMediaFacadeFactory(optFacadeFactory getOrElse createMediaFacadeFactoryMock())
     val cctx = optCompCtx getOrElse createComponentContext()
     app activate cctx
     app
-  }
-
-  /**
-    * Queries the given application for a bean with a specific name. This bean
-    * is checked against a type. If this type is matched, the bean is returned;
-    * otherwise, an exception is thrown.
-    * @param app the application
-    * @param name the name of the bean
-    * @param m the manifest
-    * @tparam T the expected bean type
-    * @return the bean of this type
-    */
-  private def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T = {
-    app.getApplicationContext.getBeanContext.getBean(name) match {
-      case t: T => t
-      case b =>
-        throw new AssertionError(s"Unexpected bean for name '$name': $b")
-    }
   }
 
   /**
@@ -93,16 +81,18 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
   }
 
   /**
-    * Creates a mock remote message bus factory that returns the specified
-    * remote bus.
-    * @param remoteBus the remote message bus
+    * Creates a mock media facade factory. If a facade is passed in, it is
+    * returned. Otherwise, a mock facade is created and returned by the
+    * factory.
+    * @param optFacade an optional facade to be returned
     * @return the factory mock
     */
-  private def createRemoteMessageBusFactoryMock(remoteBus: RemoteMessageBus):
-  RemoteMessageBusFactory = {
-    val factory = mock[RemoteMessageBusFactory]
-    when(factory.createRemoteMessageBus(any(classOf[ActorFactory]), any(classOf[MessageBus])))
-      .thenReturn(remoteBus)
+  private def createMediaFacadeFactoryMock(optFacade: Option[MediaFacade] = None):
+  MediaFacadeFactory = {
+    val facade = optFacade getOrElse mock[MediaFacade]
+    val factory = mock[MediaFacadeFactory]
+    when(factory.createMediaFacade(any(classOf[ActorFactory]), any(classOf[MessageBus])))
+      .thenReturn(facade)
     factory
   }
 
@@ -122,69 +112,57 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
     app.actorFactory.actorSystem should be(actorSystem)
   }
 
-  it should "create a default remote message bus factory" in {
-    val app = new ClientManagementApplication
-
-    app.remoteMessageBusFactory shouldBe a[RemoteMessageBusFactory]
-  }
-
-  it should "create the remote message bus" in {
+  it should "create the media facade" in {
     val actorSystem = mock[ActorSystem]
-    val remoteBus = mock[RemoteMessageBus]
-    val factory = createRemoteMessageBusFactoryMock(remoteBus)
-    val app = new ClientManagementApplicationTestImpl(factory)
+    val facade = mock[MediaFacade]
+    val factory = createMediaFacadeFactoryMock(Some(facade))
+    val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
-    runApp(app)
+    runApp(app, optFacadeFactory = Some(factory))
 
     val captActorFactory = ArgumentCaptor.forClass(classOf[ActorFactory])
     val captMsgBus = ArgumentCaptor.forClass(classOf[MessageBus])
-    verify(factory).createRemoteMessageBus(captActorFactory.capture(), captMsgBus.capture())
+    verify(factory).createMediaFacade(captActorFactory.capture(), captMsgBus.capture())
     captActorFactory.getValue should be(app.actorFactory)
     val beanMsgBus = queryBean[MessageBus](app, "lineDJ_messageBus")
     captMsgBus.getValue should be(beanMsgBus)
-
-    verify(remoteBus).updateConfiguration("127.0.0.1", 2552)
-    verify(remoteBus).activate(true)
+    app.mediaFacade should be(facade)
+    verify(facade).activate(true)
   }
 
-  it should "return the message bus from the remote message bus" in {
+  it should "return the message bus from the media facade" in {
     val actorSystem = mock[ActorSystem]
-    val remoteBus = mock[RemoteMessageBus]
-    val factory = createRemoteMessageBusFactoryMock(remoteBus)
+    val facade = mock[MediaFacade]
+    val factory = createMediaFacadeFactoryMock(Some(facade))
     val bus = mock[MessageBus]
-    when(remoteBus.bus).thenReturn(bus)
-    val app = new ClientManagementApplicationTestImpl(factory)
+    when(facade.bus).thenReturn(bus)
+    val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
-    runApp(app)
+    runApp(app, optFacadeFactory = Some(factory))
 
     app.messageBus should be(bus)
   }
 
-  it should "take configuration into account when creating the remote message bus" in {
+  it should "configure the media facade" in {
     val appCtx = mock[ApplicationContext]
     val beanCtx = mock[BeanContext]
     val bus = mock[MessageBus]
-    val remoteBus = mock[RemoteMessageBus]
-    val factory = createRemoteMessageBusFactoryMock(remoteBus)
+    val facade = mock[MediaFacade]
+    val factory = createMediaFacadeFactoryMock(Some(facade))
     val config = new PropertiesConfiguration
-    val remoteAddress = "remote.host.test"
-    val remotePort = 1234
-    config.addProperty("remote.server.address", remoteAddress)
-    config.addProperty("remote.server.port", remotePort)
     expectBean(beanCtx, "lineDJ_messageBus", bus)
     when(appCtx.getBeanContext).thenReturn(beanCtx)
     when(appCtx.getConfiguration).thenReturn(config)
-    val app = new ClientManagementApplication(factory)
+    val app = new ClientManagementApplication
+    app initMediaFacadeFactory factory
 
-    app.createRemoteMessageBus(appCtx) should be(remoteBus)
-    verify(remoteBus).updateConfiguration(remoteAddress, remotePort)
+    app.createMediaFacade(appCtx) should be(facade)
+    verify(facade).initConfiguration(config)
   }
 
   it should "provide access to the shared stage factory" in {
     val actorSystem = mock[ActorSystem]
-    val remoteBus = mock[RemoteMessageBus]
-    val factory = createRemoteMessageBusFactoryMock(remoteBus)
-    val app = new ClientManagementApplicationTestImpl(factory)
+    val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
     runApp(app)
 
@@ -209,8 +187,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
     val bundleContext = componentContext.getBundleContext
     val bundle = mock[Bundle]
     when(bundleContext.getBundle(0)).thenReturn(bundle)
-    val app = new ClientManagementApplicationTestImpl(createRemoteMessageBusFactoryMock
-    (mock[RemoteMessageBus]))
+    val app = new ClientManagementApplicationTestImpl
     runApp(app, Some(componentContext))
 
     val exitHandler = app.getExitHandler
@@ -258,8 +235,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
 
     val client1, client2, client3 = mock[Application]
     val exitHandler = mock[Runnable]
-    val app = runApp(new ClientManagementApplicationTestImpl(createRemoteMessageBusFactoryMock
-    (mock[RemoteMessageBus])))
+    val app = runApp(new ClientManagementApplicationTestImpl)
     app addClientApplication client1
     app addClientApplication client2
     app addClientApplication client3
@@ -280,10 +256,8 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Mockit
     * certain critical beans to be instantiated. In particular, the JavaFX
     * application must not be started more than once, which is triggered by the
     * stage factory.
-    * @param factory the remote message bus factory
     */
-  private class ClientManagementApplicationTestImpl(factory: RemoteMessageBusFactory) extends
-  ClientManagementApplication(factory) {
+  private class ClientManagementApplicationTestImpl extends ClientManagementApplication {
     /** A mock stage factory used per default by this object. */
     val mockStageFactory = mock[StageFactory]
 

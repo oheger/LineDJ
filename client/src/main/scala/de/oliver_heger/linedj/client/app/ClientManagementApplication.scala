@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory, RemoteMessageBus}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.osgi.service.component.ComponentContext
@@ -90,15 +90,17 @@ object ClientManagementApplication {
   * that all sub applications have dummy exit handlers which do not actually
   * exit the virtual machine.
   *
+  * Another task of this application is to establish a connection to the media
+  * archive. This is done by declaring a dependency to a
+  * [[de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory]] service.
+  * From this service a new facade instance is created and made available via
+  * the [[ClientApplicationContext]].
+  *
   * Via the OSGi runtime the communication between all involved application
   * objects takes part in a loosely coupled way without direct interaction.
-  *
-  * @param remoteMessageBusFactory a factory for the remote message bus
   */
-class ClientManagementApplication(private[app] val remoteMessageBusFactory:
-                                  RemoteMessageBusFactory) extends Application with
+class ClientManagementApplication extends Application with
 ClientApplicationContext {
-
   import ClientManagementApplication._
 
   /** Stores the central actor system. */
@@ -107,8 +109,11 @@ ClientApplicationContext {
   /** The actor factory. */
   private var factory: ActorFactory = _
 
-  /** The remote message bus. */
-  private var remoteBus: RemoteMessageBus = _
+  /** The media facade factory. */
+  private var mediaFacadeFactory: MediaFacadeFactory = _
+
+  /** Stores the media facade. */
+  private var mediaFacadeField: MediaFacade = _
 
   /** The central stage factory. */
   private var beanStageFactory: StageFactory = _
@@ -119,17 +124,14 @@ ClientApplicationContext {
   /** Flag whether the application is currently shutting down. */
   private var shutdownInProgress = false
 
-  /**
-    * Creates a new instance of ''ClientManagementApplication'' with default
-    * settings.
-    */
-  def this() = this(new RemoteMessageBusFactory)
-
   override def actorSystem: ActorSystem = system
 
-  override def remoteMessageBus: RemoteMessageBus = remoteBus
+  //TODO to be removed
+  override def remoteMessageBus: RemoteMessageBus = null
 
-  override def messageBus: MessageBus = remoteMessageBus.bus
+  override def mediaFacade: MediaFacade = mediaFacadeField
+
+  override def messageBus: MessageBus = mediaFacade.bus
 
   override def actorFactory: ActorFactory = factory
 
@@ -142,6 +144,16 @@ ClientApplicationContext {
   def initActorSystem(system: ActorSystem): Unit = {
     this.system = system
     factory = new ActorFactory(system)
+  }
+
+  /**
+    * Initializes the ''MediaFacadeFactory'' service. This method is called by
+    * the SCR.
+    *
+    * @param factory the factory
+    */
+  def initMediaFacadeFactory(factory: MediaFacadeFactory): Unit = {
+    mediaFacadeFactory = factory
   }
 
   /**
@@ -189,23 +201,21 @@ ClientApplicationContext {
   override protected def createApplicationContext(): ApplicationContext = {
     val appCtx = super.createApplicationContext()
     beanStageFactory = extractStageFactory(appCtx)
-    remoteBus = createRemoteMessageBus(appCtx)
+    mediaFacadeField = createMediaFacade(appCtx)
     appCtx
   }
 
   /**
-    * Creates and configures the remote message bus.
+    * Creates and configures the facade to the media archive.
     * @param appCtx the application context
-    * @return the remote message bus
+    * @return the ''MediaFacade''
     */
-  private[app] def createRemoteMessageBus(appCtx: ApplicationContext): RemoteMessageBus = {
+  private[app] def createMediaFacade(appCtx: ApplicationContext): MediaFacade = {
     val bus = appCtx.getBeanContext.getBean(BeanMessageBus).asInstanceOf[MessageBus]
-    val remoteBus = remoteMessageBusFactory.createRemoteMessageBus(actorFactory, bus)
-    val address = appCtx.getConfiguration.getString(PropServerAddress, DefaultServerAddress)
-    val port = appCtx.getConfiguration.getInt(PropServerPort, DefaultServerPort)
-    remoteBus.updateConfiguration(address, port)
-    remoteBus activate true
-    remoteBus
+    val facade = mediaFacadeFactory.createMediaFacade(actorFactory, bus)
+    facade initConfiguration appCtx.getConfiguration
+    facade activate true
+    facade
   }
 
   /**

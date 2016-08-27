@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, RemoteMessageBus}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{DefaultStageFactory, StyleSheetProvider}
 import org.scalatest.mock.MockitoSugar
 
@@ -45,4 +45,6 @@ class ClientApplicationContextImpl extends ClientApplicationContext with Mockito
   override val stageFactory = ClientApplicationContextImpl.SharedStageFactory
 
   override val actorFactory = mock[ActorFactory]
+
+  override def mediaFacade: MediaFacade = mock[MediaFacade]
 }

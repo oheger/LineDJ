@@ -30,6 +30,9 @@
 
   <reference interface="akka.actor.ActorSystem" name="actorSystem" bind="initActorSystem"/>
 
+  <reference interface="de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory"
+             name="mediaFacadeFactory" bind="initMediaFacadeFactory"/>
+
   <reference interface="net.sf.jguiraffe.gui.app.Application" name="clientApp"
              bind="addClientApplication" unbind="removeClientApplication" cardinality="0..n"
              policy="dynamic"/>
