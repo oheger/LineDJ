@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.client.mediaifc.remote.RemoteRelayActor
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._
@@ -30,7 +30,7 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   "A RemoteController" should "react on a server not available message" in {
     val helper = new RemoteControllerTestHelper
-    helper receive RemoteRelayActor.ServerUnavailable
+    helper receive MediaFacade.MediaArchiveUnavailable
 
     verify(helper.actionStore).enableGroup(RemoteController.ServerActions, false)
     verify(helper.availableIndicator).setVisible(false)
@@ -39,7 +39,7 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "react on a server available message" in {
     val helper = new RemoteControllerTestHelper
-    helper receive RemoteRelayActor.ServerAvailable
+    helper receive MediaFacade.MediaArchiveAvailable
 
     verify(helper.actionStore).enableGroup(RemoteController.ServerActions, true)
     verify(helper.availableIndicator).setVisible(true)

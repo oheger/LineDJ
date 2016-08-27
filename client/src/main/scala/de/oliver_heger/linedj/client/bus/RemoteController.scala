@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.bus
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.client.mediaifc.remote.RemoteRelayActor
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 
@@ -56,12 +56,12 @@ class RemoteController(actionStore: ActionStore, serverAvailableIndicator: Widge
    * @return the message handling function
    */
   override def receive: Receive = {
-    case RemoteRelayActor.ServerUnavailable =>
+    case MediaFacade.MediaArchiveUnavailable =>
       actionStore.enableGroup(ServerActions, false)
       serverAvailableIndicator setVisible false
       serverUnavailableIndicator setVisible true
 
-    case RemoteRelayActor.ServerAvailable =>
+    case MediaFacade.MediaArchiveAvailable =>
       actionStore.enableGroup(ServerActions, true)
       serverAvailableIndicator setVisible true
       serverUnavailableIndicator setVisible false

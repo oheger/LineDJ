@@ -26,6 +26,24 @@ import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.Future
 
+object MediaFacade {
+
+  /**
+    * A message published via the message bus when the media archive becomes
+    * available. Monitoring this message allows an application to keep track
+    * on the current state of the media archive.
+    */
+  case object MediaArchiveAvailable
+
+  /**
+    * A message published via the message bus when the media archive is no
+    * longer available. This message can be monitored by applications that
+    * rely on the media archive; they can update themselves accordingly when
+    * they receive this notification.
+    */
+  case object MediaArchiveUnavailable
+}
+
 /**
   * A trait defining a facade for accessing the media archive.
   *
