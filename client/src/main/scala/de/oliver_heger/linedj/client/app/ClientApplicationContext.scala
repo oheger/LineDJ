@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 
 /**
@@ -51,12 +51,6 @@ trait ClientApplicationContext {
     * @return the ''MediaFacade''
     */
   def mediaFacade: MediaFacade
-
-  /**
-    * Returns the remote message bus.
-    * @return the remote message bus
-    */
-  def remoteMessageBus: RemoteMessageBus
 
   /**
     * Returns the (local) message bus.

@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory, RemoteMessageBus}
+import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.osgi.service.component.ComponentContext
@@ -125,9 +125,6 @@ ClientApplicationContext {
   private var shutdownInProgress = false
 
   override def actorSystem: ActorSystem = system
-
-  //TODO to be removed
-  override def remoteMessageBus: RemoteMessageBus = null
 
   override def mediaFacade: MediaFacade = mediaFacadeField
 
