@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.client.comm
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import de.oliver_heger.linedj.client.mediaifc.remote.RemoteRelayActor
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -29,11 +28,15 @@ class ActorFactorySpec extends FlatSpec with Matchers with MockitoSugar {
   "An ActorFactory" should "allow creating a new actor" in {
     val system = mock[ActorSystem]
     val ref = mock[ActorRef]
-    val props = Props(classOf[RemoteRelayActor], "remoteHost", 1111, mock[MessageBus])
+    val props = Props[DummyActor]
     val Name = "MyTestActor"
     when(system.actorOf(props, Name)).thenReturn(ref)
 
     val factory = new ActorFactory(system)
     factory.createActor(props, Name) should be(ref)
   }
+}
+
+class DummyActor extends Actor {
+  override def receive: Receive = Actor.emptyBehavior
 }
