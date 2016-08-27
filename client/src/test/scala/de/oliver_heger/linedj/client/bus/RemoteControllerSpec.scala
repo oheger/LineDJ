@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.client.bus
 
-import de.oliver_heger.linedj.client.mediaifc.{RemoteMessageBus, RemoteRelayActor}
+import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._
@@ -50,9 +50,6 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
    * A helper class managing a test object with its dependencies.
    */
   private class RemoteControllerTestHelper {
-    /** The message bus mock. */
-    val messageBus = mock[RemoteMessageBus]
-
     /** The action store mock. */
     val actionStore = mock[ActionStore]
 
