@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.app
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.RemoteMessageBus
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
@@ -90,11 +90,11 @@ ApplicationTestSupport {
       .messageBus)
   }
 
-  it should "define a bean for the remote message bus" in {
+  it should "define a bean for the media facade" in {
     val app = setUpApp()
 
-    queryBean[RemoteMessageBus](app, ClientApplication.BeanRemoteMessageBus) should be
-    app.clientContext.remoteMessageBus
+    queryBean[MediaFacade](app, ClientApplication.BeanMediaFacade) should be
+    app.clientContext.mediaFacade
   }
 
   it should "query the status of the remote message bus" in {
@@ -107,6 +107,6 @@ ApplicationTestSupport {
 
     app.initGUI(appContext)
     verify(appContext).getConfiguration
-    verify(clientContext.remoteMessageBus).queryServerState()
+    verify(clientContext.mediaFacade).requestMediaState()
   }
 }

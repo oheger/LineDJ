@@ -32,8 +32,8 @@ object ClientApplication {
   /** The bean for the message bus. */
   val BeanMessageBus = BeanPrefix + "MessageBus"
 
-  /** The bean for the remote message bus. */
-  val BeanRemoteMessageBus = BeanPrefix + "RemoteMessageBus"
+  /** The bean for the media facade. */
+  val BeanMediaFacade = BeanPrefix + "MediaFacade"
 
   /**
     * The bean for the message bus registration. If a bean with this name is
@@ -129,7 +129,7 @@ class ClientApplication(val configName: String) extends Application {
     addBeanDuringApplicationStartup(BeanActorSystem, clientContext.actorSystem)
     addBeanDuringApplicationStartup(BeanActorFactory, clientContext.actorFactory)
     addBeanDuringApplicationStartup(BeanMessageBus, clientContext.messageBus)
-    addBeanDuringApplicationStartup(BeanRemoteMessageBus, clientContext.remoteMessageBus)
+    addBeanDuringApplicationStartup(BeanMediaFacade, clientContext.mediaFacade)
     appCtx
   }
 
@@ -146,6 +146,6 @@ class ClientApplication(val configName: String) extends Application {
       // trigger initialization of this bean
       getMainWindowBeanContext getBean BeanMessageBusRegistration
     }
-    clientApplicationContext.remoteMessageBus.queryServerState()
+    clientApplicationContext.mediaFacade.requestMediaState()
   }
 }
