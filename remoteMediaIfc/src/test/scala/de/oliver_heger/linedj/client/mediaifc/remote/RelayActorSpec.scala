@@ -30,7 +30,7 @@ import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-object RemoteRelayActorSpec {
+object RelayActorSpec {
   /** The address of the remote system. */
   private val Host = "remoteHost"
 
@@ -42,24 +42,23 @@ object RemoteRelayActorSpec {
 }
 
 /**
- * Test class for ''RemoteRelayActor''.
+ * Test class for ''RelayActor''.
  */
-class RemoteRelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
-  import RemoteRelayActorSpec._
+  import RelayActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "RemoteRelayActorSpec")
+  def this() = this(ActorSystemTestHelper createActorSystem "RelayActorSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
-  "A RemoteRelayActor" should "create correct creation properties" in {
+  "A RelayActor" should "create correct creation properties" in {
     val bus = mock[MessageBus]
-    val props = RemoteRelayActor(Host, Port, bus)
-    classOf[RemoteRelayActor].isAssignableFrom(props.actorClass()) shouldBe true
+    val props = RelayActor(Host, Port, bus)
+    classOf[RelayActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should have size 3
     props.args should contain inOrderOnly(Host, Port, bus)
@@ -81,8 +80,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.registerRemoteActor(helper.probeMediaManager)
 
-    helper.relayActor ! RemoteRelayActor.Activate(enabled = true)
-    expectMsg(RemoteRelayActor.ServerUnavailable)
+    helper.relayActor ! RelayActor.Activate(enabled = true)
+    expectMsg(RelayActor.ServerUnavailable)
   }
 
   it should "send any message received from outside to the message bus" in {
@@ -98,7 +97,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.provideRemoteActors()
 
     helper.unregisterRemoteActor(helper.probeMediaManager)
-    expectMsg(RemoteRelayActor.ServerUnavailable)
+    expectMsg(RelayActor.ServerUnavailable)
   }
 
   it should "monitor the server state" in {
@@ -106,29 +105,29 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.provideRemoteActors()
 
     helper.unregisterRemoteActor(helper.probeMetaDataManager)
-    expectMsg(RemoteRelayActor.ServerUnavailable)
+    expectMsg(RelayActor.ServerUnavailable)
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMetaDataManager)
     helper.registerRemoteActor(helper.probeMediaManager)
-    expectMsg(RemoteRelayActor.ServerAvailable)
+    expectMsg(RelayActor.ServerAvailable)
   }
 
   it should "allow querying the current server state" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RemoteRelayActor.Activate(enabled = true)
-    expectMsg(RemoteRelayActor.ServerAvailable)
+    helper.provideRemoteActors() ! RelayActor.Activate(enabled = true)
+    expectMsg(RelayActor.ServerAvailable)
 
-    helper.relayActor ! RemoteRelayActor.QueryServerState
-    expectMsg(RemoteRelayActor.ServerAvailable)
+    helper.relayActor ! RelayActor.QueryServerState
+    expectMsg(RelayActor.ServerAvailable)
     helper.unregisterRemoteActor(helper.probeMediaManager)
-    expectMsg(RemoteRelayActor.ServerUnavailable)
-    helper.relayActor ! RemoteRelayActor.QueryServerState
-    expectMsg(RemoteRelayActor.ServerUnavailable)
+    expectMsg(RelayActor.ServerUnavailable)
+    helper.relayActor ! RelayActor.QueryServerState
+    expectMsg(RelayActor.ServerUnavailable)
   }
 
   it should "allow sending a message to the media manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(MediaActors.MediaManager,
+    helper.provideRemoteActors() ! RelayActor.RemoteMessage(MediaActors.MediaManager,
       Message)
 
     helper.probeMediaManager.expectMsg(Message)
@@ -136,7 +135,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "allow sending a message to the meta data manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager,
+    helper.provideRemoteActors() ! RelayActor.RemoteMessage(MediaActors.MetaDataManager,
       Message)
 
     helper.probeMetaDataManager.expectMsg(Message)
@@ -144,34 +143,34 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "ignore messages to remote actors not available" in {
     val helper = new RemoteRelayActorTestHelper
-    helper activateAndExpectState RemoteRelayActor.ServerUnavailable
+    helper activateAndExpectState RelayActor.ServerUnavailable
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager, "ignore")
+    helper.relayActor ! RelayActor.RemoteMessage(MediaActors.MetaDataManager, "ignore")
     helper registerRemoteActor helper.probeMetaDataManager
-    expectMsg(RemoteRelayActor.ServerAvailable)
-    helper.relayActor ! RemoteRelayActor.RemoteMessage(MediaActors.MetaDataManager, Message)
+    expectMsg(RelayActor.ServerAvailable)
+    helper.relayActor ! RelayActor.RemoteMessage(MediaActors.MetaDataManager, Message)
     helper.probeMetaDataManager.expectMsg(Message)
   }
 
   it should "ignore invalid remote actor paths" in {
     val helper = new RemoteRelayActorTestHelper
-    helper activateAndExpectState RemoteRelayActor.ServerUnavailable
+    helper activateAndExpectState RelayActor.ServerUnavailable
     helper registerRemoteActor helper.probeMetaDataManager
 
-    helper.relayActor ! RemoteLookupActor.RemoteActorAvailable("invalid path", testActor)
+    helper.relayActor ! LookupActor.RemoteActorAvailable("invalid path", testActor)
     helper registerRemoteActor helper.probeMediaManager
-    expectMsg(RemoteRelayActor.ServerAvailable)
+    expectMsg(RelayActor.ServerAvailable)
   }
 
   it should "support its deactivation" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RemoteRelayActor.Activate(enabled = false)
+    helper.relayActor ! RelayActor.Activate(enabled = false)
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMediaManager)
-    helper.activateAndExpectState(RemoteRelayActor.ServerAvailable)
+    helper.activateAndExpectState(RelayActor.ServerAvailable)
     helper.relayActor ! Message
     expectMsg(Message)
   }
@@ -180,8 +179,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MediaManager)
-    expectMsg(RemoteRelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(helper
+    helper.relayActor ! RelayActor.RemoteActorRequest(MediaActors.MediaManager)
+    expectMsg(RelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(helper
       .probeMediaManager.ref)))
   }
 
@@ -189,8 +188,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RemoteRelayActor.RemoteActorRequest(MediaActors.MetaDataManager)
-    expectMsg(RemoteRelayActor.RemoteActorResponse(MediaActors.MetaDataManager, None))
+    helper.relayActor ! RelayActor.RemoteActorRequest(MediaActors.MetaDataManager)
+    expectMsg(RelayActor.RemoteActorResponse(MediaActors.MetaDataManager, None))
   }
 
   /**
@@ -249,10 +248,10 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @return a reference to the test actor
      */
     def provideRemoteActors(): ActorRef = {
-      pathActorMapping foreach { e => relayActor ! RemoteLookupActor.RemoteActorAvailable(e._1, e
+      pathActorMapping foreach { e => relayActor ! LookupActor.RemoteActorAvailable(e._1, e
         ._2._2) }
-      relayActor ! RemoteRelayActor.Activate(enabled = true)
-      expectMsg(RemoteRelayActor.ServerAvailable)
+      relayActor ! RelayActor.Activate(enabled = true)
+      expectMsg(RelayActor.ServerAvailable)
       relayActor
     }
 
@@ -262,7 +261,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @param probe the probe representing the remote actor
      */
     def registerRemoteActor(probe: TestProbe): Unit = {
-      relayActor ! RemoteLookupActor.RemoteActorAvailable(lookupMap(probe.ref), probe.ref)
+      relayActor ! LookupActor.RemoteActorAvailable(lookupMap(probe.ref), probe.ref)
     }
 
     /**
@@ -271,7 +270,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @param probe the probe representing the remote actor
      */
     def unregisterRemoteActor(probe: TestProbe): Unit = {
-      relayActor ! RemoteLookupActor.RemoteActorUnavailable(lookupMap(probe.ref))
+      relayActor ! LookupActor.RemoteActorUnavailable(lookupMap(probe.ref))
     }
 
     /**
@@ -280,7 +279,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @param stateMsg the expected state message
      */
     def activateAndExpectState(stateMsg: Any): Unit = {
-      relayActor ! RemoteRelayActor.Activate(enabled = true)
+      relayActor ! RelayActor.Activate(enabled = true)
       expectMsg(stateMsg)
     }
 
@@ -289,9 +288,9 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @return the properties for creating the test relay actor
      */
     private def createProps(): Props = {
-      Props(new RemoteRelayActor(Host, Port, messageBus) with ChildActorFactory {
+      Props(new RelayActor(Host, Port, messageBus) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
-          p.actorClass() should be(classOf[RemoteLookupActor])
+          p.actorClass() should be(classOf[LookupActor])
           p.args should have size 3
           lookupPaths should contain key p.args.head
           p.args(1) should be(relayActor)

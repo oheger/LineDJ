@@ -29,12 +29,12 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-object RemoteMessageBusSpec {
+object ActorBasedMediaFacadeSpec {
   /** Constant for test message. */
   private val Message = new Object
 
   /** Constant for the test message wrapped in a remote message. */
-  private val RemoteMessage = RemoteRelayActor.RemoteMessage(MediaActors.MediaManager, Message)
+  private val RemoteMessage = RelayActor.RemoteMessage(MediaActors.MediaManager, Message)
 
   /** ID for a message listener registration. */
   private val ListenerID = 20150731
@@ -43,10 +43,10 @@ object RemoteMessageBusSpec {
 /**
  * Test class for ''RemoteMessageBus''.
  */
-class RemoteMessageBusSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+class ActorBasedMediaFacadeSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
-  import RemoteMessageBusSpec._
+  import ActorBasedMediaFacadeSpec._
 
   def this() = this(ActorSystem("RemoteMessageBusSpec"))
 
@@ -60,9 +60,9 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
    * actor.
    * @return the test message bus
    */
-  private def createRemoteBus(): RemoteMessageBus = {
+  private def createRemoteBus(): ActorBasedMediaFacade = {
     val bus = mock[MessageBus]
-    new RemoteMessageBus(testActor, bus)
+    new ActorBasedMediaFacade(testActor, bus)
   }
 
   /**
@@ -70,7 +70,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
    * @param bus the test remote bus
    * @return the listener
    */
-  private def fetchListener(bus: RemoteMessageBus): Receive = {
+  private def fetchListener(bus: ActorBasedMediaFacade): Receive = {
     val captor = ArgumentCaptor.forClass(classOf[Receive])
     verify(bus.bus).registerListener(captor.capture())
     captor.getValue
@@ -81,7 +81,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
    * @param bus the test bus object
    * @return the remote message bus
    */
-  private def expectListenerRegistration(bus: RemoteMessageBus): RemoteMessageBus = {
+  private def expectListenerRegistration(bus: ActorBasedMediaFacade): ActorBasedMediaFacade = {
     when(bus.bus.registerListener(any(classOf[Receive]))).thenReturn(ListenerID)
     bus
   }
@@ -98,7 +98,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val bus = createRemoteBus()
 
     bus activate true
-    expectMsg(RemoteRelayActor.Activate(true))
+    expectMsg(RelayActor.Activate(true))
   }
 
   it should "support waiting for a response and ignore unhandled messages" in {
@@ -138,13 +138,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val bus = createRemoteBus()
 
     bus.updateConfiguration(address, port)
-    expectMsg(RemoteManagementActor.RemoteConfiguration(address, port))
+    expectMsg(ManagementActor.RemoteConfiguration(address, port))
   }
 
   it should "simplify querying the current server state" in {
     val bus = createRemoteBus()
     bus.queryServerState()
 
-    expectMsg(RemoteRelayActor.QueryServerState)
+    expectMsg(RelayActor.QueryServerState)
   }
 }

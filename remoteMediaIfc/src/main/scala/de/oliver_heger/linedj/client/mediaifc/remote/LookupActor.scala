@@ -17,11 +17,11 @@
 package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor._
-import de.oliver_heger.linedj.client.mediaifc.remote.RemoteLookupActor.{RemoteActorAvailable, RemoteActorUnavailable}
+import de.oliver_heger.linedj.client.mediaifc.remote.LookupActor.{RemoteActorAvailable, RemoteActorUnavailable}
 
 import scala.concurrent.duration._
 
-object RemoteLookupActor {
+object LookupActor {
 
   /**
    * A message sent by ''RemoteLookupActor'' when the actor to be monitored
@@ -46,7 +46,7 @@ object RemoteLookupActor {
  * An actor which monitors an actor reference in a remote actor system.
  *
  * This actor is initialized with the path to an actor it should monitor. It
- * then tests is intervals controlled by a [[DelaySequence]] whether this actor
+ * then tests in intervals controlled by a [[DelaySequence]] whether this actor
  * is available. If this is the case, a configurable watcher actor is notified.
  *
  * After the monitored actor has become available, it is further observed. When
@@ -56,9 +56,9 @@ object RemoteLookupActor {
  *
  * @param path the path to the actor to be monitored
  * @param watcher the watcher actor to notify when state changes occur
- * @param delaySequence the deleay sequence
+ * @param delaySequence the delay sequence
  */
-class RemoteLookupActor(path: String, watcher: ActorRef, delaySequence: DelaySequence) extends
+class LookupActor(path: String, watcher: ActorRef, delaySequence: DelaySequence) extends
 Actor with ActorLogging {
   /** The current state of the delay sequence. */
   private var currentDelay = delaySequence

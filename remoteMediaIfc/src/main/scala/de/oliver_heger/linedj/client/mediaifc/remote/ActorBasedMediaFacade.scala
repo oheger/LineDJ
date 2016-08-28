@@ -23,27 +23,26 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 
 /**
- * An enhanced [[MessageBus]] implementation which can be used for
- * communication with the backend.
- *
- * This class wraps a ''MessageBus'' and extends it by functionality for
- * sending messages to remote actors and receiving their responses. The basic
- * idea is that this bus is connected to a [[RemoteRelayActor]] and offers
- * convenience methods for sending a message to this actor. The sender is then
- * automatically subscribed to the underlying message bus. When a message is
- * received which the original sender can handler it is again unsubscribed.
- *
- * @param relayActor the ''RemoteRelayActor''
- * @param bus the underlying message bus
- */
-class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
+  * An implementation of [[de.oliver_heger.linedj.client.mediaifc.MediaFacade]]
+  * that communicates with the media archive via a relay actor.
+  *
+  * This implementation can be used if the media archive runs in another JVM.
+  * References to the actors wrapping the functionality of the media archive
+  * are created and monitored by a helper actor class. Messages to the media
+  * archive are passed to this actor; the responses are published on the UI
+  * message bus.
+  *
+  * @param relayActor the ''RemoteRelayActor''
+  * @param bus        the underlying message bus
+  */
+class ActorBasedMediaFacade(val relayActor: ActorRef, val bus: MessageBus) {
   /**
    * Sends an ''Activate'' message to the relay actor. This is a
    * convenient way to enable or disable monitoring of the server state.
    * @param enabled the enabled flag
    */
   def activate(enabled: Boolean): Unit = {
-    relayActor ! RemoteRelayActor.Activate(enabled)
+    relayActor ! RelayActor.Activate(enabled)
   }
 
   /**
@@ -53,7 +52,7 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
    * @param msg the message
    */
   def send(target: MediaActor, msg: Any): Unit = {
-    relayActor ! RemoteRelayActor.RemoteMessage(target, msg)
+    relayActor ! RelayActor.RemoteMessage(target, msg)
   }
 
   /**
@@ -79,7 +78,7 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
     * @param port the remote port
     */
   def updateConfiguration(address: String, port: Int): Unit = {
-    relayActor ! RemoteManagementActor.RemoteConfiguration(address, port)
+    relayActor ! ManagementActor.RemoteConfiguration(address, port)
   }
 
   /**
@@ -87,7 +86,7 @@ class RemoteMessageBus(val relayActor: ActorRef, val bus: MessageBus) {
     * actor. As reaction the server state is published on the message bus.
     */
   def queryServerState(): Unit = {
-    relayActor ! RemoteRelayActor.QueryServerState
+    relayActor ! RelayActor.QueryServerState
   }
 
   /**

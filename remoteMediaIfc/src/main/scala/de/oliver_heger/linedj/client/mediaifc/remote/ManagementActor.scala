@@ -18,22 +18,23 @@ package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.remote.RemoteManagementActor.RemoteConfiguration
+import de.oliver_heger.linedj.client.mediaifc.remote.ManagementActor.RemoteConfiguration
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-object RemoteManagementActor {
+object ManagementActor {
 
   /**
-    * A message processed by [[RemoteManagementActor]] which defines the
+    * A message processed by [[ManagementActor]] which defines the
     * configuration of the remote system. When a message of this type is
     * received, a new relay actor is created which is configured with these
     * settings.
+    *
     * @param address the address of the remote actor system
     * @param port the port of the remote actor system
     */
   case class RemoteConfiguration(address: String, port: Int)
 
-  private class RemoteManagementActorImpl(bus: MessageBus) extends RemoteManagementActor(bus)
+  private class ManagementActorImpl(bus: MessageBus) extends ManagementActor(bus)
   with ChildActorFactory
 
   /**
@@ -41,20 +42,20 @@ object RemoteManagementActor {
     * @param messageBus the message bus
     * @return the ''Props'' for creating a new instance
     */
-  def apply(messageBus: MessageBus): Props = Props(classOf[RemoteManagementActorImpl], messageBus)
+  def apply(messageBus: MessageBus): Props = Props(classOf[ManagementActorImpl], messageBus)
 }
 
 /**
   * An actor which manages the communication with the remote actor system.
   *
-  * This actor is basically a wrapper around [[RemoteRelayActor]] which deals
+  * This actor is basically a wrapper around [[RelayActor]] which deals
   * with the configuration of the remote connection. The user can change the
   * address or port of the remote actor system at any time (it may be incorrect
-  * at the beginning). When this happens the ''RemoteRelayActor'' actor has to
+  * at the beginning). When this happens the ''RelayActor'' actor has to
   * be restarted with the updated configuration settings. However, this should
   * be transparent for other parts of the system; it has to be avoided that the
   * actor reference has to be updated. This actor solves this problem. It
-  * routes all messages through to the ''RemoteRelayActor'' which is a child of
+  * routes all messages through to the ''RelayActor'' which is a child of
   * this actor. Only messages indicating a configuration change are processed.
   *
   * Before the remote connection can be set up, an initial configuration change
@@ -64,7 +65,7 @@ object RemoteManagementActor {
   *
   * @param messageBus the message bus
   */
-class RemoteManagementActor(messageBus: MessageBus) extends Actor {
+class ManagementActor(messageBus: MessageBus) extends Actor {
   this: ChildActorFactory =>
 
   /** The current relay child actor. */
@@ -100,6 +101,6 @@ class RemoteManagementActor(messageBus: MessageBus) extends Actor {
     * @param port the remote port
     */
   private def updateRelayActorForNewConfiguration(address: String, port: Int): Unit = {
-    relayActor = createChildActor(RemoteRelayActor(address, port, messageBus))
+    relayActor = createChildActor(RelayActor(address, port, messageBus))
   }
 }

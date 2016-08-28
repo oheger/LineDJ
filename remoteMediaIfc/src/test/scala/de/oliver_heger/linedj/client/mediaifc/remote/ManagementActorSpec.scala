@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-object RemoteManagementActorSpec {
+object ManagementActorSpec {
   /** A test remote address. */
   private val RemoteAddress = "128.128.128.128"
 
@@ -43,16 +43,15 @@ object RemoteManagementActorSpec {
 /**
   * Test class for ''RemoteManagementActor''.
   */
-class RemoteManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+class ManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
-  import RemoteManagementActorSpec._
+  import ManagementActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "RemoteManagementActorSpec")
+  def this() = this(ActorSystemTestHelper createActorSystem "ManagementActorSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   /**
@@ -68,7 +67,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     props
   }
 
-  "A RemoteManagementActor" should "create a new child actor when it is configured" in {
+  "A ManagementActor" should "create a new child actor when it is configured" in {
     val helper = new RemoteManagementActorTestHelper
 
     val childData = helper.configure(RemoteAddress, RemotePort)
@@ -122,7 +121,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   it should "produce correct creation Props" in {
     val bus = mock[MessageBus]
 
-    val props = checkCreationProps(RemoteManagementActor(bus), classOf[RemoteManagementActor])
+    val props = checkCreationProps(ManagementActor(bus), classOf[ManagementActor])
     props.args should have length 1
     props.args.head should be(bus)
   }
@@ -160,7 +159,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       * @return data about the new child actor
       */
     def configure(address: String, port: Int): ChildActorCreationData = {
-      managementActor ! RemoteManagementActor.RemoteConfiguration(address, port)
+      managementActor ! ManagementActor.RemoteConfiguration(address, port)
       fetchChildCreationData()
     }
 
@@ -169,9 +168,9 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       * @return the ''Props'' for the test actor
       */
     private def createTestActorProps(): Props =
-      Props(new RemoteManagementActor(messageBus) with ChildActorFactory {
+      Props(new ManagementActor(messageBus) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
-          checkCreationProps(p, classOf[RemoteRelayActor])
+          checkCreationProps(p, classOf[RelayActor])
           p.args should have size 3
           p.args(2) should be(messageBus)
           val child = TestProbe()

@@ -28,18 +28,17 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
- * Test class for ''RemoteLookupActor''.
+ * Test class for ''LookupActor''.
  */
-class RemoteLookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystemTestHelper createActorSystem "RemoteLookupActorSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
-  "A RemoteLookupActor" should "detect the monitored actor when it is started" in {
+  "A LookupActor" should "detect the monitored actor when it is started" in {
     val ActorName = "monitorStartActor"
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
@@ -53,10 +52,10 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     })
     when(nextSequence.nextDelay).thenReturn((1, nextSequence))
 
-    val lookupActor = system.actorOf(Props(classOf[RemoteLookupActor], actorPath, testActor,
+    val lookupActor = system.actorOf(Props(classOf[LookupActor], actorPath, testActor,
       sequence))
     val monitoredActor = queue.take()
-    expectMsg(RemoteLookupActor.RemoteActorAvailable(actorPath, monitoredActor))
+    expectMsg(LookupActor.RemoteActorAvailable(actorPath, monitoredActor))
     verify(nextSequence).nextDelay
     system stop lookupActor
   }
@@ -76,12 +75,12 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     when(nextSequence.nextDelay).thenReturn((1, nextSequence))
 
     val monitoredActor = system.actorOf(Props[ActorToBeMonitored], ActorName)
-    val lookupActor = system.actorOf(Props(classOf[RemoteLookupActor], actorPath, testActor,
+    val lookupActor = system.actorOf(Props(classOf[LookupActor], actorPath, testActor,
       sequence))
-    expectMsg(RemoteLookupActor.RemoteActorAvailable(actorPath, monitoredActor))
+    expectMsg(LookupActor.RemoteActorAvailable(actorPath, monitoredActor))
 
     system stop monitoredActor
-    expectMsg(RemoteLookupActor.RemoteActorUnavailable(actorPath))
+    expectMsg(LookupActor.RemoteActorUnavailable(actorPath))
     // Test reset of delay sequence
     latch.await(5, TimeUnit.SECONDS) shouldBe true
     system stop lookupActor

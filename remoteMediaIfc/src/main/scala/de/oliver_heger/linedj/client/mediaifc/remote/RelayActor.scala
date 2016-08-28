@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.client.mediaifc.MediaActors
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-object RemoteRelayActor {
+object RelayActor {
 
   /**
    * A message sent by ''RemoteRelayActor'' when the server is available. This
@@ -84,8 +84,8 @@ object RemoteRelayActor {
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
 
-  private class RemoteRelayActorImpl(remoteAddress: String, remotePort: Int, messageBus:
-  MessageBus) extends RemoteRelayActor(remoteAddress, remotePort, messageBus) with ChildActorFactory
+  private class RelayActorImpl(remoteAddress: String, remotePort: Int, messageBus:
+  MessageBus) extends RelayActor(remoteAddress, remotePort, messageBus) with ChildActorFactory
 
   /**
    * Creates a ''Props'' object for creating a new actor instance.
@@ -95,7 +95,7 @@ object RemoteRelayActor {
    * @return creation properties for a new actor instance
    */
   def apply(remoteAddress: String, remotePort: Int, messageBus: MessageBus): Props =
-    Props(classOf[RemoteRelayActorImpl], remoteAddress, remotePort, messageBus)
+    Props(classOf[RelayActorImpl], remoteAddress, remotePort, messageBus)
 
   /**
    * A data class holding the current tracking state of remote actors. This
@@ -168,14 +168,14 @@ object RemoteRelayActor {
 /**
  * An actor class which handles the communication with the remote actor system.
  *
- * This actor class is responsible for establishing a connection to the remote
- * actor system running the LineDJ backend. This is achieved by looking up a
- * number of remote actors the client needs to access; only if references to
- * all required remote actors have been resolved, the server system is
+ * This actor class is responsible for establishing a connection to the
+ * actor system running the media archive. This is achieved by looking up a
+ * number of (remote) actors the client needs to access; only if references to
+ * all required remote actors have been resolved, the media archive is
  * considered available. Address and port of the remote actor system have to be
  * specified as constructor arguments.
  *
- * All message exchange with remote actors is routed via this actor. In order
+ * All message exchange with media actors is routed via this actor. In order
  * to send a message to a remote actor, the message is wrapped into a
  * ''RemoteMessage'' object which identifies the target actor. Messages
  * received from the remote system (as answers to requests) are published via
@@ -191,11 +191,11 @@ object RemoteRelayActor {
  * @param remotePort the port of the remote actor system
  * @param messageBus the message bus
  */
-class RemoteRelayActor(remoteAddress: String, remotePort: Int, messageBus: MessageBus) extends
+class RelayActor(remoteAddress: String, remotePort: Int, messageBus: MessageBus) extends
 Actor {
   this: ChildActorFactory =>
 
-  import RemoteRelayActor._
+  import RelayActor._
 
   /** A map for assigning lookup paths to corresponding remote actors. */
   private val pathMapping = createLookupPathMapping()
@@ -215,7 +215,7 @@ Actor {
     super.preStart()
 
     pathMapping.keys foreach { p =>
-      createChildActor(Props(classOf[RemoteLookupActor], p, self, DelaySequence))
+      createChildActor(Props(classOf[LookupActor], p, self, DelaySequence))
     }
   }
 
@@ -227,10 +227,10 @@ Actor {
     case QueryServerState =>
       publish(stateMessage(trackingState))
 
-    case RemoteLookupActor.RemoteActorAvailable(path, ref) =>
+    case LookupActor.RemoteActorAvailable(path, ref) =>
       updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref))
 
-    case RemoteLookupActor.RemoteActorUnavailable(path) =>
+    case LookupActor.RemoteActorUnavailable(path) =>
       updateTrackingState(trackingState.remoteActorLost(pathMapping get path))
 
     case RemoteMessage(target, msg) =>

@@ -43,9 +43,9 @@ private class RemoteMessageBusFactory {
     * @return the newly created remote message bus
     */
   def createRemoteMessageBus(actorFactory: ActorFactory, messageBus: MessageBus):
-  RemoteMessageBus = {
-    val managementActor = actorFactory.createActor(RemoteManagementActor(messageBus),
+  ActorBasedMediaFacade = {
+    val managementActor = actorFactory.createActor(ManagementActor(messageBus),
       ManagementActorName)
-    new RemoteMessageBus(managementActor, messageBus)
+    new ActorBasedMediaFacade(managementActor, messageBus)
   }
 }

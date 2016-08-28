@@ -30,7 +30,7 @@ class RemoteMessageBusFactorySpec extends FlatSpec with Matchers with MockitoSug
     val actorFactory = mock[ActorFactory]
     val bus = mock[MessageBus]
     val actor = mock[ActorRef]
-    when(actorFactory.createActor(RemoteManagementActor(bus), "RemoteManagementActor"))
+    when(actorFactory.createActor(ManagementActor(bus), "RemoteManagementActor"))
       .thenReturn(actor)
     val factory = new RemoteMessageBusFactory
 
