@@ -18,28 +18,16 @@ package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.MediaActors
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.metadata.RemoveMediumListener
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RelayActor {
 
   /**
-   * A message sent by ''RemoteRelayActor'' when the server is available. This
-   * means that all references to remote actors have been resolved.
-   */
-  case object ServerAvailable
-
-  /**
-   * A message sent by ''RemoteRelayActor'' when the server becomes
-   * unavailable. This message is sent on the message bus when at least one of
-   * the tracked remote actors becomes unavailable.
-   */
-  case object ServerUnavailable
-
-  /**
-   * A message received by ''RemoteRelayActor'' which activates or disables
+   * A message received by [[RelayActor]] which activates or disables
    * tracking of the server state. The actor must be activated first before it
    * sends ''ServerAvailable'' or ''ServerUnavailable'' messages.
    * @param enabled flag whether server monitoring is enabled
@@ -47,33 +35,33 @@ object RelayActor {
   case class Activate(enabled: Boolean)
 
   /**
-   * A message to be processed by ''RemoteRelayActor'' telling it to send a
-   * message to a remote actor. The actor is determined by the ''target''
-   * parameter. If this remote actor is currently available, the message is
+   * A message to be processed by [[RelayActor]] telling it to send a
+   * message to a media actor. The actor is determined by the ''target''
+   * parameter. If this media actor is currently available, the message is
    * sent to it.
-   * @param target the remote actor type which receives the message
+   * @param target the media actor type which receives the message
    * @param msg the message to be sent
    */
-  case class RemoteMessage(target: MediaActor, msg: Any)
+  case class MediaMessage(target: MediaActor, msg: Any)
 
   /**
-   * A message to be processed by ''RemoteRelayActor'' that requests a
-   * reference to a remote actor. This message is answered by a
-   * [[RemoteActorResponse]] message.
+   * A message to be processed by [[RelayActor]] that requests a
+   * reference to a media actor. This message is answered by a
+   * [[MediaActorResponse]] message.
    *
-   * @param actorType the remote actor type
+   * @param actorType the media actor type
    */
-  case class RemoteActorRequest(actorType: MediaActor)
+  case class MediaActorRequest(actorType: MediaActor)
 
   /**
-   * A message sent by ''RemoteRelayActor'' as response to a
-   * [[RemoteActorRequest]] message. The reference to the desired remote actor
+   * A message sent by [[RelayActor]] as response to a
+   * [[MediaActorRequest]] message. The reference to the desired media actor
    * is returned as an option as it might not be available.
    *
-   * @param actorType the type of the remote actor
-   * @param optActor the optional reference to the remote actor
+   * @param actorType the type of the media actor
+   * @param optActor the optional reference to the media actor
    */
-  case class RemoteActorResponse(actorType: MediaActor, optActor: Option[ActorRef])
+  case class MediaActorResponse(actorType: MediaActor, optActor: Option[ActorRef])
 
   /**
     * A message to be processed by [[RelayActor]] that causes a listener
@@ -83,7 +71,7 @@ object RelayActor {
   case class RemoveListener(mediumId: MediumID)
 
   /**
-    * A message processed by ''RemoteRelayActor'' for querying the current
+    * A message processed by [[RelayActor]] for querying the current
     * server state. When this message is received, the current state is
     * published on the message bus.
     */
@@ -169,8 +157,8 @@ object RelayActor {
    * @return the state message
    */
   private def stateMessage(trackingState: RemoteActorTrackingState): Any =
-    if (trackingState.trackingComplete) ServerAvailable
-    else ServerUnavailable
+    if (trackingState.trackingComplete) MediaFacade.MediaArchiveAvailable
+    else MediaFacade.MediaArchiveUnavailable
 }
 
 /**
@@ -241,11 +229,14 @@ Actor {
     case LookupActor.RemoteActorUnavailable(path) =>
       updateTrackingState(trackingState.remoteActorLost(pathMapping get path))
 
-    case RemoteMessage(target, msg) =>
-      trackingState remoteActorOption target foreach (_ ! msg)
+    case MediaMessage(target, msg) =>
+      sendToTarget(target, msg)
 
-    case RemoteActorRequest(actorType) =>
-      sender ! RemoteActorResponse(actorType, trackingState remoteActorOption actorType)
+    case MediaActorRequest(actorType) =>
+      sender ! MediaActorResponse(actorType, trackingState remoteActorOption actorType)
+
+    case RemoveListener(mediumId) =>
+      sendToTarget(MediaActors.MetaDataManager, RemoveMediumListener(mediumId, self))
 
     case msg =>
       messageBus publish msg
@@ -264,6 +255,17 @@ Actor {
     if (oldState.trackingComplete != newState.trackingComplete) {
       publish(stateMessage(newState))
     }
+  }
+
+  /**
+    * Sends the specified message to the given target actor, provided that it
+    * is available.
+    *
+    * @param target the target actor
+    * @param msg    the message to be sent
+    */
+  private def sendToTarget(target: MediaActors.MediaActor, msg: Any): Unit = {
+    trackingState remoteActorOption target foreach (_ ! msg)
   }
 
   /**

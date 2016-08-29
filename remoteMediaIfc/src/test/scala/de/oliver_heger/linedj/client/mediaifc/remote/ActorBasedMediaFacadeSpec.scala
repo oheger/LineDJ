@@ -36,7 +36,7 @@ object ActorBasedMediaFacadeSpec {
   private val Message = new Object
 
   /** Constant for the test message wrapped in a remote message. */
-  private val RemoteMessage = RelayActor.RemoteMessage(MediaActors.MediaManager, Message)
+  private val RemoteMessage = RelayActor.MediaMessage(MediaActors.MediaManager, Message)
 }
 
 /**
@@ -143,7 +143,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   */
 class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
   override def receive: Receive = {
-    case RelayActor.RemoteActorRequest(MediaActors.MediaManager) =>
-      sender() ! RelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(remoteActorRef))
+    case RelayActor.MediaActorRequest(MediaActors.MediaManager) =>
+      sender() ! RelayActor.MediaActorResponse(MediaActors.MediaManager, Some(remoteActorRef))
   }
 }

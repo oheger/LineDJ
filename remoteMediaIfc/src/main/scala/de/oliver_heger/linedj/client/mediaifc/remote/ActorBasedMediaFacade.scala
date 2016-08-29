@@ -80,7 +80,7 @@ class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSyst
    * @param msg the message
    */
   override def send(target: MediaActor, msg: Any): Unit = {
-    relayActor ! RelayActor.RemoteMessage(target, msg)
+    relayActor ! RelayActor.MediaMessage(target, msg)
   }
 
   /**
@@ -106,8 +106,8 @@ class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSyst
   override def requestActor(target: MediaActor)(implicit timeout: Timeout):
   Future[Option[ActorRef]] = {
     implicit val ec = actorSystem.dispatcher
-    val future = relayActor ? RelayActor.RemoteActorRequest(target)
-    future.map(f => f.asInstanceOf[RelayActor.RemoteActorResponse].optActor)
+    val future = relayActor ? RelayActor.MediaActorRequest(target)
+    future.map(f => f.asInstanceOf[RelayActor.MediaActorResponse].optActor)
   }
 
   /**

@@ -22,7 +22,9 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.MediaActors
+import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.metadata.RemoveMediumListener
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -70,18 +72,18 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.awaitChildrenCreation() shouldBe true
   }
 
-  it should "send a ServerAvailable message when all remote actors have been retrieved" in {
+  it should "send an archive available message when all remote actors have been retrieved" in {
     val helper = new RemoteRelayActorTestHelper
 
     helper.provideRemoteActors()
   }
 
-  it should "send the current server state when activated" in {
+  it should "send the current archive state when activated" in {
     val helper = new RemoteRelayActorTestHelper
     helper.registerRemoteActor(helper.probeMediaManager)
 
     helper.relayActor ! RelayActor.Activate(enabled = true)
-    expectMsg(RelayActor.ServerUnavailable)
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
   }
 
   it should "send any message received from outside to the message bus" in {
@@ -92,42 +94,42 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     expectMsg(Message)
   }
 
-  it should "send a server unavailable message when a remote actor is lost" in {
+  it should "send an archive unavailable message when a remote actor is lost" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
     helper.unregisterRemoteActor(helper.probeMediaManager)
-    expectMsg(RelayActor.ServerUnavailable)
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
   }
 
-  it should "monitor the server state" in {
+  it should "monitor the archive state" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
     helper.unregisterRemoteActor(helper.probeMetaDataManager)
-    expectMsg(RelayActor.ServerUnavailable)
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMetaDataManager)
     helper.registerRemoteActor(helper.probeMediaManager)
-    expectMsg(RelayActor.ServerAvailable)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
   }
 
-  it should "allow querying the current server state" in {
+  it should "allow querying the current media archive state" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors() ! RelayActor.Activate(enabled = true)
-    expectMsg(RelayActor.ServerAvailable)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
 
     helper.relayActor ! RelayActor.QueryServerState
-    expectMsg(RelayActor.ServerAvailable)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
     helper.unregisterRemoteActor(helper.probeMediaManager)
-    expectMsg(RelayActor.ServerUnavailable)
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
     helper.relayActor ! RelayActor.QueryServerState
-    expectMsg(RelayActor.ServerUnavailable)
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
   }
 
   it should "allow sending a message to the media manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RelayActor.RemoteMessage(MediaActors.MediaManager,
+    helper.provideRemoteActors() ! RelayActor.MediaMessage(MediaActors.MediaManager,
       Message)
 
     helper.probeMediaManager.expectMsg(Message)
@@ -135,7 +137,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "allow sending a message to the meta data manager actor" in {
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RelayActor.RemoteMessage(MediaActors.MetaDataManager,
+    helper.provideRemoteActors() ! RelayActor.MediaMessage(MediaActors.MetaDataManager,
       Message)
 
     helper.probeMetaDataManager.expectMsg(Message)
@@ -143,24 +145,24 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   it should "ignore messages to remote actors not available" in {
     val helper = new RemoteRelayActorTestHelper
-    helper activateAndExpectState RelayActor.ServerUnavailable
+    helper activateAndExpectState MediaFacade.MediaArchiveUnavailable
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RelayActor.RemoteMessage(MediaActors.MetaDataManager, "ignore")
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetaDataManager, "ignore")
     helper registerRemoteActor helper.probeMetaDataManager
-    expectMsg(RelayActor.ServerAvailable)
-    helper.relayActor ! RelayActor.RemoteMessage(MediaActors.MetaDataManager, Message)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetaDataManager, Message)
     helper.probeMetaDataManager.expectMsg(Message)
   }
 
   it should "ignore invalid remote actor paths" in {
     val helper = new RemoteRelayActorTestHelper
-    helper activateAndExpectState RelayActor.ServerUnavailable
+    helper activateAndExpectState MediaFacade.MediaArchiveUnavailable
     helper registerRemoteActor helper.probeMetaDataManager
 
     helper.relayActor ! LookupActor.RemoteActorAvailable("invalid path", testActor)
     helper registerRemoteActor helper.probeMediaManager
-    expectMsg(RelayActor.ServerAvailable)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
   }
 
   it should "support its deactivation" in {
@@ -170,7 +172,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.relayActor ! RelayActor.Activate(enabled = false)
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMediaManager)
-    helper.activateAndExpectState(RelayActor.ServerAvailable)
+    helper.activateAndExpectState(MediaFacade.MediaArchiveAvailable)
     helper.relayActor ! Message
     expectMsg(Message)
   }
@@ -179,8 +181,8 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RelayActor.RemoteActorRequest(MediaActors.MediaManager)
-    expectMsg(RelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(helper
+    helper.relayActor ! RelayActor.MediaActorRequest(MediaActors.MediaManager)
+    expectMsg(RelayActor.MediaActorResponse(MediaActors.MediaManager, Some(helper
       .probeMediaManager.ref)))
   }
 
@@ -188,8 +190,16 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RelayActor.RemoteActorRequest(MediaActors.MetaDataManager)
-    expectMsg(RelayActor.RemoteActorResponse(MediaActors.MetaDataManager, None))
+    helper.relayActor ! RelayActor.MediaActorRequest(MediaActors.MetaDataManager)
+    expectMsg(RelayActor.MediaActorResponse(MediaActors.MetaDataManager, None))
+  }
+
+  it should "handle a message to remove a meta data listener" in {
+    val mid = MediumID("a medium", None)
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors() ! RelayActor.RemoveListener(mid)
+
+    helper.probeMetaDataManager.expectMsg(RemoveMediumListener(mid, helper.relayActor))
   }
 
   /**
@@ -251,7 +261,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       pathActorMapping foreach { e => relayActor ! LookupActor.RemoteActorAvailable(e._1, e
         ._2._2) }
       relayActor ! RelayActor.Activate(enabled = true)
-      expectMsg(RelayActor.ServerAvailable)
+      expectMsg(MediaFacade.MediaArchiveAvailable)
       relayActor
     }
 
@@ -310,7 +320,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      */
     private def createMessageBus(): MessageBus = {
       val bus = mock[MessageBus]
-      when(bus.publish(org.mockito.Matchers.any())).then(new Answer[Boolean] {
+      when(bus.publish(org.mockito.Matchers.any())).thenAnswer(new Answer[Boolean] {
         override def answer(invocationOnMock: InvocationOnMock): Boolean = {
           testActor ! invocationOnMock.getArguments()(0)
           true
