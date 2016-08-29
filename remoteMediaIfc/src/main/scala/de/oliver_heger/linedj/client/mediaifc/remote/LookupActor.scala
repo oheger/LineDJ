@@ -100,6 +100,7 @@ Actor with ActorLogging {
       watcher ! RemoteActorUnavailable(path)
       currentDelay = delaySequence
       sendIdentifyRequest()
+      context become lookingUp
 
     case ReceiveTimeout =>
     //ignore

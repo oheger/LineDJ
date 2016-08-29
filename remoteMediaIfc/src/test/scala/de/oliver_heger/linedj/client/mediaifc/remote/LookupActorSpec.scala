@@ -64,15 +64,16 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val ActorName = "monitorStopActor"
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
-    val latch = new CountDownLatch(2)
-    when(sequence.nextDelay).thenAnswer(new Answer[(Int, DelaySequence)] {
+    val latch = new CountDownLatch(3)
+    val answer = new Answer[(Int, DelaySequence)] {
       // Countdown latch to indicate that the sequence was queried
       override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) = {
         latch.countDown()
         (1, nextSequence)
       }
-    })
-    when(nextSequence.nextDelay).thenReturn((1, nextSequence))
+    }
+    when(sequence.nextDelay).thenAnswer(answer)
+    when(nextSequence.nextDelay).thenAnswer(answer)
 
     val monitoredActor = system.actorOf(Props[ActorToBeMonitored], ActorName)
     val lookupActor = system.actorOf(Props(classOf[LookupActor], actorPath, testActor,
