@@ -16,26 +16,29 @@
 
 package de.oliver_heger.linedj.client.mediaifc.remote
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
-  * Test class for ''RemoteMessageBusFactory''.
+  * Test class for ''ActorBasedMediaFacadeFactory''.
   */
-class RemoteMessageBusFactorySpec extends FlatSpec with Matchers with MockitoSugar {
-  "A RemoteMessageBusFactory" should "create a remote message bus" in {
+class ActorBasedMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+  "An ActorBasedMediaFacadeFactory" should "create a media facade" in {
     val actorFactory = mock[ActorFactory]
+    val actorSystem = mock[ActorSystem]
     val bus = mock[MessageBus]
     val actor = mock[ActorRef]
+    when(actorFactory.actorSystem).thenReturn(actorSystem)
     when(actorFactory.createActor(ManagementActor(bus), "RemoteManagementActor"))
       .thenReturn(actor)
-    val factory = new RemoteMessageBusFactory
+    val factory = new ActorBasedMediaFacadeFactory
 
-    val remoteBus = factory.createRemoteMessageBus(actorFactory, bus)
-    remoteBus.bus should be(bus)
-    remoteBus.relayActor should be(actor)
+    val facade = factory.createMediaFacade(actorFactory, bus)
+    facade.bus should be(bus)
+    facade.relayActor should be(actor)
+    facade.actorSystem should be(actorSystem)
   }
 }

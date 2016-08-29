@@ -17,35 +17,33 @@
 package de.oliver_heger.linedj.client.mediaifc.remote
 
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory
 
-object RemoteMessageBusFactory {
+object ActorBasedMediaFacadeFactory {
   /** The name of the remote management actor. */
   val ManagementActorName = "RemoteManagementActor"
 }
 
 /**
-  * An internally used helper class for creating an instance of a remote
-  * message bus.
+  * An implementation of [[MediaFacadeFactory]] that creates an instance of
+  * [[ActorBasedMediaFacade]].
   *
-  * A remote message bus is a more complex bean which cannot be created simply
-  * using the dependency injection framework. It involves creating an actor.
-  * Therefore, this class was introduced to encapsulate the creation
-  * functionality.
+  * The ''MediaFacade'' created by this factory communicates with the media
+  * archive via an actor that tries to look up the media actors (implementing
+  * the archive) dynamically.
   */
-private class RemoteMessageBusFactory {
+class ActorBasedMediaFacadeFactory extends MediaFacadeFactory {
 
-  import RemoteMessageBusFactory._
+  import ActorBasedMediaFacadeFactory._
 
   /**
-    * Creates a new ''RemoteMessageBus'' object.
-    * @param actorFactory the factory for creating actors
-    * @param messageBus the message bus
-    * @return the newly created remote message bus
+    * @inheritdoc This implementation creates a ''ManagementActor'' and an
+    *             [[ActorBasedMediaFacade]] that communicates with this actor.
     */
-  def createRemoteMessageBus(actorFactory: ActorFactory, messageBus: MessageBus):
+  override def createMediaFacade(actorFactory: ActorFactory, messageBus: MessageBus):
   ActorBasedMediaFacade = {
     val managementActor = actorFactory.createActor(ManagementActor(messageBus),
       ManagementActorName)
-    new ActorBasedMediaFacade(managementActor, null, messageBus)
+    new ActorBasedMediaFacade(managementActor, actorFactory.actorSystem, messageBus)
   }
 }
