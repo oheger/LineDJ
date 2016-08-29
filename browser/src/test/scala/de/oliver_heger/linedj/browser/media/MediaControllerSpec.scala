@@ -22,7 +22,6 @@ import java.util.Locale
 
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
@@ -212,18 +211,18 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   import MediaControllerSpec._
 
-  "A MediaController" should "disable the combo when the server is unavailable" in {
+  "A MediaController" should "disable the combo when the archive is unavailable" in {
     val helper = new MediaControllerTestHelper
 
-    helper send ServerUnavailable
+    helper send MediaFacade.MediaArchiveUnavailable
     verify(helper.comboHandler).setEnabled(false)
     verify(helper.labelInProgress).setVisible(false)
   }
 
-  it should "handle a server available message correctly" in {
+  it should "handle an archive available message correctly" in {
     val helper = new MediaControllerTestHelper
 
-    helper send ServerAvailable
+    helper send MediaFacade.MediaArchiveAvailable
     verify(helper.labelInProgress).setVisible(false)
     verify(helper.mediaFacade).send(MediaActors.MediaManager, GetAvailableMedia)
   }

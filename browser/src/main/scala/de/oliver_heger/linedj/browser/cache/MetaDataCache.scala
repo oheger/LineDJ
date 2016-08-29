@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.browser.cache
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.MetaDataChunk
 
@@ -100,10 +99,10 @@ class MetaDataCache(mediaFacade: MediaFacade) extends MessageBusListener {
         }
       }
 
-    case ServerAvailable =>
+    case MediaFacade.MediaArchiveAvailable =>
       receivedChunks = Map.empty
 
-    case ServerUnavailable =>
+    case MediaFacade.MediaArchiveUnavailable =>
       callbacks = Map.empty
   }
 

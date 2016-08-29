@@ -21,7 +21,6 @@ import java.util.Locale
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
@@ -161,11 +160,11 @@ MessageBusListener {
    * @return the message handling function
    */
   override def receive: Receive = {
-    case ServerUnavailable =>
+    case MediaFacade.MediaArchiveUnavailable =>
       comboMedia setEnabled false
       inProgressWidget setVisible false
 
-    case ServerAvailable =>
+    case MediaFacade.MediaArchiveAvailable =>
       mediaFacade.send(MediaActors.MediaManager, GetAvailableMedia)
       inProgressWidget setVisible false
 

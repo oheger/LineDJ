@@ -20,7 +20,6 @@ import java.nio.file.Paths
 
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.client.mediaifc.RemoteRelayActor.{ServerAvailable, ServerUnavailable}
 import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
 import org.mockito.Mockito._
@@ -256,20 +255,20 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(facade, never()).removeMetaDataListener(Medium)
   }
 
-  it should "clean the cache when the server becomes available again" in {
+  it should "clean the cache when the archive becomes available again" in {
     val cache = new MetaDataCache(createMediaFacade())
     cache.receive(createChunk(1, complete = false))
 
-    cache.receive(ServerAvailable)
+    cache.receive(MediaFacade.MediaArchiveAvailable)
     val buf = register(cache, this)
     verifyReceivedChunks(buf)
   }
 
-  it should "remove all listeners when the server becomes unavailable" in {
+  it should "remove all listeners when the archive becomes unavailable" in {
     val cache = new MetaDataCache(createMediaFacade())
     val buf = register(cache, this)
 
-    cache.receive(ServerUnavailable)
+    cache.receive(MediaFacade.MediaArchiveUnavailable)
     cache.receive(createChunk(1, complete = false))
     verifyReceivedChunks(buf)
   }
