@@ -46,6 +46,6 @@ private class RemoteMessageBusFactory {
   ActorBasedMediaFacade = {
     val managementActor = actorFactory.createActor(ManagementActor(messageBus),
       ManagementActorName)
-    new ActorBasedMediaFacade(managementActor, messageBus)
+    new ActorBasedMediaFacade(managementActor, null, messageBus)
   }
 }

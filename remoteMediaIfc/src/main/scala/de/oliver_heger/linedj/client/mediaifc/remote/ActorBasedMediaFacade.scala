@@ -16,11 +16,34 @@
 
 package de.oliver_heger.linedj.client.mediaifc.remote
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.pattern.ask
+import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
+import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.media.MediumID
+import org.apache.commons.configuration.Configuration
+
+import scala.concurrent.Future
+
+object ActorBasedMediaFacade {
+  /**
+    * Configuration property for the host of the remote media archive.
+    */
+  private val PropMediaArchiveHost = "media.host"
+
+  /**
+    * Configuration property for the port of the remote media archive.
+    */
+  private val PropMediaArchivePort = "media.port"
+
+  /** Constant for the default media archive address. */
+  val DefaultServerAddress = "127.0.0.1"
+
+  /** Constant for the default media archive port. */
+  val DefaultServerPort = 2552
+}
 
 /**
   * An implementation of [[de.oliver_heger.linedj.client.mediaifc.MediaFacade]]
@@ -32,16 +55,21 @@ import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
   * archive are passed to this actor; the responses are published on the UI
   * message bus.
   *
-  * @param relayActor the ''RemoteRelayActor''
-  * @param bus        the underlying message bus
+  * @param relayActor  the ''RelayActor''
+  * @param actorSystem the associated actor system
+  * @param bus         the underlying message bus
   */
-class ActorBasedMediaFacade(val relayActor: ActorRef, val bus: MessageBus) {
+class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSystem,
+                            override val bus: MessageBus)
+  extends MediaFacade {
+  import ActorBasedMediaFacade._
+
   /**
    * Sends an ''Activate'' message to the relay actor. This is a
    * convenient way to enable or disable monitoring of the server state.
    * @param enabled the enabled flag
    */
-  def activate(enabled: Boolean): Unit = {
+  override def activate(enabled: Boolean): Unit = {
     relayActor ! RelayActor.Activate(enabled)
   }
 
@@ -51,59 +79,43 @@ class ActorBasedMediaFacade(val relayActor: ActorRef, val bus: MessageBus) {
    * @param target the target actor
    * @param msg the message
    */
-  def send(target: MediaActor, msg: Any): Unit = {
+  override def send(target: MediaActor, msg: Any): Unit = {
     relayActor ! RelayActor.RemoteMessage(target, msg)
   }
 
   /**
-   * Sends a message to a remote actor and registers a listener at the
-   * underlying message bus to handle the response. The response listener stays
-   * connected until a message is received which it can handle.
-   * @param target the target actor
-   * @param msg the message
-   * @param responseListener the handler for the response
-   */
-  def ask(target: MediaActor, msg: Any)(responseListener: Actor.Receive): Unit = {
-    val refListenerID = new AtomicInteger
-    val listenerID = bus registerListener wrapReceive(responseListener, refListenerID)
-    refListenerID set listenerID
-    send(target, msg)
+    * @inheritdoc This implementation extracts properties relevant for access
+    *             to a remote media archive from the given configuration.
+    */
+  override def initConfiguration(config: Configuration): Unit = {
+    relayActor ! ManagementActor.RemoteConfiguration(config.getString(PropMediaArchiveHost,
+      DefaultServerAddress), config.getInt(PropMediaArchivePort, DefaultServerPort))
   }
 
   /**
-    * Sends a message to the remote actor indicating a configuration change.
-    * This will cause a new relay actor to be created using the new remote
-    * address.
-    * @param address the remote address
-    * @param port the remote port
+    * @inheritdoc This implementation sends a corresponding message to the
+    *             relay actor.
     */
-  def updateConfiguration(address: String, port: Int): Unit = {
-    relayActor ! ManagementActor.RemoteConfiguration(address, port)
-  }
-
-  /**
-    * Sends a message which queries the current server state to the relay
-    * actor. As reaction the server state is published on the message bus.
-    */
-  def queryServerState(): Unit = {
+  override def requestMediaState(): Unit = {
     relayActor ! RelayActor.QueryServerState
   }
 
   /**
-   * Wraps a receive function to ensure that it is removed from the message bus
-   * when a response message is received.
-   * @param r the function to be wrapped
-   * @param refRegistrationID a reference to the ID of the listener registration
-   * @return the wrapper function
-   */
-  private def wrapReceive(r: Actor.Receive, refRegistrationID: AtomicInteger): Actor.Receive = {
-    new PartialFunction[Any, Unit] {
-      override def isDefinedAt(x: Any): Boolean = r isDefinedAt x
+    * @inheritdoc This implementation delegates to the relay actor.
+    */
+  override def requestActor(target: MediaActor)(implicit timeout: Timeout):
+  Future[Option[ActorRef]] = {
+    implicit val ec = actorSystem.dispatcher
+    val future = relayActor ? RelayActor.RemoteActorRequest(target)
+    future.map(f => f.asInstanceOf[RelayActor.RemoteActorResponse].optActor)
+  }
 
-      override def apply(msg: Any): Unit = {
-        r(msg)
-        bus removeListener refRegistrationID.get()
-      }
-    }
+  /**
+    * @inheritdoc This implementation sends a special message to the relay
+    *             actor. The relay actor then handles the removal of the
+    *             listener.
+    */
+  override def removeMetaDataListener(mediumID: MediumID): Unit = {
+    relayActor ! RelayActor.RemoveListener(mediumID)
   }
 }

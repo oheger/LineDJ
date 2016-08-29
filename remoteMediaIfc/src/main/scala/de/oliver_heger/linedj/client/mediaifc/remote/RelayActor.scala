@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
+import de.oliver_heger.linedj.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RelayActor {
@@ -73,6 +74,13 @@ object RelayActor {
    * @param optActor the optional reference to the remote actor
    */
   case class RemoteActorResponse(actorType: MediaActor, optActor: Option[ActorRef])
+
+  /**
+    * A message to be processed by [[RelayActor]] that causes a listener
+    * registration for the specified medium to be removed.
+    * @param mediumId the ID of the medium to be removed
+    */
+  case class RemoveListener(mediumId: MediumID)
 
   /**
     * A message processed by ''RemoteRelayActor'' for querying the current

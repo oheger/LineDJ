@@ -16,17 +16,19 @@
 
 package de.oliver_heger.linedj.client.mediaifc.remote
 
-import akka.actor.Actor.Receive
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.pattern.AskTimeoutException
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors
-import org.mockito.ArgumentCaptor
-import org.mockito.Matchers._
+import de.oliver_heger.linedj.media.MediumID
+import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object ActorBasedMediaFacadeSpec {
@@ -35,116 +37,113 @@ object ActorBasedMediaFacadeSpec {
 
   /** Constant for the test message wrapped in a remote message. */
   private val RemoteMessage = RelayActor.RemoteMessage(MediaActors.MediaManager, Message)
-
-  /** ID for a message listener registration. */
-  private val ListenerID = 20150731
 }
 
 /**
- * Test class for ''RemoteMessageBus''.
+ * Test class for ''ActorBasedMediaFacade''.
  */
 class ActorBasedMediaFacadeSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ActorBasedMediaFacadeSpec._
 
-  def this() = this(ActorSystem("RemoteMessageBusSpec"))
+  def this() = this(ActorSystem("ActorBasedMediaFacadeSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**
-   * Creates the test object, initialized with the test actor serving as relay
-   * actor.
-   * @return the test message bus
-   */
-  private def createRemoteBus(): ActorBasedMediaFacade = {
+    * Creates the test object, initialized with the test actor serving as relay
+    * actor.
+    *
+    * @param optRelayActor an optional relay actor for the facade
+    * @return the test message bus
+    */
+  private def createFacade(optRelayActor: Option[ActorRef] = None): ActorBasedMediaFacade = {
     val bus = mock[MessageBus]
-    new ActorBasedMediaFacade(testActor, bus)
+    new ActorBasedMediaFacade(optRelayActor getOrElse testActor, system, bus)
   }
 
-  /**
-   * Obtains the listener that has been registered on the message bus mock.
-   * @param bus the test remote bus
-   * @return the listener
-   */
-  private def fetchListener(bus: ActorBasedMediaFacade): Receive = {
-    val captor = ArgumentCaptor.forClass(classOf[Receive])
-    verify(bus.bus).registerListener(captor.capture())
-    captor.getValue
-  }
+  "An ActorBasedMediaFacade" should "send messages to the rely actor" in {
+    val facade = createFacade()
 
-  /**
-   * Prepares the remote bus to expect the registration of a response listener.
-   * @param bus the test bus object
-   * @return the remote message bus
-   */
-  private def expectListenerRegistration(bus: ActorBasedMediaFacade): ActorBasedMediaFacade = {
-    when(bus.bus.registerListener(any(classOf[Receive]))).thenReturn(ListenerID)
-    bus
-  }
-
-  "A RemoteMessageBus" should "simplify sending remote messages" in {
-    val bus = createRemoteBus()
-
-    bus.send(MediaActors.MediaManager, Message)
+    facade.send(MediaActors.MediaManager, Message)
     expectMsg(RemoteMessage)
-    verifyZeroInteractions(bus.bus)
+    verifyZeroInteractions(facade.bus)
   }
 
   it should "simplify sending an activation message to the associated actor" in {
-    val bus = createRemoteBus()
+    val facade = createFacade()
 
-    bus activate true
+    facade activate true
     expectMsg(RelayActor.Activate(true))
   }
 
-  it should "support waiting for a response and ignore unhandled messages" in {
-    val bus = expectListenerRegistration(createRemoteBus())
-    val responseFunc: Receive = {
-      case "Ping" => // not relevant, just ignore test message
-    }
-
-    bus.ask(RemoteMessage.target, Message)(responseFunc)
-    expectMsg(RemoteMessage)
-    val listener = fetchListener(bus)
-    listener isDefinedAt Message shouldBe false
-    verifyNoMoreInteractions(bus.bus)
-  }
-
-  it should "handle a response message correctly" in {
-    val bus = expectListenerRegistration(createRemoteBus())
-    val PingMsg = "Ping"
-    val PongMsg = "Pong"
-    val responseFunc: Receive = {
-      case PingMsg =>
-        testActor ! PongMsg
-    }
-
-    bus.ask(RemoteMessage.target, Message)(responseFunc)
-    expectMsg(RemoteMessage)
-    val listener = fetchListener(bus)
-    listener isDefinedAt PingMsg shouldBe true
-    listener(PingMsg)
-    expectMsg(PongMsg)
-    verify(bus.bus).removeListener(ListenerID)
-  }
-
-  it should "simplify changing the remoting configuration" in {
+  it should "support setting the initial configuration" in {
     val address = "remote.host"
     val port = 1234
-    val bus = createRemoteBus()
+    val config = new PropertiesConfiguration
+    config.addProperty("media.host", address)
+    config.addProperty("media.port", port)
+    val facade = createFacade()
 
-    bus.updateConfiguration(address, port)
+    facade initConfiguration config
     expectMsg(ManagementActor.RemoteConfiguration(address, port))
   }
 
-  it should "simplify querying the current server state" in {
-    val bus = createRemoteBus()
-    bus.queryServerState()
+  it should "read default values from the configuration" in {
+    val facade = createFacade()
+
+    facade initConfiguration new PropertiesConfiguration
+    expectMsg(ManagementActor.RemoteConfiguration("127.0.0.1", 2552))
+  }
+
+  it should "allow querying the current server state" in {
+    val facade = createFacade()
+    facade.requestMediaState()
 
     expectMsg(RelayActor.QueryServerState)
+  }
+
+  it should "process a request for an actor" in {
+    val remoteActor = TestProbe()
+    val relay = system.actorOf(Props(classOf[DummyRelayActor], remoteActor.ref))
+    val facade = createFacade(Some(relay))
+    implicit val timeout = Timeout(3.seconds)
+
+    val future = facade.requestActor(MediaActors.MediaManager)
+    Await.result(future, 3.seconds) should be(Some(remoteActor.ref))
+  }
+
+  it should "take the timeout for an actor request into account" in {
+    val relayActor = system.actorOf(Props(classOf[DummyRelayActor], TestProbe().ref))
+    val facade = createFacade(Some(relayActor))
+    implicit val timeout = Timeout(100.millis)
+
+    intercept[AskTimeoutException] {
+      val future = facade.requestActor(MediaActors.MetaDataManager)
+      Await.result(future, 3.seconds)
+    }
+  }
+
+  it should "support removing a meta data listener" in {
+    val mediumId = MediumID("someURI", None)
+    val facade = createFacade()
+
+    facade removeMetaDataListener mediumId
+    expectMsg(RelayActor.RemoveListener(mediumId))
+  }
+}
+
+/**
+  * An actor class used for testing a request to a remote actor.
+  *
+  * @param remoteActorRef the actor reference to be returned
+  */
+class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
+  override def receive: Receive = {
+    case RelayActor.RemoteActorRequest(MediaActors.MediaManager) =>
+      sender() ! RelayActor.RemoteActorResponse(MediaActors.MediaManager, Some(remoteActorRef))
   }
 }
