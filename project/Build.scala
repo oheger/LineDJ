@@ -160,6 +160,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*"
       ),
+      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
@@ -182,6 +183,7 @@ object Build extends Build {
         "de.oliver_heger.linedj.pleditor.ui.*"
       ),
       OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.pleditor.spi"),
+      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
@@ -364,6 +366,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.radio.*"
       ),
+      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(client % "compile->compile;test->test", playerEngine)
