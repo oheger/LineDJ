@@ -79,7 +79,7 @@ object Build extends Build {
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
-      mp3PlaybackContextFactory, mediaIfcRemote)
+      mp3PlaybackContextFactory, mediaIfcRemote, mediaIfcDisabled)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -384,6 +384,26 @@ object Build extends Build {
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.client.mediaifc.remote.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn(client % "compile->compile;test->test")
+
+  /**
+    * Project for the disabled media interface. This project provides an empty
+    * dummy implementation for the interface to the media archive. It can be
+    * used for applications that do not require a media archive.
+    */
+  lazy val mediaIfcDisabled = Project(id = "mediaIfcDisabled", base = file("mediaIfcDisabled"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "disabled-MediaIfc",
+      libraryDependencies ++= osgiDependencies,
+      libraryDependencies ++= logDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.client.mediaifc.disabled.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
