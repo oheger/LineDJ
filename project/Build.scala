@@ -79,7 +79,7 @@ object Build extends Build {
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
-      mp3PlaybackContextFactory, remoteMediaIfc)
+      mp3PlaybackContextFactory, mediaIfcRemote)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -375,7 +375,7 @@ object Build extends Build {
     * Project for the remote media interface. This project establishes a
     * connection to a media archive running on a remote host.
     */
-  lazy val remoteMediaIfc = Project(id = "remoteMediaIfc", base = file("remoteMediaIfc"))
+  lazy val mediaIfcRemote = Project(id = "mediaIfcRemote", base = file("mediaIfcRemote"))
     .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
