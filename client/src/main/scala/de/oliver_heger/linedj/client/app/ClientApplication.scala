@@ -35,6 +35,9 @@ object ClientApplication {
   /** The bean for the media facade. */
   val BeanMediaFacade = BeanPrefix + "MediaFacade"
 
+  /** The bean for the whole client application context. */
+  val BeanClientApplicationContext = BeanPrefix + "ClientApplicationContext"
+
   /**
     * The bean for the message bus registration. If a bean with this name is
     * available in the bean context for the main window, it is requested and
@@ -48,6 +51,15 @@ object ClientApplication {
     * operations of any kind.
     */
   val BlockingDispatcherName = "blocking-dispatcher"
+
+  /**
+    * A life-cycle message indicating the completed initialization of a
+    * [[ClientApplication]]. A message of this type is published on the UI
+    * message bus after an application has been fully initialized.
+    *
+    * @param application the application that has been initialized
+    */
+  case class ClientApplicationInitialized(application: ClientApplication)
 }
 
 /**
@@ -55,15 +67,43 @@ object ClientApplication {
   * (OSGi) platform.
   *
   * This class is more or less a regular JGUIraffe application with an
-  * arbitrary main window. However, it implements functionality to obtain some
-  * central platform beans from the [[ClientApplicationContext]] and make them
-  * available in its own ''BeanContext''.
+  * arbitrary main window. It serves as base class for all visual LineDJ
+  * applications. In this role, it provides additional functionality that can
+  * be used by derived classes:
+  *
+  * '''Management of central beans'''
+  *
+  * At startup, an instance obtains some central platform beans from the
+  * [[ClientApplicationContext]] and makes them available in its own
+  * ''BeanContext''. These are the following beans:
+  *
+  * $ - ''LineDJ_ActorSystem'': The actor system used by the platform.
+  * $ - ''LineDJ_ActorFactory'': The helper object for creating new actors.
+  * $ - ''LineDJ_MessageBus'': The UI message bus.
+  * $ - ''LineDJ_MediaFacade'': The facade to the media archive.
+  * $ - ''LineDJ_ClientApplicationContext'': The [[ClientApplicationContext]]
+  * itself.
   *
   * There is also some support for registering listeners on the system-wide
   * message bus: If the Jelly script for the main window defines a bean named
   * ''LineDJ_messageBusRegistration'', this bean is fetched during startup and
   * thus initialized. This typically causes the registration of the listeners
   * used by this application.
+  *
+  * '''Life-cycle management'''
+  *
+  * The class implements the typical life-cycle hooks of a JGUIraffe
+  * application to make sure that state related to the LineDJ platform gets
+  * correctly initialized. This includes publishing some life-cycle
+  * notifications on the UI message bus:
+  *
+  * $ - A [[de.oliver_heger.linedj.client.app.ClientApplication.ClientApplicationInitialized]] message for this application is
+  * published after initialization is complete (and the Jelly script for the
+  * main window has been executed).
+  * $ - The state of the media archive is queried, so that a corresponding
+  * state message will be published on the message bus.
+  *
+  * '''Further notes'''
   *
   * This class is intended to be used as a declarative services component. It
   * needs a static reference to a [[ClientApplicationContext]] service; as soon
@@ -130,6 +170,7 @@ class ClientApplication(val configName: String) extends Application {
     addBeanDuringApplicationStartup(BeanActorFactory, clientContext.actorFactory)
     addBeanDuringApplicationStartup(BeanMessageBus, clientContext.messageBus)
     addBeanDuringApplicationStartup(BeanMediaFacade, clientContext.mediaFacade)
+    addBeanDuringApplicationStartup(BeanClientApplicationContext, clientContext)
     appCtx
   }
 
@@ -146,6 +187,8 @@ class ClientApplication(val configName: String) extends Application {
       // trigger initialization of this bean
       getMainWindowBeanContext getBean BeanMessageBusRegistration
     }
+
+    clientApplicationContext.messageBus publish ClientApplicationInitialized(this)
     clientApplicationContext.mediaFacade.requestMediaState()
   }
 }

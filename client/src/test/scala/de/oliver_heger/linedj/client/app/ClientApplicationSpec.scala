@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -97,7 +98,14 @@ ApplicationTestSupport {
     app.clientContext.mediaFacade
   }
 
-  it should "query the status of the remote message bus" in {
+  it should "define a bean for the client application context" in {
+    val app = setUpApp()
+
+    queryBean[ClientApplicationContext](app,
+      ClientApplication.BeanClientApplicationContext) should be(app.clientApplicationContext)
+  }
+
+  it should "correctly initialize the application" in {
     val app = createApp()
     val appContext = mock[ApplicationContext]
     val config = new PropertiesConfiguration
@@ -107,6 +115,9 @@ ApplicationTestSupport {
 
     app.initGUI(appContext)
     verify(appContext).getConfiguration
-    verify(clientContext.mediaFacade).requestMediaState()
+    val inOrder = Mockito.inOrder(clientContext.messageBus, clientContext.mediaFacade)
+    inOrder.verify(clientContext.messageBus)
+      .publish(ClientApplication.ClientApplicationInitialized(app))
+    inOrder.verify(clientContext.mediaFacade).requestMediaState()
   }
 }
