@@ -41,6 +41,7 @@ bundles which must be present in the OSGi container:
 * commons-lang-2.6.jar
 * commons-logging-1.2.jar
 * config-1.3.0.jar  (akka)
+* disabled-mediaifc_2.11-1.0-SNAPSHOT.jar (lineDJ)
 * dom4j-osgi-1.5.2.jar
 * jguiraffe-1.3.1.jar
 * jguiraffe-java-fx-1.3.1.jar
