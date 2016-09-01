@@ -36,4 +36,8 @@
   <reference interface="net.sf.jguiraffe.gui.app.Application" name="clientApp"
              bind="addClientApplication" unbind="removeClientApplication" cardinality="0..n"
              policy="dynamic"/>
+
+  <reference interface="de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData"
+             name="mediaIfcConfig" policy="dynamic"
+             bind="setMediaIfcConfig" unbind="unsetMediaIfcConfig" cardinality="0..1"/>
 </component>

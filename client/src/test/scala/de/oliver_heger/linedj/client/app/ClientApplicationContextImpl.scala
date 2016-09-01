@@ -45,4 +45,6 @@ class ClientApplicationContextImpl extends ClientApplicationContext with Mockito
   override val actorFactory = mock[ActorFactory]
 
   override val mediaFacade = mock[MediaFacade]
+
+  override val mediaIfcConfig = None
 }

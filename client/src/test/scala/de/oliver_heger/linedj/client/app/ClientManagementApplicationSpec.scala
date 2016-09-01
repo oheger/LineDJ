@@ -20,6 +20,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -251,6 +252,58 @@ with ApplicationTestSupport {
     verify(exitHandler, Mockito.times(1)).run()
   }
 
+  it should "return undefined configuration data per default" in {
+    val app = new ClientManagementApplicationTestImpl
+
+    app.mediaIfcConfig should be(None)
+  }
+
+  it should "track services of type MediaIfcConfigData" in {
+    val confData = mock[MediaIfcConfigData]
+    val app = new ClientManagementAppWithMsgBus
+
+    app setMediaIfcConfig confData
+    app.mediaIfcConfig should be(Some(confData))
+  }
+
+  it should "detect a removed config data service" in {
+    val confData = mock[MediaIfcConfigData]
+    val app = new ClientManagementAppWithMsgBus
+    app setMediaIfcConfig confData
+
+    app unsetMediaIfcConfig confData
+    app.mediaIfcConfig should be(None)
+  }
+
+  it should "send a notification for an updated media interface config" in {
+    val confData = mock[MediaIfcConfigData]
+    val app = new ClientManagementAppWithMsgBus
+
+    app setMediaIfcConfig confData
+    verify(app.mockBus)
+      .publish(ClientManagementApplication.MediaIfcConfigUpdated(Some(confData)))
+  }
+
+  it should "send a notification for a removed media interface config" in {
+    val confData = mock[MediaIfcConfigData]
+    val app = new ClientManagementAppWithMsgBus
+    app setMediaIfcConfig confData
+
+    app unsetMediaIfcConfig confData
+    verify(app.mockBus).publish(ClientManagementApplication.MediaIfcConfigUpdated(None))
+  }
+
+  it should "ignore an unrelated remove notification" in {
+    val confData = mock[MediaIfcConfigData]
+    val app = new ClientManagementAppWithMsgBus
+    app setMediaIfcConfig confData
+
+    app unsetMediaIfcConfig mock[MediaIfcConfigData]
+    app.mediaIfcConfig should be(Some(confData))
+    verify(app.mockBus, never())
+      .publish(ClientManagementApplication.MediaIfcConfigUpdated(None))
+  }
+
   /**
     * A test implementation of the management application which prevents
     * certain critical beans to be instantiated. In particular, the JavaFX
@@ -266,4 +319,15 @@ with ApplicationTestSupport {
     }
   }
 
+  /**
+    * A test management application implementation which uses a mock message
+    * bus. This can be used to test whether messages have been published on the
+    * bus.
+    */
+  private class ClientManagementAppWithMsgBus extends ClientManagementApplicationTestImpl {
+    /** The mock message bus. */
+    val mockBus = mock[MessageBus]
+
+    override def messageBus: MessageBus = mockBus
+  }
 }

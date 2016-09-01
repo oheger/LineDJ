@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.client.app
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 
 /**
@@ -64,4 +65,14 @@ trait ClientApplicationContext {
     * @return the ''StageFactory''
     */
   def stageFactory: StageFactory
+
+  /**
+    * Returns an option with configuration data about the media archive
+    * interface. An object implementing ''MediaIfcConfigData'' can be
+    * registered in the OSGi registry and queried via this method. If an object
+    * exists, an application needing access to the media archive should offer
+    * an option to the user to display the configuration dialog.
+    * @return an option with configuration data for the media archive
+    */
+  def mediaIfcConfig: Option[MediaIfcConfigData]
 }

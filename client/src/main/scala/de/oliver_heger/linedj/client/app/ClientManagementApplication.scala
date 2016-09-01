@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
@@ -45,6 +46,17 @@ object ClientManagementApplication {
 
   /** Constant for the default server port. */
   val DefaultServerPort = 2552
+
+  /**
+    * A message published by [[ClientManagementApplication]] on the UI message
+    * bus when there is a change in the configuration of the interface to the
+    * media archive. The message contains the configuration available or
+    * ''None'' if no configuration service is registered.
+    *
+    * @param currentConfigData an option with the currently available config
+    *                          service
+    */
+  case class MediaIfcConfigUpdated(currentConfigData: Option[MediaIfcConfigData])
 
   /**
     * Creates an exit handler for shutting down this application in an OSGi
@@ -94,7 +106,12 @@ object ClientManagementApplication {
   * archive. This is done by declaring a dependency to a
   * [[de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory]] service.
   * From this service a new facade instance is created and made available via
-  * the [[ClientApplicationContext]].
+  * the [[ClientApplicationContext]]. It may be possible that access to the
+  * media archive requires configuration; in this case, the responsible bundle
+  * can register a service of type
+  * [[de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData]]. This
+  * class monitors services of this type and sends notifications on the UI
+  * message bus when configuration data becomes available or unavailable.
   *
   * Via the OSGi runtime the communication between all involved application
   * objects takes part in a loosely coupled way without direct interaction.
@@ -102,6 +119,13 @@ object ClientManagementApplication {
 class ClientManagementApplication extends Application with
 ClientApplicationContext {
   import ClientManagementApplication._
+
+  /**
+    * Holds a reference to the current ''MediaIfcConfigData'' service. This
+    * field is accessed from the OSGi management thread; therefore, special
+    * care for its synchronization has to be taken.
+    */
+  private val refMediaIfcConfig = new AtomicReference[MediaIfcConfigData]
 
   /** Stores the central actor system. */
   private var system: ActorSystem = _
@@ -133,6 +157,33 @@ ClientApplicationContext {
   override def actorFactory: ActorFactory = factory
 
   override def stageFactory: StageFactory = beanStageFactory
+
+  override def mediaIfcConfig: Option[MediaIfcConfigData] = Option(refMediaIfcConfig.get())
+
+  /**
+    * Sets a service reference of type ''MediaIfcConfigData''. This method is
+    * called by the SCR when such a service is detected.
+    *
+    * @param configData the ''MediaIfcConfigData'' service
+    */
+  def setMediaIfcConfig(configData: MediaIfcConfigData): Unit = {
+    refMediaIfcConfig set configData
+    messageBus publish MediaIfcConfigUpdated(Some(configData))
+  }
+
+  /**
+    * Notifies this object that a ''MediaIfcConfigData'' service is no longer
+    * available. This method is called by the SCR when a service registration
+    * is removed from the OSGi registry. This method sends a corresponding
+    * update notification.
+    *
+    * @param configData the ''MediaIfcConfigData'' service that was removed
+    */
+  def unsetMediaIfcConfig(configData: MediaIfcConfigData): Unit = {
+    if (refMediaIfcConfig.compareAndSet(configData, null)) {
+      messageBus publish MediaIfcConfigUpdated(None)
+    }
+  }
 
   /**
     * Initializes the central actor system. This method is called by the SCR.
