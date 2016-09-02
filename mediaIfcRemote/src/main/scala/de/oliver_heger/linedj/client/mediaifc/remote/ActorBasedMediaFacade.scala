@@ -27,24 +27,6 @@ import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.Future
 
-object ActorBasedMediaFacade {
-  /**
-    * Configuration property for the host of the remote media archive.
-    */
-  private val PropMediaArchiveHost = "media.host"
-
-  /**
-    * Configuration property for the port of the remote media archive.
-    */
-  private val PropMediaArchivePort = "media.port"
-
-  /** Constant for the default media archive address. */
-  val DefaultServerAddress = "127.0.0.1"
-
-  /** Constant for the default media archive port. */
-  val DefaultServerPort = 2552
-}
-
 /**
   * An implementation of [[de.oliver_heger.linedj.client.mediaifc.MediaFacade]]
   * that communicates with the media archive via a relay actor.
@@ -62,7 +44,6 @@ object ActorBasedMediaFacade {
 class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSystem,
                             override val bus: MessageBus)
   extends MediaFacade {
-  import ActorBasedMediaFacade._
 
   /**
    * Sends an ''Activate'' message to the relay actor. This is a
@@ -88,8 +69,7 @@ class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSyst
     *             to a remote media archive from the given configuration.
     */
   override def initConfiguration(config: Configuration): Unit = {
-    relayActor ! ManagementActor.RemoteConfiguration(config.getString(PropMediaArchiveHost,
-      DefaultServerAddress), config.getInt(PropMediaArchivePort, DefaultServerPort))
+    relayActor ! ManagementActor.RemoteConfiguration(readHost(config), readPort(config))
   }
 
   /**

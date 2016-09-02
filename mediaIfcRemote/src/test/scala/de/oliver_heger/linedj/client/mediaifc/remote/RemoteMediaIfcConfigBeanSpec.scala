@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.client.mediaifc.remote
 
 import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.ctrl.{FormController, FormControllerFormEvent}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
@@ -37,9 +37,7 @@ class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSu
     */
   private def createApplication(config: Configuration): ClientApplication = {
     val app = mock[ClientApplication]
-    val appCtx = mock[ApplicationContext]
-    when(app.getApplicationContext).thenReturn(appCtx)
-    when(appCtx.getConfiguration).thenReturn(config)
+    when(app.getUserConfiguration).thenReturn(config)
     app
   }
 
@@ -99,6 +97,7 @@ class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSu
   it should "set the host" in {
     val Host = "the.new.host"
     val config = new PropertiesConfiguration
+    config.addProperty("media.host", "other_" + Host)
     val bean = createBean(config)
 
     bean setHost Host
@@ -108,6 +107,7 @@ class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSu
   it should "set the port" in {
     val Port = 1234
     val config = new PropertiesConfiguration
+    config.setProperty("media.port", Port + 1)
     val bean = createBean(config)
 
     bean setPort Port

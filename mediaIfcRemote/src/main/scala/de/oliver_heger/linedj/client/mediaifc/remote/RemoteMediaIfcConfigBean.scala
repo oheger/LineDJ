@@ -43,7 +43,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @return the host of the media archive
     */
-  def getHost: String = configuration.getString("media.host", "127.0.0.1")
+  def getHost: String = readHost(configuration)
 
   /**
     * Sets the host on which the media archive is running.
@@ -51,7 +51,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     * @param host the host address
     */
   def setHost(host: String): Unit = {
-    configuration.addProperty("media.host", host)
+    configuration.setProperty(PropMediaArchiveHost, host)
   }
 
   /**
@@ -59,7 +59,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @return the port of the media archive
     */
-  def getPort: Int = configuration.getInt("media.port", 2552)
+  def getPort: Int = readPort(configuration)
 
   /**
     * Sets the port under which the media archive can be reached.
@@ -67,7 +67,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     * @param port the port
     */
   def setPort(port: Int): Unit = {
-    configuration.addProperty("media.port", port)
+    configuration.setProperty(PropMediaArchivePort, port)
   }
 
   /**
@@ -77,7 +77,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     * @param app the current application
     */
   override def setApplication(app: Application): Unit = {
-    configuration = app.getApplicationContext.getConfiguration
+    configuration = app.getUserConfiguration
     application = app.asInstanceOf[ClientApplication]
   }
 
