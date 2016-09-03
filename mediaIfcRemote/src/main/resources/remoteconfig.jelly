@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2016 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- Jelly script for the configuration dialog of the remote media interface.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- Validators and transformers. -->
+
+  <!-- A validator for required input fields.-->
+  <di:bean name="requiredValidator"
+    beanClassName="net.sf.jguiraffe.transform.RequiredValidator">
+  </di:bean>
+
+  <!-- Number transformer for the port input field. -->
+  <di:bean name="numberTransformer"
+           beanClassName="net.sf.jguiraffe.transform.IntegerTransformer">
+    <di:setProperty property="maximum" value="65535"/>
+    <di:setProperty property="minimum" value="0"/>
+  </di:bean>
+
+  <!-- ToString transformer for the port input field. -->
+  <di:bean name="stringTransformer"
+           beanClassName="net.sf.jguiraffe.transform.ToStringTransformer">
+  </di:bean>
+
+  <!-- The form bean -->
+  <di:bean name="configSettings" beanClassLoader="configCL"
+           beanClassName="de.oliver_heger.linedj.client.mediaifc.remote.RemoteMediaIfcConfigBean">
+  </di:bean>
+
+  <!-- The bean for the form controller.-->
+  <di:bean name="controller"
+    beanClassName="net.sf.jguiraffe.gui.builder.window.ctrl.FormController">
+    <di:setProperty property="btnOkName" value="btnOk"/>
+    <di:setProperty property="btnCancelName" value="btnCancel"/>
+  </di:bean>
+
+  <!-- The dialog window -->
+  <w:dialog resgrp="remoteconfig" titleres="dlg_title" center="true">
+    <f:borderlayout topMargin="2dlu" bottomMargin="2dlu" southGap="3dlu"/>
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:percentlayout columns="4dlu end/preferred 3dlu start/preferred 4dlu"
+        rows="4dlu preferred 3dlu preferred 4dlu"/>
+      <f:label textres="lab_host" resgrp="remoteconfig">
+        <f:percentconstr col="1" row="1"/>
+      </f:label>
+      <f:textfield name="host" displayNameres="txt_host" displayNamegrp="remoteconfig"
+        tooltipres="txt_host_tip" tooltipresgrp="remoteconfig">
+        <f:percentconstr col="3" row="1"/>
+        <f:validator beanName="requiredValidator"/>
+      </f:textfield>
+
+      <f:label textres="lab_port" resgrp="remoteconfig">
+        <f:percentconstr col="1" row="3"/>
+      </f:label>
+      <f:textfield name="port" displayNameres="txt_port" displayNamegrp="remoteconfig"
+                   tooltipres="txt_port_tip" tooltipresgrp="remoteconfig">
+        <f:percentconstr col="3" row="3"/>
+        <f:validators>
+          <f:validator beanName="requiredValidator"/>
+          <f:validator beanName="numberTransformer"/>
+        </f:validators>
+        <f:transformer type="read" beanName="numberTransformer"/>
+        <f:transformer type="write" beanName="stringTransformer"/>
+      </f:textfield>
+    </f:panel>
+
+    <!-- The button bar -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:buttonlayout/>
+      <f:button name="btnOk" textres="btn_ok" resgrp="remoteconfig"
+        mnemonicres="btn_ok_mnemo" default="true"/>
+      <f:button name="btnCancel" textres="btn_cancel" resgrp="remoteconfig"
+        mnemonicres="btn_cancel_mnemo"/>
+    </f:panel>
+
+    <!-- Connect the form controller -->
+    <w:formController beanName="controller" formBeanName="configSettings">
+    </w:formController>
+  </w:dialog>
+
+  <!-- Register the form bean as form commit listener -->
+  <a:eventListener targetBean="controller" eventType="Form"
+                   beanName="configSettings"/>
+</j:jelly>
+
