@@ -61,9 +61,17 @@
     <f:icon resource="songs.png"/>
   </a:action>
 
+  <!-- Action for opening the configuration for the media archive interface -->
+  <a:action name="openMediaIfcConfigAction" textres="act_mediaconfig_text"
+            tooltipres="act_mediaconfig_tip" mnemonicres="act_mediaconfig_mnemo"
+            taskBean="openMediaIfcConfigTask">
+    <f:icon resource="mediaconfig.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="openMediaIfcConfigAction"/>
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_add_text" mnemonicres="menu_add_mnemo">
@@ -102,24 +110,30 @@
     </di:constructor>
   </di:bean>
 
+  <!-- Popup menu handler -->
+  <di:bean name="mediaPopupHandler"
+    beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
+  </di:bean>
+
+  <!-- Action tasks for opening the media interface configuration -->
+  <di:bean name="openMediaIfcConfigTask"
+           beanClassName="de.oliver_heger.linedj.client.mediaifc.config.OpenMediaIfcConfigTask">
+  </di:bean>
+
   <!-- Message bus registration -->
   <di:bean name="browserApp_MessageBusRegistration"
-    beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
+           beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
           <di:element refName="metaDataCache"/>
           <di:element refName="remoteController"/>
           <di:element refName="mediaController"/>
+          <di:element refName="openMediaIfcConfigTask"/>
         </di:list>
       </di:param>
     </di:constructor>
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
-  </di:bean>
-
-  <!-- Popup menu handler -->
-  <di:bean name="mediaPopupHandler"
-    beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
   </di:bean>
 
   <!-- The main window -->

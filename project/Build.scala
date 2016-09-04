@@ -160,7 +160,10 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*"
       ),
-      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
+      OsgiKeys.importPackage := Seq(
+        "de.oliver_heger.linedj.client.bus",
+        "de.oliver_heger.linedj.client.mediaifc.config",
+        "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
