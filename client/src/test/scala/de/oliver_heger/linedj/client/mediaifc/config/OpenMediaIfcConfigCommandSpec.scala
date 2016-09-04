@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.client.mediaifc.config
 import net.sf.jguiraffe.di.{BeanContext, ClassLoaderProvider}
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.{ClassPathLocator, Locator}
+import net.sf.jguiraffe.resources.ResourceManager
+import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -39,6 +41,20 @@ class OpenMediaIfcConfigCommandSpec extends FlatSpec with Matchers with MockitoS
     override def configClassLoader: ClassLoader = getClass.getClassLoader
   }
 
+  /**
+    * Creates a mock ''BuilderData'' object.
+    *
+    * @return the mock builder data
+    */
+  private def createBuilderData(): ApplicationBuilderData = {
+    val data = mock[ApplicationBuilderData]
+    val tctx = mock[TransformerContext]
+    val resMan = mock[ResourceManager]
+    when(data.getTransformerContext).thenReturn(tctx)
+    when(tctx.getResourceManager).thenReturn(resMan)
+    data
+  }
+
   "An OpenMediaIfcConfigCommand" should "pass the locator to the super class" in {
     val data = createConfigData()
     val command = new OpenMediaIfcConfigCommand(data)
@@ -47,7 +63,7 @@ class OpenMediaIfcConfigCommandSpec extends FlatSpec with Matchers with MockitoS
   }
 
   it should "initialize the class loader provider" in {
-    val builderData = mock[ApplicationBuilderData]
+    val builderData = createBuilderData()
     val clp = mock[ClassLoaderProvider]
     val beanCtx = mock[BeanContext]
     when(beanCtx.getClassLoaderProvider).thenReturn(clp)
@@ -61,7 +77,7 @@ class OpenMediaIfcConfigCommandSpec extends FlatSpec with Matchers with MockitoS
   }
 
   it should "restore the class loader provider after execution" in {
-    val builderData = mock[ApplicationBuilderData]
+    val builderData = createBuilderData()
     val clp = mock[ClassLoaderProvider]
     val beanCtx = mock[BeanContext]
     when(beanCtx.getClassLoaderProvider).thenReturn(clp)

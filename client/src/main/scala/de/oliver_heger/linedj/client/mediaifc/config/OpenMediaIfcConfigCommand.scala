@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.client.mediaifc.config
 
 import net.sf.jguiraffe.di.ClassLoaderProvider
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
+import net.sf.jguiraffe.resources.{ResourceLoader, ResourceManager}
 
 /**
   * A special command class for opening a dialog window for the configuration
@@ -35,6 +36,12 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
   /** Stores the current class loader provider. */
   private var classLoaderProvider: ClassLoaderProvider = _
 
+  /** The resource manager. */
+  private var resourceManager: ResourceManager = _
+
+  /** The original resource loader. */
+  private var originalResourceLoader: ResourceLoader = _
+
   /**
     * @inheritdoc This implementation registers the class loader for the
     *             configuration dialog.
@@ -44,6 +51,10 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
     classLoaderProvider = builderData.getParentContext.getClassLoaderProvider
     classLoaderProvider.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName,
       configData.configClassLoader)
+    //TODO This is a hack until JGUIraffe exposes its resource manager classes
+    resourceManager = builderData.getTransformerContext.getResourceManager
+    originalResourceLoader = resourceManager.getResourceLoader
+    resourceManager.setResourceLoader(new ResourceLoaderImpl(configData.configClassLoader))
   }
 
   /**
@@ -52,5 +63,6 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
   override def onFinally(): Unit = {
     super.onFinally()
     classLoaderProvider.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName, null)
+    resourceManager setResourceLoader originalResourceLoader
   }
 }
