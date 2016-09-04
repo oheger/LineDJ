@@ -16,10 +16,8 @@
 
 package de.oliver_heger.linedj.client.mediaifc.config
 
-import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContext,
-ClientManagementApplication}
+import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContext, ClientManagementApplication}
 import net.sf.jguiraffe.gui.app.Application
-import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -34,7 +32,7 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     val task = helper.createTask()
 
     task receive helper.createInitializedMessage(None)
-    helper.expectWidgetState(visible = false)
+    helper.expectStateUpdate(visible = false)
     task.getCommand should be(null)
   }
 
@@ -44,7 +42,7 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     val task = helper.createTask()
 
     task receive helper.createInitializedMessage(Some(configData))
-    helper.expectWidgetState(visible = true).checkCommand(task, configData)
+    helper.expectStateUpdate(visible = true).checkCommand(task, configData)
   }
 
   it should "handle a config updated message" in {
@@ -53,7 +51,13 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     val task = helper.createTask()
 
     task receive ClientManagementApplication.MediaIfcConfigUpdated(Some(configData))
-    helper.expectWidgetState(visible = true).checkCommand(task, configData)
+    helper.expectStateUpdate(visible = true).checkCommand(task, configData)
+  }
+
+  it should "create a dummy state handler" in {
+    val task = new OpenMediaIfcConfigTask
+
+    task.stateHandler.updateState(configAvailable = true)
   }
 
   /**
@@ -64,7 +68,7 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     val app = mock[ClientApplication]
 
     /** The widget managed by the task. */
-    val widget = mock[WidgetHandler]
+    val stateHandler = mock[MediaIfcConfigStateHandler]
 
     /**
       * Creates a test task instance.
@@ -72,7 +76,7 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
       * @return the task
       */
     def createTask(): OpenMediaIfcConfigTask =
-    new OpenMediaIfcConfigTask(widget) {
+    new OpenMediaIfcConfigTask(stateHandler) {
       override def getApplication: Application = app
     }
 
@@ -103,14 +107,14 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     }
 
     /**
-      * Checks whether the associated widget's visible state has been set
+      * Checks whether the associated state handler's state has been set
       * correctly.
       *
-      * @param visible the expected visible state
+      * @param visible the expected state
       * @return this helper
       */
-    def expectWidgetState(visible: Boolean): OpenMediaIfcConfigTaskTestHelper = {
-      verify(widget).setVisible(visible)
+    def expectStateUpdate(visible: Boolean): OpenMediaIfcConfigTaskTestHelper = {
+      verify(stateHandler).updateState(visible)
       this
     }
 

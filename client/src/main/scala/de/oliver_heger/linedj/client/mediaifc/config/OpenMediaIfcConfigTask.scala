@@ -20,7 +20,6 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.app.{ClientApplication, ClientManagementApplication}
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import net.sf.jguiraffe.gui.app.CommandActionTask
-import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 
 /**
   * An action task class for opening a dialog window with the configuration for
@@ -35,25 +34,32 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
   *
   * This action task class simplifies the integration of such a dialog into an
   * application. The idea is as follows: The task can be defined in the
-  * application's builder script and assigned to an action. A widget
-  * representing the button that triggers the action is passed to the
-  * constructor.
+  * application's builder script and assigned to an action. It can also be
+  * passed a [[MediaIfcConfigStateHandler]] that receives notifications about
+  * the current support for configuration options.
   *
   * The task class listens on the UI message bus for events related to the
   * availability state of a [[MediaIfcConfigData]] service. If such a service
-  * is present, the associated widget is made visible, and a command object is
-  * created which correctly opens the dialog window. If this is not the case,
-  * the widget is hidden.
+  * is present, the associated state handler is notified, and a command object is
+  * created which correctly opens the dialog window. The state handler can
+  * update the UI according to the current state, so that options are displayed
+  * only if configuration is supported.
   *
   * So, all an application has to do is to declare an instance of this class
   * and register it at the message bus. The instance takes then care whether a
   * configuration dialog is supported and how it can be displayed.
   *
-  * @param widget the widget that opens the dialog window; it is hidden if
-  *               no dialog is supported
+  * @param stateHandler a handler to be notified whether a configuration dialog
+  *                     is supported
   */
-class OpenMediaIfcConfigTask(val widget: WidgetHandler) extends CommandActionTask with
-  MessageBusListener {
+class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
+  extends CommandActionTask with MessageBusListener {
+
+  /**
+    * Creates a new instance of ''OpenMediaIfcConfigTask'' that uses a dummy
+    * state handler.
+    */
+  def this() = this(DummyMediaIfcConfigStateHandler)
 
   override def receive: Receive = {
     case ClientApplication.ClientApplicationInitialized(app) =>
@@ -72,10 +78,10 @@ class OpenMediaIfcConfigTask(val widget: WidgetHandler) extends CommandActionTas
   private def initWithConfigData(config: Option[MediaIfcConfigData]): Unit =
   config match {
     case None =>
-      widget setVisible false
+      stateHandler updateState false
 
     case Some(configData) =>
-      widget setVisible true
+      stateHandler updateState true
       setCommand(createCommand(configData))
   }
 
@@ -90,4 +96,13 @@ class OpenMediaIfcConfigTask(val widget: WidgetHandler) extends CommandActionTas
     command setApplication getApplication
     command
   }
+}
+
+/**
+  * A dummy ''MediaIfcConfigStateHandler'' implementation. This object is used
+  * if no ''MediaIfcConfigStateHandler'' is passed to an
+  * ''OpenMediaIfcConfigTask''. It has an empty ''updateState()'' method.
+  */
+private object DummyMediaIfcConfigStateHandler extends MediaIfcConfigStateHandler {
+  override def updateState(configAvailable: Boolean): Unit = {}
 }
