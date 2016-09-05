@@ -72,6 +72,7 @@
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="openMediaIfcConfigAction"/>
+      <a:separator/>
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_add_text" mnemonicres="menu_add_mnemo">
@@ -115,9 +116,20 @@
     beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
   </di:bean>
 
-  <!-- Action tasks for opening the media interface configuration -->
+  <!-- Action task for opening the media interface configuration -->
+  <di:bean name="configStateHandler"
+           beanClassName="de.oliver_heger.linedj.client.mediaifc.config.EnablerConfigStateHandler">
+    <di:constructor>
+      <di:param value="action:openMediaIfcConfigAction"/>
+      <di:param refName="COMPONENT_BUILDER_DATA"/>
+    </di:constructor>
+  </di:bean>
+
   <di:bean name="openMediaIfcConfigTask"
            beanClassName="de.oliver_heger.linedj.client.mediaifc.config.OpenMediaIfcConfigTask">
+    <di:constructor>
+      <di:param refName="configStateHandler"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Message bus registration -->
