@@ -20,7 +20,8 @@ import net.sf.jguiraffe.gui.app.Application
 
 /**
   * An implementation of ''ApplicationStartup'' which starts an application in
-  * the same thread. This implementation is used by the test classes.
+  * the same thread. This implementation is used by the test classes or in
+  * some special cases where a synchronous start is necessary.
   */
 trait ApplicationSyncStartup extends ApplicationStartup {
   override def startApplication(app: Application, configName: String): Unit = {
