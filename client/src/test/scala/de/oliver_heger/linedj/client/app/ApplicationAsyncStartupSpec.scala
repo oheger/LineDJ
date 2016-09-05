@@ -35,13 +35,13 @@ class ApplicationAsyncStartupSpec extends FlatSpec with Matchers {
   }
 
   "An ApplicationAsyncStartup" should "start an application in a background thread" in {
-    val ConfigName = "ApplicationTestConfig"
+    val AppName = "ApplicationTest"
     val latchArgs = new CountDownLatch(1)
     val latchRun = new CountDownLatch(1)
     val testApp = new Application {
       override def processCommandLine(args: Array[String]): Unit = {
         args should have length 0
-        getConfigResourceName should be(ConfigName)
+        getConfigResourceName should be(AppName + "_config.xml")
         latchArgs.countDown()
       }
 
@@ -51,7 +51,7 @@ class ApplicationAsyncStartupSpec extends FlatSpec with Matchers {
     }
 
     val startup = new ApplicationAsyncStartup {}
-    startup.startApplication(testApp, ConfigName)
+    startup.startApplication(testApp, AppName)
     await(latchArgs)
     await(latchRun)
   }

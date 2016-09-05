@@ -19,20 +19,42 @@ package de.oliver_heger.linedj.client.app
 import java.util.concurrent.atomic.AtomicInteger
 
 import net.sf.jguiraffe.gui.app.Application
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+
+object ApplicationSyncStartupSpec {
+  /** Constant for an application name. */
+  private val AppName = "ApplicationStartupTestApp"
+
+  /** The name of the property with the user configuration. */
+  private val PropAppUsrConfig = AppName + "_user_config"
+}
 
 /**
   * Test class for ''ApplicationSyncStartup''.
   */
-class ApplicationSyncStartupSpec extends FlatSpec with Matchers {
-  "An ApplicationSyncStartup" should "start an application directly" in {
-    val ConfigName = "ApplicationTestConfig"
-    val countArgs = new AtomicInteger
-    val countRun = new AtomicInteger
-    val testApp = new Application {
+class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
+  import ApplicationSyncStartupSpec._
+
+  override protected def afterAll(): Unit = {
+    System clearProperty PropAppUsrConfig
+  }
+
+  /**
+    * Creates a test application.
+    *
+    * @param usrConfigName the expected user config name
+    * @param countArgs  optional counter for command line processing
+    * @param countRun   optional counter for run invocations
+    * @return the test app
+    */
+  private def createTestApp(usrConfigName: String,
+                            countArgs: AtomicInteger = new AtomicInteger,
+                            countRun: AtomicInteger = new AtomicInteger): Application =
+    new Application {
       override def processCommandLine(args: Array[String]): Unit = {
         args should have length 0
-        getConfigResourceName should be(ConfigName)
+        getConfigResourceName should be(AppName + "_config.xml")
+        System.getProperty(PropAppUsrConfig) should be(usrConfigName)
         countArgs.incrementAndGet()
       }
 
@@ -40,10 +62,44 @@ class ApplicationSyncStartupSpec extends FlatSpec with Matchers {
         countRun.incrementAndGet()
       }
     }
-    val startup = new ApplicationSyncStartup {}
 
-    startup.startApplication(testApp, ConfigName)
+  /**
+    * Starts a test application using a test startup.
+    *
+    * @param app the application to start
+    */
+  private def startApp(app: Application): Unit = {
+    val startup = new ApplicationSyncStartup {}
+    startup.startApplication(app, AppName)
+  }
+
+  "An ApplicationSyncStartup" should "start an application directly" in {
+    val countArgs = new AtomicInteger
+    val countRun = new AtomicInteger
+
+    startApp(createTestApp(".lineDJ-" + AppName + ".xml", countArgs, countRun))
     countArgs.get() should be(1)
     countRun.get() should be(1)
+  }
+
+  it should "evaluate the LineDJ_ApplicationID property" in {
+    val ConfigPrefix = ".CoolApp"
+    System.setProperty("LineDJ_ApplicationID", ConfigPrefix)
+    try {
+      startApp(createTestApp(".lineDJ-" + ConfigPrefix + "-" + AppName + ".xml"))
+    } finally {
+      System clearProperty "LineDJ_ApplicationID"
+    }
+  }
+
+  it should "evaluate a system property for a configuration name" in {
+    val ConfigProperty = AppName + "_config"
+    val ConfigFile = ".mapped-config.xml"
+    System.setProperty(ConfigProperty, ConfigFile)
+    try {
+      startApp(createTestApp(ConfigFile))
+    } finally {
+      System clearProperty ConfigProperty
+    }
   }
 }

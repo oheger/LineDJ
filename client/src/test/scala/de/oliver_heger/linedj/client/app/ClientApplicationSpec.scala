@@ -38,7 +38,7 @@ ApplicationTestSupport {
     * @return the test application
     */
   private def createApp(): ClientApplication =
-    new ClientApplication("testconfig.xml") with ApplicationSyncStartup
+    new ClientApplication("testClientApp") with ApplicationSyncStartup
 
   /**
     * Creates a test application and starts it so that it is correctly
@@ -51,7 +51,7 @@ ApplicationTestSupport {
   "A ClientApplication" should "use the correct configuration" in {
     val app = setUpApp()
 
-    app.getConfigResourceName should be("testconfig.xml")
+    app.getConfigResourceName should be("testClientApp_config.xml")
   }
 
   it should "return a correct client context" in {
