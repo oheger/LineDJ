@@ -37,7 +37,9 @@ class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSu
     */
   private def createApplication(config: Configuration): ClientApplication = {
     val app = mock[ClientApplication]
-    when(app.getUserConfiguration).thenReturn(config)
+    val appCtx = mock[ClientApplicationContext]
+    when(app.clientApplicationContext).thenReturn(appCtx)
+    when(appCtx.managementConfiguration).thenReturn(config)
     app
   }
 
@@ -120,6 +122,7 @@ class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSu
     val facade = mock[MediaFacade]
     val appCtx = mock[ClientApplicationContext]
     when(app.clientApplicationContext).thenReturn(appCtx)
+    when(appCtx.managementConfiguration).thenReturn(config)
     when(appCtx.mediaFacade).thenReturn(facade)
     val bean = createBean(app)
 

@@ -77,8 +77,8 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     * @param app the current application
     */
   override def setApplication(app: Application): Unit = {
-    configuration = app.getUserConfiguration
     application = app.asInstanceOf[ClientApplication]
+    configuration = application.clientApplicationContext.managementConfiguration
   }
 
   /**
