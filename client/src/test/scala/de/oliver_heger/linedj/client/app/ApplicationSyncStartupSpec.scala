@@ -67,9 +67,13 @@ class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAf
     * Starts a test application using a test startup.
     *
     * @param app the application to start
+    * @param properties a map with simulated system properties
     */
-  private def startApp(app: Application): Unit = {
-    val startup = new ApplicationSyncStartup {}
+  private def startApp(app: Application, properties: Map[String, String] = Map.empty): Unit = {
+    val startup = new ApplicationSyncStartup {
+      override private[app] def getSystemProperty(key: String): Option[String] =
+        properties get key
+    }
     startup.startApplication(app, AppName)
   }
 
@@ -82,24 +86,27 @@ class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAf
     countRun.get() should be(1)
   }
 
+  it should "support querying system properties" in {
+    val startup = new ApplicationSyncStartup {}
+
+    startup.getSystemProperty("user.home").get should be(System.getProperty("user.home"))
+  }
+
+  it should "return None for an undefined system property" in {
+    val startup = new ApplicationSyncStartup {}
+
+    startup getSystemProperty "an undefined property" should be(None)
+  }
+
   it should "evaluate the LineDJ_ApplicationID property" in {
     val ConfigPrefix = ".CoolApp"
-    System.setProperty("LineDJ_ApplicationID", ConfigPrefix)
-    try {
-      startApp(createTestApp(".lineDJ-" + ConfigPrefix + "-" + AppName + ".xml"))
-    } finally {
-      System clearProperty "LineDJ_ApplicationID"
-    }
+    startApp(createTestApp(".lineDJ-" + ConfigPrefix + "-" + AppName + ".xml"),
+      Map("LineDJ_ApplicationID" -> ConfigPrefix))
   }
 
   it should "evaluate a system property for a configuration name" in {
     val ConfigProperty = AppName + "_config"
     val ConfigFile = ".mapped-config.xml"
-    System.setProperty(ConfigProperty, ConfigFile)
-    try {
-      startApp(createTestApp(ConfigFile))
-    } finally {
-      System clearProperty ConfigProperty
-    }
+    startApp(createTestApp(ConfigFile), Map(ConfigProperty -> ConfigFile))
   }
 }

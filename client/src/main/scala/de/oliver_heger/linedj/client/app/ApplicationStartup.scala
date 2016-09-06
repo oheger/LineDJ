@@ -87,6 +87,15 @@ trait ApplicationStartup {
   }
 
   /**
+    * Queries a system property and returns its value.
+    *
+    * @param key the key of the property
+    * @return an option for the property's value
+    */
+  private[app] def getSystemProperty(key: String): Option[String] =
+  Option(System getProperty key)
+
+  /**
     * Generates the name of the main configuration from the passed in
     * application name.
     *
@@ -108,7 +117,7 @@ trait ApplicationStartup {
     * @return the user configuration name to be used
     */
   private def generateUserConfigName(appName: String): String = {
-    val nameFromProperty = Option(System getProperty appName + "_config")
+    val nameFromProperty = getSystemProperty(appName + "_config")
     nameFromProperty.getOrElse(generateUserConfigNameWithAppID(appName))
   }
 
@@ -120,7 +129,7 @@ trait ApplicationStartup {
     * @return the user configuration name to be used
     */
   private def generateUserConfigNameWithAppID(appName: String): String = {
-    val prefix1 = ".lineDJ-" + System.getProperty(PropApplicationID, "")
+    val prefix1 = ".lineDJ-" + getSystemProperty(PropApplicationID).getOrElse("")
     val prefix = if (prefix1 endsWith "-") prefix1 else prefix1 + "-"
     prefix + appName + ".xml"
   }

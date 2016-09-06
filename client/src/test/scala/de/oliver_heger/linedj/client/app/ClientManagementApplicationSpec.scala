@@ -63,14 +63,8 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   with MockitoSugar with ApplicationTestSupport {
   import ClientManagementApplicationSpec._
 
-  override protected def beforeAll(): Unit = {
-    // avoid that the default configuration file is overridden
-    System.setProperty("LineDJ_ApplicationID", ApplicationID)
-  }
-
   override protected def afterAll(): Unit = {
-    System clearProperty "LineDJ_ApplicationID"
-    val configFile: File = userConfigFile()
+    val configFile = userConfigFile()
     if (configFile.exists()) {
       configFile.delete()
     }
@@ -361,6 +355,17 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
 
     override private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
       mockStageFactory
+    }
+
+    /**
+      * Queries a system property and returns its value.
+      *
+      * @param key the key of the property
+      * @return an option for the property's value
+      */
+    override private[app] def getSystemProperty(key: String): Option[String] = {
+      if(key == "LineDJ_ApplicationID") Some(ApplicationID)
+      else super.getSystemProperty(key)
     }
   }
 
