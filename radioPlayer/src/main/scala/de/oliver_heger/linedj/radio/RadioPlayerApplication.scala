@@ -44,7 +44,7 @@ import scala.concurrent.duration._
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer_config.xml") with ApplicationAsyncStartup {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup {
   def this() = this(new RadioPlayerFactory)
 
   /** The radio player managed by this application. */

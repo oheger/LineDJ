@@ -116,9 +116,9 @@ object ClientApplication {
   * declarative services component, it has to be extended, and the name of the
   * configuration file has to be passed to the constructor.
   *
-  * @param configName the name of the configuration file
+  * @param appName the name of this application
   */
-class ClientApplication(val configName: String) extends Application {
+class ClientApplication(val appName: String) extends Application {
   this: ApplicationStartup =>
 
   import ClientApplication._
@@ -154,7 +154,7 @@ class ClientApplication(val configName: String) extends Application {
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
-    startApplication(this, configName)
+    startApplication(this, appName)
   }
 
   /**

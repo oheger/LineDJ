@@ -21,4 +21,4 @@ import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplica
 /**
  * Main class of LineDJ Browser application.
  */
-class BrowserApp extends ClientApplication("browser_config.xml") with ApplicationAsyncStartup
+class BrowserApp extends ClientApplication("browser") with ApplicationAsyncStartup

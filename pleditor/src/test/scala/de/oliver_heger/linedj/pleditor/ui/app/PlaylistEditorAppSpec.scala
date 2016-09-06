@@ -66,7 +66,7 @@ ApplicationTestSupport {
     val app = new PlaylistEditorApp
 
     app shouldBe a[ApplicationAsyncStartup]
-    app.configName should be("pleditor_config.xml")
+    app.appName should be("pleditor")
   }
 
   it should "create a PlaylistActionEnabler bean for the main window" in {

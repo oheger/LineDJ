@@ -66,7 +66,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
     val app = new BrowserApp
 
     app shouldBe a[ApplicationAsyncStartup]
-    app.configName should be("browser_config.xml")
+    app.appName should be("browser")
   }
 }
 

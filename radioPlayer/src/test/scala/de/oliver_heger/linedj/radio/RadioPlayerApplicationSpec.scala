@@ -63,7 +63,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     app.playerFactory should not be null
     app shouldBe a[ApplicationAsyncStartup]
-    app.configName should be("radioplayer_config.xml")
+    app.appName should be("radioplayer")
   }
 
   it should "create a bean for the radio player" in {

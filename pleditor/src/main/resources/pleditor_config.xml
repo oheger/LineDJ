@@ -21,7 +21,7 @@
 -->
 <configuration>
   <system config-name="system-config"/>
-  <xml config-name="userConfig" fileName="${user.home}/.lineDJ-pleditor.xml"
+  <xml config-name="userConfig" fileName="${user.home}/${pleditor_user_config}"
     config-optional="true" config-forceCreate="true"/>
   <additional>
     <xml fileName="framework-config.xml"/>

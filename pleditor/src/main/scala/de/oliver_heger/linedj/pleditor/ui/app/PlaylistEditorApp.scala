@@ -31,7 +31,7 @@ object PlaylistEditorApp {
 /**
   * The main application class of the LineDJ Playlist Editor application.
   */
-class PlaylistEditorApp extends ClientApplication("pleditor_config.xml") with
+class PlaylistEditorApp extends ClientApplication("pleditor") with
 ApplicationAsyncStartup {
   import PlaylistEditorApp._
 

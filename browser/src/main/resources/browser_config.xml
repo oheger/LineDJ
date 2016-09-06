@@ -21,7 +21,7 @@
 -->
 <configuration>
   <system config-name="system-config"/>
-  <xml config-name="userConfig" fileName="${user.home}/.lineDJ-browser.xml"
+  <xml config-name="userConfig" fileName="${user.home}/${browser_user_config}"
     config-optional="true" config-forceCreate="true"/>
   <additional>
     <xml fileName="framework-config.xml"/>
