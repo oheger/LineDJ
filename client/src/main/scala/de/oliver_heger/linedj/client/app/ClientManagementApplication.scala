@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
+import org.apache.commons.configuration.Configuration
 import org.osgi.service.component.ComponentContext
 
 import scala.annotation.tailrec
@@ -117,7 +118,7 @@ object ClientManagementApplication {
   * objects takes part in a loosely coupled way without direct interaction.
   */
 class ClientManagementApplication extends Application with
-ClientApplicationContext {
+ClientApplicationContext with ApplicationSyncStartup {
   import ClientManagementApplication._
 
   /**
@@ -159,6 +160,8 @@ ClientApplicationContext {
   override def stageFactory: StageFactory = beanStageFactory
 
   override def mediaIfcConfig: Option[MediaIfcConfigData] = Option(refMediaIfcConfig.get())
+
+  override def managementConfiguration: Configuration = getUserConfiguration
 
   /**
     * Sets a service reference of type ''MediaIfcConfigData''. This method is
@@ -213,7 +216,7 @@ ClientApplicationContext {
     */
   def activate(compContext: ComponentContext): Unit = {
     setExitHandler(createExitHandler(compContext))
-    Application.startup(this, Array.empty)
+    startApplication(this, "management")
   }
 
   /**

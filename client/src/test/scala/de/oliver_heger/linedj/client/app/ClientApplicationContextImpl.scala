@@ -20,6 +20,7 @@ import akka.actor.ActorSystem
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{DefaultStageFactory, StyleSheetProvider}
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.mock.MockitoSugar
 
 object ClientApplicationContextImpl {
@@ -47,4 +48,6 @@ class ClientApplicationContextImpl extends ClientApplicationContext with Mockito
   override val mediaFacade = mock[MediaFacade]
 
   override val mediaIfcConfig = None
+
+  override val managementConfiguration: Configuration = new PropertiesConfiguration
 }

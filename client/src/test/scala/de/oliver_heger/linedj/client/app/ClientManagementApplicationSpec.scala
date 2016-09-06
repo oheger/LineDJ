@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.client.app
 
+import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
@@ -25,7 +26,7 @@ import de.oliver_heger.linedj.client.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
-import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -34,16 +35,51 @@ import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+
+object ClientManagementApplicationSpec {
+  /** LineDJ application ID. */
+  private val ApplicationID = "ClientManagementApplicationSpec"
+
+  /** The name of the user configuration file. */
+  private val UserConfigFile = ".lineDJ-" + ApplicationID + "-management.xml"
+
+  /**
+    * Returns a file pointing to the user configuration of the management
+    * application.
+    *
+    * @return the user configuration file
+    */
+  private def userConfigFile(): File = {
+    val userHome = new File(System.getProperty("user.home"))
+    new File(userHome, UserConfigFile)
+  }
+}
 
 /**
   * Test class for ''ClientManagementApplication''.
   */
-class ClientManagementApplicationSpec extends FlatSpec with Matchers with MockitoSugar
-with ApplicationTestSupport {
+class ClientManagementApplicationSpec extends FlatSpec with Matchers with BeforeAndAfterAll
+  with MockitoSugar with ApplicationTestSupport {
+  import ClientManagementApplicationSpec._
+
+  override protected def beforeAll(): Unit = {
+    // avoid that the default configuration file is overridden
+    System.setProperty("LineDJ_ApplicationID", ApplicationID)
+  }
+
+  override protected def afterAll(): Unit = {
+    System clearProperty "LineDJ_ApplicationID"
+    val configFile: File = userConfigFile()
+    if (configFile.exists()) {
+      configFile.delete()
+    }
+  }
+
   /**
     * Creates a mock component context which allows access to the bundle
     * context.
+    *
     * @return the mock component context
     */
   private def createComponentContext(): ComponentContext = {
@@ -302,6 +338,15 @@ with ApplicationTestSupport {
     app.mediaIfcConfig should be(Some(confData))
     verify(app.mockBus, never())
       .publish(ClientManagementApplication.MediaIfcConfigUpdated(None))
+  }
+
+  it should "provide access to the management configuration" in {
+    val app = runApp(new ClientManagementApplicationTestImpl)
+
+    app.managementConfiguration should be theSameInstanceAs app.getUserConfiguration
+    val config = app.managementConfiguration.asInstanceOf[XMLConfiguration]
+    config.getFile.getName should be(UserConfigFile)
+    config.getFile.delete()
   }
 
   /**

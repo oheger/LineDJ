@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
+import org.apache.commons.configuration.Configuration
 
 /**
   * A trait defining central context functionality for LineDJ client
@@ -65,6 +66,14 @@ trait ClientApplicationContext {
     * @return the ''StageFactory''
     */
   def stageFactory: StageFactory
+
+  /**
+    * Returns the configuration of the management application. This
+    * configuration can be used by other modules to store some settings which
+    * are not really application-specific, but more central.
+    * @return the configuration of the management application
+    */
+  def managementConfiguration: Configuration
 
   /**
     * Returns an option with configuration data about the media archive
