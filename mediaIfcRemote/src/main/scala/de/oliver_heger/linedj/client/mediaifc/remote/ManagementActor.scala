@@ -89,6 +89,7 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
     case RemoteConfiguration(address, port) =>
       context stop relayActor
       updateRelayActorForNewConfiguration(address, port)
+      relayActor ! RelayActor.Activate(true)
 
     case msg =>
       relayActor forward msg

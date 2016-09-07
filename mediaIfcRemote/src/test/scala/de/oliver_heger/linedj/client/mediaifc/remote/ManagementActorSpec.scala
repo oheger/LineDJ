@@ -103,7 +103,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.managementActor receive "BOOM"
   }
 
-  it should "stop the relay actor when the configuration is changed" in {
+  it should "stop and re-initialize the relay actor when the configuration is changed" in {
     val helper = new RemoteManagementActorTestHelper
 
     val childData1 = helper.configure(RemoteAddress, RemotePort)
@@ -113,6 +113,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     watcher watch childData1.child.ref
     watcher.expectMsgType[Terminated].actor should be(childData1.child.ref)
 
+    childData2.child.expectMsg(RelayActor.Activate(true))
     val message = "CHECK"
     helper.managementActor ! message
     childData2.child.expectMsg(message)
