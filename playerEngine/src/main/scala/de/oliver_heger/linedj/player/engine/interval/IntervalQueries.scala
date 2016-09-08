@@ -260,8 +260,41 @@ object IntervalQueries {
     * @param date    the current date
     * @return the query result
     */
-  @tailrec private def processCombinedQuery(coarser: IntervalQuery, finer: IntervalQuery, date:
-  LocalDateTime): IntervalQueryResult = {
+  private def processCombinedQuery(coarser: IntervalQuery, finer: IntervalQuery, date:
+  LocalDateTime): IntervalQueryResult =
+  processCombinedQueryWithNextDate(coarser, finer, date, None)
+
+  /**
+    * Helper method that processes a combined query in a tail-recursive way.
+    *
+    * @param coarser     the coarser query
+    * @param finer       the finer query
+    * @param date        the current date
+    * @param optNextDate an optional next date for an after result
+    * @return the query result
+    */
+  @tailrec private def processCombinedQueryWithNextDate(coarser: IntervalQuery, finer:
+  IntervalQuery,
+                                                        date: LocalDateTime, optNextDate:
+                                                        Option[LocalDateTime]):
+  IntervalQueryResult = {
+    /*
+     * Special treatment for an inside result. Insides are not allowed if the
+     * coarser query had an Inside result and the finer had an After result.
+     * This is checked by this function.
+     */
+    def suppressInside(result: IntervalQueryResult): IntervalQueryResult =
+    optNextDate match {
+      case Some(d) =>
+        result match {
+          case Inside(_) =>
+            // in this case, nextDate is the next interval start date
+            Before(new LazyDate(d))
+          case r => r
+        }
+      case None => result
+    }
+
     coarser(date) match {
       case rb@Before(start) =>
         finer(start.value) match {
@@ -272,8 +305,9 @@ object IntervalQueries {
       case Inside(_) =>
         finer(date) match {
           case After(f) =>
-            processCombinedQuery(coarser, finer, f(date))
-          case r => r
+            val nextDate = f(date)
+            processCombinedQueryWithNextDate(coarser, finer, nextDate, Some(nextDate))
+          case r => suppressInside(r)
         }
 
       case ra@After(_) => ra

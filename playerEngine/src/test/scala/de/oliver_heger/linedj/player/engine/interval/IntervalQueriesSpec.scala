@@ -279,6 +279,19 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     }
   }
 
+  it should "handle a 0 value in a unit correctly" in {
+    val date = LocalDateTime.of(2016, Month.SEPTEMBER, 7, 21, 21, 20)
+    val hoursQuery = IntervalQueries.hours(20, 24)
+    val minutesQuery = IntervalQueries.minutes(0, 4)
+    val query = IntervalQueries.combine(hoursQuery, minutesQuery)
+
+    query(date) match {
+      case Before(start) =>
+        start.value should be(LocalDateTime.of(2016, Month.SEPTEMBER, 7, 22, 0, 0))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
   "A weekDay query" should "return a correct After result" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 15, 21, 41)
     val query = IntervalQueries.weekDays(DayOfWeek.MONDAY.getValue, DayOfWeek.WEDNESDAY.getValue)
@@ -390,6 +403,19 @@ class IntervalQueriesSpec extends FlatSpec with Matchers {
     query(date) match {
       case Before(start) =>
         start.value should be(LocalDateTime.of(2016, Month.JULY, 10, 0, 1))
+      case r => fail("Unexpected result: " + r)
+    }
+  }
+
+  it should "handle a 0 value with overlap correctly" in {
+    val date = LocalDateTime.of(2016, Month.SEPTEMBER, 8, 20, 53, 54)
+    val hoursQuery = IntervalQueries.hours(18, 21)
+    val minutesQuery = IntervalQueries.minutes(0, 4)
+    val query = IntervalQueries.cyclic(IntervalQueries.combine(hoursQuery, minutesQuery))
+
+    query(date) match {
+      case Before(start) =>
+        start.value should be(LocalDateTime.of(2016, Month.SEPTEMBER, 9, 18, 0, 0))
       case r => fail("Unexpected result: " + r)
     }
   }
