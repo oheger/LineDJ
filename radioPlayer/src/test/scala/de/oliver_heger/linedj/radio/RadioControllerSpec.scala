@@ -31,7 +31,7 @@ import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.Matchers.{eq => argEq, _}
-import org.mockito.Mockito
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -147,6 +147,13 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): RadioSourceConfig = {
     val config = mock[RadioSourceConfig]
     when(config.sources).thenReturn(sources)
+    when(config.ranking(any(classOf[RadioSource]))).thenAnswer(new Answer[Int] {
+      override def answer(invocation: InvocationOnMock): Int = {
+        val src = invocation.getArguments.head.asInstanceOf[RadioSource]
+        val index = src.uri.substring(RadioSourceURI.length)
+        index.toInt
+      }
+    })
     config
   }
 
@@ -316,7 +323,11 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(srcConfig)
-    verify(helper.player).initSourceExclusions(exclusions)
+    val captRanking = ArgumentCaptor.forClass(classOf[RadioSource.Ranking])
+    verify(helper.player).initSourceExclusions(argEq(exclusions), captRanking.capture())
+    val ranking = captRanking.getValue
+    ranking(radioSource(2)) should be(2)
+    ranking(radioSource(8)) should be(8)
   }
 
   it should "update the status text when the current source is played" in {

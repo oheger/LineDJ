@@ -213,7 +213,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
       minFailedSourcesForRecoveryField = config.getInt(KeyRecoveryMinFailures,
         DefaultMinFailuresForRecovery)
 
-      player initSourceExclusions srcConfig.exclusions
+      player.initSourceExclusions(srcConfig.exclusions, srcConfig.ranking)
       radioSources = updateSourceCombo(srcConfig)
       enableAction(ActionStartPlayback, enabled = false)
       enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)

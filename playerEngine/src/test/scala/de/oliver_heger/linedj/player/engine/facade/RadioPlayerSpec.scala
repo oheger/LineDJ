@@ -110,9 +110,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
     val exclusions = Map(RadioSource("1") -> List(IntervalQueries.hours(1, 2)),
       RadioSource("2") -> List(IntervalQueries.hours(4, 5)))
+    val ranking: RadioSource.Ranking = src => src.uri.length
 
-    helper.player.initSourceExclusions(exclusions)
-    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(exclusions))
+    helper.player.initSourceExclusions(exclusions, ranking)
+    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(exclusions,
+      ranking))
   }
 
   it should "pass the event actor to the super class" in {

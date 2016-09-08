@@ -93,9 +93,11 @@ class RadioPlayer private(val config: PlayerConfig,
     * source until the exclusion interval for the current source is over.
     *
     * @param exclusions a map with information about exclusion intervals
+    * @param rankingF the ranking function for the sources
     */
-  def initSourceExclusions(exclusions: Map[RadioSource, Seq[IntervalQuery]]): Unit = {
-    schedulerActor ! RadioSchedulerActor.RadioSourceData(exclusions)
+  def initSourceExclusions(exclusions: Map[RadioSource, Seq[IntervalQuery]],
+                           rankingF: RadioSource.Ranking): Unit = {
+    schedulerActor ! RadioSchedulerActor.RadioSourceData(exclusions, rankingF)
   }
 
   /**
