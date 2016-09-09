@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc.remote
+package de.oliver_heger.linedj.client.mediaifc.actors.impl
 
 /**
  * A trait defining a sequence generator that produces delay values.

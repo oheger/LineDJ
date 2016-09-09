@@ -18,6 +18,8 @@ package de.oliver_heger.linedj.client.mediaifc.remote
 
 import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory
+import de.oliver_heger.linedj.client.mediaifc.actors.ActorBasedMediaFacade
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.ManagementActor
 
 object ActorBasedMediaFacadeFactory {
   /** The name of the remote management actor. */

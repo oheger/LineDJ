@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc.remote
+package de.oliver_heger.linedj.client.mediaifc.actors
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
@@ -22,27 +22,32 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.RelayActor
 import de.oliver_heger.linedj.media.MediumID
-import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.Future
 
 /**
-  * An implementation of [[de.oliver_heger.linedj.client.mediaifc.MediaFacade]]
+  * A base implementation of [[de.oliver_heger.linedj.client.mediaifc.MediaFacade]]
   * that communicates with the media archive via a relay actor.
   *
-  * This implementation can be used if the media archive runs in another JVM.
-  * References to the actors wrapping the functionality of the media archive
-  * are created and monitored by a helper actor class. Messages to the media
-  * archive are passed to this actor; the responses are published on the UI
+  * This implementation is passed an actor at construction time which is
+  * responsible for looking up the actors of the media archive and delegating
+  * messages to them. Responses for such messages are published on the UI
   * message bus.
+  *
+  * This base class already implements the major part of the functionality
+  * required for a media archive interface. A concrete subclass has to provide
+  * a template for the path of the actors to be looked up. That way the class
+  * can deal with different deployment scenarios transparently, e.g. the media
+  * archive running on another machine or embedded into the current process.
   *
   * @param relayActor  the ''RelayActor''
   * @param actorSystem the associated actor system
   * @param bus         the underlying message bus
   */
-class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSystem,
-                            override val bus: MessageBus)
+abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSystem,
+                                     override val bus: MessageBus)
   extends MediaFacade {
 
   /**
@@ -62,14 +67,6 @@ class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSyst
    */
   override def send(target: MediaActor, msg: Any): Unit = {
     relayActor ! RelayActor.MediaMessage(target, msg)
-  }
-
-  /**
-    * @inheritdoc This implementation extracts properties relevant for access
-    *             to a remote media archive from the given configuration.
-    */
-  override def initConfiguration(config: Configuration): Unit = {
-    relayActor ! ManagementActor.RemoteConfiguration(readHost(config), readPort(config))
   }
 
   /**

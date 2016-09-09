@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.client.mediaifc.remote
+package de.oliver_heger.linedj.client.mediaifc.actors
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
@@ -22,8 +22,9 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.RelayActor
 import de.oliver_heger.linedj.media.MediumID
-import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.commons.configuration.Configuration
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -62,7 +63,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     */
   private def createFacade(optRelayActor: Option[ActorRef] = None): ActorBasedMediaFacade = {
     val bus = mock[MessageBus]
-    new ActorBasedMediaFacade(optRelayActor getOrElse testActor, system, bus)
+    new ActorBasedMediaFacadeImpl(optRelayActor getOrElse testActor, system, bus)
   }
 
   "An ActorBasedMediaFacade" should "send messages to the rely actor" in {
@@ -78,25 +79,6 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
     facade activate true
     expectMsg(RelayActor.Activate(true))
-  }
-
-  it should "support setting the initial configuration" in {
-    val address = "remote.host"
-    val port = 1234
-    val config = new PropertiesConfiguration
-    config.addProperty("media.host", address)
-    config.addProperty("media.port", port)
-    val facade = createFacade()
-
-    facade initConfiguration config
-    expectMsg(ManagementActor.RemoteConfiguration(address, port))
-  }
-
-  it should "read default values from the configuration" in {
-    val facade = createFacade()
-
-    facade initConfiguration new PropertiesConfiguration
-    expectMsg(ManagementActor.RemoteConfiguration("127.0.0.1", 2552))
   }
 
   it should "allow querying the current server state" in {
@@ -146,4 +128,16 @@ class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
     case RelayActor.MediaActorRequest(MediaActors.MediaManager) =>
       sender() ! RelayActor.MediaActorResponse(MediaActors.MediaManager, Some(remoteActorRef))
   }
+}
+
+/**
+  * A test facade implementation which is concrete.
+  * @param relayActor  the ''RelayActor''
+  * @param actorSystem the associated actor system
+  * @param bus         the underlying message bus
+  */
+class ActorBasedMediaFacadeImpl(relayActor: ActorRef, actorSystem: ActorSystem,
+                                bus: MessageBus)
+  extends ActorBasedMediaFacade(relayActor, actorSystem, bus) {
+  override def initConfiguration(config: Configuration): Unit = {}
 }
