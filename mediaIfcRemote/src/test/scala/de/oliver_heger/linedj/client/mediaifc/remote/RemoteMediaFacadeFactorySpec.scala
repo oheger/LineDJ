@@ -17,27 +17,21 @@
 package de.oliver_heger.linedj.client.mediaifc.remote
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.actors.impl.ManagementActor
-import org.mockito.Mockito._
+import de.oliver_heger.linedj.client.comm.MessageBus
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
-  * Test class for ''ActorBasedMediaFacadeFactory''.
+  * Test class for ''RemoteMediaFacadeFactory''.
   */
-class ActorBasedMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
-  "An ActorBasedMediaFacadeFactory" should "create a media facade" in {
-    val actorFactory = mock[ActorFactory]
+class RemoteMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+  "A RemoteMediaFacadeFactory" should "create a media facade" in {
     val actorSystem = mock[ActorSystem]
     val bus = mock[MessageBus]
     val actor = mock[ActorRef]
-    when(actorFactory.actorSystem).thenReturn(actorSystem)
-    when(actorFactory.createActor(ManagementActor(bus), "RemoteManagementActor"))
-      .thenReturn(actor)
-    val factory = new ActorBasedMediaFacadeFactory
+    val factory = new RemoteMediaFacadeFactory
 
-    val facade = factory.createMediaFacade(actorFactory, bus)
+    val facade = factory.createFacadeImpl(actor, actorSystem, bus).asInstanceOf[RemoteMediaFacade]
     facade.bus should be(bus)
     facade.relayActor should be(actor)
     facade.actorSystem should be(actorSystem)
