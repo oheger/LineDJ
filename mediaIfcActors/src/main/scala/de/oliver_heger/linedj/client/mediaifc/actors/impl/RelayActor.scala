@@ -80,18 +80,18 @@ object RelayActor {
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
 
-  private class RelayActorImpl(remoteAddress: String, remotePort: Int, messageBus:
-  MessageBus) extends RelayActor(remoteAddress, remotePort, messageBus) with ChildActorFactory
+  private class RelayActorImpl(actorPathPrefix: String, messageBus: MessageBus)
+    extends RelayActor(actorPathPrefix, messageBus) with ChildActorFactory
 
   /**
-   * Creates a ''Props'' object for creating a new actor instance.
-   * @param remoteAddress the address of the remote actor system
-   * @param remotePort the port of the remote actor system
-   * @param messageBus the message bus
-   * @return creation properties for a new actor instance
-   */
-  def apply(remoteAddress: String, remotePort: Int, messageBus: MessageBus): Props =
-    Props(classOf[RelayActorImpl], remoteAddress, remotePort, messageBus)
+    * Creates a ''Props'' object for creating a new actor instance.
+    *
+    * @param actorPathPrefix the prefix for actor lookup paths
+    * @param messageBus      the message bus
+    * @return creation properties for a new actor instance
+    */
+  def apply(actorPathPrefix: String, messageBus: MessageBus): Props =
+  Props(classOf[RelayActorImpl], actorPathPrefix, messageBus)
 
   /**
    * A data class holding the current tracking state of remote actors. This
@@ -168,8 +168,8 @@ object RelayActor {
  * actor system running the media archive. This is achieved by looking up a
  * number of (remote) actors the client needs to access; only if references to
  * all required remote actors have been resolved, the media archive is
- * considered available. Address and port of the remote actor system have to be
- * specified as constructor arguments.
+ * considered available. The path prefix for actor lookups has to be
+ * specified as constructor argument.
  *
  * All message exchange with media actors is routed via this actor. In order
  * to send a message to a remote actor, the message is wrapped into a
@@ -183,11 +183,10 @@ object RelayActor {
  * the server state cause ''ServerAvailable'' or ''ServerUnavailable''
  * messages to be sent.
  *
- * @param remoteAddress the address of the remote actor system
- * @param remotePort the port of the remote actor system
- * @param messageBus the message bus
+ * @param actorPathPrefix the prefix for actor lookup paths
+ * @param messageBus      the message bus
  */
-class RelayActor(remoteAddress: String, remotePort: Int, messageBus: MessageBus) extends
+class RelayActor(actorPathPrefix: String, messageBus: MessageBus) extends
 Actor {
   this: ChildActorFactory =>
 
@@ -295,5 +294,5 @@ Actor {
    * @return the lookup path to this actor
    */
   private def lookupPath(actor: MediaActor): String =
-    s"akka.tcp://LineDJ-Server@$remoteAddress:$remotePort/user/${actor.name}"
+  actorPathPrefix + actor.name
 }

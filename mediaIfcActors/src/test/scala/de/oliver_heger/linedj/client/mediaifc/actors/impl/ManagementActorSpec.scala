@@ -27,11 +27,8 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ManagementActorSpec {
-  /** A test remote address. */
-  private val RemoteAddress = "128.128.128.128"
-
-  /** A test remote port. */
-  private val RemotePort = 3333
+  /** A test actor path prefix. */
+  private val ActorPathPrefix = "someTestActorPrefix/"
 
   /** A test ping message. */
   private val PingMessage = "PING"
@@ -70,14 +67,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   "A ManagementActor" should "create a new child actor when it is configured" in {
     val helper = new RemoteManagementActorTestHelper
 
-    val childData = helper.configure(RemoteAddress, RemotePort)
-    childData.address should be(RemoteAddress)
-    childData.port should be(RemotePort)
+    val childData = helper.configure(ActorPathPrefix)
+    childData.prefix should be(ActorPathPrefix)
   }
 
   it should "pass messages to the child actor" in {
     val helper = new RemoteManagementActorTestHelper
-    val childData = helper.configure(RemoteAddress, RemotePort)
+    val childData = helper.configure(ActorPathPrefix)
 
     helper.managementActor ! PingMessage
     childData.child.expectMsg(PingMessage)
@@ -91,7 +87,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       }
     } ))
     val helper = new RemoteManagementActorTestHelper(Some(childActor))
-    helper.configure(RemoteAddress, RemotePort)
+    helper.configure(ActorPathPrefix)
 
     helper.managementActor ! PingMessage
     expectMsg(PongMessage)
@@ -103,12 +99,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.managementActor receive "BOOM"
   }
 
-  it should "stop and re-initialize the relay actor when the configuration is changed" in {
+  it should "stop and re-initialize the relay actor when the prefix is changed" in {
+    val Prefix2 = ActorPathPrefix + "another/"
     val helper = new RemoteManagementActorTestHelper
 
-    val childData1 = helper.configure(RemoteAddress, RemotePort)
-    val childData2 = helper.configure(RemoteAddress + "_other", RemotePort + 1)
-    childData2.port should be(RemotePort + 1)
+    val childData1 = helper.configure(ActorPathPrefix)
+    val childData2 = helper.configure(Prefix2)
+    childData2.prefix should be(Prefix2)
     val watcher = TestProbe()
     watcher watch childData1.child.ref
     watcher.expectMsgType[Terminated].actor should be(childData1.child.ref)
@@ -153,14 +150,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     }
 
     /**
-      * Sends a configuration message to the test actor and retrieves data
+      * Sends a path prefix message to the test actor and retrieves data
       * about the newly created child actor.
-      * @param address the remote address
-      * @param port the remote port
+      * @param path the path prefix for the actor
       * @return data about the new child actor
       */
-    def configure(address: String, port: Int): ChildActorCreationData = {
-      managementActor ! ManagementActor.RemoteConfiguration(address, port)
+    def configure(path: String): ChildActorCreationData = {
+      managementActor ! ManagementActor.ActorPathPrefix(path)
       fetchChildCreationData()
     }
 
@@ -172,12 +168,11 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       Props(new ManagementActor(messageBus) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           checkCreationProps(p, classOf[RelayActor])
-          p.args should have size 3
-          p.args(2) should be(messageBus)
+          p.args should have size 2
+          p.args(1) should be(messageBus)
           val child = TestProbe()
-          actorCreationQueue offer ChildActorCreationData(address = p.args.head
-            .asInstanceOf[String],
-            port = p.args(1).asInstanceOf[Int], child = child)
+          actorCreationQueue offer ChildActorCreationData(prefix = p.args.head
+            .asInstanceOf[String], child = child)
           optChildActor getOrElse child.ref
         }
       })
@@ -188,8 +183,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 /**
   * A data class used by the test helper to propagate data about newly created
   * child actors.
-  * @param address the remote address passed as parameter
-  * @param port the port passed as parameter
+  * @param prefix the actor path prefix passed as parameter
   * @param child the test probe representing the child actor
   */
-private case class ChildActorCreationData(address: String, port: Int, child: TestProbe)
+private case class ChildActorCreationData(prefix: String, child: TestProbe)

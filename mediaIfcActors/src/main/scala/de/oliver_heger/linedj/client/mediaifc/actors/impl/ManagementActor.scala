@@ -18,21 +18,22 @@ package de.oliver_heger.linedj.client.mediaifc.actors.impl
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.actors.impl.ManagementActor.RemoteConfiguration
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.ManagementActor.ActorPathPrefix
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object ManagementActor {
 
   /**
-    * A message processed by [[ManagementActor]] which defines the
-    * configuration of the remote system. When a message of this type is
-    * received, a new relay actor is created which is configured with these
-    * settings.
+    * A message processed by [[ManagementActor]] which defines the path of the
+    * actors to be looked up. The actor-based interface to the media archive
+    * has to lookup the actors implementing the archive's functionality. The
+    * path for this lookup operation depends on the concrete deployment
+    * scenario (local or remote). With this message the prefix of the lookup
+    * path is set; here the actor name is appended.
     *
-    * @param address the address of the remote actor system
-    * @param port the port of the remote actor system
+    * @param prefix the prefix for an actor lookup path
     */
-  case class RemoteConfiguration(address: String, port: Int)
+  case class ActorPathPrefix(prefix: String)
 
   private class ManagementActorImpl(bus: MessageBus) extends ManagementActor(bus)
   with ChildActorFactory
@@ -77,8 +78,8 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
     * The initial receive function; no configuration has been set so far.
     */
   private def uninitialized: Receive = {
-    case RemoteConfiguration(address, port) =>
-      updateRelayActorForNewConfiguration(address, port)
+    case ActorPathPrefix(prefix) =>
+      updateRelayActorForNewConfiguration(prefix)
       context become configured
   }
 
@@ -86,9 +87,9 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
     * The receive function after the initial configuration has been set.
     */
   private def configured: Receive = {
-    case RemoteConfiguration(address, port) =>
+    case ActorPathPrefix(prefix) =>
       context stop relayActor
-      updateRelayActorForNewConfiguration(address, port)
+      updateRelayActorForNewConfiguration(prefix)
       relayActor ! RelayActor.Activate(true)
 
     case msg =>
@@ -96,12 +97,11 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
   }
 
   /**
-    * Creates a new releay actor which uses the passed in configuration
+    * Creates a new relay actor which uses the passed in path prefix
     * settings. This is called when the configuration was updated.
-    * @param address the remote address
-    * @param port the remote port
+    * @param prefix the new actor path lookup prefix
     */
-  private def updateRelayActorForNewConfiguration(address: String, port: Int): Unit = {
-    relayActor = createChildActor(RelayActor(address, port, messageBus))
+  private def updateRelayActorForNewConfiguration(prefix: String): Unit = {
+    relayActor = createChildActor(RelayActor(prefix, messageBus))
   }
 }

@@ -33,11 +33,8 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object RelayActorSpec {
-  /** The address of the remote system. */
-  private val Host = "remoteHost"
-
-  /** The port of the remote system. */
-  private val Port = 1414
+  /** The prefix for lookup paths. */
+  private val LookupPrefix = "akka.tcp://LineDJ-Server@192.168.0.1/user/"
 
   /** A test message. */
   private val Message = new Object
@@ -59,11 +56,10 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   "A RelayActor" should "create correct creation properties" in {
     val bus = mock[MessageBus]
-    val props = RelayActor(Host, Port, bus)
+    val props = RelayActor(LookupPrefix, bus)
     classOf[RelayActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should have size 3
-    props.args should contain inOrderOnly(Host, Port, bus)
+    props.args should be(List(LookupPrefix, bus))
   }
 
   it should "create the expected child actors" in {
@@ -225,9 +221,6 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     /** The test relay actor. */
     val relayActor = system.actorOf(createProps())
 
-    /** The prefix for lookup paths. */
-    private val LookupPrefix = "akka.tcp://LineDJ-Server@" + Host + ":" + Port + "/user/"
-
     /** A map that stores references for the paths to remote actors. */
     private val pathActorMapping = Map(
       LookupPrefix + "mediaManager" ->(probeMediaManagerLookup.ref, probeMediaManager.ref),
@@ -298,7 +291,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      * @return the properties for creating the test relay actor
      */
     private def createProps(): Props = {
-      Props(new RelayActor(Host, Port, messageBus) with ChildActorFactory {
+      Props(new RelayActor(LookupPrefix, messageBus) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[LookupActor])
           p.args should have size 3
