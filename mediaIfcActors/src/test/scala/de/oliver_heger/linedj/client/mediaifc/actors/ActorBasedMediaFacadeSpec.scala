@@ -22,9 +22,9 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors
-import de.oliver_heger.linedj.client.mediaifc.actors.impl.RelayActor
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.{ManagementActor, RelayActor}
 import de.oliver_heger.linedj.media.MediumID
-import org.apache.commons.configuration.Configuration
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -38,6 +38,26 @@ object ActorBasedMediaFacadeSpec {
 
   /** Constant for the test message wrapped in a remote message. */
   private val RemoteMessage = RelayActor.MediaMessage(MediaActors.MediaManager, Message)
+
+  /** Constant for an actor lookup path prefix. */
+  private val ActorPathPrefix = "someActorPathTestPrefix/"
+
+  /**
+    * Constant for a configuration key which contains the path prefix. The test
+    * implementation to generate the actor lookup path accesses this property.
+    */
+  val PropPrefix = "pathPrefix"
+
+  /**
+    * Creates a configuration object with the property for the path prefix.
+    *
+    * @return the configuration
+    */
+  private def createConfiguration(): Configuration = {
+    val config = new PropertiesConfiguration
+    config.addProperty(PropPrefix, ActorPathPrefix)
+    config
+  }
 }
 
 /**
@@ -116,6 +136,14 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     facade removeMetaDataListener mediumId
     expectMsg(RelayActor.RemoveListener(mediumId))
   }
+
+  it should "initialize the management actor when the initial configuration is passed" in {
+    val relay = TestProbe()
+    val facade = createFacade(Some(relay.ref))
+
+    facade initConfiguration createConfiguration()
+    relay.expectMsg(ManagementActor.ActorPathPrefix(ActorPathPrefix))
+  }
 }
 
 /**
@@ -139,5 +167,10 @@ class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
 class ActorBasedMediaFacadeImpl(relayActor: ActorRef, actorSystem: ActorSystem,
                                 bus: MessageBus)
   extends ActorBasedMediaFacade(relayActor, actorSystem, bus) {
-  override def initConfiguration(config: Configuration): Unit = {}
+  /**
+    * @inheritdoc This implementation returns the ''PropPrefix'' property from
+    *             the given configuration object.
+    */
+  override protected def createActorPathPrefix(config: Configuration): String =
+  config getString ActorBasedMediaFacadeSpec.PropPrefix
 }

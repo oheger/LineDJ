@@ -22,8 +22,9 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.client.mediaifc.actors.impl.RelayActor
+import de.oliver_heger.linedj.client.mediaifc.actors.impl.{ManagementActor, RelayActor}
 import de.oliver_heger.linedj.media.MediumID
+import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.Future
 
@@ -95,4 +96,23 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
   override def removeMetaDataListener(mediumID: MediumID): Unit = {
     relayActor ! RelayActor.RemoveListener(mediumID)
   }
+
+  /**
+    * @inheritdoc This implementation delegates to ''createActorPathPrefix()''
+    *             to generate the prefix for lookup operations. The resulting
+    *             string is then passed to the management actor.
+    */
+  override def initConfiguration(config: Configuration): Unit = {
+    relayActor ! ManagementActor.ActorPathPrefix(createActorPathPrefix(config))
+  }
+
+  /**
+    * Generates the actor lookup prefix based on the passed in configuration.
+    * Here the string is generated which is used by the interface actors to
+    * lookup the actors of the media archive.
+    *
+    * @param config the configuration object
+    * @return the path prefix for actor lookup operations
+    */
+  protected def createActorPathPrefix(config: Configuration): String
 }
