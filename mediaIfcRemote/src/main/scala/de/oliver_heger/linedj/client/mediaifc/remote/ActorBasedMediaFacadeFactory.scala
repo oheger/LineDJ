@@ -46,6 +46,8 @@ class ActorBasedMediaFacadeFactory extends MediaFacadeFactory {
   ActorBasedMediaFacade = {
     val managementActor = actorFactory.createActor(ManagementActor(messageBus),
       ManagementActorName)
-    new ActorBasedMediaFacade(managementActor, actorFactory.actorSystem, messageBus)
+    //new ActorBasedMediaFacade(managementActor, actorFactory.actorSystem, messageBus)
+    //TODO create correct facade instance
+    null
   }
 }

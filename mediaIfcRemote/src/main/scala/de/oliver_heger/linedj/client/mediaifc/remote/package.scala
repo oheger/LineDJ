@@ -32,11 +32,20 @@ package object remote {
     */
   val PropMediaArchivePort = "media.port"
 
+  /**
+    * Configuration property for the name of the actor system for the remote
+    * media archive.
+    */
+  val PropMediaArchiveSystemName = "media.systemName"
+
   /** Constant for the default media archive address. */
   val DefaultServerAddress = "127.0.0.1"
 
   /** Constant for the default media archive port. */
   val DefaultServerPort = 2552
+
+  /** Constant for the default actor system name. */
+  val DefaultActorSystemName = "LineDJ-Server"
 
   /**
     * Reads the setting for the media archive host from the given configuration
@@ -57,4 +66,15 @@ package object remote {
     */
   def readPort(config: Configuration): Int =
   config.getInt(PropMediaArchivePort, DefaultServerPort)
+
+  /**
+    * Reads the setting for the name of the remote actor system from the given
+    * configuration object. If the property is undefined, the default actor
+    * system name is returned.
+    *
+    * @param config the configuration object
+    * @return the name of the remote actor system
+    */
+  def readActorSystemName(config: Configuration): String =
+  config.getString(PropMediaArchiveSystemName, DefaultActorSystemName)
 }
