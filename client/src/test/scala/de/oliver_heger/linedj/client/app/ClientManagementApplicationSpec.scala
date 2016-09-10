@@ -363,7 +363,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
       * @param key the key of the property
       * @return an option for the property's value
       */
-    override private[app] def getSystemProperty(key: String): Option[String] = {
+    override def getSystemProperty(key: String): Option[String] = {
       if(key == "LineDJ_ApplicationID") Some(ApplicationID)
       else super.getSystemProperty(key)
     }

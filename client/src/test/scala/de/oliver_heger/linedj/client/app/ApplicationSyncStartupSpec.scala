@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.client.app
 import java.util.concurrent.atomic.AtomicInteger
 
 import net.sf.jguiraffe.gui.app.Application
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 object ApplicationSyncStartupSpec {
   /** Constant for an application name. */
@@ -32,12 +32,8 @@ object ApplicationSyncStartupSpec {
 /**
   * Test class for ''ApplicationSyncStartup''.
   */
-class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
+class ApplicationSyncStartupSpec extends FlatSpec with Matchers {
   import ApplicationSyncStartupSpec._
-
-  override protected def afterAll(): Unit = {
-    System clearProperty PropAppUsrConfig
-  }
 
   /**
     * Creates a test application.
@@ -71,7 +67,7 @@ class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAf
     */
   private def startApp(app: Application, properties: Map[String, String] = Map.empty): Unit = {
     val startup = new ApplicationSyncStartup {
-      override private[app] def getSystemProperty(key: String): Option[String] =
+      override def getSystemProperty(key: String): Option[String] =
         properties get key
     }
     startup.startApplication(app, AppName)
@@ -84,18 +80,6 @@ class ApplicationSyncStartupSpec extends FlatSpec with Matchers with BeforeAndAf
     startApp(createTestApp(".lineDJ-" + AppName + ".xml", countArgs, countRun))
     countArgs.get() should be(1)
     countRun.get() should be(1)
-  }
-
-  it should "support querying system properties" in {
-    val startup = new ApplicationSyncStartup {}
-
-    startup.getSystemProperty("user.home").get should be(System.getProperty("user.home"))
-  }
-
-  it should "return None for an undefined system property" in {
-    val startup = new ApplicationSyncStartup {}
-
-    startup getSystemProperty "an undefined property" should be(None)
   }
 
   it should "evaluate the LineDJ_ApplicationID property" in {

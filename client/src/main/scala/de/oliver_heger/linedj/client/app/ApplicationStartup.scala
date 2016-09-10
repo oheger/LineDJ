@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.client.app
 
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import net.sf.jguiraffe.gui.app.Application
 
 object ApplicationStartup {
@@ -58,7 +59,7 @@ object ApplicationStartup {
   * ''appName_user_config'' is set; this variable can then be referenced in the
   * configuration definition file.
   */
-trait ApplicationStartup {
+trait ApplicationStartup extends SystemPropertyAccess {
 
   import ApplicationStartup._
 
@@ -85,15 +86,6 @@ trait ApplicationStartup {
     System.setProperty(appName + "_user_config", generateUserConfigName(appName))
     Application.startup(app, Array.empty)
   }
-
-  /**
-    * Queries a system property and returns its value.
-    *
-    * @param key the key of the property
-    * @return an option for the property's value
-    */
-  private[app] def getSystemProperty(key: String): Option[String] =
-  Option(System getProperty key)
 
   /**
     * Generates the name of the main configuration from the passed in

@@ -141,7 +141,7 @@ object Build extends Build {
       libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % AkkaVersion,
       OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
       OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
-    )
+    ) dependsOn shared
 
   /**
     * Project for the media browser client application. This application allows
