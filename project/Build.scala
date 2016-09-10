@@ -79,7 +79,8 @@ object Build extends Build {
       name := "linedj-parent"
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
-      mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcDisabled)
+      mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
+      mediaIfcDisabled)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -406,6 +407,24 @@ object Build extends Build {
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.client.mediaifc.remote.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn mediaIfcActors
+
+  /**
+    * Project for the embedded media interface. This project accesses the
+    * media archive running on the same virtual machine.
+    */
+  lazy val mediaIfcEmbedded = Project(id = "mediaIfcEmbedded", base = file("mediaIfcEmbedded"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "embedded-MediaIfc",
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.client.mediaifc.embedded.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
