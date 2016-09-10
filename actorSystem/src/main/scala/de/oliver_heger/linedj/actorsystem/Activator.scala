@@ -18,7 +18,19 @@ package de.oliver_heger.linedj.actorsystem
 
 import akka.actor.ActorSystem
 import akka.osgi.ActorSystemActivator
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.osgi.framework.BundleContext
+
+object Activator {
+  /**
+    * Constant for a system property that defines the name of the actor
+    * system. The property is evaluated by ''getActorSystemName()''.
+    */
+  val PropActorSystemName = "LineDJ_ActorSystemName"
+
+  /** The default name of the actor system. */
+  val DefaultActorSystemName = "LineDJ_PlatformActorSystem"
+}
 
 /**
   * A bundle activator which registers the central client-side actor system as
@@ -33,7 +45,9 @@ import org.osgi.framework.BundleContext
   * Some components have a dependency on this actor system. They can start
   * automatically as soon as this object becomes available.
   */
-class Activator extends ActorSystemActivator {
+class Activator extends ActorSystemActivator with SystemPropertyAccess {
+  import Activator._
+
   /**
     * @inheritdoc This implementation just registers the actor system as a
     *             service.
@@ -41,4 +55,12 @@ class Activator extends ActorSystemActivator {
   override def configure(context: BundleContext, system: ActorSystem): Unit = {
     context.registerService(classOf[ActorSystem], system, null)
   }
+
+  /**
+    * @inheritdoc This implementation checks whether the name of the actor
+    *             system is defined as a system property. Otherwise, a default
+    *             name is returned.
+    */
+  override def getActorSystemName(context: BundleContext): String =
+  getSystemProperty(PropActorSystemName) getOrElse DefaultActorSystemName
 }
