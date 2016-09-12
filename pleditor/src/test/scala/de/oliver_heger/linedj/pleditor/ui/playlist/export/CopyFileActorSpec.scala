@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.ReadData
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, FileReaderActor}
-import de.oliver_heger.linedj.media.{MediumFileRequest, MediumFileResponse, MediumID}
+import de.oliver_heger.linedj.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 

@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.browser.cache
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MetaDataChunk
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MetaDataChunk
 
 object MetaDataCache {
   /** Constant for the chunk for an unknown medium. */
@@ -37,13 +37,13 @@ object MetaDataCache {
  *
  * This class is not directly accessed by other classes. Rather, interaction
  * takes place via the message bus: A component needing access to the meta data
- * of a medium sends a [[de.oliver_heger.linedj.metadata.GetMetaData]] message
+ * of a medium sends a [[de.oliver_heger.linedj.archive.metadata.GetMetaData]] message
  * on the message bus. This is intercepted by this class. If data for this
  * medium in contained in the cache, the corresponding ''CachedMetaData'' can
  * be directly published to the message bus. Otherwise, a remote request is
  * triggered. In order to receive the desired meta data, the client component
  * has to listen for ''CachedMetaData'' and
- * [[de.oliver_heger.linedj.metadata.MetaDataChunk]] messages.
+ * [[de.oliver_heger.linedj.archive.metadata.MetaDataChunk]] messages.
  *
  * Some other interactions via the message bus are supported as well. For
  * instance, a client component can indicate that it is not longer

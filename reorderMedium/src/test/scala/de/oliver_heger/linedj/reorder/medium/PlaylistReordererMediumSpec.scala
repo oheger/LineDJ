@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.reorder.medium
 
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import org.scalatest.{Matchers, FlatSpec}
 
 object PlaylistReordererMediumSpec {

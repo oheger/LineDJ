@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.archive.media.MediumID
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 

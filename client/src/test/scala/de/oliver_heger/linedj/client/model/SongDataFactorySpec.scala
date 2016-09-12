@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.client.model
 
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

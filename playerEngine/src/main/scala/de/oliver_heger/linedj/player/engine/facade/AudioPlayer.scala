@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.archive.media.MediumID
 import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, DelayActor, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl._
 

@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import org.apache.commons.configuration.event.{ConfigurationEvent, ConfigurationListener}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
 import org.apache.commons.configuration.{AbstractConfiguration, HierarchicalConfiguration}

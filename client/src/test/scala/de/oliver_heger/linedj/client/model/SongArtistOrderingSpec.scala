@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.client.model
 
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import org.scalatest.{Matchers, FlatSpec}
 
 object SongArtistOrderingSpec {

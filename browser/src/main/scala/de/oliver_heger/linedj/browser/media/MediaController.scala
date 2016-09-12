@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDat
 import de.oliver_heger.linedj.client.comm.MessageBusListener
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
-import de.oliver_heger.linedj.metadata.MetaDataChunk
+import de.oliver_heger.linedj.archive.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.archive.metadata.MetaDataChunk
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}

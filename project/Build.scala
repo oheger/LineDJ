@@ -102,11 +102,14 @@ object Build extends Build {
     */
   lazy val server = Project(id = "server",
     base = file("server"))
+    .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
     .settings(
       name := "linedj-server",
       libraryDependencies ++= logDependencies,
-      libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10"
+      libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
     ) dependsOn (shared % "compile->compile;test->test")
 
   /**

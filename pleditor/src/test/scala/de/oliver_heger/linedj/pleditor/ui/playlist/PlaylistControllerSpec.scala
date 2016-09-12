@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 import java.util
 
 import de.oliver_heger.linedj.client.model.{AppendSongs, SongData}
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Mockito._

@@ -20,8 +20,8 @@ import akka.actor.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.GetMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
 import org.scalatest.{FlatSpec, Matchers}
 

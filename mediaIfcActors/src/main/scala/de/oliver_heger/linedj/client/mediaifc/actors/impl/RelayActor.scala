@@ -20,8 +20,8 @@ import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.RemoveMediumListener
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.RemoveMediumListener
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RelayActor {

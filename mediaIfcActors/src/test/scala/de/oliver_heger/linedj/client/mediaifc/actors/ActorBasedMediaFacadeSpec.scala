@@ -23,7 +23,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors
 import de.oliver_heger.linedj.client.mediaifc.actors.impl.{ManagementActor, RelayActor}
-import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

@@ -20,8 +20,8 @@ import java.util
 
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.MediaMetaData
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.ArgumentCaptor

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import de.oliver_heger.linedj.media.MediumID
+import de.oliver_heger.linedj.archive.media.MediumID
 
 object AudioSource {
   /**

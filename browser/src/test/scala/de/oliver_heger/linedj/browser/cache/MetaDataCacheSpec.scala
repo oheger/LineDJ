@@ -20,8 +20,8 @@ import java.nio.file.Paths
 
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.media.MediumID
-import de.oliver_heger.linedj.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.{MediaMetaData, MetaDataChunk}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
