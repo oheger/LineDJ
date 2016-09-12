@@ -105,7 +105,8 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-server",
-      libraryDependencies ++= logDependencies
+      libraryDependencies ++= logDependencies,
+      libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10"
     ) dependsOn (shared % "compile->compile;test->test")
 
   /**

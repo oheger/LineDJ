@@ -20,6 +20,7 @@ import java.nio.file.Paths
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
+import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -60,6 +61,43 @@ object ServerConfigSpec {
 
   /** Test value for the meta data persistence write block size. */
   private val MetaDataPersistenceWriteBlockSize = 40
+
+  /**
+    * Creates a test (commons) configuration with the settings used by this
+    * test class.
+    *
+    * @return the test configuration
+    */
+  private def createHierarchicalConfig(): HierarchicalConfiguration = {
+    val config = new HierarchicalConfiguration
+    config.addProperty("media.readerTimeout", 60)
+    config.addProperty("media.readerCheckInterval", ReaderCheckInterval.toSeconds)
+    config.addProperty("media.readerCheckInitialDelay", ReaderCheckDelay.toSeconds)
+    config.addProperty("media.roots.root.path", MusicRoot.rootPath.toString)
+    config.addProperty("media.roots.root.processorCount", MusicRoot.processorCount)
+    config.addProperty("media.roots.root(-1).path", CDRomRoot.rootPath.toString)
+    config.addProperty("media.roots.root.processorCount", CDRomRoot.processorCount)
+    config.addProperty("media.roots.root.accessRestriction", CDRomRoot.accessRestriction.get)
+    config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
+    config.addProperty("media.metaDataExtraction.readChunkSize", ReadChunkSize)
+    config.addProperty("media.metaDataExtraction.tagSizeLimit", TagSizeLimit)
+    config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize)
+    config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize)
+    config.addProperty("media.metaDataPersistence.path", MetaDataPersistencePath.toString)
+    config.addProperty("media.metaDataPersistence.chunkSize", MetaDataPersistenceChunkSize)
+    config.addProperty("media.metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount)
+    config.addProperty("media.metaDataPersistence.writeBlockSize",
+      MetaDataPersistenceWriteBlockSize)
+
+    config
+  }
+
+  /**
+    * Creates a ''ServerConfig'' object from a hierarchical configuration.
+    *
+    * @return the config object
+    */
+  private def createCConfig(): ServerConfig = ServerConfig(createHierarchicalConfig())
 }
 
 /**
@@ -112,59 +150,60 @@ with Matchers with BeforeAndAfterAll {
   }
 
   /**
-   * Convenience method for creating a test configuration object based on the
-   * config of the test actor system.
+    * Convenience method for creating a test (type-safe) configuration object
+    * based on the config of the test actor system.
     *
     * @return the test configuration
-   */
-  private def createConfig(): ServerConfig = ServerConfig(system.settings.config)
+    */
+  private def createTConfig(): ServerConfig = ServerConfig(system.settings.config)
 
-  "A ServerConfig" should "return the timeout for reader actors" in {
-    createConfig().readerTimeout should be(60.seconds)
+  "A ServerConfig created from a TypeSafe Config" should
+    "return the timeout for reader actors" in {
+    createTConfig().readerTimeout should be(60.seconds)
   }
 
   it should "return the reader check interval" in {
-    createConfig().readerCheckInterval should be(ReaderCheckInterval)
+    createTConfig().readerCheckInterval should be(ReaderCheckInterval)
   }
 
   it should "return the initial reader check delay" in {
-    createConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
+    createTConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
   }
 
   it should "return a collection of paths with media files" in {
-    val paths = createConfig().mediaRoots
+    val paths = createTConfig().mediaRoots
     paths should contain only(MusicRoot, CDRomRoot)
   }
 
   it should "allow access to a media root based on its path" in {
-    val config = createConfig()
+    val config = createTConfig()
 
     config rootFor MusicRoot.rootPath should be(Some(MusicRoot))
     config rootFor CDRomRoot.rootPath should be(Some(CDRomRoot))
   }
 
   it should "return None for an unknown root path" in {
-    createConfig() rootFor Paths.get("unknownPath") shouldBe 'empty
+    createTConfig() rootFor Paths.get("unknownPath") shouldBe 'empty
   }
 
   it should "return the read chunk size" in {
-    createConfig().metaDataReadChunkSize should be(ReadChunkSize)
+    createTConfig().metaDataReadChunkSize should be(ReadChunkSize)
   }
 
   it should "return the tag size limit" in {
-    createConfig().tagSizeLimit should be(TagSizeLimit)
+    createTConfig().tagSizeLimit should be(TagSizeLimit)
   }
 
   it should "return the meta data chunk size" in {
-    createConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+    createTConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
   }
 
   it should "return the maximum meta data message size" in {
-    createConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+    createTConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
   }
 
   it should "correct the maximum message size if necessary" in {
-    val oc = createConfig()
+    val oc = createTConfig()
     val config = new ServerConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
       .readerCheckInterval,
       readerCheckInitialDelay = oc.readerCheckInitialDelay, metaDataReadChunkSize = oc
@@ -178,22 +217,76 @@ with Matchers with BeforeAndAfterAll {
   }
 
   it should "return the file extensions to be excluded" in {
-    createConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
+    createTConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
   }
 
   it should "return the path for meta data persistence" in {
-    createConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
+    createTConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
   }
 
   it should "return the meta data persistence chunk size" in {
-    createConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
+    createTConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
   }
 
   it should "return the meta data persistence parallel count" in {
-    createConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
+    createTConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
   }
 
   it should "return the meta data persistence write block size" in {
-    createConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
+    createTConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
+  }
+
+  "A ServerConfig created from a Hierarchical Config" should
+    "return the timeout for reader actors" in {
+    createCConfig().readerTimeout should be(60.seconds)
+  }
+
+  it should "return the reader check interval" in {
+    createCConfig().readerCheckInterval should be(ReaderCheckInterval)
+  }
+
+  it should "return the initial reader check delay" in {
+    createCConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
+  }
+
+  it should "return the read chunk size" in {
+    createCConfig().metaDataReadChunkSize should be(ReadChunkSize)
+  }
+
+  it should "return the tag size limit" in {
+    createCConfig().tagSizeLimit should be(TagSizeLimit)
+  }
+
+  it should "return the meta data chunk size" in {
+    createCConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+  }
+
+  it should "return the maximum meta data message size" in {
+    createCConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+  }
+
+  it should "return the path for meta data persistence" in {
+    createCConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
+  }
+
+  it should "return the meta data persistence chunk size" in {
+    createCConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
+  }
+
+  it should "return the meta data persistence parallel count" in {
+    createCConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
+  }
+
+  it should "return the meta data persistence write block size" in {
+    createCConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
+  }
+
+  it should "return the file extensions to be excluded" in {
+    createCConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
+  }
+
+  it should "return a collection of paths with media files" in {
+    val paths = createCConfig().mediaRoots
+    paths should contain only(MusicRoot, CDRomRoot)
   }
 }

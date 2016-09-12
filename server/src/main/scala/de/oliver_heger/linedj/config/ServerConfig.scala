@@ -22,27 +22,31 @@ import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{Config, ConfigObject}
 import de.oliver_heger.linedj.config.ServerConfig.MediaRootData
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.concurrent.duration._
 
 object ServerConfig {
-  /** Constant for the prefix for configuration options. */
-  private val ConfigPrefix = "splaya.media."
+  /** Constant for the prefix for TypeSafe configuration options. */
+  private val TConfigPrefix = "splaya.media."
+
+  /** Constant for the prefix for Commons Configuration options. */
+  private val CConfigPrefix = "media."
 
   /** The configuration property for the reader timeout. */
-  private val PropReaderActorTimeout = ConfigPrefix + "readerTimeout"
+  private val PropReaderActorTimeout = "readerTimeout"
 
   /** The configuration property for the initial delay for reader timeout checks. */
-  private val PropReaderCheckDelay = ConfigPrefix + "readerCheckInitialDelay"
+  private val PropReaderCheckDelay = "readerCheckInitialDelay"
 
   /** The configuration property for the interval for reader timeout checks. */
-  private val PropReaderCheckInterval = ConfigPrefix + "readerCheckInterval"
+  private val PropReaderCheckInterval = "readerCheckInterval"
 
   /** The configuration property for the excluded file extensions. */
-  private val PropExcludedExtensions = ConfigPrefix + "excludedExtensions"
+  private val PropExcludedExtensions = "excludedExtensions"
 
   /** Constant for the prefix for the meta data extraction configuration. */
-  private val MetaExtractionPrefix = ConfigPrefix + "metaDataExtraction."
+  private val MetaExtractionPrefix = "metaDataExtraction."
 
   /** The configuration property for meta data extraction chunk size. */
   private val PropMetaDataReadChunkSize = MetaExtractionPrefix + "readChunkSize"
@@ -57,7 +61,7 @@ object ServerConfig {
   private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
 
   /** Constant for the prefix for the meta data persistence configuration. */
-  private val MetaPersistencePrefix = ConfigPrefix + "metaDataPersistence."
+  private val MetaPersistencePrefix = "metaDataPersistence."
 
   /** The configuration property for the meta data persistence path. */
   private val PropMetaDataPersistencePath = MetaPersistencePrefix + "path"
@@ -72,38 +76,73 @@ object ServerConfig {
   private val PropMetaDataPersistenceWriteBlockSize = MetaPersistencePrefix + "writeBlockSize"
 
   /** Constant for the path property of a media root object. */
-  private val RootPropPath = ".path"
+  private val RootPropPath = "path"
 
   /** Constant for the processorCount property of a media root object. */
-  private val RootPropProcessorCount = ".processorCount"
+  private val RootPropProcessorCount = "processorCount"
 
   /** Constant for the accessRestriction property of a media root object. */
-  private val RootPropAccessRestriction = ".accessRestriction"
+  private val RootPropAccessRestriction = "accessRestriction"
 
   /** Constant for a configuration key to map objects to. */
   private val ObjectKey = "Kex"
 
+  /** A list with the supported (top-level) property keys. */
+  private val Keys = List(PropReaderActorTimeout, PropReaderCheckDelay, PropReaderCheckInterval,
+    PropExcludedExtensions, PropMetaDataReadChunkSize, PropTagSizeLimit,
+    PropMetaDataUpdateChunkSize, PropMetaDataMaxMessageSize,
+    PropMetaDataPersistencePath, PropMetaDataPersistenceChunkSize,
+    PropMetaDataPersistenceParallelCount, PropMetaDataPersistenceWriteBlockSize)
+
+  /** The map with keys used by TypeSafe Configuration. */
+  private val TKeys = keyMapping(TConfigPrefix)
+
+  /** The map with keys used by Commons Configuration. */
+  private val CKeys = keyMapping(CConfigPrefix)
+
   /**
-   * Creates a new instance of ''ServerConfig'' based on the passed in
-   * ''Config'' object.
-   * @param config the configuration to be wrapped
-   * @return the new ''ServerConfig'' instance
-   */
-  def apply(config: Config): ServerConfig = {
-    new ServerConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
-      readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
-      readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
-      metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
-      tagSizeLimit = config getInt PropTagSizeLimit,
-      metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
-      initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize,
-      metaDataPersistencePath = Paths.get(config getString PropMetaDataPersistencePath),
-      metaDataPersistenceChunkSize = config getInt PropMetaDataPersistenceChunkSize,
-      metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
-      metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
-      excludedFileExtensions = obtainExcludedExtensions(config),
-      rootMap = createMediaData(config))
-  }
+    * Creates a new instance of ''ServerConfig'' based on the passed in
+    * ''Config'' object.
+    *
+    * @param config the configuration to be wrapped
+    * @return the new ''ServerConfig'' instance
+    */
+  def apply(config: Config): ServerConfig =
+  new ServerConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
+    readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
+    readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
+    metaDataReadChunkSize = config getInt TKeys(PropMetaDataReadChunkSize),
+    tagSizeLimit = config getInt TKeys(PropTagSizeLimit),
+    metaDataUpdateChunkSize = config getInt TKeys(PropMetaDataUpdateChunkSize),
+    initMetaDataMaxMsgSize = config getInt TKeys(PropMetaDataMaxMessageSize),
+    metaDataPersistencePath = Paths.get(config getString TKeys(PropMetaDataPersistencePath)),
+    metaDataPersistenceChunkSize = config getInt TKeys(PropMetaDataPersistenceChunkSize),
+    metaDataPersistenceParallelCount = config getInt TKeys(PropMetaDataPersistenceParallelCount),
+    metaDataPersistenceWriteBlockSize = config getInt TKeys(PropMetaDataPersistenceWriteBlockSize),
+    excludedFileExtensions = obtainExcludedExtensions(config),
+    rootMap = createMediaData(config))
+
+  /**
+    * Creates a new instance of ''ServerConfig'' based on the passed in
+    * ''HierarchicalConfiguration'' object.
+    *
+    * @param config the ''HierarchicalConfiguration'' to be processed
+    * @return the new ''ServerConfig'' instance
+    */
+  def apply(config: HierarchicalConfiguration): ServerConfig =
+  new ServerConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
+    readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
+    readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
+    metaDataReadChunkSize = config getInt CKeys(PropMetaDataReadChunkSize),
+    tagSizeLimit = config getInt CKeys(PropTagSizeLimit),
+    metaDataUpdateChunkSize = config getInt CKeys(PropMetaDataUpdateChunkSize),
+    initMetaDataMaxMsgSize = config getInt CKeys(PropMetaDataMaxMessageSize),
+    metaDataPersistencePath = Paths.get(config getString CKeys(PropMetaDataPersistencePath)),
+    metaDataPersistenceChunkSize = config getInt CKeys(PropMetaDataPersistenceChunkSize),
+    metaDataPersistenceParallelCount = config getInt CKeys(PropMetaDataPersistenceParallelCount),
+    metaDataPersistenceWriteBlockSize = config getInt CKeys(PropMetaDataPersistenceWriteBlockSize),
+    excludedFileExtensions = obtainExcludedExtensions(config),
+    rootMap = createMediaData(config))
 
   /**
    * Reads a property of type duration from the given configuration.
@@ -112,7 +151,7 @@ object ServerConfig {
    * @return the duration value for this key
    */
   private def durationProperty(config: Config, property: String): FiniteDuration = {
-    val millis = config.getDuration(property, TimeUnit.MILLISECONDS)
+    val millis = config.getDuration(TKeys(property), TimeUnit.MILLISECONDS)
     FiniteDuration(millis, MILLISECONDS)
   }
 
@@ -124,7 +163,7 @@ object ServerConfig {
    */
   private def createMediaData(config: Config): Map[Path, MediaRootData] = {
     import collection.JavaConversions._
-    val mediaRoots = config.getObjectList(ConfigPrefix + "paths").map(createMediaRoot)
+    val mediaRoots = config.getObjectList(TConfigPrefix + "paths").map(createMediaRoot)
     Map(mediaRoots map (r => (r.rootPath, r)): _*)
   }
 
@@ -136,8 +175,9 @@ object ServerConfig {
    */
   private def createMediaRoot(o: ConfigObject): MediaRootData = {
     val config = o atPath ObjectKey
-    MediaRootData(Paths.get(config.getString(ObjectKey + RootPropPath)),
-      config.getInt(ObjectKey + RootPropProcessorCount),
+    val Prefix = ObjectKey + "."
+    MediaRootData(Paths.get(config.getString(Prefix + RootPropPath)),
+      config.getInt(Prefix + RootPropProcessorCount),
       accessRestrictionProperty(config))
   }
 
@@ -148,20 +188,116 @@ object ServerConfig {
    * @return the access restriction property
    */
   private def accessRestrictionProperty(config: Config): Option[Int] = {
-    if (config.hasPath(ObjectKey + RootPropAccessRestriction))
-      Some(config.getInt(ObjectKey + RootPropAccessRestriction))
+    val key = ObjectKey + "." + RootPropAccessRestriction
+    if (config.hasPath(key)) Some(config.getInt(key))
     else None
   }
 
   /**
-   * Determines the set with the file extensions to be excluded.
-   * @param config the configuration
-   * @return the set with excluded file extensions
-   */
-  private def obtainExcludedExtensions(config: Config): Set[String] = {
+    * Determines the set with the file extensions to be excluded from the given
+    * TypeSafe configuration.
+    *
+    * @param config the configuration
+    * @return the set with excluded file extensions
+    */
+  private def obtainExcludedExtensions(config: Config): Set[String] =
+  createExclusionSet(config.getStringList(TKeys(PropExcludedExtensions)))
+
+  /**
+    * Determines the set with file extensions to be excluded from the given
+    * Commons Configuration object.
+    *
+    * @param config the configuration
+    * @return the set with excluded file extensions
+    */
+  private def obtainExcludedExtensions(config: Configuration): Set[String] =
+  createExclusionSet(config getList CKeys(PropExcludedExtensions))
+
+  /**
+    * Reads a property from the given configuration object and converts it to a
+    * duration.
+    *
+    * @param config the configuration
+    * @param key    the key
+    * @return the resulting duration
+    */
+  private def durationProperty(config: Configuration, key: String): FiniteDuration =
+  FiniteDuration(config getLong CKeys(key), TimeUnit.SECONDS)
+
+  /**
+    * Generates a map with information about media roots from the given
+    * Commons Configuration object. The map uses root paths as keys and
+    * associated ''MediaRootData'' objects as values.
+    *
+    * @param config the configuration
+    * @return a map with information about media roots
+    */
+  private def createMediaData(config: HierarchicalConfiguration): Map[Path, MediaRootData] = {
     import collection.JavaConversions._
-    config.getStringList(PropExcludedExtensions).map(_.toUpperCase(Locale.ENGLISH)).toSet
+    val mediaRoots = config.configurationsAt(CConfigPrefix + "roots.root")
+      .map(createMediaRoot)
+    createRootData(mediaRoots)
   }
+
+  /**
+    * Creates a ''MediaRootData'' object from the given Commons Configuration
+    * object.
+    *
+    * @param config the configuration object
+    * @return the ''MediaRootData''
+    */
+  private def createMediaRoot(config: Configuration): MediaRootData = {
+    MediaRootData(Paths.get(config.getString(RootPropPath)),
+      config.getInt(RootPropProcessorCount),
+      accessRestrictionProperty(config))
+  }
+
+  /**
+    * Extracts the property for the access restriction of a media root from the
+    * given Commons Configuration object.
+    *
+    * @param config the configuration
+    * @return the access restriction property
+    */
+  private def accessRestrictionProperty(config: Configuration): Option[Int] = {
+    if (config containsKey RootPropAccessRestriction)
+      Some(config.getInt(RootPropAccessRestriction))
+    else None
+  }
+
+  /**
+    * Transforms a list with file extensions to be excluded into a set.
+    *
+    * @param excludes the list with file extensions to be excluded
+    * @return the converted set with exclusions
+    */
+  private def createExclusionSet(excludes: java.util.List[_]): Set[String] = {
+    import collection.JavaConversions._
+    excludes.map(_.toString.toUpperCase(Locale.ENGLISH)).toSet
+  }
+
+  /**
+    * Creates the map with data about roots from the given sequence of root
+    * data.
+    *
+    * @param mediaRoots the sequence of ''MediaRootData'' objects
+    * @return the map with root data
+    */
+  private def createRootData(mediaRoots: Seq[MediaRootData]): Map[Path, MediaRootData] =
+  Map(mediaRoots map (r => (r.rootPath, r)): _*)
+
+  /**
+    * Creates a map with a configuration key mapping. This function applies the
+    * given prefix to all supported configuration keys. The resulting map has
+    * unqualified property keys as keys and the keys with prefix as values.
+    * That way the different prefixes used by the supported configuration
+    * mechanisms can be handled.
+    *
+    * @param prefix the prefix to be applied
+    * @return a key mapping from unqualified to prefixed keys
+    */
+  private def keyMapping(prefix: String): Map[String, String] =
+  (Keys zip Keys.map(prefix + _)).toMap
 
   /**
    * A data class storing information about a media root. A media root is a
