@@ -80,7 +80,7 @@ object Build extends Build {
     ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
       mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
-      mediaIfcDisabled)
+      mediaIfcDisabled, archiveStartup)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -147,6 +147,25 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
       OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
     ) dependsOn shared
+
+  /**
+    * A project which is responsible for starting up the media archive in an
+    * OSGi environment. (The archive project itself should be independent on
+    * OSGi; therefore, there is a separate project for the startup of the
+    * archive in OSGi.)
+    */
+  lazy val archiveStartup = Project(id = "archiveStartup",
+    base = file("archiveStartup"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-archiveStartup",
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn (client, server)
 
   /**
     * Project for the media browser client application. This application allows
