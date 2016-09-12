@@ -289,4 +289,9 @@ with Matchers with BeforeAndAfterAll {
     val paths = createCConfig().mediaRoots
     paths should contain only(MusicRoot, CDRomRoot)
   }
+
+  it should "return a sequence of root paths" in {
+    val paths = createCConfig().mediaRootPaths
+    paths should contain only(MusicRoot.rootPath.toString, CDRomRoot.rootPath.toString)
+  }
 }

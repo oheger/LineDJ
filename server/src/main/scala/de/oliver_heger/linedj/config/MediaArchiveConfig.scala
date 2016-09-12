@@ -371,13 +371,22 @@ class MediaArchiveConfig private[config](val readerTimeout: FiniteDuration,
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
   /**
-   * Returns a set with paths that represent root directories for media files.
+   * Returns a set with objects that represent root directories for media files.
    * All media files processed by this application should be contained in one
    * of these directory structures.
    *
    * @return a set with the root paths for media files
    */
   def mediaRoots: Set[MediaRootData] = rootMap.values.toSet
+
+  /**
+    * Returns a set with the paths under which media files are located. This is
+    * a convenience method that extracts the paths from the ''MediaRootData''
+    * objects.
+    *
+    * @return a set with paths for media files
+    */
+  def mediaRootPaths: Set[String] = mediaRoots map (_.rootPath.toString)
 
   /**
    * Returns an option for the ''MediaRootData'' object with the specified
