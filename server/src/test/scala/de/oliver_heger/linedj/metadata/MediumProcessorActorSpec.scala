@@ -16,11 +16,11 @@
 package de.oliver_heger.linedj.metadata
 
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.{AtomicReference, AtomicInteger}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileData}
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3TagProvider}
@@ -158,9 +158,9 @@ object MediumProcessorActorSpec {
    * @param readerCount the number of processor actors to be returned
    * @return the prepared mock object
    */
-  private def prepareConfigMock(config: ServerConfig, readerCount: Int = ProcessorCount):
-  ServerConfig = {
-    when(config.rootFor(ScanResult.root)).thenReturn(Some(ServerConfig.MediaRootData(ScanResult
+  private def prepareConfigMock(config: MediaArchiveConfig, readerCount: Int = ProcessorCount):
+  MediaArchiveConfig = {
+    when(config.rootFor(ScanResult.root)).thenReturn(Some(MediaArchiveConfig.MediaRootData(ScanResult
       .root, readerCount, None)))
     when(config.metaDataReadChunkSize).thenReturn(128)
     config
@@ -181,8 +181,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("MediumProcessorActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**
@@ -190,8 +189,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     *
     * @return a tuple with the test actor reference and the mock configuration
    */
-  private def createStandardTestActor(): (TestActorRef[MediumProcessorActor], ServerConfig) = {
-    val config = prepareConfigMock(mock[ServerConfig])
+  private def createStandardTestActor(): (TestActorRef[MediumProcessorActor], MediaArchiveConfig) = {
+    val config = prepareConfigMock(mock[MediaArchiveConfig])
     (TestActorRef[MediumProcessorActor](MediumProcessorActor(ExtScanResult, config)), config)
   }
 
@@ -563,7 +562,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "handle an unknown root path" in {
-    val config = prepareConfigMock(mock[ServerConfig])
+    val config = prepareConfigMock(mock[MediaArchiveConfig])
     when(config.rootFor(ScanResult.root)).thenReturn(None)
     val helper = new MediumProcessorActorTestHelper(optConfig = Some(config))
 
@@ -670,7 +669,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     */
   private class MediumProcessorActorTestHelper(scanResult: EnhancedMediaScanResult = ExtScanResult,
                                                 numberOfRealActors: Int = 0,
-                                               optConfig: Option[ServerConfig] = None) {
+                                               optConfig: Option[MediaArchiveConfig] = None) {
     /** A mock for the processor map for ID3v1 processors. */
     val id3v1ProcessorMap = mock[ProcessorActorMap]
 
@@ -795,8 +794,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       *
       * @return the config mock
      */
-    private def createConfigMock(): ServerConfig = {
-      val config = mock[ServerConfig]
+    private def createConfigMock(): MediaArchiveConfig = {
+      val config = mock[MediaArchiveConfig]
       prepareConfigMock(config)
     }
   }

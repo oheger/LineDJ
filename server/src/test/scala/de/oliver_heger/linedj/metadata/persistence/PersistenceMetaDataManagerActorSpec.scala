@@ -21,7 +21,7 @@ import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
 import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
@@ -468,8 +468,8 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       *
       * @return the configuration mock
       */
-    private def createConfig(): ServerConfig = {
-      val config = mock[ServerConfig]
+    private def createConfig(): MediaArchiveConfig = {
+      val config = mock[MediaArchiveConfig]
       when(config.metaDataPersistencePath).thenReturn(FilePath)
       when(config.metaDataPersistenceParallelCount).thenReturn(ParallelCount)
       when(config.metaDataPersistenceChunkSize).thenReturn(ChunkSize)

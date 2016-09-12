@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.metadata.persistence
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorRef, Props, Terminated}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
 import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
@@ -102,7 +102,7 @@ object PersistentMetaDataManagerActor {
     def resolvedFilesCount: Int = resolvedFiles.size
   }
 
-  private class PersistentMetaDataManagerActorImpl(config: ServerConfig,
+  private class PersistentMetaDataManagerActorImpl(config: MediaArchiveConfig,
                                                    fileScanner: PersistentMetaDataFileScanner)
     extends PersistentMetaDataManagerActor(config, fileScanner) with ChildActorFactory
 
@@ -112,7 +112,7 @@ object PersistentMetaDataManagerActor {
     * @param config the configuration
     * @return creation properties for a new actor instance
     */
-  def apply(config: ServerConfig): Props =
+  def apply(config: MediaArchiveConfig): Props =
     Props(classOf[PersistentMetaDataManagerActorImpl], config, new PersistentMetaDataFileScanner)
 }
 
@@ -137,7 +137,7 @@ object PersistentMetaDataManagerActor {
   * @param config      the configuration
   * @param fileScanner the scanner for meta data files
   */
-class PersistentMetaDataManagerActor(config: ServerConfig,
+class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
                                      private[persistence] val fileScanner:
                                      PersistentMetaDataFileScanner) extends Actor {
   this: ChildActorFactory =>

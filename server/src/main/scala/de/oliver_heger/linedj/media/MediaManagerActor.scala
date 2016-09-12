@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
@@ -64,7 +64,7 @@ object MediaManagerActor {
    */
   private val NonExistingFile = FileData(path = null, size = -1)
 
-  private class MediaManagerActorImpl(config: ServerConfig, metaDataManager: ActorRef)
+  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef)
     extends MediaManagerActor(config, metaDataManager) with ChildActorFactory with SchedulerSupport
 
   /**
@@ -75,7 +75,7 @@ object MediaManagerActor {
    * @param metaDataManager a reference to the meta data manager actor
    * @return a ''Props'' object for creating actor instances
    */
-  def apply(config: ServerConfig, metaDataManager: ActorRef): Props =
+  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef): Props =
     Props(classOf[MediaManagerActorImpl], config, metaDataManager)
 
   /**
@@ -129,7 +129,7 @@ object MediaManagerActor {
  * @param metaDataManager a reference to the meta data manager actor
  * @param readerActorMapping internal helper object for managing reader actors
  */
-class MediaManagerActor(config: ServerConfig, metaDataManager: ActorRef,
+class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         private[media] val readerActorMapping: MediaReaderActorMapping) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport =>
@@ -218,7 +218,7 @@ Actor with ActorLogging {
     * @param config the configuration object
    * @param metaDataManager a reference to the meta data manager actor
    */
-  def this(config: ServerConfig, metaDataManager: ActorRef) =
+  def this(config: MediaArchiveConfig, metaDataManager: ActorRef) =
     this(config, metaDataManager, new MediaReaderActorMapping)
 
   /**
@@ -231,7 +231,6 @@ Actor with ActorLogging {
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    import context.dispatcher
     loaderActor = createChildActor(FileLoaderActor())
     readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
       config.readerCheckInterval, self, CheckReaderTimeout))

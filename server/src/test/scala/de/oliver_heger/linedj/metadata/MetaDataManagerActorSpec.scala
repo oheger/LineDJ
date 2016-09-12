@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -29,7 +29,6 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
   /** The maximum message size. */
@@ -151,12 +150,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("MetaDataManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A MetaDataManagerActor" should "send an answer for an unknown medium ID" in {
-    val actor = system.actorOf(MetaDataManagerActor(mock[ServerConfig], TestProbe().ref))
+    val actor = system.actorOf(MetaDataManagerActor(mock[MediaArchiveConfig], TestProbe().ref))
 
     val mediumID = MediumID("unknown medium ID", None)
     actor ! GetMetaData(mediumID, registerAsListener = false)
@@ -355,7 +353,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "ignore an unknown medium when removing a medium listener" in {
-    val actor = TestActorRef[MediaManagerActor](MetaDataManagerActor(mock[ServerConfig],
+    val actor = TestActorRef[MediaManagerActor](MetaDataManagerActor(mock[MediaArchiveConfig],
       TestProbe().ref))
     actor receive RemoveMediumListener(mediumID("someMedium"), testActor)
   }
@@ -520,7 +518,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return the mock configuration
      */
     private def createConfig() = {
-      val config = mock[ServerConfig]
+      val config = mock[MediaArchiveConfig]
       when(config.metaDataUpdateChunkSize).thenReturn(2)
       when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
       config

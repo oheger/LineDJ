@@ -21,7 +21,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.media.{AvailableMedia, GetAvailableMedia, MediaManagerActor}
 import de.oliver_heger.linedj.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.metadata.persistence.PersistentMetaDataManagerActor
@@ -47,7 +47,7 @@ object Server {
     println("Config: " + completeConfig)
 
     val system = ActorSystem("LineDJ-Server", completeConfig)
-    val serverConfig = ServerConfig(system.settings.config)
+    val serverConfig = MediaArchiveConfig(system.settings.config)
     val persistentMetaDataManager = system.actorOf(PersistentMetaDataManagerActor(serverConfig),
       "persistentMetaDataManager")
     val metaDataManager = system.actorOf(MetaDataManagerActor(serverConfig,

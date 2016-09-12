@@ -7,13 +7,13 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => argEq, anyLong}
+import org.mockito.Matchers.{anyLong, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -71,16 +71,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("MediaManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**
    * Creates a mock configuration object.
    * @return the mock configuration
    */
-  private def createConfiguration(): ServerConfig = {
-    val config = mock[ServerConfig]
+  private def createConfiguration(): MediaArchiveConfig = {
+    val config = mock[MediaArchiveConfig]
     when(config.readerTimeout).thenReturn(60.seconds)
     when(config.readerCheckInterval).thenReturn(ReaderCheckInterval)
     when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)

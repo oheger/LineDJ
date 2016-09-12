@@ -21,12 +21,12 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{Config, ConfigObject}
-import de.oliver_heger.linedj.config.ServerConfig.MediaRootData
+import de.oliver_heger.linedj.config.MediaArchiveConfig.MediaRootData
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.concurrent.duration._
 
-object ServerConfig {
+object MediaArchiveConfig {
   /** Constant for the prefix for TypeSafe configuration options. */
   private val TConfigPrefix = "splaya.media."
 
@@ -107,8 +107,8 @@ object ServerConfig {
     * @param config the configuration to be wrapped
     * @return the new ''ServerConfig'' instance
     */
-  def apply(config: Config): ServerConfig =
-  new ServerConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
+  def apply(config: Config): MediaArchiveConfig =
+  new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
     readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
     metaDataReadChunkSize = config getInt TKeys(PropMetaDataReadChunkSize),
@@ -129,8 +129,8 @@ object ServerConfig {
     * @param config the ''HierarchicalConfiguration'' to be processed
     * @return the new ''ServerConfig'' instance
     */
-  def apply(config: HierarchicalConfiguration): ServerConfig =
-  new ServerConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
+  def apply(config: HierarchicalConfiguration): MediaArchiveConfig =
+  new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
     readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
     metaDataReadChunkSize = config getInt CKeys(PropMetaDataReadChunkSize),
@@ -354,19 +354,19 @@ object ServerConfig {
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  */
-class ServerConfig private[config](val readerTimeout: FiniteDuration,
-                           val readerCheckInterval: FiniteDuration,
-                           val readerCheckInitialDelay: FiniteDuration,
-                           val metaDataReadChunkSize: Int,
-                           val tagSizeLimit: Int,
-                           val metaDataUpdateChunkSize: Int,
-                           initMetaDataMaxMsgSize: Int,
-                           val metaDataPersistencePath: Path,
-                           val metaDataPersistenceChunkSize: Int,
-                           val metaDataPersistenceParallelCount: Int,
-                           val metaDataPersistenceWriteBlockSize: Int,
-                           val excludedFileExtensions: Set[String],
-                           rootMap: Map[Path, MediaRootData]) {
+class MediaArchiveConfig private[config](val readerTimeout: FiniteDuration,
+                                         val readerCheckInterval: FiniteDuration,
+                                         val readerCheckInitialDelay: FiniteDuration,
+                                         val metaDataReadChunkSize: Int,
+                                         val tagSizeLimit: Int,
+                                         val metaDataUpdateChunkSize: Int,
+                                         initMetaDataMaxMsgSize: Int,
+                                         val metaDataPersistencePath: Path,
+                                         val metaDataPersistenceChunkSize: Int,
+                                         val metaDataPersistenceParallelCount: Int,
+                                         val metaDataPersistenceWriteBlockSize: Int,
+                                         val excludedFileExtensions: Set[String],
+                                         rootMap: Map[Path, MediaRootData]) {
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 

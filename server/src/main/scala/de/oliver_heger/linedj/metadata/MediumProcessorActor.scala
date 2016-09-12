@@ -21,14 +21,14 @@ import java.nio.file.Path
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {
 
-  private class MediumProcessorActorImpl(data: EnhancedMediaScanResult, config: ServerConfig)
+  private class MediumProcessorActorImpl(data: EnhancedMediaScanResult, config: MediaArchiveConfig)
     extends MediumProcessorActor(data, config) with ChildActorFactory
 
   /**
@@ -38,7 +38,7 @@ object MediumProcessorActor {
    * @param config the server configuration
    * @return properties for creating a new actor instance
    */
-  def apply(data: EnhancedMediaScanResult, config: ServerConfig): Props =
+  def apply(data: EnhancedMediaScanResult, config: MediaArchiveConfig): Props =
     Props(classOf[MediumProcessorActorImpl], data, config)
 
   /**
@@ -129,7 +129,7 @@ object MediumProcessorActor {
  * @param optId3v1ProcessorMap optional map for ID3v1 processor actors
  * @param optCollectorMap optional map for meta data collectors
  */
-class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
+class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveConfig,
                            optMp3ProcessorMap: Option[ProcessorActorMap],
                            optId3v2ProcessorMap: Option[ProcessorActorMap],
                            optId3v1ProcessorMap: Option[ProcessorActorMap],
@@ -190,7 +190,7 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: ServerConfig,
    * @param data data about the files to be processed
    * @param config the media server configuration
    */
-  def this(data: EnhancedMediaScanResult, config: ServerConfig) =
+  def this(data: EnhancedMediaScanResult, config: MediaArchiveConfig) =
     this(data, config, None, None, None, None)
 
   override val supervisorStrategy = OneForOneStrategy() {

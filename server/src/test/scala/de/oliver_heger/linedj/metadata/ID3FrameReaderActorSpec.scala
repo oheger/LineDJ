@@ -19,14 +19,13 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3HeaderExtractor}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
 import scala.util.Random
 
 object ID3FrameReaderActorSpec {
@@ -55,8 +54,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("ID3FrameReaderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "An ID3FrameReaderActor" should "process a valid frame header" in {
@@ -284,8 +282,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * Creates a mock for the server configuration.
      * @return the configuration mock
      */
-    private def createConfig(): ServerConfig = {
-      val config = mock[ServerConfig]
+    private def createConfig(): MediaArchiveConfig = {
+      val config = mock[MediaArchiveConfig]
       when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
       config
     }

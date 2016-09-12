@@ -19,14 +19,14 @@ package de.oliver_heger.linedj.metadata
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.media.{MediaFileUriHandler, EnhancedMediaScanResult, MediumID}
+import de.oliver_heger.linedj.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
 
-  private class MetaDataManagerActorImpl(config: ServerConfig, persistenceManager: ActorRef)
+  private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef)
     extends MetaDataManagerActor(config, persistenceManager) with ChildActorFactory
 
   /**
@@ -36,7 +36,7 @@ object MetaDataManagerActor {
     * @param persistenceManager reference to the persistence manager actor
     * @return creation properties for a new actor instance
     */
-  def apply(config: ServerConfig, persistenceManager: ActorRef): Props =
+  def apply(config: MediaArchiveConfig, persistenceManager: ActorRef): Props =
     Props(classOf[MetaDataManagerActorImpl], config, persistenceManager)
 
   /**
@@ -93,7 +93,7 @@ object MetaDataManagerActor {
  * @param config the central configuration object
  * @param persistenceManager reference to the persistence manager actor
  */
-class MetaDataManagerActor(config: ServerConfig, persistenceManager: ActorRef) extends Actor
+class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef) extends Actor
   with ActorLogging {
   this: ChildActorFactory =>
 

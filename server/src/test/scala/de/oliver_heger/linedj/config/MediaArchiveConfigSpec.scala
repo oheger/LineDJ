@@ -25,7 +25,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-object ServerConfigSpec {
+object MediaArchiveConfigSpec {
   /** The reader check interval. */
   private val ReaderCheckInterval = 10.minutes
 
@@ -33,10 +33,10 @@ object ServerConfigSpec {
   private val ReaderCheckDelay = 5.minutes
 
   /** Test root object. */
-  private val MusicRoot = ServerConfig.MediaRootData(Paths get "music1", 3, None)
+  private val MusicRoot = MediaArchiveConfig.MediaRootData(Paths get "music1", 3, None)
 
   /** Another root object. */
-  private val CDRomRoot = ServerConfig.MediaRootData(Paths get "cdrom", 1, Some(1))
+  private val CDRomRoot = MediaArchiveConfig.MediaRootData(Paths get "cdrom", 1, Some(1))
 
   /** Test value for the chunk size when extracting meta data. */
   private val ReadChunkSize = 16384
@@ -97,49 +97,49 @@ object ServerConfigSpec {
     *
     * @return the config object
     */
-  private def createCConfig(): ServerConfig = ServerConfig(createHierarchicalConfig())
+  private def createCConfig(): MediaArchiveConfig = MediaArchiveConfig(createHierarchicalConfig())
 }
 
 /**
- * Test class for ''ServerConfig''.
+ * Test class for ''MediaArchiveConfig''.
  */
-class ServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class MediaArchiveConfigSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
 with Matchers with BeforeAndAfterAll {
 
-  import ServerConfigSpec._
+  import MediaArchiveConfigSpec._
 
   def this() = this(ActorSystem("ServerConfigSpec",
     ConfigFactory.parseString(
       s"""splaya {
          | media {
          |   readerTimeout = 60s
-         |   readerCheckInterval = ${ServerConfigSpec.ReaderCheckInterval.toString()}
-          |   readerCheckInitialDelay = ${ServerConfigSpec.ReaderCheckDelay.toString()}
+         |   readerCheckInterval = ${MediaArchiveConfigSpec.ReaderCheckInterval.toString()}
+          |   readerCheckInitialDelay = ${MediaArchiveConfigSpec.ReaderCheckDelay.toString()}
           |   paths = [
           |     {
-          |       path = ${ServerConfigSpec.MusicRoot.rootPath}
-          |       processorCount = ${ServerConfigSpec.MusicRoot.processorCount}
+          |       path = ${MediaArchiveConfigSpec.MusicRoot.rootPath}
+          |       processorCount = ${MediaArchiveConfigSpec.MusicRoot.processorCount}
           |     },
           |     {
-          |       path = ${ServerConfigSpec.CDRomRoot.rootPath}
-          |       processorCount = ${ServerConfigSpec.CDRomRoot.processorCount}
-          |       accessRestriction = ${ServerConfigSpec.CDRomRoot.accessRestriction.get}
+          |       path = ${MediaArchiveConfigSpec.CDRomRoot.rootPath}
+          |       processorCount = ${MediaArchiveConfigSpec.CDRomRoot.processorCount}
+          |       accessRestriction = ${MediaArchiveConfigSpec.CDRomRoot.accessRestriction.get}
           |     }
           |   ]
           |   excludedExtensions = [
           |       "JPG", "pdf", "tex"
           |   ]
           |   metaDataExtraction {
-          |     readChunkSize = ${ServerConfigSpec.ReadChunkSize}
-          |     tagSizeLimit = ${ServerConfigSpec.TagSizeLimit}
-          |     metaDataUpdateChunkSize = ${ServerConfigSpec.MetaDataChunkSize}
-          |     metaDataMaxMessageSize = ${ServerConfigSpec.MetaDataMaxMsgSize}
+          |     readChunkSize = ${MediaArchiveConfigSpec.ReadChunkSize}
+          |     tagSizeLimit = ${MediaArchiveConfigSpec.TagSizeLimit}
+          |     metaDataUpdateChunkSize = ${MediaArchiveConfigSpec.MetaDataChunkSize}
+          |     metaDataMaxMessageSize = ${MediaArchiveConfigSpec.MetaDataMaxMsgSize}
           |   }
           |   metaDataPersistence {
-          |     path = ${ServerConfigSpec.MetaDataPersistencePath}
-          |     chunkSize = ${ServerConfigSpec.MetaDataPersistenceChunkSize}
-          |     parallelCount = ${ServerConfigSpec.MetaDataPersistenceParallelCount}
-          |     writeBlockSize = ${ServerConfigSpec.MetaDataPersistenceWriteBlockSize}
+          |     path = ${MediaArchiveConfigSpec.MetaDataPersistencePath}
+          |     chunkSize = ${MediaArchiveConfigSpec.MetaDataPersistenceChunkSize}
+          |     parallelCount = ${MediaArchiveConfigSpec.MetaDataPersistenceParallelCount}
+          |     writeBlockSize = ${MediaArchiveConfigSpec.MetaDataPersistenceWriteBlockSize}
           |   }
           | }
           |}
@@ -155,7 +155,7 @@ with Matchers with BeforeAndAfterAll {
     *
     * @return the test configuration
     */
-  private def createTConfig(): ServerConfig = ServerConfig(system.settings.config)
+  private def createTConfig(): MediaArchiveConfig = MediaArchiveConfig(system.settings.config)
 
   "A ServerConfig created from a TypeSafe Config" should
     "return the timeout for reader actors" in {
@@ -204,7 +204,7 @@ with Matchers with BeforeAndAfterAll {
 
   it should "correct the maximum message size if necessary" in {
     val oc = createTConfig()
-    val config = new ServerConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
+    val config = new MediaArchiveConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
       .readerCheckInterval,
       readerCheckInitialDelay = oc.readerCheckInitialDelay, metaDataReadChunkSize = oc
         .metaDataReadChunkSize,

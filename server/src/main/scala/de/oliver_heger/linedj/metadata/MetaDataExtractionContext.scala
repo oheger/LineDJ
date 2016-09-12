@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.metadata
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.mp3._
 
 /**
@@ -39,7 +39,7 @@ import de.oliver_heger.linedj.mp3._
  * @param collectorActor the actor collecting all kinds of meta data results
  * @param config the media server configuration
  */
-private case class MetaDataExtractionContext(collectorActor: ActorRef, config: ServerConfig) {
+private case class MetaDataExtractionContext(collectorActor: ActorRef, config: MediaArchiveConfig) {
   /** The object for extracting ID3 headers. */
   val headerExtractor = new ID3HeaderExtractor
 

@@ -22,14 +22,12 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.SupervisionTestActor
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object Mp3FileReaderActorSpec {
   /** The class for file reader actor. */
@@ -56,8 +54,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("Mp3FileReaderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A Mp3FileReaderActor" should "start reading a media file" in {
@@ -171,8 +168,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * Creates an initialized mock for the server configuration.
      * @return the configuration mock
      */
-    private def createConfig(): ServerConfig = {
-      val config = mock[ServerConfig]
+    private def createConfig(): MediaArchiveConfig = {
+      val config = mock[MediaArchiveConfig]
       when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
       config
     }

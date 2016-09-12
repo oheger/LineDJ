@@ -15,7 +15,7 @@
  */
 package de.oliver_heger.linedj.metadata
 
-import de.oliver_heger.linedj.config.ServerConfig
+import de.oliver_heger.linedj.config.MediaArchiveConfig
 import de.oliver_heger.linedj.mp3.{ID3Header, ID3HeaderExtractor}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -37,7 +37,7 @@ class MetaDataExtractionContextSpec extends FlatSpec with Matchers with MockitoS
    * @return the test context
    */
   private def createContext(): MetaDataExtractionContext = {
-    val config = mock[ServerConfig]
+    val config = mock[MediaArchiveConfig]
     when(config.tagSizeLimit).thenReturn(MaxTagSize)
     new MetaDataExtractionContext(null, config)
   }
