@@ -112,6 +112,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
   }
 
+  it should "process a ScanAllMedia message" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.testManagerActor ! MediaManagerActor.ScanAllMedia
+    helper.simulateCollaboratingActors()
+    helper.testManagerActor ! GetAvailableMedia
+    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
+  }
+
   it should "stop temporary child actors when their answers are received" in {
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
@@ -707,6 +716,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val Drive3OtherIDData = MediumIDData("Other-3", MediumID(Drive3Root.toString, None), Drive3,
       pathMapping(Drive3OtherFiles))
 
+    /** A sequence with the test root paths to be scanned. */
+    val RootPaths = List(Drive1Root.toString, Drive2Root.toString, Drive3Root.toString)
+
     /**
      * A map with messages that are expected by collaboration actors and
      * their corresponding responses.
@@ -768,8 +780,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return a reference to the test actor
      */
     def sendScanRequest(): ActorRef = {
-      testManagerActor ! MediaManagerActor.ScanMedia(List(Drive1Root.toString, Drive2Root
-        .toString, Drive3Root.toString))
+      testManagerActor ! MediaManagerActor.ScanMedia(RootPaths)
       testManagerActor
     }
 
@@ -868,7 +879,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * test probes created for child actor types messages of a specific type
      * are expected, and corresponding responses are generated.
      */
-    private def simulateCollaboratingActors(): Unit = {
+    def simulateCollaboratingActors(): Unit = {
       simulateCollaboratingActorsOfType[MediaScannerActor.ScanPath] (classOf[MediaScannerActor])
       simulateCollaboratingActorsOfType[MediumIDCalculatorActor.CalculateMediumID] (classOf[MediumIDCalculatorActor])
       simulateFileLoaderActor()
@@ -913,7 +924,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
       TestActorRef[MediaManagerActor](Props(
-        new MediaManagerActor(createConfiguration(), metaDataManagerActor.ref, mapping)
+        new MediaManagerActor(createActorConfig(), metaDataManagerActor.ref, mapping)
         with ChildActorFactory with RecordingSchedulerSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
@@ -921,6 +932,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
         override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
       }))
+    }
+
+    /**
+      * Creates a configuration object for the test actor. This configuration
+      * contains some more properties than the basic configuration returned by
+      * ''createConfiguration()''.
+      *
+      * @return the configuration for the test actor
+      */
+    private def createActorConfig(): MediaArchiveConfig = {
+      val config = createConfiguration()
+      when(config.mediaRootPaths).thenReturn(RootPaths.toSet)
+      config
     }
 
     /**

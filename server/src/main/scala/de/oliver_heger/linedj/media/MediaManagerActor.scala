@@ -43,7 +43,14 @@ object MediaManagerActor {
    * @param roots a list with the root directories (as strings) that can
    *              contain media data
    */
-  case class ScanMedia(roots: Seq[String])
+  case class ScanMedia(roots: Iterable[String])
+
+  /**
+    * A message processed by ''MediaManagerActor'' telling it to scan all
+    * configured root paths for media files. The paths are obtained from the
+    * configuration passed to this actor as construction time.
+    */
+  case object ScanAllMedia
 
   /**
    * A message processed by ''MediaManagerActor'' telling it to check whether
@@ -246,6 +253,9 @@ Actor with ActorLogging {
     case ScanMedia(roots) =>
       processScanRequest(roots)
 
+    case ScanAllMedia =>
+      processScanRequest(config.mediaRootPaths)
+
     case scanResult: MediaScanResult =>
       processScanResult(scanResult)
       context unwatch sender()
@@ -385,7 +395,7 @@ Actor with ActorLogging {
     *
     * @param roots a sequence with the root directories to be scanned
    */
-  private def processScanRequest(roots: Seq[String]): Unit = {
+  private def processScanRequest(roots: Iterable[String]): Unit = {
     if (noScanInProgress) {
       mediaMap = Map.empty
       mediaCount = 0
@@ -400,7 +410,7 @@ Actor with ActorLogging {
     *
     * @param roots a sequence with the root directories to be scanned
    */
-  private def scanMediaRoots(roots: Seq[String]): Unit = {
+  private def scanMediaRoots(roots: Iterable[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
       val dirScannerActor = createChildActor(Props(classOf[MediaScannerActor],
