@@ -24,8 +24,8 @@ import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
-import de.oliver_heger.linedj.archive.media.MediumID
-import de.oliver_heger.linedj.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}

@@ -1,8 +1,10 @@
 package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.{Files, Path, Paths}
+
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 object MediaScannerSpec {

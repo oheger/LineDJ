@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.{Path, Paths}
 
 import de.oliver_heger.linedj.io.FileData
-import org.scalatest.{Matchers, FlatSpec}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.scalatest.{FlatSpec, Matchers}
 
 object MediaFileUriHandlerSpec {
   /** The name of the root path. */

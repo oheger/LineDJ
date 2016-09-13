@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.client.mediaifc.MediaFacade
 import de.oliver_heger.linedj.client.mediaifc.actors.impl.{ManagementActor, RelayActor}
-import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.Future

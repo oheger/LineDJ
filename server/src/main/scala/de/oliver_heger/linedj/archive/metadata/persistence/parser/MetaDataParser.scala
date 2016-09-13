@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserImpl.ManyPartialData
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Success}
-import de.oliver_heger.linedj.archive.metadata.{MediaMetaData, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.slf4j.LoggerFactory
 
 object MetaDataParser {
@@ -187,7 +188,7 @@ object MetaDataParser {
   * reads such files.
   *
   * The data persisted in such files is derived from the data class
-  * [[de.oliver_heger.linedj.archive.metadata.MediaMetaData]]. Each file defines the
+  * [[MediaMetaData]]. Each file defines the
   * content of a medium and contains a JSON array with an arbitrary number of
   * objects representing the single songs on that medium. The properties
   * supported for a song are named based on the properties of the

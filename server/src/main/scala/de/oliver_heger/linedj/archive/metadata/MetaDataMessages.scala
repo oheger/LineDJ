@@ -20,8 +20,10 @@ import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumID}
+import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
  * A message containing data extracted from an ID3 frame to be processed.

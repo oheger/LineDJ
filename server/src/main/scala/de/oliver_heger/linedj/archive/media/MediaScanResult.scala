@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
  * A data class storing the results of a directory scan for media files (in its

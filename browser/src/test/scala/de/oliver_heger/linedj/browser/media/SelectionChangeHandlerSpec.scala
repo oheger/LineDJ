@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.archive.media.MediumID
-import net.sf.jguiraffe.gui.builder.components.model.{TableHandler, ListComponentHandler,
-TreeHandler, TreeNodePath}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito._

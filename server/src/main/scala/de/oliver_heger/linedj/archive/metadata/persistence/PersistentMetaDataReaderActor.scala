@@ -23,11 +23,10 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
-import de.oliver_heger.linedj.archive.media.MediumID
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor
-.{ProcessingResults, ReadMetaDataFile}
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.{ProcessingResults, ReadMetaDataFile}
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserTypes}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object PersistentMetaDataReaderActor {

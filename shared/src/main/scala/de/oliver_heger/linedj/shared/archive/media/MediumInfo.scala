@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.shared.archive.media
 
 /**
  * A class defining meta data of a medium.

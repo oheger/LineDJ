@@ -19,6 +19,7 @@ import java.nio.file.Paths
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}

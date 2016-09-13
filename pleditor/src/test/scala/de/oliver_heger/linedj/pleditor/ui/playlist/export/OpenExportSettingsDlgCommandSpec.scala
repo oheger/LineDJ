@@ -20,15 +20,15 @@ import java.util
 
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.archive.media.MediumID
-import de.oliver_heger.linedj.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.mockito.Matchers.{eq => argEq}
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 object OpenExportSettingsDlgCommandSpec {
   /** A test locator. */

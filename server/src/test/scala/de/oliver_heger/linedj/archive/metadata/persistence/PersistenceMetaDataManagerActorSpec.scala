@@ -23,11 +23,13 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumID}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.archive.metadata.{MediaMetaData, MetaDataProcessingResult, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.{DirectoryScanner, FileData}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 object MediaScanner {
   /** The file separator character. */

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.metadata
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.mp3.ID3TagProvider
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
  * An internally used helper class for collecting different parts of meta data

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import java.io.ByteArrayInputStream
 
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.slf4j.LoggerFactory
 
 /**

@@ -19,15 +19,16 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.export
 import java.io.IOException
 import java.nio.file.{Path, Paths}
 import java.util
+
 import de.oliver_heger.linedj.client.model.SongData
-import de.oliver_heger.linedj.io.{FileData, ScanResult, DirectoryScanner}
-import de.oliver_heger.linedj.archive.media.MediumID
-import de.oliver_heger.linedj.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.io.{DirectoryScanner, FileData, ScanResult}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 object OpenExportProgressDlgCommandSpec {
   /** A test locator. */

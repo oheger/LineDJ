@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.archive.media.MediumID
-import net.sf.jguiraffe.gui.builder.components.model.{TableHandler, ListComponentHandler,
-TreeHandler}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
 /**

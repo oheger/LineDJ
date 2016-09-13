@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata
 
 import de.oliver_heger.linedj.archive.mp3.ID3TagProvider
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 object MetaDataID3Collector {
   private def createCombinedProvider(providers: List[ProviderData]): ID3TagProvider = {

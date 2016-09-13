@@ -6,6 +6,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

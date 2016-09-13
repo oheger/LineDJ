@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
 
-import de.oliver_heger.linedj.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 object MetaDataJsonConverter {
   /**

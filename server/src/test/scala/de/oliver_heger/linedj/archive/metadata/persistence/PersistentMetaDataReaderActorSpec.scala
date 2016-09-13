@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
-import akka.actor.{Terminated, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
-import de.oliver_heger.linedj.archive.media.MediumID
-import de.oliver_heger.linedj.archive.metadata.{MediaMetaData, MetaDataProcessingResult}
+import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParseError, ParserTypes}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.client.ActorSystemTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.ReadData
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, FileReaderActor}
-import de.oliver_heger.linedj.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -68,8 +68,7 @@ with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with 
   def this() = this(ActorSystemTestHelper createActorSystem "CopyFileActorSpec")
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   after {

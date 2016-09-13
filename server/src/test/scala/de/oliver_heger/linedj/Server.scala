@@ -22,9 +22,10 @@ import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.{AvailableMedia, GetAvailableMedia, MediaManagerActor}
+import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._

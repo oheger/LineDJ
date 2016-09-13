@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
-import de.oliver_heger.linedj.archive.media.MediumID
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.JSONParser.JSONData
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Result, Failure}
+import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Result}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
 import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.mock.MockitoSugar

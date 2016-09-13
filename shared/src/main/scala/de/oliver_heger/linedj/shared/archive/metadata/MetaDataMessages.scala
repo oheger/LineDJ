@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.metadata
+package de.oliver_heger.linedj.shared.archive.metadata
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
  * A message supported by ''MetaDataManagerActor'' that queries for the meta

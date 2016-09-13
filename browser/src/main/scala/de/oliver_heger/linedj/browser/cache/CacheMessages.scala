@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.browser.cache
 
-import de.oliver_heger.linedj.archive.media.MediumID
-import de.oliver_heger.linedj.archive.metadata.MetaDataChunk
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
 
 /**
  * A message class processed by [[MetaDataCache]] to add a registration for the

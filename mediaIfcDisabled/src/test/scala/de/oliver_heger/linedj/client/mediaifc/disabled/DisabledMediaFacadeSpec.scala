@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.client.mediaifc.disabled
 import akka.util.Timeout
 import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.archive.media.{GetAvailableMedia, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{GetAvailableMedia, MediumID}
 import org.apache.commons.configuration.Configuration
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

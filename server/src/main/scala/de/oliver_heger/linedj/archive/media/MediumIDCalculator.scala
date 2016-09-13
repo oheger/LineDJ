@@ -20,6 +20,7 @@ import java.nio.file.Path
 import java.util.zip.CRC32
 
 import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
  * An internally used helper class for calculating the IDs of a medium and the

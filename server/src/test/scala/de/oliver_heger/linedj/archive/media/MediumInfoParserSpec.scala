@@ -1,7 +1,9 @@
 package de.oliver_heger.linedj.archive.media
 
 import java.io.{ByteArrayOutputStream, OutputStreamWriter}
+
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.{FlatSpec, Matchers}
 
 object MediumInfoParserSpec {

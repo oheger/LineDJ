@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.media
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.ParseMediumInfo
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

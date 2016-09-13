@@ -23,7 +23,9 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumID}
+import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {

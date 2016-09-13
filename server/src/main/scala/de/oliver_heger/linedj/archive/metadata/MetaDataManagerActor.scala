@@ -21,7 +21,9 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediumID}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {

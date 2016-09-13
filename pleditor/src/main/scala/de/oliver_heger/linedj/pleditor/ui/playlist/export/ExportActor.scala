@@ -25,7 +25,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
-import de.oliver_heger.linedj.archive.media.MediumFileRequest
+import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer

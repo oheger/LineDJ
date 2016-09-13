@@ -24,9 +24,9 @@ import akka.stream.scaladsl.{FileIO, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.MediumID
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium, StreamOperationComplete}
-import de.oliver_heger.linedj.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}

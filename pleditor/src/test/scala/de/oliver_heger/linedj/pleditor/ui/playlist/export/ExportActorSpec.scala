@@ -26,10 +26,10 @@ import de.oliver_heger.linedj.client.comm.MessageBus
 import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.client.model.SongData
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
-import de.oliver_heger.linedj.archive.media.{MediumFileRequest, MediumID}
-import de.oliver_heger.linedj.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

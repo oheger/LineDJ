@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
 import scala.collection.mutable
@@ -137,7 +137,6 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    import context.dispatcher
     super.preStart()
     cancellableReaderAlive = Some(scheduleMessage(config.downloadInProgressNotificationDelay,
       config.downloadInProgressNotificationInterval, self, ReportReaderActorAlive))

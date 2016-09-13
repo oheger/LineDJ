@@ -22,7 +22,7 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Escalate
 import akka.actor._
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.archive.media.{MediumFileRequest, MediumFileResponse}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
 
 object CopyFileActor {
   /**

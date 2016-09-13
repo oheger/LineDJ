@@ -21,6 +21,7 @@ import java.nio.file.Path
 import akka.actor.Actor
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.media.MediumIDCalculatorActor.CalculateMediumID
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
  * Companion object.
