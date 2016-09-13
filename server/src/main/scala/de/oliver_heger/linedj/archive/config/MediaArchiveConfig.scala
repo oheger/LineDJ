@@ -354,19 +354,19 @@ object MediaArchiveConfig {
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  */
-class MediaArchiveConfig private[config](val readerTimeout: FiniteDuration,
-                                         val readerCheckInterval: FiniteDuration,
-                                         val readerCheckInitialDelay: FiniteDuration,
-                                         val metaDataReadChunkSize: Int,
-                                         val tagSizeLimit: Int,
-                                         val metaDataUpdateChunkSize: Int,
-                                         initMetaDataMaxMsgSize: Int,
-                                         val metaDataPersistencePath: Path,
-                                         val metaDataPersistenceChunkSize: Int,
-                                         val metaDataPersistenceParallelCount: Int,
-                                         val metaDataPersistenceWriteBlockSize: Int,
-                                         val excludedFileExtensions: Set[String],
-                                         rootMap: Map[Path, MediaRootData]) {
+case class MediaArchiveConfig private[config](readerTimeout: FiniteDuration,
+                                              readerCheckInterval: FiniteDuration,
+                                              readerCheckInitialDelay: FiniteDuration,
+                                              metaDataReadChunkSize: Int,
+                                              tagSizeLimit: Int,
+                                              metaDataUpdateChunkSize: Int,
+                                              initMetaDataMaxMsgSize: Int,
+                                              metaDataPersistencePath: Path,
+                                              metaDataPersistenceChunkSize: Int,
+                                              metaDataPersistenceParallelCount: Int,
+                                              metaDataPersistenceWriteBlockSize: Int,
+                                              excludedFileExtensions: Set[String],
+                                              rootMap: Map[Path, MediaRootData]) {
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
