@@ -77,7 +77,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, server, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
+    ) aggregate(shared, archive, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
       mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
       mediaIfcDisabled, archiveStartup)
@@ -97,11 +97,11 @@ object Build extends Build {
     )
 
   /**
-    * The server project. This contains code to manage the library with
+    * The media archive project. This contains code to manage the library with
     * artists, albums, and songs.
     */
-  lazy val server = Project(id = "server",
-    base = file("server"))
+  lazy val archive = Project(id = "archive",
+    base = file("archive"))
     .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
@@ -165,7 +165,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-    ) dependsOn (client, server)
+    ) dependsOn (client, archive)
 
   /**
     * Project for the media browser client application. This application allows
