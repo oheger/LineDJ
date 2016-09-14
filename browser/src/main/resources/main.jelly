@@ -24,7 +24,7 @@
 
   <!-- A transformer for durations -->
   <di:bean name="durationTransformer"
-    beanClassName="de.oliver_heger.linedj.client.model.DurationTransformer">
+    beanClassName="de.oliver_heger.linedj.platform.model.DurationTransformer">
   </di:bean>
 
   <!-- An event filter for the window closing event. -->
@@ -118,7 +118,7 @@
 
   <!-- Action task for opening the media interface configuration -->
   <di:bean name="configStateHandler"
-           beanClassName="de.oliver_heger.linedj.client.mediaifc.config.EnablerConfigStateHandler">
+           beanClassName="de.oliver_heger.linedj.platform.mediaifc.config.EnablerConfigStateHandler">
     <di:constructor>
       <di:param value="action:openMediaIfcConfigAction"/>
       <di:param refName="COMPONENT_BUILDER_DATA"/>
@@ -126,7 +126,7 @@
   </di:bean>
 
   <di:bean name="openMediaIfcConfigTask"
-           beanClassName="de.oliver_heger.linedj.client.mediaifc.config.OpenMediaIfcConfigTask">
+           beanClassName="de.oliver_heger.linedj.platform.mediaifc.config.OpenMediaIfcConfigTask">
     <di:constructor>
       <di:param refName="configStateHandler"/>
     </di:constructor>
@@ -134,7 +134,7 @@
 
   <!-- Message bus registration -->
   <di:bean name="browserApp_MessageBusRegistration"
-           beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
+           beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
@@ -230,7 +230,7 @@
 
     <!-- Remote controller -->
     <di:bean name="remoteController"
-      beanClassName="de.oliver_heger.linedj.client.bus.RemoteController">
+      beanClassName="de.oliver_heger.linedj.platform.bus.RemoteController">
       <di:constructor>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="widget:onlineIndicator"/>

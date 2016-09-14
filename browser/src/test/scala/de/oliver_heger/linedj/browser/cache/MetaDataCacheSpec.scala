@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.browser.cache
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import org.mockito.Mockito._

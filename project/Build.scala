@@ -77,7 +77,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, archive, actorSystem, client, mediaBrowser, playlistEditor, reorderMedium,
+    ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor, reorderMedium,
       reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
       mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
       mediaIfcDisabled, archiveStartup)
@@ -114,10 +114,10 @@ object Build extends Build {
 
   /**
     * Project for the client platform. This project contains code shared by
-    * all visual client applications.
+    * all visual applications.
     */
-  lazy val client = Project(id = "client",
-    base = file("client"))
+  lazy val platform = Project(id = "platform",
+    base = file("platform"))
     .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
@@ -165,7 +165,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-    ) dependsOn (client, archive)
+    ) dependsOn (platform, archive)
 
   /**
     * Project for the media browser client application. This application allows
@@ -190,7 +190,7 @@ object Build extends Build {
         "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
-    ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
+    ) dependsOn (shared % "compile->compile;test->test", platform % "compile->compile;test->test")
 
   /**
     * Project for the playlist editor client application. This application
@@ -213,7 +213,7 @@ object Build extends Build {
       OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-    ) dependsOn (shared % "compile->compile;test->test", client % "compile->compile;test->test")
+    ) dependsOn (shared % "compile->compile;test->test", platform % "compile->compile;test->test")
 
   /**
     * Project for the playlist medium reorder component. This is an
@@ -396,7 +396,7 @@ object Build extends Build {
       OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(client % "compile->compile;test->test", playerEngine)
+  ) dependsOn(platform % "compile->compile;test->test", playerEngine)
 
   /**
     * Project for the remote media interface. This project establishes a
@@ -415,7 +415,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.client.mediaifc.actors.impl.*"
       )
-    ) dependsOn(client % "compile->compile;test->test")
+    ) dependsOn(platform % "compile->compile;test->test")
 
   /**
     * Project for the remote media interface. This project establishes a
@@ -471,5 +471,5 @@ object Build extends Build {
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
-    ) dependsOn(client % "compile->compile;test->test")
+    ) dependsOn(platform % "compile->compile;test->test")
 }

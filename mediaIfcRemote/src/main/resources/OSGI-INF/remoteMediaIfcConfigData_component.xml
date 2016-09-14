@@ -23,10 +23,10 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.remoteMediaIfcConfigData">
-  <implementation class="de.oliver_heger.linedj.client.mediaifc.remote.RemoteMediaIfcConfigData" />
+  <implementation class="de.oliver_heger.linedj.platform.mediaifc.remote.RemoteMediaIfcConfigData" />
 
   <service>
-    <provide interface="de.oliver_heger.linedj.client.mediaifc.config.MediaIfcConfigData"/>
+    <provide interface="de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData"/>
   </service>
 
 </component>

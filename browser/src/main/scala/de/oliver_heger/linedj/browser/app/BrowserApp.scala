@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.app
 
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 
 /**
  * Main class of LineDJ Browser application.

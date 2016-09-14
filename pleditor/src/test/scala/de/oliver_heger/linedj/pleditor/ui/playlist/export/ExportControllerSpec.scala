@@ -20,9 +20,9 @@ import java.nio.file.Paths
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.mediaifc.MediaFacade
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData

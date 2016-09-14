@@ -21,10 +21,10 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.client.ActorSystemTestHelper
-import de.oliver_heger.linedj.client.comm.MessageBus
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.ActorSystemTestHelper
+import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.{FileData, ScanResult}
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult

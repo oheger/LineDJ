@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext

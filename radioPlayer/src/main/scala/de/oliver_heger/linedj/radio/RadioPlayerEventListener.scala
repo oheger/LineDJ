@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.comm.MessageBusListener
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 

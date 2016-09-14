@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderManagerActor._
 import de.oliver_heger.linedj.utils.ChildActorFactory

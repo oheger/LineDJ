@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderActor.{ReorderResponse, ReorderRequest}
 

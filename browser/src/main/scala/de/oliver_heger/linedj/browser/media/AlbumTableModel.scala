@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.media.AlbumTableModel.AlbumData
-import de.oliver_heger.linedj.client.model.{SongTrackNoOrdering, SongData}
+import de.oliver_heger.linedj.platform.model.{SongTrackNoOrdering, SongData}
 
 private object AlbumTableModel {
   /**

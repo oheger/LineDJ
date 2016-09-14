@@ -20,7 +20,7 @@ import java.io.IOException
 import java.nio.file.{Path, Paths}
 import java.util
 
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.{DirectoryScanner, FileData, ScanResult}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData

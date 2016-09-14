@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.client.ActorSystemTestHelper
+import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.io.FileReaderActor.ReadData
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}

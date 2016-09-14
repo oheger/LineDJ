@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import de.oliver_heger.linedj.client.app.ClientApplicationContext
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory

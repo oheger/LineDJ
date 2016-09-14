@@ -28,7 +28,7 @@
     <provide interface="net.sf.jguiraffe.gui.app.Application"/>
   </service>
 
-  <reference interface="de.oliver_heger.linedj.client.app.ClientApplicationContext"
+  <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
 
   <reference interface="de.oliver_heger.linedj.player.engine.PlaybackContextFactory"

@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
-import de.oliver_heger.linedj.client.app.ClientApplicationContext
-import de.oliver_heger.linedj.client.comm.ActorFactory
+import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.comm.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.Mockito._
 import org.mockito.Matchers._

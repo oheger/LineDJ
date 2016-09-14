@@ -20,9 +20,9 @@ import java.util.Locale
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.client.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.client.model.{SongData, SongDataFactory}
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
+import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
 import net.sf.jguiraffe.gui.builder.action.ActionStore

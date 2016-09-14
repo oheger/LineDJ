@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.pleditor.ui.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
-import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService

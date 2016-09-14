@@ -20,10 +20,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.client.ActorSystemTestHelper
-import de.oliver_heger.linedj.client.app.ClientApplicationContext
-import de.oliver_heger.linedj.client.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.ActorSystemTestHelper
+import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext

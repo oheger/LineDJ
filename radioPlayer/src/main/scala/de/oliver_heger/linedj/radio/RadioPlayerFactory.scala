@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 

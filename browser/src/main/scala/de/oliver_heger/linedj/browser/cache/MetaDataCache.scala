@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.browser.cache
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.comm.MessageBusListener
-import de.oliver_heger.linedj.client.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MetaDataChunk}
 

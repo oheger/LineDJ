@@ -64,7 +64,7 @@
 
   <!-- Message bus registration -->
   <di:bean name="LineDJ_messageBusRegistration"
-           beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
+           beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>

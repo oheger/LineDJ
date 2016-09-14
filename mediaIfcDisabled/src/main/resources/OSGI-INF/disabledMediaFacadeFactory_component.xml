@@ -24,10 +24,10 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.disabledMediaFacadeFactory">
-  <implementation class="de.oliver_heger.linedj.client.mediaifc.disabled.DisabledMediaFacadeFactory" />
+  <implementation class="de.oliver_heger.linedj.platform.mediaifc.disabled.DisabledMediaFacadeFactory" />
 
   <service>
-    <provide interface="de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory"/>
+    <provide interface="de.oliver_heger.linedj.platform.mediaifc.MediaFacadeFactory"/>
   </service>
 
 </component>

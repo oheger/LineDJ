@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
-import de.oliver_heger.linedj.client.comm.MessageBus
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers.any

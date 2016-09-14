@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.ui.app
 
-import de.oliver_heger.linedj.client.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
 import net.sf.jguiraffe.gui.app.ApplicationContext
 

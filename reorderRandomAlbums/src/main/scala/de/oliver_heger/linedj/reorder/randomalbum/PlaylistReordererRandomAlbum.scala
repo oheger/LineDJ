@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.randomalbum
 
-import de.oliver_heger.linedj.client.model.{SongAlbumOrdering, SongData}
+import de.oliver_heger.linedj.platform.model.{SongAlbumOrdering, SongData}
 import de.oliver_heger.linedj.pleditor.spi.RandomGroupingPlaylistReorderer
 
 /**

@@ -23,7 +23,7 @@
 
   <!-- The specialized window manager -->
   <di:bean name="jguiraffe.windowManager"
-    beanClassName="de.oliver_heger.linedj.client.app.JavaFxSharedWindowManager">
+    beanClassName="de.oliver_heger.linedj.platform.app.JavaFxSharedWindowManager">
     <di:constructor>
       <di:param refName="jguiraffe.styleSheetProvider"/>
     </di:constructor>
@@ -31,7 +31,7 @@
 
   <!-- The song data factory -->
   <di:bean name="songDataFactory"
-    beanClassName="de.oliver_heger.linedj.client.model.SongDataFactory">
+    beanClassName="de.oliver_heger.linedj.platform.model.SongDataFactory">
     <di:constructor>
       <di:param refName="jguiraffe.applicationContext"/>
     </di:constructor>

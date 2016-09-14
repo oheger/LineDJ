@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
-import de.oliver_heger.linedj.client.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory

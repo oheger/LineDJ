@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.spi
 
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.model.SongData
 
 /**
   * A trait for components that can reorder a playlist.

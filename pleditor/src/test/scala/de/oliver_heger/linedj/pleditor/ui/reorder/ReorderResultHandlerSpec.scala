@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import java.util
 
-import de.oliver_heger.linedj.client.model.SongData
+import de.oliver_heger.linedj.platform.model.SongData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.{Matchers, FlatSpec}

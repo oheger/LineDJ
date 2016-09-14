@@ -42,7 +42,7 @@
 
   <!-- The form bean -->
   <di:bean name="configSettings" beanClassLoader="configCL"
-           beanClassName="de.oliver_heger.linedj.client.mediaifc.remote.RemoteMediaIfcConfigBean">
+           beanClassName="de.oliver_heger.linedj.platform.mediaifc.remote.RemoteMediaIfcConfigBean">
   </di:bean>
 
   <!-- The bean for the form controller.-->

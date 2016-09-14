@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.client.comm.MessageBusListener
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
 /**

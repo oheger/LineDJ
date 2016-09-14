@@ -24,7 +24,7 @@
 
   <!-- A transformer for durations -->
   <di:bean name="durationTransformer"
-    beanClassName="de.oliver_heger.linedj.client.model.DurationTransformer">
+    beanClassName="de.oliver_heger.linedj.platform.model.DurationTransformer">
   </di:bean>
 
   <!-- An event filter for the window closing event. -->
@@ -104,7 +104,7 @@
 
   <!-- Message bus registration -->
   <di:bean name="pleditorApp_MessageBusRegistration"
-    beanClassName="de.oliver_heger.linedj.client.bus.MessageBusRegistration">
+    beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
     <di:constructor>
       <di:param>
         <di:list>
@@ -184,7 +184,7 @@
 
     <!-- Remote controller -->
     <di:bean name="remoteController"
-      beanClassName="de.oliver_heger.linedj.client.bus.RemoteController">
+      beanClassName="de.oliver_heger.linedj.platform.bus.RemoteController">
       <di:constructor>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="widget:onlineIndicator"/>

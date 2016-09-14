@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.client.app.{ClientApplication, ClientApplicationContext}
-import de.oliver_heger.linedj.client.comm.ActorFactory
+import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.io.FileReaderActor
 import org.mockito.Mockito._
 import org.mockito.Matchers._

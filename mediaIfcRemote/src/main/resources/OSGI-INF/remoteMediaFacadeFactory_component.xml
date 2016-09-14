@@ -23,10 +23,10 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.remoteMediaFacadeFactory">
-  <implementation class="de.oliver_heger.linedj.client.mediaifc.remote.RemoteMediaFacadeFactory" />
+  <implementation class="de.oliver_heger.linedj.platform.mediaifc.remote.RemoteMediaFacadeFactory" />
 
   <service>
-    <provide interface="de.oliver_heger.linedj.client.mediaifc.MediaFacadeFactory"/>
+    <provide interface="de.oliver_heger.linedj.platform.mediaifc.MediaFacadeFactory"/>
   </service>
 
 </component>
