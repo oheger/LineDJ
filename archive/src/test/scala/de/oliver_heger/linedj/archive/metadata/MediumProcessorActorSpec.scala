@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io.{ChannelHandler, FileData}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -575,33 +575,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "process the whole list of files from multiple process messages" in {
     val helper = new MediumProcessorActorTestHelper
 
-    def processPath(p: Path): Unit = {
-      val probe = helper.installProcessorActor(helper.mp3ProcessorMap, p)
-      helper.installProcessorActor(helper.id3v1ProcessorMap, p)
-      when(helper.mp3ProcessorMap.removeItemFor(p)).thenReturn(Some(probe.ref))
-      val collector = helper installCollector p
-      when(helper.collectorMap.removeItemFor(p)).thenReturn(Some(collector))
-      val mp3Data = createMp3Result(p)
-      when(collector.setMp3MetaData(mp3Data)).thenReturn(Some(MetaData))
-
-      val processMsg = createMp3Data(p)
-      helper send processMsg
-      probe.expectMsg(processMsg)
-      helper.actor.tell(mp3Data, probe.ref)
-      val pathIdx = p.toString.last.toString.toInt
-      expectProcessingResult(p, fileUri(pathIdx))
-    }
-
     helper.actor ! ProcessMessage
     val p1 = helper.readerActors.head.expectMsgType[ReadMediaFile].path
     val p2 = helper.readerActors(1).expectMsgType[ReadMediaFile].path
-    processPath(p1)
+    helper.processPath(p1)
     helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(4)))
-    processPath(p2)
+    helper.processPath(p2)
     helper.actor.tell(MediaFileRead(null), helper.readerActors.head.ref)
     val readMsg = helper.readerActors.head.expectMsgType[ReadMediaFile]
     helper send MediaFileRead(null)
-    processPath(readMsg.path)
+    helper.processPath(readMsg.path)
   }
 
   it should "react on an exception caused by a reader actor" in {
@@ -641,6 +624,47 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     val paths = helper waitForProcessing 2
     paths should contain only (MediumPaths.tail: _*)
+  }
+
+  it should "handle a Cancel request in the middle of processing" in {
+    val helper = new MediumProcessorActorTestHelper
+    val readerData = helper waitForFileReads ProcessorCount
+    helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(3)))
+
+    helper send CloseRequest
+    helper.processMediaFiles(readerData)
+    helper.readerActors.head.expectNoMsg(100.millis)
+    expectMsg(CloseAck(helper.actor))
+  }
+
+  it should "handle a Cancel request after processing done" in {
+    val helper = new MediumProcessorActorTestHelper
+    helper.processMediaFiles(helper waitForFileReads ProcessorCount)
+
+    helper.actor ! CloseRequest
+    expectMsg(CloseAck(helper.actor))
+  }
+
+  it should "ignore further media files while a Cancel request is pending" in {
+    val helper = new MediumProcessorActorTestHelper
+    val readerData = helper waitForFileReads ProcessorCount
+
+    helper send CloseRequest
+    helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(3)))
+    helper.processMediaFiles(readerData)
+    expectMsg(CloseAck(helper.actor))
+    helper.readerActors.head.expectNoMsg(100.millis)
+  }
+
+  it should "reset the cancel flag after sending a CloseAck" in {
+    val helper = new MediumProcessorActorTestHelper
+    val readerData = helper waitForFileReads ProcessorCount
+
+    helper send CloseRequest
+    helper.processMediaFiles(readerData)
+    expectMsg(CloseAck(helper.actor))
+    helper.actor ! ProcessMediaFiles(RootMedium, List(mediaFile(3)))
+    helper waitForProcessing 1
   }
 
   private object MediumProcessorActorTestHelper {
@@ -712,6 +736,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
+      * Waits until the given number of read operations has been started and
+      * returns information about the reader actors and the paths they have to
+      * process.
+      *
+      * @param pathCount the number of paths to wait for
+      * @return a sequence with the reader probes and their paths
+      */
+    def waitForFileReads(pathCount: Int): Seq[(TestProbe, Path)] = {
+      actor ! ProcessMessage
+      readerActors.take(pathCount).map(p => (p, p.expectMsgType[ReadMediaFile].path))
+    }
+
+    /**
      * Directly sends the specified message to the test actor (by invoking
      * receive on the test reference).
       *
@@ -752,6 +789,57 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       val collector = mock[MetaDataPartsCollector]
       when(collectorMap.getOrCreateCollector(fileFromPath(p))).thenReturn(collector)
       collector
+    }
+
+    /**
+      * Simulates processing of a media file.
+      *
+      * @param p the path of the media file
+      * @return this test helper
+      */
+    def processPath(p: Path): MediumProcessorActorTestHelper = {
+      val probe = installProcessorActor(mp3ProcessorMap, p)
+      installProcessorActor(id3v1ProcessorMap, p)
+      when(mp3ProcessorMap.removeItemFor(p)).thenReturn(Some(probe.ref))
+      val collector = installCollector(p)
+      when(collectorMap.removeItemFor(p)).thenReturn(Some(collector))
+      val mp3Data = createMp3Result(p)
+      when(collector.setMp3MetaData(mp3Data)).thenReturn(Some(MetaData))
+
+      val processMsg = createMp3Data(p)
+      send(processMsg)
+      probe.expectMsg(processMsg)
+      actor.tell(mp3Data, probe.ref)
+      val pathIdx = p.toString.last.toString.toInt
+      expectProcessingResult(p, fileUri(pathIdx))
+      this
+    }
+
+    /**
+      * Sends a message to the test actor that the specified media file has
+      * been read completely.
+      *
+      * @param reader the reader actor test probe
+      * @param p      the path of the media file
+      * @return this test helper
+      */
+    def sendFileRead(reader: TestProbe, p: Path): MediumProcessorActorTestHelper = {
+      actor.tell(MediaFileRead(p), reader.ref)
+      this
+    }
+
+    /**
+      * Simulates full processing of the specified media files.
+      *
+      * @param readerData a sequence with reader actors and paths to process
+      * @return this test helper
+      */
+    def processMediaFiles(readerData: Seq[(TestProbe, Path)]): MediumProcessorActorTestHelper = {
+      readerData foreach { d =>
+        processPath(d._2)
+        sendFileRead(d._1, d._2)
+      }
+      this
     }
 
     /**

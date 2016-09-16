@@ -22,7 +22,7 @@ import java.nio.file.Path
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -186,6 +186,9 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
   /** An option for the meta data manager actor which receives all results. */
   private var metaDataManager: Option[ActorRef] = None
 
+  /** A flag whether processing is to be canceled. */
+  private var cancelProcessing = false
+
   /**
    * Constructor to be used for default actor creation.
     *
@@ -206,7 +209,7 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
   }
 
   override def receive: Receive = {
-    case p: ProcessMediaFiles =>
+    case p: ProcessMediaFiles if !cancelProcessing =>
       if (metaDataManager.isEmpty) {
         metaDataManager = Some(sender())
       }
@@ -244,6 +247,14 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
 
     case t: Terminated =>
       readerActorMap remove t.actor foreach handleTerminatedReadActor
+
+    case CloseRequest =>
+      if (currentProcessingData.isEmpty) {
+        sendCloseAck(sender())
+      } else {
+        cancelProcessing = true
+      }
+      mediaFilesToProcess = Nil
   }
 
   /**
@@ -367,6 +378,10 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
       metaData)
     collectorMap removeItemFor p
     currentProcessingData -= p
+
+    if (cancelProcessing && currentProcessingData.isEmpty) {
+      sendCloseAck(manager)
+    }
   }
 
   /**
@@ -413,5 +428,16 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
    */
   private def processorCountFromConfig: Int = {
     config.rootFor(data.scanResult.root) map (_.processorCount) getOrElse 1
+  }
+
+  /**
+    * Sends a CloseAck message to the given receiver and updates the internal
+    * state accordingly.
+    *
+    * @param receiver the receiving actor
+    */
+  private def sendCloseAck(receiver: ActorRef): Unit = {
+    receiver ! CloseAck(self)
+    cancelProcessing = false
   }
 }
