@@ -398,6 +398,7 @@ Actor with ActorLogging {
    */
   private def processScanRequest(roots: Iterable[String]): Unit = {
     if (noScanInProgress) {
+      metaDataManager ! MediaScanStarts
       mediaMap = Map.empty
       mediaCount = 0
       pathsToScan = roots.size
@@ -543,6 +544,7 @@ Actor with ActorLogging {
    */
   private def mediaDataAdded(): Boolean = {
     if (mediaInformationComplete) {
+      metaDataManager ! AvailableMedia(mediaMap)
       handlePendingMediaRequests()
       completeScanOperation()
       true

@@ -475,6 +475,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val fileMapping3 = helper.Drive3OtherIDData.fileURIMapping
     helper.scanMedia()
 
+    helper.metaDataManagerActor.expectMsg(MediaScanStarts)
     val messages = for (i <- 1 to 3) yield helper.metaDataManagerActor
       .expectMsgType[EnhancedMediaScanResult]
     messages should contain only(EnhancedMediaScanResult(helper.Drive1, checkMap1, fileMapping1),
@@ -482,20 +483,35 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       EnhancedMediaScanResult(helper.Drive3, checkMap3, fileMapping3))
   }
 
+  it should "notify the meta data manager about a completed scan" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+
+    helper.metaDataManagerActor.fishForMessage() {
+      case MediaScanStarts => false
+      case _: EnhancedMediaScanResult => false
+      case am: AvailableMedia =>
+        helper checkMediaWithDescriptions am
+        true
+    }
+    expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
   it should "produce correct enhanced scan results in another scan operation" in {
     def checkMetaDataMessages(helper: MediaManagerTestHelper): Unit = {
+      helper.metaDataManagerActor.expectMsg(MediaScanStarts)
       for (i <- 1 to 3) {
         helper.metaDataManagerActor.expectMsgType[EnhancedMediaScanResult]
       }
-      val Ping = "Ping"  // check that no additional messages are there
-      helper.metaDataManagerActor.ref ! Ping
-      helper.metaDataManagerActor.expectMsg(Ping)
+      helper.metaDataManagerActor.expectMsgType[AvailableMedia]
+      expectNoMoreMessage(helper.metaDataManagerActor)
     }
 
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
     checkMetaDataMessages(helper)
     helper.resetProbes()
+    println("2nd scan.")
     helper.scanMedia()
     checkMetaDataMessages(helper)
   }
@@ -820,10 +836,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       probes.getOrElse(actorClass, Nil)
 
     /**
-     * Resets the map with test probes.
-     */
+      * Resets the map with test probes. Note: The file loader actor has to be
+      * treated in a special way because it is created in preStart(); so it is
+      * not created again on a second run.
+      */
     def resetProbes(): Unit = {
+      val fileLoaderActorCls = FileLoaderActor().actorClass()
+      val loaderActorData = probes(fileLoaderActorCls)
       probes = createTestProbesMap()
+      probes += fileLoaderActorCls -> loaderActorData
     }
 
     /**

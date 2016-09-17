@@ -50,3 +50,11 @@ case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]]
 case class EnhancedMediaScanResult(scanResult: MediaScanResult,
                                    checksumMapping: Map[MediumID, String],
                                    fileUriMapping: Map[String, FileData])
+
+/**
+  * A message that serves as an indicator about a newly started media scan.
+  * This message is sent by the media manager actor to the meta data manager
+  * actor, so that it can reset its state and prepare itself to receive media
+  * scan results.
+  */
+case object MediaScanStarts
