@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -182,6 +183,9 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   /** The current number of active reader actors. */
   private var activeReaderActors = 0
 
+  /** Stores information about a pending close request. */
+  private var closeRequest: Option[ActorRef] = None
+
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     super.preStart()
@@ -195,7 +199,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       optMetaDataFiles = Some(fileScanner scanForMetaDataFiles config.metaDataPersistencePath)
       processPendingScanResults(pendingScanResults)
 
-    case res: EnhancedMediaScanResult =>
+    case res: EnhancedMediaScanResult if closeRequest.isEmpty =>
       processPendingScanResults(res :: pendingScanResults)
 
     case PersistentMetaDataReaderActor.ProcessingResults(data) =>
@@ -207,7 +211,11 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
     case Terminated(reader) =>
       activeReaderActors -= 1
-      startReaderActors()
+      closeRequest match {
+        case Some(rec) =>
+          checkAndSendCloseAck(rec)
+        case None => startReaderActors()
+      }
 
       val optMediumData = mediaInProgress.values find (_.readerActor == reader)
       optMediumData foreach { d =>
@@ -215,6 +223,12 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor, d.resolvedFilesCount))
         mediaInProgress = mediaInProgress - d.mediumID
       }
+
+    case CloseRequest =>
+      closeRequest = Some(sender())
+      mediaInProgress = Map.empty
+      pendingReadRequests = Nil
+      checkAndSendCloseAck(sender())
   }
 
   /**
@@ -398,4 +412,17 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
           , readerCount + 1)
       case _ => (requests, inProgress, readerCount)
     }
+
+  /**
+    * Checks whether a close request can be answered. If so, the Ack message
+    * is sent to the given receiver, and the internal state is updated.
+    *
+    * @param receiver the receiver
+    */
+  private def checkAndSendCloseAck(receiver: ActorRef): Unit = {
+    if (activeReaderActors == 0) {
+      receiver ! CloseAck(self)
+      closeRequest = None
+    }
+  }
 }

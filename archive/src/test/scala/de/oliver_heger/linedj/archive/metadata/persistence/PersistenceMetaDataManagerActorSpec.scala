@@ -22,7 +22,7 @@ import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -370,6 +370,59 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val results2 = processingResults(mid2) take 3
     actor ! PersistentMetaDataReaderActor.ProcessingResults(results2)
     expectProcessingResults(results2)
+  }
+
+  it should "handle a Cancel request in the middle of processing" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4, 5).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    val readerActors = helper.expectChildReaderActors(2)
+    val mid1 = readerActors.head.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+      .mediumID
+    val mid2 = readerActors(1).expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+      .mediumID
+    actor ! PersistentMetaDataReaderActor.ProcessingResults(processingResults(mid1))
+
+    actor ! CloseRequest
+    system stop readerActors.head.ref
+    actor ! enhancedScanResult(3)
+    actor ! PersistentMetaDataReaderActor.ProcessingResults(processingResults(mid2))
+    system stop readerActors(1).ref
+    expectProcessingResults(processingResults(mid1))
+    expectMsg(CloseAck(actor))
+    helper.expectNoChildReaderActor()
+  }
+
+  it should "handle a Cancel request after processing" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1)
+    val reader = helper.expectChildReaderActor()
+    val mid = reader.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile].mediumID
+    val results = processingResults(mid)
+    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    expectProcessingResults(results)
+    system stop reader.ref
+    helper.expectNoChildReaderActor()
+
+    actor ! CloseRequest
+    expectMsg(CloseAck(actor))
+  }
+
+  it should "reset the CloseRequest after sending an Ack" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4, 5, 6).createTestActor()
+    actor ! enhancedScanResult(1, 2, 3, 4, 5, 6)
+    val readers = helper.expectChildReaderActors(ParallelCount)
+    expectMessages[PersistentMetaDataReaderActor.ReadMetaDataFile](readers: _*)
+    actor ! CloseRequest
+    readers foreach (a => system stop a.ref)
+    expectMsg(CloseAck(actor))
+
+    actor ! enhancedScanResult(6)
+    val nextReader = helper.expectChildReaderActor()
+    val mid = nextReader.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile].mediumID
+    mid should be(mediumID(6))
   }
 
   /**
