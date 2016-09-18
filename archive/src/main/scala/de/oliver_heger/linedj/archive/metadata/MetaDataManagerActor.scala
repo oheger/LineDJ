@@ -21,8 +21,8 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediaScanStarts}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -105,8 +105,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private val uriHandler = new MediaFileUriHandler
 
   /**
-   * A map for storing the extracted meta data for all media.
-   */
+    * A map for storing the extracted meta data for all media.
+    */
   private val mediaMap = collection.mutable.Map.empty[MediumID, MediumDataHandler]
 
   /** Stores the listeners registered for specific media. */
@@ -118,13 +118,29 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** A map with the processor actors for the different media roots. */
   private var processorActors = Map.empty[Path, ActorRef]
 
+  /** A set with IDs for media which have already been completed. */
+  private var completedMedia = Set.empty[MediumID]
+
+  /**
+    * Stores information about all available media. This is provided by the
+    * media manager when the file scan is complete. It is used to determine
+    * when the processing of media files is done.
+    */
+  private var availableMedia: Option[Map[MediumID, MediumInfo]] = None
+
+  /** A flag whether a scan is currently in progress. */
+  private var scanInProgress = false
+
   override def receive: Receive = {
-    case esr: EnhancedMediaScanResult =>
+    case MediaScanStarts =>
+      mediaMap.clear()
+      scanInProgress = true
+
+    case esr: EnhancedMediaScanResult if scanInProgress =>
       persistenceManager ! esr
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult =>
-      log.info("Received MetaDataProcessingResult for {}.", result.path)
       handleProcessingResult(result.mediumID, result)
       if (isUnassignedMedium(result.mediumID)) {
         // update global unassigned list
@@ -133,10 +149,14 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
-      val actorMap = if(processorActors contains root) processorActors
+      val actorMap = if (processorActors contains root) processorActors
       else processorActors + (root -> createChildActor(MediumProcessorActor(result, config)))
       actorMap(root) ! ProcessMediaFiles(mid, files)
       processorActors = actorMap
+
+    case AvailableMedia(media) =>
+      availableMedia = Some(media)
+      checkAndHandleScanComplete()
 
     case GetMetaData(mediumID, registerAsListener) =>
       mediaMap get mediumID match {
@@ -145,7 +165,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
         case Some(handler) =>
           handler.metaData foreach (sender ! _)
-          if(registerAsListener && !handler.isComplete) {
+          if (registerAsListener && !handler.isComplete) {
             val newListeners = sender() :: mediumListeners.getOrElse(mediumID, Nil)
             mediumListeners(mediumID) = newListeners
           }
@@ -168,13 +188,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   }
 
   /**
-   * Prepares the handler object for a medium. If this medium is already known,
-   * the existing handler is updated. Otherwise (which should be the default
-   * case except for the undefined medium ID), a new handler object is
-   * initialized.
+    * Prepares the handler object for a medium. If this medium is already known,
+    * the existing handler is updated. Otherwise (which should be the default
+    * case except for the undefined medium ID), a new handler object is
+    * initialized.
     *
     * @param e an entry from the map of media files from a scan result object
-   */
+    */
   private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit = {
     val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, createHandlerForMedium(mediumID))
@@ -192,13 +212,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @return the handler for this medium
     */
   private def createHandlerForMedium(mediumID: MediumID): MediumDataHandler =
-    if (MediumID.UndefinedMediumID == mediumID) new MediumDataHandler(mediumID) {
-      override protected def extractUri(result: MetaDataProcessingResult): String =
-        uriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
-    } else new MediumDataHandler(mediumID) {
-      override protected def extractUri(result: MetaDataProcessingResult): String =
-        result.uri
-    }
+  if (MediumID.UndefinedMediumID == mediumID) new MediumDataHandler(mediumID) {
+    override protected def extractUri(result: MetaDataProcessingResult): String =
+      uriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
+  } else new MediumDataHandler(mediumID) {
+    override protected def extractUri(result: MetaDataProcessingResult): String =
+      result.uri
+  }
 
   /**
     * Handles a meta data processing result.
@@ -211,38 +231,60 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   }
 
   /**
-   * Processes a meta data result that has been produced by a child actor. The
-   * result is added to the responsible handler. If necessary, listeners are
-   * notified.
+    * Processes a meta data result that has been produced by a child actor. The
+    * result is added to the responsible handler. If necessary, listeners are
+    * notified.
     *
     * @param mediumID the ID of the affected medium
-   * @param result the processing result
-   * @param handler the handler for this medium
-   */
+    * @param result   the processing result
+    * @param handler  the handler for this medium
+    */
   private def processMetaDataResult(mediumID: MediumID,
                                     result: MetaDataProcessingResult)(handler: MediumDataHandler)
   : Unit = {
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {
       mediumListeners remove mediumID
-      if (completionListeners.nonEmpty) {
-        val msg = MediumMetaDataCompleted(mediumID)
-        completionListeners foreach (_ ! msg)
-      }
+      lazy val msg = MediumMetaDataCompleted(mediumID)
+      completionListeners foreach (_ ! msg)
+      completedMedia += mediumID
+      checkAndHandleScanComplete()
     }
   }
 
   /**
-   * Handles a new chunk of mata data that became available. This method
-   * notifies the listeners registered for this medium.
+    * Handles a new chunk of mata data that became available. This method
+    * notifies the listeners registered for this medium.
     *
     * @param mediumID the ID of the affected medium
-   * @param chunk the chunk
-   */
+    * @param chunk    the chunk
+    */
   private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit = {
     mediumListeners get mediumID foreach { l =>
       val chunkMsg = chunk
       l foreach (_ ! chunkMsg)
     }
   }
+
+  /**
+    * Checks whether the scan for meta data is now complete. If this is the
+    * case, the corresponding steps are done.
+    */
+  private def checkAndHandleScanComplete(): Unit = {
+    if (allMediaProcessingResultsReceived) {
+      scanInProgress = false
+      availableMedia = None
+      completedMedia = Set.empty
+    }
+  }
+
+  /**
+    * Returns a flag whether the processing results for all media have been
+    * received. This is used to find out when a scan is complete.
+    *
+    * @return '''true''' if all results have been arrived; '''false'''
+    *         otherwise
+    */
+  private def allMediaProcessingResultsReceived: Boolean =
+  availableMedia exists (m => m.keySet subsetOf completedMedia)
 }

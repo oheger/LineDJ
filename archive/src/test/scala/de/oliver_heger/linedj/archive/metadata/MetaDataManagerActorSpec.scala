@@ -23,7 +23,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.media._
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
@@ -51,6 +51,9 @@ object MetaDataManagerActorSpec {
 
   /** The undefined medium ID for the scan result. */
   private val UndefinedMediumID = MediumID(ScanResult.root.toString, None)
+
+  /** A special test message sent to actors. */
+  private val TestMessage = new Object
 
   /**
    * Helper method for generating a path.
@@ -132,6 +135,20 @@ object MetaDataManagerActorSpec {
   }
 
   /**
+    * Generates an ''AvailableMedia'' message for the specified scan result.
+    *
+    * @param result the scan result
+    * @return the corresponding available message
+    */
+  private def createAvailableMedia(result: MediaScanResult): AvailableMedia = {
+    val mediaInfo = result.mediaFiles.keys.map { mid =>
+      (mid, MediumInfo(mediumID = mid, name = "Medium " + mid.mediumURI,
+        description = "", orderMode = "", orderParams = "", checksum = "c" + mid.mediumURI))
+    }.toMap
+    AvailableMedia(mediaInfo)
+  }
+
+  /**
     * Generates a global URI to file mapping for the given result object.
     *
     * @param result the ''MediaScanResult''
@@ -139,6 +156,18 @@ object MetaDataManagerActorSpec {
     */
   private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
     result.mediaFiles.values.flatten.map(f => (uriFor(f.path), f)).toMap
+
+  /**
+    * Helper method to ensure that no more messages are sent to a test probe.
+    * This message sends a special message to the probe and checks whether it is
+    * immediately received.
+    *
+    * @param probe the probe to be checked
+    */
+  private def expectNoMoreMessage(probe: TestProbe): Unit = {
+    probe.ref ! TestMessage
+    probe.expectMsg(TestMessage)
+  }
 }
 
 /**
@@ -168,6 +197,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.startProcessing()
     helper.persistenceManager.expectMsg(EnhancedScanResult)
+  }
+
+  it should "ignore a scan result before the scan is started" in {
+    val helper = new MetaDataManagerActorTestHelper
+
+    helper.actor receive EnhancedScanResult
+    expectNoMoreMessage(helper.persistenceManager)
   }
 
   it should "allow querying a complete medium" in {
@@ -414,6 +450,46 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.numberOfChildActors should be(2)
   }
 
+  it should "reset the scanInProgress flag if all data is available" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    helper.sendAllProcessingResults(ScanResult)
+    helper.actor ! createAvailableMedia(ScanResult)
+
+    helper.actor ! EnhancedScanResult
+    expectNoMoreMessage(helper.persistenceManager)
+  }
+
+  it should "not reset the scanInProgress flag before all processing results arrived" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
+
+    helper.actor ! EnhancedScanResult
+    helper.persistenceManager.expectMsg(EnhancedScanResult)
+  }
+
+  it should "reset internal data before starting another scan" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    helper.sendAllProcessingResults(ScanResult)
+    helper.actor ! createAvailableMedia(ScanResult)
+
+    helper.startProcessing()
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    val results = ScanResult.mediaFiles(TestMediumID) take 2
+    helper.sendProcessingResults(TestMediumID, results)
+    helper.sendProcessingResults(MediaIDs(1), ScanResult.mediaFiles(MediaIDs(1)))
+    helper.actor ! EnhancedScanResult
+    helper.persistenceManager.expectMsg(EnhancedScanResult)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
+      TestMediumID, results, expComplete = false)
+  }
+
   /**
    * A test helper class that manages a couple of helper objects needed for
    * more complex tests of a meta data manager actor.
@@ -449,6 +525,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return the test actor
      */
     def startProcessing(): ActorRef = {
+      actor ! MediaScanStarts
       actor ! EnhancedScanResult
       actor
     }
@@ -489,6 +566,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
+      * Sends complete processing results for all files of the provided scan
+      * result.
+      *
+      * @param result the scan result
+      */
+    def sendAllProcessingResults(result: MediaScanResult): Unit = {
+      result.mediaFiles foreach { e => sendProcessingResults(e._1, e._2) }
+    }
+
+    /**
       * Returns the number of child actors created by the test actor.
       * @return the number of child actors
       */
@@ -499,7 +586,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       *
       * @return the test actor
      */
-    private def createTestActor(): ActorRef = system.actorOf(creationProps())
+    private def createTestActor(): TestActorRef[MetaDataManagerActor] =
+    TestActorRef(creationProps())
 
     private def creationProps(): Props =
       Props(new MetaDataManagerActor(config, persistenceManager.ref) with ChildActorFactory {
