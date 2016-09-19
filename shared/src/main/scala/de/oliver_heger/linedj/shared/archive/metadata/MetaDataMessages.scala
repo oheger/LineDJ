@@ -82,22 +82,25 @@ case class UnknownMedium(mediumID: MediumID)
 case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
 
 /**
- * Tells the meta data manager actor to add a completion listener.
- *
- * Each time all meta data for a specific medium has been extracted, the
- * specified listener actor receives a [[MediumMetaDataCompleted]] message.
- *
- * @param listener the listener actor to be registered
- */
-case class AddCompletionListener(listener: ActorRef)
+  * Tells the meta data manager actor to add a state listener actor.
+  *
+  * The listener will receive notifications of type [[MetaDataStateEvent]]
+  * indicating important updates in the state of the media archive. Note that
+  * on registration of the new listener a [[MetaDataStateUpdated]] event is
+  * sent automatically with current statistics. Further events report the
+  * beginning and end of scan operations and the progress made during scans.
+  *
+  * @param listener the listener actor to be registered
+  */
+case class AddMetaDataStateListener(listener: ActorRef)
 
 /**
- * Tells the meta data manager actor to remove a completion listener.
- *
- * With this message completion listeners can be removed again. The listener
- * to remove is specified as payload of the message. If this actor is not
- * registered as completion listener, this message has no effect.
- *
- * @param listener the completion listener to be removed
- */
-case class RemoveCompletionListener(listener: ActorRef)
+  * Tells the meta data manager actor to remove a state listener actor.
+  *
+  * With this message state listeners can be removed again. The listener
+  * to remove is specified as payload of the message. If this actor is not
+  * registered as state listener, this message has no effect.
+  *
+  * @param listener the state listener to be removed
+  */
+case class RemoveMetaDataStateListener(listener: ActorRef)

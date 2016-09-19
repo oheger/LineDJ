@@ -202,10 +202,10 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
         mediumListeners remove mediumID
       }
 
-    case AddCompletionListener(listener) =>
+    case AddMetaDataStateListener(listener) =>
       completionListeners = listener :: completionListeners
 
-    case RemoveCompletionListener(listener) =>
+    case RemoveMetaDataStateListener(listener) =>
       completionListeners = completionListeners filterNot (_ == listener)
   }
 

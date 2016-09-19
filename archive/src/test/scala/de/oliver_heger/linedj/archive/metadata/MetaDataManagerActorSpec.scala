@@ -401,7 +401,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
 
-    helper.actor ! AddCompletionListener(testActor)
+    helper.actor ! AddMetaDataStateListener(testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     helper.sendProcessingResults(UndefinedMediumID, ScanResult.mediaFiles(UndefinedMediumID))
     expectMsg(MediumMetaDataCompleted(TestMediumID))
@@ -412,9 +412,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "support removing completion listeners" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    helper.actor ! AddCompletionListener(testActor)
+    helper.actor ! AddMetaDataStateListener(testActor)
 
-    helper.actor ! RemoveCompletionListener(testActor)
+    helper.actor ! RemoveMetaDataStateListener(testActor)
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
       TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
