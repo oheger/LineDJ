@@ -82,25 +82,6 @@ case class UnknownMedium(mediumID: MediumID)
 case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
 
 /**
- * A message sent to registered completion listeners notifying them that the
- * full meta data for a medium is now available.
- *
- * Clients interested in the whole meta data library can register co-called
- * completion listeners. They are then notified whenever all meta data for a
- * medium has been extracted. After receiving this message, the meta data can
- * be requested in a second step. This is more efficient than receiving
- * chunks for updates.
- *
- * Typically, during a single meta data extraction operation a message of
- * this type is produced once for each medium discovered. The only exception
- * is the undefined medium which can appear on multiple source directory
- * structures. In this case, multiple messages may be produced.
- *
- * @param mediumID the ID of the medium that has been completed
- */
-case class MediumMetaDataCompleted(mediumID: MediumID)
-
-/**
  * Tells the meta data manager actor to add a completion listener.
  *
  * Each time all meta data for a specific medium has been extracted, the
