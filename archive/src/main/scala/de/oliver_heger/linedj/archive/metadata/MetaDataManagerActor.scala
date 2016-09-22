@@ -112,8 +112,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** Stores the listeners registered for specific media. */
   private val mediumListeners = collection.mutable.Map.empty[MediumID, List[ActorRef]]
 
-  /** A list with the currently registered completion listeners. */
-  private var completionListeners = List.empty[ActorRef]
+  /** A list with the currently registered state listeners. */
+  private var stateListeners = List.empty[ActorRef]
 
   /** A map with the processor actors for the different media roots. */
   private var processorActors = Map.empty[Path, ActorRef]
@@ -140,10 +140,18 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** Stores information about a pending cancel request. */
   private var cancelRequest: Option[ActorRef] = None
 
+  /** The number of currently processed songs. */
+  private var currentSongCount = 0
+
+  /** The current duration of all processed songs. */
+  private var currentDuration = 0L
+
+  /** The current size of all processed songs. */
+  private var currentSize = 0L
+
   override def receive: Receive = {
     case MediaScanStarts if !scanInProgress =>
-      mediaMap.clear()
-      scanInProgress = true
+      initiateNewScan()
 
     case esr: EnhancedMediaScanResult if scanInProgress && cancelRequest.isEmpty =>
       persistenceManager ! esr
@@ -155,6 +163,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
         // update global unassigned list
         handleProcessingResult(MediumID.UndefinedMediumID, result)
       }
+      currentSongCount += 1
+      currentDuration += result.metaData.duration getOrElse 0
+      currentSize += result.metaData.size
 
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
@@ -175,6 +186,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       cancelRequest = Some(sender())
       pendingCloseAck = processorActors.values.toSet + persistenceManager
       pendingCloseAck foreach (_ ! CloseRequest)
+      fireStateEvent(MetaDataScanCanceled)
 
     case CloseAck(actor) =>
       pendingCloseAck -= actor
@@ -203,10 +215,23 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       }
 
     case AddMetaDataStateListener(listener) =>
-      completionListeners = listener :: completionListeners
+      stateListeners = listener :: stateListeners
+      listener ! ccreateStateUpdatedEvent
 
     case RemoveMetaDataStateListener(listener) =>
-      completionListeners = completionListeners filterNot (_ == listener)
+      stateListeners = stateListeners filterNot (_ == listener)
+  }
+
+  /**
+    * Prepares a new scan operation. Initializes some internal state.
+    */
+  private def initiateNewScan(): Unit = {
+    mediaMap.clear()
+    scanInProgress = true
+    currentSize = 0
+    currentDuration = 0
+    currentSongCount = 0
+    fireStateEvent(MetaDataScanStarted)
   }
 
   /**
@@ -267,9 +292,12 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {
       mediumListeners remove mediumID
-      lazy val msg = MediumMetaDataCompleted(mediumID)
-      completionListeners foreach (_ ! msg)
       completedMedia += mediumID
+      if (mediumID != MediumID.UndefinedMediumID) {
+        // the undefined medium is handled at the very end of the scan
+        fireStateEvent(MediumMetaDataCompleted(mediumID))
+        fireStateEvent(ccreateStateUpdatedEvent())
+      }
       checkAndHandleScanComplete()
     }
   }
@@ -305,8 +333,21 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private def completeScanOperation(): Unit = {
     scanInProgress = false
     availableMedia = None
+    if (hasUndefinedMedium) {
+      fireStateEvent(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
+    }
     completedMedia = Set.empty
+    fireStateEvent(MetaDataScanCompleted)
   }
+
+  /**
+    * Checks whether the current list of completed media contains at least one
+    * instance without a settings file (an undefined medium).
+    *
+    * @return a flag whether an undefined medium has been encountered
+    */
+  private def hasUndefinedMedium: Boolean =
+  completedMedia.exists(_.mediumDescriptionPath.isEmpty)
 
   /**
     * Returns a flag whether the processing results for all media have been
@@ -331,5 +372,25 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
         completeScanOperation()
       }
     }
+  }
+
+  /**
+    * Creates a ''MetaDataStateUpdated'' event with the current statistics
+    * information.
+    *
+    * @return the state object
+    */
+  private def ccreateStateUpdatedEvent(): MetaDataStateUpdated =
+  MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount = currentSongCount,
+    duration = currentDuration, size = currentSize, scanInProgress = scanInProgress))
+
+  /**
+    * Sends the specified event to all registered state listeners.
+    *
+    * @param event the event to be sent
+    */
+  private def fireStateEvent(event: => MetaDataStateEvent): Unit = {
+    lazy val msg = event
+    stateListeners foreach (_ ! msg)
   }
 }

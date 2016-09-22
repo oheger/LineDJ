@@ -89,8 +89,12 @@ object MetaDataManagerActorSpec {
     * @param path the path
    * @return the meta data for this path (following conventions)
    */
-  private def metaDataFor(path: Path): MediaMetaData =
-    MediaMetaData(title = Some(path.getFileName.toString))
+  private def metaDataFor(path: Path): MediaMetaData = {
+    val index = extractPathIndex(path)
+    MediaMetaData(title = Some(path.getFileName.toString),
+      duration = Some(index * 10),
+      size = index * 100)
+  }
 
   /**
    * Generates a number of media files that belong to the specified test
@@ -101,13 +105,32 @@ object MetaDataManagerActorSpec {
    * @return the resulting list
    */
   private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
+    val basePath = Option(mediumPath.getParent) getOrElse mediumPath
     @tailrec
     def loop(current: List[FileData], index: Int): List[FileData] = {
       if (index == 0) current
-      else loop(FileData(mediumPath.resolve(s"TestFile_$index.mp3"), 20) :: current, index - 1)
+      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3"), 20) :: current, index - 1)
     }
 
     loop(Nil, count)
+  }
+
+  /**
+    * Extracts an index from the given path. All test paths produced by
+    * ''generateMediaFiles()'' end on a numeric index (before the file
+    * extension). This function extracts this index. (Note: it is not very
+    * robust for other paths.)
+    *
+    * @param path the path
+    * @return the index of this path
+    */
+  private def extractPathIndex(path: Path): Int = {
+    val pathStr = path.toString takeWhile(_ != '.')
+    @tailrec def loop(index: Int): Int =
+      if (Character isDigit pathStr(index)) loop(index - 1)
+      else pathStr.substring(index + 1).toInt
+
+    loop(pathStr.length - 1)
   }
 
   /**
@@ -397,29 +420,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     actor receive RemoveMediumListener(mediumID("someMedium"), testActor)
   }
 
-  it should "support completion listeners" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-
-    helper.actor ! AddMetaDataStateListener(testActor)
-    helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
-    helper.sendProcessingResults(UndefinedMediumID, ScanResult.mediaFiles(UndefinedMediumID))
-    expectMsg(MediumMetaDataCompleted(TestMediumID))
-    expectMsg(MediumMetaDataCompleted(UndefinedMediumID))
-    expectMsg(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
-  }
-
-  it should "support removing completion listeners" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-    helper.actor ! AddMetaDataStateListener(testActor)
-
-    helper.actor ! RemoveMetaDataStateListener(testActor)
-    helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
-    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
-      TestMediumID, ScanResult.mediaFiles(TestMediumID), expComplete = true)
-  }
-
   it should "extract meta data from files that could not be resolved" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
@@ -457,7 +457,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     helper.sendAllProcessingResults(ScanResult)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
 
     helper.actor ! EnhancedScanResult
     expectNoMoreMessage(helper.persistenceManager)
@@ -467,8 +467,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.actor ! createAvailableMedia(ScanResult)
-    helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
+    helper.sendAvailableMedia().
+      sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
     helper.actor ! EnhancedScanResult
     helper.persistenceManager.expectMsg(EnhancedScanResult)
@@ -478,8 +478,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.sendAllProcessingResults(ScanResult)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAllProcessingResults(ScanResult).sendAvailableMedia()
 
     helper.startProcessing()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
@@ -517,7 +516,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor receive EnhancedScanResult
     expectNoMoreMessage(helper.persistenceManager)
     helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     helper.actor ! CloseAck(processor2.ref)
     expectMsg(CloseAck(helper.actor))
   }
@@ -546,7 +545,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "ignore CloseAck messages if no cancel request is pending" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
 
     helper.actor receive CloseAck(helper.persistenceManager.ref)
   }
@@ -557,7 +556,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.actor ! CloseRequest
     helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     expectMsg(CloseAck(helper.actor))
   }
 
@@ -568,7 +567,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! CloseRequest
     helper.persistenceManager.expectMsg(CloseRequest)
     helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     expectMsg(CloseAck(helper.actor))
 
     helper.startProcessing()
@@ -579,14 +578,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.actor ! CloseRequest
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     helper.actor ! CloseAck(helper.persistenceManager.ref)
     expectMsg(CloseAck(helper.actor))
 
     helper.startProcessing()
     val probe = TestProbe()
     helper.actor.tell(CloseRequest, probe.ref)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     expectNoMoreMessage(probe)
   }
 
@@ -596,7 +595,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     helper.actor ! CloseRequest
     helper.persistenceManager.expectMsg(CloseRequest)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     helper.actor ! CloseAck(helper.persistenceManager.ref)
     expectMsg(CloseAck(helper.actor))
 
@@ -641,12 +640,130 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     probe.expectMsgType[MetaDataChunk]
     helper.actor ! CloseRequest
     helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.actor ! createAvailableMedia(ScanResult)
+    helper.sendAvailableMedia()
     expectMsg(CloseAck(helper.actor))
 
     helper.startProcessing()
     helper.sendAllProcessingResults(ScanResult)
     expectNoMoreMessage(probe)
+  }
+
+  it should "pass the current meta data state to a newly registered state listener" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = helper.newStateListener(expectStateMsg = false)
+
+    listener.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 0,
+      size = 0, duration = 0, scanInProgress = false)))
+  }
+
+  it should "correctly update the scan in progress state when a scan starts" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = TestProbe()
+    helper.startProcessing()
+
+    helper.addStateListener(listener)
+    listener.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 0,
+      size = 0, duration = 0, scanInProgress = true)))
+  }
+
+  it should "correctly update the meta data state during a scan operation" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener1, listener2 = TestProbe()
+    helper.startProcessing()
+
+    helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID) take 1)
+    helper.addStateListener(listener1)
+    listener1.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 1,
+      size = 100, duration = 10, scanInProgress = true)))
+
+    helper.sendProcessingResults(TestMediumID,
+      ScanResult.mediaFiles(TestMediumID).slice(1, 2))
+    helper addStateListener listener2
+    listener2.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 2,
+      size = 300, duration = 30, scanInProgress = true)))
+  }
+
+  it should "send messages during a scan operation" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = helper.newStateListener(expectStateMsg = false)
+    helper.startProcessing()
+    listener.expectMsgType[MetaDataStateUpdated].state.scanInProgress shouldBe false
+
+    listener.expectMsg(MetaDataScanStarted)
+    helper.sendAllProcessingResults(ScanResult).sendAvailableMedia()
+    val (completedMedia, updates) = ScanResult.mediaFiles.keys.map{ _ =>
+      (listener.expectMsgType[MediumMetaDataCompleted].mediumID,
+        listener.expectMsgType[MetaDataStateUpdated])
+    }.unzip
+    listener.expectMsg(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
+    listener.expectMsg(MetaDataScanCompleted)
+    completedMedia.toSet should be(ScanResult.mediaFiles.keySet)
+    val mediaCounts = updates map(u => u.state.mediaCount)
+    val expMediaCounts = 1 to ScanResult.mediaFiles.size
+    mediaCounts.toSeq should contain theSameElementsInOrderAs expMediaCounts
+  }
+
+  it should "send a message of the undefined medium only if such media occur" in {
+    val mid = MediumID("someMedium", Some("someSettings"))
+    val files = generateMediaFiles(path("somePath"), 8)
+    val sr = MediaScanResult(path("someRoot"), Map(mid -> files))
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = helper.newStateListener()
+    helper.startProcessing(createEnhancedScanResult(sr))
+
+    helper.sendAllProcessingResults(sr).sendAvailableMedia(sr)
+    listener.expectMsg(MetaDataScanStarted)
+    listener.expectMsg(MediumMetaDataCompleted(mid))
+    listener.expectMsgType[MetaDataStateUpdated]
+    listener.expectMsg(MetaDataScanCompleted)
+  }
+
+  it should "support meta data without a duration" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val file = ScanResult.mediaFiles(TestMediumID).head
+    helper.startProcessing()
+    helper.actor receive MetaDataProcessingResult(file.path, TestMediumID, uriFor(file.path),
+      metaDataFor(file.path).copy(duration = None))
+
+    val listener = helper.newStateListener(expectStateMsg = false)
+    listener.expectMsgType[MetaDataStateUpdated].state.duration should be(0)
+  }
+
+  it should "reset statistics when another scan starts" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.sendAllProcessingResults(ScanResult).sendAvailableMedia()
+    val listener1 = helper.newStateListener(expectStateMsg = false)
+    listener1.expectMsgType[MetaDataStateUpdated].state.scanInProgress shouldBe false
+
+    helper.startProcessing()
+    val listener2 = TestProbe()
+    helper addStateListener listener2
+    listener2.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0,
+      songCount = 0, size = 0, duration = 0, scanInProgress = true)))
+  }
+
+  it should "send an event if the scan is canceled" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    val listener = helper.newStateListener()
+    helper.sendAvailableMedia()
+    helper.actor ! CloseRequest
+
+    listener.expectMsg(MetaDataScanCanceled)
+    helper.actor ! CloseAck(helper.persistenceManager.ref)
+    listener.expectMsg(MetaDataScanCompleted)
+  }
+
+  it should "support removing state listeners" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener1 = helper.newStateListener()
+    val listener2 = helper.newStateListener()
+
+    helper.actor ! RemoveMetaDataStateListener(listener2.ref)
+    helper.actor receive MediaScanStarts
+    listener1.expectMsg(MetaDataScanStarted)
+    expectNoMoreMessage(listener2)
   }
 
   /**
@@ -679,14 +796,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private val childActorQueue = new LinkedBlockingQueue[TestProbe]
 
     /**
-     * Convenience function for sending a message to the test actor that starts
-     * processing.
+      * Convenience function for sending a message to the test actor that starts
+      * processing.
       *
+      * @param esr the enhanced scan result to be sent
       * @return the test actor
-     */
-    def startProcessing(): ActorRef = {
+      */
+    def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult): ActorRef = {
       actor ! MediaScanStarts
-      actor ! EnhancedScanResult
+      actor ! esr
       actor
     }
 
@@ -731,9 +849,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * result.
       *
       * @param result the scan result
+      * @return this test helper
       */
-    def sendAllProcessingResults(result: MediaScanResult): Unit = {
+    def sendAllProcessingResults(result: MediaScanResult): MetaDataManagerActorTestHelper = {
       result.mediaFiles foreach { e => sendProcessingResults(e._1, e._2) }
+      this
     }
 
     /**
@@ -751,6 +871,46 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     def nextChild(): TestProbe = {
       awaitCond(!childActorQueue.isEmpty)
       childActorQueue.poll()
+    }
+
+    /**
+      * Sends an ''AvailableMedia'' message for the given scan result to the
+      * test actor.
+      *
+      * @param sr the scan result
+      * @return this test helper
+      */
+    def sendAvailableMedia(sr: MediaScanResult = ScanResult): MetaDataManagerActorTestHelper = {
+      actor ! createAvailableMedia(sr)
+      this
+    }
+
+    /**
+      * Adds a test probe as meta data state listener to the test actor.
+      *
+      * @param probe the test probe to be registered
+      * @return this test helper
+      */
+    def addStateListener(probe: TestProbe): MetaDataManagerActorTestHelper = {
+      actor ! AddMetaDataStateListener(probe.ref)
+      this
+    }
+
+    /**
+      * Creates a test probe for a state listener and registers it at the test
+      * actor.
+      *
+      * @param expectStateMsg a flag whether the state message should be
+      *                       expected
+      * @return the test probe for the listener
+      */
+    def newStateListener(expectStateMsg: Boolean = true): TestProbe = {
+      val probe = TestProbe()
+      addStateListener(probe)
+      if (expectStateMsg) {
+        probe.expectMsgType[MetaDataStateUpdated]
+      }
+      probe
     }
 
     /**
