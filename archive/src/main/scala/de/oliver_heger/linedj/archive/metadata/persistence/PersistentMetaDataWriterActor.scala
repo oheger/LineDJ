@@ -24,7 +24,7 @@ import akka.stream.scaladsl.{FileIO, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium, StreamOperationComplete}
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
 
@@ -65,9 +65,23 @@ object PersistentMetaDataWriterActor {
     * @param process         the ''ProcessMedium'' message for this medium
     * @param elementsWritten the number of elements that have been written
     * @param elements        the elements recorded for this medium
+    * @param trigger         the actor that was the sender of this process
+    *                        message; it is to be notified on write operations
     */
-  private case class MediumData(process: ProcessMedium, elementsWritten: Int,
-                                elements: Map[String, MediaMetaData])
+  private[persistence] case class MediumData(process: ProcessMedium, elementsWritten: Int,
+                                elements: Map[String, MediaMetaData], trigger: ActorRef)
+
+  /**
+    * A message sent by [[PersistentMetaDataWriterActor]] to the triggering
+    * actor after each write operation for meta data. This is received by the
+    * meta data reader actor, so that it can update its record of existing meta
+    * data files.
+    *
+    * @param process the ''ProcessMedium'' message related to the write
+    *                operation
+    * @param success a flag whether the operation was successful
+    */
+  private[persistence] case class MetaDataWritten(process: ProcessMedium, success: Boolean)
 
 }
 
@@ -120,7 +134,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
   override def receive: Receive = {
     case p: ProcessMedium =>
       p.metaDataManager ! GetMetaData(p.mediumID, registerAsListener = true)
-      mediaInProgress += p.mediumID -> MediumData(p, p.resolvedSize, Map.empty)
+      mediaInProgress += p.mediumID -> MediumData(p, p.resolvedSize, Map.empty, sender())
 
     case c: MetaDataChunk =>
       mediaInProgress.get(c.mediumID).foreach { mediumData =>
@@ -149,8 +163,9 @@ class PersistentMetaDataWriterActor(blockSize: Int,
   private def startWriteOperationIfPossible(): Unit = {
     if (!writeInProgress && mediaToBeWritten.nonEmpty) {
       val mid = mediaToBeWritten.keys.head
-      val result = triggerWriteMetaDataFile(mediaToBeWritten(mid))
-      resultHandler.handleFutureResult(context, result, self, log)
+      val mediumData = mediaToBeWritten(mid)
+      val result = triggerWriteMetaDataFile(mediumData)
+      resultHandler.handleFutureResult(context, result, self, log, mediumData)
       writeInProgress = true
       mediaToBeWritten -= mid
     }
@@ -171,7 +186,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
       .map(e => ByteString(processElement(e._1._1, mediumData.process.uriPathMapping(e._1._1), e
         ._1._2, e._2)))
       .concat(Source.single(ByteString("\n]\n", "UTF-8")))
-      .runWith(FileIO.toFile(mediumData.process.target.toFile,
+      .runWith(FileIO.toPath(mediumData.process.target,
         Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)))
     result
   }
@@ -216,12 +231,14 @@ private class FutureIOResultHandler {
     * @param futureResult the future IO result
     * @param actor        the owning actor
     * @param log          the logger for producing log output
+    * @param data         the data object for the write operation
     */
   def handleFutureResult(context: ActorContext, futureResult: Future[IOResult],
-                         actor: ActorRef, log: LoggingAdapter): Unit = {
+                         actor: ActorRef, log: LoggingAdapter,
+                         data: MediumData): Unit = {
     import context._
     futureResult onComplete { r =>
-      onResultComplete(r.flatMap(_.status), actor, log)
+      onResultComplete(r.flatMap(_.status), actor, log, data)
     }
   }
 
@@ -234,14 +251,30 @@ private class FutureIOResultHandler {
     * @param result the completed result
     * @param actor  the owning actor
     * @param log    the logger for producing log output
+    * @param data   the data object for the write operation
     */
-  protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter): Unit = {
+  protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter,
+                                 data: MediumData): Unit = {
     actor ! PersistentMetaDataWriterActor.StreamOperationComplete
     result match {
       case Failure(ex) =>
         log.error(ex, "Stream operation caused an exception!")
+        notifyTriggerActor(data, success = false)
       case Success(_) =>
         log.info("Meta data file written successfully.")
+        notifyTriggerActor(data, success = true)
     }
+  }
+
+  /**
+    * Sends a notification message to the trigger actor about the result of the
+    * current write operation. That way the trigger actor can keep track on
+    * newly written meta data files.
+    *
+    * @param data    the data object for the write operation
+    * @param success a flag whether the operation was successful
+    */
+  protected def notifyTriggerActor(data: MediumData, success: Boolean): Unit = {
+    data.trigger ! MetaDataWritten(data.process, success)
   }
 }

@@ -30,7 +30,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
@@ -143,6 +143,17 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     TestActorRef[PersistentMetaDataWriterActor](Props
     (classOf[PersistentMetaDataWriterActor], 10))
 
+  /**
+    * Creates a ''MediumData'' object to be passed to a future result handler.
+    *
+    * @param optSenderActor an option for the sending actor; if undefined, an
+    *                       anonymous test probe is used
+    * @return the data object
+    */
+  private def createMediumData(optSenderActor: Option[ActorRef] = None): MediumData =
+  MediumData(processMessage(null, TestMedium, 0), 0, Map.empty,
+    optSenderActor getOrElse TestProbe().ref)
+
   it should "create a default FutureIOResultHandler" in {
     val actor = createTestActorRef()
 
@@ -157,10 +168,24 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val writerActor = actor.underlyingActor
 
     writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future, testActor,
-      log)
+      log, createMediumData())
     promise complete Failure(ex)
     expectMsg(PersistentMetaDataWriterActor.StreamOperationComplete)
     verify(log).error(eqArg(ex), anyString())
+  }
+
+  it should "use a result handler that notifies the sender about failed operations" in {
+    val log = mock[LoggingAdapter]
+    val promise = Promise[IOResult]()
+    val actor = createTestActorRef()
+    val writerActor = actor.underlyingActor
+    val mediumData = createMediumData(Some(testActor))
+
+    writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future,
+      TestProbe().ref, log, mediumData)
+    promise complete Failure(new Exception("Test exception"))
+    expectMsg(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
+      success = false))
   }
 
   /**
@@ -171,9 +196,21 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the ''IOResult''
     */
   private def createFailedIOResult(): IOResult = {
-    implicit val mat = ActorMaterializer()
     val path = createPathInDirectory("Some path").resolve("someFile.tst")
-    val futureResult = Source.single(ByteString("Test")).runWith(FileIO.toFile(path.toFile))
+    createIOResult(path)
+  }
+
+  /**
+    * Creates an ''IOResult'' for an operation on the given path.
+    * Unfortunately, ''IOResult'' objects cannot be created directly nor
+    * mocked. Therefore, a real operation has to be executed.
+    *
+    * @param path the path for the operation
+    * @return the ''IOResult''
+    */
+  private def createIOResult(path: Path): IOResult = {
+    implicit val mat = ActorMaterializer()
+    val futureResult = Source.single(ByteString("Test")).runWith(FileIO.toPath(path))
     Await.result(futureResult, 5.seconds)
   }
 
@@ -186,10 +223,25 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val writerActor = actor.underlyingActor
 
     writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future, testActor,
-      log)
+      log, createMediumData())
     promise complete Success(ioResult)
     expectMsg(PersistentMetaDataWriterActor.StreamOperationComplete)
     verify(log).error(eqArg(ex), anyString())
+  }
+
+  it should "use a result handler that notifies the sender about successful operations" in {
+    val file = createPathInDirectory("successfulIOOperation.tmp")
+    val ioResult = createIOResult(file)
+    val promise = Promise[IOResult]()
+    val actor = createTestActorRef()
+    val writerActor = actor.underlyingActor
+    val mediumData = createMediumData(Some(testActor))
+
+    writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future,
+      TestProbe().ref, mock[LoggingAdapter], mediumData)
+    promise complete Success(ioResult)
+    expectMsg(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
+      success = true))
   }
 
   /**
@@ -219,10 +271,19 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     */
   private def createActorForMedium(handler: FutureIOResultHandler, target: Path, mid: MediumID =
   TestMedium, resolvedSize: Int = 0): ActorRef = {
-    val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], BlockSize, handler))
+    val actor = createTestActor(handler)
     actor ! processMessage(target, mid, resolvedSize)
     actor
   }
+
+  /**
+    * Creates a test actor that uses the specified result handler.
+    *
+    * @param handler the future result handler
+    * @return the test actor instance
+    */
+  private def createTestActor(handler: FutureIOResultHandler): ActorRef =
+  system.actorOf(Props(classOf[PersistentMetaDataWriterActor], BlockSize, handler))
 
   /**
     * Returns a message that triggers the processing of a medium.
@@ -280,6 +341,21 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, 10 + BlockSize, complete = false)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 10 + BlockSize)
+  }
+
+  it should "pass a correct MediumData object to the future result handler" in {
+    val procMsg = processMessage(createPathInDirectory("metaData.mdt"), TestMedium, 0)
+    val handler = new TestFutureResultHandler(new CountDownLatch(1)) {
+      override protected def performChecks(data: MediumData): Unit = {
+        data.process should be(procMsg)
+        data.trigger should be(testActor)
+      }
+    }
+    val actor = createTestActor(handler)
+    actor ! procMsg
+
+    actor ! chunk(1, 10 + BlockSize, complete = false)
+    handler.await()
   }
 
   it should "not write a file before sufficient meta data is available" in {
@@ -356,7 +432,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       /**
         * Checks that the 2nd file has not been created yet.
         */
-      override protected def performChecks(): Unit = {
+      override protected def performChecks(data: MediumData): Unit = {
         if (counter.incrementAndGet() == 1) {
           Files exists target2 shouldBe false
         }
@@ -402,19 +478,27 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       *             latch to notify test code that the stream operation is
       *             complete.
       */
-    override protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter)
+    override protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter,
+                                            data: MediumData)
     : Unit = {
-      performChecks()
-      super.onResultComplete(result, actor, log)
+      performChecks(data)
+      super.onResultComplete(result, actor, log, data)
       latch.countDown()
     }
+
+    /**
+      * @inheritdoc Overrides this method to not send any messages.
+      */
+    override protected def notifyTriggerActor(data: MediumData, success: Boolean): Unit = {}
 
     /**
       * Executes some checks directly after the stream was written. This can be
       * used in derived classes to implement some additional test conditions.
       * This base implementation is empty.
+      *
+      * @param data the data object for the current wirte operation
       */
-    protected def performChecks(): Unit = {
+    protected def performChecks(data: MediumData): Unit = {
     }
   }
 
