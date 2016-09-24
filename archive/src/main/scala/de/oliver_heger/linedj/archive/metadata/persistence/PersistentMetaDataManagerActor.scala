@@ -35,11 +35,13 @@ object PersistentMetaDataManagerActor {
   val MetaDataFileExtension = ".mdt"
 
   /**
-    * An internal message processed by [[PersistentMetaDataManagerActor]] which
+    * A message processed by [[PersistentMetaDataManagerActor]] which
     * triggers the scan of the configured directory for meta data files. This
-    * message is sent by the actor itself at startup.
+    * message must be sent to the actor at least once initially. To be sure
+    * that the actor operates on up-to-date meta data files, the message
+    * should be sent again before every new file scan starts.
     */
-  private[persistence] case object ScanForMetaDataFiles
+   case object ScanForMetaDataFiles
 
   /**
     * An internally used data class that stores information about media that
@@ -191,7 +193,6 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     super.preStart()
     writerActor = createChildActor(Props(classOf[PersistentMetaDataWriterActor],
       config.metaDataPersistenceWriteBlockSize))
-    self ! ScanForMetaDataFiles
   }
 
   override def receive: Receive = {

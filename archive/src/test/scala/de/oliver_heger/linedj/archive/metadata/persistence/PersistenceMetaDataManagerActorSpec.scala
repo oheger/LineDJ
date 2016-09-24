@@ -271,9 +271,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     helper.expectNoChildReaderActor()
   }
 
-  it should "handle the (unlikely) case that meta data files are retrieved later" in {
-    val helper = new PersistenceMetaDataManagerActorTestHelper(skipFileScan = true)
-    val actor = helper.initMediaFiles(1, 2).createTestActor()
+  it should "handle the case that meta data files are retrieved later" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2).createTestActor(startFileScan = false)
 
     actor ! enhancedScanResult(1)
     actor ! PersistentMetaDataManagerActor.ScanForMetaDataFiles
@@ -427,10 +427,8 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
   /**
     * A test helper class collecting all dependencies of the test actor.
-    *
-    * @param skipFileScan if true, the scanning for files is disabled
     */
-  private class PersistenceMetaDataManagerActorTestHelper(skipFileScan: Boolean = false) {
+  private class PersistenceMetaDataManagerActorTestHelper {
     /** A mock for the configuration. */
     val config = createConfig()
 
@@ -465,11 +463,15 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     /**
       * Creates a test actor instance. This method should be called after the
       * scanner mock had been initialized.
-      *
+      * @param startFileScan a flag whether the file scan should be triggered
       * @return the test actor reference
       */
-    def createTestActor(): TestActorRef[PersistentMetaDataManagerActor] = {
+    def createTestActor(startFileScan: Boolean = true):
+    TestActorRef[PersistentMetaDataManagerActor] = {
       managerActor = TestActorRef[PersistentMetaDataManagerActor](createProps())
+      if (startFileScan) {
+        managerActor ! PersistentMetaDataManagerActor.ScanForMetaDataFiles
+      }
       managerActor
     }
 
@@ -541,13 +543,6 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       */
     private def createProps(): Props =
       Props(new PersistentMetaDataManagerActor(config, fileScanner) with ChildActorFactory {
-        @throws[Exception](classOf[Exception]) override
-        def preStart(): Unit = {
-          if (!skipFileScan) {
-            super.preStart()
-          }
-        }
-
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassReaderChildActor =>
