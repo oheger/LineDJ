@@ -163,3 +163,12 @@ case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
   */
 case class UnresolvedMetaDataFiles(mediumID: MediumID, files: List[FileData],
                                    result: EnhancedMediaScanResult)
+
+/**
+  * A message processed by the persistence manager actor which
+  * triggers the scan of the configured directory for meta data files. This
+  * message must be sent to the actor at least once initially. To be sure
+  * that the actor operates on up-to-date meta data files, the message
+  * should be sent again before every new file scan starts.
+  */
+case object ScanForMetaDataFiles

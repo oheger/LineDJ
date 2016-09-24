@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -33,15 +33,6 @@ import scala.annotation.tailrec
 object PersistentMetaDataManagerActor {
   /** File extension for meta data files. */
   val MetaDataFileExtension = ".mdt"
-
-  /**
-    * A message processed by [[PersistentMetaDataManagerActor]] which
-    * triggers the scan of the configured directory for meta data files. This
-    * message must be sent to the actor at least once initially. To be sure
-    * that the actor operates on up-to-date meta data files, the message
-    * should be sent again before every new file scan starts.
-    */
-   case object ScanForMetaDataFiles
 
   /**
     * An internally used data class that stores information about media that

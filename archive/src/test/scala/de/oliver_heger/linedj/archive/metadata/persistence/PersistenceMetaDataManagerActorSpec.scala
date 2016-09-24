@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanR
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -276,7 +276,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val actor = helper.initMediaFiles(1, 2).createTestActor(startFileScan = false)
 
     actor ! enhancedScanResult(1)
-    actor ! PersistentMetaDataManagerActor.ScanForMetaDataFiles
+    actor ! ScanForMetaDataFiles
     helper.expectChildReaderActor().expectMsg(readerMessage(1))
   }
 
@@ -470,7 +470,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     TestActorRef[PersistentMetaDataManagerActor] = {
       managerActor = TestActorRef[PersistentMetaDataManagerActor](createProps())
       if (startFileScan) {
-        managerActor ! PersistentMetaDataManagerActor.ScanForMetaDataFiles
+        managerActor ! ScanForMetaDataFiles
       }
       managerActor
     }

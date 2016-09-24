@@ -20,8 +20,8 @@ import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediaScanStarts}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -226,12 +226,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * Prepares a new scan operation. Initializes some internal state.
     */
   private def initiateNewScan(): Unit = {
+    fireStateEvent(MetaDataScanStarted)
+    persistenceManager ! ScanForMetaDataFiles
     mediaMap.clear()
     scanInProgress = true
     currentSize = 0
     currentDuration = 0
     currentSongCount = 0
-    fireStateEvent(MetaDataScanStarted)
   }
 
   /**

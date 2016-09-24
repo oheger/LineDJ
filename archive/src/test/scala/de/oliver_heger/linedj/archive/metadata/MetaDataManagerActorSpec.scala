@@ -582,7 +582,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! CloseAck(helper.persistenceManager.ref)
     expectMsg(CloseAck(helper.actor))
 
-    helper.startProcessing()
+    helper.startProcessing(checkPersistenceMan = false)
     val probe = TestProbe()
     helper.actor.tell(CloseRequest, probe.ref)
     helper.sendAvailableMedia()
@@ -643,7 +643,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendAvailableMedia()
     expectMsg(CloseAck(helper.actor))
 
-    helper.startProcessing()
+    helper.startProcessing(checkPersistenceMan = false)
     helper.sendAllProcessingResults(ScanResult)
     expectNoMoreMessage(probe)
   }
@@ -736,7 +736,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val listener1 = helper.newStateListener(expectStateMsg = false)
     listener1.expectMsgType[MetaDataStateUpdated].state.scanInProgress shouldBe false
 
-    helper.startProcessing()
+    helper.startProcessing(checkPersistenceMan = false)
     val listener2 = TestProbe()
     helper addStateListener listener2
     listener2.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0,
@@ -799,11 +799,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * Convenience function for sending a message to the test actor that starts
       * processing.
       *
-      * @param esr the enhanced scan result to be sent
+      * @param esr                 the enhanced scan result to be sent
+      * @param checkPersistenceMan flag whether the persistence manager actor
+      *                            is to be checked
       * @return the test actor
       */
-    def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult): ActorRef = {
+    def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult,
+                        checkPersistenceMan: Boolean = true): ActorRef = {
       actor ! MediaScanStarts
+      if (checkPersistenceMan) {
+        persistenceManager.expectMsg(ScanForMetaDataFiles)
+      }
       actor ! esr
       actor
     }
