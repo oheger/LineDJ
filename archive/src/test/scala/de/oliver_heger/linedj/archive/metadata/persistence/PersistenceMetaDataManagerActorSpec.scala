@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MediaMetaData, MetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -165,6 +165,16 @@ object PersistenceMetaDataManagerActorSpec {
   private def processingResults(mid: MediumID): List[MetaDataProcessingResult] =
     mediumFiles(mid) map (f => MetaDataProcessingResult(f.path, mid, f.path.toString,
       MediaMetaData(title = Some("Song " + f.path.toString))))
+
+  /**
+    * Creates a test process medium for the specified medium.
+    *
+    * @param medIdx the medium index
+    * @return the ''ProcessMedium'' message
+    */
+  private def createProcessMedium(medIdx: Int): PersistentMetaDataWriterActor.ProcessMedium =
+  PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)),
+    null, Map.empty, 0)
 
   /**
     * Expects a message of the specified type for each of the passed in test
@@ -425,6 +435,113 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     mid should be(mediumID(6))
   }
 
+  it should "return meta data information for assigned media" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2).createTestActor()
+    actor.tell(enhancedScanResult(1, 2, 3), TestProbe().ref)
+
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.unusedFiles shouldBe 'empty
+    info.metaDataFiles should have size 2
+    info.metaDataFiles(mediumID(1)) should be(checksum(1))
+    info.metaDataFiles(mediumID(2)) should be(checksum(2))
+  }
+
+  it should "return meta data information for orphan files" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
+    actor ! enhancedScanResult(1)
+
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.unusedFiles should contain only(checksum(2), checksum(3), checksum(4))
+  }
+
+  it should "handle a meta data file info request before a file scan" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.createTestActor(startFileScan = false)
+
+    actor ! GetMetaDataFileInfo
+    expectMsg(MetaDataFileInfo(Map.empty, Set.empty))
+  }
+
+  it should "reset the internal checksum mapping when a new scan starts" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    helper.expectChildReaderActors(2).foreach { p =>
+      p.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+      system stop p.ref
+      expectMsgType[UnresolvedMetaDataFiles]
+    }
+
+    actor ! ScanForMetaDataFiles
+    actor ! enhancedScanResult(1)
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.metaDataFiles.keySet should contain only mediumID(1)
+    info.unusedFiles should contain(checksum(2))
+  }
+
+  it should "update the meta data files if a file was written successfully" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    expectMsgType[UnresolvedMetaDataFiles]
+
+    helper.sendMetaDataFileWritten(actor, 2)
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.metaDataFiles should contain(mediumID(2) -> checksum(2))
+    info.unusedFiles shouldBe 'empty
+  }
+
+  it should "ignore MetaDataWritten messages from invalid senders" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    expectMsgType[UnresolvedMetaDataFiles]
+
+    actor ! PersistentMetaDataWriterActor.MetaDataWritten(createProcessMedium(2),
+      success = true)
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.metaDataFiles should have size 1
+  }
+
+  it should "ignore MetaDataWritten messages for unknown media" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    expectMsgType[UnresolvedMetaDataFiles]
+
+    helper.sendMetaDataFileWritten(actor, 42)
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.metaDataFiles should contain only (mediumID(1) -> checksum(1))
+  }
+
+  it should "ignore a MetaDataWritten message before meta data info is available" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.createTestActor(startFileScan = false)
+
+    helper.sendMetaDataFileWritten(actor, 1) // Boom
+  }
+
+  it should "update the meta data files if a write operation failed" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+
+    helper.sendMetaDataFileWritten(actor, 2, success = false)
+    actor ! GetMetaDataFileInfo
+    val info = expectMsgType[MetaDataFileInfo]
+    info.metaDataFiles should contain(mediumID(1) -> checksum(1))
+    info.metaDataFiles should have size 1
+    info.unusedFiles should be(Set(checksum(3)))
+  }
+
   /**
     * A test helper class collecting all dependencies of the test actor.
     */
@@ -518,6 +635,22 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     def expectNoChildReaderActor(timeout: Long = 500, unit: TimeUnit = TimeUnit.MILLISECONDS):
     Unit = {
       childActorQueue.poll(timeout, unit) should be(null)
+    }
+
+    /**
+      * Generates and sends a ''MetaDataWritten'' test message for the specified
+      * medium to the given test actor.
+      *
+      * @param actor   the test actor
+      * @param medIdx  the medium index
+      * @param success the success flag for the operation
+      * @return the test helper
+      */
+    def sendMetaDataFileWritten(actor: TestActorRef[_], medIdx: Int, success: Boolean = true):
+    PersistenceMetaDataManagerActorTestHelper = {
+      actor.receive(PersistentMetaDataWriterActor.MetaDataWritten(createProcessMedium(medIdx),
+        success), writerActor.ref)
+      this
     }
 
     /**

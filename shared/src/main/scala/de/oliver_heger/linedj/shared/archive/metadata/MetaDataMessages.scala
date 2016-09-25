@@ -104,3 +104,35 @@ case class AddMetaDataStateListener(listener: ActorRef)
   * @param listener the state listener to be removed
   */
 case class RemoveMetaDataStateListener(listener: ActorRef)
+
+/**
+  * A message processed by the meta data manager actor as a request to return
+  * data about all meta data files available.
+  *
+  * Such files are generated to make the meta data extracted from audio files
+  * persistent. For each medium a meta data file is generated.
+  */
+case object GetMetaDataFileInfo
+
+/**
+  * A message sent by the meta data manager actor as response to a
+  * [[GetMetaDataFileInfo]] request.
+  *
+  * This data class contains the information about persistent meta data files.
+  * During a meta data scan operation, for each medium a file with extracted
+  * meta data is created (which allows fast access to this meta data). The map
+  * with meta data files allows finding out for which media such a file exists.
+  * The keys of the map are the IDs of the media for which a meta data file
+  * exists; the values are checksum values for media on which the file names of
+  * meta data files are based.
+  *
+  * If a medium is removed or changed, an already existing meta data file is
+  * not removed automatically, but remains on disk. Such orphan files are
+  * listed in the set. Here again checksum values are contained that can be
+  * mapped to real file names.
+  *
+  * @param metaDataFiles map with meta data files assigned to a medium
+  * @param unusedFiles   set with orphan meta data files
+  */
+case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
+                            unusedFiles: Set[String])

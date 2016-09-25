@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, M
 import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.annotation.tailrec
@@ -33,6 +34,13 @@ import scala.annotation.tailrec
 object PersistentMetaDataManagerActor {
   /** File extension for meta data files. */
   val MetaDataFileExtension = ".mdt"
+
+  /**
+    * Constant for a ''MetaDataFileInfo'' object containing no data. This
+    * object is returned if meta data information is requested before a scan
+    * for meta data files has been triggered.
+    */
+  val EmptyMetaDataFilInfo = MetaDataFileInfo(Map.empty, Set.empty)
 
   /**
     * An internally used data class that stores information about media that
@@ -168,6 +176,13 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   private var mediaInProgress = Map.empty[MediumID, MediumData]
 
   /**
+    * A mapping for medium IDs to checksum data. This map is filled from the
+    * received enhanced scan results. It is used to find out for which media
+    * meta data files exist.
+    */
+  private var checksumMapping = Map.empty[MediumID, String]
+
+  /**
     * The child actor for writing meta data for media with incomplete
     * information.
     */
@@ -189,10 +204,12 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   override def receive: Receive = {
     case ScanForMetaDataFiles =>
       optMetaDataFiles = Some(fileScanner scanForMetaDataFiles config.metaDataPersistencePath)
+      checksumMapping = Map.empty
       processPendingScanResults(pendingScanResults)
 
     case res: EnhancedMediaScanResult if closeRequest.isEmpty =>
       processPendingScanResults(res :: pendingScanResults)
+      checksumMapping = checksumMapping ++ res.checksumMapping
 
     case PersistentMetaDataReaderActor.ProcessingResults(data) =>
       val optMediaData = data.headOption.flatMap(mediaInProgress get _.mediumID)
@@ -200,6 +217,18 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         data foreach d.listenerActor.!
         mediaInProgress = mediaInProgress.updated(d.mediumID, d updateResolvedFiles data)
       }
+
+    case PersistentMetaDataWriterActor.MetaDataWritten(process,
+    success) if sender() == writerActor =>
+      optMetaDataFiles = optMetaDataFiles map {
+        updateMetaDataFiles(_, checksumMapping, process)(if(success) addMetaDataFile
+        else removeMetaDataFile)
+      }
+
+    case GetMetaDataFileInfo =>
+      val info = optMetaDataFiles map(createMetaDataFileInfo(_,
+        checksumMapping)) getOrElse EmptyMetaDataFilInfo
+      sender ! info
 
     case Terminated(reader) =>
       activeReaderActors -= 1
@@ -303,7 +332,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     config.metaDataPersistencePath.resolve(u.result.checksumMapping(u.mediumID) +
       MetaDataFileExtension)
 
-/**
+  /**
     * Starts as many reader actors for meta data files as possible. For each
     * medium request not yet in progress an actor is started until the maximum
     * number of parallel read actors is reached.
@@ -404,6 +433,70 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
           , readerCount + 1)
       case _ => (requests, inProgress, readerCount)
     }
+
+  /**
+    * Creates an object with information about meta data files.
+    *
+    * @param metaDataFiles the map with meta data files
+    * @param checkMap      the checksum mapping
+    * @return the ''MetaDataFileInfo'' object
+    */
+  private def createMetaDataFileInfo(metaDataFiles: Map[String, Path],
+                                     checkMap: Map[MediumID, String]):
+  MetaDataFileInfo = {
+    val assignedFiles = checkMap filter (e => metaDataFiles contains e._2)
+    val usedFiles = assignedFiles.values.toSet
+    val unusedFiles = metaDataFiles.keySet diff usedFiles
+    MetaDataFileInfo(assignedFiles, unusedFiles)
+  }
+
+  /**
+    * Updates the map with meta data files. This function checks whether the
+    * specified ''ProcessMedium'' object refers to a valid medium. If so, it
+    * delegates to the passed in update function to do the actual update. The
+    * update function is passed the original map with meta data files, the
+    * checksum affected by the operation, and the ''ProcessMedium'' object.
+    *
+    * @param metaDataFiles the current map with meta data files
+    * @param checkMap      the checksum mapping
+    * @param process       the current ''ProcessMedium'' object
+    * @param f             the update function
+    * @return the updated map
+    */
+  private def updateMetaDataFiles(metaDataFiles: Map[String, Path],
+                                  checkMap: Map[MediumID, String], process: ProcessMedium)
+                                 (f: (Map[String, Path], String,
+                                   ProcessMedium) => Map[String, Path]): Map[String, Path] =
+  checkMap get process.mediumID match {
+    case Some(cs) => f(metaDataFiles, cs, process)
+    case None => metaDataFiles
+  }
+
+  /**
+    * Adds a newly written meta data file to the mapping of meta data files.
+    *
+    * @param metaDataFiles the meta data file mapping
+    * @param checksum      the checksum of the affected file
+    * @param process       the ''ProcessMedium'' message from the writer actor
+    * @return the updated meta data file mapping
+    */
+  //TODO set correct path for meta data file (cannot be tested yet)
+  private def addMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
+                              process: ProcessMedium): Map[String, Path] =
+  metaDataFiles + (checksum -> config.metaDataPersistencePath)
+
+  /**
+    * Removes a file from the map with meta data files after a failed write
+    * operation.
+    *
+    * @param metaDataFiles the meta data file mapping
+    * @param checksum      the checksum of the affected file
+    * @param process       the ''ProcessMedium'' message from the writer actor
+    * @return the updated meta data file mapping
+    */
+  private def removeMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
+                                 process: ProcessMedium): Map[String, Path] =
+  metaDataFiles - checksum
 
   /**
     * Checks whether a close request can be answered. If so, the Ack message
