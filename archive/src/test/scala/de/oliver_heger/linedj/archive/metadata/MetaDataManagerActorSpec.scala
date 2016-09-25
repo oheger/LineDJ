@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -752,6 +753,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     listener.expectMsg(MetaDataScanCanceled)
     helper.actor ! CloseAck(helper.persistenceManager.ref)
+    expectMsg(CloseAck(helper.actor))
     listener.expectMsg(MetaDataScanCompleted)
   }
 
@@ -766,14 +768,26 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectNoMoreMessage(listener2)
   }
 
+  it should "forward a GetMetaDataFileInfo message to the persistence manager" in {
+    val helper = new MetaDataManagerActorTestHelper(
+      optPersistenceManager = Some(ForwardTestActor()))
+
+    helper.actor ! GetMetaDataFileInfo
+    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
+  }
+
   /**
-   * A test helper class that manages a couple of helper objects needed for
-   * more complex tests of a meta data manager actor.
+    * A test helper class that manages a couple of helper objects needed for
+    * more complex tests of a meta data manager actor.
     *
-    * @param checkChildActorProps flag whether the properties passed to child
-   *                             actors should be checked
-   */
-  private class MetaDataManagerActorTestHelper(checkChildActorProps: Boolean = true) {
+    * @param checkChildActorProps  flag whether the properties passed to child
+    *                              actors should be checked
+    * @param optPersistenceManager an option for a special persistence manager
+    *                              actor; this overrides the test probe passed
+    *                              per default
+    */
+  private class MetaDataManagerActorTestHelper(checkChildActorProps: Boolean = true,
+                                               optPersistenceManager: Option[ActorRef] = None) {
     /**
       * A test probe that simulates the persistence manager actor.
       */
@@ -920,6 +934,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
+      * Returns a reference to the persistence manager actor used by the test
+      * actor instance. This is either the actor reference passed to the
+      * constructor or a reference from a test probe.
+      *
+      * @return the persistence manager actor reference
+      */
+    def persistenceManagerActorRef: ActorRef =
+    optPersistenceManager getOrElse persistenceManager.ref
+
+    /**
      * Creates the standard test actor.
       *
       * @return the test actor
@@ -928,7 +952,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     TestActorRef(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config, persistenceManager.ref) with ChildActorFactory {
+      Props(new MetaDataManagerActor(config, persistenceManagerActorRef) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {

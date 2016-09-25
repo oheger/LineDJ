@@ -73,12 +73,12 @@ object MetaDataManagerActor {
  * Listeners receive notifications when more meta data is available or when a
  * whole medium has been processed.
  *
- * There are two types of listeners. A meta data completion listener receives
- * notifications whenever a medium has been fully processed. At this time
- * the meta data for this medium can be queried, and complete data is
- * returned.
+ * This actor supports two types of event listeners: Generic meta data state
+ * listeners receive notifications about important state changes of this
+ * actor, e.g. when a new scan for meta data starts or progress notifications
+ * during a scan operation.
  *
- * A meta data medium listener is only interested for a specific medium. On the
+ * Meta data medium listeners are only interested in a specific medium. On the
  * first call to this actor it is checked whether the requested medium has
  * already been fully processed. If this is case, the meta data is returned
  * directly, and the caller is not registered as a listener. Otherwise, the
@@ -90,7 +90,12 @@ object MetaDataManagerActor {
  *
  * More information about the messages supported by this actor and the overall
  * protocol can be found in the description of the message classes defined in
- * the companion object.
+ * the companion object. In addition to these messages, this actor also deals
+ * with some messages that target the persistent meta data manager actor -
+ * which is an internal actor and not part of the official interface of the
+ * media archive. Therefore, messages served by the persistence manager are
+ * passed to this actor and just forwarded. This includes messages related to
+ * the current set of persistent meta data files.
  *
  * @param config the central configuration object
  * @param persistenceManager reference to the persistence manager actor
@@ -220,6 +225,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case RemoveMetaDataStateListener(listener) =>
       stateListeners = stateListeners filterNot (_ == listener)
+
+    case GetMetaDataFileInfo =>
+      persistenceManager forward GetMetaDataFileInfo
   }
 
   /**
