@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.RemoveMediumListener
+import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -139,7 +139,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.probeMetaDataManager.expectMsg(Message)
   }
 
-  it should "ignore messages to remote actors not available" in {
+  it should "ignore messages to media actors not available" in {
     val helper = new RemoteRelayActorTestHelper
     helper activateAndExpectState MediaFacade.MediaArchiveUnavailable
     helper registerRemoteActor helper.probeMediaManager
@@ -149,6 +149,18 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     expectMsg(MediaFacade.MediaArchiveAvailable)
     helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetaDataManager, Message)
     helper.probeMetaDataManager.expectMsg(Message)
+  }
+
+  it should "ignore messages to media actors if not connected to the archive" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper activateAndExpectState MediaFacade.MediaArchiveUnavailable
+    helper registerRemoteActor helper.probeMediaManager
+
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MediaManager, "ignore")
+    helper registerRemoteActor helper.probeMetaDataManager
+    expectMsg(MediaFacade.MediaArchiveAvailable)
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MediaManager, Message)
+    helper.probeMediaManager.expectMsg(Message)
   }
 
   it should "ignore invalid remote actor paths" in {
@@ -196,6 +208,68 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.provideRemoteActors() ! RelayActor.RemoveListener(mid)
 
     helper.probeMetaDataManager.expectMsg(RemoveMediumListener(mid, helper.relayActor))
+  }
+
+  it should "support state listener registrations" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
+  }
+
+  it should "only add a state listener for the first listener registration" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
+    helper.expectNoMsg(MediaActors.MetaDataManager)
+  }
+
+  it should "support removing a state listener registration" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.expectStateListenerRegistration()
+      .expectStateListenerUnRegistration()
+  }
+
+  it should "use correct reference counting for state listener registrations" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
+    helper.relayActor ! RelayActor.RegisterStateListener
+
+    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.expectNoMsg(MediaActors.MetaDataManager)
+    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.expectStateListenerUnRegistration()
+  }
+
+  it should "prevent values < 0 for the registration counter" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+
+    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
+  }
+
+  it should "reset the registration counter when re-connecting to the archive" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
+
+    helper.unregisterRemoteActor(helper.probeMediaManager)
+    helper.registerRemoteActor(helper.probeMediaManager)
+    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.expectStateListenerRegistration()
   }
 
   /**
@@ -284,6 +358,51 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     def activateAndExpectState(stateMsg: Any): Unit = {
       relayActor ! RelayActor.Activate(enabled = true)
       expectMsg(stateMsg)
+    }
+
+    /**
+      * Checks that no further message has been sent to the specified target
+      * actor.
+      *
+      * @param target the target actor
+      * @return this test helper
+      */
+    def expectNoMsg(target: MediaActors.MediaActor): RemoteRelayActorTestHelper = {
+      relayActor ! RelayActor.MediaMessage(target, Message)
+      probeForTarget(target).expectMsg(Message)
+      this
+    }
+
+    /**
+      * Checks that the relay actor sent a state listener registration.
+      *
+      * @return this test helper
+      */
+    def expectStateListenerRegistration(): RemoteRelayActorTestHelper = {
+      probeMetaDataManager.expectMsg(AddMetaDataStateListener(relayActor))
+      this
+    }
+
+    /**
+      * Checks that the relay actor sent a state listener un-registration.
+      *
+      * @return this test helper
+      */
+    def expectStateListenerUnRegistration(): RemoteRelayActorTestHelper = {
+      probeMetaDataManager.expectMsg(RemoveMetaDataStateListener(relayActor))
+      this
+    }
+
+    /**
+      * Returns the correct test probe for the specified target media actor.
+      *
+      * @param target the target
+      * @return the test probe
+      */
+    private def probeForTarget(target: MediaActors.MediaActor): TestProbe =
+    target match {
+      case MediaActors.MediaManager => probeMediaManager
+      case MediaActors.MetaDataManager => probeMetaDataManager
     }
 
     /**

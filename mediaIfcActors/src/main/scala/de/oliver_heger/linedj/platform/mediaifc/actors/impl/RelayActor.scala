@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.RemoveMediumListener
+import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RelayActor {
@@ -77,6 +77,35 @@ object RelayActor {
     */
   case object QueryServerState
 
+  /**
+    * A message processed by [[RelayActor]] that tells it to register itself as
+    * state listener at the media archive.
+    *
+    * The fact that the interface to the media archive is a shared resource
+    * makes state listener registrations a bit tricky: Multiple components
+    * running on a platform may be interested in state change events and
+    * could trigger a listener registration. However, it does not make sense to
+    * register this client multiple times at the archive and then publish each
+    * event multiple times on the message bus. Rather, this actor keeps an
+    * internal counter for requested state listener registrations. It keeps a
+    * listener registration open until there is at least one active listener
+    * component. This also means that a component that triggered an
+    * un-registration has to be aware that nevertheless further state events
+    * may be published on the message bus (if there are other interested
+    * listeners).
+    */
+  case object RegisterStateListener
+
+  /**
+    * A message processed by [[RelayActor]] that tells it to remove its state
+    * listener registration with the media archive.
+    *
+    * As described for [[RegisterStateListener]], the relay actor will only
+    * remove its state listener registration when its internal registration
+    * counter reaches zero.
+    */
+  case object UnregisterStateListener
+
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
 
@@ -129,11 +158,12 @@ object RelayActor {
 
     /**
      * Returns an option for the current remote actor of the given type. This
-     * is ''None'' if this actor is currently not available.
+     * is ''None'' if the tracking state is currently not complete.
      * @param a the remote actor type
      * @return an option for the reference to this remote actor
      */
-    def remoteActorOption(a: MediaActor): Option[ActorRef] = trackedActors get a
+    def remoteActorOption(a: MediaActor): Option[ActorRef] =
+    if(trackingComplete) trackedActors get a else None
 
     /**
      * Calculates the new tracking state based on a function to be applied on
@@ -198,6 +228,13 @@ Actor {
   /** The current remote actor tracking state. */
   private var trackingState = new RemoteActorTrackingState(Map.empty)
 
+  /**
+    * A counter for the number of state listener registrations. This is used to
+    * determine when an actual registration at the archive has to be done or
+    * released.
+    */
+  private var stateListenerRegistrationCount = 0
+
   /** The current activated flag. */
   private var activated = false
 
@@ -237,6 +274,20 @@ Actor {
     case RemoveListener(mediumId) =>
       sendToTarget(MediaActors.MetaDataManager, RemoveMediumListener(mediumId, self))
 
+    case RegisterStateListener =>
+      stateListenerRegistrationCount += 1
+      if (stateListenerRegistrationCount == 1) {
+        sendToTarget(MediaActors.MetaDataManager, AddMetaDataStateListener(self))
+      }
+
+    case UnregisterStateListener =>
+      if (stateListenerRegistrationCount > 0) {
+        stateListenerRegistrationCount -= 1
+        if (stateListenerRegistrationCount == 0) {
+          sendToTarget(MediaActors.MetaDataManager, RemoveMetaDataStateListener(self))
+        }
+      }
+
     case msg =>
       messageBus publish msg
   }
@@ -252,6 +303,7 @@ Actor {
     val oldState = trackingState
     trackingState = newState
     if (oldState.trackingComplete != newState.trackingComplete) {
+      stateListenerRegistrationCount = 0
       publish(stateMessage(newState))
     }
   }
