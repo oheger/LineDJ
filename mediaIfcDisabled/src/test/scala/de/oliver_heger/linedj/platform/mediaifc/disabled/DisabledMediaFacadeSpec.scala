@@ -82,4 +82,16 @@ class DisabledMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     val future = facade requestActor MediaActors.MediaManager
     Await.result(future, 3.seconds) should be(None)
   }
+
+  it should "implement registerMetaDataStateListener()" in {
+    val facade = new DisabledMediaFacade(mock[MessageBus])
+
+    facade.registerMetaDataStateListener()
+  }
+
+  it should "implement unregisterMetaDataStateListener()" in {
+    val facade = new DisabledMediaFacade(mock[MessageBus])
+
+    facade.unregisterMetaDataStateListener()
+  }
 }

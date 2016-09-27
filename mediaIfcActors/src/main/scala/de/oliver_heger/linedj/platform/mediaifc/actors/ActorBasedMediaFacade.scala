@@ -106,6 +106,10 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     relayActor ! ManagementActor.ActorPathPrefix(createActorPathPrefix(config))
   }
 
+  override def registerMetaDataStateListener(): Unit = ???
+
+  override def unregisterMetaDataStateListener(): Unit = ???
+
   /**
     * Generates the actor lookup prefix based on the passed in configuration.
     * Here the string is generated which is used by the interface actors to

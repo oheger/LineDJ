@@ -65,6 +65,11 @@ object MediaFacade {
   * exchange scenario. In such cases, an actor reference can be queried, but
   * clients need to be aware that the target actor may not be available. (If
   * the archive runs in remote mode, a connection can be lost at any time.)
+  *
+  * The methods defined by this trait construct a pretty low-level API to the
+  * media archive. The LineDJ platform provides some components that operate on
+  * a higher level and simplify interactions with the media archive. Such
+  * components should be used whenever possible.
   */
 trait MediaFacade {
   /**
@@ -138,4 +143,30 @@ trait MediaFacade {
     * @param mediumID the medium ID
     */
   def removeMetaDataListener(mediumID: MediumID): Unit
+
+  /**
+    * Requests the registration of a meta data state listener. Objects calling
+    * this method are interested in receiving meta data state events via the
+    * message bus. Note that there can be multiple components interested in
+    * such events, and all should call this method. It is up to a concrete
+    * implementation to deal with multiple requests in a graceful way. For
+    * instance, a counter could be used for the current state listener
+    * requests. If this counter is greater than 0, a physical listener
+    * registration should be done, so that state update events are received.
+    * For components listening on the message bus this can have the effect
+    * that still events are published, even if they have canceled their own
+    * listener registration.
+    */
+  def registerMetaDataStateListener(): Unit
+
+  /**
+    * Removes a request for a registration of a meta data state listener. This
+    * method must be called by components that have called
+    * ''registerMetaDataStateListener()'' if they are no longer interested in
+    * these events. It is up to an implementation to decide whether the
+    * physical registration can be canceled or whether there are still
+    * registration requests remaining, so that the registration has to be kept
+    * alive.
+    */
+  def unregisterMetaDataStateListener(): Unit
 }

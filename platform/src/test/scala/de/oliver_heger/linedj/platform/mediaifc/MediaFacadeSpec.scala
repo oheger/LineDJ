@@ -64,4 +64,8 @@ class MediaFacadeImpl extends MediaFacade {
   Future[Option[ActorRef]] = ???
 
   override def removeMetaDataListener(mediumID: MediumID): Unit = ???
+
+  override def registerMetaDataStateListener(): Unit = ???
+
+  override def unregisterMetaDataStateListener(): Unit = ???
 }
