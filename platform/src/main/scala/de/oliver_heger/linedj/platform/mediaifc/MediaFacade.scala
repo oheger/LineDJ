@@ -29,11 +29,18 @@ import scala.concurrent.Future
 object MediaFacade {
 
   /**
+    * A common base trait for events determining the availability of the media
+    * archive. This allows handling ''MediaArchiveAvailable'' and
+    * ''MediaArchiveUnavailable'' in a generic way.
+    */
+  sealed trait MediaArchiveAvailabilityEvent
+
+  /**
     * A message published via the message bus when the media archive becomes
     * available. Monitoring this message allows an application to keep track
     * on the current state of the media archive.
     */
-  case object MediaArchiveAvailable
+  case object MediaArchiveAvailable extends MediaArchiveAvailabilityEvent
 
   /**
     * A message published via the message bus when the media archive is no
@@ -41,7 +48,7 @@ object MediaFacade {
     * rely on the media archive; they can update themselves accordingly when
     * they receive this notification.
     */
-  case object MediaArchiveUnavailable
+  case object MediaArchiveUnavailable extends MediaArchiveAvailabilityEvent
 }
 
 /**
