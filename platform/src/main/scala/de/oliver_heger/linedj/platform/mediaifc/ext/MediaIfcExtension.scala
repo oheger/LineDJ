@@ -73,6 +73,31 @@ object MediaIfcExtension {
     def callback: ConsumerFunction[C]
   }
 
+  /**
+    * A trait to be implemented by objects that need to register consumers.
+    *
+    * This trait is used to automate the registration of consumers at the
+    * corresponding extension components. The idea is that UI components like
+    * controllers extend this trait and return a collection of the
+    * registrations they require. These registrations can then be published on
+    * the message bus automatically.
+    *
+    * The platform offers support for defining such providers in Jelly scripts
+    * and processing registrations automatically at application startup.
+    */
+  trait ConsumerRegistrationProvider {
+    /**
+      * Returns a collection with the consumer registrations supported by this
+      * provider. This method is invoked once by the LineDJ platform. The
+      * registration objects returned here are published on the message bus to
+      * make the registrations effective.
+      *
+      * @return a collection with the ''ConsumerRegistration'' objects
+      *         contributed by this provider
+      */
+    def registrations: Iterable[ConsumerRegistration[_]]
+  }
+
 }
 
 /**
