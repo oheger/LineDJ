@@ -19,9 +19,10 @@ package de.oliver_heger.linedj.platform.app
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import akka.actor.ActorSystem
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import akka.actor.{Actor, ActorSystem}
+import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -102,6 +103,43 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   }
 
   /**
+    * Creates a mock application context that is equipped with a mock bean
+    * context and an empty configuration.
+    *
+    * @return the mock application context
+    */
+  private def createAppCtxWithBC(): ApplicationContext = {
+    val appCtx = mock[ApplicationContext]
+    val bc = mock[BeanContext]
+    when(appCtx.getBeanContext).thenReturn(bc)
+    when(appCtx.getConfiguration).thenReturn(new PropertiesConfiguration)
+    appCtx
+  }
+
+  /**
+    * Creates a mock application context with a bean context that contains the
+    * specified named beans.
+    *
+    * @param beans a map with the beans for the mock bean context
+    * @return the mock application context
+    */
+  private def createAppCtxWithBeans(beans: Map[String, AnyRef]): ApplicationContext = {
+    val appCtx = createAppCtxWithBC()
+    beans foreach (e => expectBean(appCtx.getBeanContext, e._1, e._2))
+    appCtx
+  }
+
+  /**
+    * Returns a map for use by ''createAppCtxWithBeans()'' that contains a bean
+    * for the message bus.
+    *
+    * @param bus the message bus
+    * @return the map with the message bus bean
+    */
+  private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
+  Map("lineDJ_messageBus" -> bus)
+
+  /**
     * Prepares a mock bean context to expect a query for a bean.
     * @param ctx the bean context
     * @param name the name of the bean
@@ -175,20 +213,59 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   }
 
   it should "configure the media facade" in {
-    val appCtx = mock[ApplicationContext]
-    val beanCtx = mock[BeanContext]
     val bus = mock[MessageBus]
+    val appCtx = createAppCtxWithBeans(messageBusBeanMap(bus))
     val facade = mock[MediaFacade]
     val factory = createMediaFacadeFactoryMock(Some(facade))
-    val config = new PropertiesConfiguration
-    expectBean(beanCtx, "lineDJ_messageBus", bus)
-    when(appCtx.getBeanContext).thenReturn(beanCtx)
-    when(appCtx.getConfiguration).thenReturn(config)
     val app = new ClientManagementApplication
     app initMediaFacadeFactory factory
 
     app.createMediaFacade(appCtx) should be(facade)
-    verify(facade).initConfiguration(config)
+    verify(facade).initConfiguration(appCtx.getConfiguration)
+  }
+
+  it should "create an extension for the media archive availability" in {
+    val facade = mock[MediaFacade]
+    val app = new ClientManagementApplication
+
+    val extensions = app.createMediaIfcExtensions(facade)
+    val archiveExt = extensions.find(_.isInstanceOf[ArchiveAvailabilityExtension])
+    archiveExt should not be 'empty
+  }
+
+  it should "create an extension for state listeners of the media archive" in {
+    val facade = mock[MediaFacade]
+    val app = new ClientManagementApplication
+
+    val extensions = app.createMediaIfcExtensions(facade)
+    val listenerExt = extensions.find(_.isInstanceOf[StateListenerExtension])
+    listenerExt.get.asInstanceOf[StateListenerExtension].mediaFacade should be(facade)
+  }
+
+  it should "register media archive extensions on the message bus" in {
+    def createListener(): MessageBusListener = {
+      val listener = mock[MessageBusListener]
+      val receive = mock[Actor.Receive]
+      when(listener.receive).thenReturn(receive)
+      listener
+    }
+
+    val bus = mock[MessageBus]
+    val appCtx = createAppCtxWithBeans(messageBusBeanMap(bus))
+    val facade = mock[MediaFacade]
+    val extension1 = createListener()
+    val extension2 = createListener()
+    val app = new ClientManagementApplicationTestImpl {
+      override private[app] def createMediaIfcExtensions(facade: MediaFacade):
+      Iterable[MessageBusListener] = List(extension1, extension2)
+    }
+    app initMediaFacadeFactory createMediaFacadeFactoryMock(Some(facade))
+
+    app.createMediaFacade(appCtx)
+    val inOrder = Mockito.inOrder(bus, facade)
+    inOrder.verify(bus).registerListener(extension1.receive)
+    inOrder.verify(bus).registerListener(extension2.receive)
+    inOrder.verify(facade).activate(true)
   }
 
   it should "provide access to the shared stage factory" in {
@@ -348,10 +425,23 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * certain critical beans to be instantiated. In particular, the JavaFX
     * application must not be started more than once, which is triggered by the
     * stage factory.
+    *
+    * @param mockExtensions a flag whether extensions for the media interface
+    *                       should be mocked
     */
-  private class ClientManagementApplicationTestImpl extends ClientManagementApplication {
+  private class ClientManagementApplicationTestImpl(mockExtensions: Boolean = true)
+    extends ClientManagementApplication {
     /** A mock stage factory used per default by this object. */
     val mockStageFactory = mock[StageFactory]
+
+    /**
+      * @inheritdoc This implementation either calls the super method or (if
+      *             mocking is disabled) returns an empty collection.
+      */
+    override private[app] def createMediaIfcExtensions(facade: MediaFacade):
+    Iterable[MessageBusListener] =
+    if(mockExtensions) List.empty
+    else super.createMediaIfcExtensions(facade)
 
     override private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
       mockStageFactory

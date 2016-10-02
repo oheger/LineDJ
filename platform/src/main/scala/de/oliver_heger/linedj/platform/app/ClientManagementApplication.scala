@@ -19,8 +19,9 @@ package de.oliver_heger.linedj.platform.app
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
@@ -265,9 +266,23 @@ ClientApplicationContext with ApplicationSyncStartup {
     val bus = appCtx.getBeanContext.getBean(BeanMessageBus).asInstanceOf[MessageBus]
     val facade = mediaFacadeFactory.createMediaFacade(actorFactory, bus)
     facade initConfiguration appCtx.getConfiguration
+
+    createMediaIfcExtensions(facade) foreach (ext => bus registerListener ext.receive)
     facade activate true
     facade
   }
+
+  /**
+    * Returns a list of extensions for the media archive interface that need to
+    * be registered at the message bus. The LineDJ platform offers a number of
+    * default extensions supporting extended use case when interacting with the
+    * media archive. These extensions are created here.
+    *
+    * @param facade the ''MediaFacade''
+    * @return the extensions to be registered on the message bus
+    */
+  private[app] def createMediaIfcExtensions(facade: MediaFacade): Iterable[MessageBusListener] =
+  List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade))
 
   /**
     * Extracts the stage factory bean from the application context. The stage
