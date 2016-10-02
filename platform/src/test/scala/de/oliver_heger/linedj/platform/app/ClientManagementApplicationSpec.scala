@@ -22,7 +22,8 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{Actor, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerID, ConsumerIDFactory}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, DefaultConsumerIDFactory, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -130,14 +131,16 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   }
 
   /**
-    * Returns a map for use by ''createAppCtxWithBeans()'' that contains a bean
-    * for the message bus.
+    * Returns a map for use by ''createAppCtxWithBeans()'' that contains the
+    * specified bean for the message bus plus some additional standard beans
+    * required by the application.
     *
     * @param bus the message bus
     * @return the map with the message bus bean
     */
   private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
-  Map("lineDJ_messageBus" -> bus)
+  Map("lineDJ_messageBus" -> bus,
+    "lineDJ_consumerIDFactory" -> mock[DefaultConsumerIDFactory])
 
   /**
     * Prepares a mock bean context to expect a query for a bean.
@@ -418,6 +421,27 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val config = app.managementConfiguration.asInstanceOf[XMLConfiguration]
     config.getFile.getName should be(UserConfigFile)
     config.getFile.delete()
+  }
+
+  it should "define a correct bean for the ConsumerIDFactory" in {
+    val actorSystem = mock[ActorSystem]
+    val app = new ClientManagementApplicationTestImpl
+    app initActorSystem actorSystem
+    runApp(app)
+
+    val factory = queryBean[DefaultConsumerIDFactory](app, "lineDJ_consumerIDFactory")
+    app.consumerIDFactory should be(factory)
+  }
+
+  it should "offer a convenience method for creating consumer IDs" in {
+    val cidFactory = mock[ConsumerIDFactory]
+    val cid = mock[ConsumerID]
+    when(cidFactory.createID(this)).thenReturn(cid)
+    val app = new ClientManagementApplicationTestImpl {
+      override def consumerIDFactory: ConsumerIDFactory = cidFactory
+    }
+
+    app createConsumerID this should be(cid)
   }
 
   /**

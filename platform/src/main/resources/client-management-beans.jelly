@@ -28,4 +28,8 @@
       <di:param refName="jguiraffe.guiSynchronizer"/>
     </di:constructor>
   </di:bean>
+
+  <!-- The factory for consumer IDs. -->
+  <di:bean name="lineDJ_consumerIDFactory"
+    beanClassName="de.oliver_heger.linedj.platform.mediaifc.ext.DefaultConsumerIDFactory"/>
 </j:jelly>
