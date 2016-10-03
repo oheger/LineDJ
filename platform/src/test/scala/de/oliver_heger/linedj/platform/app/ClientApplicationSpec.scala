@@ -17,12 +17,14 @@
 package de.oliver_heger.linedj.platform.app
 
 import akka.actor.ActorSystem
+import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
+import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -35,10 +37,13 @@ ApplicationTestSupport {
 
   /**
     * Creates a test application.
+    * @param mainWindowBeanContext a bean context for the main window
     * @return the test application
     */
-  private def createApp(): ClientApplication =
-    new ClientApplication("testClientApp") with ApplicationSyncStartup
+  private def createApp(mainWindowBeanContext: BeanContext = null): ClientApplication =
+    new ClientApplication("testClientApp") with ApplicationSyncStartup {
+      override def getMainWindowBeanContext: BeanContext = mainWindowBeanContext
+    }
 
   /**
     * Creates a test application and starts it so that it is correctly
@@ -115,9 +120,34 @@ ApplicationTestSupport {
 
     app.initGUI(appContext)
     verify(appContext).getConfiguration
-    val inOrder = Mockito.inOrder(clientContext.messageBus, clientContext.mediaFacade)
-    inOrder.verify(clientContext.messageBus)
+    verify(clientContext.messageBus)
       .publish(ClientApplication.ClientApplicationInitialized(app))
-    inOrder.verify(clientContext.mediaFacade).requestMediaState()
+  }
+
+  it should "initialize some special beans if they are present" in {
+    val appContext = mock[ApplicationContext]
+    val beanContext = mock[BeanContext]
+    when(appContext.getConfiguration).thenReturn(new PropertiesConfiguration)
+    addBeans(beanContext,
+      Map(ClientApplication.BeanMessageBusRegistration -> mock[MessageBusRegistration],
+      ClientApplication.BeanConsumerRegistration -> mock[ConsumerRegistrationProcessor]))
+    val app = createApp(mainWindowBeanContext = beanContext)
+    app initClientContext new ClientApplicationContextImpl
+
+    app initGUI appContext
+    verify(beanContext).getBean(ClientApplication.BeanMessageBusRegistration)
+    verify(beanContext).getBean(ClientApplication.BeanConsumerRegistration)
+  }
+
+  it should "not initialize special beans that are not present" in {
+    val appContext = mock[ApplicationContext]
+    val beanContext = mock[BeanContext]
+    when(appContext.getConfiguration).thenReturn(new PropertiesConfiguration)
+    val app = createApp(mainWindowBeanContext = beanContext)
+    app initClientContext new ClientApplicationContextImpl
+
+    app initGUI appContext
+    verify(beanContext, never()).getBean(ClientApplication.BeanMessageBusRegistration)
+    verify(beanContext, never()).getBean(ClientApplication.BeanConsumerRegistration)
   }
 }

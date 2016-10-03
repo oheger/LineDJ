@@ -46,6 +46,14 @@ object ClientApplication {
   val BeanMessageBusRegistration = BeanPrefix + "messageBusRegistration"
 
   /**
+    * The bean for the consumer registration (for extensions of the media
+    * archive interface). If a bean with this name is available in the bean
+    * context for the main window, it is requested and thus initialized
+    * automatically.
+    */
+  val BeanConsumerRegistration = BeanPrefix + "consumerRegistration"
+
+  /**
     * The name of a blocking dispatcher in the actor system configuration.
     * Client applications can use this dispatcher for actors that do blocking
     * operations of any kind.
@@ -182,13 +190,26 @@ class ClientApplication(val appName: String) extends Application {
     */
   override def initGUI(appCtx: ApplicationContext): Unit = {
     super.initGUI(appCtx)
-    if (getMainWindowBeanContext != null &&
-      getMainWindowBeanContext.containsBean(BeanMessageBusRegistration)) {
-      // trigger initialization of this bean
-      getMainWindowBeanContext getBean BeanMessageBusRegistration
+    if (getMainWindowBeanContext != null) {
+      initializeBeanIfPresent(BeanMessageBusRegistration)
+      initializeBeanIfPresent(BeanConsumerRegistration)
     }
 
     clientApplicationContext.messageBus publish ClientApplicationInitialized(this)
-    clientApplicationContext.mediaFacade.requestMediaState()
+  }
+
+  /**
+    * Checks whether the bean with the specified name is contained in the
+    * bean context of the main window. If so, it is requested. This triggers an
+    * automatic initialization of the bean. Using this mechanism, some special
+    * beans are created directly after application startup, for instance to
+    * perform a registration of message bus listeners automatically.
+    *
+    * @param name the name of the bean in question
+    */
+  private def initializeBeanIfPresent(name: String): Unit = {
+    if (getMainWindowBeanContext containsBean name) {
+      getMainWindowBeanContext getBean name
+    }
   }
 }
