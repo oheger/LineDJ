@@ -139,8 +139,8 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * @return the map with the message bus bean
     */
   private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
-  Map("lineDJ_messageBus" -> bus,
-    "lineDJ_consumerIDFactory" -> mock[DefaultConsumerIDFactory])
+  Map("LineDJ_messageBus" -> bus,
+    "LineDJ_consumerIDFactory" -> mock[DefaultConsumerIDFactory])
 
   /**
     * Creates a mock media facade factory. If a facade is passed in, it is
@@ -186,7 +186,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val captMsgBus = ArgumentCaptor.forClass(classOf[MessageBus])
     verify(factory).createMediaFacade(captActorFactory.capture(), captMsgBus.capture())
     captActorFactory.getValue should be(app.actorFactory)
-    val beanMsgBus = queryBean[MessageBus](app, "lineDJ_messageBus")
+    val beanMsgBus = queryBean[MessageBus](app, "LineDJ_messageBus")
     captMsgBus.getValue should be(beanMsgBus)
     app.mediaFacade should be(facade)
     verify(facade).activate(true)
@@ -419,7 +419,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     app initActorSystem actorSystem
     runApp(app)
 
-    val factory = queryBean[DefaultConsumerIDFactory](app, "lineDJ_consumerIDFactory")
+    val factory = queryBean[DefaultConsumerIDFactory](app, "LineDJ_consumerIDFactory")
     app.consumerIDFactory should be(factory)
   }
 

@@ -22,7 +22,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
   <!-- The UI message bus -->
-  <di:bean name="lineDJ_messageBus"
+  <di:bean name="LineDJ_messageBus"
     beanClassName="de.oliver_heger.linedj.platform.bus.UIBus">
     <di:constructor>
       <di:param refName="jguiraffe.guiSynchronizer"/>
@@ -30,6 +30,6 @@
   </di:bean>
 
   <!-- The factory for consumer IDs. -->
-  <di:bean name="lineDJ_consumerIDFactory"
+  <di:bean name="LineDJ_consumerIDFactory"
     beanClassName="de.oliver_heger.linedj.platform.mediaifc.ext.DefaultConsumerIDFactory"/>
 </j:jelly>

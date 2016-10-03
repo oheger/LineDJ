@@ -33,7 +33,7 @@ import scala.annotation.tailrec
 
 object ClientManagementApplication {
   /** The prefix for beans read from the bean definition file. */
-  val BeanPrefix = "lineDJ_"
+  val BeanPrefix = "LineDJ_"
 
   /** The name of the bean representing the message bus. */
   val BeanMessageBus = BeanPrefix + "messageBus"
