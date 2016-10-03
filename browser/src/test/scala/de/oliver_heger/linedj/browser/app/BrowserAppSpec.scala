@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers.any
@@ -60,6 +61,16 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
       val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
       verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
     }
+  }
+
+  it should "define a correct consumer registration bean" in {
+    val application = createApp(mockInitUI = false)
+
+    val consumerReg = queryBean[ConsumerRegistrationProcessor](application
+      .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
+    val remoteCtrl = queryBean[RemoteController](application.getMainWindowBeanContext,
+      "remoteController")
+    consumerReg.providers should contain only remoteCtrl
   }
 
   it should "construct an instance correctly" in {

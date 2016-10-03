@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.pleditor.ui.app
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
@@ -59,7 +60,17 @@ ApplicationTestSupport {
     val application = createApp(mockInitUI = false)
 
     val uiBus = queryBean[MessageBus](application, ClientApplication.BeanMessageBus)
-    verify(uiBus, Mockito.atLeast(3)).registerListener(any(classOf[Actor.Receive]))
+    verify(uiBus, Mockito.atLeast(2)).registerListener(any(classOf[Actor.Receive]))
+  }
+
+  it should "define a correct consumer registration bean" in {
+    val application = createApp(mockInitUI = false)
+
+    val consumerReg = queryBean[ConsumerRegistrationProcessor](application
+      .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
+    val remoteCtrl = queryBean[RemoteController](application.getMainWindowBeanContext,
+      "remoteController")
+    consumerReg.providers should contain only remoteCtrl
   }
 
   it should "construct an instance correctly" in {
