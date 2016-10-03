@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.platform.app
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.Application
 import org.mockito.Mockito
+import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 
 /**
@@ -59,6 +60,34 @@ trait ApplicationTestSupport {
     */
   def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T =
     queryBean(app.getApplicationContext.getBeanContext, name)(m)
+
+  /**
+    * Prepares a mock bean context to support the specified bean. The context
+    * mock is configured to return '''true''' for queries whether it has this
+    * bean and to return the bean when it is requested.
+    * @param ctx the bean context
+    * @param name the name of the bean
+    * @param bean the bean itself
+    * @return the bean context mock
+    */
+  def addBean(ctx: BeanContext, name: String, bean: AnyRef): BeanContext = {
+    doReturn(bean).when(ctx).getBean(name)
+    when(ctx.containsBean(name)).thenReturn(true)
+    ctx
+  }
+
+  /**
+    * Prepares a mock bean context to support all beans defined by the given
+    * map. This is a convenience method which invokes ''addBean()'' for all
+    * entries contained in the map.
+    * @param ctx the bean context
+    * @param beans a map defining the beans to be added
+    * @return the bean context mock
+    */
+  def addBeans(ctx: BeanContext, beans: Map[String, AnyRef]): BeanContext = {
+    beans foreach(e => addBean(ctx, e._1, e._2))
+    ctx
+  }
 
   /**
     * Creates a ''ClientApplicationContext'' object which provides mock

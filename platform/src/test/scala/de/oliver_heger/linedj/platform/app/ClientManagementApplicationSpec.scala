@@ -126,7 +126,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     */
   private def createAppCtxWithBeans(beans: Map[String, AnyRef]): ApplicationContext = {
     val appCtx = createAppCtxWithBC()
-    beans foreach (e => expectBean(appCtx.getBeanContext, e._1, e._2))
+    addBeans(appCtx.getBeanContext, beans)
     appCtx
   }
 
@@ -141,16 +141,6 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
   Map("lineDJ_messageBus" -> bus,
     "lineDJ_consumerIDFactory" -> mock[DefaultConsumerIDFactory])
-
-  /**
-    * Prepares a mock bean context to expect a query for a bean.
-    * @param ctx the bean context
-    * @param name the name of the bean
-    * @param bean the bean itself
-    */
-  private def expectBean(ctx: BeanContext, name: String, bean: AnyRef): Unit = {
-    doReturn(bean).when(ctx).getBean(name)
-  }
 
   /**
     * Creates a mock media facade factory. If a facade is passed in, it is
@@ -286,7 +276,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val windowManager = mock[JavaFxWindowManager]
     val stageFactory = mock[StageFactory]
     when(appCtx.getBeanContext).thenReturn(beanCtx)
-    expectBean(beanCtx, "jguiraffe.windowManager", windowManager)
+    addBean(beanCtx, "jguiraffe.windowManager", windowManager)
     when(windowManager.stageFactory).thenReturn(stageFactory)
 
     val app = new ClientManagementApplication
