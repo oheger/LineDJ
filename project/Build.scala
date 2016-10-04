@@ -77,8 +77,9 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(
       name := "linedj-parent"
-    ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor, reorderMedium,
-      reorderRandomSongs, reorderAlbum, reorderArtist, playerEngine, radioPlayer,
+    ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
+      reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
+      reorderAlbum, reorderArtist, playerEngine, radioPlayer,
       mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
       mediaIfcDisabled, archiveStartup)
 
@@ -106,7 +107,7 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
     .settings(
-      name := "linedj-server",
+      name := "linedj-archive",
       libraryDependencies ++= logDependencies,
       libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
       OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
@@ -122,11 +123,11 @@ object Build extends Build {
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
     .settings(
-      name := "linedj-client",
+      name := "linedj-platform",
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
-      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.client.*"),
+      OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
     ) dependsOn (shared % "compile->compile;test->test")
@@ -185,8 +186,9 @@ object Build extends Build {
         "de.oliver_heger.linedj.browser.*"
       ),
       OsgiKeys.importPackage := Seq(
-        "de.oliver_heger.linedj.client.bus",
-        "de.oliver_heger.linedj.client.mediaifc.config",
+        "de.oliver_heger.linedj.platform.bus",
+        "de.oliver_heger.linedj.platform.mediaifc.config",
+        "de.oliver_heger.linedj.platform.mediaifc.ext",
         "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
@@ -210,7 +212,10 @@ object Build extends Build {
         "de.oliver_heger.linedj.pleditor.ui.*"
       ),
       OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.pleditor.spi"),
-      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
+      OsgiKeys.importPackage := Seq(
+        "de.oliver_heger.linedj.platform.bus",
+        "de.oliver_heger.linedj.platform.mediaifc.ext",
+        "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
     ) dependsOn (shared % "compile->compile;test->test", platform % "compile->compile;test->test")
@@ -393,7 +398,7 @@ object Build extends Build {
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.radio.*"
       ),
-      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.client.bus", "*"),
+      OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.platform.bus", "*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", playerEngine)
@@ -409,11 +414,11 @@ object Build extends Build {
     .settings(
       name := "actors-MediaIfc",
       OsgiKeys.exportPackage := Seq(
-        "!de.oliver_heger.linedj.client.mediaifc.actors.impl.*",
-        "de.oliver_heger.linedj.client.mediaifc.actors.*"
+        "!de.oliver_heger.linedj.platform.mediaifc.actors.impl.*",
+        "de.oliver_heger.linedj.platform.mediaifc.actors.*"
       ),
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.client.mediaifc.actors.impl.*"
+        "de.oliver_heger.linedj.platform.mediaifc.actors.impl.*"
       )
     ) dependsOn(platform % "compile->compile;test->test")
 
@@ -429,7 +434,7 @@ object Build extends Build {
       name := "remote-MediaIfc",
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.client.mediaifc.remote.*"
+        "de.oliver_heger.linedj.platform.mediaifc.remote.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
@@ -447,7 +452,7 @@ object Build extends Build {
       name := "embedded-MediaIfc",
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.client.mediaifc.embedded.*"
+        "de.oliver_heger.linedj.platform.mediaifc.embedded.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
@@ -467,7 +472,7 @@ object Build extends Build {
       libraryDependencies ++= osgiDependencies,
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.client.mediaifc.disabled.*"
+        "de.oliver_heger.linedj.platform.mediaifc.disabled.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
