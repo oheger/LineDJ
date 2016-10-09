@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
 import akka.actor.{Actor, ActorRef, Props}
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
@@ -86,25 +87,34 @@ object RelayActor {
     * running on a platform may be interested in state change events and
     * could trigger a listener registration. However, it does not make sense to
     * register this client multiple times at the archive and then publish each
-    * event multiple times on the message bus. Rather, this actor keeps an
-    * internal counter for requested state listener registrations. It keeps a
+    * event multiple times on the message bus. Rather, this actor keeps track
+    * on components that requested a state listener registration. It keeps a
     * listener registration open until there is at least one active listener
     * component. This also means that a component that triggered an
     * un-registration has to be aware that nevertheless further state events
     * may be published on the message bus (if there are other interested
     * listeners).
+    *
+    * The listener to be registered is identified by its ''ComponentID''. If
+    * there are multiple registrations for the same component ID, only one is
+    * evaluated; so un-registering the listener with this ID means that it is
+    * removed, no matter how often it has been registered.
+    *
+    * @param componentID the ''ComponentID'' of the listener
     */
-  case object RegisterStateListener
+  case class RegisterStateListener(componentID: ComponentID)
 
   /**
-    * A message processed by [[RelayActor]] that tells it to remove its state
-    * listener registration with the media archive.
+    * A message processed by [[RelayActor]] that tells it to remove the state
+    * listener registration for the specified component.
     *
     * As described for [[RegisterStateListener]], the relay actor will only
-    * remove its state listener registration when its internal registration
-    * counter reaches zero.
+    * remove its state listener registration when there are no more components
+    * registered as listeners.
+    *
+    * @param componentID the ''ComponentID'' of the listener
     */
-  case object UnregisterStateListener
+  case class UnregisterStateListener(componentID: ComponentID)
 
   /** The delay sequence for looking up remote actors. */
   private val DelaySequence = new BoundedDelaySequence(90, 5, 2)
@@ -229,11 +239,11 @@ Actor {
   private var trackingState = new RemoteActorTrackingState(Map.empty)
 
   /**
-    * A counter for the number of state listener registrations. This is used to
+    * A set storing the currently registered state listeners. This is used to
     * determine when an actual registration at the archive has to be done or
     * released.
     */
-  private var stateListenerRegistrationCount = 0
+  private var stateListenerComponents = Set.empty[ComponentID]
 
   /** The current activated flag. */
   private var activated = false
@@ -260,7 +270,10 @@ Actor {
       publish(stateMessage(trackingState))
 
     case LookupActor.RemoteActorAvailable(path, ref) =>
-      updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref))
+      if (updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref)) &&
+        stateListenerComponents.nonEmpty) {
+        sendToTarget(MediaActors.MetaDataManager, AddMetaDataStateListener(self))
+      }
 
     case LookupActor.RemoteActorUnavailable(path) =>
       updateTrackingState(trackingState.remoteActorLost(pathMapping get path))
@@ -274,39 +287,63 @@ Actor {
     case RemoveListener(mediumId) =>
       sendToTarget(MediaActors.MetaDataManager, RemoveMediumListener(mediumId, self))
 
-    case RegisterStateListener =>
-      stateListenerRegistrationCount += 1
-      if (stateListenerRegistrationCount == 1) {
-        sendToTarget(MediaActors.MetaDataManager, AddMetaDataStateListener(self))
-      }
+    case RegisterStateListener(cid) =>
+      updateStateListenerRegistration(stateListenerComponents + cid)
 
-    case UnregisterStateListener =>
-      if (stateListenerRegistrationCount > 0) {
-        stateListenerRegistrationCount -= 1
-        if (stateListenerRegistrationCount == 0) {
-          sendToTarget(MediaActors.MetaDataManager, RemoveMetaDataStateListener(self))
-        }
-      }
+    case UnregisterStateListener(cid) =>
+      updateStateListenerRegistration(stateListenerComponents - cid)
 
     case msg =>
       messageBus publish msg
   }
 
   /**
-   * Updates the remote actor tracking state. This method is called when a
-   * message from a lookup actor was received indicating that a remote actor
-   * was detected or became unavailable. If necessary, the changed server state
-   * has to be published.
-   * @param newState the updated tracking state
-   */
-  private def updateTrackingState(newState: RemoteActorTrackingState): Unit = {
+    * Updates the remote actor tracking state. This method is called when a
+    * message from a lookup actor was received indicating that a remote actor
+    * was detected or became unavailable. If necessary, the changed server state
+    * has to be published.
+    *
+    * @param newState the updated tracking state
+    * @return a flag whether there was a change in the tracking state
+    */
+  private def updateTrackingState(newState: RemoteActorTrackingState): Boolean = {
     val oldState = trackingState
     trackingState = newState
     if (oldState.trackingComplete != newState.trackingComplete) {
-      stateListenerRegistrationCount = 0
       publish(stateMessage(newState))
-    }
+      true
+    } else false
   }
+
+  /**
+    * Reacts on a change on registered state listeners. The internal set with
+    * registered listeners is updated. If necessary, a message to the archive
+    * is sent to update the own state listener registration.
+    *
+    * @param newListeners the updated set of registered state listeners
+    */
+  private def updateStateListenerRegistration(newListeners: Set[ComponentID]): Unit = {
+    val msg = listenerRegistrationMsg(stateListenerComponents, newListeners)
+    msg foreach (sendToTarget(MediaActors.MetaDataManager, _))
+    stateListenerComponents = newListeners
+  }
+
+  /**
+    * Generates a message to be sent to the archive when there was a change in
+    * the registered state listeners. If this requires a registration message
+    * to be sent to the archive, it is returned by this method.
+    *
+    * @param oldListeners the old set of state listeners
+    * @param newListeners the updated set of state listeners
+    * @return an optional registration message to be sent
+    */
+  private def listenerRegistrationMsg(oldListeners: Set[ComponentID],
+                                      newListeners: Set[ComponentID]): Option[Any] =
+  if (oldListeners.size < newListeners.size && newListeners.size == 1)
+    Some(AddMetaDataStateListener(self))
+  else if (oldListeners.size > newListeners.size && newListeners.isEmpty)
+    Some(RemoveMetaDataStateListener(self))
+  else None
 
   /**
     * Sends the specified message to the given target actor, provided that it

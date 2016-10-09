@@ -21,6 +21,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.ActorSystemTestHelper
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -214,7 +215,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.expectStateListenerRegistration()
   }
 
@@ -222,53 +223,56 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RelayActor.RegisterStateListener
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.expectStateListenerRegistration()
     helper.expectNoMsg(MediaActors.MetaDataManager)
   }
 
   it should "support removing a state listener registration" in {
+    val compID = ComponentID()
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RelayActor.RegisterStateListener
-    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(compID)
+    helper.relayActor ! RelayActor.UnregisterStateListener(compID)
     helper.expectStateListenerRegistration()
       .expectStateListenerUnRegistration()
   }
 
-  it should "use correct reference counting for state listener registrations" in {
+  it should "evaluate component IDs correctly for state listener registrations" in {
+    val id1 = ComponentID()
+    val id2 = ComponentID()
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(id1)
     helper.expectStateListenerRegistration()
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(id1)
+    helper.relayActor ! RelayActor.RegisterStateListener(id2)
 
-    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.relayActor ! RelayActor.UnregisterStateListener(id1)
     helper.expectNoMsg(MediaActors.MetaDataManager)
-    helper.relayActor ! RelayActor.UnregisterStateListener
+    helper.relayActor ! RelayActor.UnregisterStateListener(id2)
     helper.expectStateListenerUnRegistration()
   }
 
-  it should "prevent values < 0 for the registration counter" in {
+  it should "ignore unknown IDs for listener un-registrations" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
 
-    helper.relayActor ! RelayActor.UnregisterStateListener
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.UnregisterStateListener(ComponentID())
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.expectStateListenerRegistration()
   }
 
-  it should "reset the registration counter when re-connecting to the archive" in {
+  it should "create a registration when re-connecting to the archive if necessary" in {
     val helper = new RemoteRelayActorTestHelper
     helper.provideRemoteActors()
-    helper.relayActor ! RelayActor.RegisterStateListener
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.expectStateListenerRegistration()
 
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMediaManager)
-    helper.relayActor ! RelayActor.RegisterStateListener
     helper.expectStateListenerRegistration()
   }
 
