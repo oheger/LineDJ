@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.platform.mediaifc.actors
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -110,7 +111,8 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     * @inheritdoc This implementation sends a corresponding registration
     *             message to the relay actor.
     */
-  override def registerMetaDataStateListener(): Unit = {
+  override def registerMetaDataStateListener(componentID: ComponentID): Unit = {
+    //TODO correct implementation
     relayActor ! RelayActor.RegisterStateListener
   }
 
@@ -118,7 +120,8 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     * @inheritdoc This implementation sends a corresponding message to remove a
     *             state listener registration to the relay actor.
     */
-  override def unregisterMetaDataStateListener(): Unit = {
+  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {
+    //TODO correct implementation
     relayActor ! RelayActor.UnregisterStateListener
   }
 

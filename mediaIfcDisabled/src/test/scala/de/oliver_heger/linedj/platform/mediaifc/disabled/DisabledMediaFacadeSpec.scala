@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.disabled
 
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{GetAvailableMedia, MediumID}
@@ -86,12 +87,12 @@ class DisabledMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "implement registerMetaDataStateListener()" in {
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
-    facade.registerMetaDataStateListener()
+    facade.registerMetaDataStateListener(ComponentID())
   }
 
   it should "implement unregisterMetaDataStateListener()" in {
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
-    facade.unregisterMetaDataStateListener()
+    facade.unregisterMetaDataStateListener(ComponentID())
   }
 }

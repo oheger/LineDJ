@@ -148,14 +148,16 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   it should "support a meta data state listener registration" in {
     val facade = createFacade()
 
-    facade.registerMetaDataStateListener()
+    //TODO correct implementation
+    facade.registerMetaDataStateListener(null)
     expectMsg(RelayActor.RegisterStateListener)
   }
 
   it should "support removing a meta data state listener registration" in {
     val facade = createFacade()
 
-    facade.unregisterMetaDataStateListener()
+    //TODO correct implementation
+    facade.unregisterMetaDataStateListener(null)
     expectMsg(RelayActor.UnregisterStateListener)
   }
 }

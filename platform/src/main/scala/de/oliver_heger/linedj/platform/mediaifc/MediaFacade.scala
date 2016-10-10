@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc
 
 import akka.actor.ActorRef
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -156,24 +157,31 @@ trait MediaFacade {
     * this method are interested in receiving meta data state events via the
     * message bus. Note that there can be multiple components interested in
     * such events, and all should call this method. It is up to a concrete
-    * implementation to deal with multiple requests in a graceful way. For
-    * instance, a counter could be used for the current state listener
-    * requests. If this counter is greater than 0, a physical listener
-    * registration should be done, so that state update events are received.
-    * For components listening on the message bus this can have the effect
-    * that still events are published, even if they have canceled their own
-    * listener registration.
+    * implementation to deal with multiple requests of different components in
+    * a graceful way: A single physical listener registration with the media
+    * archive should be established if and only if the number of registered
+    * state listener components is greater zero. The method expects the
+    * component ID of the registering listener as argument to keep track on
+    * registered component. For each component, only a single registration is
+    * counted. A component is free to call this method multiple times with its
+    * ID; an implementation must ignore all registrations except for the first
+    * one.
+    *
+    * @param componentID the ID of the registering component
     */
-  def registerMetaDataStateListener(): Unit
+  def registerMetaDataStateListener(componentID: ComponentID): Unit
 
   /**
-    * Removes a request for a registration of a meta data state listener. This
-    * method must be called by components that have called
+    * Removes the state listener registration for the specified component. This
+    * method can be called by components that have called
     * ''registerMetaDataStateListener()'' if they are no longer interested in
     * these events. It is up to an implementation to decide whether the
     * physical registration can be canceled or whether there are still
     * registration requests remaining, so that the registration has to be kept
-    * alive.
+    * alive. If there is no component with the specified ID registered as state
+    * listener, this invocation has no effect.
+    *
+    * @param componentID the ID of the component to be removed as listener
     */
-  def unregisterMetaDataStateListener(): Unit
+  def unregisterMetaDataStateListener(componentID: ComponentID): Unit
 }

@@ -93,7 +93,8 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   override def onConsumerRemoved(last: Boolean): Unit = {
     if (last) {
-      mediaFacade.unregisterMetaDataStateListener()
+      //TODO correct implementation
+      mediaFacade.unregisterMetaDataStateListener(null)
       lastUpdatedEvent = None
     }
   }
@@ -121,7 +122,8 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   private def registerStateListenerIfRequired(hasConsumers: Boolean): Unit = {
     if (hasConsumers) {
-      mediaFacade.registerMetaDataStateListener()
+      //TODO correct implementation
+      mediaFacade.registerMetaDataStateListener(null)
     }
   }
 }

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc
 
 import akka.actor.ActorRef
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -65,7 +66,7 @@ class MediaFacadeImpl extends MediaFacade {
 
   override def removeMetaDataListener(mediumID: MediumID): Unit = ???
 
-  override def registerMetaDataStateListener(): Unit = ???
+  override def registerMetaDataStateListener(componentID: ComponentID): Unit = ???
 
-  override def unregisterMetaDataStateListener(): Unit = ???
+  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = ???
 }

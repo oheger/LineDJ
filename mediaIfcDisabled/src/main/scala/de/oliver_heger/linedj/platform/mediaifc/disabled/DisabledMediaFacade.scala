@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc.disabled
 
 import akka.actor.ActorRef
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -84,10 +85,10 @@ class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade {
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def registerMetaDataStateListener(): Unit = {}
+  override def registerMetaDataStateListener(componentID: ComponentID): Unit = {}
 
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def unregisterMetaDataStateListener(): Unit = {}
+  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {}
 }

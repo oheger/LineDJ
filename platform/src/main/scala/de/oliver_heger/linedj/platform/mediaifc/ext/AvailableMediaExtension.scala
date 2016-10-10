@@ -127,7 +127,8 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
   override def onMediaScanCompleted(hasConsumers: Boolean): Unit = {
     if (!resetAndRequestNewData(hasConsumers)) {
       if (stateListenerRegistered) {
-        mediaFacade.unregisterMetaDataStateListener()
+        //TODO correct implementation
+        mediaFacade.unregisterMetaDataStateListener(null)
       }
     }
   }
@@ -161,7 +162,8 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     * Adds a registration for a meta data state listener.
     */
   private def registerStateListener(): Unit = {
-    mediaFacade.registerMetaDataStateListener()
+    //TODO correct implementation
+    mediaFacade.registerMetaDataStateListener(null)
     stateListenerRegistered = true
   }
 }

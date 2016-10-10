@@ -77,7 +77,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive createRegistration()
     ext receive createRegistration()
 
-    verify(ext.mediaFacade).registerMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade).registerMetaDataStateListener(null)
   }
 
   it should "only add one state listener registration" in {
@@ -88,7 +89,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive AvailableMediaUnregistration(reg1.id)
 
     ext receive reg2
-    verify(ext.mediaFacade).registerMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade).registerMetaDataStateListener(null)
   }
 
   it should "request media data for the first consumer" in {
@@ -166,7 +168,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive createRegistration()
 
     ext receive MediaFacade.MediaArchiveAvailable
-    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener(null)
   }
 
   it should "skip actions when the archive becomes available if no consumers" in {
@@ -174,7 +177,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
 
     ext receive MediaFacade.MediaArchiveAvailable
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    verify(ext.mediaFacade, never()).registerMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade, never()).registerMetaDataStateListener(null)
   }
 
   it should "reset the request pending flag" in {
@@ -196,7 +200,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
 
     ext receive MediaFacade.MediaArchiveAvailable
     ext receive reg
-    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener(null)
   }
 
 
@@ -225,7 +230,8 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
 
     ext receive MetaDataScanCompleted
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    verify(ext.mediaFacade, never()).unregisterMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade, never()).unregisterMetaDataStateListener(null)
   }
 
   it should "reset the request pending flag if a scan is complete" in {
@@ -246,6 +252,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive AvailableMediaUnregistration(reg.id)
 
     ext receive MetaDataScanCompleted
-    verify(ext.mediaFacade).unregisterMetaDataStateListener()
+    //TODO correct implementation
+    verify(ext.mediaFacade).unregisterMetaDataStateListener(null)
   }
 }
