@@ -17,12 +17,10 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension
-.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction,
-ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
-import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
+import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -77,20 +75,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive createRegistration()
     ext receive createRegistration()
 
-    //TODO correct implementation
-    verify(ext.mediaFacade).registerMetaDataStateListener(null)
-  }
-
-  it should "only add one state listener registration" in {
-    val reg1 = createRegistration()
-    val reg2 = createRegistration()
-    val ext = createExtension()
-    ext receive reg1
-    ext receive AvailableMediaUnregistration(reg1.id)
-
-    ext receive reg2
-    //TODO correct implementation
-    verify(ext.mediaFacade).registerMetaDataStateListener(null)
+    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
   }
 
   it should "request media data for the first consumer" in {
@@ -161,15 +146,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
 
     ext receive MediaFacade.MediaArchiveAvailable
     expectMediaDataRequest(ext)
-  }
-
-  it should "add a listener registration when the archive becomes available if necessary" in {
-    val ext = createExtension()
-    ext receive createRegistration()
-
-    ext receive MediaFacade.MediaArchiveAvailable
-    //TODO correct implementation
-    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener(null)
+    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
   }
 
   it should "skip actions when the archive becomes available if no consumers" in {
@@ -177,8 +154,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
 
     ext receive MediaFacade.MediaArchiveAvailable
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    //TODO correct implementation
-    verify(ext.mediaFacade, never()).registerMetaDataStateListener(null)
+    verify(ext.mediaFacade, never()).registerMetaDataStateListener(ext.componentID)
   }
 
   it should "reset the request pending flag" in {
@@ -192,67 +168,52 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     expectMediaDataRequest(ext, 2)
   }
 
-  it should "reset the state listener registered flag" in {
-    val reg = createRegistration()
-    val ext = createExtension()
-    ext receive reg
-    ext receive AvailableMediaUnregistration(reg.id)
-
-    ext receive MediaFacade.MediaArchiveAvailable
-    ext receive reg
-    //TODO correct implementation
-    verify(ext.mediaFacade, times(2)).registerMetaDataStateListener(null)
-  }
-
-
-  it should "reset media data when a scan is complete" in {
+  it should "reset media data when a scan starts" in {
     val reg = createRegistration()
     val ext = createExtension()
     ext receive mock[AvailableMedia]
 
-    ext receive MetaDataScanCompleted
+    ext receive MetaDataScanStarted
     ext receive reg
     expectMediaDataRequest(ext)
     verify(reg.callback, never()).apply(any(classOf[AvailableMedia]))
   }
 
-  it should "request new data when a scan is complete if necessary" in {
+  it should "request new data when a scan starts if necessary" in {
     val ext = createExtension()
     ext receive mock[AvailableMedia]
     ext receive createRegistration()
 
-    ext receive MetaDataScanCompleted
+    ext receive MetaDataScanStarted
     expectMediaDataRequest(ext)
   }
 
-  it should "skip actions when a scan is complete if no consumers" in {
+  it should "skip actions when a scan starts if no consumers" in {
     val ext = createExtension()
 
     ext receive MetaDataScanCompleted
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    //TODO correct implementation
-    verify(ext.mediaFacade, never()).unregisterMetaDataStateListener(null)
+    verify(ext.mediaFacade, never()).unregisterMetaDataStateListener(ext.componentID)
   }
 
-  it should "reset the request pending flag if a scan is complete" in {
+  it should "reset the request pending flag if a scan starts" in {
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
     ext receive AvailableMediaUnregistration(reg.id)
 
-    ext receive MetaDataScanCompleted
+    ext receive MetaDataScanStarted
     ext receive reg
     expectMediaDataRequest(ext, 2)
   }
 
-  it should "remove the state listener registration if a scan is complete and no consumers" in {
+  it should "remove the state listener registration if a scan starts and no consumers" in {
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
     ext receive AvailableMediaUnregistration(reg.id)
 
-    ext receive MetaDataScanCompleted
-    //TODO correct implementation
-    verify(ext.mediaFacade).unregisterMetaDataStateListener(null)
+    ext receive MetaDataScanStarted
+    verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
   }
 }

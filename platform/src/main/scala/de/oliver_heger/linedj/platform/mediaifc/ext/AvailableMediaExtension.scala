@@ -17,12 +17,12 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension
-.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction,
-ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
+import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanStarted
 
 object AvailableMediaExtension {
 
@@ -67,12 +67,9 @@ object AvailableMediaExtension {
   * @param mediaFacade the facade to the media archive
   */
 class AvailableMediaExtension(val mediaFacade: MediaFacade)
-  extends MediaIfcExtension[AvailableMedia] {
+  extends MediaIfcExtension[AvailableMedia] with Identifiable {
   /** A cache for the current available media data. */
   private var currentMediaData: Option[AvailableMedia] = None
-
-  /** A flag whether a state listener registration has been added. */
-  private var stateListenerRegistered = false
 
   /** A flag whether a request for media data is pending. */
   private var requestPending = false
@@ -86,6 +83,9 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     case media: AvailableMedia =>
       invokeConsumers(media)
       currentMediaData = Some(media)
+
+    case MetaDataScanStarted =>
+      onMediaScanStarted(consumerList.nonEmpty)
   }
 
   /**
@@ -102,34 +102,32 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
           requestMediaData()
         }
     }
-    if (!stateListenerRegistered) {
+    if (first) {
+      // We might already be registered, but this is handled correctly by the
+      // media facade.
       registerStateListener()
     }
   }
 
   /**
     * @inheritdoc This implementation clears the internal cache. If consumers
-    *             are registered, a state listener registration has to be
-    *             added, and new data is requested.
+    *             are registered, new data is requested.
     */
   override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
-    stateListenerRegistered = false
-    if (resetAndRequestNewData(hasConsumers)) {
-      registerStateListener()
-    }
+    resetAndRequestNewData(hasConsumers)
   }
 
   /**
-    * @inheritdoc This implementation clears the internal cache. If consumers
-    *             are registered, new data is requested. Otherwise, a state
-    *             listener registration (if available) can now be removed.
+    * A new media scan was started. This means that data stored by this object
+    * is stale now. So the internal cache is cleared. If consumers are
+    * registered, new data is requested. Otherwise, a state listener
+    * registration can now be removed.
     */
-  override def onMediaScanCompleted(hasConsumers: Boolean): Unit = {
+  private def onMediaScanStarted(hasConsumers: Boolean): Unit = {
     if (!resetAndRequestNewData(hasConsumers)) {
-      if (stateListenerRegistered) {
-        //TODO correct implementation
-        mediaFacade.unregisterMetaDataStateListener(null)
-      }
+      // There might be no registration, but this is handled by the media
+      // facade.
+      mediaFacade.unregisterMetaDataStateListener(componentID)
     }
   }
 
@@ -162,8 +160,6 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     * Adds a registration for a meta data state listener.
     */
   private def registerStateListener(): Unit = {
-    //TODO correct implementation
-    mediaFacade.registerMetaDataStateListener(null)
-    stateListenerRegistered = true
+    mediaFacade.registerMetaDataStateListener(componentID)
   }
 }
