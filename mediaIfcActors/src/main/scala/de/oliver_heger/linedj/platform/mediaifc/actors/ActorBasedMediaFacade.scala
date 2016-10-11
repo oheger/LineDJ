@@ -112,8 +112,7 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     *             message to the relay actor.
     */
   override def registerMetaDataStateListener(componentID: ComponentID): Unit = {
-    //TODO correct implementation
-    relayActor ! RelayActor.RegisterStateListener
+    relayActor ! RelayActor.RegisterStateListener(componentID)
   }
 
   /**
@@ -121,8 +120,7 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     *             state listener registration to the relay actor.
     */
   override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {
-    //TODO correct implementation
-    relayActor ! RelayActor.UnregisterStateListener
+    relayActor ! RelayActor.UnregisterStateListener(componentID)
   }
 
   /**

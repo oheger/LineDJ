@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.{ManagementActor, RelayActor}
@@ -146,19 +147,19 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   }
 
   it should "support a meta data state listener registration" in {
+    val compID = ComponentID()
     val facade = createFacade()
 
-    //TODO correct implementation
-    facade.registerMetaDataStateListener(null)
-    expectMsg(RelayActor.RegisterStateListener)
+    facade.registerMetaDataStateListener(compID)
+    expectMsg(RelayActor.RegisterStateListener(compID))
   }
 
   it should "support removing a meta data state listener registration" in {
+    val compID = ComponentID()
     val facade = createFacade()
 
-    //TODO correct implementation
-    facade.unregisterMetaDataStateListener(null)
-    expectMsg(RelayActor.UnregisterStateListener)
+    facade.unregisterMetaDataStateListener(compID)
+    expectMsg(RelayActor.UnregisterStateListener(compID))
   }
 }
 
