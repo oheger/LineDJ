@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
@@ -64,7 +65,7 @@ object StateListenerExtension {
   * @param mediaFacade the facade to the media archive
   */
 class StateListenerExtension(val mediaFacade: MediaFacade)
-  extends MediaIfcExtension[MetaDataStateEvent] {
+  extends MediaIfcExtension[MetaDataStateEvent] with Identifiable {
   /** The last update state event received from the archive. */
   private var lastUpdatedEvent: Option[MetaDataStateEvent] = None
 
@@ -73,7 +74,6 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     *             necessary.
     */
   override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
-    registerStateListenerIfRequired(hasConsumers)
     lastUpdatedEvent = None
   }
 
@@ -93,8 +93,7 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   override def onConsumerRemoved(last: Boolean): Unit = {
     if (last) {
-      //TODO correct implementation
-      mediaFacade.unregisterMetaDataStateListener(null)
+      mediaFacade.unregisterMetaDataStateListener(componentID)
       lastUpdatedEvent = None
     }
   }
@@ -122,8 +121,7 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   private def registerStateListenerIfRequired(hasConsumers: Boolean): Unit = {
     if (hasConsumers) {
-      //TODO correct implementation
-      mediaFacade.registerMetaDataStateListener(null)
+      mediaFacade.registerMetaDataStateListener(componentID)
     }
   }
 }

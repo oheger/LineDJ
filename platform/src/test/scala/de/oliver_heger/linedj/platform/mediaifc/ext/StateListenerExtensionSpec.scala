@@ -76,8 +76,7 @@ class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSuga
     ext receive createRegistration()
     ext receive createRegistration()
 
-    //TODO correct implementation
-    verify(ext.mediaFacade).registerMetaDataStateListener(null)
+    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
   }
 
   it should "remove the listener registration if there are no consumers" in {
@@ -89,8 +88,7 @@ class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSuga
 
     ext receive StateListenerUnregistration(reg1.id)
     ext receive StateListenerUnregistration(reg2.id)
-    //TODO correct implementation
-    verify(ext.mediaFacade).unregisterMetaDataStateListener(null)
+    verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
   }
 
   it should "pass the current state to new consumers" in {
@@ -117,27 +115,12 @@ class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSuga
     verify(reg2.callback, never()).apply(State)
   }
 
-  it should "create a new registration when the archive becomes available" in {
-    val ext = createExtension()
-
-    ext onArchiveAvailable true
-    //TODO correct implementation
-    verify(ext.mediaFacade).registerMetaDataStateListener(null)
-  }
-
-  it should "only re-register the state listener if there are consumers" in {
-    val ext = createExtension()
-
-    ext onArchiveAvailable false
-    //TODO correct implementation
-    verify(ext.mediaFacade, never()).registerMetaDataStateListener(null)
-  }
-
   it should "reset the current state when the archive becomes available (again)" in {
     val ext = createExtension()
     ext receive State
 
-    ext onArchiveAvailable false
+    ext onArchiveAvailable true
+    verify(ext.mediaFacade, never()).registerMetaDataStateListener(ext.componentID)
     val reg = createRegistration()
     ext receive reg
     verify(reg.callback, never()).apply(State)
