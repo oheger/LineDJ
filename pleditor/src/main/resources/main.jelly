@@ -198,7 +198,6 @@
     <di:bean name="remoteController"
       beanClassName="de.oliver_heger.linedj.platform.app.RemoteController">
       <di:constructor>
-        <di:param refName="LineDJ_ClientApplicationContext"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="widget:onlineIndicator"/>
         <di:param refName="widget:offlineIndicator"/>

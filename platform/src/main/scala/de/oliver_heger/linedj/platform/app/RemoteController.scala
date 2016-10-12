@@ -45,12 +45,11 @@ object RemoteController {
   * archive. In such a scenario, they are declared in the script for the
   * owning applications's main window.
   *
-  * @param clientContext              the client application context
   * @param actionStore                the action store
   * @param serverAvailableIndicator   the indicator for the server available
   * @param serverUnavailableIndicator the indicator for the server not available
   */
-class RemoteController(clientContext: ClientApplicationContext, actionStore: ActionStore,
+class RemoteController(actionStore: ActionStore,
                        serverAvailableIndicator: WidgetHandler,
                        serverUnavailableIndicator: WidgetHandler)
   extends ConsumerRegistrationProvider {

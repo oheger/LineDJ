@@ -18,14 +18,11 @@ package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
-import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -65,14 +62,10 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** The mock for the server unavailable indicator. */
     val unavailableIndicator = mock[WidgetHandler]
 
-    /** A consumer ID to be used for the consumer registration. */
-    val consumerID = mock[ConsumerID]
-
     /** The test instance. */
     val controller = new RemoteController(actionStore = actionStore,
       serverAvailableIndicator = availableIndicator,
-      serverUnavailableIndicator = unavailableIndicator,
-      clientContext = createClientContext())
+      serverUnavailableIndicator = unavailableIndicator)
 
     /** The consumer function used by the controller. */
     private lazy val consumerFunction = fetchConsumerFunction()
@@ -86,23 +79,6 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
-      * Creates a mock client application context that can be used by the
-      * controller to query a consumer ID.
-      *
-      * @return the client application context
-      */
-    private def createClientContext(): ClientApplicationContext = {
-      val ctx = mock[ClientApplicationContext]
-      when(ctx.createConsumerID(any())).thenAnswer(new Answer[ConsumerID] {
-        override def answer(invocation: InvocationOnMock): ConsumerID = {
-          invocation.getArguments.head should be(controller)
-          consumerID
-        }
-      })
-      ctx
-    }
-
-    /**
       * Obtains the consumer function from the controller's consumer
       * registration.
       *
@@ -110,10 +86,10 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       */
     private def fetchConsumerFunction(): ConsumerFunction[MediaArchiveAvailabilityEvent] = {
       controller.registrations should have size 1
-      val reg = controller.registrations.head
-      reg should be (a[ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration])
-      reg.id should be(consumerID)
-      reg.callback.asInstanceOf[ConsumerFunction[MediaArchiveAvailabilityEvent]]
+      val reg = ConsumerRegistrationProviderTestHelper
+        .findRegistration[ArchiveAvailabilityRegistration](controller)
+      reg.id should not be null
+      reg.callback
     }
   }
 
