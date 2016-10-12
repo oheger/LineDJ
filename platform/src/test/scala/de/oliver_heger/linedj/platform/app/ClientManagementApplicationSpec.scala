@@ -22,8 +22,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{Actor, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerID, ConsumerIDFactory}
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, DefaultConsumerIDFactory, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -139,8 +138,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * @return the map with the message bus bean
     */
   private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
-  Map("LineDJ_messageBus" -> bus,
-    "LineDJ_consumerIDFactory" -> mock[DefaultConsumerIDFactory])
+  Map("LineDJ_messageBus" -> bus)
 
   /**
     * Creates a mock media facade factory. If a facade is passed in, it is
@@ -411,27 +409,6 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val config = app.managementConfiguration.asInstanceOf[XMLConfiguration]
     config.getFile.getName should be(UserConfigFile)
     config.getFile.delete()
-  }
-
-  it should "define a correct bean for the ConsumerIDFactory" in {
-    val actorSystem = mock[ActorSystem]
-    val app = new ClientManagementApplicationTestImpl
-    app initActorSystem actorSystem
-    runApp(app)
-
-    val factory = queryBean[DefaultConsumerIDFactory](app, "LineDJ_consumerIDFactory")
-    app.consumerIDFactory should be(factory)
-  }
-
-  it should "offer a convenience method for creating consumer IDs" in {
-    val cidFactory = mock[ConsumerIDFactory]
-    val cid = mock[ConsumerID]
-    when(cidFactory.createID(this)).thenReturn(cid)
-    val app = new ClientManagementApplicationTestImpl {
-      override def consumerIDFactory: ConsumerIDFactory = cidFactory
-    }
-
-    app createConsumerID this should be(cid)
   }
 
   /**

@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerIDFactory
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -151,9 +150,6 @@ ClientApplicationContext with ApplicationSyncStartup {
   /** The central stage factory. */
   private var beanStageFactory: StageFactory = _
 
-  /** The factory for consumer IDs. */
-  private var beanConsumerIDFactory: ConsumerIDFactory = _
-
   /** A list with the currently registered client applications. */
   private val registeredClients = new AtomicReference(List.empty[Application])
 
@@ -171,8 +167,6 @@ ClientApplicationContext with ApplicationSyncStartup {
   override def stageFactory: StageFactory = beanStageFactory
 
   override def mediaIfcConfig: Option[MediaIfcConfigData] = Option(refMediaIfcConfig.get())
-
-  override def consumerIDFactory: ConsumerIDFactory = beanConsumerIDFactory
 
   override def managementConfiguration: Configuration = getUserConfiguration
 
@@ -266,7 +260,6 @@ ClientApplicationContext with ApplicationSyncStartup {
     val appCtx = super.createApplicationContext()
     beanStageFactory = extractStageFactory(appCtx)
     mediaFacadeField = createMediaFacade(appCtx)
-    beanConsumerIDFactory = extractConsumerIDFactory(appCtx)
     appCtx
   }
 
@@ -310,15 +303,6 @@ ClientApplicationContext with ApplicationSyncStartup {
       .asInstanceOf[JavaFxWindowManager]
     windowManager.stageFactory
   }
-
-  /**
-    * Extracts the bean representing the consumer ID factory.
-    *
-    * @param appCtx the application context
-    * @return the bean for the ''ConsumerIDFactory''
-    */
-  private def extractConsumerIDFactory(appCtx: ApplicationContext): ConsumerIDFactory =
-  appCtx.getBeanContext.getBean(BeanConsumerIDFactory).asInstanceOf[ConsumerIDFactory]
 
   /**
     * Triggers a shutdown operation of the whole LineDJ client application on

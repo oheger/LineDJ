@@ -34,44 +34,6 @@ object MediaIfcExtension {
   type ConsumerFunction[C] = C => Unit
 
   /**
-    * A trait defining an ID of a consumer.
-    *
-    * The ID uniquely identifies a consumer and has to be provided during
-    * consumer registration and removal. Having a dedicated trait for this
-    * purpose aims at a better isolation of consumers. If for instance
-    * consumers were identified using their Object reference, a malicious
-    * application would have a chance to obtain this reference through a
-    * different means at use it for an uncontrolled un-registration. A concrete
-    * ''ConsumerID'' object in contrast could contain some random data which
-    * could not simply be guessed.
-    */
-  trait ConsumerID
-
-  /**
-    * A trait defining an abstract factory for consumer IDs.
-    *
-    * This trait defines a method that expects an object reference
-    * (representing the consumer or an object that is associated with it) and
-    * returns a new ''ConsumerID''.
-    *
-    * Concrete implementations are responsible to create unique IDs, even if
-    * the same object reference is passed in multiple times; so there should be
-    * a certain kind of randomness. This is also important to avoid that
-    * different components running on the platform can interfere with each
-    * other (on accident or - in case of a malicious component - on intention).
-    */
-  trait ConsumerIDFactory {
-    /**
-      * Creates a new ''ConsumerID'' for the specified owner.
-      *
-      * @param owner the owner of the ID; typically an object associated
-      *              somehow with the consumer to be identified
-      * @return the newly created ''ConsumerID''
-      */
-    def createID(owner: AnyRef): ConsumerID
-  }
-
-  /**
     * A trait defining the registration of a consumer for specific data.
     *
     * The registration consists of the consumer ID (which is used for a later

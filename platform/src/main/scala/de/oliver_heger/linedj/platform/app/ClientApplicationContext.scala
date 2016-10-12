@@ -20,7 +20,6 @@ import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerID, ConsumerIDFactory}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.Configuration
 
@@ -85,21 +84,4 @@ trait ClientApplicationContext {
     * @return an option with configuration data for the media archive
     */
   def mediaIfcConfig: Option[MediaIfcConfigData]
-
-  /**
-    * Returns a factory for consumer IDs. This is needed for objects that
-    * want to register consumers at specific extension components for the media
-    * archive interface.
-    * @return the ''ConsumerIDFactory''
-    */
-  def consumerIDFactory: ConsumerIDFactory
-
-  /**
-    * A convenience method for creating ''ConsumerID'' objects. This method
-    * just delegates to the ''ConsumerIDFactory'' that lives in this context.
-    * @param owner the owner of the ID
-    * @return the newly created ''ConsumerID''
-    */
-  def createConsumerID(owner: AnyRef): ConsumerID =
-  consumerIDFactory createID owner
 }
