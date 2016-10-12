@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration, ConsumerRegistrationProvider}
@@ -86,6 +87,6 @@ class RemoteController(clientContext: ClientApplicationContext, actionStore: Act
     * @return the collection of registrations
     */
   private def createRegistrations(): Iterable[ConsumerRegistration[_]] =
-  List(ArchiveAvailabilityRegistration(id = clientContext.createConsumerID(this),
+  List(ArchiveAvailabilityRegistration(id = ComponentID(),
     callback = availabilityChanged))
 }

@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.bus.Identifiable
+import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataStateEvent, MetaDataStateUpdated}
 
@@ -33,7 +33,7 @@ object StateListenerExtension {
     * @param id       the ID of the consumer
     * @param callback the consumer callback
     */
-  case class StateListenerRegistration(override val id: ConsumerID,
+  case class StateListenerRegistration(override val id: ComponentID,
                                        override val callback: ConsumerFunction[MetaDataStateEvent])
     extends ConsumerRegistration[MetaDataStateEvent]
 
@@ -44,7 +44,7 @@ object StateListenerExtension {
     *
     * @param id the ID of the consumer
     */
-  case class StateListenerUnregistration(id: ConsumerID)
+  case class StateListenerUnregistration(id: ComponentID)
 }
 
 /**

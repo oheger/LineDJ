@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanStarted
 
@@ -35,7 +35,7 @@ object AvailableMediaExtension {
     * @param id       the consumer ID
     * @param callback the consumer callback
     */
-  case class AvailableMediaRegistration(override val id: ConsumerID,
+  case class AvailableMediaRegistration(override val id: ComponentID,
                                         override val callback: ConsumerFunction[AvailableMedia])
     extends ConsumerRegistration[AvailableMedia]
 
@@ -46,7 +46,7 @@ object AvailableMediaExtension {
     *
     * @param id the consumer ID
     */
-  case class AvailableMediaUnregistration(id: ConsumerID)
+  case class AvailableMediaUnregistration(id: ComponentID)
 
 }
 

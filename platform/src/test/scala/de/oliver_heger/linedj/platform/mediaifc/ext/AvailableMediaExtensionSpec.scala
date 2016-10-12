@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
 import org.mockito.Matchers.any
@@ -36,7 +37,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     * @return the registration
     */
   private def createRegistration(): ConsumerRegistration[AvailableMedia] =
-  AvailableMediaRegistration(mock[ConsumerID],
+  AvailableMediaRegistration(ComponentID(),
     mock[ConsumerFunction[AvailableMedia]])
 
   /**

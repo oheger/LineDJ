@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction,
-ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 
 object MediaIfcExtension {
@@ -82,11 +82,11 @@ object MediaIfcExtension {
     */
   trait ConsumerRegistration[C] {
     /**
-      * Returns the ID of this consumer.
+      * Returns the ID of this consumer (which is a ''ComponentID'').
       *
       * @return the unique consumer ID
       */
-    def id: ConsumerID
+    def id: ComponentID
 
     /**
       * Returns the callback function of this consumer. Via this function
@@ -178,7 +178,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
   /**
     * Holds the consumers registered at this object.
     */
-  private var consumers = Map.empty[ConsumerID, ConsumerFunction[C]]
+  private var consumers = Map.empty[ComponentID, ConsumerFunction[C]]
 
   /**
     * @inheritdoc This implementation returns a combined message function.
@@ -217,7 +217,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param id the ID of the consumer to be removed
     * @return a flag whether the last consumer was removed
     */
-  def removeConsumer(id: ConsumerID): Boolean = {
+  def removeConsumer(id: ComponentID): Boolean = {
     val sizeBefore = consumers.size
     consumers -= id
     val last = consumers.isEmpty && sizeBefore > 0

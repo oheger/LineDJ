@@ -17,12 +17,10 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent,
-MediaArchiveUnavailable}
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction,
-ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaArchiveUnavailable}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 
 object ArchiveAvailabilityExtension {
 
@@ -34,7 +32,7 @@ object ArchiveAvailabilityExtension {
     * @param id       the consumer ID
     * @param callback the consumer callback function
     */
-  case class ArchiveAvailabilityRegistration(override val id: ConsumerID, override val callback:
+  case class ArchiveAvailabilityRegistration(override val id: ComponentID, override val callback:
   ConsumerFunction[MediaArchiveAvailabilityEvent]) extends
     ConsumerRegistration[MediaArchiveAvailabilityEvent]
 
@@ -43,7 +41,7 @@ object ArchiveAvailabilityExtension {
     *
     * @param id the ID of the consumer to be removed
     */
-  case class ArchiveAvailabilityUnregistration(id: ConsumerID)
+  case class ArchiveAvailabilityUnregistration(id: ComponentID)
 
 }
 

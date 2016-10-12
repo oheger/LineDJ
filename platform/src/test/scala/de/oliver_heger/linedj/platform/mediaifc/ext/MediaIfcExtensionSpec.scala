@@ -19,8 +19,9 @@ package de.oliver_heger.linedj.platform.mediaifc.ext
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerFunction
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -34,14 +35,6 @@ object MediaIfcExtensionSpec {
   private val Answer = "That's true."
 
   /**
-    * Generates a string representation for a consumer ID.
-    *
-    * @param idx the index
-    * @return the string for the ID with this index
-    */
-  private def idStr(idx: Int): String = s"id[$idx]"
-
-  /**
     * Generates a string with output for a test consumer.
     *
     * @param idx  the index of this consumer
@@ -49,17 +42,6 @@ object MediaIfcExtensionSpec {
     * @return the output of the consumer function
     */
   private def consumerOutput(idx: Int, data: String): String = s"$idx:$data"
-
-  /**
-    * Creates a consumer ID object with a defined toString() method.
-    *
-    * @param idx the index of the ID
-    * @return the consumer ID
-    */
-  private def createID(idx: Int): MediaIfcExtension.ConsumerID =
-  new ConsumerID {
-    override def toString: String = idStr(idx)
-  }
 
   /**
     * Parsers a string produced by the test consumers and returns an array with
@@ -103,7 +85,7 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
   private def createRegistration(idx: Int, cons: MediaIfcExtension.ConsumerFunction[String]):
   MediaIfcExtension.ConsumerRegistration[String] = {
     val reg = mock[MediaIfcExtension.ConsumerRegistration[String]]
-    when(reg.id).thenReturn(createID(idx))
+    when(reg.id).thenReturn(ComponentID())
     when(reg.callback).thenReturn(cons)
     reg
   }
@@ -196,7 +178,7 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "correctly handle an unknown ID in removeConsumer()" in {
     val ext = new MediaIfcExtensionTestImpl
 
-    ext removeConsumer createID(42) shouldBe false
+    ext removeConsumer ComponentID() shouldBe false
   }
 
   it should "correctly invoke the consumer removed callback" in {
@@ -215,7 +197,7 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "deal with failed removals when invoking the consumer removed callback" in {
     val ext = new MediaIfcExtensionTestImpl
 
-    ext removeConsumer createID(8)
+    ext removeConsumer ComponentID()
     ext.consumerRemovedNotifications.get() shouldBe 'empty
   }
 

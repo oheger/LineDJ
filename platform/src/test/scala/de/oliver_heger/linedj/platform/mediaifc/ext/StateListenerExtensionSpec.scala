@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.StateListenerUnregistration
 import de.oliver_heger.linedj.shared.archive.metadata._
 import org.mockito.Mockito._
@@ -44,8 +45,7 @@ class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSuga
     */
   private def createRegistration(): ConsumerRegistration[MetaDataStateEvent] = {
     val func = mock[ConsumerFunction[MetaDataStateEvent]]
-    val id = mock[ConsumerID]
-    StateListenerExtension.StateListenerRegistration(id, func)
+    StateListenerExtension.StateListenerRegistration(ComponentID(), func)
   }
 
   /**

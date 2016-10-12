@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.ArchiveAvailabilityRegistration
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction,
-ConsumerID, ConsumerRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -36,7 +35,7 @@ class ArchiveAvailabilityExtensionSpec extends FlatSpec with Matchers with Mocki
     * @return the new consumer registration
     */
   private def createRegistration(): ConsumerRegistration[MediaArchiveAvailabilityEvent] =
-  ArchiveAvailabilityRegistration(mock[ConsumerID],
+  ArchiveAvailabilityRegistration(ComponentID(),
     mock[ConsumerFunction[MediaArchiveAvailabilityEvent]])
 
   "An ArchiveAvailabilityExtension" should "pass events to registered consumers" in {
