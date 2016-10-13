@@ -21,10 +21,13 @@ import java.util
 import java.util.Locale
 
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -211,10 +214,15 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   import MediaControllerSpec._
 
-  "A MediaController" should "disable the combo when the archive is unavailable" in {
+  "A MediaController" should "use correct IDs in consumer registrations" in {
+    val helper = new MediaControllerTestHelper
+    ConsumerRegistrationProviderTestHelper.checkRegistrationIDs(helper.controller)
+  }
+
+  it should "disable the combo when the archive is unavailable" in {
     val helper = new MediaControllerTestHelper
 
-    helper send MediaFacade.MediaArchiveUnavailable
+    helper sendArchiveStateEvent MediaFacade.MediaArchiveUnavailable
     verify(helper.comboHandler).setEnabled(false)
     verify(helper.labelInProgress).setVisible(false)
   }
@@ -222,16 +230,15 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "handle an archive available message correctly" in {
     val helper = new MediaControllerTestHelper
 
-    helper send MediaFacade.MediaArchiveAvailable
+    helper sendArchiveStateEvent MediaFacade.MediaArchiveAvailable
     verify(helper.labelInProgress).setVisible(false)
-    verify(helper.mediaFacade).send(MediaActors.MediaManager, GetAvailableMedia)
   }
 
   it should "pass available media to the combo handler" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 3
 
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
     val verInOrder = Mockito.inOrder(helper.comboHandler)
     verInOrder.verify(helper.comboHandler).removeItem(2)
     verInOrder.verify(helper.comboHandler).removeItem(1)
@@ -248,7 +255,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 3
 
-    helper send AvailableMedia(Map.empty)
+    helper sendAvailableMedia AvailableMedia(Map.empty)
     verify(helper.comboHandler, never()).setData(any())
     verify(helper.comboHandler, never()).setEnabled(true)
   }
@@ -258,7 +265,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
 
-    helper send AvailableMedia(mediaMap)
+    helper sendAvailableMedia AvailableMedia(mediaMap)
     verify(helper.comboHandler, never()).removeItem(anyInt())
     verify(helper.comboHandler, never()).addItem(3, UndefinedMediumName, MediumID.UndefinedMediumID)
   }
@@ -286,7 +293,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.selectMedium()
     helper.clearReceivedMessages()
 
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
     helper selectMedium mediumID(MediaNames(1))
     helper.findMessageType[RemoveMetaDataRegistration] shouldBe 'empty
   }
@@ -306,7 +313,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "set the root node of the tree model to the medium name" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
     helper.selectMedium()
 
     helper.treeModel.getRootNode.getName should be(Medium)
@@ -315,7 +322,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "use the undefined name for an unknown medium ID" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
     helper.selectMedium(MediumID("unknown medium", None))
 
     helper.treeModel.getRootNode.getName should be(UndefinedMediumName)
@@ -324,7 +331,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "use the undefined name for the undefined medium ID" in {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
     helper.selectMedium(MediumID.UndefinedMediumID)
 
     helper.treeModel.getRootNode.getName should be(UndefinedMediumName)
@@ -412,7 +419,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
     val callback = helper.selectMedium()
-    helper send AvailableMediaMsg
+    helper sendAvailableMedia AvailableMediaMsg
 
     callback(createChunk(mediumID = mediumID("other"), songs = createSongData(Artist1, Album1,
       Songs1)))
@@ -640,6 +647,8 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
    * controller.
    */
   private class MediaControllerTestHelper {
+    import ConsumerRegistrationProviderTestHelper._
+
     val songFactory = new SongDataFactory(null) {
       override def createSongData(mediumID: MediumID, uri: String, metaData: MediaMetaData): SongData =
         SongData(mediumID, uri, metaData, null)
@@ -685,12 +694,25 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     private val publishedMessages = ListBuffer.empty[Any]
 
     /**
-     * Sends the specified message to the receive method of the test
-     * controller.
-     * @param msg the message
-     */
-    def send(msg: Any): Unit = {
-      controller.receive(msg)
+      * Sends the specified event to the corresponding consumer registered by
+      * the test controller.
+      *
+      * @param ev the event
+      */
+    def sendArchiveStateEvent(ev: MediaFacade.MediaArchiveAvailabilityEvent): Unit = {
+      val reg = findRegistration[ArchiveAvailabilityRegistration](controller)
+      reg.callback(ev)
+    }
+
+    /**
+      * Sends the specified ''AvailableMedia'' object to the corresponding
+      * consumer registered by the test controller.
+      *
+      * @param am the message
+      */
+    def sendAvailableMedia(am: AvailableMedia): Unit = {
+      val reg = findRegistration[AvailableMediaRegistration](controller)
+      reg.callback(am)
     }
 
     /**

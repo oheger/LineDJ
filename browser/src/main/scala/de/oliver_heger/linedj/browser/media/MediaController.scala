@@ -18,12 +18,14 @@ package de.oliver_heger.linedj.browser.media
 
 import java.util.Locale
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.platform.comm.MessageBusListener
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration, ConsumerRegistrationProvider}
 import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -115,8 +117,8 @@ object MediaController {
  */
 class MediaController(mediaFacade: MediaFacade, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
-                      WidgetHandler, actionStore: ActionStore, undefinedMediumName: String) extends
-MessageBusListener {
+                      WidgetHandler, actionStore: ActionStore, undefinedMediumName: String)
+  extends ConsumerRegistrationProvider {
 
   import MediaController._
 
@@ -144,6 +146,11 @@ MessageBusListener {
   /** Stores the available media. */
   private var availableMedia = Map.empty[MediumID, MediumInfo]
 
+  /** The registrations for consumers. */
+  override val registrations: Iterable[ConsumerRegistration[_]] =
+  List(ArchiveAvailabilityRegistration(ComponentID(), handleArchiveAvailabilityEvent),
+    AvailableMediaRegistration(ComponentID(), handleAvailableMedia))
+
   /**
     * Initializes this controller. This method sets initial state of some of
     * the managed objects.
@@ -153,28 +160,6 @@ MessageBusListener {
     enableAction(ActionAddArtist, enabled = false)
     enableAction(ActionAddAlbum, enabled = false)
     enableAction(ActionAddSongs, enabled = false)
-  }
-
-  /**
-   * Returns the function for handling messages published on the message bus.
-   * @return the message handling function
-   */
-  override def receive: Receive = {
-    case MediaFacade.MediaArchiveUnavailable =>
-      comboMedia setEnabled false
-      inProgressWidget setVisible false
-
-    case MediaFacade.MediaArchiveAvailable =>
-      mediaFacade.send(MediaActors.MediaManager, GetAvailableMedia)
-      inProgressWidget setVisible false
-
-    case AvailableMedia(media) =>
-      selectedMediumID = None
-      removeExistingMediaFromComboBox()
-      if (addMediaToComboBox(media)) {
-        comboMedia setEnabled true
-      }
-      availableMedia = media
   }
 
   /**
@@ -455,6 +440,39 @@ MessageBusListener {
     */
   private def enableAction(name: String, enabled: Boolean): Unit = {
     actionStore.getAction(name) setEnabled enabled
+  }
+
+  /**
+    * Consumer function for handling an event regarding the availability of the
+    * media archive.
+    *
+    * @param event the event
+    */
+  private def handleArchiveAvailabilityEvent(event: MediaFacade.MediaArchiveAvailabilityEvent):
+  Unit = {
+    event match {
+      case MediaFacade.MediaArchiveUnavailable =>
+        comboMedia setEnabled false
+        inProgressWidget setVisible false
+
+      case MediaFacade.MediaArchiveAvailable =>
+        inProgressWidget setVisible false
+    }
+  }
+
+  /**
+    * Handles a message about available media. This is the consumer function
+    * for the available media extension.
+    *
+    * @param am the data about available media
+    */
+  private def handleAvailableMedia(am: AvailableMedia): Unit = {
+    selectedMediumID = None
+    removeExistingMediaFromComboBox()
+    if (addMediaToComboBox(am.media)) {
+      comboMedia setEnabled true
+    }
+    availableMedia = am.media
   }
 
   /**

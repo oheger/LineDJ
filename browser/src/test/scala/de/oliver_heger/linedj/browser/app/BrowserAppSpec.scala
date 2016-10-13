@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.browser.app
 
 import akka.actor.Actor
+import de.oliver_heger.linedj.browser.media.MediaController
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
@@ -70,7 +71,9 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
     val remoteCtrl = queryBean[RemoteController](application.getMainWindowBeanContext,
       "remoteController")
-    consumerReg.providers should contain only remoteCtrl
+    val mediaCtrl = queryBean[MediaController](application.getMainWindowBeanContext,
+      "mediaController")
+    consumerReg.providers should contain only (remoteCtrl, mediaCtrl)
   }
 
   it should "construct an instance correctly" in {

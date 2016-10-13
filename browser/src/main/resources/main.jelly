@@ -139,7 +139,6 @@
       <di:param>
         <di:list>
           <di:element refName="metaDataCache"/>
-          <di:element refName="mediaController"/>
           <di:element refName="openMediaIfcConfigTask"/>
         </di:list>
       </di:param>
@@ -154,6 +153,7 @@
       <di:param>
         <di:list>
           <di:element refName="remoteController"/>
+          <di:element refName="mediaController"/>
         </di:list>
       </di:param>
     </di:constructor>
