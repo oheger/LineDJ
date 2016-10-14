@@ -118,7 +118,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private val mediumListeners = collection.mutable.Map.empty[MediumID, List[ActorRef]]
 
   /** A list with the currently registered state listeners. */
-  private var stateListeners = List.empty[ActorRef]
+  private var stateListeners = Set.empty[ActorRef]
 
   /** A map with the processor actors for the different media roots. */
   private var processorActors = Map.empty[Path, ActorRef]
@@ -220,7 +220,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       }
 
     case AddMetaDataStateListener(listener) =>
-      stateListeners = listener :: stateListeners
+      stateListeners = stateListeners + listener
       listener ! ccreateStateUpdatedEvent
 
     case RemoveMetaDataStateListener(listener) =>

@@ -768,6 +768,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectNoMoreMessage(listener2)
   }
 
+  it should "support only a single listener registration per actor" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = helper.newStateListener()
+
+    helper addStateListener listener  // add a 2nd time
+    listener.expectMsgType[MetaDataStateUpdated]
+    helper.startProcessing()
+    helper.sendAvailableMedia()
+    helper.actor ! CloseRequest
+    listener.expectMsg(MetaDataScanStarted)
+    listener.expectMsg(MetaDataScanCanceled)
+  }
+
   it should "forward a GetMetaDataFileInfo message to the persistence manager" in {
     val helper = new MetaDataManagerActorTestHelper(
       optPersistenceManager = Some(ForwardTestActor()))

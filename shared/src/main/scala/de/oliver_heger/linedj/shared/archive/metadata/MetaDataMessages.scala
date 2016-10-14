@@ -90,6 +90,10 @@ case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
   * sent automatically with current statistics. Further events report the
   * beginning and end of scan operations and the progress made during scans.
   *
+  * Note that only a single listener registration per actor reference is
+  * allowed. If an actor is registered which is already a state listener, it is
+  * not registered a 2nd time; it also receives update events only once.
+  *
   * @param listener the listener actor to be registered
   */
 case class AddMetaDataStateListener(listener: ActorRef)
