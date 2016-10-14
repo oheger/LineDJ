@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -274,12 +274,35 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.unregisterRemoteActor(helper.probeMediaManager)
     helper.registerRemoteActor(helper.probeMediaManager)
     helper.expectStateListenerRegistration()
+    expectMsg(MediaFacade.MediaArchiveUnavailable)
+    expectMsg(MediaFacade.MediaArchiveAvailable)
+  }
+
+  it should "remove a state listener registration on stopping" in {
+    val helper = new RemoteRelayActorTestHelper
+    helper.provideRemoteActors()
+    helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
+    helper.expectStateListenerRegistration()
+
+    system stop helper.relayActor
+    helper.expectStateListenerUnRegistration()
+  }
+
+  it should "not remove a state listener registration on stopping if there is none" in {
+    val helper = new RemoteRelayActorTestHelper
+    system stop helper.provideRemoteActors()
+
+    val probe = TestProbe()
+    probe watch helper.relayActor
+    probe.expectMsgType[Terminated]
+    helper.probeMetaDataManager.ref ! Message
+    helper.probeMetaDataManager.expectMsg(Message)
   }
 
   /**
-   * A helper class for testing the relay actor. It manages a set of
-   * dependent objects.
-   */
+    * A helper class for testing the relay actor. It manages a set of
+    * dependent objects.
+    */
   private class RemoteRelayActorTestHelper {
     /** Test probe for the lookup actor for the media manager. */
     val probeMediaManagerLookup = TestProbe()

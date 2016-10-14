@@ -261,6 +261,16 @@ Actor {
     }
   }
 
+  /**
+    * @inheritdoc This implementation removes the state listener registration
+    *             if there is one.
+    */
+  @scala.throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
+    updateStateListenerRegistration(Set.empty)
+    super.postStop()
+  }
+
   override def receive: Receive = {
     case Activate(enabled) =>
       activated = enabled
