@@ -781,6 +781,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     listener.expectMsg(MetaDataScanCanceled)
   }
 
+  it should "remove a state listener if this actor dies" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val listener = helper.newStateListener()
+
+    system stop listener.ref
+    awaitCond(helper.actor.underlyingActor.registeredStateListeners.isEmpty)
+  }
+
   it should "forward a GetMetaDataFileInfo message to the persistence manager" in {
     val helper = new MetaDataManagerActorTestHelper(
       optPersistenceManager = Some(ForwardTestActor()))

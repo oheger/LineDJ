@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediaScanStarts}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -221,14 +221,32 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case AddMetaDataStateListener(listener) =>
       stateListeners = stateListeners + listener
-      listener ! ccreateStateUpdatedEvent
+      listener ! createStateUpdatedEvent()
+      context watch listener
+      log.info("Added state listener.")
 
     case RemoveMetaDataStateListener(listener) =>
-      stateListeners = stateListeners filterNot (_ == listener)
+      if (removeStateListenerActor(listener)) {
+        context unwatch listener
+        log.info("Removed state listener.")
+      }
+
+    case Terminated(actor) =>
+      // a state listener actor died, so remove it from the set
+      removeStateListenerActor(actor)
+      log.warning("State listener terminated. Removed from collection.")
 
     case GetMetaDataFileInfo =>
       persistenceManager forward GetMetaDataFileInfo
   }
+
+  /**
+    * Returns a set with the currently registered state listeners. This is
+    * mainly for testing purposes.
+    *
+    * @return a set with the registered state listeners
+    */
+  def registeredStateListeners: Set[ActorRef] = stateListeners
 
   /**
     * Prepares a new scan operation. Initializes some internal state.
@@ -305,7 +323,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       if (mediumID != MediumID.UndefinedMediumID) {
         // the undefined medium is handled at the very end of the scan
         fireStateEvent(MediumMetaDataCompleted(mediumID))
-        fireStateEvent(ccreateStateUpdatedEvent())
+        fireStateEvent(createStateUpdatedEvent())
       }
       checkAndHandleScanComplete()
     }
@@ -389,7 +407,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @return the state object
     */
-  private def ccreateStateUpdatedEvent(): MetaDataStateUpdated =
+  private def createStateUpdatedEvent(): MetaDataStateUpdated =
   MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount = currentSongCount,
     duration = currentDuration, size = currentSize, scanInProgress = scanInProgress))
 
@@ -400,6 +418,19 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def fireStateEvent(event: => MetaDataStateEvent): Unit = {
     lazy val msg = event
-    stateListeners foreach (_ ! msg)
+    registeredStateListeners foreach (_ ! msg)
+  }
+
+  /**
+    * Removes a state listener actor from the internal collection. Result is
+    * '''true''' if the listener could actually be removed.
+    *
+    * @param actor the listener actor
+    * @return a flag whether this listener actor was removed
+    */
+  private def removeStateListenerActor(actor: ActorRef): Boolean = {
+    val oldListeners = stateListeners
+    stateListeners = stateListeners filterNot (_ == actor)
+    oldListeners != stateListeners
   }
 }
