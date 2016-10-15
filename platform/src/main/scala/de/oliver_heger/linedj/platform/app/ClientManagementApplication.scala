@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
@@ -289,7 +289,8 @@ ClientApplicationContext with ApplicationSyncStartup {
     * @return the extensions to be registered on the message bus
     */
   private[app] def createMediaIfcExtensions(facade: MediaFacade): Iterable[MessageBusListener] =
-  List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade))
+  List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
+    new AvailableMediaExtension(facade))
 
   /**
     * Extracts the stage factory bean from the application context. The stage

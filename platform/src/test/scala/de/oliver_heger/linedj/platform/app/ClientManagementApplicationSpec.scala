@@ -22,7 +22,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{Actor, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -231,6 +231,15 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val extensions = app.createMediaIfcExtensions(facade)
     val listenerExt = extensions.find(_.isInstanceOf[StateListenerExtension])
     listenerExt.get.asInstanceOf[StateListenerExtension].mediaFacade should be(facade)
+  }
+
+  it should "create an extension for available media of the media archive" in {
+    val facade = mock[MediaFacade]
+    val app = new ClientManagementApplication
+
+    val extensions = app.createMediaIfcExtensions(facade)
+    val listenerExt = extensions.find(_.isInstanceOf[AvailableMediaExtension])
+    listenerExt.get.asInstanceOf[AvailableMediaExtension].mediaFacade should be(facade)
   }
 
   it should "register media archive extensions on the message bus" in {
