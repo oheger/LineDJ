@@ -25,7 +25,7 @@ import sbt._
 
 object Build extends Build {
   /** Definition of versions. */
-  lazy val AkkaVersion = "2.4.8"
+  lazy val AkkaVersion = "2.4.11"
   lazy val OsgiVersion = "5.0.0"
 
   /** The copyright dates. */
