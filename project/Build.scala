@@ -169,6 +169,23 @@ object Build extends Build {
     ) dependsOn (platform, archive)
 
   /**
+    * A project which implements an admin UI for the media archive.
+    */
+  lazy val archiveAdmin = Project(id = "archiveAdmin",
+    base = file("archiveAdmin"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "linedj-archiveAdmin",
+      libraryDependencies ++= jguiraffeDependencies,
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn (platform % "compile->compile;test->test", archive)
+
+  /**
     * Project for the media browser client application. This application allows
     * browsing through the media stored in the music library.
     */
