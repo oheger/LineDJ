@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
+import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
@@ -74,7 +75,7 @@ class MediaArchiveStartup {
       persistentMetaDataManager), MediaActors.MetaDataManager.name)
     val mediaManager = createActor(MediaManagerActor(archiveConfig, metaDataManager),
       MediaActors.MediaManager.name)
-    mediaManager ! MediaManagerActor.ScanAllMedia
+    mediaManager ! ScanAllMedia
   }
 
   /**

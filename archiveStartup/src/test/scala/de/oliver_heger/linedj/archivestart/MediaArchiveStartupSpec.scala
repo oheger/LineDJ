@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.comm.ActorFactory
+import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.Mockito._
 import org.mockito.Matchers._
@@ -87,7 +88,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new MediaArchiveStartupTestHelper
     helper.createAndActivateStartup()
 
-    helper.probeMediaManager.expectMsg(MediaManagerActor.ScanAllMedia)
+    helper.probeMediaManager.expectMsg(ScanAllMedia)
   }
 
   /**

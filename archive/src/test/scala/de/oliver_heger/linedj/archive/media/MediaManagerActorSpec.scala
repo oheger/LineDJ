@@ -116,7 +116,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "process a ScanAllMedia message" in {
     val helper = new MediaManagerTestHelper
 
-    helper.testManagerActor ! MediaManagerActor.ScanAllMedia
+    helper.testManagerActor ! ScanAllMedia
     helper.simulateCollaboratingActors()
     helper.testManagerActor ! GetAvailableMedia
     helper checkMediaWithDescriptions expectMsgType[AvailableMedia]

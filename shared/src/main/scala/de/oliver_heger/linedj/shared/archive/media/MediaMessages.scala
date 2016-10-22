@@ -112,3 +112,10 @@ case class MediumFileRequest(mediumID: MediumID, uri: String, withMetaData: Bool
  * @param length the length of the file (in bytes)
  */
 case class MediumFileResponse(request: MediumFileRequest, contentReader: ActorRef, length: Long)
+
+/**
+  * A message processed by ''MediaManagerActor'' telling it to scan all
+  * configured root paths for media files. The paths are obtained from the
+  * configuration passed to this actor as construction time.
+  */
+case object ScanAllMedia

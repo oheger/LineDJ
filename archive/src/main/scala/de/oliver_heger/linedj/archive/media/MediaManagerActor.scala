@@ -47,13 +47,6 @@ object MediaManagerActor {
   case class ScanMedia(roots: Iterable[String])
 
   /**
-    * A message processed by ''MediaManagerActor'' telling it to scan all
-    * configured root paths for media files. The paths are obtained from the
-    * configuration passed to this actor as construction time.
-    */
-  case object ScanAllMedia
-
-  /**
    * A message processed by ''MediaManagerActor'' telling it to check whether
    * there are reader actors with a timeout. This message is processed
    * periodically. This ensures that clients that terminated unexpectedly do
