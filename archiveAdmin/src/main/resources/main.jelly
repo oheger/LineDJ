@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2016 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the main window of the LineDJ playlist generator
+    application.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- A transformer for properties of the archive state -->
+  <di:bean name="stringTransformer"
+    beanClassName="net.sf.jguiraffe.transform.ToStringTransformer">
+    <di:setProperty property="groupingUsed" value="true"/>
+    <di:setProperty property="maximumFractionDigits" value="2"/>
+  </di:bean>
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+    resgrp="application" taskBean="exitTask"/>
+
+  <!-- Actions for adding songs from a medium to the playlist -->
+  <a:action name="startScanAction" textres="act_startscan_text" tooltipres="act_startscan_tip"
+    mnemonicres="act_startscan_mnemo" taskBean="startScanTask">
+    <f:icon resource="start_scan.png"/>
+  </a:action>
+
+  <a:action name="cancelScanAction" textres="act_cancelscan_text" tooltipres="act_cancelscan_tip"
+    mnemonicres="act_cancelscan_mnemo" taskBean="cancelScanTask">
+    <f:icon resource="cancel_scan.png"/>
+  </a:action>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="startScanAction"/>
+      <a:menuitem actionName="cancelScanAction"/>
+      <a:separator/>
+      <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- Icons for the archive's state -->
+  <f:icon resource="state_unavail.png" var="iconUnavailable"/>
+  <f:icon resource="state_avail.png" var="iconAvailable"/>
+  <f:icon resource="state_scanning.gif" var="iconScanning"/>
+
+  <!-- Consumer registration -->
+  <di:bean name="LineDJ_consumerRegistration"
+           beanClassName="de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="adminController"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+  </di:bean>
+
+  <!-- An event filter for the window closing event. -->
+  <di:bean name="windowClosingEventFilter"
+           beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
+    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
+  </di:bean>
+
+  <!-- The main window -->
+  <w:frame titleres="main_title" menu="mainMenu">
+    <f:borderlayout canShrink="false"/>
+    <!-- A tool bar at the top of the window's content -->
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="startScanAction"/>
+      <a:toolbutton actionName="cancelScanAction"/>
+    </a:toolbar>
+
+    <!-- The main panel -->
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout canShrink="true" leftMargin="5" rightMargin="5" topMargin="4"
+                      bottomMargin="4" westGap="8" eastGap="8"/>
+      <f:statictext name="archiveStatus" noField="false">
+        <f:borderconstr name="WEST"/>
+      </f:statictext>
+
+      <f:panel>
+        <f:borderconstr name="CENTER"/>
+        <f:percentlayout columns="4dlu end/preferred 3dlu end/preferred(2cm)/100 4dlu"
+                         rows="4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+        <f:label textres="lab_media_count">
+          <f:percentconstr col="1" row="1"/>
+        </f:label>
+        <f:statictext name="mediaCount" noField="false">
+          <f:percentconstr col="3" row="1"/>
+        </f:statictext>
+        <f:label textres="lab_song_count">
+          <f:percentconstr col="1" row="3"/>
+        </f:label>
+        <f:statictext name="songCount" noField="false">
+          <f:percentconstr col="3" row="3"/>
+        </f:statictext>
+        <f:label textres="lab_file_size">
+          <f:percentconstr col="1" row="5"/>
+        </f:label>
+        <f:statictext name="fileSize" noField="false">
+          <f:percentconstr col="3" row="5"/>
+        </f:statictext>
+        <f:label textres="lab_duration">
+          <f:percentconstr col="1" row="7"/>
+        </f:label>
+        <f:statictext name="playbackDuration" noField="false">
+          <f:percentconstr col="3" row="7"/>
+        </f:statictext>
+      </f:panel>
+    </f:panel>
+
+    <!-- An event listener that delegates the window closing event to the
+         application exit action.
+    -->
+    <w:windowEvent actionName="exitAction">
+      <a:eventFilter beanName="windowClosingEventFilter"/>
+    </w:windowEvent>
+
+    <!-- Media controller -->
+    <di:bean name="adminController"
+      beanClassName="de.oliver_heger.linedj.archiveadmin.ArchiveAdminController">
+      <di:constructor>
+        <di:param refName="COMPONENT_BUILDER_DATA"/>
+        <di:param refName="stringTransformer"/>
+      </di:constructor>
+
+      <di:setProperty property="stateUnavailableText">
+        <f:localized resid="state_unavailable"/>
+      </di:setProperty>
+      <di:setProperty property="stateScanInProgressText">
+        <f:localized resid="state_scanning"/>
+      </di:setProperty>
+      <di:setProperty property="stateNoScanInProgressText">
+        <f:localized resid="state_no_scan"/>
+      </di:setProperty>
+      <di:setProperty property="stateUnavailableIcon" refName="iconUnavailable"/>
+      <di:setProperty property="stateScanInProgressIcon" refName="iconScanning"/>
+    </di:bean>
+  </w:frame>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Action tasks for adding songs to the playlist -->
+  <di:bean name="startScanTask"
+    beanClassName="de.oliver_heger.linedj.archiveadmin.StartMetaDataScanTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MediaFacade"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="cancelScanTask"
+    beanClassName="de.oliver_heger.linedj.archiveadmin.CancelMetaDataScanTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MediaFacade"/>
+    </di:constructor>
+  </di:bean>
+</j:jelly>
