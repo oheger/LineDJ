@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.io
 
 import java.io.IOException
 import java.nio.file.{Files, Paths}
@@ -22,7 +22,6 @@ import java.nio.file.{Files, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -32,11 +31,10 @@ import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 class RemoveFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with
 FileTestHelper {
-  def this() = this(ActorSystemTestHelper createActorSystem "RemoveFileActorSpec")
+  def this() = this(ActorSystem("RemoveFileActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   after {

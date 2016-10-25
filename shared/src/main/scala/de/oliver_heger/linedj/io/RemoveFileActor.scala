@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.io
 
 import java.nio.file.{Files, Path}
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.RemoveFileActor.{FileRemoved, RemoveFile}
+import de.oliver_heger.linedj.io.RemoveFileActor.{FileRemoved, RemoveFile}
 
 object RemoveFileActor {
 

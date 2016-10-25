@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.io.{FileData, ScanResult}
+import de.oliver_heger.linedj.io.{FileData, RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID}

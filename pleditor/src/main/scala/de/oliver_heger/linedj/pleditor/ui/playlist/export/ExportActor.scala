@@ -24,7 +24,7 @@ import akka.pattern.pipe
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.io.ScanResult
+import de.oliver_heger.linedj.io.{RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
