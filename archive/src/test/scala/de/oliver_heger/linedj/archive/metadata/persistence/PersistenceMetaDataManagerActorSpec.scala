@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MediaMetaData, MetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -62,6 +62,9 @@ object PersistenceMetaDataManagerActorSpec {
 
   /** Constant for the writer child actor class. */
   private val ClassWriterChildActor = classOf[PersistentMetaDataWriterActor]
+
+  /** Constant for the meta data file remove child actor class. */
+  private val ClassRemoveChildActor = MetaDataFileRemoveActor().actorClass()
 
   /**
     * Generates a checksum based on the given index.
@@ -542,6 +545,70 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     info.unusedFiles should be(Set(checksum(3)))
   }
 
+  it should "pass a remove files request to the remove child actor" in {
+    val checksumSet = Set(checksum(3), checksum(4), checksum(5))
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
+
+    actor ! RemovePersistentMetaData(checksumSet)
+    helper.removeActor.expectMsg(MetaDataFileRemoveActor.RemoveMetaDataFiles(checksumSet,
+      persistentFileMapping(1, 2, 3, 4), testActor))
+  }
+
+  it should "set the correct path if a meta data file was written successfully" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1, 2)
+    expectMsgType[UnresolvedMetaDataFiles]
+
+    helper.sendMetaDataFileWritten(actor, 2)
+    val cs = checksum(2)
+    actor ! RemovePersistentMetaData(Set(cs))
+    val remMsg = helper.removeActor.expectMsgType[MetaDataFileRemoveActor.RemoveMetaDataFiles]
+    val expPath = FilePath.resolve(cs + ".mdt")
+    remMsg.pathMapping(cs) should be(expPath)
+  }
+
+  it should "ignore a remove files request if meta data files are not available" in {
+    val checksumSet = Set(checksum(1), checksum(2))
+    val request = RemovePersistentMetaData(checksumSet)
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.createTestActor(startFileScan = false)
+
+    actor ! request
+    expectMsg(RemovePersistentMetaDataResult(request, Set.empty))
+  }
+
+  it should "process a response of a remove meta data files operation" in {
+    val checksumSet = Set(checksum(3), checksum(4), checksum(5))
+    val successSet = checksumSet - checksum(5)
+    val request = MetaDataFileRemoveActor.RemoveMetaDataFiles(checksumSet,
+      persistentFileMapping(1, 2, 3, 4), testActor)
+    val response = MetaDataFileRemoveActor.RemoveMetaDataFilesResult(request,
+      successSet)
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.createTestActor(startFileScan = false)
+
+    actor receive response
+    expectMsg(RemovePersistentMetaDataResult(RemovePersistentMetaData(checksumSet),
+      successSet))
+  }
+
+  it should "update its checksum mapping when receiving a remove response" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
+    val request = MetaDataFileRemoveActor.RemoveMetaDataFiles(Set(checksum(1)),
+      persistentFileMapping(1, 2, 3, 4), testActor)
+    val response = MetaDataFileRemoveActor.RemoveMetaDataFilesResult(request,
+      Set(checksum(1)))
+    actor ! response
+    expectMsgType[RemovePersistentMetaDataResult]
+
+    actor ! RemovePersistentMetaData(Set(checksum(2)))
+    val request2 = helper.removeActor.expectMsgType[MetaDataFileRemoveActor.RemoveMetaDataFiles]
+    request2.pathMapping should be(persistentFileMapping(2, 3, 4))
+  }
+
   /**
     * A test helper class collecting all dependencies of the test actor.
     */
@@ -554,6 +621,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
     /** Test probe for the child writer actor. */
     val writerActor = TestProbe()
+
+    /** Test probe for the child remove actor. */
+    val removeActor = TestProbe()
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetaDataManagerActor] = _
@@ -693,6 +763,10 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
               p.args should have length 1
               p.args.head should be(WriteBlockSize)
               writerActor.ref
+
+            case ClassRemoveChildActor =>
+              p.args should have length 0
+              removeActor.ref
           }
         }
       })

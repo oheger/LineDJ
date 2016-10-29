@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, M
 import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.annotation.tailrec
@@ -188,6 +188,9 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private var writerActor: ActorRef = _
 
+  /** The child actor for remove meta data files operation. */
+  private var removeActor: ActorRef = _
+
   /** The current number of active reader actors. */
   private var activeReaderActors = 0
 
@@ -199,6 +202,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     super.preStart()
     writerActor = createChildActor(Props(classOf[PersistentMetaDataWriterActor],
       config.metaDataPersistenceWriteBlockSize))
+    removeActor = createChildActor(MetaDataFileRemoveActor())
   }
 
   override def receive: Receive = {
@@ -230,6 +234,17 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         checksumMapping)) getOrElse EmptyMetaDataFilInfo
       sender ! info
 
+    case req: RemovePersistentMetaData =>
+      val (target, msg) = generateRemoveRequestResponse(req, optMetaDataFiles, sender())
+      target ! msg
+
+    case MetaDataFileRemoveActor.RemoveMetaDataFilesResult(request, deleted) =>
+      request.client ! RemovePersistentMetaDataResult(RemovePersistentMetaData(request.fileIDs),
+        deleted)
+      optMetaDataFiles = optMetaDataFiles map { files =>
+        files.filterNot(t => deleted.contains(t._1))
+      }
+
     case Terminated(reader) =>
       activeReaderActors -= 1
       closeRequest match {
@@ -251,6 +266,29 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       pendingReadRequests = Nil
       checkAndSendCloseAck(sender())
   }
+
+  /**
+    * Generates the response to send in reaction on a request to remove meta
+    * data files. If the information about these files is not yet available,
+    * the caller is sent a result immediately (indicating that no files have
+    * been deleted); otherwise, the request is passed to the remove actor.
+    *
+    * @param req      the request to remove files
+    * @param fileData the current meta data file information
+    * @param caller   the calling actor
+    * @return a tuple with the target actor and the message to send
+    */
+  private def generateRemoveRequestResponse(req: RemovePersistentMetaData,
+                                            fileData: Option[Map[String, Path]],
+                                            caller: ActorRef): (ActorRef, Any) =
+  fileData match {
+    case Some(files) =>
+      (removeActor, MetaDataFileRemoveActor.RemoveMetaDataFiles(req.checksumSet,
+        files, caller))
+    case None =>
+      (caller, RemovePersistentMetaDataResult(req, Set.empty))
+  }
+
 
   /**
     * Creates a child actor for reading a meta data file.
@@ -329,8 +367,16 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @return the path for the corresponding meta data file
     */
   private def generateMetaDataPath(u: UnresolvedMetaDataFiles): Path =
-    config.metaDataPersistencePath.resolve(u.result.checksumMapping(u.mediumID) +
-      MetaDataFileExtension)
+    generateMetaDataPath(u.result.checksumMapping(u.mediumID))
+
+  /**
+    * Generates the path for a meta data file based on the specified checksum.
+    *
+    * @param checksum the checksum
+    * @return the path for the corresponding meta data file
+    */
+  private def generateMetaDataPath(checksum: String): Path =
+  config.metaDataPersistencePath.resolve(checksum + MetaDataFileExtension)
 
   /**
     * Starts as many reader actors for meta data files as possible. For each
@@ -480,10 +526,9 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param process       the ''ProcessMedium'' message from the writer actor
     * @return the updated meta data file mapping
     */
-  //TODO set correct path for meta data file (cannot be tested yet)
   private def addMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
                               process: ProcessMedium): Map[String, Path] =
-  metaDataFiles + (checksum -> config.metaDataPersistencePath)
+  metaDataFiles + (checksum -> generateMetaDataPath(checksum))
 
   /**
     * Removes a file from the map with meta data files after a failed write

@@ -140,3 +140,32 @@ case object GetMetaDataFileInfo
   */
 case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
                             unusedFiles: Set[String])
+
+/**
+  * A message processed by the meta data manager actor that causes persistent
+  * meta data files to be removed.
+  *
+  * This message can be used by an admin application to clean up the storage
+  * area for persistent meta data files; for instance, to remove files no
+  * longer associated with an active medium. The checksum values of the files
+  * to be removed have to be specified, which can be obtained from a
+  * [[MetaDataFileInfo]] message.
+  *
+  * @param checksumSet a set with checksum values for the files to be removed
+  */
+case class RemovePersistentMetaData(checksumSet: Set[String])
+
+
+/**
+  * A message sent by the meta data manager actor as a result of an operation
+  * to remove persistent meta data files.
+  *
+  * From the result it can be determined which files were removed successfully
+  * and which files caused errors.
+  *
+  * @param request           the original request to remove files
+  * @param successfulRemoved a set with checksum values for files that could be
+  *                          successfully removed
+  */
+case class RemovePersistentMetaDataResult(request: RemovePersistentMetaData,
+                                          successfulRemoved: Set[String])
