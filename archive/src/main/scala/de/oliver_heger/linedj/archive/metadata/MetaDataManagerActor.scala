@@ -238,6 +238,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case GetMetaDataFileInfo =>
       persistenceManager forward GetMetaDataFileInfo
+
+    case removeMsg: RemovePersistentMetaData =>
+      if (scanInProgress) {
+        sender ! RemovePersistentMetaDataResult(removeMsg, Set.empty)
+      } else {
+        persistenceManager forward removeMsg
+      }
   }
 
   /**

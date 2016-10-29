@@ -797,6 +797,25 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
   }
 
+  it should "forward a RemovePersistentMetaData message to the persistence manager" in {
+    val helper = new MetaDataManagerActorTestHelper(
+      optPersistenceManager = Some(ForwardTestActor()))
+    val removeMsg = RemovePersistentMetaData(Set("someChecksum"))
+
+    helper.actor ! removeMsg
+    expectMsg(ForwardTestActor.ForwardedMessage(removeMsg))
+  }
+
+  it should "reject a RemovePersistenceMetaData message while a scan is in progress" in {
+    val helper = new MetaDataManagerActorTestHelper
+    val removeMsg = RemovePersistentMetaData(Set("ignored"))
+
+    helper.startProcessing() ! removeMsg
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    expectMsg(RemovePersistentMetaDataResult(removeMsg, Set.empty))
+    expectNoMoreMessage(helper.persistenceManager)
+  }
+
   /**
     * A test helper class that manages a couple of helper objects needed for
     * more complex tests of a meta data manager actor.
