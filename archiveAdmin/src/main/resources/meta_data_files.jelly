@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2016 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the dialog for persistent meta data files.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+         xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+  <!-- Actions used within the dialog -->
+
+  <!-- Refresh file data action -->
+  <a:action name="refreshAction" textres="files_act_refresh_text"
+            tooltipres="files_act_refresh_tip" mnemonicres="files_act_refresh_mnemo"
+            acceleratorDef="F5" taskBean="refreshTask">
+    <f:icon resource="refresh.png"/>
+  </a:action>
+
+  <!-- Remove files action -->
+  <a:action name="removeFilesAction" textres="files_act_remove_text"
+            tooltipres="files_act_remove_tip" mnemonicres="files_act_remove_mnemo"
+            acceleratorDef="DELETE" taskBean="removeTask">
+    <f:icon resource="delete.png"/>
+  </a:action>
+
+  <!-- Close action -->
+  <a:action name="closeAction" textres="files_act_close_text"
+            tooltipres="files_act_close_tip" mnemonicres="files_act_close_mnemo"
+            taskBean="closeTask">
+    <f:icon resource="close.png"/>
+  </a:action>
+
+  <!-- The model of the files table. -->
+  <di:bean name="filesTableModel" beanClassName="java.util.ArrayList"/>
+
+  <!-- The dialog window -->
+  <w:dialog titleres="files_dlg_title" center="true">
+    <f:borderlayout/>
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="refreshAction"/>
+      <a:toolbutton actionName="removeFilesAction"/>
+      <a:separator/>
+      <a:toolbutton actionName="closeAction"/>
+    </a:toolbar>
+
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+                      bottomMargin="4" westGap="8" eastGap="8"/>
+      <f:table name="tableFiles" model="filesTableModel" multiSelection="true"
+        scrollWidth="10cm">
+        <f:borderconstr name="CENTER"/>
+        <f:column name="mediumName" percentWidth="60" headerres="files_tcol_name"
+                  columnClass="String"/>
+        <f:column name="checksum" percentWidth="40"
+                  headerres="files_tcol_checksum">
+        </f:column>
+      </f:table>
+    </f:panel>
+
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+      <f:label name="progressIndicator">
+        <f:borderconstr name="WEST"/>
+        <f:icon resource="progress.gif"/>
+      </f:label>
+      <f:statictext name="statusLine">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <!-- The controller bean -->
+    <di:bean name="controller"
+             beanClassName="de.oliver_heger.linedj.archiveadmin.MetaDataFilesController">
+      <di:constructor>
+        <di:param refName="LineDJ_MessageBus"/>
+        <di:param refName="LineDJ_MediaFacade"/>
+        <di:param refName="jguiraffe.applicationContext"/>
+        <di:param refName="ACTION_STORE"/>
+        <di:param refName="comp:tableFiles"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param refName="widget:progressIndicator"/>
+      </di:constructor>
+    </di:bean>
+
+    <w:controller beanName="controller"/>
+  </w:dialog>
+
+  <!-- Register the controller as change listener at the table -->
+  <a:eventListener component="tableFiles" eventType="CHANGE"
+                   beanName="controller"/>
+
+  <!-- Tasks for actions -->
+
+  <di:bean name="removeTask"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.RemoveFilesTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="refreshTask"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.RefreshFilesTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="closeTask"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.CloseMetaDataFilesDialogTask">
+    <di:constructor>
+      <di:param refName="controller"/>
+    </di:constructor>
+  </di:bean>
+
+</j:jelly>
