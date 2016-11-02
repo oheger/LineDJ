@@ -28,6 +28,21 @@ import scala.reflect.ClassTag
 object ConsumerRegistrationProviderTestHelper {
   /**
     * Obtains a consumer registration of the specified type from the given
+    * iterable. Throws an exception if no such registration can be found.
+    *
+    * @param messages the list of messages to be searched
+    * @param t        the class tag
+    * @tparam T the type of the desired registration
+    * @return the registration object
+    */
+  def findRegistration[T <: ConsumerRegistration[_]](messages: Iterable[Any])
+                                                    (implicit t: ClassTag[T]): T = {
+    val optReg = messages.find(t.runtimeClass == _.getClass)
+    t.runtimeClass.asInstanceOf[Class[T]] cast optReg.get
+  }
+
+  /**
+    * Obtains a consumer registration of the specified type from the given
     * provider. Throws an exception if no such registration can be found.
     *
     * @param provider the provider
@@ -36,9 +51,18 @@ object ConsumerRegistrationProviderTestHelper {
     * @return the registration object
     */
   def findRegistration[T <: ConsumerRegistration[_]](provider: ConsumerRegistrationProvider)
-                                                    (implicit t: ClassTag[T]): T = {
-    val optReg = provider.registrations.find(t.runtimeClass == _.getClass)
-    t.runtimeClass.asInstanceOf[Class[T]] cast optReg.get
+                                                    (implicit t: ClassTag[T]): T =
+  findRegistration(provider.registrations)(t)
+
+  /**
+    * Checks that all registrations in the provided collection have unique IDs.
+    *
+    * @param registrations the collection with registrations
+    * @return a flag whether the check is successful
+    */
+  def checkRegistrationIDs(registrations: Iterable[ConsumerRegistration[_]]): Boolean = {
+    val idSet = registrations.map(_.id).toSet
+    !idSet.contains(null) && idSet.size == registrations.size
   }
 
   /**
@@ -47,8 +71,6 @@ object ConsumerRegistrationProviderTestHelper {
     * @param provider the provider
     * @return a flag whether the check is successful
     */
-  def checkRegistrationIDs(provider: ConsumerRegistrationProvider): Boolean = {
-    val idSet = provider.registrations.map(_.id).toSet
-    !idSet.contains(null) && idSet.size == provider.registrations.size
-  }
+  def checkRegistrationIDs(provider: ConsumerRegistrationProvider): Boolean =
+  checkRegistrationIDs(provider.registrations)
 }
