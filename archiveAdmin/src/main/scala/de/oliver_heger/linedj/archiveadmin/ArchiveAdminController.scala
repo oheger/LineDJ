@@ -43,8 +43,11 @@ object ArchiveAdminController {
   /** The action for canceling a media scan. */
   private val ActionCancelScan = "cancelScanAction"
 
+  /** The action for opening the window with meta data files. */
+  private val ActionMetaDataFiles = "metaDataFilesAction"
+
   /** A set containing all managed actions. */
-  private val ManagedActions = Set(ActionStartScan, ActionCancelScan)
+  private val ManagedActions = Set(ActionStartScan, ActionCancelScan, ActionMetaDataFiles)
 
   /**
     * Creates a ''StaticTextData'' object with the specified properties.
@@ -72,7 +75,7 @@ object ArchiveAdminController {
   Set[String] = {
     if (!archiveAvailable) Set.empty
     else if (scanInProgress) Set(ActionCancelScan)
-    else Set(ActionStartScan)
+    else Set(ActionStartScan, ActionMetaDataFiles)
   }
 }
 

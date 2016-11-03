@@ -180,6 +180,7 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     helper.sendAvailabilityEvent(MediaFacade.MediaArchiveUnavailable)
       .verifyAction("startScanAction", enabled = false)
       .verifyAction("cancelScanAction", enabled = false)
+      .verifyAction("metaDataFilesAction", enabled = false)
   }
 
   it should "update action states if a scan is in progress" in {
@@ -188,6 +189,7 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = true))
       .verifyAction("startScanAction", enabled = false)
       .verifyAction("cancelScanAction", enabled = true)
+      .verifyAction("metaDataFilesAction", enabled = false)
   }
 
   it should "update action states if no scan is in progress" in {
@@ -196,6 +198,7 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = false))
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
+      .verifyAction("metaDataFilesAction", enabled = true)
   }
 
   it should "update action states if a scan is complete" in {
@@ -204,6 +207,7 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     helper.sendMetaDataStateEvent(MetaDataScanCompleted)
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
+      .verifyAction("metaDataFilesAction", enabled = true)
   }
 
   /**
@@ -307,7 +311,8 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       * @return the map with mock actions
       */
     private def createActions(): Map[String, FormAction] =
-    List("startScanAction", "cancelScanAction").map((_, mock[FormAction])).toMap
+    List("startScanAction", "cancelScanAction", "metaDataFilesAction")
+      .map((_, mock[FormAction])).toMap
 
     /**
       * Creates a mock action store object that supports the specified actions.

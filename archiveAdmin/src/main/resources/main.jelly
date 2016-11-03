@@ -47,6 +47,12 @@
     <f:icon resource="cancel_scan.png"/>
   </a:action>
 
+  <a:action name="metaDataFilesAction" textres="act_metafiles_text"
+            tooltipres="act_metafiles_tip" mnemonicres="act_metafiles_mnemo"
+            taskBean="metaFilesTask">
+    <f:icon resource="meta_data_files.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -54,6 +60,9 @@
       <a:menuitem actionName="cancelScanAction"/>
       <a:separator/>
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_edit_text" mnemonicres="menu_edit_mnemo">
+      <a:menuitem actionName="metaDataFilesAction"/>
     </a:menu>
   </a:menubar>
 
@@ -89,6 +98,8 @@
       <f:borderconstr name="NORTH"/>
       <a:toolbutton actionName="startScanAction"/>
       <a:toolbutton actionName="cancelScanAction"/>
+      <a:separator/>
+      <a:toolbutton actionName="metaDataFilesAction"/>
     </a:toolbar>
 
     <!-- The main panel -->
@@ -180,5 +191,19 @@
     <di:constructor>
       <di:param refName="LineDJ_MediaFacade"/>
     </di:constructor>
+  </di:bean>
+
+  <!-- Command and task for opening the meta data files dialog -->
+  <di:bean name="metaFilesDlgCommand"
+           beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:meta_data_files.jelly"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="metaFilesTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="metaFilesDlgCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:metaDataFilesAction"/>
   </di:bean>
 </j:jelly>
