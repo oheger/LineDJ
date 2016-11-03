@@ -697,11 +697,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         listener.expectMsgType[MetaDataStateUpdated])
     }.unzip
     listener.expectMsg(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
+    val lastUpdate = listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsg(MetaDataScanCompleted)
     completedMedia.toSet should be(ScanResult.mediaFiles.keySet)
     val mediaCounts = updates map(u => u.state.mediaCount)
     val expMediaCounts = 1 to ScanResult.mediaFiles.size
     mediaCounts.toSeq should contain theSameElementsInOrderAs expMediaCounts
+    updates forall(_.state.scanInProgress) shouldBe true
+    lastUpdate.state.scanInProgress shouldBe false
   }
 
   it should "send a message of the undefined medium only if such media occur" in {
@@ -715,6 +718,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendAllProcessingResults(sr).sendAvailableMedia(sr)
     listener.expectMsg(MetaDataScanStarted)
     listener.expectMsg(MediumMetaDataCompleted(mid))
+    listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsg(MetaDataScanCompleted)
   }
@@ -754,6 +758,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     listener.expectMsg(MetaDataScanCanceled)
     helper.actor ! CloseAck(helper.persistenceManager.ref)
     expectMsg(CloseAck(helper.actor))
+    listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsg(MetaDataScanCompleted)
   }
 

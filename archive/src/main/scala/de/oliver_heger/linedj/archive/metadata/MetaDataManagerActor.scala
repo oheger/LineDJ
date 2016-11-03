@@ -371,6 +371,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       fireStateEvent(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
     }
     completedMedia = Set.empty
+    fireStateEvent(createStateUpdatedEvent())  // a final update event
     fireStateEvent(MetaDataScanCompleted)
   }
 
