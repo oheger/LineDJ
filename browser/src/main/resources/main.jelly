@@ -162,6 +162,7 @@
 
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
+    <f:icon resource="app_icon.png"/>
     <f:borderlayout canShrink="false"/>
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>

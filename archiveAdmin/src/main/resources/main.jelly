@@ -92,6 +92,7 @@
 
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
+    <f:icon resource="app_icon.png"/>
     <f:borderlayout canShrink="false"/>
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
@@ -168,6 +169,7 @@
       </di:setProperty>
       <di:setProperty property="stateUnavailableIcon" refName="iconUnavailable"/>
       <di:setProperty property="stateScanInProgressIcon" refName="iconScanning"/>
+      <di:setProperty property="stateNoScanInProgressIcon" refName="iconAvailable"/>
     </di:bean>
   </w:frame>
 
