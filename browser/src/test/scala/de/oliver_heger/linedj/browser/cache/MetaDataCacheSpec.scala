@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.browser.cache
 
 import java.nio.file.Paths
 
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -31,6 +32,9 @@ import scala.collection.mutable.ListBuffer
 object MetaDataCacheSpec {
   /** Constant for a test medium. */
   private val Medium = MediumID("Hot Playlist", Some(Paths.get("playlist.settings").toString))
+
+  /** A test component ID. */
+  private val TestComponentID = ComponentID()
 
   /**
    * Creates a test chunk with meta data. It contains only a single test song.
@@ -71,14 +75,15 @@ object MetaDataCacheSpec {
    * list buffer. The registration is added to the cache. The list buffer is
    * returned.
    * @param cache the cache
-   * @param obj the object representing the listener ID
+   * @param id the object representing the listener ID
    * @param mediumID the medium ID
    * @return the list buffer receiving callback messages
    */
-  private def register(cache: MetaDataCache, obj: Any, mediumID: MediumID = Medium):
+  private def register(cache: MetaDataCache, id: ComponentID = TestComponentID,
+                       mediumID: MediumID = Medium):
   ListBuffer[MetaDataChunk] = {
     val buffer = ListBuffer.empty[MetaDataChunk]
-    cache.receive(MetaDataRegistration(mediumID, obj)(createCallback(buffer)))
+    cache.receive(MetaDataRegistration(mediumID, id, createCallback(buffer)))
     buffer
   }
 }
@@ -124,14 +129,14 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   "A MetaDataCache" should "send a remote request for a medium not completely stored" in {
     val facade = createMediaFacade()
     val cache = new MetaDataCache(facade)
-    register(cache, this)
+    register(cache)
 
     verifyMetaDataRequest(facade)
   }
 
   it should "send received meta data to a registered listener" in {
     val cache = new MetaDataCache(createMediaFacade())
-    val chunks = register(cache, this)
+    val chunks = register(cache)
     val chunk = createChunk(0, complete = false)
 
     cache.receive(chunk)
@@ -144,11 +149,11 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val chunk1 = createChunk(0, complete = false)
     val chunk2 = createChunk(1, complete = false)
     val chunk3 = createChunk(2, complete = true)
-    val buf1 = register(cache, this)
+    val buf1 = register(cache)
     cache.receive(chunk1)
     cache.receive(chunk2)
 
-    val buf2 = register(cache, "other")
+    val buf2 = register(cache, ComponentID())
     cache.receive(chunk3)
     verifyMetaDataRequest(facade)
     verifyReceivedChunks(buf1, chunk1, chunk2, chunk3)
@@ -161,9 +166,9 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val cache = new MetaDataCache(facade)
     val chunk1 = createChunk(0, complete = false)
     val chunk2 = createChunk(1, complete = false, mediumID = Medium2)
-    val buf1 = register(cache, this)
+    val buf1 = register(cache)
 
-    val buf2 = register(cache, "other", Medium2)
+    val buf2 = register(cache, ComponentID(), Medium2)
     cache.receive(chunk1)
     cache.receive(chunk2)
     verifyMetaDataRequest(facade)
@@ -177,7 +182,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val chunk = createChunk(1, complete = false)
 
     cache.receive(chunk)
-    val buf = register(cache, this)
+    val buf = register(cache)
     verifyReceivedChunks(buf, chunk)
   }
 
@@ -185,7 +190,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val cache = new MetaDataCache(createMediaFacade())
     val chunk1 = createChunk(1, complete = false)
     val chunk2 = createChunk(2, complete = true)
-    val buf = register(cache, this)
+    val buf = register(cache)
     cache.receive(chunk1)
     cache.receive(chunk2)
 
@@ -199,7 +204,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val chunk = createChunk(List(1, 2, 3), complete = true, Medium)
     cache.receive(chunk)
 
-    val buf = register(cache, this)
+    val buf = register(cache)
     verifyReceivedChunks(buf, chunk)
     verifyZeroInteractions(facade)
   }
@@ -207,9 +212,9 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "allow removing a listener" in {
     val facade = createMediaFacade()
     val cache = new MetaDataCache(facade)
-    val buf = register(cache, this)
+    val buf = register(cache)
 
-    cache.receive(RemoveMetaDataRegistration(Medium, this))
+    cache.receive(RemoveMetaDataRegistration(Medium, TestComponentID))
     cache.receive(createChunk(1, complete = false))
     verifyReceivedChunks(buf)
     verify(facade).removeMetaDataListener(Medium)
@@ -218,10 +223,10 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "ignore a request to remove an unknown listener" in {
     val facade = createMediaFacade()
     val cache = new MetaDataCache(facade)
-    val buf = register(cache, this)
+    val buf = register(cache)
     val chunk = createChunk(1, complete = false)
 
-    cache.receive(RemoveMetaDataRegistration(Medium, "other"))
+    cache.receive(RemoveMetaDataRegistration(Medium, ComponentID()))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
     verify(facade, never()).removeMetaDataListener(Medium)
@@ -230,21 +235,21 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "ignore a request to remove listeners for an unknown medium" in {
     val facade = createMediaFacade()
     val cache = new MetaDataCache(facade)
-    val buf = register(cache, this)
+    val buf = register(cache)
     val chunk = createChunk(1, complete = false)
     val Medium2 = MediumID("_other", None)
 
-    cache.receive(RemoveMetaDataRegistration(Medium2, this))
+    cache.receive(RemoveMetaDataRegistration(Medium2, TestComponentID))
     cache.receive(chunk)
     verifyReceivedChunks(buf, chunk)
     verify(facade, never()).removeMetaDataListener(Medium2)
   }
 
   it should "not remove the remote medium listener if there are remaining listeners" in {
-    val ListenerID2 = "AnotherTestListener"
+    val ListenerID2 = ComponentID()
     val facade = createMediaFacade()
     val cache = new MetaDataCache(facade)
-    val buf1 = register(cache, this)
+    val buf1 = register(cache)
     val buf2 = register(cache, ListenerID2)
     val chunk = createChunk(1, complete = false)
 
@@ -260,13 +265,13 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     cache.receive(createChunk(1, complete = false))
 
     cache.receive(MediaFacade.MediaArchiveAvailable)
-    val buf = register(cache, this)
+    val buf = register(cache)
     verifyReceivedChunks(buf)
   }
 
   it should "remove all listeners when the archive becomes unavailable" in {
     val cache = new MetaDataCache(createMediaFacade())
-    val buf = register(cache, this)
+    val buf = register(cache)
 
     cache.receive(MediaFacade.MediaArchiveUnavailable)
     cache.receive(createChunk(1, complete = false))

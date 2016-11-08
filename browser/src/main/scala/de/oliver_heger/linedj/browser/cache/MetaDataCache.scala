@@ -73,9 +73,9 @@ class MetaDataCache(mediaFacade: MediaFacade) extends MessageBusListener {
         mediaFacade.queryMetaDataAndRegisterListener(registration.mediumID)
       }
       callbacks = callbacks + (registration.mediumID -> (callBacksForMedium + (registration
-        .listenerID -> registration.listenerCallback)))
+        .id -> registration.callback)))
       if (currentChunk.data.nonEmpty) {
-        registration.listenerCallback(currentChunk)
+        registration.callback(currentChunk)
       }
 
     case chunk: MetaDataChunk =>

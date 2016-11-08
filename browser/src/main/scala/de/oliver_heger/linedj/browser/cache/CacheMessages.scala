@@ -16,24 +16,27 @@
 
 package de.oliver_heger.linedj.browser.cache
 
+import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
 
 /**
- * A message class processed by [[MetaDataCache]] to add a registration for the
- * meta data of a medium.
- *
- * With this message a component indicates its interest on the meta data of the
- * specified medium. Whenever meta data becomes available it is passed to the
- * callback function provided in the message.
- *
- * @param mediumID the ID of the medium
- * @param listenerID a unique ID to identify this listener; this can later be
- *                   used to remove the registration again
- * @param listenerCallback the callback function
- */
-case class MetaDataRegistration(mediumID: MediumID, listenerID: Any)(val listenerCallback:
-                                                                   MetaDataChunk => Unit)
+  * A message class processed by [[MetaDataCache]] to add a registration for the
+  * meta data of a medium.
+  *
+  * With this message a component indicates its interest on the meta data of the
+  * specified medium. Whenever meta data becomes available it is passed to the
+  * callback function provided in the message.
+  *
+  * @param mediumID the ID of the medium
+  * @param id       a unique ID to identify this listener; this can later be
+  *                 used to remove the registration again
+  * @param callback the callback function
+  */
+case class MetaDataRegistration(mediumID: MediumID, override val id: ComponentID,
+                                override val callback: ConsumerFunction[MetaDataChunk])
+  extends ConsumerRegistration[MetaDataChunk]
 
 /**
  * A message class processed by [[MetaDataCache]] to remove the registration
@@ -46,4 +49,4 @@ case class MetaDataRegistration(mediumID: MediumID, listenerID: Any)(val listene
  * @param mediumID the ID of the medium
  * @param listenerID the unique listener ID
  */
-case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: Any)
+case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: ComponentID)

@@ -277,6 +277,12 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.findMessageType[RemoveMetaDataRegistration] shouldBe 'empty
   }
 
+  it should "define a correct component ID" in {
+    val helper = new MediaControllerTestHelper
+
+    helper.controller.componentID should not be null
+  }
+
   it should "remove a previous meta data registration" in {
     val oldMedium = mediumID("someMedium")
     val helper = new MediaControllerTestHelper
@@ -284,7 +290,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.clearReceivedMessages()
 
     helper.selectMedium()
-    helper expectMessage RemoveMetaDataRegistration(oldMedium, helper.controller)
+    helper expectMessage RemoveMetaDataRegistration(oldMedium, helper.controller.componentID)
   }
 
   it should "not remove a meta data registration when receiving new media" in {
@@ -730,9 +736,9 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
      */
     def verifyMetaDataRequest(mediumID: MediumID = TestMediumID): MetaDataChunk => Unit = {
       val regMsg = expectMessageType[MetaDataRegistration]
-      regMsg.listenerID should be(controller)
+      regMsg.id should be(controller.componentID)
       regMsg.mediumID should be(mediumID)
-      regMsg.listenerCallback
+      regMsg.callback
     }
 
     /**

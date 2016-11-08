@@ -122,6 +122,9 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
 
   import MediaController._
 
+  /** The component ID of this controller. */
+  val componentID = ComponentID()
+
   /** The model of the tree view. */
   private val treeModel = treeHandler.getModel
 
@@ -170,7 +173,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    */
   def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumID foreach clearOldMediumSelection
-    publish(MetaDataRegistration(mediumID, this)(processMetaDataChunk))
+    publish(MetaDataRegistration(mediumID, componentID, processMetaDataChunk))
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
@@ -368,7 +371,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    * @param mediumID the ID of the last selected medium
    */
   private def clearOldMediumSelection(mediumID: MediumID): Unit = {
-    publish(RemoveMetaDataRegistration(mediumID, this))
+    publish(RemoveMetaDataRegistration(mediumID, componentID))
     models = None
     treeModel.clear()
     tableModel.clear()
