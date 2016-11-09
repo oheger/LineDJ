@@ -67,7 +67,7 @@ object AvailableMediaExtension {
   * @param mediaFacade the facade to the media archive
   */
 class AvailableMediaExtension(val mediaFacade: MediaFacade)
-  extends MediaIfcExtension[AvailableMedia] with Identifiable {
+  extends NoGroupingMediaIfcExtension[AvailableMedia] with Identifiable {
   /** A cache for the current available media data. */
   private var currentMediaData: Option[AvailableMedia] = None
 
@@ -93,7 +93,8 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     *             data is already available. Also, a meta data state listener
     *             registration must be active if consumers are present.
     */
-  override def onConsumerAdded(cons: ConsumerFunction[AvailableMedia], first: Boolean): Unit = {
+  override def onConsumerAdded(cons: ConsumerFunction[AvailableMedia], key: AnyRef,
+                               first: Boolean): Unit = {
     currentMediaData match {
       case Some(data) =>
         cons(data)

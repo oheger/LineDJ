@@ -65,7 +65,7 @@ object StateListenerExtension {
   * @param mediaFacade the facade to the media archive
   */
 class StateListenerExtension(val mediaFacade: MediaFacade)
-  extends MediaIfcExtension[MetaDataStateEvent] with Identifiable {
+  extends NoGroupingMediaIfcExtension[MetaDataStateEvent] with Identifiable {
   /** The last update state event received from the archive. */
   private var lastUpdatedEvent: Option[MetaDataStateEvent] = None
 
@@ -81,8 +81,8 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     * @inheritdoc This implementation creates a state listener registration for
     *             the first consumer.
     */
-  override def onConsumerAdded(cons: ConsumerFunction[MetaDataStateEvent], first: Boolean): Unit
-  = {
+  override def onConsumerAdded(cons: ConsumerFunction[MetaDataStateEvent], key: AnyRef,
+                               first: Boolean): Unit = {
     registerStateListenerIfRequired(first)
     lastUpdatedEvent foreach cons
   }
@@ -91,7 +91,7 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     * @inheritdoc This implementation removes the current state listener
     *             registration after the last consumer is gone.
     */
-  override def onConsumerRemoved(last: Boolean): Unit = {
+  override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit = {
     if (last) {
       mediaFacade.unregisterMetaDataStateListener(componentID)
       lastUpdatedEvent = None

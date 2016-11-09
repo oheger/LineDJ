@@ -58,7 +58,8 @@ object ArchiveAvailabilityExtension {
   * Consumer registrations are done by sending the corresponding messages (as
   * defined by the companion object) on the message bus.
   */
-class ArchiveAvailabilityExtension extends MediaIfcExtension[MediaArchiveAvailabilityEvent] {
+class ArchiveAvailabilityExtension
+  extends NoGroupingMediaIfcExtension[MediaArchiveAvailabilityEvent] {
   /** The last known state of the media archive. */
   private var archiveState: MediaArchiveAvailabilityEvent = MediaArchiveUnavailable
 
@@ -66,8 +67,8 @@ class ArchiveAvailabilityExtension extends MediaIfcExtension[MediaArchiveAvailab
     * @inheritdoc This implementation initializes the new consumer with the
     *             current archive state.
     */
-  override def onConsumerAdded(cons: ConsumerFunction[MediaArchiveAvailabilityEvent], first:
-  Boolean): Unit = {
+  override def onConsumerAdded(cons: ConsumerFunction[MediaArchiveAvailabilityEvent],
+                               key: AnyRef, first: Boolean): Unit = {
     cons(archiveState)
   }
 

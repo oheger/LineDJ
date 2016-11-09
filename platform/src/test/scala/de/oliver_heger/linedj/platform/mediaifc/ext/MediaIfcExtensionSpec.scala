@@ -129,8 +129,9 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
 
     ext addConsumer reg1
     ext addConsumer reg2
-    ext.consumerAddedNotifications.get() should be(List((reg2.callback, false),
-      (reg1.callback, true))) // list in reverse order
+    ext.consumerAddedNotifications.get() should be(List(
+      (reg2.callback, ext.defaultKey, false),
+      (reg1.callback, ext.defaultKey, true))) // list in reverse order
   }
 
   it should "support passing data to registered consumers" in {
@@ -191,7 +192,8 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     ext removeConsumer reg1.id
     ext removeConsumer reg2.id
     // list in reverse order
-    ext.consumerRemovedNotifications.get() should be(List(true, false))
+    ext.consumerRemovedNotifications.get() should be(List(
+      (ext.defaultKey, true), (ext.defaultKey, false)))
   }
 
   it should "deal with failed removals when invoking the consumer removed callback" in {
@@ -264,7 +266,7 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "provide a default receiveSpecific() implementation" in {
-    val ext = new MediaIfcExtension[String] {}
+    val ext = new NoGroupingMediaIfcExtension[String] {}
 
     ext.receive.isDefinedAt(MetaDataScanCompleted) shouldBe true
     ext.receive.isDefinedAt(this) shouldBe false
@@ -300,12 +302,31 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     ext.invokeConsumers(data, key)
     val output = parseInvokedConsumers(buf.toString())
     output should contain only(consumerOutput(2, data), consumerOutput(3, data))
+    ext.consumerAddedNotifications.get().head._2 should be(key)
+    ext.consumerAddedNotifications.get().last._2 should be(ext.defaultKey)
+  }
+
+  it should "pass the correct grouping key to the consumer removed notification" in {
+    val ext = new MediaIfcExtensionTestImpl
+    val key = "AlternativeGroupingKey"
+    val reg1 = createRegistration(1)
+    val reg2 = createRegistration(2)
+    ext addConsumer reg1
+    ext.addConsumer(reg2, key)
+
+    ext removeConsumer reg1.id
+    ext.removeConsumer(reg2.id, key) shouldBe true
+    ext.consumerRemovedNotifications.get() should be(List(
+      (key, true), (ext.defaultKey, false) // reverse order
+    ))
   }
 
   /**
     * A test implementation for the trait to be tested.
     */
-  private class MediaIfcExtensionTestImpl extends MediaIfcExtension[String] {
+  private class MediaIfcExtensionTestImpl extends MediaIfcExtension[String, AnyRef] {
+    override val defaultKey: AnyRef = "myDefaultKey"
+
     /** A list reference for recording archive available notifications. */
     val archiveAvailableNotifications = createRecordList()
 
@@ -314,10 +335,11 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
 
     /** A list reference for tracking consumer added notifications. */
     val consumerAddedNotifications =
-    new AtomicReference[List[(ConsumerFunction[String], Boolean)]](List.empty)
+    new AtomicReference[List[(ConsumerFunction[String], AnyRef, Boolean)]](List.empty)
 
     /** A list reference for tracking consumer removed notifications. */
-    val consumerRemovedNotifications = createRecordList()
+    val consumerRemovedNotifications =
+    new AtomicReference[List[(AnyRef, Boolean)]](List.empty)
 
     /**
       * @inheritdoc Handles a special message.
@@ -345,17 +367,18 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     /**
       * @inheritdoc Records this invocation.
       */
-    override def onConsumerAdded(cons: ConsumerFunction[String], first: Boolean): Unit = {
-      super.onConsumerAdded(cons, first)
-      consumerAddedNotifications.set((cons, first) :: consumerAddedNotifications.get())
+    override def onConsumerAdded(cons: ConsumerFunction[String], key: AnyRef,
+                                 first: Boolean): Unit = {
+      super.onConsumerAdded(cons, key, first)
+      consumerAddedNotifications.set((cons, key, first) :: consumerAddedNotifications.get())
     }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override def onConsumerRemoved(last: Boolean): Unit = {
-      super.onConsumerRemoved(last)
-      consumerRemovedNotifications.set(last :: consumerRemovedNotifications.get())
+    override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit = {
+      super.onConsumerRemoved(key, last)
+      consumerRemovedNotifications.set((key, last) :: consumerRemovedNotifications.get())
     }
 
     /**

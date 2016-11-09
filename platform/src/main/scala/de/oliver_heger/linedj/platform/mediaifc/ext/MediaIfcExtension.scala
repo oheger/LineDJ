@@ -82,12 +82,6 @@ object MediaIfcExtension {
       */
     def registrations: Iterable[ConsumerRegistration[_]]
   }
-
-  /**
-    * A default grouping key for consumers. This is used if no key has been
-    * specified by the caller.
-    */
-  private val KeyDefault = new Object
 }
 
 /**
@@ -145,14 +139,21 @@ object MediaIfcExtension {
   * key. Otherwise, the key has to be determined in a specific way.
   *
   * @tparam C the type of data this extension operates on
+  * @tparam K the type for the grouping key used by this extension
   */
-trait MediaIfcExtension[C] extends MessageBusListener {
+trait MediaIfcExtension[C, K] extends MessageBusListener {
   import MediaIfcExtension._
 
   /**
     * Holds the consumers registered at this object.
     */
-  private var consumers = Map.empty[AnyRef, Map[ComponentID, ConsumerFunction[C]]]
+  private var consumers = Map.empty[K, Map[ComponentID, ConsumerFunction[C]]]
+
+  /**
+    * The default key used by this extension. This key is used if the caller
+    * did not provide a key explicitly.
+    */
+  val defaultKey: K
 
   /**
     * @inheritdoc This implementation returns a combined message function.
@@ -175,11 +176,11 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param key the grouping key for the consumer
     * @return a flag whether this is the first consumer added to this object
     */
-  def addConsumer(reg: ConsumerRegistration[C], key: AnyRef = KeyDefault): Boolean = {
+  def addConsumer(reg: ConsumerRegistration[C], key: K = defaultKey): Boolean = {
     val wasEmpty = consumers.isEmpty
     val consumerGroup = fetchGroup(key) + (reg.id -> reg.callback)
     consumers += key -> consumerGroup
-    onConsumerAdded(reg.callback, wasEmpty)
+    onConsumerAdded(reg.callback, key, wasEmpty)
     wasEmpty
   }
 
@@ -194,7 +195,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param key the grouping key for the consumer to be removed
     * @return a flag whether the last consumer was removed
     */
-  def removeConsumer(id: ComponentID, key: AnyRef = KeyDefault): Boolean = {
+  def removeConsumer(id: ComponentID, key: K = defaultKey): Boolean = {
     val consumerGroup = fetchGroup(key)
     val updatedConsumerGroup = consumerGroup - id
     if (updatedConsumerGroup.isEmpty) {
@@ -205,7 +206,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     val removed = updatedConsumerGroup.size < consumerGroup.size
     val last = consumers.isEmpty && removed
     if (removed) {
-      onConsumerRemoved(last)
+      onConsumerRemoved(key, last)
     }
     last
   }
@@ -218,7 +219,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param data the data to be passed to registered consumers
     * @param key  the grouping key for the consumers to be notified
     */
-  def invokeConsumers(data: => C, key: AnyRef = KeyDefault): Unit = {
+  def invokeConsumers(data: => C, key: K = defaultKey): Unit = {
     lazy val message = data
     consumerList(key) foreach (_ (message))
   }
@@ -230,7 +231,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param key the grouping key for the desired consumers
     * @return an ''Iterable'' with all registered consumer functions
     */
-  def consumerList(key: AnyRef = KeyDefault): Iterable[ConsumerFunction[C]] =
+  def consumerList(key: K = defaultKey): Iterable[ConsumerFunction[C]] =
   fetchGroup(key).values
 
   /**
@@ -240,7 +241,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     *
     * @return a map with all registered consumers grouped by their key
     */
-  def consumerMap: Map[AnyRef, Map[ComponentID, ConsumerFunction[C]]] = consumers
+  def consumerMap: Map[K, Map[ComponentID, ConsumerFunction[C]]] = consumers
 
   /**
     * A notification method that is invoked when receiving an event about the
@@ -266,18 +267,20 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * special actions may be required.
     *
     * @param cons  the consumer function that has been added
+    * @param key   the key associated with the consumer
     * @param first a flag whether this is the first consumer
     */
-  def onConsumerAdded(cons: ConsumerFunction[C], first: Boolean): Unit = {}
+  def onConsumerAdded(cons: ConsumerFunction[C], key: K, first: Boolean): Unit = {}
 
   /**
     * A notification method that is invoked when a consumer was removed. A flag
     * is passed whether this is the last consumer; in this case, special
     * actions may be required.
     *
+    * @param key  the key associated with the consumer
     * @param last a flag whether this is the last consumer
     */
-  def onConsumerRemoved(last: Boolean): Unit = {}
+  def onConsumerRemoved(key: K, last: Boolean): Unit = {}
 
   /**
     * A message processing function that can be overridden by derived classes
@@ -296,7 +299,7 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @param key the key of the desired consumer group
     * @return the map of this consumer group (may be empty)
     */
-  private def fetchGroup(key: AnyRef): Map[ComponentID, ConsumerFunction[C]] =
+  private def fetchGroup(key: K): Map[ComponentID, ConsumerFunction[C]] =
   consumers.getOrElse(key, Map.empty)
 
   /**
@@ -308,4 +311,18 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     case MetaDataScanCompleted => onMediaScanCompleted(consumers.nonEmpty)
     case MediaFacade.MediaArchiveAvailable => onArchiveAvailable(consumers.nonEmpty)
   }
+}
+
+/**
+  * A base trait which can be used for simple media interface extensions that
+  * do not support grouping functionality.
+  *
+  * This trait sets the grouping type parameter to a fix value and provides a
+  * corresponding default key. Extensions dealing with homogeneous consumers
+  * can extend this trait.
+  *
+  * @tparam C the type of data this extension operates on
+  */
+trait NoGroupingMediaIfcExtension[C] extends MediaIfcExtension[C, AnyRef] {
+  override val defaultKey: AnyRef = new Object
 }
