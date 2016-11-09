@@ -116,7 +116,7 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive reg
 
     ext receive AvailableMediaUnregistration(reg.id)
-    ext.consumerList shouldBe 'empty
+    ext.consumerMap shouldBe 'empty
   }
 
   it should "send only a single request for media data" in {

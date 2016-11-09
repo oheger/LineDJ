@@ -21,7 +21,6 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 
 object MediaIfcExtension {
@@ -84,6 +83,11 @@ object MediaIfcExtension {
     def registrations: Iterable[ConsumerRegistration[_]]
   }
 
+  /**
+    * A default grouping key for consumers. This is used if no key has been
+    * specified by the caller.
+    */
+  private val KeyDefault = new Object
 }
 
 /**
@@ -114,7 +118,7 @@ object MediaIfcExtension {
   * action is taken to obtain the data requested by the consumer. The data may
   * already be available if it has been requested before by another consumer.
   * Otherwise, it has to be fetched from the archive. When data is available
-  * for an consumer it gets notified through a consumer function it has to
+  * for a consumer it gets notified through a consumer function it has to
   * specify in its original request.
   *
   * This mechanism establishes another channel for sending specialized
@@ -134,13 +138,21 @@ object MediaIfcExtension {
   * published on the message bus. This implementation does not contain any
   * synchronization; it expects to be called on the UI thread only.
   *
+  * Registered consumers can be categorized by a key. This is useful if they
+  * are interested in specific data from the media archive only, for instance
+  * update information about a specific medium. If a concrete extension does
+  * not require grouping of its consumers, it can rely on a default grouping
+  * key. Otherwise, the key has to be determined in a specific way.
+  *
   * @tparam C the type of data this extension operates on
   */
 trait MediaIfcExtension[C] extends MessageBusListener {
+  import MediaIfcExtension._
+
   /**
     * Holds the consumers registered at this object.
     */
-  private var consumers = Map.empty[ComponentID, ConsumerFunction[C]]
+  private var consumers = Map.empty[AnyRef, Map[ComponentID, ConsumerFunction[C]]]
 
   /**
     * @inheritdoc This implementation returns a combined message function.
@@ -160,13 +172,15 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * register a consumer with the same ID multiple times.
     *
     * @param reg the registration for the consumer
+    * @param key the grouping key for the consumer
     * @return a flag whether this is the first consumer added to this object
     */
-  def addConsumer(reg: ConsumerRegistration[C]): Boolean = {
-    consumers += reg.id -> reg.callback
-    val first = consumers.size == 1
-    onConsumerAdded(reg.callback, first)
-    first
+  def addConsumer(reg: ConsumerRegistration[C], key: AnyRef = KeyDefault): Boolean = {
+    val wasEmpty = consumers.isEmpty
+    val consumerGroup = fetchGroup(key) + (reg.id -> reg.callback)
+    consumers += key -> consumerGroup
+    onConsumerAdded(reg.callback, wasEmpty)
+    wasEmpty
   }
 
   /**
@@ -176,14 +190,21 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * handled in a derived class.) If the specified ID does not match a
     * registered consumer, this operation has no effect.
     *
-    * @param id the ID of the consumer to be removed
+    * @param id  the ID of the consumer to be removed
+    * @param key the grouping key for the consumer to be removed
     * @return a flag whether the last consumer was removed
     */
-  def removeConsumer(id: ComponentID): Boolean = {
-    val sizeBefore = consumers.size
-    consumers -= id
-    val last = consumers.isEmpty && sizeBefore > 0
-    if (consumers.size < sizeBefore) {
+  def removeConsumer(id: ComponentID, key: AnyRef = KeyDefault): Boolean = {
+    val consumerGroup = fetchGroup(key)
+    val updatedConsumerGroup = consumerGroup - id
+    if (updatedConsumerGroup.isEmpty) {
+      consumers -= key
+    } else {
+      consumers += key -> updatedConsumerGroup
+    }
+    val removed = updatedConsumerGroup.size < consumerGroup.size
+    val last = consumers.isEmpty && removed
+    if (removed) {
       onConsumerRemoved(last)
     }
     last
@@ -195,18 +216,31 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * specified.
     *
     * @param data the data to be passed to registered consumers
+    * @param key  the grouping key for the consumers to be notified
     */
-  def invokeConsumers(data: => C): Unit = {
+  def invokeConsumers(data: => C, key: AnyRef = KeyDefault): Unit = {
     lazy val message = data
-    consumerList foreach (_ (message))
+    consumerList(key) foreach (_ (message))
   }
 
   /**
-    * Returns a sequence with all currently registered consumer functions.
+    * Returns a sequence with all currently registered consumer functions
+    * with the specified grouping key.
     *
+    * @param key the grouping key for the desired consumers
     * @return an ''Iterable'' with all registered consumer functions
     */
-  def consumerList: Iterable[ConsumerFunction[C]] = consumers.values
+  def consumerList(key: AnyRef = KeyDefault): Iterable[ConsumerFunction[C]] =
+  fetchGroup(key).values
+
+  /**
+    * Returns a map with all registered consumers. This can be used in derived
+    * classes to manipulate consumers directly or to find out whether consumers
+    * are present.
+    *
+    * @return a map with all registered consumers grouped by their key
+    */
+  def consumerMap: Map[AnyRef, Map[ComponentID, ConsumerFunction[C]]] = consumers
 
   /**
     * A notification method that is invoked when receiving an event about the
@@ -254,6 +288,16 @@ trait MediaIfcExtension[C] extends MessageBusListener {
     * @return a message handling function for specific events
     */
   protected def receiveSpecific: Receive = Actor.emptyBehavior
+
+  /**
+    * Convenience method for fetching a consumer group and returning an empty
+    * map if it does not exist.
+    *
+    * @param key the key of the desired consumer group
+    * @return the map of this consumer group (may be empty)
+    */
+  private def fetchGroup(key: AnyRef): Map[ComponentID, ConsumerFunction[C]] =
+  consumers.getOrElse(key, Map.empty)
 
   /**
     * A function for handling the base messages on the message bus.

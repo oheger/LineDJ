@@ -85,7 +85,7 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
       currentMediaData = Some(media)
 
     case MetaDataScanStarted =>
-      onMediaScanStarted(consumerList.nonEmpty)
+      onMediaScanStarted(consumerMap.nonEmpty)
   }
 
   /**

@@ -288,6 +288,20 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     count.get() should be(1)
   }
 
+  it should "support grouping of consumers" in {
+    val buf = new StringBuilder(64)
+    val ext = new MediaIfcExtensionTestImpl
+    val key = "SpecialGroupingKey"
+    ext addConsumer createRegistration(1, buf)
+    ext.addConsumer(createRegistration(2, buf), key)
+    ext.addConsumer(createRegistration(3, buf), key)
+    val data = "TestData"
+
+    ext.invokeConsumers(data, key)
+    val output = parseInvokedConsumers(buf.toString())
+    output should contain only(consumerOutput(2, data), consumerOutput(3, data))
+  }
+
   /**
     * A test implementation for the trait to be tested.
     */
