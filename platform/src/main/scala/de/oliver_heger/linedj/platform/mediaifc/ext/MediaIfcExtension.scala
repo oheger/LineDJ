@@ -225,6 +225,36 @@ trait MediaIfcExtension[C, K] extends MessageBusListener {
   }
 
   /**
+    * Removes all consumers of the specified group. Note that this method will
+    * not call any callbacks for removed consumers. It is intended to be used
+    * by subclasses under specific conditions; it assumes that the subclass
+    * knows what it does.
+    *
+    * @param key the key of the consumer group to be removed
+    * @return a flag whether actually consumers were removed (i.e. the group
+    *         existed)
+    */
+  def removeConsumers(key: K = defaultKey): Boolean = {
+    val oldConsumers = consumers
+    consumers = oldConsumers - key
+    consumers.size < oldConsumers.size
+  }
+
+  /**
+    * Removes all consumers from this object. Note that this method will not
+    * call any callbacks for removed consumers. Like ''removeConsumers()'' it
+    * is assumed that the caller knows what it does.
+    *
+    * @return a flag whether actually consumers were removed (i.e. consumers
+    *         had been registered)
+    */
+  def clearConsumers(): Boolean = {
+    val oldConsumers = consumers
+    consumers = Map.empty
+    oldConsumers.nonEmpty
+  }
+
+  /**
     * Returns a sequence with all currently registered consumer functions
     * with the specified grouping key.
     *

@@ -321,6 +321,40 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     ))
   }
 
+  it should "allow removing all consumers in a group" in {
+    val ext = new MediaIfcExtensionTestImpl
+    val key = "GroupToBeRemoved"
+    val regKeep = createRegistration(8)
+    ext addConsumer createRegistration(1)
+    ext addConsumer createRegistration(2)
+    ext.addConsumer(regKeep, key)
+
+    ext.removeConsumers() shouldBe true
+    ext.consumerList() shouldBe 'empty
+    ext.consumerList(key) should contain only regKeep.callback
+  }
+
+  it should "return a correct result if removing a non-existing consumer group" in {
+    val ext = new MediaIfcExtensionTestImpl
+
+    ext.removeConsumers("nonExistingGroup") shouldBe false
+  }
+
+  it should "allow clearing all registered consumers" in {
+    val ext = new MediaIfcExtensionTestImpl
+    ext addConsumer createRegistration(1)
+    ext.addConsumer(createRegistration(2), "otherKey")
+
+    ext.clearConsumers() shouldBe true
+    ext.consumerMap shouldBe 'empty
+  }
+
+  it should "return a correct result if clearConsumers() is invoked if empty" in {
+    val ext = new MediaIfcExtensionTestImpl
+
+    ext.clearConsumers() shouldBe false
+  }
+
   /**
     * A test implementation for the trait to be tested.
     */
