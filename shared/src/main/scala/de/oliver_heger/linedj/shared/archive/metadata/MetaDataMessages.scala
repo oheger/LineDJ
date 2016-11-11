@@ -20,23 +20,35 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
- * A message supported by ''MetaDataManagerActor'' that queries for the meta
- * data of a specific medium.
- *
- * The actor returns the meta data currently available in form of a
- * ''MetaDataChunk'' message. If the ''registerAsListener'' flag is
- * '''true''', the sending actor will be notified when more meta data for
- * this medium becomes available until processing is complete.
- * @param mediumID ID of the medium in question (as returned from the media
- *                 manager actor)
- * @param registerAsListener flag whether the sending actor should be
- *                           registered as listener if meta data for this
- *                           medium is incomplete yet
- */
-case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean)
+  * A message supported by ''MetaDataManagerActor'' that queries for the meta
+  * data of a specific medium.
+  *
+  * The actor returns the meta data currently available in form of a
+  * ''MetaDataResponse'' message. If the ''registerAsListener'' flag is
+  * '''true''', the sending actor will be notified when more meta data for
+  * this medium becomes available until processing is complete.
+  *
+  * With the ''registrationID'' parameter, clients can define a numeric ID
+  * which is also part of response messages. This can be used by clients to
+  * deal with multiple registrations and also to detect stale responses.
+  * (There can be race conditions when clients remove a meta data listener
+  * registration, but shortly before new meta data arrives which is sent to
+  * the client. Using sequence numbers as registration IDs can help to detect
+  * such cases.)
+  *
+  * @param mediumID           ID of the medium in question (as returned from
+  *                           the media manager actor)
+  * @param registerAsListener flag whether the sending actor should be
+  *                           registered as listener if meta data for this
+  *                           medium is incomplete yet
+  * @param registrationID     a numeric registration ID; it is included in
+  *                           response messages sent to this client
+  */
+case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean,
+                       registrationID: Int)
 
 /**
- * A message sent as answer for a ''GetMetaData'' request.
+ * A message sent as payload in a response for a ''GetMetaData'' request.
  *
  * This message contains either complete meta data of an medium (if it is
  * already available at request time) or a chunk which was recently updated.
@@ -51,6 +63,17 @@ case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean)
  *                 data)
  */
 case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], complete: Boolean)
+
+/**
+  * A response message send for a ''GetMetaData'' request.
+  *
+  * This message contains the actual meta data in form of a ''MetaDataChunk''
+  * object and some meta data about the listener registration.
+  *
+  * @param chunk          the currently available meta data
+  * @param registrationID the registration ID used by the client
+  */
+case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int)
 
 /**
  * A message sent as answer for a ''GetMetaData'' request if the specified

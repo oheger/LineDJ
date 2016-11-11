@@ -213,7 +213,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val actor = system.actorOf(MetaDataManagerActor(mock[MediaArchiveConfig], TestProbe().ref))
 
     val mediumID = MediumID("unknown medium ID", None)
-    actor ! GetMetaData(mediumID, registerAsListener = false)
+    actor ! GetMetaData(mediumID, registerAsListener = false, 0)
     expectMsg(UnknownMedium(mediumID))
   }
 
@@ -311,7 +311,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val files = ScanResult.mediaFiles(UndefinedMediumID)
     helper.sendProcessingResults(UndefinedMediumID, files)
 
-    helper.actor ! GetMetaData(UndefinedMediumID, registerAsListener = false)
+    helper.actor ! GetMetaData(UndefinedMediumID, registerAsListener = false, 0)
     checkMetaDataChunk(expectMsgType[MetaDataChunk], UndefinedMediumID, files, expComplete = true)
   }
 
@@ -327,7 +327,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     val filesForChunk1 = ScanResult.mediaFiles(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
-    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true)
+    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true, 0)
     checkMetaDataChunkWithUris(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID,
       filesForChunk1, expComplete = false)(refUri(UndefinedMediumID))
     val filesForChunk2 = List(ScanResult.mediaFiles(UndefinedMediumID).last)
@@ -343,7 +343,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! EnhancedMediaScanResult(scanResult2, Map(UndefinedMediumID2 -> "testCheckSum"),
       createFileUriMapping(scanResult2))
     helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
-    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
+    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
     val chunk = expectMsgType[MetaDataChunk]
     findUrisInChunk(UndefinedMediumID, chunk, ScanResult.mediaFiles(UndefinedMediumID))
     findUrisInChunk(UndefinedMediumID2, chunk, filesForChunk3)
@@ -385,7 +385,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize + 4)
     val medID = processAnotherMedium(helper, files)
 
-    helper.actor ! GetMetaData(medID, registerAsListener = true)
+    helper.actor ! GetMetaData(medID, registerAsListener = true, 0)
     checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
       expComplete = false)
     checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files drop MaxMessageSize,
@@ -398,7 +398,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize)
     val medID = processAnotherMedium(helper, files)
 
-    helper.actor ! GetMetaData(medID, registerAsListener = true)
+    helper.actor ! GetMetaData(medID, registerAsListener = true, 0)
     checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
       expComplete = true)
   }
@@ -637,7 +637,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     val probe = TestProbe()
-    helper.actor.tell(GetMetaData(TestMediumID, registerAsListener = true), probe.ref)
+    helper.actor.tell(GetMetaData(TestMediumID, registerAsListener = true, 0), probe.ref)
     probe.expectMsgType[MetaDataChunk]
     helper.actor ! CloseRequest
     helper.actor ! CloseAck(helper.persistenceManager.ref)
@@ -880,7 +880,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param registerAsListener the register as listener flag
      */
     def queryMetaData(mediumID: MediumID, registerAsListener: Boolean): Unit = {
-      actor ! GetMetaData(mediumID, registerAsListener)
+      actor ! GetMetaData(mediumID, registerAsListener, 0)
     }
 
     /**

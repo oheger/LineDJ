@@ -131,7 +131,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], 50))
 
     actor ! msg
-    expectMsg(GetMetaData(TestMedium, registerAsListener = true))
+    expectMsg(GetMetaData(TestMedium, registerAsListener = true, 0))
   }
 
   /**

@@ -197,7 +197,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       pendingCloseAck -= actor
       checkAndHandleCancelRequest()
 
-    case GetMetaData(mediumID, registerAsListener) =>
+    case GetMetaData(mediumID, registerAsListener, _) =>
       mediaMap get mediumID match {
         case None =>
           sender ! UnknownMedium(mediumID)

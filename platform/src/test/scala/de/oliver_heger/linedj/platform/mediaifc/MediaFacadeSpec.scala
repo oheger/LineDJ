@@ -38,7 +38,7 @@ class MediaFacadeSpec extends FlatSpec with Matchers {
 
     facade queryMetaDataAndRegisterListener MediumId
     facade.sentMessages should be(List((MediaActors.MetaDataManager,
-      GetMetaData(MediumId, registerAsListener = true))))
+      GetMetaData(MediumId, registerAsListener = true, 0))))
   }
 }
 

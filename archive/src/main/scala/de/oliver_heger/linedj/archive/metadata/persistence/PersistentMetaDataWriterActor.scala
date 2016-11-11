@@ -133,7 +133,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
 
   override def receive: Receive = {
     case p: ProcessMedium =>
-      p.metaDataManager ! GetMetaData(p.mediumID, registerAsListener = true)
+      p.metaDataManager ! GetMetaData(p.mediumID, registerAsListener = true, 0)
       mediaInProgress += p.mediumID -> MediumData(p, p.resolvedSize, Map.empty, sender())
 
     case c: MetaDataChunk =>

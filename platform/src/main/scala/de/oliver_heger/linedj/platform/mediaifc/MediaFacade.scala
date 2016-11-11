@@ -140,7 +140,7 @@ trait MediaFacade {
     * @param mediumID the medium ID
     */
   def queryMetaDataAndRegisterListener(mediumID: MediumID): Unit = {
-    send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true))
+    send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, 0))
   }
 
   /**
