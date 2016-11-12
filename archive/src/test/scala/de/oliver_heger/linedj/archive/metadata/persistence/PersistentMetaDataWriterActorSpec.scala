@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.scalatest.mock.MockitoSugar
@@ -95,9 +95,9 @@ object PersistentMetaDataWriterActorSpec {
     * @return the chunk of meta data
     */
   private def chunk(startIndex: Int, endIndex: Int, complete: Boolean, mediumID: MediumID =
-  TestMedium): MetaDataChunk = {
+  TestMedium): MetaDataResponse = {
     val songMapping = (startIndex to endIndex) map (i => (uri(i), metaData(i)))
-    MetaDataChunk(mediumID, songMapping.toMap, complete)
+    MetaDataResponse(MetaDataChunk(mediumID, songMapping.toMap, complete), 0)
   }
 
   /**

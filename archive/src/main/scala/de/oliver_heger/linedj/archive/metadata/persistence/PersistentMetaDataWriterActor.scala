@@ -23,10 +23,10 @@ import akka.event.LoggingAdapter
 import akka.stream.scaladsl.{FileIO, Source}
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataResponse}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -136,7 +136,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
       p.metaDataManager ! GetMetaData(p.mediumID, registerAsListener = true, 0)
       mediaInProgress += p.mediumID -> MediumData(p, p.resolvedSize, Map.empty, sender())
 
-    case c: MetaDataChunk =>
+    case MetaDataResponse(c, _) =>
       mediaInProgress.get(c.mediumID).foreach { mediumData =>
         val nextElements = mediumData.elements ++ c.data
         val nextData = if (nextElements.size - mediumData.elementsWritten >= blockSize || c

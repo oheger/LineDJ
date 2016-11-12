@@ -115,7 +115,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private val mediaMap = collection.mutable.Map.empty[MediumID, MediumDataHandler]
 
   /** Stores the listeners registered for specific media. */
-  private val mediumListeners = collection.mutable.Map.empty[MediumID, List[ActorRef]]
+  private val mediumListeners =
+  collection.mutable.Map.empty[MediumID, List[(ActorRef, Int)]]
 
   /** A list with the currently registered state listeners. */
   private var stateListeners = Set.empty[ActorRef]
@@ -197,22 +198,22 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       pendingCloseAck -= actor
       checkAndHandleCancelRequest()
 
-    case GetMetaData(mediumID, registerAsListener, _) =>
+    case GetMetaData(mediumID, registerAsListener, registrationID) =>
       mediaMap get mediumID match {
         case None =>
           sender ! UnknownMedium(mediumID)
 
         case Some(handler) =>
-          handler.metaData foreach (sender ! _)
+          handler.metaData foreach (sendMetaDataResponse(sender, _, registrationID))
           if (registerAsListener && !handler.isComplete) {
-            val newListeners = sender() :: mediumListeners.getOrElse(mediumID, Nil)
+            val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
             mediumListeners(mediumID) = newListeners
           }
       }
 
     case RemoveMediumListener(mediumID, listener) =>
       val listeners = mediumListeners.getOrElse(mediumID, Nil)
-      val updatedListeners = listeners filterNot (_ == listener)
+      val updatedListeners = listeners filterNot (_._1 == listener)
       if (updatedListeners.nonEmpty) {
         mediumListeners(mediumID) = updatedListeners
       } else {
@@ -344,9 +345,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param chunk    the chunk
     */
   private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit = {
+    lazy val chunkMsg = chunk
     mediumListeners get mediumID foreach { l =>
-      val chunkMsg = chunk
-      l foreach (_ ! chunkMsg)
+      l foreach (t => sendMetaDataResponse(t._1, chunkMsg, t._2))
     }
   }
 
@@ -407,6 +408,17 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
         completeScanOperation()
       }
     }
+  }
+
+  /**
+    * Sends a meta data response message to the specified actor.
+    *
+    * @param actor the receiving actor
+    * @param chunk the chunk of data to be sent
+    * @param regID the actor's registration ID
+    */
+  private def sendMetaDataResponse(actor: ActorRef, chunk: MetaDataChunk, regID: Int): Unit = {
+    actor ! MetaDataResponse(chunk, regID)
   }
 
   /**

@@ -41,6 +41,9 @@ object MetaDataManagerActorSpec {
   /** ID of a test medium. */
   private val TestMediumID = mediumID("medium1")
 
+  /** A test registration ID. */
+  private val TestRegistrationID = 27
+
   /** A list of medium IDs used by the tests. */
   private val MediaIDs = List(TestMediumID, mediumID("otherMedium"),
     mediumID("coolMusic"))
@@ -296,13 +299,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     val filesForChunk1 = ScanResult.mediaFiles(TestMediumID).take(2)
     helper.sendProcessingResults(TestMediumID, filesForChunk1)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], TestMediumID, filesForChunk1, expComplete =
-      false)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk1,
+      expComplete = false)
 
     val filesForChunk2 = List(ScanResult.mediaFiles(TestMediumID).last)
     helper.sendProcessingResults(TestMediumID, filesForChunk2)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], TestMediumID, filesForChunk2, expComplete =
-      true)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk2,
+      expComplete = true)
   }
 
   it should "allow querying files not assigned to a medium" in {
@@ -312,7 +315,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendProcessingResults(UndefinedMediumID, files)
 
     helper.actor ! GetMetaData(UndefinedMediumID, registerAsListener = false, 0)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], UndefinedMediumID, files, expComplete = true)
+    checkMetaDataChunk(helper.expectMetaDataResponse(0), UndefinedMediumID, files,
+      expComplete = true)
   }
 
   it should "handle the undefined medium even over multiple scan results" in {
@@ -327,12 +331,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     val filesForChunk1 = ScanResult.mediaFiles(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
-    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true, 0)
-    checkMetaDataChunkWithUris(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID,
+    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true,
+      TestRegistrationID)
+    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
       filesForChunk1, expComplete = false)(refUri(UndefinedMediumID))
     val filesForChunk2 = List(ScanResult.mediaFiles(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
-    checkMetaDataChunkWithUris(expectMsgType[MetaDataChunk], MediumID.UndefinedMediumID,
+    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
       filesForChunk2, expComplete = true)(refUri(UndefinedMediumID))
 
     val filesForChunk3 = generateMediaFiles(path("fileOnOtherMedium"), 4)
@@ -344,7 +349,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       createFileUriMapping(scanResult2))
     helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
-    val chunk = expectMsgType[MetaDataChunk]
+    val chunk = helper.expectMetaDataResponse(0)
     findUrisInChunk(UndefinedMediumID, chunk, ScanResult.mediaFiles(UndefinedMediumID))
     findUrisInChunk(UndefinedMediumID2, chunk, filesForChunk3)
   }
@@ -385,10 +390,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize + 4)
     val medID = processAnotherMedium(helper, files)
 
-    helper.actor ! GetMetaData(medID, registerAsListener = true, 0)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
+    helper.actor ! GetMetaData(medID, registerAsListener = true, TestRegistrationID)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files take MaxMessageSize,
       expComplete = false)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files drop MaxMessageSize,
+    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files drop MaxMessageSize,
       expComplete = true)
   }
 
@@ -398,8 +403,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize)
     val medID = processAnotherMedium(helper, files)
 
-    helper.actor ! GetMetaData(medID, registerAsListener = true, 0)
-    checkMetaDataChunk(expectMsgType[MetaDataChunk], medID, files take MaxMessageSize,
+    helper.actor ! GetMetaData(medID, registerAsListener = true, TestRegistrationID)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files take MaxMessageSize,
       expComplete = true)
   }
 
@@ -638,7 +643,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     val probe = TestProbe()
     helper.actor.tell(GetMetaData(TestMediumID, registerAsListener = true, 0), probe.ref)
-    probe.expectMsgType[MetaDataChunk]
+    probe.expectMsgType[MetaDataResponse]
     helper.actor ! CloseRequest
     helper.actor ! CloseAck(helper.persistenceManager.ref)
     helper.sendAvailableMedia()
@@ -874,26 +879,42 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
-     * Sends a request for meta data to the test actor.
+      * Sends a request for meta data to the test actor.
       *
-      * @param mediumID the medium ID
-     * @param registerAsListener the register as listener flag
-     */
-    def queryMetaData(mediumID: MediumID, registerAsListener: Boolean): Unit = {
-      actor ! GetMetaData(mediumID, registerAsListener, 0)
+      * @param mediumID           the medium ID
+      * @param registerAsListener the register as listener flag
+      * @param registrationID     the registration ID
+      */
+    def queryMetaData(mediumID: MediumID, registerAsListener: Boolean,
+                      registrationID: Int = TestRegistrationID): Unit = {
+      actor ! GetMetaData(mediumID, registerAsListener, registrationID)
     }
 
     /**
-     * Sends a request for meta data for the test actor and expects a response.
+      * Expects a meta data response message with the specified registration
+      * ID. The chunk data of this message is returned.
       *
-      * @param mediumID the medium ID
-     * @param registerAsListener the register as listener flag
-     * @return the chunk message received from the test actor
-     */
-    def queryAndExpectMetaData(mediumID: MediumID, registerAsListener: Boolean):
-    MetaDataChunk = {
+      * @param registrationID the registration ID
+      * @return the meta data chunk from the response message
+      */
+    def expectMetaDataResponse(registrationID: Int = TestRegistrationID): MetaDataChunk = {
+      val response = expectMsgType[MetaDataResponse]
+      response.registrationID should be(registrationID)
+      response.chunk
+    }
+
+    /**
+      * Sends a request for meta data for the test actor and expects a response.
+      *
+      * @param mediumID           the medium ID
+      * @param registerAsListener the register as listener flag
+      * @param registrationID     the registration ID
+      * @return the chunk message received from the test actor
+      */
+    def queryAndExpectMetaData(mediumID: MediumID, registerAsListener: Boolean,
+                               registrationID: Int = TestRegistrationID): MetaDataChunk = {
       queryMetaData(mediumID, registerAsListener)
-      expectMsgType[MetaDataChunk]
+      expectMetaDataResponse(registrationID)
     }
 
     /**
