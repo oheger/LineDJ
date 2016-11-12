@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -25,6 +27,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 
 object MediaFacade {
@@ -50,6 +53,13 @@ object MediaFacade {
     * they receive this notification.
     */
   case object MediaArchiveUnavailable extends MediaArchiveAvailabilityEvent
+
+  /**
+    * Constant for a reserved/invalid listener registration ID. The
+    * ''queryMetaDataAndRegisterListener()'' method will never return this ID.
+    * This can be used to mark an invalid listener ID.
+    */
+  val InvalidListenerRegistrationID = 0
 }
 
 /**
@@ -80,6 +90,11 @@ object MediaFacade {
   * components should be used whenever possible.
   */
 trait MediaFacade {
+  import MediaFacade._
+
+  /** A counter for generating registration IDs. */
+  private val registrationIDCounter = new AtomicInteger
+
   /**
     * A reference to the message bus. This is used to publish responses from
     * the media archive to UI components.
@@ -135,12 +150,17 @@ trait MediaFacade {
   /**
     * A convenience method which calls the meta data manager actor to request
     * meta data for the specified medium and to register a listener to receive
-    * notifications when new meta data arrives.
+    * notifications when new meta data arrives. This method generates a
+    * listener registration ID; it is returned to the caller. Based on this ID
+    * the caller can detect whether meta data response messages are up-to-date.
     *
     * @param mediumID the medium ID
+    * @return a listener registration ID
     */
-  def queryMetaDataAndRegisterListener(mediumID: MediumID): Unit = {
-    send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, 0))
+  def queryMetaDataAndRegisterListener(mediumID: MediumID): Int = {
+    val id = nextListenerRegistrationID()
+    send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, id))
+    id
   }
 
   /**
@@ -184,4 +204,16 @@ trait MediaFacade {
     * @param componentID the ID of the component to be removed as listener
     */
   def unregisterMetaDataStateListener(componentID: ComponentID): Unit
+
+  /**
+    * Returns the next ID for a listener registration and updates the internal
+    * counter.
+    *
+    * @return the listener registration ID
+    */
+  @tailrec private def nextListenerRegistrationID(): Int = {
+    val id = registrationIDCounter.getAndIncrement()
+    if (id == InvalidListenerRegistrationID) nextListenerRegistrationID()
+    else id
+  }
 }

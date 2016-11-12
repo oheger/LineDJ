@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import akka.actor.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -36,9 +38,32 @@ class MediaFacadeSpec extends FlatSpec with Matchers {
     val facade = new MediaFacadeImpl
     val MediumId = MediumID("A medium", None)
 
-    facade queryMetaDataAndRegisterListener MediumId
+    val regID = facade queryMetaDataAndRegisterListener MediumId
     facade.sentMessages should be(List((MediaActors.MetaDataManager,
-      GetMetaData(MediumId, registerAsListener = true, 0))))
+      GetMetaData(MediumId, registerAsListener = true, regID))))
+  }
+
+  it should "generate a sequence of registration IDs" in {
+    val count = 16
+    val facade = new MediaFacadeImpl
+
+    val regIDs = (1 to count).map(
+      i => facade queryMetaDataAndRegisterListener MediumID("m" + i, None)).toSet
+    regIDs should have size count
+    regIDs should not contain MediaFacade.InvalidListenerRegistrationID
+  }
+
+  it should "increment the registration IDs in a thread-safe manner" in {
+    val ThreadCount = 16
+    val facade = new MediaFacadeImpl
+    val latch = new CountDownLatch(1)
+    val threads = (1 to ThreadCount) map(_ => new RegisterMediumListenerThread(facade, latch))
+    threads foreach (_.start())
+    latch.countDown()
+    threads foreach(_.join(5000))
+
+    val ids = threads.foldLeft(Set.empty[Int])((s, t) => s ++ t.ids)
+    ids should have size ThreadCount*32
   }
 }
 
@@ -69,4 +94,20 @@ class MediaFacadeImpl extends MediaFacade {
   override def registerMetaDataStateListener(componentID: ComponentID): Unit = ???
 
   override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = ???
+}
+
+/**
+  * A test thread class for generating listener registration IDs in parallel.
+  */
+private class RegisterMediumListenerThread(facade: MediaFacade, latch: CountDownLatch)
+  extends Thread {
+  /** A set with the IDs that have been obtained from the facade. */
+  var ids = Set.empty[Int]
+
+  override def run(): Unit = {
+    if (latch.await(10, TimeUnit.SECONDS)) {
+      ids = (1 to 32).map(
+        i => facade queryMetaDataAndRegisterListener MediumID("test" + i, None)).toSet
+    }
+  }
 }
