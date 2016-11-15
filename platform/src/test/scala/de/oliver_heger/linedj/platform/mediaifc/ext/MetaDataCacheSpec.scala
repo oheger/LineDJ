@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser.cache
+package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import java.nio.file.Paths
 
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataResponse}
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar

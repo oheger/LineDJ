@@ -20,12 +20,12 @@ import java.nio.file.Paths
 import java.util
 import java.util.Locale
 
-import de.oliver_heger.linedj.browser.cache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}

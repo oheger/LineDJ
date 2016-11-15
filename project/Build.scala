@@ -127,6 +127,7 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
+      libraryDependencies ++= logDependencies,
       OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
@@ -199,7 +200,6 @@ object Build extends Build {
       resolvers += Resolver.mavenLocal,
       libraryDependencies ++= jguiraffeDependencies,
       libraryDependencies ++= osgiDependencies,
-      libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.browser.*"
       ),

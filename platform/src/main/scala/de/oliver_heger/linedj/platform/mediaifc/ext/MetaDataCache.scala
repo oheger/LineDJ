@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.browser.cache
+package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataChunk, MetaDataResponse}
 import org.slf4j.LoggerFactory
@@ -27,6 +27,36 @@ import org.slf4j.LoggerFactory
 import scala.annotation.tailrec
 
 object MetaDataCache {
+  /**
+    * A message class processed by [[MetaDataCache]] to add a registration for the
+    * meta data of a medium.
+    *
+    * With this message a component indicates its interest on the meta data of the
+    * specified medium. Whenever meta data becomes available it is passed to the
+    * callback function provided in the message.
+    *
+    * @param mediumID the ID of the medium
+    * @param id       a unique ID to identify this listener; this can later be
+    *                 used to remove the registration again
+    * @param callback the callback function
+    */
+  case class MetaDataRegistration(mediumID: MediumID, override val id: ComponentID,
+                                  override val callback: ConsumerFunction[MetaDataChunk])
+    extends ConsumerRegistration[MetaDataChunk]
+
+  /**
+    * A message class processed by [[MetaDataCache]] to remove the registration
+    * for the meta data of a medium.
+    *
+    * When receiving a message of this type the cache will remove the represented
+    * listener registration. This means that this listener will receive no further
+    * messages for this medium.
+    *
+    * @param mediumID the ID of the medium
+    * @param listenerID the unique listener ID
+    */
+  case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: ComponentID)
+
   /** Constant for the chunk for an unknown medium. */
   private val UndefinedChunk = MetaDataChunk(null, Map.empty, complete = false)
 
@@ -75,7 +105,9 @@ object MetaDataCache {
  *
  * This class is not directly accessed by other classes. Rather, interaction
  * takes place via the message bus: A component needing access to the meta data
- * of a medium sends a [[MetaDataRegistration]] message on the message bus. The
+ * of a medium sends a
+ * [[de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MetaDataRegistration]]
+ * message on the message bus. The
  * message contains a callback through which the sender can be notified about
  * incoming meta data. If data for this medium is contained in the cache, the
  * callback is directly triggered. Whether the caller is registered depends on
@@ -115,7 +147,7 @@ object MetaDataCache {
   * @param cacheSize the size restriction for this cache (see class
   *                  documentation for more information)
  */
-class MetaDataCache(mediaFacade: MediaFacade, val cacheSize: Int)
+class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   extends MediaIfcExtension[MetaDataChunk, MediumID] {
 
   import MetaDataCache._

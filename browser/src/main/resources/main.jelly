@@ -103,14 +103,6 @@
   <di:bean name="mediaComboModel"
     beanClassName="de.oliver_heger.linedj.browser.media.EmptyMediumListModel"/>
 
-  <!-- The cache for meta data -->
-  <di:bean name="metaDataCache"
-    beanClassName="de.oliver_heger.linedj.browser.cache.MetaDataCache">
-    <di:constructor>
-      <di:param refName="LineDJ_MediaFacade"/>
-    </di:constructor>
-  </di:bean>
-
   <!-- Popup menu handler -->
   <di:bean name="mediaPopupHandler"
     beanClassName="de.oliver_heger.linedj.browser.media.MediumPopupHandler">
@@ -138,7 +130,6 @@
     <di:constructor>
       <di:param>
         <di:list>
-          <di:element refName="metaDataCache"/>
           <di:element refName="openMediaIfcConfigTask"/>
         </di:list>
       </di:param>
