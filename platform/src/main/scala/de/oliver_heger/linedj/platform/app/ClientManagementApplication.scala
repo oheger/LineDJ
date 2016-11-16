@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
@@ -40,20 +40,14 @@ object ClientManagementApplication {
   /** The name of the bean representing the consumer ID factory. */
   val BeanConsumerIDFactory = BeanPrefix + "consumerIDFactory"
 
-  /** Configuration property for the server address. */
-  val PropServerAddress = "remote.server.address"
+  /** Configuration property for the meta data cache size. */
+  val PropMetaDataCacheSize = "media.cacheSize"
 
-  /** Configuration property for the server port. */
-  val PropServerPort = "remote.server.port"
-
-  /** The name of the remote relay actor. */
-  val RelayActorName = "RemoteRelayActor"
-
-  /** Constant for the default server address. */
-  val DefaultServerAddress = "127.0.0.1"
-
-  /** Constant for the default server port. */
-  val DefaultServerPort = 2552
+  /**
+    * The default size for the meta data cache. This is the number of entries
+    * the cache can hold.
+    */
+  val DefaultMetaDataCacheSize = 2500
 
   /**
     * A message published by [[ClientManagementApplication]] on the UI message
@@ -274,23 +268,28 @@ ClientApplicationContext with ApplicationSyncStartup {
     val facade = mediaFacadeFactory.createMediaFacade(actorFactory, bus)
     facade initConfiguration appCtx.getConfiguration
 
-    createMediaIfcExtensions(facade) foreach (ext => bus registerListener ext.receive)
+    createMediaIfcExtensions(appCtx, facade) foreach (ext => bus registerListener ext.receive)
     facade activate true
     facade
   }
 
   /**
-    * Returns a list of extensions for the media archive interface that need to
+    * Returns a list of extensions for th
+    * e media archive interface that need to
     * be registered at the message bus. The LineDJ platform offers a number of
     * default extensions supporting extended use case when interacting with the
     * media archive. These extensions are created here.
     *
+    * @param appCtx the application context
     * @param facade the ''MediaFacade''
     * @return the extensions to be registered on the message bus
     */
-  private[app] def createMediaIfcExtensions(facade: MediaFacade): Iterable[MessageBusListener] =
+  private[app] def createMediaIfcExtensions(appCtx: ApplicationContext, facade: MediaFacade):
+  Iterable[MessageBusListener] =
   List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
-    new AvailableMediaExtension(facade))
+    new AvailableMediaExtension(facade),
+    new MetaDataCache(facade,
+      appCtx.getConfiguration.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize)))
 
   /**
     * Extracts the stage factory bean from the application context. The stage

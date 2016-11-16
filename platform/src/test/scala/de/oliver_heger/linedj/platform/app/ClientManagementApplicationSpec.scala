@@ -22,7 +22,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{Actor, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -37,6 +37,8 @@ import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+
+import scala.reflect.ClassTag
 
 object ClientManagementApplicationSpec {
   /** LineDJ application ID. */
@@ -215,31 +217,64 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     verify(facade).initConfiguration(appCtx.getConfiguration)
   }
 
+  /**
+    * Heper method for retrieving a specific extension registered by the
+    * specified application.
+    *
+    * @param app    the application
+    * @param appCtx the application context
+    * @param facade the media facade
+    * @param t      the class tag for the extension class
+    * @tparam E the type of the extension
+    * @return the extension of this type
+    */
+  private def findExtension[E](app: ClientManagementApplication, appCtx: ApplicationContext,
+                               facade: MediaFacade)
+                              (implicit t: ClassTag[E]): E = {
+    val extensions = app.createMediaIfcExtensions(appCtx, facade)
+    val ext = extensions.find(_.getClass == t.runtimeClass)
+    ext.get.asInstanceOf[E]
+  }
+
   it should "create an extension for the media archive availability" in {
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
-    val extensions = app.createMediaIfcExtensions(facade)
-    val archiveExt = extensions.find(_.isInstanceOf[ArchiveAvailabilityExtension])
-    archiveExt should not be 'empty
+    findExtension[ArchiveAvailabilityExtension](app, createAppCtxWithBC(), facade)
   }
 
   it should "create an extension for state listeners of the media archive" in {
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
-    val extensions = app.createMediaIfcExtensions(facade)
-    val listenerExt = extensions.find(_.isInstanceOf[StateListenerExtension])
-    listenerExt.get.asInstanceOf[StateListenerExtension].mediaFacade should be(facade)
+    val ext = findExtension[StateListenerExtension](app, createAppCtxWithBC(), facade)
+    ext.mediaFacade should be(facade)
   }
 
   it should "create an extension for available media of the media archive" in {
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
-    val extensions = app.createMediaIfcExtensions(facade)
-    val listenerExt = extensions.find(_.isInstanceOf[AvailableMediaExtension])
-    listenerExt.get.asInstanceOf[AvailableMediaExtension].mediaFacade should be(facade)
+    val ext = findExtension[AvailableMediaExtension](app, createAppCtxWithBC(), facade)
+    ext.mediaFacade should be(facade)
+  }
+
+  it should "create an extension for the meta data cache" in {
+    val facade = mock[MediaFacade]
+    val appCtx = createAppCtxWithBC()
+    val CacheSize = 2222
+    appCtx.getConfiguration.addProperty("media.cacheSize", CacheSize)
+    val app = new ClientManagementApplication
+
+    val cacheExt = findExtension[MetaDataCache](app, appCtx, facade)
+    cacheExt.mediaFacade should be(facade)
+    cacheExt.cacheSize should be(CacheSize)
+  }
+
+  it should "use a default size for the meta data cache" in {
+    val cacheExt = findExtension[MetaDataCache](new ClientManagementApplication,
+      createAppCtxWithBC(), mock[MediaFacade])
+    cacheExt.cacheSize should be(ClientManagementApplication.DefaultMetaDataCacheSize)
   }
 
   it should "register media archive extensions on the message bus" in {
@@ -256,8 +291,12 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val extension1 = createListener()
     val extension2 = createListener()
     val app = new ClientManagementApplicationTestImpl {
-      override private[app] def createMediaIfcExtensions(facade: MediaFacade):
-      Iterable[MessageBusListener] = List(extension1, extension2)
+      override private[app] def createMediaIfcExtensions(_appCtx: ApplicationContext,
+                                                         facade: MediaFacade):
+      Iterable[MessageBusListener] = {
+        _appCtx should be(appCtx)
+        List(extension1, extension2)
+      }
     }
     app initMediaFacadeFactory createMediaFacadeFactoryMock(Some(facade))
 
@@ -438,10 +477,11 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
       * @inheritdoc This implementation either calls the super method or (if
       *             mocking is disabled) returns an empty collection.
       */
-    override private[app] def createMediaIfcExtensions(facade: MediaFacade):
+    override private[app] def createMediaIfcExtensions(appCtx: ApplicationContext,
+                                                       facade: MediaFacade):
     Iterable[MessageBusListener] =
     if(mockExtensions) List.empty
-    else super.createMediaIfcExtensions(facade)
+    else super.createMediaIfcExtensions(appCtx, facade)
 
     override private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
       mockStageFactory
