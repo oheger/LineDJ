@@ -24,6 +24,8 @@ components. The top-level folders of the modules contain further README files
 with additional information for this specific component.
 
 Currently, the following components and applications are available:
+* [Platform](platform)
+* [Archive Admin application](archiveAdmin)
 * [Internet Radio Player application](radioPlayer)
 
 ## Building
