@@ -85,11 +85,11 @@ object ClientApplication {
   * [[ClientApplicationContext]] and makes them available in its own
   * ''BeanContext''. These are the following beans:
   *
-  * $ - ''LineDJ_ActorSystem'': The actor system used by the platform.
-  * $ - ''LineDJ_ActorFactory'': The helper object for creating new actors.
-  * $ - ''LineDJ_MessageBus'': The UI message bus.
-  * $ - ''LineDJ_MediaFacade'': The facade to the media archive.
-  * $ - ''LineDJ_ClientApplicationContext'': The [[ClientApplicationContext]]
+  *  - ''LineDJ_ActorSystem'': The actor system used by the platform.
+  *  - ''LineDJ_ActorFactory'': The helper object for creating new actors.
+  *  - ''LineDJ_MessageBus'': The UI message bus.
+  *  - ''LineDJ_MediaFacade'': The facade to the media archive.
+  *  - ''LineDJ_ClientApplicationContext'': The [[ClientApplicationContext]]
   * itself.
   *
   * There is also some support for registering listeners on the system-wide
@@ -105,11 +105,12 @@ object ClientApplication {
   * correctly initialized. This includes publishing some life-cycle
   * notifications on the UI message bus:
   *
-  * $ - A [[de.oliver_heger.linedj.platform.app.ClientApplication.ClientApplicationInitialized]] message for this application is
+  *  - A [[de.oliver_heger.linedj.platform.app.ClientApplication.ClientApplicationInitialized]]
+  * message for this application is
   * published after initialization is complete (and the Jelly script for the
   * main window has been executed).
-  * $ - The state of the media archive is queried, so that a corresponding
-  * state message will be published on the message bus.
+  *  - The application is registered as service in the OSGi registry. This is
+  * required to let it take part in the platform's application management.
   *
   * '''Further notes'''
   *
