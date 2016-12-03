@@ -35,10 +35,10 @@ object ClientManagementApplication {
   val BeanPrefix = "LineDJ_"
 
   /** The name of the bean representing the message bus. */
-  val BeanMessageBus = BeanPrefix + "messageBus"
+  val BeanMessageBus: String = BeanPrefix + "messageBus"
 
   /** The name of the bean representing the consumer ID factory. */
-  val BeanConsumerIDFactory = BeanPrefix + "consumerIDFactory"
+  val BeanConsumerIDFactory: String = BeanPrefix + "consumerIDFactory"
 
   /** Configuration property for the meta data cache size. */
   val PropMetaDataCacheSize = "media.cacheSize"
@@ -59,6 +59,18 @@ object ClientManagementApplication {
     *                          service
     */
   case class MediaIfcConfigUpdated(currentConfigData: Option[MediaIfcConfigData])
+
+  /**
+    * A message processed by [[ClientManagementApplication]] that causes the
+    * shutdown of the current system. This message is typically sent by a
+    * component responsible for shutdown handling. The current application
+    * context must be provided to ensure that this message was not sent from
+    * an external system (e.g. via a remote connection); the application
+    * context should only be known in the local application.
+    *
+    * @param applicationContext the ''ClientApplicationContext''
+    */
+  case class Shutdown(applicationContext: ClientApplicationContext)
 
   /**
     * Creates an exit handler for shutting down this application in an OSGi
