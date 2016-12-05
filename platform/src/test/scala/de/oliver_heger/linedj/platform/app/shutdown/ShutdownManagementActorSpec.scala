@@ -16,29 +16,20 @@
 
 package de.oliver_heger.linedj.platform.app.shutdown
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientManagementApplication}
-import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
-import org.mockito.{ArgumentCaptor, Mockito}
-import org.mockito.Matchers.any
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-object ShutdownManagementActorSpec {
-  /** Registration ID for the message bus. */
-  private val RegistrationID = 20161203
-}
 
 /**
   * Test class for ''ShutdownManagementActor''.
   */
 class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
-
-  import ShutdownManagementActorSpec._
 
   def this() = this(ActorSystem("ShutdownManagementActorSpec"))
 
@@ -113,78 +104,15 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
   /**
     * Test helper class managing dependencies of the test actor.
     */
-  private class ShutdownManagementActorTestHelper {
-    /** A mock for the message bus. */
-    val bus: MessageBus = createMessageBus()
-
+  private class ShutdownManagementActorTestHelper
+    extends ShutdownActorTestHelper[ShutdownManagementActor] {
     /** A mock for the client application context. */
     val applicationContext: ClientApplicationContext = mock[ClientApplicationContext]
 
     /** The actor to be tested. */
-    val actor: TestActorRef[ShutdownManagementActor] =
+    override val actor: TestActorRef[ShutdownManagementActor] =
       TestActorRef[ShutdownManagementActor](Props(classOf[ShutdownManagementActor],
         bus, applicationContext))
-
-    /**
-      * Sends a message to the test actor.
-      *
-      * @param msg the message to be sent
-      * @return this test helper
-      */
-    def receive(msg: Any): ShutdownManagementActorTestHelper = {
-      actor receive msg
-      this
-    }
-
-    /**
-      * Checks whether a listener has been registered at the message bus and
-      * was sent a message. The listener is then invoked with this message.
-      *
-      * @return this test helper
-      */
-    def expectAndInvokeBusListener(): ShutdownManagementActorTestHelper = {
-      val captListener = ArgumentCaptor.forClass(classOf[Actor.Receive])
-      val captMsg = ArgumentCaptor.forClass(classOf[AnyRef])
-      val io = Mockito.inOrder(bus)
-      io.verify(bus).registerListener(captListener.capture())
-      io.verify(bus).publish(captMsg.capture())
-      captListener.getValue.apply(captMsg.getValue)
-      this
-    }
-
-    /**
-      * Checks whether the temporary message bus listener has been removed
-      * again.
-      *
-      * @return this test helper
-      */
-    def expectRemoveBusListener(): ShutdownManagementActorTestHelper = {
-      verify(bus).removeListener(RegistrationID)
-      this
-    }
-
-    /**
-      * Checks whether the specified message has been published on the UI
-      * message bus.
-      *
-      * @param msg the expected message
-      * @return this test helper
-      */
-    def expectPublish(msg: Any): ShutdownManagementActorTestHelper = {
-      verify(bus).publish(msg)
-      this
-    }
-
-    /**
-      * Creates the mock for the message bus.
-      *
-      * @return the mock message bus
-      */
-    private def createMessageBus(): MessageBus = {
-      val bus = mock[MessageBus]
-      when(bus.registerListener(any(classOf[Actor.Receive]))).thenReturn(RegistrationID)
-      bus
-    }
   }
 
 }
