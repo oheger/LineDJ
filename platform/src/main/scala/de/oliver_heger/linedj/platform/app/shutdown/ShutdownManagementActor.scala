@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.platform.app.shutdown
 
-import akka.actor.{Actor, ActorLogging}
+import de.oliver_heger.linedj.platform.app.shutdown.BaseShutdownActor.Process
+import de.oliver_heger.linedj.platform.app.shutdown.ShutdownManagementActor.{AddApplication, RemoveApplication}
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientManagementApplication}
-import de.oliver_heger.linedj.platform.app.shutdown.ShutdownManagementActor.{AddApplication, Process, ProcessData, RemoveApplication}
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
+import net.sf.jguiraffe.gui.app.Application
 
 object ShutdownManagementActor {
 
@@ -41,32 +41,6 @@ object ShutdownManagementActor {
     * @param app the application
     */
   case class RemoveApplication(app: Application)
-
-  /**
-    * A message processed by ''ShutdownManagementActor'' telling it to process
-    * the applications currently available. The passed in shutdown listener is
-    * the one that has been registered by the shutdown management component to
-    * detect a shutdown in progress. It has to be removed first before an
-    * application can actually be shutdown (it would otherwise veto the
-    * shutdown).
-    *
-    * @param shutdownListener the special listener to be removed
-    */
-  case class Process(shutdownListener: ApplicationShutdownListener)
-
-  /**
-    * A message sent on the message bus to trigger an iteration over the
-    * services currently available. This message is processed by a temporary
-    * listener on the message bus, so that services are guaranteed to be
-    * invoked on the event dispatch thread.
-    *
-    * @param process        the original ''Process'' message
-    * @param services       a collection with the services to be processed
-    * @param registrationID the registration ID for the message bus listener
-    */
-  private case class ProcessData(process: Process, services: Iterable[Application],
-                                 registrationID: Int)
-
 }
 
 /**
@@ -87,44 +61,34 @@ object ShutdownManagementActor {
   * @param appContext the client application context
   */
 class ShutdownManagementActor(messageBus: MessageBus,
-                              appContext: ClientApplicationContext) extends Actor
-  with ActorLogging {
-  /** A list with the currently available applications. */
-  private var applications = List.empty[Application]
-
-  override def receive: Receive = {
+                              appContext: ClientApplicationContext)
+  extends BaseShutdownActor[Application](messageBus) {
+  protected override def customReceive: Receive = {
     case AddApplication(app) =>
-      applications = app :: applications
+      addService(app)
 
     case RemoveApplication(app) =>
-      applications = applications filterNot (_ == app)
-
-    case p: Process =>
-      val regId = messageBus.registerListener {
-        case ProcessData(process, services, registrationID) =>
-          messageBus removeListener registrationID
-          processServices(services, process.shutdownListener)
-          messageBus publish ClientManagementApplication.Shutdown(appContext)
-      }
-      messageBus publish ProcessData(p, applications, regId)
+      removeService(app)
   }
 
   /**
-    * Processes the given collection of services.
-    *
-    * @param services the services to be processed
-    * @param listener the shutdown listener to be removed
+    * @inheritdoc This implementation returns a function which removes the
+    *             special shutdown listener from the application and invokes
+    *             its ''shutdown()'' method.
     */
-  private def processServices(services: Iterable[Application],
-                              listener: ApplicationShutdownListener): Unit = {
-    services foreach { s =>
-      try {
-        s removeShutdownListener listener
-        s.shutdown()
-      } catch {
-        case ex: Exception =>
-          log.error(ex, "Exception when processing " + s)
-      }
+  override protected def processFunction: (Process, Application) => Boolean = {
+    (process, app) => {
+      app removeShutdownListener process.shutdownListener
+      app.shutdown()
+      true
     }
+  }
+
+  /**
+    * @inheritdoc This implementation publishes the final ''Shutdown''
+    *             message on the UI message bus.
+    */
+  override protected def afterProcessing(process: Process): Unit = {
+    messageBus publish ClientManagementApplication.Shutdown(appContext)
   }
 }

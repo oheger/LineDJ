@@ -16,10 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app.shutdown
 
+import akka.actor.Actor.Receive
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientManagementApplication}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
+import org.mockito.Matchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -44,7 +46,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     helper.receive(ShutdownManagementActor.AddApplication(app1))
       .receive(ShutdownManagementActor.AddApplication(app2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
       .expectRemoveBusListener()
     verify(app1).shutdown()
@@ -60,7 +62,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     helper.receive(ShutdownManagementActor.AddApplication(app1))
       .receive(ShutdownManagementActor.AddApplication(app2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
     verify(app1).shutdown()
     verify(app2).shutdown()
@@ -74,7 +76,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.receive(ShutdownManagementActor.AddApplication(app1))
       .receive(ShutdownManagementActor.AddApplication(app2))
       .receive(ShutdownManagementActor.RemoveApplication(app2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
     verify(app2, never()).shutdown()
   }
@@ -83,7 +85,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new ShutdownManagementActorTestHelper
 
     helper.receive(ShutdownManagementActor.AddApplication(mock[Application]))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
       .expectPublish(ClientManagementApplication.Shutdown(helper.applicationContext))
   }
@@ -94,11 +96,21 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new ShutdownManagementActorTestHelper
 
     helper.receive(ShutdownManagementActor.AddApplication(app))
-      .receive(ShutdownManagementActor.Process(listener))
+      .receive(BaseShutdownActor.Process(listener))
       .expectAndInvokeBusListener()
     val io = Mockito.inOrder(app)
     io.verify(app).removeShutdownListener(listener)
     io.verify(app).shutdown()
+  }
+
+  it should "ignore a process request while an iteration is ongoing" in {
+    val helper = new ShutdownManagementActorTestHelper
+
+    helper.receive(ShutdownManagementActor.AddApplication(mock[Application]))
+      .receive(BaseShutdownActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
+      .expectAndInvokeBusListener()
+    verify(helper.bus).registerListener(any(classOf[Receive]))
   }
 
   /**

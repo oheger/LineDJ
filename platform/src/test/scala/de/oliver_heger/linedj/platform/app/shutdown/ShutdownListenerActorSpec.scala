@@ -16,10 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app.shutdown
 
+import akka.actor.Actor.Receive
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ShutdownListener
 import net.sf.jguiraffe.gui.app.ApplicationShutdownListener
+import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
@@ -55,7 +57,7 @@ class ShutdownListenerActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     helper.receive(ShutdownListenerActor.AddShutdownListener(listener1))
       .receive(ShutdownListenerActor.AddShutdownListener(listener2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
       .expectRemoveBusListener()
     verify(listener1).onShutdown()
@@ -64,7 +66,7 @@ class ShutdownListenerActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "notify the shutdown manager actor after successful processing" in {
     val listener = createListener(allowShutdown = true)
-    val process = ShutdownManagementActor.Process(mock[ApplicationShutdownListener])
+    val process = BaseShutdownActor.Process(mock[ApplicationShutdownListener])
     val helper = new ShutdownListenerActorTestHelper
 
     helper.receive(ShutdownListenerActor.AddShutdownListener(listener))
@@ -80,7 +82,7 @@ class ShutdownListenerActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     helper.receive(ShutdownListenerActor.AddShutdownListener(listener1))
       .receive(ShutdownListenerActor.AddShutdownListener(listener2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
     verify(listener1, never()).onShutdown()
     val msg = "PING"
@@ -96,10 +98,22 @@ class ShutdownListenerActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     helper.receive(ShutdownListenerActor.AddShutdownListener(listener1))
       .receive(ShutdownListenerActor.AddShutdownListener(listener2))
       .receive(ShutdownListenerActor.RemoveShutdownListener(listener2))
-      .receive(ShutdownManagementActor.Process(null))
+      .receive(BaseShutdownActor.Process(null))
       .expectAndInvokeBusListener()
     verify(listener1).onShutdown()
     verify(listener2, never()).onShutdown()
+  }
+
+  it should "reset the processOngoing flag after processing" in {
+    val listener = createListener(allowShutdown = false)
+    val helper = new ShutdownListenerActorTestHelper
+    helper.receive(ShutdownListenerActor.AddShutdownListener(listener))
+      .receive(BaseShutdownActor.Process(null))
+      .expectAndInvokeBusListener()
+
+    helper.receive(BaseShutdownActor.Process(null))
+      .expectAndInvokeBusListener()
+    verify(helper.bus, times(2)).registerListener(any(classOf[Receive]))
   }
 
   /**

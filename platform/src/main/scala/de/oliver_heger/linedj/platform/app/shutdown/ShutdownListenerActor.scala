@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.app.shutdown
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.app.ShutdownListener
-import de.oliver_heger.linedj.platform.app.shutdown.ShutdownListenerActor.{AddShutdownListener,
-ProcessData, RemoveShutdownListener}
+import de.oliver_heger.linedj.platform.app.shutdown.BaseShutdownActor.Process
+import de.oliver_heger.linedj.platform.app.shutdown.ShutdownListenerActor.{AddShutdownListener, RemoveShutdownListener}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 
 object ShutdownListenerActor {
@@ -42,20 +42,6 @@ object ShutdownListenerActor {
     */
   case class RemoveShutdownListener(listener: ShutdownListener)
 
-  /**
-    * A message sent on the message bus to trigger an iteration over the
-    * services currently available. This message is processed by a temporary
-    * listener on the message bus, so that services are guaranteed to be
-    * invoked on the event dispatch thread.
-    *
-    * @param process        the original ''Process'' message
-    * @param services       a collection with the services to be processed
-    * @param registrationID the registration ID for the message bus listener
-    */
-  private case class ProcessData(process: ShutdownManagementActor.Process, services:
-  Iterable[ShutdownListener],
-                                 registrationID: Int)
-
 }
 
 /**
@@ -74,37 +60,29 @@ object ShutdownListenerActor {
   * @param messageBus    the UI message bus
   * @param shutdownActor the ''ShutdownManagementActor''
   */
-class ShutdownListenerActor(messageBus: MessageBus, shutdownActor: ActorRef) extends Actor
-  with ActorLogging {
-  /** A list with the currently available shutdown listeners. */
-  private var listeners = List.empty[ShutdownListener]
-
-  override def receive: Receive = {
+class ShutdownListenerActor(messageBus: MessageBus, shutdownActor: ActorRef)
+  extends BaseShutdownActor[ShutdownListener](messageBus) {
+  override protected def customReceive: Receive = {
     case AddShutdownListener(listener) =>
-      listeners = listener :: listeners
+      addService(listener)
 
     case RemoveShutdownListener(listener) =>
-      listeners = listeners filterNot (_ == listener)
-
-    case p: ShutdownManagementActor.Process =>
-      val regId = messageBus.registerListener {
-        case ProcessData(process, services, registrationID) =>
-          messageBus removeListener registrationID
-          if (processServices(services)) {
-            shutdownActor ! p
-          }
-      }
-      messageBus publish ProcessData(p, listeners, regId)
+      removeService(listener)
   }
 
   /**
-    * Processes the given collection of services.
-    *
-    * @param services the services to be processed
-    * @return a flag whether processing was successful
+    * @inheritdoc This implementation returns a processing function which
+    *             invokes the listener's ''onShutdown()'' method and returns
+    *             the result.
     */
-  private def processServices(services: Iterable[ShutdownListener]): Boolean = {
-    val optVeto = services find (!_.onShutdown())
-    optVeto.isEmpty
+  override protected def processFunction: (Process, ShutdownListener) => Boolean =
+    (_, listener) => listener.onShutdown()
+
+  /**
+    * @inheritdoc This implementation sends the current ''Process'' message to
+    *             the shutdown management actor.
+    */
+  override protected def afterProcessing(process: Process): Unit = {
+    shutdownActor ! process
   }
 }
