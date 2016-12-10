@@ -28,8 +28,6 @@ import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager,
 import org.apache.commons.configuration.Configuration
 import org.osgi.service.component.ComponentContext
 
-import scala.annotation.tailrec
-
 object ClientManagementApplication {
   /** The prefix for beans read from the bean definition file. */
   val BeanPrefix = "LineDJ_"
@@ -159,9 +157,6 @@ ClientApplicationContext with ApplicationSyncStartup {
   /** A list with the currently registered client applications. */
   private val registeredClients = new AtomicReference(List.empty[Application])
 
-  /** Flag whether the application is currently shutting down. */
-  private var shutdownInProgress = false
-
   override def actorSystem: ActorSystem = system
 
   override def mediaFacade: MediaFacade = mediaFacadeField
@@ -206,6 +201,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     * @param system the actor system
     */
   def initActorSystem(system: ActorSystem): Unit = {
+    log.info("Actor system was set.")
     this.system = system
     factory = new ActorFactory(system)
   }
@@ -217,6 +213,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     * @param factory the factory
     */
   def initMediaFacadeFactory(factory: MediaFacadeFactory): Unit = {
+    log.info("MediaFacadeFactory was set.")
     mediaFacadeFactory = factory
   }
 
@@ -228,35 +225,10 @@ ClientApplicationContext with ApplicationSyncStartup {
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
+    log.info("Activating ClientManagementApplication.")
     setExitHandler(createExitHandler(compContext))
     startApplication(this, "management")
   }
-
-  /**
-    * Adds a client application to this management application. This method is
-    * called by the SCR whenever an application is registered. Such
-    * applications are then management by this object.
-    * @param app the client application
-    */
-  def addClientApplication(app: Application): Unit = {
-    updateRegisteredApps(app :: _)
-    app setExitHandler createClientApplicationExitHandler(app)
-  }
-
-  /**
-    * Removes a client application from this management application. This
-    * method is called by the SCR when an application is uninstalled.
-    * @param app the client application to be removed
-    */
-  def removeClientApplication(app: Application): Unit = {
-    updateRegisteredApps(_ filterNot (_ == app))
-  }
-
-  /**
-    * Returns a sequence with the currently registered client applications.
-    * @return a sequence with all client applications
-    */
-  def clientApplications: Seq[Application] = registeredClients.get()
 
   /**
     * @inheritdoc This implementation initializes some additional beans related
@@ -266,6 +238,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     val appCtx = super.createApplicationContext()
     beanStageFactory = extractStageFactory(appCtx)
     mediaFacadeField = createMediaFacade(appCtx)
+    initShutdownHandling(messageBus)
     appCtx
   }
 
@@ -317,44 +290,18 @@ ClientApplicationContext with ApplicationSyncStartup {
   }
 
   /**
-    * Triggers a shutdown operation of the whole LineDJ client application on
-    * behalf of the specified application. This method is eventually called
-    * when a client application was closed. It ensures that all other client
-    * applications are correctly shut down and then shuts down this
-    * application.
-    * @param app the client application that was closed
+    * Installs a message bus listener that reacts on a ''Shutdown'' command.
+    * Using this mechanism the platform can be shutdown.
+    *
+    * @param bus the message bus
     */
-  private def triggerShutdown(app: Application): Unit = {
-    if (!shutdownInProgress) {
-      shutdownInProgress = true
-      clientApplications filterNot (_ == app) foreach (_.shutdown())
-      shutdown()
+  private[app] def initShutdownHandling(bus: MessageBus): Unit = {
+    bus registerListener {
+      case Shutdown(context) =>
+        log.info("Received Shutdown command.")
+        if (context == this) shutdown()
+        else log.warn("Ignoring invalid Shutdown command: " + context)
     }
   }
 
-  /**
-    * Creates an exit handler for a client application. This handler notifies
-    * this management application about the close operation. This will in turn
-    * shutdown the whole LineDJ client platform.
-    * @param app the affected client application
-    * @return the exit handler for this client application
-    */
-  private def createClientApplicationExitHandler(app: Application): Runnable =
-    new Runnable {
-      override def run(): Unit = {
-        triggerShutdown(app)
-      }
-    }
-
-  /**
-    * Updates the list with registered applications in a thread-safe manner
-    * using the provided update function.
-    * @param f the update function
-    */
-  @tailrec
-  private def updateRegisteredApps(f: List[Application] => List[Application]): Unit = {
-    val list = registeredClients.get()
-    val newList = f(list)
-    if (!registeredClients.compareAndSet(list, newList)) updateRegisteredApps(f)
-  }
 }

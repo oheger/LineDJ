@@ -17,21 +17,19 @@
 package de.oliver_heger.linedj.platform.app
 
 import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
-import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
@@ -217,6 +215,34 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     verify(facade).initConfiguration(appCtx.getConfiguration)
   }
 
+  it should "register a message bus listener for shutdown handling" in {
+    val actorSystem = mock[ActorSystem]
+    val app = new ClientManagementAppWithMsgBus
+    app initActorSystem actorSystem
+    runApp(app)
+
+    val captor = ArgumentCaptor.forClass(classOf[Receive])
+    verify(app.messageBus).registerListener(captor.capture())
+    val exitHandler = mock[Runnable]
+    app setExitHandler exitHandler
+    captor.getValue.apply(ClientManagementApplication.Shutdown(app))
+    verify(exitHandler).run()
+  }
+
+  it should "ignore a Shutdown message with wrong content" in {
+    val actorSystem = mock[ActorSystem]
+    val app = new ClientManagementAppWithMsgBus
+    app initActorSystem actorSystem
+    runApp(app)
+
+    val captor = ArgumentCaptor.forClass(classOf[Receive])
+    verify(app.messageBus).registerListener(captor.capture())
+    val exitHandler = mock[Runnable]
+    app setExitHandler exitHandler
+    captor.getValue.apply(ClientManagementApplication.Shutdown(null))
+    verify(exitHandler, never()).run()
+  }
+
   /**
     * Heper method for retrieving a specific extension registered by the
     * specified application.
@@ -342,62 +368,6 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     verify(bundle).stop()
   }
 
-  it should "allow adding applications concurrently" in {
-    val count = 32
-    val app = new ClientManagementApplication
-    val latch = new CountDownLatch(1)
-    val clientApps = 1 to count map (_ => mock[Application])
-    val threads = clientApps map { a =>
-      new Thread {
-        override def run(): Unit = {
-          latch.await(5, TimeUnit.SECONDS)
-          app addClientApplication a
-        }
-      }
-    }
-    val removeApp = mock[Application]
-    threads foreach (_.start())
-
-    latch.countDown()
-    app addClientApplication removeApp
-    app removeClientApplication removeApp
-    threads foreach (_.join(5000))
-    val clients = app.clientApplications
-    clients should have size count
-    clients should contain only (clientApps: _*)
-  }
-
-  it should "implement correct shutdown behavior" in {
-    def initShutdown(client: Application): Runnable = {
-      val captExit = ArgumentCaptor.forClass(classOf[Runnable])
-      verify(client).setExitHandler(captExit.capture())
-      doAnswer(new Answer[Object] {
-        override def answer(invocationOnMock: InvocationOnMock): Object = {
-          captExit.getValue.run()
-          null
-        }
-      }).when(client).shutdown()
-      captExit.getValue
-    }
-
-    val client1, client2, client3 = mock[Application]
-    val exitHandler = mock[Runnable]
-    val app = runApp(new ClientManagementApplicationTestImpl)
-    app addClientApplication client1
-    app addClientApplication client2
-    app addClientApplication client3
-    app setExitHandler exitHandler
-
-    val clientExitHandler = initShutdown(client2)
-    initShutdown(client1)
-    initShutdown(client3)
-    clientExitHandler.run()
-    verify(client1, Mockito.times(1)).shutdown()
-    verify(client3, Mockito.times(1)).shutdown()
-    verify(client2, Mockito.never()).shutdown()
-    verify(exitHandler, Mockito.times(1)).run()
-  }
-
   it should "return undefined configuration data per default" in {
     val app = new ClientManagementApplicationTestImpl
 
@@ -465,13 +435,16 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * application must not be started more than once, which is triggered by the
     * stage factory.
     *
-    * @param mockExtensions a flag whether extensions for the media interface
-    *                       should be mocked
+    * @param mockExtensions       a flag whether extensions for the media
+    *                             interface should be mocked
+    * @param mockShutdownHandling a flag whether registration of a shutdown
+    *                             listener should be mocked
     */
-  private class ClientManagementApplicationTestImpl(mockExtensions: Boolean = true)
+  private class ClientManagementApplicationTestImpl(mockExtensions: Boolean = true,
+                                                    mockShutdownHandling: Boolean = true)
     extends ClientManagementApplication {
     /** A mock stage factory used per default by this object. */
-    val mockStageFactory = mock[StageFactory]
+    val mockStageFactory: StageFactory = mock[StageFactory]
 
     /**
       * @inheritdoc This implementation either calls the super method or (if
@@ -485,6 +458,15 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
 
     override private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
       mockStageFactory
+    }
+
+    /**
+      * @inheritdoc Calls the super method if mocking is disabled.
+      */
+    override private[app] def initShutdownHandling(bus: MessageBus) = {
+      if (!mockShutdownHandling) {
+        super.initShutdownHandling(bus)
+      }
     }
 
     /**
@@ -504,9 +486,10 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * bus. This can be used to test whether messages have been published on the
     * bus.
     */
-  private class ClientManagementAppWithMsgBus extends ClientManagementApplicationTestImpl {
+  private class ClientManagementAppWithMsgBus
+    extends ClientManagementApplicationTestImpl(mockShutdownHandling = false) {
     /** The mock message bus. */
-    val mockBus = mock[MessageBus]
+    val mockBus: MessageBus = mock[MessageBus]
 
     override def messageBus: MessageBus = mockBus
   }

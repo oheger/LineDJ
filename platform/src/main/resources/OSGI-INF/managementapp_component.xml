@@ -33,10 +33,6 @@
   <reference interface="de.oliver_heger.linedj.platform.mediaifc.MediaFacadeFactory"
              name="mediaFacadeFactory" bind="initMediaFacadeFactory"/>
 
-  <reference interface="net.sf.jguiraffe.gui.app.Application" name="clientApp"
-             bind="addClientApplication" unbind="removeClientApplication" cardinality="0..n"
-             policy="dynamic"/>
-
   <reference interface="de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData"
              name="mediaIfcConfig" policy="dynamic"
              bind="setMediaIfcConfig" unbind="unsetMediaIfcConfig" cardinality="0..1"/>
