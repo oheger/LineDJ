@@ -81,7 +81,7 @@ object Build extends Build {
       reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
       reorderAlbum, reorderArtist, playerEngine, radioPlayer,
       mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
-      mediaIfcDisabled, archiveStartup)
+      mediaIfcDisabled, archiveStartup, shutdownOneForAll)
 
   /**
     * A project with shared code which needs to be available on both client
@@ -491,6 +491,26 @@ object Build extends Build {
       libraryDependencies ++= logDependencies,
       OsgiKeys.privatePackage := Seq(
         "de.oliver_heger.linedj.platform.mediaifc.disabled.*"
+      ),
+      OsgiKeys.additionalHeaders :=
+        Map("Service-Component" -> "OSGI-INF/*.xml")
+    ) dependsOn(platform % "compile->compile;test->test")
+
+  /**
+    * Project for the ''one for all'' shutdown handler. This project provides
+    * shutdown handling that shuts down the platform when one of the
+    * applications available is shutdown.
+    */
+  lazy val shutdownOneForAll = Project(id = "shutdownOneForAll",
+    base = file("shutdownOneForAll"))
+    .enablePlugins(SbtOsgi)
+    .settings(defaultSettings: _*)
+    .settings(osgiSettings: _*)
+    .settings(
+      name := "shutdown-oneForAll",
+      libraryDependencies ++= osgiDependencies,
+      OsgiKeys.privatePackage := Seq(
+        "de.oliver_heger.linedj.platform.app.shutdown.oneforall.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
