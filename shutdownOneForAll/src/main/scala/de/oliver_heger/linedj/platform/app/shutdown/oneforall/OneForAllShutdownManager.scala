@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.platform.app.shutdown.oneforall
 import de.oliver_heger.linedj.platform.app.shutdown.BaseShutdownManager
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.Window
+import org.osgi.service.component.ComponentContext
 
 /**
   * A specialized shutdown manager which triggers the shutdown of the platform
@@ -33,6 +34,16 @@ import net.sf.jguiraffe.gui.builder.window.Window
   * of the platform is initiated.
   */
 class OneForAllShutdownManager extends BaseShutdownManager {
+  /**
+    * Activates this component. Delegates to the activation method of the
+    * base trait.
+    *
+    * @param compCtx the component context
+    */
+  protected def activate(compCtx: ComponentContext): Unit = {
+    setUp()
+  }
+
   /**
     * @inheritdoc This implementation triggers a shutdown.
     */

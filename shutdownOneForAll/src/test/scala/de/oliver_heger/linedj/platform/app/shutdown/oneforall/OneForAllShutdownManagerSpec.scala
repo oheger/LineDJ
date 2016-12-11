@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.app.shutdown.oneforall
 
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.Window
+import org.osgi.service.component.ComponentContext
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -38,6 +39,13 @@ class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
     manager.shutdownCount should be(1)
   }
 
+  it should "correctly activate the component" in {
+    val manager = new OneForAllShutdownManagerTestImpl
+
+    manager activate null
+    manager.setUpCount should be(1)
+  }
+
   /**
     * A test implementation of the shutdown manager. This class provides access
     * to protected methods and allows tracking invocations of the
@@ -46,6 +54,16 @@ class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
   private class OneForAllShutdownManagerTestImpl extends OneForAllShutdownManager {
     /** Counter for ''triggerShutdown()'' invocations. */
     var shutdownCount: Int = 0
+
+    /** Counter for ''setUp()'' invocations. */
+    var setUpCount: Int = 0
+
+    /**
+      * @inheritdoc Records this invocation.
+      */
+    override def setUp(): Unit = {
+      setUpCount += 1
+    }
 
     /**
       * @inheritdoc Records this invocation.
@@ -65,6 +83,12 @@ class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
       */
     override def onWindowClosing(window: Window): Unit =
       super.onWindowClosing(window)
+
+    /**
+      * @inheritdoc Increases visibility of this method.
+      */
+    override def activate(compCtx: ComponentContext): Unit =
+      super.activate(compCtx)
   }
 
 }
