@@ -22,12 +22,6 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
-  <!-- An event filter for the window closing event. -->
-  <di:bean name="windowClosingEventFilter"
-    beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
-    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
-  </di:bean>
-
   <!-- Definitions for actions and their tasks -->
 
   <!-- The action for application shutdown -->
@@ -122,13 +116,6 @@
         <f:borderconstr name="EAST"/>
       </f:statictext>
     </f:panel>
-
-    <!-- An event listener that delegates the window closing event to the
-         application exit action.
-    -->
-    <w:windowEvent actionName="exitAction">
-      <a:eventFilter beanName="windowClosingEventFilter"/>
-    </w:windowEvent>
 
     <!-- Radio controller -->
     <di:bean name="radioController"

@@ -84,12 +84,6 @@
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
   </di:bean>
 
-  <!-- An event filter for the window closing event. -->
-  <di:bean name="windowClosingEventFilter"
-           beanClassName="net.sf.jguiraffe.gui.builder.event.filter.TypeEventFilter">
-    <di:setProperty property="eventType" value="WINDOW_CLOSING"/>
-  </di:bean>
-
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
@@ -142,13 +136,6 @@
         </f:statictext>
       </f:panel>
     </f:panel>
-
-    <!-- An event listener that delegates the window closing event to the
-         application exit action.
-    -->
-    <w:windowEvent actionName="exitAction">
-      <a:eventFilter beanName="windowClosingEventFilter"/>
-    </w:windowEvent>
 
     <!-- Media controller -->
     <di:bean name="adminController"
