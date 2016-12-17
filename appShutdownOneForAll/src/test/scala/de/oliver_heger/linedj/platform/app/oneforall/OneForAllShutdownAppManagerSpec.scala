@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app.shutdown.oneforall
+package de.oliver_heger.linedj.platform.app.oneforall
 
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.Window
@@ -22,28 +22,35 @@ import org.osgi.service.component.ComponentContext
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
-  * Test class for ''OneForAllShutdownManager''.
+  * Test class for ''OneForAllShutdownAppManager''.
   */
-class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
+class OneForAllShutdownAppManagerSpec extends FlatSpec with Matchers {
   "A OneForAllShutdownManager" should "trigger shutdown on application shutdown" in {
-    val manager = new OneForAllShutdownManagerTestImpl
+    val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager onApplicationShutdown null
     manager.shutdownCount should be(1)
   }
 
   it should "trigger shutdown on window closing" in {
-    val manager = new OneForAllShutdownManagerTestImpl
+    val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager onWindowClosing null
     manager.shutdownCount should be(1)
   }
 
   it should "correctly activate the component" in {
-    val manager = new OneForAllShutdownManagerTestImpl
+    val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager activate null
     manager.setUpCount should be(1)
+  }
+
+  it should "correctly deactivate the component" in {
+    val manager = new OneForAllShutdownAppManagerTestImpl
+
+    manager deactivate null
+    manager.tearDownCount should be(1)
   }
 
   /**
@@ -51,18 +58,28 @@ class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
     * to protected methods and allows tracking invocations of the
     * ''triggerShutdown()'' method.
     */
-  private class OneForAllShutdownManagerTestImpl extends OneForAllShutdownManager {
+  private class OneForAllShutdownAppManagerTestImpl extends OneForAllShutdownAppManager {
     /** Counter for ''triggerShutdown()'' invocations. */
     var shutdownCount: Int = 0
 
     /** Counter for ''setUp()'' invocations. */
     var setUpCount: Int = 0
 
+    /** Counter for ''tearDown()'' invocations. */
+    var tearDownCount: Int = 0
+
     /**
       * @inheritdoc Records this invocation.
       */
     override def setUp(): Unit = {
       setUpCount += 1
+    }
+
+    /**
+      * @inheritdoc Records this invocation.
+      */
+    override def tearDown(): Unit = {
+      tearDownCount += 1
     }
 
     /**
@@ -89,6 +106,12 @@ class OneForAllShutdownManagerSpec extends FlatSpec with Matchers {
       */
     override def activate(compCtx: ComponentContext): Unit =
       super.activate(compCtx)
+
+    /**
+      * @inheritdoc Increases visibility of this method.
+      */
+    override  def deactivate(compCtx: ComponentContext): Unit =
+      super.deactivate(compCtx)
   }
 
 }

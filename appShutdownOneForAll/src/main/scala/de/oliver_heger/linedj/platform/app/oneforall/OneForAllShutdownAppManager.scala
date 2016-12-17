@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app.shutdown.oneforall
+package de.oliver_heger.linedj.platform.app.oneforall
 
-import de.oliver_heger.linedj.platform.app.shutdown.BaseShutdownManager
+import de.oliver_heger.linedj.platform.app.BaseApplicationManager
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.osgi.service.component.ComponentContext
@@ -33,7 +33,7 @@ import org.osgi.service.component.ComponentContext
   * installed. When such an event is received from an application the shutdown
   * of the platform is initiated.
   */
-class OneForAllShutdownManager extends BaseShutdownManager {
+class OneForAllShutdownAppManager extends BaseApplicationManager {
   /**
     * Activates this component. Delegates to the activation method of the
     * base trait.
@@ -42,6 +42,16 @@ class OneForAllShutdownManager extends BaseShutdownManager {
     */
   protected def activate(compCtx: ComponentContext): Unit = {
     setUp()
+  }
+
+  /**
+    * Deactivates this component. Delegates to the deactivation method of the
+    * base trait.
+    *
+    * @param compCtx the component context
+    */
+  protected def deactivate(compCtx: ComponentContext): Unit = {
+    tearDown()
   }
 
   /**

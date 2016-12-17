@@ -21,15 +21,15 @@
   component.
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
-           name="lineDJ.oneForAllShutdownManager" immediate="true">
-  <implementation class="de.oliver_heger.linedj.platform.app.shutdown.oneforall.OneForAllShutdownManager" />
+           name="lineDJ.oneForAllShutdownAppManager" immediate="true">
+  <implementation class="de.oliver_heger.linedj.platform.app.oneforall.OneForAllShutdownAppManager" />
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientApplicationContext" bind="initApplicationContext"/>
 
   <reference interface="net.sf.jguiraffe.gui.app.Application"
              name="applicationServices" policy="dynamic"
-             bind="addApplication" unbind="removeApplication" cardinality="0..n"/>
+             unbind="removeApplication" cardinality="0..n"/>
 
   <reference interface="de.oliver_heger.linedj.platform.app.ShutdownListener"
              name="shutdownListeners" policy="dynamic"

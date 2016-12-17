@@ -501,16 +501,16 @@ object Build extends Build {
     * shutdown handling that shuts down the platform when one of the
     * applications available is shutdown.
     */
-  lazy val shutdownOneForAll = Project(id = "shutdownOneForAll",
-    base = file("shutdownOneForAll"))
+  lazy val shutdownOneForAll = Project(id = "appShutdownOneForAll",
+    base = file("appShutdownOneForAll"))
     .enablePlugins(SbtOsgi)
     .settings(defaultSettings: _*)
     .settings(osgiSettings: _*)
     .settings(
-      name := "shutdown-oneForAll",
+      name := "appMgr-shutdownOneForAll",
       libraryDependencies ++= osgiDependencies,
       OsgiKeys.privatePackage := Seq(
-        "de.oliver_heger.linedj.platform.app.shutdown.oneforall.*"
+        "de.oliver_heger.linedj.platform.app.oneforall.*"
       ),
       OsgiKeys.additionalHeaders :=
         Map("Service-Component" -> "OSGI-INF/*.xml")
