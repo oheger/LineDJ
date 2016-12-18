@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.config
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientManagementApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientManagementApplication}
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.app.CommandActionTask
 
@@ -62,7 +62,7 @@ class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
   def this() = this(DummyMediaIfcConfigStateHandler)
 
   override def receive: Receive = {
-    case ClientApplication.ClientApplicationInitialized(app) =>
+    case ApplicationManager.ApplicationRegistered(app) =>
       initWithConfigData(app.clientApplicationContext.mediaIfcConfig)
 
     case ClientManagementApplication.MediaIfcConfigUpdated(optConfig) =>

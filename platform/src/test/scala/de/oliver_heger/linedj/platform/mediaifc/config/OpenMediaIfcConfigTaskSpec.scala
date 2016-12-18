@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.config
 
-import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext, ClientManagementApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext, ClientManagementApplication}
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
@@ -65,10 +65,10 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
     */
   private class OpenMediaIfcConfigTaskTestHelper {
     /** The application associated with the task. */
-    val app = mock[ClientApplication]
+    val app: ClientApplication = mock[ClientApplication]
 
     /** The widget managed by the task. */
-    val stateHandler = mock[MediaIfcConfigStateHandler]
+    val stateHandler: MediaIfcConfigStateHandler = mock[MediaIfcConfigStateHandler]
 
     /**
       * Creates a test task instance.
@@ -98,12 +98,12 @@ class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSuga
       * @param config the optional config for the media interface
       * @return the initialized message
       */
-    def createInitializedMessage(config: Option[MediaIfcConfigData]): ClientApplication
-    .ClientApplicationInitialized = {
+    def createInitializedMessage(config: Option[MediaIfcConfigData]): ApplicationManager
+    .ApplicationRegistered = {
       val appCtx = mock[ClientApplicationContext]
       when(app.clientApplicationContext).thenReturn(appCtx)
       when(appCtx.mediaIfcConfig).thenReturn(config)
-      ClientApplication.ClientApplicationInitialized(app)
+      ApplicationManager.ApplicationRegistered(app)
     }
 
     /**

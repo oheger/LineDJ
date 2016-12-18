@@ -59,15 +59,6 @@ object ClientApplication {
     * operations of any kind.
     */
   val BlockingDispatcherName = "blocking-dispatcher"
-
-  /**
-    * A life-cycle message indicating the completed initialization of a
-    * [[ClientApplication]]. A message of this type is published on the UI
-    * message bus after an application has been fully initialized.
-    *
-    * @param application the application that has been initialized
-    */
-  case class ClientApplicationInitialized(application: ClientApplication)
 }
 
 /**
