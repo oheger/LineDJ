@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import akka.actor.Actor
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.app.BaseApplicationManager.ShutdownApplications
+import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
 import org.slf4j.LoggerFactory
@@ -30,6 +31,13 @@ object BaseApplicationManager {
     */
   private[app] case object ShutdownApplications
 
+  /**
+    * Constant for an exit handler that does nothing. This handler is set at
+    * managed applications to prevent that they shutdown the whole platform.
+    */
+  private val DummyExitHandler = new Runnable {
+    override def run(): Unit = {}
+  }
 }
 
 /**
@@ -76,7 +84,9 @@ object BaseApplicationManager {
   * declaration. The thread-safety of this implementation targets this use
   * case!
   */
-trait BaseApplicationManager {
+trait BaseApplicationManager extends ApplicationManager {
+  import BaseApplicationManager._
+
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -97,7 +107,7 @@ trait BaseApplicationManager {
   private var applicationContext: ClientApplicationContext = _
 
   /** Stores the service manager for applications. */
-  private var fieldApplicationServiceManager: UIServiceManager[Application] = _
+  private var fieldApplicationServiceManager: UIServiceManager[ClientApplication] = _
 
   /** Stores the service manager for shutdown listeners. */
   private var fieldShutdownListenerManager: UIServiceManager[ShutdownListener] = _
@@ -123,7 +133,8 @@ trait BaseApplicationManager {
     * called.
     */
   def setUp(): Unit = {
-    fieldApplicationServiceManager = UIServiceManager[Application](classOf[Application],
+    fieldApplicationServiceManager =
+      UIServiceManager[ClientApplication](classOf[ClientApplication],
       applicationContext.messageBus)
     fieldShutdownListenerManager =
       UIServiceManager[ShutdownListener](classOf[ShutdownListener],
@@ -146,16 +157,49 @@ trait BaseApplicationManager {
   }
 
   /**
+    * @inheritdoc Adds the application to the internal manager. Also sends a
+    *             notification message on the message bus.
+    */
+  override def registerApplication(app: ClientApplication): Unit = {
+    applicationServiceManager.addService(app, Some(adaptApplication))
+    log.info("Added application {}.", app)
+    publishMessage(ApplicationRegistered(app))
+  }
+
+  /**
+    * @inheritdoc This implementation sends a corresponding notification on the
+    *             UI message bus.
+    */
+  override def applicationTitleUpdated(app: ClientApplication, title: String): Unit = {
+    publishMessage(ApplicationTitleUpdated(app, title))
+  }
+
+  /**
+    * @inheritdoc This implementation delegates to the internal application
+    *             service manager.
+    */
+  override def getApplications: Iterable[ClientApplication] =
+    applicationServiceManager.services
+
+  /**
+    * @inheritdoc This implementation fetches the applications and then queries
+    *             the main windows for their titles.
+    */
+  override def getApplicationsWithTitles: Iterable[(ClientApplication, String)] =
+    getApplications map (a => (a, a.getApplicationContext.getMainWindow.getTitle))
+
+  /**
     * Notifies this component that an application service is not longer
     * available. This method is typically invoked by the declarative services
     * runtime.
     *
     * @param app the application that is gone
     */
-  def removeApplication(app: Application): Unit = {
+  def removeApplication(app: ClientApplication): Unit = {
     // Note: No need to do some un-registrations; the application is destroyed
     // anyway.
     applicationServiceManager removeService app
+    publishMessage(ApplicationRemoved(app))
   }
 
   /**
@@ -191,6 +235,15 @@ trait BaseApplicationManager {
   }
 
   /**
+    * Publishes the specified message on the UI message bus.
+    *
+    * @param msg the message to be published
+    */
+  protected def publishMessage(msg: Any): Unit = {
+    applicationContext.messageBus publish msg
+  }
+
+  /**
     * Notifies this object that a shutdown action was triggered on the
     * specified application. This method is called by a special shutdown
     * listener that has been registered at the application. A concrete
@@ -212,11 +265,23 @@ trait BaseApplicationManager {
   protected def onWindowClosing(window: Window): Unit = {}
 
   /**
+    * A message listener function that can be overridden in derived classes.
+    * This trait registers a listener function at the UI message bus for
+    * processing some internal messages. A derived class can add its own
+    * message processing by overriding this method; it is invoked before the
+    * specific message processing implemented by this trait. This base
+    * implementation is empty.
+    *
+    * @return a custom message processing function
+    */
+  protected def onMessage: Receive = Actor.emptyBehavior
+
+  /**
     * Returns the service manager for managing application services.
     *
     * @return the application service manager
     */
-  private[app] def applicationServiceManager: UIServiceManager[Application] =
+  private[app] def applicationServiceManager: UIServiceManager[ClientApplication] =
     fieldApplicationServiceManager
 
   /**
@@ -229,29 +294,37 @@ trait BaseApplicationManager {
 
   /**
     * Returns the message bus listener function. This function is
-    * registered at the message bus on startup time.
+    * registered at the message bus on startup time. It is a combination of a
+    * function which can be defined by derived classes and an internal message
+    * processing function.
     *
     * @return the message bus listener function
     */
-  private def messageBusListener: Receive = {
-    case ClientApplication.ClientApplicationInitialized(app) =>
-      applicationServiceManager.addService(app,
-        Some(registerListeners))
-      log.info("Added application {}.", app)
+  private def messageBusListener: Receive = onMessage orElse messageProcessing
 
+  /**
+    * The internal message processing function used by this trait.
+    *
+    * @return the internal message bus listener function
+    */
+  private def messageProcessing: Receive = {
     case ShutdownApplications =>
       applicationServiceManager processServices processApplications
   }
 
   /**
-    * Registers the listeners monitoring shutdown at the specified application.
+    * Adapts an application that is added to this manager. This method
+    * registers the listeners monitoring shutdown at the specified application.
+    * It also sets some properties to make sure that the application behaves
+    * correctly.
     *
     * @param app the application
     * @return the same application
     */
-  private def registerListeners(app: Application): Application = {
+  private def adaptApplication(app: ClientApplication): ClientApplication = {
     app addShutdownListener ShutdownTracker
     app.getApplicationContext.getMainWindow setWindowClosingStrategy ClosingStrategy
+    app setExitHandler DummyExitHandler
     app
   }
 

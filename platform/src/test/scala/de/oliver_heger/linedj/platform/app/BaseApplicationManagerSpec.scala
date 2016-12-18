@@ -77,7 +77,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     val helper = new ApplicationManagerTestHelper(mockServiceManagers = false)
 
     helper.checkServiceManager(helper.manager.applicationServiceManager,
-      classOf[Application])
+      classOf[ClientApplication])
   }
 
   it should "create a correct shutdown listener service manager" in {
@@ -104,11 +104,19 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "allow removing an application" in {
-    val app = mock[Application]
+    val app = mock[ClientApplication]
     val helper = new ApplicationManagerTestHelper
 
     helper.manager removeApplication app
     verify(helper.appServiceManager).removeService(app)
+  }
+
+  it should "send a notification if an application is removed" in {
+    val app = mock[ClientApplication]
+    val helper = new ApplicationManagerTestHelper
+
+    helper.manager removeApplication app
+    verify(helper.bus).publish(ApplicationManager.ApplicationRemoved(app))
   }
 
   it should "add a newly initialized application" in {
@@ -148,6 +156,24 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     val window = app.getApplicationContext.getMainWindow
     strategy.canClose(window) shouldBe false
     helper.manager.closedWindows should be(List(window))
+  }
+
+  it should "init an application with a dummy exit handler" in {
+    val app = createApplicationMock()
+    val helper = new ApplicationManagerTestHelper
+
+    helper applicationAdded app
+    val captor = ArgumentCaptor.forClass(classOf[Runnable])
+    verify(app).setExitHandler(captor.capture())
+    captor.getValue.run()  // should do nothing
+  }
+
+  it should "send a notification message when an application is added" in {
+    val app = createApplicationMock()
+    val helper = new ApplicationManagerTestHelper
+
+    helper applicationAdded app
+    verify(helper.bus).publish(ApplicationManager.ApplicationRegistered(app))
   }
 
   it should "correctly tear down the application manager" in {
@@ -212,19 +238,61 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     optMsg.get should be(ClientManagementApplication.Shutdown(helper.appContext))
   }
 
+  it should "enable message processing for derived classes" in {
+    val Message = "Ping"
+    val helper = new ApplicationManagerTestHelper(enableMessaging = true)
+
+    helper sendMessage Message
+    helper.manager.textMessage should be(Message)
+  }
+
+  it should "send a notification if an application's title is updated" in {
+    val app = createApplicationMock()
+    val Title = "Updated Application Title"
+    val helper = new ApplicationManagerTestHelper
+
+    helper.manager.applicationTitleUpdated(app, Title)
+    verify(helper.bus).publish(ApplicationManager.ApplicationTitleUpdated(app, Title))
+  }
+
+  it should "return a collection of existing applications" in {
+    val apps = List(createApplicationMock(), createApplicationMock())
+    val helper = new ApplicationManagerTestHelper
+    when(helper.appServiceManager.services).thenReturn(apps)
+
+    helper.manager.getApplications should be(apps)
+  }
+
+  it should "return a collection of applications and their titles" in {
+    val apps = List(createApplicationMock(), createApplicationMock())
+    val titles = List("App1", "Another App")
+    val appTitles = apps zip titles
+    appTitles foreach { t =>
+      when(t._1.getApplicationContext.getMainWindow.getTitle).thenReturn(t._2)
+    }
+    val helper = new ApplicationManagerTestHelper
+    when(helper.appServiceManager.services).thenReturn(apps)
+
+    helper.manager.getApplicationsWithTitles should be(appTitles)
+  }
+
   /**
     * A test helper class managing all dependencies of the manager to be
     * tested.
     *
     * @param mockServiceManagers a flag whether mock service managers should
     *                            be used
+    * @param enableMessaging     a flag whether the test manager should have its
+    *                            own messaging function
     */
-  private class ApplicationManagerTestHelper(mockServiceManagers: Boolean = true) {
+  private class ApplicationManagerTestHelper(mockServiceManagers: Boolean = true,
+                                             enableMessaging: Boolean = false) {
     /** Registration ID for the message bus. */
     val MessageBusRegistrationID = 20161217
 
     /** A mock for the manager for application services. */
-    val appServiceManager: UIServiceManager[Application] = mock[UIServiceManager[Application]]
+    val appServiceManager: UIServiceManager[ClientApplication] =
+      mock[UIServiceManager[ClientApplication]]
 
     /** A mock for the manager for shutdown listener services. */
     val listenerServiceManager: UIServiceManager[ShutdownListener] =
@@ -274,9 +342,10 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
       * @param app the application to be added
       * @return the manipulation function
       */
-    def applicationAdded(app: ClientApplication): Application => Application = {
-      sendMessage(ClientApplication.ClientApplicationInitialized(app))
-      val captor = ArgumentCaptor.forClass(classOf[Option[Application => Application]])
+    def applicationAdded(app: ClientApplication): ClientApplication => ClientApplication = {
+      manager registerApplication app
+      val captor = ArgumentCaptor.forClass(
+        classOf[Option[ClientApplication => ClientApplication]])
       verify(appServiceManager).addService(eqArg(app), captor.capture())
       val func = captor.getValue.get
       func(app) should be(app)
@@ -303,7 +372,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
       */
     private def createApplicationManager(): ApplicationManagerImpl = {
       val man = new ApplicationManagerImpl(appServiceManager, listenerServiceManager,
-        mockServiceManagers)
+        mockServiceManagers, enableMessaging)
       man initApplicationContext appContext
       man.setUp()
       man
@@ -331,16 +400,20 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     * @param mockAppManager      can be used to override the app manager
     * @param mockListenerManager can be used to override the listener manager
     * @param mockManagers        flag whether managers should be mocked
+    * @param enableMessaging flag whether a custom message function should be used
     */
-  private class ApplicationManagerImpl(mockAppManager: UIServiceManager[Application],
+  private class ApplicationManagerImpl(mockAppManager: UIServiceManager[ClientApplication],
                                        mockListenerManager: UIServiceManager[ShutdownListener],
-                                       mockManagers: Boolean)
+                                       mockManagers: Boolean, enableMessaging: Boolean)
     extends BaseApplicationManager {
     /** Stores a list with applications passed to onApplicationShutdown(). */
     var shutdownApps: List[Application] = List.empty[Application]
 
     /** Stores a list with windows passed to onWindowClosing(). */
     var closedWindows: List[Window] = List.empty[Window]
+
+    /** Stores a text message received via the message bus. */
+    var textMessage: String = _
 
     /**
       * Just increase visibility.
@@ -363,11 +436,27 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
       closedWindows = window :: closedWindows
     }
 
+    /**
+      * @inheritdoc Either handles a string message or calls the super method.
+      */
+    override protected def onMessage: Receive =
+      if(enableMessaging) customMessageProcessing
+      else super.onMessage
+
     override private[app] def applicationServiceManager =
       if (mockManagers) mockAppManager else super.applicationServiceManager
 
     override private[app] def shutdownListenerManager =
       if (mockManagers) mockListenerManager else super.shutdownListenerManager
+
+    /**
+      * A custom message processing function.
+      *
+      * @return the receive function
+      */
+    private def customMessageProcessing: Receive = {
+      case s: String => textMessage = s
+    }
   }
 
 }
