@@ -24,6 +24,10 @@
            name="lineDJ.oneForAllShutdownAppManager" immediate="true">
   <implementation class="de.oliver_heger.linedj.platform.app.oneforall.OneForAllShutdownAppManager" />
 
+  <service>
+    <provide interface="de.oliver_heger.linedj.platform.app.ApplicationManager"/>
+  </service>
+
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientApplicationContext" bind="initApplicationContext"/>
 

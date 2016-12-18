@@ -23,8 +23,10 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
+import net.sf.jguiraffe.gui.builder.window.Window
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -40,10 +42,13 @@ ApplicationTestSupport {
     * @param mainWindowBeanContext a bean context for the main window
     * @return the test application
     */
-  private def createApp(mainWindowBeanContext: BeanContext = null): ClientApplication =
-    new ClientApplication("testClientApp") with ApplicationSyncStartup {
+  private def createApp(mainWindowBeanContext: BeanContext = null): ClientApplication = {
+    val app = new ClientApplication("testClientApp") with ApplicationSyncStartup {
       override def getMainWindowBeanContext: BeanContext = mainWindowBeanContext
     }
+    app initApplicationManager mock[ApplicationManager]
+    app
+  }
 
   /**
     * Creates a test application and starts it so that it is correctly
@@ -120,8 +125,7 @@ ApplicationTestSupport {
 
     app.initGUI(appContext)
     verify(appContext).getConfiguration
-    verify(clientContext.messageBus)
-      .publish(ClientApplication.ClientApplicationInitialized(app))
+    verify(app.applicationManager).registerApplication(app)
   }
 
   it should "initialize some special beans if they are present" in {
@@ -149,5 +153,19 @@ ApplicationTestSupport {
     app initGUI appContext
     verify(beanContext, never()).getBean(ClientApplication.BeanMessageBusRegistration)
     verify(beanContext, never()).getBean(ClientApplication.BeanConsumerRegistration)
+  }
+
+  it should "support updating the title of its main window" in {
+    val Title = "Changed Window Title"
+    val window = mock[Window]
+    val appContext = mock[ApplicationContext]
+    val app = createApp()
+    app setApplicationContext appContext
+    when(appContext.getMainWindow).thenReturn(window)
+
+    app updateTitle Title
+    val io = Mockito.inOrder(window, app.applicationManager)
+    io.verify(window).setTitle(Title)
+    io.verify(app.applicationManager).applicationTitleUpdated(app, Title)
   }
 }

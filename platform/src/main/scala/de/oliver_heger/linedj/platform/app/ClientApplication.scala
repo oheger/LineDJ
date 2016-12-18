@@ -24,26 +24,26 @@ object ClientApplication {
   val BeanPrefix = "LineDJ_"
 
   /** The bean for the client-side actor system. */
-  val BeanActorSystem = BeanPrefix + "ActorSystem"
+  val BeanActorSystem: String = BeanPrefix + "ActorSystem"
 
   /** The bean for the actor factory. */
-  val BeanActorFactory = BeanPrefix + "ActorFactory"
+  val BeanActorFactory: String = BeanPrefix + "ActorFactory"
 
   /** The bean for the message bus. */
-  val BeanMessageBus = BeanPrefix + "MessageBus"
+  val BeanMessageBus: String = BeanPrefix + "MessageBus"
 
   /** The bean for the media facade. */
-  val BeanMediaFacade = BeanPrefix + "MediaFacade"
+  val BeanMediaFacade: String = BeanPrefix + "MediaFacade"
 
   /** The bean for the whole client application context. */
-  val BeanClientApplicationContext = BeanPrefix + "ClientApplicationContext"
+  val BeanClientApplicationContext: String = BeanPrefix + "ClientApplicationContext"
 
   /**
     * The bean for the message bus registration. If a bean with this name is
     * available in the bean context for the main window, it is requested and
     * thus initialized automatically.
     */
-  val BeanMessageBusRegistration = BeanPrefix + "messageBusRegistration"
+  val BeanMessageBusRegistration: String = BeanPrefix + "messageBusRegistration"
 
   /**
     * The bean for the consumer registration (for extensions of the media
@@ -51,7 +51,7 @@ object ClientApplication {
     * context for the main window, it is requested and thus initialized
     * automatically.
     */
-  val BeanConsumerRegistration = BeanPrefix + "consumerRegistration"
+  val BeanConsumerRegistration: String = BeanPrefix + "consumerRegistration"
 
   /**
     * The name of a blocking dispatcher in the actor system configuration.
@@ -102,24 +102,25 @@ object ClientApplication {
   *
   * The class implements the typical life-cycle hooks of a JGUIraffe
   * application to make sure that state related to the LineDJ platform gets
-  * correctly initialized. This includes publishing some life-cycle
-  * notifications on the UI message bus:
+  * correctly initialized. It also depends on a service of type
+  * [[ApplicationManager]] which must be initialized by concrete subclasses
+  * (typically via a corresponding declarative services configuration). The
+  * ''ApplicationManager'' is provided to subclasses; the following
+  * interactions are implemented with it:
   *
-  *  - A [[de.oliver_heger.linedj.platform.app.ClientApplication.ClientApplicationInitialized]]
-  * message for this application is
-  * published after initialization is complete (and the Jelly script for the
-  * main window has been executed).
   *  - The application is registered as service in the OSGi registry. This is
-  * required to let it take part in the platform's application management.
+  * required to let it take part in the platform's application management,
+  * including shutdown handling.
+  *  - The ''ApplicationManager'' is notified when this application has been
+  * fully initialized (and the Jelly script for the main window has been
+  * executed).
   *
   * '''Further notes'''
   *
   * This class is intended to be used as a declarative services component. It
-  * needs a static reference to a [[ClientApplicationContext]] service; as soon
-  * as this object becomes available, the required properties are fetched from
-  * there, and this application can start up. It has to register itself as
-  * service of type ''Application''; this establishes the connection to the
-  * management application.
+  * needs static references to a [[ClientApplicationContext]] and an
+  * [[ApplicationManager]] service; with these services a full integration into
+  * the LineDJ platform is achieved.
   *
   * While this class is fully functional, in order to implement a valid
   * declarative services component, it has to be extended, and the name of the
@@ -135,6 +136,9 @@ class ClientApplication(val appName: String) extends Application {
   /** The client application context. */
   private var clientContextField: ClientApplicationContext = _
 
+  /** The application manager. */
+  private var applicationManagerField: ApplicationManager = _
+
   /**
     * Initializes the reference to the ''ClientApplicationContext''. This
     * method is called by the SCR.
@@ -142,6 +146,15 @@ class ClientApplication(val appName: String) extends Application {
     */
   def initClientContext(context: ClientApplicationContext): Unit = {
     clientContextField = context
+  }
+
+  /**
+    * Initializes the ''ApplicationManager'' service. This method is called by
+    * the SCR.
+    * @param appMan the ''ApplicationManager''
+    */
+  def initApplicationManager(appMan: ApplicationManager): Unit = {
+    applicationManagerField = appMan
   }
 
   /**
@@ -158,12 +171,32 @@ class ClientApplication(val appName: String) extends Application {
   def clientApplicationContext: ClientApplicationContext = clientContext
 
   /**
+    * Returns the ''ApplicationManager''. This object is available afther the
+    * initialization of this application.
+    * @return the ''ApplicationManager''
+    */
+  def applicationManager: ApplicationManager = applicationManagerField
+
+  /**
     * Activates this component. This method is called by the SCR. It starts
     * the application using the mixed in [[ApplicationStartup]] implementation.
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
     startApplication(this, appName)
+  }
+
+  /**
+    * Updates the title of this application. This method should be used to
+    * change the title of the main window of this application. It not only
+    * updates the title but also informs the [[ApplicationManager]] about the
+    * new title. '''Note:''' This method can only be called on the event
+    * dispatch thread!
+    * @param newTitle the new title of this application's main window
+    */
+  def updateTitle(newTitle: String): Unit = {
+    getApplicationContext.getMainWindow setTitle newTitle
+    applicationManager.applicationTitleUpdated(this, newTitle)
   }
 
   /**
@@ -196,7 +229,7 @@ class ClientApplication(val appName: String) extends Application {
       initializeBeanIfPresent(BeanConsumerRegistration)
     }
 
-    clientApplicationContext.messageBus publish ClientApplicationInitialized(this)
+    applicationManager registerApplication this
   }
 
   /**
