@@ -81,6 +81,25 @@ configuration. Access to configuration data is provided by the
 [Apache Commons Configuration](http://commons.apache.org/proper/commons-configuration/)
 library.
 
+### Application management
+
+On a LineDJ platform an arbitrary number of collaborating applications can run.
+A component named _application manager_ is responsible for keeping track on
+these applications. It allows querying the list of currently available
+applications, sends notifications when there are changes, and manages the
+shutdown of the platform.
+
+Shutdown handling is not trivial if there are multiple active applications.
+For instance, what does it mean if a user closes the window of an application?
+Should only this application be closed or should the whole platform go down?
+The answer probably depends on a concrete deployment of a LineDJ platform.
+
+To handle different use cases, there are multiple implementations of the
+application manager service available. When creating a deployment a suitable
+implementation can be chosen. The following implementations are available:
+
+* [OneForAllShutdownAppManager](../appShutdownOneForAll)
+
 ## Client applications
 
 LineDJ compatible applications extend the
@@ -96,10 +115,12 @@ for all client applications:
 
 ### Life-cycle management
 
-The class implements the typical life-cycle hooks of a JGUIraffe
-application to make sure that state related to the LineDJ platform gets
-correctly initialized. This includes publishing some life-cycle
-notifications on the UI message bus.
+The class makes sure that an application is properly started and connected to
+the services of the LineDJ platform. Also, proper shutdown handling is
+implemented, for instance by taking care that the application's configuration
+is automatically saved or that an application can veto against its shutdown.
+This is achieved by interacting with the _application manager_ installed on
+the platform.
 
 The application object itself is registered as an OSGi service. This is a
 prerequisite for it to take part in the life-cycle management of the whole
