@@ -25,9 +25,11 @@
   <implementation class="de.oliver_heger.linedj.browser.app.BrowserApp" />
 
   <service>
-    <provide interface="net.sf.jguiraffe.gui.app.Application"/>
+    <provide interface="de.oliver_heger.linedj.platform.app.ClientApplication"/>
   </service>
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
+  <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
+             name="applicationManager" bind="initApplicationManager"/>
 </component>

@@ -99,14 +99,15 @@ trait ApplicationTestSupport {
 
   /**
     * Initializes and activates the specified application. This method sets the
-    * ''ClientApplicationContext'' and a dummy exit handler. Then the
-    * application's ''activate()'' method is called.
+    * ''ClientApplicationContext'', an application manager, and a dummy exit
+    * handler. Then the application's ''activate()'' method is called.
     * @param app the application
     * @tparam T the type of the application
     * @return the application again
     */
   def activateApp[T <: ClientApplication](app: T): T = {
     app initClientContext createClientApplicationContext()
+    app initApplicationManager Mockito.mock(classOf[ApplicationManager])
     app setExitHandler new Runnable {
       override def run(): Unit = {
         // do nothing
