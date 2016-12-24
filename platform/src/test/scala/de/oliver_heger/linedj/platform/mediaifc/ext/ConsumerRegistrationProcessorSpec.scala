@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration,
-ConsumerRegistrationProvider}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

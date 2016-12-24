@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataStateEvent, MetaDataStateUpdated}
 

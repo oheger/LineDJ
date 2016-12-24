@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.platform.mediaifc.ext
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
+import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerFunction
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -68,7 +68,8 @@ object MediaIfcExtensionSpec {
 }
 
 /**
-  * Test class for ''MediaIfcExtension''.
+  * Test class for ''MediaIfcExtension''. This class also tests functionality
+  * from the base trait.
   */
 class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
 
@@ -82,9 +83,9 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     * @param cons the consumer function
     * @return the test registration object
     */
-  private def createRegistration(idx: Int, cons: MediaIfcExtension.ConsumerFunction[String]):
-  MediaIfcExtension.ConsumerRegistration[String] = {
-    val reg = mock[MediaIfcExtension.ConsumerRegistration[String]]
+  private def createRegistration(idx: Int, cons: ConsumerSupport.ConsumerFunction[String]):
+  ConsumerSupport.ConsumerRegistration[String] = {
+    val reg = mock[ConsumerSupport.ConsumerRegistration[String]]
     when(reg.id).thenReturn(ComponentID())
     when(reg.callback).thenReturn(cons)
     reg
@@ -102,8 +103,8 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     * @return the test registration object
     */
   private def createRegistration(idx: Int, buf:
-  StringBuilder = new StringBuilder(32)): MediaIfcExtension.ConsumerRegistration[String] = {
-    val cb: MediaIfcExtension.ConsumerFunction[String] = s => {
+  StringBuilder = new StringBuilder(32)): ConsumerSupport.ConsumerRegistration[String] = {
+    val cb: ConsumerSupport.ConsumerFunction[String] = s => {
       buf ++= consumerOutput(idx, s) + " "
     }
     createRegistration(idx, cb)
@@ -362,10 +363,12 @@ class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
     override val defaultKey: AnyRef = "myDefaultKey"
 
     /** A list reference for recording archive available notifications. */
-    val archiveAvailableNotifications = createRecordList()
+    val archiveAvailableNotifications: AtomicReference[List[Boolean]] =
+      createRecordList()
 
     /** A list reference for recording scan complete notifications. */
-    val scanCompletedNotifications = createRecordList()
+    val scanCompletedNotifications: AtomicReference[List[Boolean]] =
+      createRecordList()
 
     /** A list reference for tracking consumer added notifications. */
     val consumerAddedNotifications =

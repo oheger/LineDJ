@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._

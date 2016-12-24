@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration,
-ConsumerRegistrationProvider}
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 
 import scala.reflect.ClassTag
 

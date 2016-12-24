@@ -17,9 +17,10 @@
 package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration, ConsumerRegistrationProvider}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 

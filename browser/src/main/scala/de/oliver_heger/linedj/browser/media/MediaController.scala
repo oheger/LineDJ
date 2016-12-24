@@ -19,10 +19,11 @@ package de.oliver_heger.linedj.browser.media
 import java.util.Locale
 
 import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
-import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.{ConsumerRegistration, ConsumerRegistrationProvider}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
