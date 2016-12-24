@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import net.sf.jguiraffe.gui.app.{ApplicationContext, Application}
+import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
 import org.osgi.service.component.ComponentContext
 
 object ClientApplication {
@@ -130,6 +131,15 @@ class ClientApplication(val appName: String) extends Application {
   /** The application manager. */
   private var applicationManagerField: ApplicationManager = _
 
+  /** A flag whether the main window has already been opened. */
+  private var mainWindowOpened = false
+
+  /**
+    * The visible flag of the main window. This flag is used if the window's
+    * visible state is changed before it is opened.
+    */
+  private var mainWindowVisible = true
+
   /**
     * Initializes the reference to the ''ClientApplicationContext''. This
     * method is called by the SCR.
@@ -186,9 +196,40 @@ class ClientApplication(val appName: String) extends Application {
     * @param newTitle the new title of this application's main window
     */
   def updateTitle(newTitle: String): Unit = {
-    getApplicationContext.getMainWindow setTitle newTitle
-    applicationManager.applicationTitleUpdated(this, newTitle)
+    optMainWindow foreach { w =>
+      w setTitle newTitle
+      applicationManager.applicationTitleUpdated(this, newTitle)
+    }
   }
+
+  /**
+    * Allows changing the visibility of the main window. If the window is
+    * already open, its visibility is changed immediately. Otherwise, the
+    * visibility state is stored and applied when the window is opened.
+    * This method must be called in the event dispatch thread.
+    * @param display the new visibility state of the main window
+    */
+  def showMainWindow(display: Boolean): Unit = {
+    if (mainWindowOpened) {
+      mainWindow setVisible display
+    } else {
+      mainWindowVisible = display
+    }
+  }
+
+  /**
+    * Returns an option for this application's main window.
+    * @return the option for the main window
+    */
+  def optMainWindow: Option[Window] =
+    Option(mainWindow)
+
+  /**
+    * Returns this application's main window.
+    * @return this application's main window (may be '''null''')
+    */
+  def mainWindow: Window =
+    getApplicationContext.getMainWindow
 
   /**
     * @inheritdoc This implementation adds some beans defined in the client
@@ -219,6 +260,7 @@ class ClientApplication(val appName: String) extends Application {
       initializeBeanIfPresent(BeanMessageBusRegistration)
       initializeBeanIfPresent(BeanConsumerRegistration)
     }
+    optMainWindow foreach (_.addWindowListener(createWindowOpenedListener()))
 
     applicationManager registerApplication this
   }
@@ -235,6 +277,43 @@ class ClientApplication(val appName: String) extends Application {
   private def initializeBeanIfPresent(name: String): Unit = {
     if (getMainWindowBeanContext containsBean name) {
       getMainWindowBeanContext getBean name
+    }
+  }
+
+  /**
+    * Creates a window listener which notifies this application when its main
+    * window is opened. This is needed because some manipulations on the main
+    * window can only be done if it has already been opened.
+    * @return the window listener
+    */
+  private def createWindowOpenedListener(): WindowListener =
+    new WindowListener {
+      override def windowDeiconified(event: WindowEvent): Unit = {}
+
+      override def windowClosing(event: WindowEvent): Unit = {}
+
+      override def windowClosed(event: WindowEvent): Unit = {}
+
+      override def windowActivated(event: WindowEvent): Unit = {}
+
+      override def windowOpened(event: WindowEvent): Unit = {
+        onWindowOpened()
+      }
+
+      override def windowDeactivated(event: WindowEvent): Unit = {}
+
+      override def windowIconified(event: WindowEvent): Unit = {}
+    }
+
+  /**
+    * Callback which is invoked when this application's main window is
+    * opened. If necessary, the visibility state of the window has to be
+    * changed.
+    */
+  private def onWindowOpened(): Unit = {
+    mainWindowOpened = true
+    if (!mainWindowVisible) {
+      mainWindow setVisible false
     }
   }
 }
