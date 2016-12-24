@@ -31,17 +31,31 @@ import org.scalatest.{FlatSpec, Matchers}
   */
 class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSugar {
   /**
-    * Creates a mock for an application. The application also has a main
-    * window.
+    * Creates a basic mock for an application. This mock also has an
+    * application context.
     *
     * @return the mock application
     */
   private def createApplicationMock(): ClientApplication = {
     val app = mock[ClientApplication]
     val appCtx = mock[ApplicationContext]
+    when(app.getApplicationContext).thenReturn(appCtx)
+    app
+  }
+
+  /**
+    * Creates a mock for an application which is initialized with a main
+    * window.
+    *
+    * @return the mock application
+    */
+  private def createApplicationMockWithWindow(): ClientApplication = {
+    val app = mock[ClientApplication]
+    val appCtx = mock[ApplicationContext]
     val window = mock[Window]
     when(app.getApplicationContext).thenReturn(appCtx)
     when(appCtx.getMainWindow).thenReturn(window)
+    when(app.optMainWindow).thenReturn(Some(window))
     app
   }
 
@@ -120,14 +134,14 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "add a newly initialized application" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
   }
 
   it should "init an application with a shutdown listener" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
@@ -137,7 +151,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "register a shutdown listener that ignores a shutdown callback" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
@@ -148,7 +162,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "init an application with a window closing strategy" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
@@ -158,8 +172,17 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     helper.manager.closedWindows should be(List(window))
   }
 
+  it should "handle an application with no main window" in {
+    val app = createApplicationMockWithWindow()
+    when(app.optMainWindow).thenReturn(None)
+    when(app.getApplicationContext.getMainWindow).thenReturn(null)
+    val helper = new ApplicationManagerTestHelper
+
+    helper applicationAdded app
+  }
+
   it should "init an application with a dummy exit handler" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
@@ -169,7 +192,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "send a notification message when an application is added" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
@@ -219,7 +242,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "shutdown all applications" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
     helper applicationAdded app
     val listener = fetchRegisteredShutdownListener(app)
@@ -247,7 +270,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "send a notification if an application's title is updated" in {
-    val app = createApplicationMock()
+    val app = createApplicationMockWithWindow()
     val Title = "Updated Application Title"
     val helper = new ApplicationManagerTestHelper
 
@@ -256,7 +279,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "return a collection of existing applications" in {
-    val apps = List(createApplicationMock(), createApplicationMock())
+    val apps = List(createApplicationMockWithWindow(), createApplicationMockWithWindow())
     val helper = new ApplicationManagerTestHelper
     when(helper.appServiceManager.services).thenReturn(apps)
 
@@ -264,7 +287,8 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   it should "return a collection of applications and their titles" in {
-    val apps = List(createApplicationMock(), createApplicationMock())
+    val apps = List(createApplicationMockWithWindow(),
+      createApplicationMockWithWindow())
     val titles = List("App1", "Another App")
     val appTitles = apps zip titles
     appTitles foreach { t =>
@@ -274,6 +298,18 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     when(helper.appServiceManager.services).thenReturn(apps)
 
     helper.manager.getApplicationsWithTitles should be(appTitles)
+  }
+
+  it should "handle apps without window when querying apps with titles" in {
+    val app = createApplicationMock()
+    when(app.optMainWindow).thenReturn(None)
+    val helper = new ApplicationManagerTestHelper
+    when(helper.appServiceManager.services).thenReturn(List(app))
+
+    val result = helper.manager.getApplicationsWithTitles
+    result should have size 1
+    result.head._1 should be(app)
+    result.head._2 should be(null)
   }
 
   /**

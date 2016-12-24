@@ -183,10 +183,11 @@ trait BaseApplicationManager extends ApplicationManager {
 
   /**
     * @inheritdoc This implementation fetches the applications and then queries
-    *             the main windows for their titles.
+    *             the main windows for their titles. If an application has no
+    *             main window, its title is set to '''null'''.
     */
   override def getApplicationsWithTitles: Iterable[(ClientApplication, String)] =
-    getApplications map (a => (a, a.getApplicationContext.getMainWindow.getTitle))
+    getApplications map (a => (a, a.optMainWindow.map(_.getTitle).orNull))
 
   /**
     * Notifies this component that an application service is not longer
@@ -323,7 +324,7 @@ trait BaseApplicationManager extends ApplicationManager {
     */
   private def adaptApplication(app: ClientApplication): ClientApplication = {
     app addShutdownListener ShutdownTracker
-    app.getApplicationContext.getMainWindow setWindowClosingStrategy ClosingStrategy
+    app.optMainWindow foreach (_ setWindowClosingStrategy ClosingStrategy)
     app setExitHandler DummyExitHandler
     app
   }
