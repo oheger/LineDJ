@@ -1,0 +1,159 @@
+/*
+ * Copyright 2015-2016 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.platform.app.hide.impl
+
+import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered,
+ApplicationRemoved, ApplicationTitleUpdated}
+import de.oliver_heger.linedj.platform.app.hide._
+import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication}
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
+import net.sf.jguiraffe.gui.builder.window.Window
+import org.slf4j.LoggerFactory
+
+/**
+  * A specialized ''ApplicationManager'' implementation which keeps track on
+  * the visibility state of all installed applications.
+  *
+  * This application manager implementation monitors window closing and
+  * application exit events. When such an event is received, the window of the
+  * affected application is just hidden. It can later be made visible again.
+  * The shutdown of the platform can be triggered by sending a special shutdown
+  * message.
+  *
+  * This application manager is intended to be used in deployments with
+  * multiple LineDJ applications. The user can work with some applications and
+  * hide others which are currently not used. An example scenario could be a
+  * music player application that is deployed together with a playlist manager;
+  * the latter is only needed if a new playlist is to be created and can
+  * otherwise remain invisible.
+  *
+  * To be of real value for the user, this application manager typically has to
+  * be combined with another component that displays a list of all applications
+  * available, so that the user can switch to a specific one. This component
+  * should also offer a means to close the whole platform. How such a component
+  * looks like, is not specified by this application manager. However, it
+  * defines a number of messages through which an interaction is possible; the
+  * listing component can register itself as consumer for
+  * [[de.oliver_heger.linedj.platform.app.hide.ApplicationWindowState]]
+  * notifications and can thus keep track on changes on visible applications.
+  * On the other hand, it can send messages to the manager to show or hide
+  * application windows. The state of visible application windows can also be
+  * persisted, so that it can be restored after a restart of the application.
+  */
+class WindowHidingApplicationManager extends BaseApplicationManager
+  with ConsumerSupport[ApplicationWindowState, AnyRef] {
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** A set with the application currently visible. */
+  private var visibleApplications = Set.empty[ClientApplication]
+
+  /**
+    * The default key used by this extension. No grouping is supported, so this
+    * can be an arbitrary object.
+    */
+  override val defaultKey: AnyRef = new Object
+
+  /**
+    * @inheritdoc This implementation passes the current state to the new
+    *             consumer.
+    */
+  override def onConsumerAdded(cons: ConsumerFunction[ApplicationWindowState], key: AnyRef,
+                               first: Boolean): Unit = {
+    cons(applicationWindowState)
+  }
+
+  /**
+    * @inheritdoc This implementation reacts on specific messages related to
+    *             applications and their main windows.
+    */
+  override protected def onMessage: Receive = {
+    case reg: WindowStateConsumerRegistration =>
+      addConsumer(reg)
+
+    case WindowStateConsumerUnregistration(id) =>
+      removeConsumer(id)
+
+    case ApplicationRegistered(app) =>
+      visibleApplications += app
+      notifyConsumers()
+
+    case ApplicationRemoved(app) =>
+      visibleApplications -= app
+      notifyConsumers()
+
+    case ApplicationTitleUpdated(_, _) =>
+      notifyConsumers()
+
+    case HideApplicationWindow(app) =>
+      if (visibleApplications contains app) {
+        log.info("Hiding application window {}.", app)
+        visibleApplications -= app
+        app showMainWindow false
+        notifyConsumers()
+      }
+
+    case ShowApplicationWindow(app) =>
+      if (!visibleApplications.contains(app) && getApplications.exists(_ == app)) {
+        log.info("Showing application window {}.", app)
+        visibleApplications += app
+        app showMainWindow true
+        notifyConsumers()
+      }
+
+    case ExitPlatform(applicationManager) =>
+      log.info("Received ExitPlatform message.")
+      if (this eq applicationManager) triggerShutdown()
+      else log.warn("Ignoring invalid ExitPlatform message!")
+  }
+
+  /**
+    * @inheritdoc This implementation sends a message to hide this
+    *             application's main window.
+    */
+  override protected def onApplicationShutdown(app: ClientApplication): Unit = {
+    publishMessage(HideApplicationWindow(app))
+  }
+
+  /**
+    * @inheritdoc This implementation searches for the application to which
+    *             this window belongs. If it is found, a message is sent to
+    *             hide this applications's main window.
+    */
+  override protected def onWindowClosing(window: Window): Unit = {
+    val optApp = getApplications.find(_.optMainWindow.orNull == window)
+    optApp foreach (app => publishMessage(HideApplicationWindow(app)))
+  }
+
+  /**
+    * Notifies all registered consumers about an updated application window
+    * state.
+    */
+  private def notifyConsumers(): Unit = {
+    invokeConsumers(applicationWindowState)
+  }
+
+  /**
+    * Returns an ''ApplicationWindowState'' object with the current status.
+    *
+    * @return the current application window state
+    */
+  private def applicationWindowState: ApplicationWindowState =
+    ApplicationWindowState(getApplicationsWithTitles, visibleApplications)
+}

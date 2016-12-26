@@ -459,7 +459,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
     /**
       * @inheritdoc Tracks this invocation.
       */
-    override protected def onApplicationShutdown(app: Application): Unit = {
+    override protected def onApplicationShutdown(app: ClientApplication): Unit = {
       super.onApplicationShutdown(app)
       shutdownApps = app :: shutdownApps
     }

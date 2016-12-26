@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.app.oneforall
 
-import de.oliver_heger.linedj.platform.app.BaseApplicationManager
+import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication}
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.osgi.service.component.ComponentContext
@@ -57,7 +57,7 @@ class OneForAllShutdownAppManager extends BaseApplicationManager {
   /**
     * @inheritdoc This implementation triggers a shutdown.
     */
-  override protected def onApplicationShutdown(app: Application): Unit = {
+  override protected def onApplicationShutdown(app: ClientApplication): Unit = {
     triggerShutdown()
   }
 

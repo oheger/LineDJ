@@ -253,7 +253,7 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @param app the application affected
     */
-  protected def onApplicationShutdown(app: Application): Unit = {}
+  protected def onApplicationShutdown(app: ClientApplication): Unit = {}
 
   /**
     * Notifies this object that the user closed an application window. This
@@ -379,7 +379,7 @@ trait BaseApplicationManager extends ApplicationManager {
         *             can decide how to handle this event.
         */
       override def canShutdown(app: Application): Boolean = {
-        onApplicationShutdown(app)
+        onApplicationShutdown(app.asInstanceOf[ClientApplication])
         false
       }
     }

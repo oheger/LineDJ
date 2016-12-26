@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.app.oneforall
 
-import net.sf.jguiraffe.gui.app.Application
+import de.oliver_heger.linedj.platform.app.ClientApplication
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.osgi.service.component.ComponentContext
 import org.scalatest.{FlatSpec, Matchers}
@@ -92,7 +92,7 @@ class OneForAllShutdownAppManagerSpec extends FlatSpec with Matchers {
     /**
       * @inheritdoc Increases visibility of this method.
       */
-    override def onApplicationShutdown(app: Application): Unit =
+    override def onApplicationShutdown(app: ClientApplication): Unit =
       super.onApplicationShutdown(app)
 
     /**
