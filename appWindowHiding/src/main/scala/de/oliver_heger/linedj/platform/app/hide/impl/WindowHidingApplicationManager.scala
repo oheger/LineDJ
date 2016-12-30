@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplic
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.window.Window
+import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
 /**
@@ -80,6 +81,33 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   override def initApplicationContext(context: ClientApplicationContext): Unit = {
     super.initApplicationContext(context)
     optWindowConfig = AppConfigWindowConfiguration(context.managementConfiguration)
+    if (optWindowConfig.isDefined) {
+      log.info("Using window configuration from management app.")
+    }
+  }
+
+  /**
+    * Activates this component. This method is called by the declarative
+    * services runtime. It delegates to the ''setUp()'' method from the super
+    * class.
+    *
+    * @param compCtx the component context (unused)
+    */
+  def activate(compCtx: ComponentContext): Unit = {
+    setUp()
+    log.info("Activated WindowHidingApplicationManager.")
+  }
+
+  /**
+    * Deactivates this component. This method is called by the declarative
+    * services runtime. It delegates to the ''tearDown()'' method from the
+    * super class.
+    *
+    * @param compCtx the component context (unused)
+    */
+  def deactivate(compCtx: ComponentContext): Unit = {
+    tearDown()
+    log.info("Deactivated WindowHidingApplicationManager.")
   }
 
   /**
@@ -194,6 +222,7 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   Option[ApplicationWindowConfiguration] = {
     val config = AppConfigWindowConfiguration(app.getUserConfiguration)
     config foreach { c =>
+      log.info("Using window configuration from {}.", app.appName)
       val appsToUpdate = getApplications.filterNot(_ == app)
         .map(a => (a, visibleApplications contains a))
         .filter(t => t._2 != isAppVisible(c, t._1))

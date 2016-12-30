@@ -339,6 +339,20 @@ class WindowHidingApplicationManagerSpec extends FlatSpec with Matchers with Moc
       .sendMessage(HideApplicationWindow(app))
     config.getBoolean("platform.windowManagement.apps." + app.appName) shouldBe false
   }
+
+  it should "correctly activate the component" in {
+    val manager = new WindowHidingAppManagerTestImpl
+
+    manager activate null
+    manager.setupCount should be(1)
+  }
+
+  it should "correctly deactivate the component" in {
+    val manager = new WindowHidingAppManagerTestImpl
+
+    manager deactivate null
+    manager.tearDownCount should be(1)
+  }
 }
 
 /**
@@ -356,6 +370,12 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
 
   /** A counter for invocations of the shutdown trigger. */
   var shutdownTriggerCount: Int = 0
+
+  /** A counter for invocations of setup(). */
+  var setupCount: Int = 0
+
+  /** A counter for invocations of tearDown(). */
+  var tearDownCount: Int = 0
 
   /**
     * Initializes the mock application data of this instance.
@@ -417,6 +437,20 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     */
   override protected def triggerShutdown(): Unit = {
     shutdownTriggerCount += 1
+  }
+
+  /**
+    * Records this invocation.
+    */
+  override def setUp(): Unit = {
+    setupCount += 1
+  }
+
+  /**
+    * Records this invocation.
+    */
+  override def tearDown(): Unit = {
+    tearDownCount += 1
   }
 
   /**
