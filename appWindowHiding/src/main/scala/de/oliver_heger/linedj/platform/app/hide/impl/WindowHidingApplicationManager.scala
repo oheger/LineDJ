@@ -17,10 +17,9 @@
 package de.oliver_heger.linedj.platform.app.hide.impl
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered,
-ApplicationRemoved, ApplicationTitleUpdated}
+import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
 import de.oliver_heger.linedj.platform.app.hide._
-import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.window.Window
@@ -64,11 +63,24 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   /** A set with the application currently visible. */
   private var visibleApplications = Set.empty[ClientApplication]
 
+  /** Stores the window management configuration. */
+  private var optWindowConfig: Option[ApplicationWindowConfiguration] = None
+
   /**
     * The default key used by this extension. No grouping is supported, so this
     * can be an arbitrary object.
     */
   override val defaultKey: AnyRef = new Object
+
+  /**
+    * @inheritdoc This implementation checks whether the management
+    *             configuration contains information about the window
+    *             visibility state.
+    */
+  override def initApplicationContext(context: ClientApplicationContext): Unit = {
+    super.initApplicationContext(context)
+    optWindowConfig = AppConfigWindowConfiguration(context.managementConfiguration)
+  }
 
   /**
     * @inheritdoc This implementation passes the current state to the new
@@ -91,7 +103,14 @@ class WindowHidingApplicationManager extends BaseApplicationManager
       removeConsumer(id)
 
     case ApplicationRegistered(app) =>
-      visibleApplications += app
+      if (optWindowConfig.isEmpty) {
+        optWindowConfig = updateWindowConfig(app)
+      }
+      if (isAppVisible(windowConfig, app)) {
+        visibleApplications += app
+      } else {
+        app showMainWindow false
+      }
       notifyConsumers()
 
     case ApplicationRemoved(app) =>
@@ -105,16 +124,14 @@ class WindowHidingApplicationManager extends BaseApplicationManager
       if (visibleApplications contains app) {
         log.info("Hiding application window {}.", app)
         visibleApplications -= app
-        app showMainWindow false
-        notifyConsumers()
+        updateAppVisibility(app, state = false)
       }
 
     case ShowApplicationWindow(app) =>
       if (!visibleApplications.contains(app) && getApplications.exists(_ == app)) {
         log.info("Showing application window {}.", app)
         visibleApplications += app
-        app showMainWindow true
-        notifyConsumers()
+        updateAppVisibility(app, state = true)
       }
 
     case ExitPlatform(applicationManager) =>
@@ -142,6 +159,68 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   }
 
   /**
+    * Updates the visibility state of the given application. The window is
+    * shown or hidden, the window configuration is updated, and consumers are
+    * notified.
+    *
+    * @param app   the application
+    * @param state the new visibility state
+    */
+  private def updateAppVisibility(app: ClientApplication, state: Boolean): Unit = {
+    app showMainWindow state
+    windowConfig.setWindowVisible(app, state)
+    notifyConsumers()
+  }
+
+  /**
+    * Returns the current window configuration. If one has been set, it is
+    * returned. Otherwise, the default implementation is used.
+    *
+    * @return the window configuration
+    */
+  private def windowConfig: ApplicationWindowConfiguration =
+    optWindowConfig getOrElse DefaultApplicationWindowConfiguration
+
+  /**
+    * Updates the current window configuration with the one provided by the
+    * given application if any. If a configuration is defined, the visibility
+    * states of all available applications are updated according to the new
+    * configuration.
+    *
+    * @param app the application
+    * @return an option with the new window configuration
+    */
+  private def updateWindowConfig(app: ClientApplication):
+  Option[ApplicationWindowConfiguration] = {
+    val config = AppConfigWindowConfiguration(app.getUserConfiguration)
+    config foreach { c =>
+      val appsToUpdate = getApplications.filterNot(_ == app)
+        .map(a => (a, visibleApplications contains a))
+        .filter(t => t._2 != isAppVisible(c, t._1))
+      visibleApplications = appsToUpdate.foldLeft(visibleApplications) { (s, t) =>
+        val (app, state) = t
+        app.showMainWindow(!state)
+        if (state) s - app
+        else s + app
+      }
+    }
+    config
+  }
+
+  /**
+    * Consults the given configuration to determine whether the specified
+    * application should be visible.
+    *
+    * @param config the window configuration
+    * @param app    the application
+    * @return a flag whether this app should be visible according to the
+    *         configuration
+    */
+  private def isAppVisible(config: ApplicationWindowConfiguration,
+                           app: ClientApplication): Boolean =
+    config.isWindowVisible(app) || config.isMainApplication(app)
+
+  /**
     * Notifies all registered consumers about an updated application window
     * state.
     */
@@ -156,4 +235,31 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     */
   private def applicationWindowState: ApplicationWindowState =
     ApplicationWindowState(getApplicationsWithTitles, visibleApplications)
+}
+
+/**
+  * A default implementation of ''ApplicationWindowConfiguration''.
+  *
+  * This implementation is used if no other configuration has been provided.
+  * It marks every application as visible, do not support main applications,
+  * and ignores updates of the visibility state.
+  */
+private object DefaultApplicationWindowConfiguration
+  extends ApplicationWindowConfiguration {
+  /**
+    * @inheritdoc This implementation always returns '''true'''.
+    */
+  override def isWindowVisible(app: ClientApplication): Boolean = true
+
+  /**
+    * @inheritdoc This is just an empty dummy implementation.
+    */
+  override def setWindowVisible(app: ClientApplication, visible: Boolean): Unit = {}
+
+  /**
+    * @inheritdoc This implementation always returns '''false'''. (Actually,
+    *             with ''isWindowVisible()'' returning '''true''', it will
+    *             never be invoked.)
+    */
+  override def isMainApplication(app: ClientApplication): Boolean = false
 }
