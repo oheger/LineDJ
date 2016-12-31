@@ -63,7 +63,8 @@ lazy val LineDJ = (project in file("."))
   reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
-  mediaIfcDisabled, archiveStartup, appShutdownOneForAll, appWindowHiding)
+  mediaIfcDisabled, archiveStartup, appShutdownOneForAll, appWindowHiding,
+  trayWindowList)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -515,3 +516,17 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn (platform % "compile->compile;test->test")
+
+lazy val trayWindowList = (project in file("trayWindowList"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "trayWindowList",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.platform.app.tray.wndlist.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn (platform % "compile->compile;test->test", appWindowHiding)
