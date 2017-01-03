@@ -99,6 +99,7 @@ application manager service available. When creating a deployment a suitable
 implementation can be chosen. The following implementations are available:
 
 * [OneForAllShutdownAppManager](../appShutdownOneForAll)
+* [WindowHidingApplicationManager](../appWindowHiding)
 
 ## Client applications
 
