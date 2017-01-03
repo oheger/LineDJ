@@ -22,12 +22,13 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.di.BeanContext
-import net.sf.jguiraffe.gui.app.ApplicationContext
+import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowListener}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.{ArgumentCaptor, Mockito}
-import org.mockito.Matchers.anyBoolean
+import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -227,16 +228,60 @@ ApplicationTestSupport {
     checkChangeWindowVisibility(visible = true)
   }
 
+  /**
+    * Creates a mock GUI sync bean and installs it in the bean context of the
+    * given application context.
+    *
+    * @param appContext the application context
+    * @return the mock ''GUISynchronizer''
+    */
+  private def prepareSync(appContext: ApplicationContext): GUISynchronizer = {
+    val bc = mock[BeanContext]
+    val sync = mock[GUISynchronizer]
+    doReturn(sync).when(bc).getBean(Application.BEAN_GUI_SYNCHRONIZER)
+    when(appContext.getBeanContext).thenReturn(bc)
+    sync
+  }
+
+  /**
+    * Expects a pending sync action and returns it.
+    *
+    * @param sync the ''GUISynchronizer''
+    * @return the action
+    */
+  private def expectSyncAction(sync: GUISynchronizer): Runnable = {
+    val captor = ArgumentCaptor.forClass(classOf[Runnable])
+    verify(sync).asyncInvoke(captor.capture())
+    captor.getValue
+  }
+
   it should "allow hiding the window before it is opened" in {
     val appContext = createApplicationContext()
     val app = createApp()
     app initClientContext new ClientApplicationContextImpl
     app setApplicationContext appContext
+    val sync = prepareSync(appContext)
     app.initGUI(appContext)
 
     app.showMainWindow(display = false)
     verify(appContext.getMainWindow, never()).setVisible(anyBoolean())
     notifyWindowOpened(appContext)
+    verify(appContext.getMainWindow, never()).setVisible(anyBoolean())
+    expectSyncAction(sync).run()
     verify(appContext.getMainWindow).setVisible(false)
+  }
+
+  it should "hide the application window only once when being opened" in {
+    val appContext = createApplicationContext()
+    val app = createApp()
+    app initClientContext new ClientApplicationContextImpl
+    app setApplicationContext appContext
+    val sync = prepareSync(appContext)
+    app.initGUI(appContext)
+
+    app.showMainWindow(display = false)
+    notifyWindowOpened(appContext)
+    notifyWindowOpened(appContext)
+    verify(sync).asyncInvoke(any(classOf[Runnable]))
   }
 }

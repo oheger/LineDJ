@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.app
 
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
+import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
 import org.osgi.service.component.ComponentContext
 
@@ -311,9 +312,17 @@ class ClientApplication(val appName: String) extends Application {
     * changed.
     */
   private def onWindowOpened(): Unit = {
-    mainWindowOpened = true
-    if (!mainWindowVisible) {
-      mainWindow setVisible false
+    if (!mainWindowOpened) {
+      mainWindowOpened = true
+      if (!mainWindowVisible) {
+        val sync = getApplicationContext.getBeanContext
+          .getBean(Application.BEAN_GUI_SYNCHRONIZER).asInstanceOf[GUISynchronizer]
+        sync.asyncInvoke(new Runnable {
+          override def run(): Unit = {
+            mainWindow setVisible false
+          }
+        })
+      }
     }
   }
 }
