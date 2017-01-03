@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import javafx.application.Platform
+
 import net.sf.jguiraffe.di.{BeanContext, BeanContextClient}
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.{StageFactory, StyleSheetProvider,
-JavaFxWindowManager}
+import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory, StyleSheetProvider}
 
 object JavaFxSharedWindowManager {
   /** The name of the bean with the stage factory. */
@@ -52,18 +53,19 @@ JavaFxWindowManager(styleSheetProvider, null) with BeanContextClient {
     * The stage factory which is obtained from the bean context on first
     * access.
     */
-  override lazy val stageFactory = fetchStageFactoryFromBeanContext()
+  override lazy val stageFactory: StageFactory = fetchStageFactoryFromBeanContext()
 
   /** The bean context. */
   private var beanContext: BeanContext = _
 
   /**
     * Sets the bean context. This method is called by the dependency injection
-    * framework.
+    * framework. It also performs some initialization.
     * @param context the bean context
     */
   override def setBeanContext(context: BeanContext): Unit = {
     beanContext = context
+    Platform setImplicitExit false
   }
 
   /**

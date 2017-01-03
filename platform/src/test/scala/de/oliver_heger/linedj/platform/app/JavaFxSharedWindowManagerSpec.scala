@@ -16,12 +16,14 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import javafx.application.Platform
+
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{StageFactory, StyleSheetProvider}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''JavaFxSharedWindowManager''.
@@ -54,5 +56,12 @@ class JavaFxSharedWindowManagerSpec extends FlatSpec with Matchers with MockitoS
     val currentFactory = manager.stageFactory
     manager.stageFactory should be(currentFactory)
     verify(beanContext, Mockito.atMost(1)).getBean(JavaFxSharedWindowManager.BeanStageFactory)
+  }
+
+  it should "disable the Platform implicit exit flag" in {
+    val manager = new JavaFxSharedWindowManager(mock[StyleSheetProvider])
+    manager setBeanContext mock[BeanContext]
+
+    Platform.isImplicitExit shouldBe false
   }
 }
