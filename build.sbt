@@ -11,7 +11,7 @@ lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.11.8"
 
 /** The copyright dates. */
-val CopyRight = "2015-2016"
+val CopyRight = "2015-2017"
 
 lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
