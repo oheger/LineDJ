@@ -46,6 +46,14 @@ object ParserStage {
 /**
   * A custom processing stage that applies a parser on a source of byte
   * strings. The results produced by the parser are passed downstream.
+  *
+  * This custom stream processing stage is configured with a function for
+  * parsing chunks of data. The function is invoked on each chunk, passing in
+  * a ''Failure'' object from the last invocation. It returns partial results
+  * and another ''Failure'' object allowing processing to continue with the
+  * next chunk.
+  *
+  * @param parser the function for parsing single chunks
   */
 class ParserStage[A](parser: ChunkSequenceParser[A])
   extends GraphStage[FlowShape[ByteString, A]] {
@@ -68,7 +76,6 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
             case Some(bs) =>
               val (results, nextFailure) = parser(bs, lastFailure, false)
               lastFailure = nextFailure
-              println("Temp results:  " + results)
               emitMultiple(out, results.toIterator)
           }
           previousChunk = Some(chunk)
@@ -79,7 +86,7 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
             case None => complete(out)
 
             case Some(bs) =>
-              val (results, nextFailure) = parser(bs, lastFailure, true)
+              val (results, _) = parser(bs, lastFailure, true)
               emitMultiple(out, results.toIterator, () => complete(out))
           }
         }
