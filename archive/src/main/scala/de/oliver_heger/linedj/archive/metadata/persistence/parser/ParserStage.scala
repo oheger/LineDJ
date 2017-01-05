@@ -16,25 +16,43 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
-import java.nio.charset.StandardCharsets
-
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
+import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserStage.ChunkSequenceParser
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+
+object ParserStage {
+  /**
+    * Definition of a parser function which can process a chunk of data and
+    * return a sequence of partial result objects.
+    *
+    * This function is used by [[ParserStage]] to process the single chunks of
+    * data passed to the stage. The function returns a collection of result
+    * objects extracted from the chunk and an optional ''Failure'' object
+    * allowing another parse operation to continue at the same position.
+    *
+    * Parameters are:
+    *  - A ''ByteString'' with the current chunk of data
+    *  - An optional ''Failure'' from the last parse operation
+    *  - A flag whether the current chunk is the last one
+    *
+    * @tparam A the type of result objects produced by the function
+    */
+  type ChunkSequenceParser[A] =
+    (ByteString, Option[Failure], Boolean) => (Iterable[A], Option[Failure])
+}
 
 /**
   * A custom processing stage that applies a parser on a source of byte
   * strings. The results produced by the parser are passed downstream.
   */
-class ParserStage(parser: MetaDataParser, mediumID: MediumID)
-  extends GraphStage[FlowShape[ByteString, MetaDataProcessingResult]] {
+class ParserStage[A](parser: ChunkSequenceParser[A])
+  extends GraphStage[FlowShape[ByteString, A]] {
   val in: Inlet[ByteString] = Inlet[ByteString]("ParserStage.in")
-  val out: Outlet[MetaDataProcessingResult] = Outlet[MetaDataProcessingResult]("ParserStage.out")
+  val out: Outlet[A] = Outlet[A]("ParserStage.out")
 
-  override val shape: FlowShape[ByteString, MetaDataProcessingResult] = FlowShape.of(in, out)
+  override val shape: FlowShape[ByteString, A] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) {
@@ -48,9 +66,7 @@ class ParserStage(parser: MetaDataParser, mediumID: MediumID)
             case None => pull(in)
 
             case Some(bs) =>
-              val (results, nextFailure) =
-                parser.processChunk(bs.decodeString(StandardCharsets.UTF_8), mediumID,
-                  lastChunk = false, optFailure = lastFailure)
+              val (results, nextFailure) = parser(bs, lastFailure, false)
               lastFailure = nextFailure
               println("Temp results:  " + results)
               emitMultiple(out, results.toIterator)
@@ -63,9 +79,7 @@ class ParserStage(parser: MetaDataParser, mediumID: MediumID)
             case None => complete(out)
 
             case Some(bs) =>
-              val (results, nextFailure) =
-                parser.processChunk(bs.decodeString(StandardCharsets.UTF_8), mediumID,
-                  lastChunk = true, optFailure = lastFailure)
+              val (results, nextFailure) = parser(bs, lastFailure, true)
               emitMultiple(out, results.toIterator, () => complete(out))
           }
         }

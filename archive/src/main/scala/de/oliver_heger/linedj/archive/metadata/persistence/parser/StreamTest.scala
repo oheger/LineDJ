@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
 import akka.NotUsed
@@ -24,6 +25,7 @@ import akka.stream.scaladsl.{FileIO, Flow, Keep, Sink}
 import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
+import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Await
@@ -40,7 +42,7 @@ object StreamTest {
     val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
     val mediumID = MediumID("testMedium", None)
     val stage: Graph[FlowShape[ByteString, MetaDataProcessingResult], NotUsed] =
-      new ParserStage(parser, mediumID)
+      new ParserStage(parseChunk(parser, mediumID))
     val parseFlow = Flow.fromGraph(stage)
     val sink = Sink.fold[List[MetaDataProcessingResult],
       MetaDataProcessingResult](List.empty[MetaDataProcessingResult])((l, e) => e :: l)
@@ -52,4 +54,9 @@ object StreamTest {
     println(s"Got ${results.size} results.")
     system.terminate()
   }
+
+  private def parseChunk(p: MetaDataParser, mid: MediumID)
+                        (chunk: ByteString, failure: Option[Failure], lastChunk: Boolean):
+  (Iterable[MetaDataProcessingResult], Option[Failure]) =
+    p.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, failure)
 }
