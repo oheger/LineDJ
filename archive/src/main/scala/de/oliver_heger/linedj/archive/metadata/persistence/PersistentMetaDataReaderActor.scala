@@ -44,16 +44,6 @@ object PersistentMetaDataReaderActor {
     */
   case class ReadMetaDataFile(path: Path, mediumID: MediumID)
 
-  /**
-    * A message produced by [[PersistentMetaDataReaderActor]] sent to the
-    * parent actor as soon as processing results become available. The parser
-    * returns a sequence of processing results for each chunk that is
-    * processed. This data is sent to the parent using this message.
-    *
-    * @param data the sequence of processing results
-    */
-  case class ProcessingResults(data: Seq[MetaDataProcessingResult])
-
   private class PersistentMetaDataReaderActorImpl(parent: ActorRef, parser: MetaDataParser,
                                                   chunkSize: Int) extends
     PersistentMetaDataReaderActor(parent, parser, chunkSize) with ChildActorFactory

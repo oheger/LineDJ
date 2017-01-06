@@ -61,7 +61,7 @@ object PersistentMetaDataManagerActor {
       *
       * @return the medium ID
       */
-    def mediumID = request.mediumID
+    def mediumID: MediumID = request.mediumID
 
     /**
       * Assigns the specified reader actor to the represented medium.
@@ -73,15 +73,15 @@ object PersistentMetaDataManagerActor {
       copy(readerActor = reader)
 
     /**
-      * Updates this instance with processing results that became available.
+      * Updates this instance with a processing result that became available.
       * The paths of resolved files are stored so that it is later possible to
       * determine unresolved files.
       *
-      * @param results the processing results
+      * @param result the processing result
       * @return the updated instance
       */
-    def updateResolvedFiles(results: Seq[MetaDataProcessingResult]): MediumData =
-      copy(resolvedFiles = resolvedFiles ++ results.map(_.path))
+    def updateResolvedFiles(result: MetaDataProcessingResult): MediumData =
+      copy(resolvedFiles = resolvedFiles + result.path)
 
     /**
       * Creates an object with information about meta data files that have not
@@ -215,11 +215,11 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       processPendingScanResults(res :: pendingScanResults)
       checksumMapping = checksumMapping ++ res.checksumMapping
 
-    case PersistentMetaDataReaderActor.ProcessingResults(data) =>
-      val optMediaData = data.headOption.flatMap(mediaInProgress get _.mediumID)
-      optMediaData.foreach { d =>
-        data foreach d.listenerActor.!
-        mediaInProgress = mediaInProgress.updated(d.mediumID, d updateResolvedFiles data)
+    case result: MetaDataProcessingResult =>
+      val optMediaData = mediaInProgress get result.mediumID
+      optMediaData foreach { d =>
+        d.listenerActor ! result
+        mediaInProgress = mediaInProgress.updated(d.mediumID, d updateResolvedFiles result)
       }
 
     case PersistentMetaDataWriterActor.MetaDataWritten(process,

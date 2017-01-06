@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -254,6 +254,18 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       mediumID = mediumID(index), metaDataManager = testActor,
       uriPathMapping = result.fileUriMapping, resolvedSize = resolved)
 
+  /**
+    * Stops an actor and waits until the termination message arrives.
+    *
+    * @param actor the actor to be stopped
+    */
+  private def stopActor(actor: ActorRef): Unit = {
+    system stop actor
+    val probe = TestProbe()
+    probe watch actor
+    probe.expectMsgType[Terminated]
+  }
+
   it should "pass unknown media to the writer actor" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1, 2).createTestActor()
@@ -308,23 +320,15 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     actor ! enhancedScanResult(1)
     val results = processingResults(1) take (FileCount / 2)
 
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    helper.sendProcessingResults(results)
     expectProcessingResults(results)
   }
 
   it should "not crash for processing results with an unknown medium ID" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
-    val actor = helper.initMediaFiles(1).createTestActor()
+    helper.initMediaFiles(1).createTestActor()
 
-    actor receive PersistentMetaDataReaderActor.ProcessingResults(processingResults(1))
-  }
-
-  it should "not crash for an empty chunk of processing data" in {
-    val helper = new PersistenceMetaDataManagerActorTestHelper
-    val actor = helper.initMediaFiles(1).createTestActor()
-    actor ! enhancedScanResult(1)
-
-    actor receive PersistentMetaDataReaderActor.ProcessingResults(List.empty)
+    helper.sendProcessingResults(processingResults(1))
   }
 
   it should "start processing of a new medium when a reader actor terminates" in {
@@ -336,12 +340,12 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val readers = helper.expectChildReaderActors(2)
     val messages = expectMessages[ReadMetaDataFile](readers: _*) + request
     val results = processingResults(request.mediumID)
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    helper sendProcessingResults results
     expectProcessingResults(results)
 
-    system stop readerActor.ref
+    stopActor(readerActor.ref)
     val nextReader = helper.expectChildReaderActor()
-    val msg = nextReader.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    val msg = nextReader.expectMsgType[ReadMetaDataFile]
     (messages + msg).map(_.mediumID) should contain allOf(mediumID(1), mediumID(2), mediumID(3),
       mediumID(4))
   }
@@ -352,13 +356,13 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val esr = enhancedScanResult(1)
     actor ! esr
     val readerActor = helper.expectChildReaderActor()
-    readerActor.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    readerActor.expectMsgType[ReadMetaDataFile]
     val results = processingResults(1)
     val partialResults = results take 3
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(partialResults)
+    helper sendProcessingResults partialResults
     expectProcessingResults(partialResults)
 
-    system stop readerActor.ref
+    stopActor(readerActor.ref)
     val mid = mediumID(1)
     expectMsg(UnresolvedMetaDataFiles(mid, mediumFiles(mid) drop 3, esr))
     helper.writerActor.expectMsg(processMsg(1, 3, esr))
@@ -369,19 +373,20 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val actor = helper.initMediaFiles(1, 2).createTestActor()
     actor ! enhancedScanResult(1, 2)
     val readerActors = helper.expectChildReaderActors(2)
-    val mid1 = readerActors.head.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    val mid1 = readerActors.head.expectMsgType[ReadMetaDataFile]
       .mediumID
-    val mid2 = readerActors(1).expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    val mid2 = readerActors(1).expectMsgType[ReadMetaDataFile]
       .mediumID
     val results = processingResults(mid1) take 4
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    helper sendProcessingResults results
     expectProcessingResults(results)
-    system stop readerActors.head.ref
+    val actorRef = readerActors.head.ref
+    stopActor(actorRef)
     expectMsgType[UnresolvedMetaDataFiles]
 
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    helper sendProcessingResults results
     val results2 = processingResults(mid2) take 3
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results2)
+    helper sendProcessingResults results2
     expectProcessingResults(results2)
   }
 
@@ -390,17 +395,17 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val actor = helper.initMediaFiles(1, 2, 3, 4, 5).createTestActor()
     actor ! enhancedScanResult(1, 2)
     val readerActors = helper.expectChildReaderActors(2)
-    val mid1 = readerActors.head.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    val mid1 = readerActors.head.expectMsgType[ReadMetaDataFile]
       .mediumID
-    val mid2 = readerActors(1).expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
+    val mid2 = readerActors(1).expectMsgType[ReadMetaDataFile]
       .mediumID
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(processingResults(mid1))
+    helper sendProcessingResults processingResults(mid1)
 
     actor ! CloseRequest
-    system stop readerActors.head.ref
+    stopActor(readerActors.head.ref)
     actor ! enhancedScanResult(3)
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(processingResults(mid2))
-    system stop readerActors(1).ref
+    helper sendProcessingResults processingResults(mid2)
+    stopActor(readerActors(1).ref)
     expectProcessingResults(processingResults(mid1))
     expectMsg(CloseAck(actor))
     helper.expectNoChildReaderActor()
@@ -411,11 +416,11 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val actor = helper.initMediaFiles(1).createTestActor()
     actor ! enhancedScanResult(1)
     val reader = helper.expectChildReaderActor()
-    val mid = reader.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile].mediumID
+    val mid = reader.expectMsgType[ReadMetaDataFile].mediumID
     val results = processingResults(mid)
-    actor ! PersistentMetaDataReaderActor.ProcessingResults(results)
+    helper sendProcessingResults results
     expectProcessingResults(results)
-    system stop reader.ref
+    stopActor(reader.ref)
     helper.expectNoChildReaderActor()
 
     actor ! CloseRequest
@@ -429,7 +434,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val readers = helper.expectChildReaderActors(ParallelCount)
     expectMessages[PersistentMetaDataReaderActor.ReadMetaDataFile](readers: _*)
     actor ! CloseRequest
-    readers foreach (a => system stop a.ref)
+    readers foreach (a => stopActor(a.ref))
     expectMsg(CloseAck(actor))
 
     actor ! enhancedScanResult(6)
@@ -474,8 +479,8 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
     actor ! enhancedScanResult(1, 2)
     helper.expectChildReaderActors(2).foreach { p =>
-      p.expectMsgType[PersistentMetaDataReaderActor.ReadMetaDataFile]
-      system stop p.ref
+      p.expectMsgType[ReadMetaDataFile]
+      stopActor(p.ref)
       expectMsgType[UnresolvedMetaDataFiles]
     }
 
@@ -614,10 +619,10 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     */
   private class PersistenceMetaDataManagerActorTestHelper {
     /** A mock for the configuration. */
-    val config = createConfig()
+    val config: MediaArchiveConfig = createConfig()
 
     /** A mock for the file scanner. */
-    val fileScanner = mock[PersistentMetaDataFileScanner]
+    val fileScanner: PersistentMetaDataFileScanner = mock[PersistentMetaDataFileScanner]
 
     /** Test probe for the child writer actor. */
     val writerActor = TestProbe()
@@ -660,6 +665,18 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
         managerActor ! ScanForMetaDataFiles
       }
       managerActor
+    }
+
+    /**
+      * Sends the given collection of processing results to the test actor.
+      *
+      * @param results the result objects to be sent
+      * @return this test helper
+      */
+    def sendProcessingResults(results: Iterable[MetaDataProcessingResult]):
+    PersistenceMetaDataManagerActorTestHelper = {
+      results foreach managerActor.receive
+      this
     }
 
     /**
