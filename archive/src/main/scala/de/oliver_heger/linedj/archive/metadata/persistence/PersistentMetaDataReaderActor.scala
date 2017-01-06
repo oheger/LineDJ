@@ -16,16 +16,18 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
-import akka.actor.SupervisorStrategy.Stop
+import akka.NotUsed
 import akka.actor._
-import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
+import akka.stream.scaladsl.{FileIO, Keep, Sink}
+import akka.stream.{ActorMaterializer, FlowShape, Graph}
+import akka.util.ByteString
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.{ProcessingResults, ReadMetaDataFile}
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserTypes}
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
+import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -78,12 +80,12 @@ object PersistentMetaDataReaderActor {
   * medium files as elements. This actor is responsible for reading one such
   * file.
   *
-  * The file is read using a ''FileReaderActor'' and processed chunk-wise using
+  * The file is read using stream processing with a [[ParserStage]] stage using
   * a [[de.oliver_heger.linedj.archive.metadata.persistence.parser.MetaDataParser]].
   * The results extracted from a chunk of data are sent to the target actor as
-  * specified in the constructor as soon as they become available. when the
+  * specified in the constructor as soon as they become available. When the
   * file has been fully processed this actor stops itself; it also stops if the
-  * file reader actor throws an exception. That way a calling actor can
+  * stream fails with an exception. That way a calling actor can
   * determine in any case when processing of the file is done (in the normal
   * way or aborted due to an error).
   *
@@ -93,88 +95,31 @@ object PersistentMetaDataReaderActor {
   */
 class PersistentMetaDataReaderActor(parent: ActorRef, parser: MetaDataParser, chunkSize: Int)
   extends Actor with ActorLogging {
-  this: ChildActorFactory =>
-
-  /** The reference to the underlying file reader actor. */
-  private var fileReaderActor: ActorRef = _
-
-  /** The ID of the processed medium. */
-  private var mediumID: MediumID = _
-
-  /**
-    * Stores the previous chunk obtained from the reader. This chunk cannot be
-    * processed before another chunk arrives because otherwise it is not known
-    * whether this is the last chunk or not.
-    */
-  private var previousChunk: Option[FileReaderActor.ReadResult] = None
-
-  /** Stores the previous failure received from the parser. */
-  private var previousFailure: Option[ParserTypes.Failure] = None
-
-  /**
-    * Sets a supervisor strategy that terminates the child on an exception.
-    * The child reader actor may throw an exception. In this case, it
-    * should be stopped, and processing ends.
-    */
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case _: IOException => Stop
-  }
-
-  @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
-    super.preStart()
-    fileReaderActor = createChildActor(Props[FileReaderActor])
-    context watch fileReaderActor
-  }
-
   override def receive: Receive = {
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
-      fileReaderActor ! ChannelHandler.InitFile(p)
-      readNextChunk()
-      mediumID = mid
-
-    case res: FileReaderActor.ReadResult =>
-      readNextChunk()
-      processPreviousChunk(false)
-      previousChunk = Some(res)
-
-    case FileReaderActor.EndOfFile(_) =>
-      processPreviousChunk(lastChunk = true)
-      log.info("Processing of meta data file for medium {} finished.", mediumID)
-      context stop self
-
-    case Terminated(a) =>
-      log.error("File reader actor crashed for medium {}!", mediumID)
-      context stop self
+      implicit val maeterializer = ActorMaterializer()
+      import context.dispatcher
+      val source = FileIO.fromPath(p, chunkSize)
+      val sink = Sink.foreach[MetaDataProcessingResult](parent ! _)
+      val stage: Graph[FlowShape[ByteString, MetaDataProcessingResult], NotUsed] =
+        new ParserStage[MetaDataProcessingResult](parseFunc(mid))
+      val flow = source.via(stage).toMat(sink)(Keep.right)
+      val future = flow.run()
+      future.onComplete(_ => context.stop(self))
   }
 
   /**
-    * Processes the previous chunk when the next chunk becomes available. At
-    * this time it is known whether this is the last chunk or not.
+    * The parsing function for the parsing stage.
     *
-    * @param lastChunk a flag whether this is the last chunk
+    * @param mid         the medium ID
+    * @param chunk       the current chunk
+    * @param lastFailure the failure from the last parsing operation
+    * @param lastChunk   flag whether this is the last chunk
+    * @return partial parsing results and a failure for the current operation
     */
-  private def processPreviousChunk(lastChunk: Boolean): Unit = {
-    previousChunk foreach { d =>
-      val text = new Predef.String(d.data, 0, d.length, StandardCharsets.UTF_8)
-      val (results, nextFailure) = parser.processChunk(text, mediumID, lastChunk = lastChunk,
-        previousFailure)
-      if (results.nonEmpty) {
-        parent ! ProcessingResults(results)
-      }
-      previousFailure = nextFailure
-      if(lastChunk && previousFailure.isDefined) {
-        log.warning("Failure at the end of medium {}!", mediumID)
-        log.info("Failure is {}.", nextFailure.get)
-      }
-    }
-  }
-
-  /**
-    * Reads the next chunk from the underlying reader actor.
-    */
-  private def readNextChunk(): Unit = {
-    fileReaderActor ! FileReaderActor.ReadData(chunkSize)
-  }
+  private def parseFunc(mid: MediumID)(chunk: ByteString, lastFailure: Option[Failure],
+                                       lastChunk: Boolean):
+  (Iterable[MetaDataProcessingResult], Option[Failure]) =
+    parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, lastFailure)
 }

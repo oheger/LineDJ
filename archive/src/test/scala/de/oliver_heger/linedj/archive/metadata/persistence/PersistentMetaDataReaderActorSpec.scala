@@ -16,221 +16,141 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.{ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.{ChannelHandler, FileReaderActor}
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParseError, ParserTypes}
+import de.oliver_heger.linedj.archive.metadata.persistence.parser._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-
 object PersistentMetaDataReaderActorSpec {
-  /** A path to a test file. */
-  private val MetaDataPath = Paths get "someTestMetaDataFile.json"
+  /** The name of the test meta data file. */
+  private val MetaDataTestFile = "/metadata.mdt"
+
+  /** The number of songs in the test meta data file. */
+  private val SongCount = 26
 
   /** A test medium ID. */
   private val TestMedium = MediumID("someMedium", None)
 
   /** The read chunk size. */
   private val ReadChunkSize = 2048
-
-  /** The message to initialize the test actor. */
-  private val InitMessage = PersistentMetaDataReaderActor.ReadMetaDataFile(MetaDataPath, TestMedium)
-
-  /**
-    * Generates text for a chunk of the test file.
-    *
-    * @param index the index of the chunk
-    * @return the generated text
-    */
-  private def generateChunkText(index: Int): String =
-    s"$index. chunk of test file $index"
-
-  /**
-    * Generates a ''ReadResult'' that contains the specified chunk of data.
-    * Note that this result contains a bigger array than needed to test
-    * whether the length parameter is evaluated.
-    *
-    * @param index the index of the chunk
-    * @return the read result
-    */
-  private def generateReadResult(index: Int): FileReaderActor.ReadResult = {
-    val chunkBytes = generateChunkText(index).getBytes(StandardCharsets.ISO_8859_1)
-    val data = new Array[Byte](chunkBytes.length + 42)
-    System.arraycopy(chunkBytes, 0, data, 0, chunkBytes.length)
-    FileReaderActor.ReadResult(data, chunkBytes.length)
-  }
-
-  /**
-    * Generates a failure object based on the specified index.
-    *
-    * @param index the index to make the failure unique
-    * @return the failure
-    */
-  private def generateFailure(index: Int): ParserTypes.Failure =
-    ParserTypes.Failure(ParseError(), isCommitted = true, List(index))
-
-  /**
-    * Generates a sequence of processing results to be returned by the mock
-    * parser. The index is used to make the result unique.
-    *
-    * @param index the index
-    * @return the sequence of processing result objects
-    */
-  private def generateProcessingResults(index: Int): Seq[MetaDataProcessingResult] =
-    List(MetaDataProcessingResult(Paths.get("someResult" + index), TestMedium, "someUri" + index,
-      MediaMetaData(title = Some("Song " + index))))
 }
 
 /**
   * Test class for ''PersistentMetaDataReaderActor''.
   */
 class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers
+  with FileTestHelper {
 
   import PersistentMetaDataReaderActorSpec._
 
   def this() = this(ActorSystem("PersistentMetaDataReaderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
-  "A PersistentMetaDataReaderActor" should "start reading the file when triggered" in {
-    val helper = new PersistentMetaDataReaderTestHelper
+  /**
+    * Tests whether a valid meta data file can be read using a specific chunk
+    * size.
+    *
+    * @param chunkSize the chunk size
+    */
+  private def checkReadFile(chunkSize: Int): Unit = {
+    val path = Paths.get(getClass.getResource(MetaDataTestFile).toURI)
+    val helper = new PersistentMetaDataReaderTestHelper(chunkSize)
 
-    helper.metaReaderActor ! InitMessage
-    helper.reader.expectMsg(ChannelHandler.InitFile(MetaDataPath))
-    helper.reader.expectMsg(FileReaderActor.ReadData(ReadChunkSize))
+    val metaData = helper.readFile(path).expectMetaData(SongCount)
+    helper.expectTerminated()
+
+    metaData.map(_.mediumID) should contain only TestMedium
+    val titles = metaData.map(_.metaData.title.get)
+    titles should contain allOf("Wish I Had an Angel", "Our Truth", "When A Dead Man Walks",
+      "Ever Dream", "Wheels Of Fire", "Within Me", "Fragments Of Faith")
+    val artists = metaData.map(_.metaData.artist.get)
+    artists should contain allOf("Lacuna Coil", "Nightwish", "Manowar")
   }
 
-  it should "process the first chunk of data" in {
-    val helper = new PersistentMetaDataReaderTestHelper
-
-    helper send generateReadResult(1)
-    helper.reader.expectMsg(FileReaderActor.ReadData(ReadChunkSize))
-    verifyZeroInteractions(helper.parser)
+  "A PersistentMetaDataReaderActor" should "read a file with meta data" in {
+    checkReadFile(ReadChunkSize)
   }
 
-  it should "process multiple chunks of data" in {
-    val helper = new PersistentMetaDataReaderTestHelper
-    val results1 = generateProcessingResults(1)
-    val results2 = generateProcessingResults(2)
-    helper.prepareParser(1, lastChunk = false, lastFailure = None, result = (results1, Some
-    (generateFailure(1))))
-    helper.prepareParser(2, lastChunk = false, lastFailure = Some(generateFailure(1)),
-      result = (results2, Some(generateFailure(2))))
-
-    helper.send(InitMessage).send(generateReadResult(1)).send(generateReadResult(2))
-    helper.parent.expectMsg(PersistentMetaDataReaderActor.ProcessingResults(results1))
-    helper send generateReadResult(3)
-    helper.parent.expectMsg(PersistentMetaDataReaderActor.ProcessingResults(results2))
+  it should "read a file with meta data with a bigger chunk size" in {
+    checkReadFile(32768)
   }
 
-  it should "not send processing results if none were extracted in a chunk" in {
+  it should "process an empty data file" in {
+    val path = createFileReference()
     val helper = new PersistentMetaDataReaderTestHelper
-    helper.prepareParser(1, lastChunk = false, lastFailure = None, result = (Nil, Some
-    (generateFailure(1))))
 
-    helper.send(InitMessage).send(generateReadResult(1)).send(generateReadResult(2))
-    helper.expectNoMessage(helper.parent)
+    helper.readFile(path).expectTerminated()
   }
 
-  it should "handle the last chunk correctly" in {
+  it should "process a non JSON file" in {
+    val path = createDataFile()
     val helper = new PersistentMetaDataReaderTestHelper
-    val results = generateProcessingResults(1)
-    helper.prepareParser(1, lastChunk = true, lastFailure = None, result = (results, None))
 
-    helper.send(InitMessage).send(generateReadResult(1))
-      .send(FileReaderActor.EndOfFile(MetaDataPath.toString))
-    helper.parent.expectMsg(PersistentMetaDataReaderActor.ProcessingResults(results))
+    helper.readFile(path).expectTerminated()
   }
 
-  it should "stop itself when the last chunk is reached" in {
-    val probe = TestProbe()
+  it should "handle a non-existing file" in {
+    val path = Paths.get("non-existing-file.nxt")
     val helper = new PersistentMetaDataReaderTestHelper
-    probe watch helper.metaReaderActor
-    helper.prepareParser(1, lastChunk = true, lastFailure = None, result = (Nil, None))
 
-    helper.send(InitMessage).send(generateReadResult(1))
-      .send(FileReaderActor.EndOfFile(MetaDataPath.toString))
-    probe.expectMsgType[Terminated].actor should be(helper.metaReaderActor)
-  }
-
-  it should "stop itself if the underlying reader crashes" in {
-    val helper = new PersistentMetaDataReaderTestHelper
-    val actor = system.actorOf(PersistentMetaDataReaderActor(helper.parent.ref, helper.parser,
-      ReadChunkSize))
-    val probe = TestProbe()
-    probe watch actor
-
-    actor ! InitMessage // will crash because the path is invalid
-    probe.expectMsgType[Terminated].actor should be(actor)
+    helper.readFile(path).expectTerminated()
   }
 
   /**
     * A test helper class which manages the required dependencies.
+    *
+    * @param chunkSize the chunk size when reading data files
     */
-  private class PersistentMetaDataReaderTestHelper {
+  private class PersistentMetaDataReaderTestHelper(chunkSize: Int = ReadChunkSize) {
     /** A test probe for the parent actor. */
     val parent = TestProbe()
 
-    /** A test probe for the reader actor. */
-    val reader = TestProbe()
-
-    /** A mock for the parser. */
-    val parser = mock[MetaDataParser]
-
     /** The test actor. */
-    val metaReaderActor = TestActorRef[PersistentMetaDataReaderActor](createProps())
+    val metaReaderActor: TestActorRef[PersistentMetaDataReaderActor] =
+      TestActorRef[PersistentMetaDataReaderActor](createProps())
 
     /**
-      * Passes the specified message directly to the test actor's receive()
-      * method.
+      * Sends the test actor a message to read the specified meta data file.
       *
-      * @param msg the message
+      * @param path the path to the file to be read
       * @return this test helper
       */
-    def send(msg: Any): PersistentMetaDataReaderTestHelper = {
-      metaReaderActor receive msg
+    def readFile(path: Path): PersistentMetaDataReaderTestHelper = {
+      metaReaderActor ! PersistentMetaDataReaderActor.ReadMetaDataFile(path, TestMedium)
       this
     }
 
     /**
-      * Prepares the mock parser to process a chunk of data.
+      * Expects the given number of processing result messages sent to the
+      * parent actor probe.
       *
-      * @param chunkIndex the index of the chunk of data
-      * @param result     the result to be returned
-      * @param lastChunk  a flag if this is the last chunk
-      * @return this test helper
+      * @param count the number of messages
+      * @return a set with the received messages
       */
-    def prepareParser(chunkIndex: Int, lastChunk: Boolean, lastFailure: Option[ParserTypes.Failure],
-                      result: (Seq[MetaDataProcessingResult], Option[ParserTypes.Failure])):
-    PersistentMetaDataReaderTestHelper = {
-      when(parser.processChunk(generateChunkText(chunkIndex), TestMedium, lastChunk, lastFailure)
-      ).thenReturn(result)
-      this
+    def expectMetaData(count: Int): Set[MetaDataProcessingResult] = {
+      (1 to count).foldLeft(Set.empty[MetaDataProcessingResult]) { (s, _) =>
+        s + parent.expectMsgType[MetaDataProcessingResult]
+      }
     }
 
     /**
-      * Checks that the specified actor did not receive any message.
+      * Expects that the test actor has been stopped.
       *
-      * @param actor the actor in question
+      * @return this test helper
       */
-    def expectNoMessage(actor: TestProbe): Unit = {
-      val Message = "Ping"
-      actor.ref ! Message
-      actor.expectMsg(Message)
+    def expectTerminated(): PersistentMetaDataReaderTestHelper = {
+      parent watch metaReaderActor
+      parent.expectMsgType[Terminated]
+      this
     }
 
     /**
@@ -238,19 +158,10 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       *
       * @return creation properties
       */
-    private def createProps(): Props =
-      Props(new PersistentMetaDataReaderActor(parent.ref, parser, ReadChunkSize) with
-        ChildActorFactory {
-        /**
-          * @inheritdoc Checks that a correct reader actor is created and returns
-          *             the corresponding test reference.
-          */
-        override def createChildActor(p: Props): ActorRef = {
-          p.actorClass() should be(classOf[FileReaderActor])
-          p.args shouldBe 'empty
-          reader.ref
-        }
-      })
+    private def createProps(): Props = {
+      val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
+      PersistentMetaDataReaderActor(parent.ref, parser, chunkSize)
+    }
   }
 
 }
