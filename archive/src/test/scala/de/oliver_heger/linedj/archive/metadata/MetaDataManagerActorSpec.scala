@@ -710,6 +710,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     mediaCounts.toSeq should contain theSameElementsInOrderAs expMediaCounts
     updates forall(_.state.scanInProgress) shouldBe true
     lastUpdate.state.scanInProgress shouldBe false
+    lastUpdate.state.mediaCount should be > 0
   }
 
   it should "send a message of the undefined medium only if such media occur" in {
