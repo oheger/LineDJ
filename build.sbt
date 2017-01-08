@@ -63,7 +63,7 @@ lazy val LineDJ = (project in file("."))
   reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
-  mediaIfcDisabled, archiveStartup, appShutdownOneForAll, appWindowHiding,
+  mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList)
 
 /**
