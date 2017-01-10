@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
+import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
@@ -66,7 +67,8 @@ object MediaManagerActor {
   private val NonExistingFile = FileData(path = null, size = -1)
 
   private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef)
-    extends MediaManagerActor(config, metaDataManager) with ChildActorFactory with SchedulerSupport
+    extends MediaManagerActor(config, metaDataManager) with ChildActorFactory
+      with SchedulerSupport with CloseSupport
 
   /**
    * Creates a ''Props'' object for creating new actor instances of this class.
@@ -133,7 +135,7 @@ object MediaManagerActor {
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         private[media] val readerActorMapping: MediaReaderActorMapping) extends
 Actor with ActorLogging {
-  me: ChildActorFactory with SchedulerSupport =>
+  me: ChildActorFactory with SchedulerSupport with CloseSupport =>
 
   import MediaManagerActor._
 
@@ -226,7 +228,7 @@ Actor with ActorLogging {
    * The supervisor strategy used by this actor stops the affected child on
    * receiving an IO exception. This is used to detect failed scan operations.
    */
-  override val supervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: OneForOneStrategy = OneForOneStrategy() {
     case _: IOException => Stop
   }
 
@@ -294,6 +296,12 @@ Actor with ActorLogging {
 
     case ReaderActorAlive(reader) =>
       readerActorMapping.updateTimestamp(reader, now())
+
+    case CloseRequest =>
+      onCloseRequest(self, List(metaDataManager), sender(), me)
+
+    case CloseComplete =>
+      onCloseComplete()
   }
 
   /**

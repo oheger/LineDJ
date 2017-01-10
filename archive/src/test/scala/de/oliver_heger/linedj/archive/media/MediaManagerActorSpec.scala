@@ -1,6 +1,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor._
@@ -8,9 +9,9 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.archive.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
+import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
@@ -24,19 +25,19 @@ import scala.reflect.ClassTag
 
 object MediaManagerActorSpec {
   /** Class for the directory scanner child actor. */
-  val ClsDirScanner = classOf[MediaScannerActor]
+  val ClsDirScanner: Class[MediaScannerActor] = classOf[MediaScannerActor]
 
   /** Class for the ID calculator child actor. */
-  val ClsIDCalculator = classOf[MediumIDCalculatorActor]
+  val ClsIDCalculator: Class[MediumIDCalculatorActor] = classOf[MediumIDCalculatorActor]
 
   /** Class for the medium info parser child actor. */
-  val ClsInfoParser = classOf[MediumInfoParserActor]
+  val ClsInfoParser: Class[MediumInfoParserActor] = classOf[MediumInfoParserActor]
 
   /** Class for the media reader actor child actor. */
-  val ClsMediaReaderActor = classOf[MediaFileReaderActor]
+  val ClsMediaReaderActor: Class[MediaFileReaderActor] = classOf[MediaFileReaderActor]
 
   /** Class for the file loader actor. */
-  val ClsFileLoaderActor = FileLoaderActor().actorClass()
+  val ClsFileLoaderActor: Class[_ <: Actor] = FileLoaderActor().actorClass()
 
   /** A special test message sent to actors. */
   private val TestMessage = new Object
@@ -95,6 +96,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val manager = TestActorRef[MediaManagerActor](props)
     manager.underlyingActor shouldBe a[MediaManagerActor]
     manager.underlyingActor shouldBe a[ChildActorFactory]
+    manager.underlyingActor shouldBe a[CloseSupport]
   }
 
   it should "create default helper objects" in {
@@ -516,6 +518,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     checkMetaDataMessages(helper)
   }
 
+  it should "handle a close request" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.testManagerActor ! CloseRequest
+    helper.numberOfCloseRequests should be(1)
+  }
+
+  it should "handle a close complete message" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.testManagerActor ! CloseHandlerActor.CloseComplete
+    helper.numberOfCompletedCloseOps should be(1)
+  }
+
   /**
    * A helper class combining data required for typical tests of a media
    * manager actor.
@@ -643,64 +659,64 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         scanResult, content)
 
     /** Root of the first drive. */
-    val Drive1Root = path("drive1")
+    val Drive1Root: Path = path("drive1")
 
     /** Other files on drive 1. */
-    val Drive1OtherFiles = pathList(path(Drive1Root, "other"), 4)
+    val Drive1OtherFiles: List[FileData] = pathList(path(Drive1Root, "other"), 4)
 
     /** Root path of medium 1. */
-    val Medium1Path = mediumPath(Drive1Root, 1)
+    val Medium1Path: Path = mediumPath(Drive1Root, 1)
 
     /** Description file for medium 1. */
-    val Medium1Desc = mediumSettings(Medium1Path, 1)
+    val Medium1Desc: Path = mediumSettings(Medium1Path, 1)
 
     /** Content of the first medium. */
-    val Medium1Content = pathList(path(Medium1Path, "data"), 5)
+    val Medium1Content: List[FileData] = pathList(path(Medium1Path, "data"), 5)
 
     /** Settings data for medium 1. */
-    val Medium1SettingsData = settingsData(Medium1Path, 1)
+    val Medium1SettingsData: MediumInfo = settingsData(Medium1Path, 1)
 
     /** Binary content of the description file for medium 1. */
     val Medium1BinaryDesc = new Array[Byte](1)
 
     /** Root path of medium 2. */
-    val Medium2Path = mediumPath(Drive1Root, 2)
+    val Medium2Path: Path = mediumPath(Drive1Root, 2)
 
     /** Description file for medium 2. */
-    val Medium2Desc = mediumSettings(Medium2Path, 2)
+    val Medium2Desc: Path = mediumSettings(Medium2Path, 2)
 
     /** Content of medium 2. */
-    val Medium2Content = pathList(path(Medium2Path, "audio"), 8)
+    val Medium2Content: List[FileData] = pathList(path(Medium2Path, "audio"), 8)
 
     /** Settings data for medium 2. */
-    val Medium2SettingsData = settingsData(Medium2Path, 2)
+    val Medium2SettingsData: MediumInfo = settingsData(Medium2Path, 2)
 
     /** Binary content of the description file for medium 2. */
     val Medium2BinaryDesc = new Array[Byte](2)
 
     /** Root of the second drive. */
-    val Drive2Root = path("drive2")
+    val Drive2Root: Path = path("drive2")
 
     /** Root path of medium 3. */
-    val Medium3Path = mediumPath(Drive2Root, 3)
+    val Medium3Path: Path = mediumPath(Drive2Root, 3)
 
     /** Description file for medium 3. */
-    val Medium3Desc = mediumSettings(Medium3Path, 3)
+    val Medium3Desc: Path = mediumSettings(Medium3Path, 3)
 
     /** Content of medium 3. */
-    val Medium3Content = pathList(path(Medium3Path, "music"), 16)
+    val Medium3Content: List[FileData] = pathList(path(Medium3Path, "music"), 16)
 
     /** Settings data for medium 3. */
-    val Medium3SettingsData = settingsData(Medium3Path, 3)
+    val Medium3SettingsData: MediumInfo = settingsData(Medium3Path, 3)
 
     /** Binary content of the description file for medium 3. */
     val Medium3BinaryDesc = new Array[Byte](3)
 
     /** Root of the third drive. */
-    val Drive3Root = path("3rdDrive")
+    val Drive3Root: Path = path("3rdDrive")
 
     /** Drive 3 only has other files without a medium description. */
-    val Drive3OtherFiles = pathList(path(Drive3Root, "myMusic"), 32)
+    val Drive3OtherFiles: List[FileData] = pathList(path(Drive3Root, "myMusic"), 32)
 
     /** The scan result for drive 1. */
     val Drive1 = MediaScanResult(Drive1Root, Map(
@@ -717,17 +733,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       Drive3OtherFiles))
 
     /** ID data for medium 1. */
-    val Medium1IDData = idData(1, Medium1Path, Medium1Content, Drive1)
+    val Medium1IDData: MediumIDData = idData(1, Medium1Path, Medium1Content, Drive1)
 
     /** ID data for other files found on drive 1. */
     val Drive1OtherIDData = MediumIDData("Other1", MediumID(Drive1Root.toString, None), Drive1,
       pathMapping(pathList(Drive1Root, 8)))
 
     /** ID data for medium 2. */
-    val Medium2IDData = idData(2, Medium2Path, Medium2Content, Drive1)
+    val Medium2IDData: MediumIDData = idData(2, Medium2Path, Medium2Content, Drive1)
 
     /** ID data for medium 3. */
-    val Medium3IDData = idData(3, Medium3Path, Medium3Content, Drive2)
+    val Medium3IDData: MediumIDData = idData(3, Medium3Path, Medium3Content, Drive2)
 
     /** ID data for other files found on drive 3. */
     val Drive3OtherIDData = MediumIDData("Other-3", MediumID(Drive3Root.toString, None), Drive3,
@@ -777,7 +793,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val schedulerQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
     /** The actor used for tests. */
-    lazy val testManagerActor = createTestActor()
+    lazy val testManagerActor: TestActorRef[MediaManagerActor] = createTestActor()
+
+    /** Counter for close request handling. */
+    private val closeRequestCount = new AtomicInteger
+
+    /** Counter for handling of completed close requests. */
+    private val closeCompleteCount = new AtomicInteger
 
     /**
      * Executes a request for scanning media data on the test actor. This
@@ -846,6 +868,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       probes = createTestProbesMap()
       probes += fileLoaderActorCls -> loaderActorData
     }
+
+    /**
+      * Returns the number of handled close requests.
+      *
+      * @return the number of close requests handled by the test actor
+      */
+    def numberOfCloseRequests: Int = closeRequestCount.get()
+
+    /**
+      * Returns the number of completed close operations.
+      *
+      * @return the number of completed close operations
+      */
+    def numberOfCompletedCloseOps: Int = closeCompleteCount.get()
 
     /**
      * Creates a ''TestProbe'' that simulates a child actor and adds it to the
@@ -947,13 +983,32 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       val mapping = optMapping getOrElse new MediaReaderActorMapping
       TestActorRef[MediaManagerActor](Props(
         new MediaManagerActor(createActorConfig(), metaDataManagerActor.ref, mapping)
-        with ChildActorFactory with RecordingSchedulerSupport {
+        with ChildActorFactory with RecordingSchedulerSupport with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
         }
 
         override val queue: BlockingQueue[SchedulerInvocation] = schedulerQueue
-      }))
+
+          /**
+            * Checks parameters and records this invocation.
+            */
+          override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
+          ActorRef, factory: ChildActorFactory): Unit = {
+            subject should be(testManagerActor)
+            deps should contain only metaDataManagerActor.ref
+            target should be(testActor)
+            factory should be(this)
+            closeRequestCount.incrementAndGet()
+          }
+
+          /**
+            * Records this invocation.
+            */
+          override def onCloseComplete(): Unit = {
+            closeCompleteCount.incrementAndGet()
+          }
+        }))
     }
 
     /**
