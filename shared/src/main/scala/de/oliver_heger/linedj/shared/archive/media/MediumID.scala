@@ -32,11 +32,17 @@ import java.nio.file.Path
  * combines all media without a description. This is a global list of media
  * files which cannot be associated to a specific medium.
  *
+ * The media archive can consist of multiple components where each component
+ * can contribute media files. To reflect this, a ''MediumID'' contains an ID
+ * for the component that is responsible for the associated medum.
+ *
  * @param mediumURI the URI which identifies this medium
  * @param mediumDescriptionPath the optional path to the medium description
  *                              file (as string)
+ * @param archiveComponentID the ID of the providing archive component
  */
-case class MediumID(mediumURI: String, mediumDescriptionPath: Option[String])
+case class MediumID(mediumURI: String, mediumDescriptionPath: Option[String],
+                    archiveComponentID: String = "")
 
 object MediumID {
   /**
@@ -44,7 +50,7 @@ object MediumID {
    * files not assigned to a medium (i.e. for which no medium description file
    * is available).
    */
-  val UndefinedMediumID = MediumID("", None)
+  val UndefinedMediumID = MediumID("", None, "<undefined>")
 
   /**
    * Creates a ''MediumID'' object from the path to the description file. The
