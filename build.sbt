@@ -64,7 +64,7 @@ lazy val LineDJ = (project in file("."))
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
-  trayWindowList)
+  trayWindowList, archiveUnion)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -92,6 +92,21 @@ lazy val archive = (project in file("archive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
+  ) dependsOn (shared % "compile->compile;test->test")
+
+/**
+  * The media archive project. This contains code to manage the library with
+  * artists, albums, and songs.
+  */
+lazy val archiveUnion = (project in file("archiveUnion"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archive-union",
+    libraryDependencies ++= logDependencies,
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
+    OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
 
 /**
