@@ -4,6 +4,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.{AsynchronousFileChannel, CompletionHandler}
 import java.nio.file.Path
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
@@ -18,8 +19,6 @@ import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-
 /**
  * Test class for ''FileWriterActor''.
  */
@@ -33,8 +32,7 @@ with MockitoSugar with FileTestHelper {
   def this() = this(ActorSystem("FileWriterActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   after {
@@ -191,17 +189,21 @@ with MockitoSugar with FileTestHelper {
   }
 
   it should "close the channel when it is stopped" in {
+    val latch = new CountDownLatch(1)
     val channel = mock[AsynchronousFileChannel]
+    doAnswer(new Answer[AnyRef] {
+      override def answer(invocation: InvocationOnMock): AnyRef = {
+        latch.countDown()
+        null
+      }
+    }).when(channel).close()
     val file = createFileReference()
     val writer = system.actorOf(propsForWriterActorWithChannel(channel))
     writer ! InitFile(file)
     writer ! writeRequest()
 
     system stop writer
-    val probe = TestProbe()
-    probe watch writer
-    probe.expectMsgType[Terminated]
-    verify(channel).close()
+    latch.await(10, TimeUnit.SECONDS) shouldBe true
   }
 }
 
