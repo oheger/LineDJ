@@ -63,10 +63,19 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectCloseComplete()
   }
 
+  it should "not complete the close operation before the condition is satisfied" in {
+    val helper = new CloseHandlerActorTestHelper(initialCondition = false)
+
+    helper.sendCloseAcks().expectNoCloseComplete()
+      .conditionSatisfied().expectCloseComplete()
+  }
+
   /**
     * A test helper class managing dependencies for the actor to be tested.
+    *
+    * @param initialCondition the condition flag to be passed to the test actor
     */
-  private class CloseHandlerActorTestHelper {
+  private class CloseHandlerActorTestHelper(initialCondition: Boolean = true) {
     /** The number of actors to be closed. */
     val CloseCount = 2
 
@@ -149,6 +158,16 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     /**
+      * Sends a message to the test actor that the condition is satisfied.
+      *
+      * @return this test helper
+      */
+    def conditionSatisfied(): CloseHandlerActorTestHelper = {
+      handler receive CloseHandlerActor.ConditionSatisfied
+      this
+    }
+
+    /**
       * Creates an array with the actors to be closed.
       *
       * @return the array with test probes for close actors
@@ -163,7 +182,7 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     private def createTestActor(): TestActorRef[CloseHandlerActor] =
       TestActorRef(Props(classOf[CloseHandlerActor], probeSource.ref,
-        closeActors.map(_.ref).toIterable))
+        closeActors.map(_.ref).toIterable, initialCondition))
   }
 
 }

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.io
 
 import akka.actor.{Actor, ActorRef, Terminated}
-import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
+import de.oliver_heger.linedj.io.CloseHandlerActor.{CloseComplete, ConditionSatisfied}
 
 object CloseHandlerActor {
 
@@ -27,6 +27,15 @@ object CloseHandlerActor {
     */
   case object CloseComplete
 
+  /**
+    * A message processed by [[CloseHandlerActor]] telling it that an
+    * additional condition the close operation depends on is now fulfilled.
+    *
+    * If the actor has been created with a ''conditionState'' parameter of
+    * '''false''', this message must be received before the current close
+    * operation can be completed.
+    */
+  case object ConditionSatisfied
 }
 
 /**
@@ -41,12 +50,26 @@ object CloseHandlerActor {
   * If one of the monitored actors terminates before a ''CloseAck'' is received
   * from it, it is considered closed.
   *
-  * @param source      the source actor responsible for the close operation
-  * @param closeActors the actors to be closed
+  * In complex scenarios, additional conditions need to be fulfilled before a
+  * close operation can be completed. This is supported by this actor in a
+  * generic form: When creating an instance a flag can be passed in whether an
+  * additional condition has to be taken into account. A value of '''true'''
+  * means that such a condition is already fulfilled, and the actor does not
+  * have to care. A value of '''false''', however, means that the current close
+  * operation cannot be completed until this condition becomes satisfied; the
+  * actor is notified about this by receiving a ''ConditionSatisfied'' message.
+  *
+  * @param source         the source actor responsible for the close operation
+  * @param closeActors    the actors to be closed
+  * @param conditionState state of an additional condition to be satisfied
   */
-class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef]) extends Actor {
+class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
+                        conditionState: Boolean) extends Actor {
   /** A set with the actors for which a close ACK is pending. */
   private var pendingCloseAck = closeActors.toSet
+
+  /** Flag whether an additional condition is satisfied. */
+  private var conditionSatisfied = conditionState
 
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
@@ -59,6 +82,10 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef]) exten
 
     case Terminated(actor) =>
       handleClosedActor(actor)
+
+    case ConditionSatisfied =>
+      conditionSatisfied = true
+      completeCloseIfPossible()
   }
 
   /**
@@ -70,7 +97,15 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef]) exten
     */
   private def handleClosedActor(actor: ActorRef): Unit = {
     pendingCloseAck -= actor
-    if (pendingCloseAck.isEmpty) {
+    completeCloseIfPossible()
+  }
+
+  /**
+    * Checks whether now all conditions are met to complete the close
+    * operation. If so, the corresponding actions are taken.
+    */
+  private def completeCloseIfPossible(): Unit = {
+    if (conditionSatisfied && pendingCloseAck.isEmpty) {
       source ! CloseComplete
       context stop self
     }
