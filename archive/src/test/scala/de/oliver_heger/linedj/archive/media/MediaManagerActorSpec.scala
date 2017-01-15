@@ -994,12 +994,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
             * Checks parameters and records this invocation.
             */
           override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
-          ActorRef, factory: ChildActorFactory): Unit = {
+          ActorRef, factory: ChildActorFactory, conditionState: => Boolean): Boolean = {
             subject should be(testManagerActor)
             deps should contain only metaDataManagerActor.ref
             target should be(testActor)
+            conditionState shouldBe true
             factory should be(this)
             closeRequestCount.incrementAndGet()
+            true
           }
 
           /**

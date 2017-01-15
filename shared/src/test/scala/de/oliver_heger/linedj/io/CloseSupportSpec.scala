@@ -16,17 +16,26 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
+import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
   * Test class for ''CloseSupport''.
   */
-class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
+class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  def this() = this(ActorSystem("CloseSupportSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+  }
+
   /**
     * Creates an object which can be tested.
     *
@@ -40,19 +49,33 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
     *
     * @return the mock actor reference
     */
-  private def mockActor(): ActorRef = mock[ActorRef]
+  private def mockActor(): ActorRef = TestProbe().ref
 
   /**
     * Verifies the correct creation of a close handler actor.
     *
-    * @param subject the subject actor
-    * @param deps    the dependencies
-    * @param factory the actor factory
+    * @param subject        the subject actor
+    * @param deps           the dependencies
+    * @param factory        the actor factory
+    * @param conditionState the condition state flag
     */
   private def verifyHandlerCreation(subject: ActorRef, deps: List[ActorRef], factory:
-  ChildActorFactory): Unit = {
-    verify(factory).createChildActor(Props(classOf[CloseHandlerActor], subject, deps))
+  ChildActorFactory, conditionState: Boolean): Unit = {
+    verify(factory).createChildActor(Props(classOf[CloseHandlerActor], subject, deps,
+      conditionState))
   }
+
+  /**
+    * Prepares a factory mock to return the specified actor reference for the
+    * creation of the handler actor.
+    *
+    * @param handler the handler actor reference
+    * @param factory the mock actor factory
+    * @return ongoing stubbing
+    */
+  private def prepareHandlerActorCreation(handler: ActorRef, factory: ChildActorFactory):
+  OngoingStubbing[ActorRef] =
+    when(factory.createChildActor(any(classOf[Props]))).thenReturn(handler)
 
   "A CloseSupport" should "not have a request in progress initially" in {
     val support = createTestInstance()
@@ -64,7 +87,7 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
     val support = createTestInstance()
 
     support.onCloseRequest(mockActor(), List(mockActor()), mockActor(),
-      mock[ChildActorFactory])
+      mock[ChildActorFactory]) shouldBe true
     support.isCloseRequestInProgress shouldBe true
   }
 
@@ -75,7 +98,17 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
     val support = createTestInstance()
 
     support.onCloseRequest(subject, deps, mockActor(), factory)
-    verifyHandlerCreation(subject, deps, factory)
+    verifyHandlerCreation(subject, deps, factory, conditionState = true)
+  }
+
+  it should "take the condition state flag into account when creating the handler" in {
+    val subject = mockActor()
+    val deps = List(mockActor(), mockActor())
+    val factory = mock[ChildActorFactory]
+    val support = createTestInstance()
+
+    support.onCloseRequest(subject, deps, mockActor(), factory, conditionState = false)
+    verifyHandlerCreation(subject, deps, factory, conditionState = false)
   }
 
   it should "create a correct notifier actor" in {
@@ -84,7 +117,7 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
     val target = mockActor()
     val handler = mockActor()
     val factory = mock[ChildActorFactory]
-    when(factory.createChildActor(any(classOf[Props]))).thenReturn(handler)
+    prepareHandlerActorCreation(handler, factory)
     val support = createTestInstance()
 
     support.onCloseRequest(subject, deps, target, factory)
@@ -97,10 +130,10 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
     val deps = List(mockActor(), mockActor())
     val factory = mock[ChildActorFactory]
     val support = createTestInstance()
-    support.onCloseRequest(subject, deps, mockActor(), factory)
+    support.onCloseRequest(subject, deps, mockActor(), factory) shouldBe true
 
-    support.onCloseRequest(subject, deps, mockActor(), factory)
-    verifyHandlerCreation(subject, deps, factory)
+    support.onCloseRequest(subject, deps, mockActor(), factory) shouldBe false
+    verifyHandlerCreation(subject, deps, factory, conditionState = true)
   }
 
   it should "reset the in-progress flag in the complete() method" in {
@@ -110,5 +143,23 @@ class CloseSupportSpec extends FlatSpec with Matchers with MockitoSugar {
 
     support.onCloseComplete()
     support.isCloseRequestInProgress shouldBe false
+  }
+
+  it should "support notifications about a satisfied condition" in {
+    val handler = TestProbe()
+    val factory = mock[ChildActorFactory]
+    prepareHandlerActorCreation(handler.ref, factory)
+    val support = createTestInstance()
+    support.onCloseRequest(mockActor(), List(mockActor()), mockActor(), factory,
+      conditionState = false)
+
+    support.onConditionSatisfied()
+    handler.expectMsg(CloseHandlerActor.ConditionSatisfied)
+  }
+
+  it should "ignore a satisfied condition if no close operation is in progress" in {
+    val support = createTestInstance()
+
+    support.onConditionSatisfied()
   }
 }

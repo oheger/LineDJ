@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.io
 
 import akka.actor.{ActorRef, Props}
+import de.oliver_heger.linedj.io.CloseHandlerActor.ConditionSatisfied
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
@@ -40,7 +41,11 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
   * receives a ''CloseRequest'' message. The method is passed the dependent
   * actors to be closed and also a child actor factory, so that required
   * helper actors can be created. These helper actors make sure that all
-  * dependent actors are notified and track their responses.
+  * dependent actors are notified and track their responses. An additional
+  * condition is supported via a boolean flag which can be passed to the
+  * method; if set to '''false''', the close operation cannot complete before
+  * this condition is satisfied, which is triggered by an invocation of the
+  * ''onConditionSatisfied()'' method.
   *
   *  - When close handling is done the triggering actor receives a
   * [[de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete]] message. In
@@ -71,14 +76,19 @@ trait CloseSupport {
     *                closed first before the subject can be closed
     * @param target  the target actor expecting the ''CloseAck''
     * @param factory a factory for creating actors
+    * @return '''true''' if a close operation is newly triggered; '''false'''
+    *        if a close operation is already in progress
     */
   def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef],
-                     target: ActorRef, factory: ChildActorFactory): Unit = {
-    if (currentHandler.isEmpty)
+                     target: ActorRef, factory: ChildActorFactory,
+                     conditionState: => Boolean = true): Boolean = {
+    val triggerOperation = currentHandler.isEmpty
+    if (triggerOperation)
       currentHandler = Some(factory.createChildActor(Props(classOf[CloseHandlerActor],
-        subject, deps)))
+        subject, deps, conditionState)))
     factory.createChildActor(Props(classOf[CloseNotifyActor], currentHandler.get,
       subject, target))
+    triggerOperation
   }
 
   /**
@@ -86,5 +96,14 @@ trait CloseSupport {
     */
   def onCloseComplete(): Unit = {
     currentHandler = None
+  }
+
+  /**
+    * Notifies this object that an additional condition is satisfied. The close
+    * operation can now be completed if all pending ''CloseAck'' messages have
+    * been received.
+    */
+  def onConditionSatisfied(): Unit = {
+    currentHandler foreach(_ ! ConditionSatisfied)
   }
 }
