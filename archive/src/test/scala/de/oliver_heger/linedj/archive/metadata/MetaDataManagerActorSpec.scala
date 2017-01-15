@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media._
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
+import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -212,7 +212,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     TestKit shutdownActorSystem system
   }
 
-  "A MetaDataManagerActor" should "send an answer for an unknown medium ID" in {
+  "A MetaDataManagerActor" should "create correct properties" in {
+    val config = mock[MediaArchiveConfig]
+    val persistenceMan = TestProbe()
+
+    val props = MetaDataManagerActor(config, persistenceMan.ref)
+    props.args should contain inOrderOnly(config, persistenceMan.ref)
+    classOf[MetaDataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
+  }
+
+  it should "send an answer for an unknown medium ID" in {
     val actor = system.actorOf(MetaDataManagerActor(mock[MediaArchiveConfig], TestProbe().ref))
 
     val mediumID = MediumID("unknown medium ID", None)
@@ -512,101 +523,40 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       otherResult)
     val processor2 = helper.nextChild()
     processor2.expectMsgType[ProcessMediaFiles]
+    helper.sendAvailableMedia()
+      .prepareCloseRequest(closing = true)(processor1.ref, processor2.ref)
 
-    helper.actor ! CloseRequest
-    helper.persistenceManager.expectMsg(CloseRequest)
-    processor1.expectMsg(CloseRequest)
-    processor2.expectMsg(CloseRequest)
+    helper.actor receive CloseRequest
+    helper.numberOfCloseRequests should be(1)
 
-    helper.actor ! CloseAck(processor1.ref)
     helper.actor receive EnhancedScanResult
     expectNoMoreMessage(helper.persistenceManager)
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.sendAvailableMedia()
-    helper.actor ! CloseAck(processor2.ref)
-    expectMsg(CloseAck(helper.actor))
   }
 
   it should "not complete a Cancel request before all media have been received" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    val probe = TestProbe()
-    helper.actor.tell(CloseRequest, probe.ref)
+    helper.prepareCloseRequest(avMediaPresent = false)()
+    helper.actor receive CloseRequest
 
-    helper.actor receive CloseAck(helper.persistenceManager.ref)
-    expectNoMoreMessage(probe)
+    helper.numberOfCloseRequests should be(1)
   }
 
-  it should "ignore another Cancel request while one is pending" in {
+  it should "notify the condition as satisfied when available media are received" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.actor ! CloseRequest
-    helper.persistenceManager.expectMsg(CloseRequest)
+    helper.prepareCloseRequest(avMediaPresent = false)()
 
     helper.actor ! CloseRequest
-    expectNoMoreMessage(helper.persistenceManager)
-  }
-
-  it should "ignore CloseAck messages if no cancel request is pending" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
     helper.sendAvailableMedia()
-
-    helper.actor receive CloseAck(helper.persistenceManager.ref)
-  }
-
-  it should "send a CloseAck when available media are received at last" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-
-    helper.actor ! CloseRequest
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.sendAvailableMedia()
-    expectMsg(CloseAck(helper.actor))
+    awaitCond(helper.numberOfSatisfiedConditions == 1)
   }
 
   it should "reset the cancel request after the scan has been aborted" in {
     val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.actor ! CloseRequest
-    helper.persistenceManager.expectMsg(CloseRequest)
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    helper.sendAvailableMedia()
-    expectMsg(CloseAck(helper.actor))
 
-    helper.startProcessing()
-    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-  }
-
-  it should "reset received CloseAck messages after the scan has been aborted" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-    helper.actor ! CloseRequest
-    helper.sendAvailableMedia()
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    expectMsg(CloseAck(helper.actor))
-
-    helper.startProcessing(checkPersistenceMan = false)
-    val probe = TestProbe()
-    helper.actor.tell(CloseRequest, probe.ref)
-    helper.sendAvailableMedia()
-    expectNoMoreMessage(probe)
-  }
-
-  it should "correctly terminate the scan operation when it is canceled" in {
-    val helper = new MetaDataManagerActorTestHelper
-    helper.startProcessing()
-    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.actor ! CloseRequest
-    helper.persistenceManager.expectMsg(CloseRequest)
-    helper.sendAvailableMedia()
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    expectMsg(CloseAck(helper.actor))
-
-    helper.actor receive EnhancedScanResult
-    expectNoMoreMessage(helper.persistenceManager)
+    helper.actor receive CloseHandlerActor.CloseComplete
+    helper.numberOfCloseCompleted should be(1)
   }
 
   it should "ignore processing results while a Cancel request is pending" in {
@@ -614,7 +564,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     val results = ScanResult.mediaFiles(TestMediumID) take 2
     helper.sendProcessingResults(TestMediumID, results)
-    helper.actor ! CloseRequest
+    helper.prepareCloseRequest(closing = true)()
 
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID) drop 2)
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
@@ -644,10 +594,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val probe = TestProbe()
     helper.actor.tell(GetMetaData(TestMediumID, registerAsListener = true, 0), probe.ref)
     probe.expectMsgType[MetaDataResponse]
-    helper.actor ! CloseRequest
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
     helper.sendAvailableMedia()
-    expectMsg(CloseAck(helper.actor))
+    helper.actor ! CloseRequest
+    helper.actor ! CloseHandlerActor.CloseComplete
 
     helper.startProcessing(checkPersistenceMan = false)
     helper.sendAllProcessingResults(ScanResult)
@@ -762,10 +711,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! CloseRequest
 
     listener.expectMsg(MetaDataScanCanceled)
-    helper.actor ! CloseAck(helper.persistenceManager.ref)
-    expectMsg(CloseAck(helper.actor))
+    helper.actor ! CloseHandlerActor.CloseComplete
     listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsg(MetaDataScanCompleted)
+  }
+
+  it should "send only a single event if the scan is canceled multiple times" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    val listener = helper.newStateListener()
+    helper.sendAvailableMedia()
+    helper.actor ! CloseRequest
+
+    helper.actor ! CloseRequest
+    listener.expectMsg(MetaDataScanCanceled)
+    helper.actor ! CloseHandlerActor.CloseComplete
+    listener.expectMsgType[MetaDataStateUpdated]
   }
 
   it should "support removing state listeners" in {
@@ -845,13 +806,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val persistenceManager = TestProbe()
 
     /** The configuration. */
-    val config = createConfig()
+    val config: MediaArchiveConfig = createConfig()
 
     /** The test actor reference. */
-    val actor = createTestActor()
+    val actor: TestActorRef[MetaDataManagerActor] = createTestActor()
 
     /** A counter for the number of child actors created by the test actor. */
     private val childActorCounter = new AtomicInteger
+
+    /** A counter for close requests that have been triggered. */
+    private val closeRequestCounter = new AtomicInteger
+
+    /** A counter for completed close requests. */
+    private val closeCompleteCounter = new AtomicInteger
+
+    /** A counter for satisfied condition notifications. */
+    private val conditionSatisfiedCounter = new AtomicInteger
 
     /**
       * A queue that tracks the child actors created by the test actor. It can
@@ -859,6 +829,24 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * expected messages have been sent to child actors.
       */
     private val childActorQueue = new LinkedBlockingQueue[TestProbe]
+
+    /**
+      * Stores the currently active processor actors. This is used to determine
+      * actors to be closed by the CloseSupport implementation.
+      */
+    private var activeProcessors = Iterable.empty[ActorRef]
+
+    /**
+      * Flag whether available media are present. This is needed to check the
+      * condition flag passed to the CloseSupport implementation.
+      */
+    private var availableMediaArrived = true
+
+    /**
+      * Flag whether currently a close operation is in progress. This flag is
+      * used by the CloseSupport implementation.
+      */
+    private var closeInProgress = false
 
     /**
       * Convenience function for sending a message to the test actor that starts
@@ -945,9 +933,31 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /**
       * Returns the number of child actors created by the test actor.
+      *
       * @return the number of child actors
       */
     def numberOfChildActors: Int = childActorCounter.get()
+
+    /**
+      * Returns the number of close requests that have been handled.
+      *
+      * @return the number of close requests
+      */
+    def numberOfCloseRequests: Int = closeRequestCounter.get()
+
+    /**
+      * Returns the number of close requests that have been completed.
+      *
+      * @return the number of complete close requests
+      */
+    def numberOfCloseCompleted: Int = closeCompleteCounter.get()
+
+    /**
+      * Returns the number of invocations of satisfied conditions.
+      *
+      * @return the satisfied conditions count
+      */
+    def numberOfSatisfiedConditions: Int = conditionSatisfiedCounter.get()
 
     /**
       * Returns the next child actor that has been created or fails if no
@@ -1011,6 +1021,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     optPersistenceManager getOrElse persistenceManager.ref
 
     /**
+      * Initializes flags required by tests of the close/cancel handling.
+      *
+      * @param avMediaPresent flag whether available media are set
+      * @param closing        flag whether a closing operation is in progress
+      * @param processors     the currently active processor actors
+      * @return this test helper
+      */
+    def prepareCloseRequest(avMediaPresent: Boolean = true, closing: Boolean = false)
+                           (processors: ActorRef*): MetaDataManagerActorTestHelper = {
+      availableMediaArrived = avMediaPresent
+      closeInProgress = closing
+      activeProcessors = processors
+      this
+    }
+
+    /**
      * Creates the standard test actor.
       *
       * @return the test actor
@@ -1019,7 +1045,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     TestActorRef(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config, persistenceManagerActorRef) with ChildActorFactory {
+      Props(new MetaDataManagerActor(config, persistenceManagerActorRef)
+        with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {
@@ -1031,6 +1058,35 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
           childActorQueue offer probe
           probe.ref
         }
+
+        /**
+          * @inheritdoc Returns the value of the flag set for the test class.
+          */
+        override def isCloseRequestInProgress: Boolean = closeInProgress
+
+        /**
+          * Checks parameters and records this invocation.
+          */
+        override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
+        ActorRef, factory: ChildActorFactory, conditionState: => Boolean): Boolean = {
+          subject should be(actor)
+          target should be(sender())
+          factory should be(this)
+          conditionState shouldBe availableMediaArrived
+          val allDeps = persistenceManagerActorRef :: activeProcessors.toList
+          deps should contain theSameElementsAs allDeps
+          closeRequestCounter.incrementAndGet() < 2
+        }
+
+        /**
+          * Records this invocation.
+          */
+        override def onCloseComplete(): Unit = closeCompleteCounter.incrementAndGet()
+
+        /**
+          * Records this invocation.
+          */
+        override def onConditionSatisfied(): Unit = conditionSatisfiedCounter.incrementAndGet()
       })
 
     /**

@@ -21,7 +21,8 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaFileUriHandler, MediaScanStarts}
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
+import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -30,6 +31,7 @@ object MetaDataManagerActor {
 
   private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef)
     extends MetaDataManagerActor(config, persistenceManager) with ChildActorFactory
+      with CloseSupport
 
   /**
     * Returns creation properties for an actor instance of this type.
@@ -102,7 +104,7 @@ object MetaDataManagerActor {
  */
 class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef) extends Actor
   with ActorLogging {
-  this: ChildActorFactory =>
+  this: ChildActorFactory with CloseSupport =>
 
   import MetaDataManagerActor._
 
@@ -134,17 +136,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private var availableMedia: Option[Map[MediumID, MediumInfo]] = None
 
-  /**
-    * A set that stores the actors from which a Close Ack is pending. This is
-    * used to determine when a scan can be canceled.
-    */
-  private var pendingCloseAck = Set.empty[ActorRef]
-
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
-
-  /** Stores information about a pending cancel request. */
-  private var cancelRequest: Option[ActorRef] = None
 
   /** The number of currently processed songs. */
   private var currentSongCount = 0
@@ -159,11 +152,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case MediaScanStarts if !scanInProgress =>
       initiateNewScan()
 
-    case esr: EnhancedMediaScanResult if scanInProgress && cancelRequest.isEmpty =>
-      persistenceManager ! esr
-      esr.scanResult.mediaFiles foreach prepareHandlerForMedium
-
-    case result: MetaDataProcessingResult if cancelRequest.isEmpty =>
+    case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
       handleProcessingResult(result.mediumID, result)
       if (isUnassignedMedium(result.mediumID)) {
         // update global unassigned list
@@ -180,23 +169,28 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       actorMap(root) ! ProcessMediaFiles(mid, files)
       processorActors = actorMap
 
+    case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
+      persistenceManager ! esr
+      esr.scanResult.mediaFiles foreach prepareHandlerForMedium
+
     case AvailableMedia(media) =>
       availableMedia = Some(media)
       checkAndHandleScanComplete()
-      checkAndHandleCancelRequest()
+      onConditionSatisfied()
 
     case CloseRequest if !scanInProgress =>
       sender ! CloseAck(self)
 
-    case CloseRequest if cancelRequest.isEmpty =>
-      cancelRequest = Some(sender())
-      pendingCloseAck = processorActors.values.toSet + persistenceManager
-      pendingCloseAck foreach (_ ! CloseRequest)
-      fireStateEvent(MetaDataScanCanceled)
+    case CloseRequest if scanInProgress =>
+      val actorsToClose = processorActors.values.toSet + persistenceManager
+      if (onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)) {
+        fireStateEvent(MetaDataScanCanceled)
+      }
 
-    case CloseAck(actor) =>
-      pendingCloseAck -= actor
-      checkAndHandleCancelRequest()
+    case CloseComplete =>
+      onCloseComplete()
+      mediumListeners.clear()
+      completeScanOperation()
 
     case GetMetaData(mediumID, registerAsListener, registrationID) =>
       mediaMap get mediumID match {
@@ -394,21 +388,6 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def allMediaProcessingResultsReceived: Boolean =
   availableMedia exists (m => m.keySet subsetOf completedMedia)
-
-  /**
-    * Checks whether a cancel request is pending and whether it can be served
-    * now. If so, the current scan operation is canceled.
-    */
-  private def checkAndHandleCancelRequest(): Unit = {
-    cancelRequest foreach { rec =>
-      if (pendingCloseAck.isEmpty && availableMedia.isDefined) {
-        rec ! CloseAck(self)
-        cancelRequest = None
-        mediumListeners.clear()
-        completeScanOperation()
-      }
-    }
-  }
 
   /**
     * Sends a meta data response message to the specified actor.
