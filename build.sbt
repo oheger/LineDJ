@@ -105,6 +105,7 @@ lazy val archiveUnion = (project in file("archiveUnion"))
   .settings(
     name := "linedj-archive-union",
     libraryDependencies ++= logDependencies,
+    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
