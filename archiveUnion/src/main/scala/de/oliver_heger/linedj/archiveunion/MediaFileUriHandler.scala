@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archiveunion
 
 import java.nio.file.Path
 
@@ -52,6 +52,19 @@ object MediaFileUriHandler {
     if (index > 0) Some(refUri.substring(PrefixReference.length, index))
     else None
   }
+
+  /**
+    * Resolves a URI pointing to a file belonging to a defined medium. In this
+    * case, the ''FileData'' can be obtained from the URI mapping.
+    *
+    * @param mediumID  the ID of the owning medium
+    * @param uri       the URI to be resolved
+    * @param mediaData the mapping for known media and their files
+    * @return an option with the resolved ''FileData'' object
+    */
+  private def resolvePathUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
+  .Map[MediumID, Map[String, FileData]]): Option[FileData] =
+    mediaData.get(mediumID).flatMap(_.get(uri))
 }
 
 /**
@@ -121,8 +134,7 @@ class MediaFileUriHandler {
     * @return an option with the resolved ''FileData'' object
     */
   def resolveUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
-  .Map[MediumID, Map[String,
-    FileData]]): Option[FileData] = {
+  .Map[MediumID, Map[String, FileData]]): Option[FileData] = {
     if (uri startsWith PrefixReference) {
       resolveReferenceUri(uri, mediaData)
     } else {
@@ -140,25 +152,11 @@ class MediaFileUriHandler {
     * @return an option with the resolved ''FileData'' object
     */
   private def resolveReferenceUri(uri: String, mediaData: scala.collection.mutable.Map[MediumID,
-    Map[String, FileData]]):
-  Option[FileData] =
+    Map[String, FileData]]): Option[FileData] =
     for {
       mediumUri <- extractMediumUriFromRefUri(uri)
       referencedMedium <- mediaData.keys.find(_.mediumURI == mediumUri)
       data <- resolvePathUri(referencedMedium, uri.substring(PrefixReference.length +
         referencedMedium.mediumURI.length + 1), mediaData)
     } yield data
-
-  /**
-    * Resolves a URI pointing to a file belonging to a defined medium. In this
-    * case, the ''FileData'' can be obtained from the URI mapping.
-    *
-    * @param mediumID  the ID of the owning medium
-    * @param uri       the URI to be resolved
-    * @param mediaData the mapping for known media and their files
-    * @return an option with the resolved ''FileData'' object
-    */
-  private def resolvePathUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
-  .Map[MediumID, Map[String, FileData]]): Option[FileData] =
-    mediaData.get(mediumID).flatMap(_.get(uri))
 }

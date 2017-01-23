@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archiveunion
 
 import java.nio.file.{Path, Paths}
 

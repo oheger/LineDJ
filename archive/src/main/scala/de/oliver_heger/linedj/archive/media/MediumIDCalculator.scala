@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.Path
 import java.util.zip.CRC32
 
+import de.oliver_heger.linedj.archiveunion.MediaFileUriHandler
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
