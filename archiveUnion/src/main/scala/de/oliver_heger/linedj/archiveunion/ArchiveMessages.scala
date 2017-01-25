@@ -18,8 +18,24 @@ package de.oliver_heger.linedj.archiveunion
 
 import java.nio.file.Path
 
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+
+/**
+  * A message processed by the meta data union actor defining media that will
+  * be contributed by an archive component.
+  *
+  * An archive component first has to send this message to the meta data union
+  * actor. So the actor knows which files are available and which meta data is
+  * expected. Then for each contributed media file a
+  * [[MetaDataProcessingResult]] message has to be sent. That way the meta data
+  * actor is able to determine when the meta data for all managed media is
+  * complete.
+  *
+  * @param files a map with meta data files that are part of this contribution
+  */
+case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
 
 /**
   * A message with the result of meta data extraction for a single media file.
