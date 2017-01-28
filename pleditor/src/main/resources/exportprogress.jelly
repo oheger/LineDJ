@@ -64,7 +64,7 @@
       beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportController">
       <di:constructor>
         <di:param refName="jguiraffe.applicationContext"/>
-        <di:param refName="LineDJ_RemoteMessageBus"/>
+        <di:param refName="LineDJ_MediaFacade"/>
         <di:param refName="LineDJ_ActorFactory"/>
         <di:param refName="exportData"/>
         <di:param refName="comp:progressRemove"/>
