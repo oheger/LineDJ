@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archiveunion
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
-import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 
 object MetaDataUnionActor {
@@ -119,19 +119,25 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
   override def receive: Receive = {
     case MediaContribution(files) =>
-      scanInProgress = true
-      fireStateEvent(MetaDataScanStarted)
+      if (!scanInProgress) {
+        scanInProgress = true
+        fireStateEvent(MetaDataScanStarted)
+      }
       files foreach prepareHandlerForMedium
 
-    case result: MetaDataProcessingResult =>
-      handleProcessingResult(result.mediumID, result)
-      if (isUnassignedMedium(result.mediumID)) {
-        // update global unassigned list
-        handleProcessingResult(MediumID.UndefinedMediumID, result)
+    case result: MetaDataProcessingResult if scanInProgress =>
+      if (handleProcessingResult(result.mediumID, result)) {
+        if (isUnassignedMedium(result.mediumID)) {
+          // update global unassigned list
+          handleProcessingResult(MediumID.UndefinedMediumID, result)
+        }
+        currentSongCount += 1
+        currentDuration += result.metaData.duration getOrElse 0
+        currentSize += result.metaData.size
       }
-      currentSongCount += 1
-      currentDuration += result.metaData.duration getOrElse 0
-      currentSize += result.metaData.size
+
+    case ScanAllMedia if !scanInProgress =>
+      initiateNewScan()
 
     case GetMetaData(mediumID, registerAsListener, registrationID) =>
       mediaMap get mediumID match {
@@ -168,6 +174,17 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         log.info("Removed state listener.")
       }
 
+    case ArchiveComponentRemoved(archiveCompID) =>
+      handleRemovedArchiveComponent(archiveCompID)
+
+    case CloseRequest =>
+      if (scanInProgress) {
+        fireStateEvent(MetaDataScanCanceled)
+        mediumListeners.clear()
+        completeScanOperation()
+      }
+      sender ! CloseAck(self)
+
     case Terminated(actor) =>
       // a state listener actor died, so remove it from the set
       removeStateListenerActor(actor)
@@ -181,6 +198,19 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @return a set with the registered state listeners
     */
   def registeredStateListeners: Set[ActorRef] = stateListeners
+
+  /**
+    * Prepares a new scan operation. Initializes some internal state.
+    */
+  private def initiateNewScan(): Unit = {
+    fireStateEvent(MetaDataScanStarted)
+    mediaMap.clear()
+    scanInProgress = true
+    currentSize = 0
+    currentDuration = 0
+    currentSongCount = 0
+    completedMedia = Set.empty
+  }
 
   /**
     * Prepares the handler object for a medium. If this medium is already known,
@@ -220,10 +250,16 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param mediumID the ID of the affected medium
     * @param result   the result to be handled
+    * @return a flag whether the medium ID coult be reslved
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult): Unit = {
-    mediaMap get mediumID foreach processMetaDataResult(mediumID, result)
-  }
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
+  Boolean =
+    mediaMap.get(mediumID) match {
+      case Some(handler) =>
+        processMetaDataResult(mediumID, result)(handler)
+        true
+      case None => false
+    }
 
   /**
     * Processes a meta data result that has been produced by a child actor. The
@@ -240,13 +276,13 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {
       mediumListeners remove mediumID
-      completedMedia += mediumID
       if (mediumID != MediumID.UndefinedMediumID) {
         // the undefined medium is handled at the very end of the scan
+        completedMedia += mediumID
         fireStateEvent(MediumMetaDataCompleted(mediumID))
         fireStateEvent(createStateUpdatedEvent())
+        checkAndHandleScanComplete()
       }
-      checkAndHandleScanComplete()
     }
   }
 
@@ -285,7 +321,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     }
     fireStateEvent(createStateUpdatedEvent()) // a final update event
     fireStateEvent(MetaDataScanCompleted)
-    completedMedia = Set.empty
   }
 
   /**
@@ -296,6 +331,24 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def hasUndefinedMedium: Boolean =
     completedMedia.exists(_.mediumDescriptionPath.isEmpty)
+
+  /**
+    * Handles the removal of an archive component. This requires updates on
+    * the managed meta data.
+    *
+    * @param archiveCompID the ID of the removed component
+    */
+  private def handleRemovedArchiveComponent(archiveCompID: String): Unit = {
+    val media = mediaMap.filter(e => e._1.archiveComponentID == archiveCompID)
+    media foreach { e =>
+      mediaMap.remove(e._1)
+      val stat = e._2.calculateStatistics()
+      currentSongCount -= stat.songCount
+      currentDuration -= stat.duration
+      currentSize -= stat.size
+      completedMedia -= e._1
+    }
+  }
 
   /**
     * Returns a flag whether the processing results for all media have been
@@ -326,8 +379,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def createStateUpdatedEvent(): MetaDataStateUpdated =
     MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount =
-      currentSongCount,
-      duration = currentDuration, size = currentSize, scanInProgress = scanInProgress))
+      currentSongCount, duration = currentDuration, size = currentSize,
+      scanInProgress = scanInProgress))
 
   /**
     * Sends the specified event to all registered state listeners.

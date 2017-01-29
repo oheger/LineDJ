@@ -93,7 +93,22 @@ case class MediumMetaDataCompleted(mediumID: MediumID) extends MetaDataStateEven
   * @param scanInProgress a flag whether currently a scan is in progress
   */
 case class MetaDataState(mediaCount: Int, songCount: Int, size: Long, duration: Long,
-                         scanInProgress: Boolean)
+                         scanInProgress: Boolean) {
+  /**
+    * Returns a new ''MetaDataState'' object which represents the sum of this
+    * object and the specified meta data. This is useful to calculate
+    * statistics over multiple files on a medium or even over multiple media.
+    * The properties of the specified ''MediaMetaData'' are added to the
+    * properties of this object; other properties (e.g. the ''mediaCount''
+    * or the ''scanInProgress'' state) are not modified.
+    *
+    * @param data the meta data to be added to this instance
+    * @return the updated ''MetaDataState''
+    */
+  def +(data: MediaMetaData): MetaDataState =
+    copy(songCount = songCount + 1, size = size + data.size,
+      duration = duration + data.duration.getOrElse(0))
+}
 
 /**
   * A meta data state event propagating statistics about the media archive to

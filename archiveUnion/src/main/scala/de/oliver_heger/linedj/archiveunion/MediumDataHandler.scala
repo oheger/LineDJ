@@ -20,7 +20,7 @@ import java.nio.file.Path
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
 
 /**
   * An internally used helper class for storing and managing the meta data
@@ -99,6 +99,22 @@ private abstract class MediumDataHandler(mediumID: MediumID) {
     * @return the data managed by this object
     */
   def metaData: Seq[MetaDataChunk] = currentData
+
+  /**
+    * Returns a ''MetaDataState'' object with statistical information about
+    * the songs managed by this object. This is used for instance when the
+    * medium is removed and the statistics of the archive has to be updated
+    * accordingly.
+    *
+    * @return an object with statistics about the represented medium
+    */
+  def calculateStatistics(): MetaDataState = {
+    val allMetaData = currentData flatMap (_.data.values)
+    val initState = MetaDataState(mediaCount = 1, songCount = 0, size = 0,
+      duration = 0, scanInProgress = false)
+
+    allMetaData.foldLeft(initState)((s, d) => s + d)
+  }
 
   /**
     * Extracts the URI to be used when storing the specified result. The URI is
