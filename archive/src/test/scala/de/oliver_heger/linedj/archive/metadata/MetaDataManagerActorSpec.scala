@@ -333,7 +333,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "handle the undefined medium even over multiple scan results" in {
     def refUri(mediumID: MediumID)(path: Path): String =
-      MediaFileUriHandler.PrefixReference + mediumID.mediumURI + ":" + uriFor(path)
+      MediaFileUriHandler.PrefixReference + mediumID.mediumURI + ":" +
+        mediumID.archiveComponentID + ":" + uriFor(path)
 
     def findUrisInChunk(mediumID: MediumID, chunk: MetaDataChunk, files: Seq[FileData]): Unit = {
       files.map(d => refUri(mediumID)(d.path)).filterNot(chunk.data.contains) should have length 0

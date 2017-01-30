@@ -26,6 +26,12 @@ object MediaFileUriHandlerSpec {
   /** The name of the root path. */
   private val RootName = "mediumRoot"
 
+  /** The name of an archive component ID. */
+  private val ComponentID = "Archive Component ID:42"
+
+  /** Constant for an URL encoded component ID. */
+  private val ComponentIDEnc = "Archive+Component+ID%3A42"
+
   /** A root medium path. */
   private val Root = Paths get RootName
 
@@ -33,7 +39,7 @@ object MediaFileUriHandlerSpec {
   private val Directory = "music"
 
   /** A test medium ID. */
-  private val TestMedium = MediumID(RootName, None)
+  private val TestMedium = MediumID(RootName, None, ComponentID)
 
   /**
     * Generates the path to a test file.
@@ -60,24 +66,22 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
   import MediaFileUriHandlerSpec._
 
   "A MediaFileUriHandler" should "generate a correct media file URI" in {
-    val handler = new MediaFileUriHandler
     val fileName = "MySong.mp3"
 
-    handler.generateMediaFileUri(Root, filePath(fileName)) should be(s"path://$Directory/$fileName")
+    MediaFileUriHandler.generateMediaFileUri(Root,
+      filePath(fileName)) should be(s"path://$Directory/$fileName")
   }
 
   it should "generate a correct URI for the global undefined medium" in {
     val fileURI = s"path://$Directory/someFile.mp3"
-    val handler = new MediaFileUriHandler
 
-    handler.generateUndefinedMediumUri(TestMedium, fileURI) should be("ref://" + RootName + ":" + fileURI)
+    val expected = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileURI
+    MediaFileUriHandler.generateUndefinedMediumUri(TestMedium, fileURI) should be(expected)
   }
 
   it should "return None if an unknown medium ID is to be resolved" in {
-    val handler = new MediaFileUriHandler
-
-    handler.resolveUri(TestMedium, "path://somePath/someFile.mp3", scala.collection.mutable.Map
-      .empty) shouldBe 'empty
+    MediaFileUriHandler.resolveUri(TestMedium, "path://somePath/someFile.mp3",
+      scala.collection.mutable.Map.empty) shouldBe 'empty
   }
 
   it should "resolve a valid path URI" in {
@@ -88,17 +92,26 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val otherUri = s"path://$Directory/someOtherFile.ogg"
     val UriMapping = Map(fileUri -> fileData1, otherUri -> fileData2)
     val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
-    val handler = new MediaFileUriHandler
 
-    handler.resolveUri(TestMedium, fileUri, MediaData) should be(Some(fileData1))
+    MediaFileUriHandler.resolveUri(TestMedium, fileUri, MediaData) should be(Some(fileData1))
   }
 
   it should "return None if an unknown URI is to be resolved" in {
     val UriMapping = Map("someUri" -> fileData("someFile"))
     val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
-    val handler = new MediaFileUriHandler
 
-    handler.resolveUri(TestMedium, "path://somePath/someFile.mp3", MediaData) shouldBe 'empty
+    MediaFileUriHandler.resolveUri(TestMedium, "path://somePath/someFile.mp3",
+      MediaData) shouldBe 'empty
+  }
+
+  it should "be able to split a valid URI for the global undefined medium" in {
+    val filePath = s"$Directory/Music.mp3"
+    val fileUri = MediaFileUriHandler.PrefixPath + filePath
+    val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileUri
+
+    val uri = MediaFileUriHandler extractRefUri refUri
+    uri.get should be(UndefinedMediumUri(RootName, ComponentID, filePath))
+    uri.get.pathUri should be(fileUri)
   }
 
   it should "resolve a valid URI for the global undefined medium" in {
@@ -107,17 +120,30 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val fileUri = s"path://$Directory/$fileName"
     val UriMapping = Map(fileUri -> data)
     val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
-    val refUri = "ref://" + RootName + ":" + fileUri
-    val handler = new MediaFileUriHandler
+    val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileUri
 
-    handler.resolveUri(MediumID.UndefinedMediumID, refUri, MediaData) should be(Some(data))
+    MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
+      MediaData) should be(Some(data))
+  }
+
+  it should "resolve an undefined medium URI to the correct archive component" in {
+    val fileName = "ReferencedSong.mp3"
+    val data = fileData(fileName)
+    val fileUri = s"path://$Directory/$fileName"
+    val mid2 = MediumID(RootName, None, ComponentID + "_other")
+    val UriMapping = Map(fileUri -> data)
+    val UriMapping2 = Map(fileUri -> fileData("anotherName.mp3"))
+    val MediaData = scala.collection.mutable.Map(mid2 -> UriMapping2, TestMedium -> UriMapping)
+    val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileUri
+
+    MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
+      MediaData) should be(Some(data))
   }
 
   it should "return None for an invalid URI for the global undefined medium" in {
-    val refUri = "ref://" + RootName + ":NoPathUriFollows"
-    val handler = new MediaFileUriHandler
+    val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":NoPathUriFollows"
 
-    handler.resolveUri(MediumID.UndefinedMediumID, refUri,
+    MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
       scala.collection.mutable.Map.empty) shouldBe 'empty
   }
 
@@ -127,32 +153,29 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val fileUri = s"path://$Directory/$fileName"
     val UriMapping = Map(fileUri -> data)
     val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
-    val refUri = "ref://unknownMedium:" + fileUri
-    val handler = new MediaFileUriHandler
+    val refUri = "ref://unknownMedium:" + ComponentIDEnc + ":" + fileUri
 
-    handler.resolveUri(MediumID.UndefinedMediumID, refUri, MediaData) shouldBe 'empty
+    MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
+      MediaData) shouldBe 'empty
   }
 
   it should "be able to remove a path prefix" in {
     val relUri = s"$Directory/someFile.mp3"
     val fileUri = s"path://$relUri"
-    val handler = new MediaFileUriHandler
 
-    handler removePrefix fileUri should be(relUri)
+    MediaFileUriHandler removePrefix fileUri should be(relUri)
   }
 
   it should "be able to remove a reference prefix" in {
-    val relUri = s"someMedium:path://$Directory/someFile.mp3"
+    val relUri = s"someMedium:someComponent:path://$Directory/someFile.mp3"
     val fileUri = s"ref://$relUri"
-    val handler = new MediaFileUriHandler
 
-    handler removePrefix fileUri should be(relUri)
+    MediaFileUriHandler removePrefix fileUri should be(relUri)
   }
 
   it should "not change a URI without a prefix" in {
     val uri = "uri:without:prefix"
-    val handler = new MediaFileUriHandler
 
-    handler removePrefix uri should be(uri)
+    MediaFileUriHandler removePrefix uri should be(uri)
   }
 }

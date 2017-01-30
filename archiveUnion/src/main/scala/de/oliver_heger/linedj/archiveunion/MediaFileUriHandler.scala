@@ -16,11 +16,47 @@
 
 package de.oliver_heger.linedj.archiveunion
 
+import java.net.{URLDecoder, URLEncoder}
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+import java.util.regex.Pattern
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
+import scala.collection.mutable
+
+/**
+  * A data class representing an URI for the global undefined medium split
+  * into its single components.
+  * @param mediumURI the URI of the medium
+  * @param componentID the ID of the archive component responsible for the
+  *                    represented file
+  * @param path the path local to the archive component (without the path
+  *             prefix)
+  */
+case class UndefinedMediumUri(mediumURI: String, componentID: String, path: String) {
+  /**
+    * The URI to the referenced file, local to the archive component. This is
+    * the ''path'' prefixed with the ''PathPrefix''
+    */
+  lazy val pathUri: String = MediaFileUriHandler.PrefixPath + path
+}
+
+/**
+  * A class which is responsible for the handling of the URIs for media files.
+  *
+  * An archive component typically accesses media files directly by using their
+  * absolute ''Path'' objects. When information about media files is passed to
+  * clients these paths are converted to URIs. Clients request media files
+  * in terms of their URIs; so there has to be a bidirectional conversion
+  * between paths and URIs. This class is responsible for this.
+  *
+  * Situation is a bit more complicated because of the global list of files
+  * that do not belong to a medium. The URIs for the files in this list need to
+  * have a special format, so that they can be mapped again to paths objects,
+  * also identifying the owning archive component.
+  */
 object MediaFileUriHandler {
   /**
     * A prefix for media file URIs that represent song files located under a
@@ -34,55 +70,12 @@ object MediaFileUriHandler {
     */
   val PrefixReference = "ref://"
 
-  /**
-    * Constant for a path URI prefix which is used when the URI is embedded
-    * into a reference URI.
-    */
-  private val PathSeparator = ":" + PrefixPath
+  /** Regular expression for parsing undefined medium URIs. */
+  private val RegExUndefinedMediumUri = (Pattern.quote(PrefixReference) +
+    """(.+):(.*):""" + Pattern.quote(PrefixPath) + "(.+)").r
 
-  /**
-    * Extracts the part of a reference URI which defines the URI of the
-    * referenced medium.
-    *
-    * @param refUri the reference URI
-    * @return an option with the URI of the referenced medium
-    */
-  private def extractMediumUriFromRefUri(refUri: String): Option[String] = {
-    val index = refUri indexOf PathSeparator
-    if (index > 0) Some(refUri.substring(PrefixReference.length, index))
-    else None
-  }
-
-  /**
-    * Resolves a URI pointing to a file belonging to a defined medium. In this
-    * case, the ''FileData'' can be obtained from the URI mapping.
-    *
-    * @param mediumID  the ID of the owning medium
-    * @param uri       the URI to be resolved
-    * @param mediaData the mapping for known media and their files
-    * @return an option with the resolved ''FileData'' object
-    */
-  private def resolvePathUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
-  .Map[MediumID, Map[String, FileData]]): Option[FileData] =
-    mediaData.get(mediumID).flatMap(_.get(uri))
-}
-
-/**
-  * A class which is responsible for the handling of the URIs for media files.
-  *
-  * On the server side, media files are accessed directly by using their
-  * absolute ''Path'' objects. When information about media files is passed to
-  * the client these paths are converted to URIs. Clients request media files
-  * in terms of their URIs; so there has to be a bidirectional conversion
-  * between paths and URIs. This class is responsible for this.
-  *
-  * Situation is a bit more complicated because of the global list of files
-  * that do not belong to a medium. The URIs for the files in this list need to
-  * have a special format, so that they can be mapped again to paths objects.
-  */
-class MediaFileUriHandler {
-
-  import MediaFileUriHandler._
+  /** Constant for the separator character in URIs. */
+  private val UriSeparator = ":"
 
   /**
     * Generates the URI for a regular medium file that is located under a
@@ -107,7 +100,7 @@ class MediaFileUriHandler {
     * @return the generated URI referencing this file
     */
   def generateUndefinedMediumUri(mediumID: MediumID, pathURI: String): String =
-    PrefixReference + mediumID.mediumURI + ":" + pathURI
+    PrefixReference + encodeMediumID(mediumID) + UriSeparator + pathURI
 
   /**
     * Removes the prefix (indicating the URI type) from the given URI. This is
@@ -121,6 +114,22 @@ class MediaFileUriHandler {
     if (uri startsWith PrefixPath) uri.substring(PrefixPath.length)
     else if (uri startsWith PrefixReference) uri.substring(PrefixReference.length)
     else uri
+
+  /**
+    * Extracts the single components of an URI pointing the global undefined
+    * medium. If the URI is valid, an ''UndefinedMediumUri'' object is returned
+    * allowing direct access to the single URI components. Otherwise, result is
+    * ''None''.
+    *
+    * @param refUri the reference URI to be extracted
+    * @return an option with the ''UndefinedMediumUri'' object extracted
+    */
+  def extractRefUri(refUri: String): Option[UndefinedMediumUri] =
+    refUri match {
+      case RegExUndefinedMediumUri(medUri, compID, path) =>
+        Some(UndefinedMediumUri(medUri, decodeComponentID(compID), path))
+      case _ => None
+    }
 
   /**
     * Resolves the URI to a medium file. This method can handle URIs produced
@@ -154,9 +163,64 @@ class MediaFileUriHandler {
   private def resolveReferenceUri(uri: String, mediaData: scala.collection.mutable.Map[MediumID,
     Map[String, FileData]]): Option[FileData] =
     for {
-      mediumUri <- extractMediumUriFromRefUri(uri)
-      referencedMedium <- mediaData.keys.find(_.mediumURI == mediumUri)
-      data <- resolvePathUri(referencedMedium, uri.substring(PrefixReference.length +
-        referencedMedium.mediumURI.length + 1), mediaData)
+      extractedUri <- extractRefUri(uri)
+      referencedMedium <- findMediumForUri(mediaData, extractedUri)
+      data <- resolvePathUri(referencedMedium, extractedUri.pathUri, mediaData)
     } yield data
+
+  /**
+    * Tries to match the medium ID for the specified ''UndefinedMediumUri''.
+    *
+    * @param mediaData    the map with data about available media
+    * @param undefinedUri the ''UndefinedMediumUri''
+    * @return an option with the matched ''MediumID''
+    */
+  private def findMediumForUri(mediaData: mutable.Map[MediumID, Map[String, FileData]],
+                               undefinedUri: UndefinedMediumUri): Option[MediumID] =
+    mediaData.keys.find { m =>
+      m.mediumURI == undefinedUri.mediumURI &&
+        m.archiveComponentID == undefinedUri.componentID
+    }
+
+  /**
+    * Returns an encoded form of the specified medium ID. For URIs of the
+    * global undefined medium the original medium ID has to be contained in
+    * encoded form.
+    *
+    * @param mid the ''MediumID'' to be encoded
+    * @return the encoded ''MediumID''
+    */
+  private def encodeMediumID(mid: MediumID): String =
+    mid.mediumURI + UriSeparator + encodeComponentID(mid.archiveComponentID)
+
+  /**
+    * Resolves a URI pointing to a file belonging to a defined medium. In this
+    * case, the ''FileData'' can be obtained from the URI mapping.
+    *
+    * @param mediumID  the ID of the owning medium
+    * @param uri       the URI to be resolved
+    * @param mediaData the mapping for known media and their files
+    * @return an option with the resolved ''FileData'' object
+    */
+  private def resolvePathUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
+  .Map[MediumID, Map[String, FileData]]): Option[FileData] =
+    mediaData.get(mediumID).flatMap(_.get(uri))
+
+  /**
+    * Encodes an archive component ID so that it can be referenced in a URI.
+    *
+    * @param compID the component ID to be encoded
+    * @return the encoded component ID
+    */
+  private def encodeComponentID(compID: String): String =
+    URLEncoder.encode(compID, StandardCharsets.UTF_8.name())
+
+  /**
+    * Decodes an archive component ID extracted from a URI.
+    *
+    * @param compID the encoded component ID
+    * @return the decoded component ID
+    */
+  private def decodeComponentID(compID: String): String =
+    URLDecoder.decode(compID, StandardCharsets.UTF_8.name())
 }

@@ -146,11 +146,8 @@ Actor with ActorLogging {
   /** A helper object for scanning directory structures. */
   private[media] val directoryScanner = new MediaScanner(config.excludedFileExtensions)
 
-  /** The URI handler. */
-  private val uriHandler = new MediaFileUriHandler
-
   /** A helper object for calculating media IDs. */
-  private[media] val idCalculator = new MediumIDCalculator(uriHandler)
+  private[media] val idCalculator = new MediumIDCalculator
 
   /** A helper object for parsing medium description files. */
   private[media] val mediumInfoParser = new MediumInfoParser
@@ -506,7 +503,7 @@ Actor with ActorLogging {
    * @return an option with the ''FileData''
    */
   private def fetchFileData(request: MediumFileRequest): Option[FileData] = {
-    uriHandler.resolveUri(request.mediumID, request.uri, mediaFiles)
+    MediaFileUriHandler.resolveUri(request.mediumID, request.uri, mediaFiles)
   }
 
   /**

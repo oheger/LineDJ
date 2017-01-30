@@ -383,7 +383,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = prepareHelperForScannedMedia()
     val targetFileUri = helper.Medium1IDData.fileURIMapping.keys.head
     val targetFile = helper.Medium1IDData.fileURIMapping(targetFileUri)
-    val fileURI = "ref://" + helper.Medium1IDData.mediumID.mediumURI + ":" + targetFileUri
+    val fileURI = "ref://" + helper.Medium1IDData.mediumID.mediumURI + ":" +
+      helper.Medium1IDData.mediumID.archiveComponentID + ":" +  targetFileUri
     helper.testManagerActor ! MediumFileRequest(MediumID.UndefinedMediumID, fileURI,
       withMetaData = false)
 

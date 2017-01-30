@@ -87,9 +87,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
   import MetaDataUnionActor._
 
-  /** A helper object for generating URIs. */
-  private val uriHandler = new MediaFileUriHandler
-
   /**
     * A map for storing the extracted meta data for all media.
     */
@@ -239,7 +236,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private def createHandlerForMedium(mediumID: MediumID): MediumDataHandler =
     if (MediumID.UndefinedMediumID == mediumID) new MediumDataHandler(mediumID) {
       override protected def extractUri(result: MetaDataProcessingResult): String =
-        uriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
+        MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
     } else new MediumDataHandler(mediumID) {
       override protected def extractUri(result: MetaDataProcessingResult): String =
         result.uri

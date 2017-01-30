@@ -309,7 +309,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "handle the undefined medium even over multiple contributions" in {
     def refUri(mediumID: MediumID)(path: Path): String =
-      s"ref://${mediumID.mediumURI}:${uriFor(path)}"
+      s"ref://${mediumID.mediumURI}:${mediumID.archiveComponentID}:${uriFor(path)}"
 
     def findUrisInChunk(mediumID: MediumID, chunk: MetaDataChunk, files: Iterable[FileData]): Unit = {
       files.map(d => refUri(mediumID)(d.path)).filterNot(chunk.data.contains) shouldBe 'empty

@@ -3,11 +3,8 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.{Path, Paths}
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archiveunion.MediaFileUriHandler
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.mockito.Mockito._
-import org.mockito.Matchers.any
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
@@ -64,18 +61,6 @@ FileTestHelper with MockitoSugar {
     val calculator = new MediumIDCalculator
     calculator.calculateMediumID(testDirectory, TestID, ScanResult, createContentList())
       .checksum should be(CheckSum)
-  }
-
-  it should "use the provided URI handler" in {
-    val uriHandler = mock[MediaFileUriHandler]
-    val path = toPath("testPath")
-    val content = List(FileData(path, 1))
-    when(uriHandler.generateMediaFileUri(testDirectory, path)).thenReturn(MediumURI)
-    when(uriHandler.removePrefix(any(classOf[String]))).thenReturn("someURI")
-    val calculator = new MediumIDCalculator(uriHandler)
-
-    calculator.calculateMediumID(testDirectory, TestID, ScanResult, content)
-    verify(uriHandler).generateMediaFileUri(testDirectory, path)
   }
 
   it should "return the same ID independent on ordering" in {
