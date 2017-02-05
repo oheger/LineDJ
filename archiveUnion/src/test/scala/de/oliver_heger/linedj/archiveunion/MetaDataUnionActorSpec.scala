@@ -60,6 +60,27 @@ object MetaDataUnionActorSpec {
   private val Contribution = createContribution()
 
   /**
+    * Constant for a fishing function which does no processing of messages.
+    * This is used by ''findScanCompletedEvent()'' if the original behavior
+    * does not have to be modified.
+    */
+  private val NoFishing: PartialFunction[Any, Boolean] =
+    new PartialFunction[Any, Boolean] {
+      override def isDefinedAt(x: Any): Boolean = false
+      override def apply(v1: Any): Boolean = false
+    }
+
+  /**
+    * Constant for a fishing function for finding the scan completed event.
+    */
+  private val FishForScanComplete: PartialFunction[Any, Boolean] = {
+    case MetaDataScanStarted => false
+    case _: MetaDataStateUpdated => false
+    case _: MediumMetaDataCompleted => false
+    case MetaDataScanCompleted => true
+  }
+
+  /**
     * Helper method for generating a path.
     *
     * @param s the name of this path
@@ -73,7 +94,7 @@ object MetaDataUnionActorSpec {
     * @param path the path
     * @return the URI for this path
     */
-  private def uriFor(path: Path): String = "song://" + path.toString
+  private def uriFor(path: Path): String = MediaFileUriHandler.PrefixPath + path.toString
 
   /**
     * Generates a medium ID.
@@ -168,11 +189,27 @@ object MetaDataUnionActorSpec {
 
   /**
     * Extracts the first ''MediumID'' found in the specified contribution.
+    *
     * @param contribution the contribution
     * @return the extracted medium ID
     */
   private def extractMediumID(contribution: MediaContribution): MediumID =
     contribution.files.keys.head
+
+  /**
+    * Finds all undefined media in the specified contribution and returns a
+    * collection with all URIs of their files.
+    *
+    * @param contrib the contribution
+    * @return all URIs of matched files as they appear in the global undefined
+    *         list
+    */
+  private def undefinedMediumUris(contrib: MediaContribution): Iterable[String] = {
+    val undef = contrib.files.filter(e => e._1.mediumDescriptionPath.isEmpty)
+    undef.toList.flatMap { e =>
+      e._2 map (f => MediaFileUriHandler.generateUndefinedMediumUri(e._1, uriFor(f.path)))
+    }
+  }
 
   /**
     * Helper method to ensure that no more messages are sent to a test probe.
@@ -184,6 +221,20 @@ object MetaDataUnionActorSpec {
   private def expectNoMoreMessage(probe: TestProbe): Unit = {
     probe.ref ! TestMessage
     probe.expectMsg(TestMessage)
+  }
+
+  /**
+    * Fishes for the scan completed event on the specified test probe. If the
+    * probe is registered as meta data state listener, the end of a scan
+    * operation can be determined. A custom fishing function can be provided to
+    * react on specific events.
+    *
+    * @param probe the listener probe
+    * @param f     a custom fishing function
+    */
+  private def findScanCompletedEvent(probe: TestProbe)
+                                    (f: PartialFunction[Any, Boolean] = NoFishing): Unit = {
+    probe.fishForMessage()(f orElse FishForScanComplete)
   }
 }
 
@@ -325,6 +376,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       filesForChunk1, expComplete = false)(refUri(UndefinedMediumID))
     val filesForChunk2 = List(Contribution.files(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
+    Contribution.files.filterNot(_._1.mediumDescriptionPath.isEmpty)
+      .foreach(e => helper.sendProcessingResults(e._1, e._2))
     checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
       filesForChunk2, expComplete = true)(refUri(UndefinedMediumID))
 
@@ -332,8 +385,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val root2 = path("anotherRootDirectory")
     val UndefinedMediumID2 = MediumID(root2.toString, None)
     val contribution2 = MediaContribution(Map(UndefinedMediumID2 -> filesForChunk3))
-    helper.actor ! contribution2
-    helper.sendProcessingResults(UndefinedMediumID2, filesForChunk3)
+    helper.sendContribution(contribution2)
+      .sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
     val chunk = helper.expectMetaDataResponse(0)
     findUrisInChunk(UndefinedMediumID, chunk, Contribution.files(UndefinedMediumID))
@@ -570,13 +623,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val contrib2 = processAnotherContribution(helper, generateMediaFiles(path("other"), 8))
     val startEventCount = new AtomicInteger
     helper.sendAllProcessingResults(Contribution)
-    listener.fishForMessage() {
+    findScanCompletedEvent(listener) {
       case MetaDataScanStarted =>
         startEventCount.incrementAndGet()
         false
-      case _: MetaDataStateUpdated => false
-      case _: MediumMetaDataCompleted => false
-      case MetaDataScanCompleted => true
     }
     val mid = extractMediumID(contrib2)
     checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = false), mid,
@@ -599,7 +649,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendContribution().sendContribution(otherContrib)
       .sendAllProcessingResults(Contribution).sendAllProcessingResults(otherContrib)
 
-    helper.actor ! MetaDataUnionActor.ArchiveComponentRemoved(ArchiveCompID)
+    helper.sendArchiveComponentRemoved()
     checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
       TestMediumID, Contribution.files(TestMediumID), expComplete = true)
     otherContrib.files.keys foreach helper.queryAndExpectUnknownMedium
@@ -614,7 +664,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val stateOriginal = listener.expectMsgType[MetaDataStateUpdated]
 
     helper.sendAllProcessingResults(otherContrib)
-    helper.actor ! MetaDataUnionActor.ArchiveComponentRemoved(ArchiveCompID)
+      .sendArchiveComponentRemoved()
     val listener2 = helper.newStateListener(expectStateMsg = false)
     val state = listener2.expectMsgType[MetaDataStateUpdated]
     state.state.copy(scanInProgress = true) should be(stateOriginal.state)
@@ -644,6 +694,154 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     val listener = helper.newStateListener(expectStateMsg = false)
     listener.expectMsgType[MetaDataStateUpdated].state.songCount should be(Count)
+  }
+
+  it should "adapt the global undefined list if an archive component is removed" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val contrib = createContributionFromOtherComponent()
+    helper.processContribution(Contribution).processContribution(contrib)
+      .sendArchiveComponentRemoved()
+
+    val chunk = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
+      registerAsListener = false)
+    chunk.complete shouldBe true
+    val uris = undefinedMediumUris(contrib)
+    uris foreach (chunk.data.keys should not contain _)
+  }
+
+  it should "not restructure the undefined medium if not affected by a removed component" in {
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(Contribution)
+    val chunk = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
+      registerAsListener = false)
+
+    helper.sendArchiveComponentRemoved("some unknown archive component")
+    val chunk2 = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
+      registerAsListener = false)
+    chunk2 should be theSameInstanceAs chunk
+  }
+
+  it should "handle multiple chunks of the undefined medium if a component is removed" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val mid = MediumID("alternativeMedium", None, "alternativeComponent")
+    val alternativeContribution =
+      MediaContribution(Map(mid -> generateMediaFiles(path("alternative"), 8)))
+    val otherContrib = createContributionFromOtherComponent()
+    helper.processContribution(Contribution)
+      .processContribution(otherContrib)
+      .processContribution(alternativeContribution)
+      .sendArchiveComponentRemoved(mid.archiveComponentID)
+
+    val chunk1 = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
+      registerAsListener = false)
+    chunk1.complete shouldBe false
+    val chunk2 = helper.expectMetaDataResponse()
+    chunk2.complete shouldBe true
+    val allKeys = chunk1.data.keySet ++ chunk2.data.keySet
+    val uris = undefinedMediumUris(Contribution).toSeq ++ undefinedMediumUris(otherContrib)
+    allKeys should contain only(uris: _*)
+  }
+
+  it should "remove the undefined medium if it is no longer present" in {
+    val contrib = MediaContribution(Map(
+      mediumID("someMedium") -> generateMediaFiles(path("somePath"), 4)))
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(contrib)
+      .processContribution(createContributionFromOtherComponent())
+      .sendArchiveComponentRemoved()
+
+    helper.queryAndExpectUnknownMedium(MediumID.UndefinedMediumID)
+  }
+
+  it should "send events when an archive component is removed" in {
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(Contribution)
+    val listener1 = helper.newStateListener(expectStateMsg = false)
+    val orgState = listener1.expectMsgType[MetaDataStateUpdated]
+    helper.processContribution(createContributionFromOtherComponent())
+    val listener2 = helper.newStateListener()
+
+    helper.sendArchiveComponentRemoved()
+    listener2.expectMsg(MetaDataScanStarted)
+    listener2.expectMsg(orgState)
+    listener2.expectMsg(MetaDataScanCompleted)
+  }
+
+  it should "reset the undefined medium when another scan starts" in {
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(createContributionFromOtherComponent())
+      .sendScanStartsMessage()
+      .processContribution(Contribution)
+
+    val chunk = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
+      registerAsListener = false)
+    chunk.data should have size undefinedMediumUris(Contribution).size
+  }
+
+  it should "process a removed archive component during a scan operation" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val orgState = helper.processContribution(Contribution).readCurrentMetaDataState()
+    helper.sendScanStartsMessage().sendContribution()
+    val SongCount = 4
+    processAnotherContribution(helper, generateMediaFiles(path("somePath"), SongCount))
+
+    val stateInProgress = helper.sendArchiveComponentRemoved(expectResponse = false)
+      .readCurrentMetaDataState()
+    val listener = helper.newStateListener()
+    helper.sendAllProcessingResults(Contribution)
+    findScanCompletedEvent(listener)()
+    stateInProgress.scanInProgress shouldBe true
+    stateInProgress.songCount should be(SongCount)
+    listener.expectMsg(MetaDataScanStarted)
+    val endState = listener.expectMsgType[MetaDataStateUpdated]
+    listener.expectMsg(MetaDataScanCompleted)
+    endState.state should be(orgState)
+    helper.expectRemovedConfirmation()
+  }
+
+  it should "reset information about removed archive components" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val orgState = helper.processContribution(Contribution).readCurrentMetaDataState()
+    helper.sendScanStartsMessage().sendContribution()
+      .processContribution(createContributionFromOtherComponent())
+      .sendArchiveComponentRemoved(expectResponse = false)
+      .sendAllProcessingResults(Contribution)
+      .expectRemovedConfirmation()
+
+    helper.sendScanStartsMessage().processContribution(Contribution)
+    helper.readCurrentMetaDataState() should be(orgState)
+  }
+
+  it should "complete a scan when only data from removed components is missing" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val contrib = createContributionFromOtherComponent()
+    val mid = extractMediumID(contrib)
+    helper.sendContribution(contrib).processContribution(Contribution)
+      .sendProcessingResults(mid, contrib.files(mid))
+    val listener = helper.newStateListener()
+
+    helper.sendArchiveComponentRemoved()
+    findScanCompletedEvent(listener)()
+    findScanCompletedEvent(listener)()
+  }
+
+  it should "handle media listeners for removed components" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val contrib = createContributionFromOtherComponent()
+    val mid = extractMediumID(contrib)
+    val files = contrib.files(mid) take 2
+    helper.sendContribution(contrib).processContribution(Contribution)
+      .sendProcessingResults(mid, files)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = true),
+      mid, files, expComplete = false)
+
+    val chunk = helper.sendArchiveComponentRemoved(expectResponse = false)
+      .expectMetaDataResponse()
+    helper.expectRemovedConfirmation()
+    checkMetaDataChunk(chunk, mid, List.empty, expComplete = true)
+    // check whether media listeners have been cleared
+    helper.sendScanStartsMessage().processContribution(contrib)
+    helper.queryAndExpectUnknownMedium(TestMediumID)
   }
 
   /**
@@ -796,6 +994,19 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     /**
+      * Registers a temporary state listener for obtaining the current meta
+      * data state.
+      *
+      * @return the current meta data state
+      */
+    def readCurrentMetaDataState(): MetaDataState = {
+      val listener = newStateListener(expectStateMsg = false)
+      val stateMsg = listener.expectMsgType[MetaDataStateUpdated]
+      actor ! RemoveMetaDataStateListener(listener.ref)
+      stateMsg.state
+    }
+
+    /**
       * Sends a close request to the test actor and expects the acknowledge.
       *
       * @return this test helper
@@ -803,6 +1014,37 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def sendCloseRequest(): MetaDataUnionActorTestHelper = {
       actor ! CloseRequest
       expectMsg(CloseAck(actor))
+      this
+    }
+
+    /**
+      * Sends a message to the test actor that an archive component has been
+      * removed.
+      *
+      * @param componentID    the component ID
+      * @param expectResponse flag whether a response from the test actor
+      *                       should be expected
+      * @return this test helper
+      */
+    def sendArchiveComponentRemoved(componentID: String = ArchiveCompID,
+                                    expectResponse: Boolean = true):
+    MetaDataUnionActorTestHelper = {
+      actor ! MetaDataUnionActor.ArchiveComponentRemoved(componentID)
+      if (expectResponse) {
+        expectRemovedConfirmation(componentID)
+      }
+      this
+    }
+
+    /**
+      * Expects a confirmation message for a removed archive component.
+      *
+      * @param componentID the component ID
+      * @return this test helper
+      */
+    def expectRemovedConfirmation(componentID: String = ArchiveCompID):
+    MetaDataUnionActorTestHelper = {
+      expectMsg(MetaDataUnionActor.RemovedArchiveComponentProcessed(componentID))
       this
     }
 
