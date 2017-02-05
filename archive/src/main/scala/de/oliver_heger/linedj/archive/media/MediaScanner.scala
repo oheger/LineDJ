@@ -99,12 +99,13 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
     val start = (mediaFiles, Map.empty[MediumID, List[FileData]])
     val end = sortedDescriptions.foldLeft(start) { (state, path) =>
       val partition = findFilesForDescription(path, state._1)
-      (partition._2, state._2 + (MediumID.fromDescriptionPath(path) -> partition._1))
+      (partition._2, state._2 +
+        (MediumID.fromDescriptionPath(path, ArchiveComponentID) -> partition._1))
     }
 
     if (end._1.isEmpty) end._2
     else {
-      end._2 + (MediumID(mediumURI, None) -> end._1)
+      end._2 + (MediumID(mediumURI, None, ArchiveComponentID) -> end._1)
     }
   }
 

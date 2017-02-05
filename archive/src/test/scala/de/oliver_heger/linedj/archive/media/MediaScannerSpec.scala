@@ -160,7 +160,8 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
    * the directory scanner.
    * @return the undefined medium ID
    */
-  private def undefinedMediumID(): MediumID = MediumID(testDirectory.toString, None)
+  private def undefinedMediumID(): MediumID =
+    MediumID(testDirectory.toString, None, ArchiveComponentID)
 
   "A MediaScanner" should "find media files in a directory structure" in {
     val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
@@ -202,6 +203,12 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
     result.mediaFiles.keySet should not contain undefinedMediumID()
   }
 
+  it should "set a correct archive component ID in all MediumID objects" in {
+    val result = scan()
+
+    result.mediaFiles.keys forall(_.archiveComponentID == ArchiveComponentID) shouldBe true
+  }
+
   /**
    * Checks whether a medium has the specified content.
    * @param result the result of the scan operation
@@ -211,8 +218,8 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
    */
   private def checkMedium(result: MediaScanResult, mediumDesc: String, content: String*):
   Option[String] = {
-    val files = result.mediaFiles(MediumID.fromDescriptionPath(toPath(mediumDesc + ".settings"))) map
-      (_.path.toAbsolutePath.toString)
+    val files = result.mediaFiles(MediumID.fromDescriptionPath(toPath(mediumDesc + ".settings"),
+      ArchiveComponentID)) map (_.path.toAbsolutePath.toString)
     files should have length content.length
     val expPaths = paths(content: _*) map (_.toString)
     checkContainsAll(files, expPaths)
@@ -231,7 +238,8 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
   it should "determine correct file sizes" in {
     val result = scan()
 
-    result.mediaFiles(MediumID.fromDescriptionPath(toPath("medium1/medium1.settings"))).head.size should be (1)
+    result.mediaFiles(MediumID.fromDescriptionPath(toPath("medium1/medium1.settings"),
+      ArchiveComponentID)).head.size should be (1)
     result.mediaFiles(undefinedMediumID()).head.size should be (OtherFileContent.length)
   }
 }
