@@ -112,15 +112,18 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor {
       val optMapping = controllerMap.find(t => t._2 == actor)
       optMapping foreach { m =>
         metaDataUnionActor ! MetaDataUnionActor.ArchiveComponentRemoved(m._1)
-        availableMedia = AvailableMedia(removeMediaFrom(m._1))
+        availableMedia = removeMediaFrom(availableMedia, m._1)
         controllerMap -= m._1
       }
 
+    case msg: MetaDataUnionActor.ArchiveComponentRemoved =>
+      availableMedia = removeMediaFrom(availableMedia, msg.archiveCompID)
+      metaDataUnionActor forward msg
+
     case CloseRequest =>
-      onCloseRequest(self, controllerMap.values, sender(), this)
+      onCloseRequest(self, metaDataUnionActor :: controllerMap.values.toList, sender(), this)
 
     case CloseComplete =>
-      metaDataUnionActor ! CloseComplete
       onCloseComplete()
   }
 
@@ -157,12 +160,13 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor {
   }
 
   /**
-    * Returns a map with media information that does not contain media from
-    * the specified archive component.
+    * Updates the specified media object by removing all media owned by the
+    * provided archive component.
     *
+    * @param media       the ''AvailableMedia'' object
     * @param componentID the archive component ID
-    * @return a map with data from this component removed
+    * @return an instance with data from this component removed
     */
-  private def removeMediaFrom(componentID: String): Map[MediumID, MediumInfo] =
-    availableMedia.media filterNot (t => t._1.archiveComponentID == componentID)
+  private def removeMediaFrom(media: AvailableMedia, componentID: String): AvailableMedia =
+    AvailableMedia(media.media filterNot (t => t._1.archiveComponentID == componentID))
 }

@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.archiveunion
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.testkit.TestActor.KeepRunning
+import akka.testkit.{ImplicitSender, TestActor, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
@@ -211,6 +212,17 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.queryMedia().media should be(mediaMap2)
   }
 
+  it should "remove the media of a controller on request" in {
+    val mediaMap1 = Map(mediaMapping(1, 1), mediaMapping(2, 1), mediaMapping(3, 1))
+    val mediaMap2 = Map(mediaMapping(1, 2), mediaMapping(2, 2))
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap1, 1)
+    helper.addMedia(mediaMap2, 2)
+
+    helper.manager ! MetaDataUnionActor.ArchiveComponentRemoved(componentID(1))
+    helper.queryMedia().media should be(mediaMap2)
+  }
+
   it should "remove a terminated controller actor from the mapping" in {
     val mediaMap = Map(mediaMapping(1, 1))
     val helper = new MediaUnionActorTestHelper
@@ -243,13 +255,6 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.triggerAndExpectCompletedClose()
   }
 
-  it should "notify the meta data actor about a complete close operation" in {
-    val helper = new MediaUnionActorTestHelper
-
-    helper.manager ! CloseHandlerActor.CloseComplete
-    helper.metaDataActor.expectMsg(CloseHandlerActor.CloseComplete)
-  }
-
   it should "notify the meta data actor about a scan request" in {
     val helper = new MediaUnionActorTestHelper
     helper.manager ! ScanAllMedia
@@ -264,6 +269,20 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     system stop ctrl2.ref
     helper.metaDataActor.expectMsg(MetaDataUnionActor.ArchiveComponentRemoved(componentID(2)))
+  }
+
+  it should "notify the meta data actor about a request to remove a component" in {
+    val helper = new MediaUnionActorTestHelper
+    helper.metaDataActor.setAutoPilot(new TestActor.AutoPilot {
+      override def run(sender: ActorRef, msg: Any): KeepRunning.type = {
+        sender ! ForwardTestActor.ForwardedMessage(msg)
+        TestActor.KeepRunning
+      }
+    })
+    val msg = MetaDataUnionActor.ArchiveComponentRemoved(componentID(1))
+
+    helper.manager ! msg
+    expectMsg(ForwardTestActor.ForwardedMessage(msg))
   }
 
   /**
@@ -333,7 +352,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def initCloseActors(actors: ActorRef*): MediaUnionActorTestHelper = {
-      closeActors = actors
+      closeActors = metaDataActor.ref :: actors.toList
       this
     }
 
@@ -385,6 +404,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
           factory should be(this)
           target should be(testActor)
           conditionState shouldBe true
+          deps should contain theSameElementsAs closeActors
           closeRequestCount.incrementAndGet() < 2
         }
 
