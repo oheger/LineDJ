@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archiveunion
+package de.oliver_heger.linedj.shared.archive.union
 
 import java.nio.file.Path
 
@@ -51,3 +51,28 @@ case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
   */
 case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
                                     metaData: MediaMetaData)
+
+
+/**
+  * A message processed by ''MetaDataUnionActor'' telling it that a component
+  * of the media archive has been removed. This causes the actor to remove
+  * all meta data associated with this archive component.
+  *
+  * @param archiveCompID the archive component ID
+  */
+case class ArchiveComponentRemoved(archiveCompID: String)
+
+/**
+  * A message sent by ''MetaDataUnionActor'' as response of an
+  * [[ArchiveComponentRemoved]] message when the remove operation has been
+  * processed.
+  *
+  * A remove operation can sometimes not be processed directly, especially
+  * when a scan is in progress. If a removed message was sent to remove the
+  * data from an archive component in order to replace it with new scan
+  * results, the sender should wait for this confirmation before it starts
+  * sending media data.
+  *
+  * @param archiveCompID the archive component ID
+  */
+case class RemovedArchiveComponentProcessed(archiveCompID: String)

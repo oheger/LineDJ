@@ -24,6 +24,7 @@ import akka.testkit.{ImplicitSender, TestActor, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.union.ArchiveComponentRemoved
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -219,7 +220,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.addMedia(mediaMap1, 1)
     helper.addMedia(mediaMap2, 2)
 
-    helper.manager ! MetaDataUnionActor.ArchiveComponentRemoved(componentID(1))
+    helper.manager ! ArchiveComponentRemoved(componentID(1))
     helper.queryMedia().media should be(mediaMap2)
   }
 
@@ -268,7 +269,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val ctrl2 = helper.addMedia(Map(mediaMapping(1, 2)), 2)
 
     system stop ctrl2.ref
-    helper.metaDataActor.expectMsg(MetaDataUnionActor.ArchiveComponentRemoved(componentID(2)))
+    helper.metaDataActor.expectMsg(ArchiveComponentRemoved(componentID(2)))
   }
 
   it should "notify the meta data actor about a request to remove a component" in {
@@ -279,7 +280,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
         TestActor.KeepRunning
       }
     })
-    val msg = MetaDataUnionActor.ArchiveComponentRemoved(componentID(1))
+    val msg = ArchiveComponentRemoved(componentID(1))
 
     helper.manager ! msg
     expectMsg(ForwardTestActor.ForwardedMessage(msg))

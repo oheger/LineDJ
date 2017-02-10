@@ -11,9 +11,9 @@ import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.archiveunion.MediaUnionActor.AddMedia
-import de.oliver_heger.linedj.archiveunion.MetaDataUnionActor
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{anyLong, eq => argEq}
@@ -883,7 +883,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return this test helper
       */
     def expectRemoveComponentMessage(): MediaManagerTestHelper = {
-      mediaUnionActor.expectMsg(MetaDataUnionActor.ArchiveComponentRemoved(ArchiveComponentID))
+      mediaUnionActor.expectMsg(ArchiveComponentRemoved(ArchiveComponentID))
       this
     }
 
@@ -896,8 +896,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     def answerRemoveComponentMessage(compID: String = ArchiveComponentID):
     MediaManagerTestHelper = {
-      testManagerActor receive
-        MetaDataUnionActor.RemovedArchiveComponentProcessed(compID)
+      testManagerActor receive RemovedArchiveComponentProcessed(compID)
       this
     }
 

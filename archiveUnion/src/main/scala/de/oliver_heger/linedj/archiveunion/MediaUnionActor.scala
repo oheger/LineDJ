@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.union.ArchiveComponentRemoved
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediaUnionActor {
@@ -111,12 +112,12 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor {
     case Terminated(actor) =>
       val optMapping = controllerMap.find(t => t._2 == actor)
       optMapping foreach { m =>
-        metaDataUnionActor ! MetaDataUnionActor.ArchiveComponentRemoved(m._1)
+        metaDataUnionActor ! ArchiveComponentRemoved(m._1)
         availableMedia = removeMediaFrom(availableMedia, m._1)
         controllerMap -= m._1
       }
 
-    case msg: MetaDataUnionActor.ArchiveComponentRemoved =>
+    case msg: ArchiveComponentRemoved =>
       availableMedia = removeMediaFrom(availableMedia, msg.archiveCompID)
       metaDataUnionActor forward msg
 

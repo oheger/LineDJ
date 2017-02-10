@@ -20,32 +20,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult, RemovedArchiveComponentProcessed}
 
 object MetaDataUnionActor {
-
-  /**
-    * A message processed by [[MetaDataUnionActor]] telling it that a component
-    * of the media archive has been removed. This causes the actor to remove
-    * all meta data associated with this archive component.
-    *
-    * @param archiveCompID the archive component ID
-    */
-  case class ArchiveComponentRemoved(archiveCompID: String)
-
-  /**
-    * A message sent by [[MetaDataUnionActor]] as response of an
-    * [[ArchiveComponentRemoved]] message when the remove operation has been
-    * processed.
-    *
-    * A remove operation can sometimes not be processed directly, especially
-    * when a scan is in progress. If a removed message was sent to remove the
-    * data from an archive component in order to replace it with new scan
-    * results, the sender should wait for this confirmation before it starts
-    * sending media data.
-    *
-    * @param archiveCompID the archive component ID
-    */
-  case class RemovedArchiveComponentProcessed(archiveCompID: String)
 
   /**
     * An internally used data class to handle removed archive components. Such
@@ -86,11 +63,11 @@ object MetaDataUnionActor {
   *  - For each file part of the contribution a [[MetaDataProcessingResult]]
   * message has to be sent.
   * - When data owned by a component becomes invalid and should be replaced
-  * with newer information the same steps have to be followed, but a
-  * [[de.oliver_heger.linedj.archiveunion.MetaDataUnionActor.ArchiveComponentRemoved]]
-  * message should be sent first; this removes all data related to this
-  * component. To be sure that the message has been processed, the confirmation
-  * should be waited for before actually sending data.
+  * with newer information the same steps have to be followed, but an
+  * [[ArchiveComponentRemoved]] message should be sent first; this removes
+  * all data related to this component. To be sure that the message has been
+  * processed, the confirmation should be waited for before actually sending
+  * data.
   *
   * This protocol allows this actor to determine whether all meta data has been
   * received or whether processing results are still pending. This is required
