@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
-import de.oliver_heger.linedj.archiveunion.MediaFileUriHandler
+import de.oliver_heger.linedj.archiveunion.{MediaFileUriHandler, MediaUnionActor, MetaDataUnionActor}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
@@ -67,8 +67,9 @@ object MediaManagerActor {
    */
   private val NonExistingFile = FileData(path = null, size = -1)
 
-  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef)
-    extends MediaManagerActor(config, metaDataManager) with ChildActorFactory
+  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef,
+                                      mediaUnionActor: ActorRef)
+    extends MediaManagerActor(config, metaDataManager, mediaUnionActor) with ChildActorFactory
       with SchedulerSupport with CloseSupport
 
   /**
@@ -77,10 +78,12 @@ object MediaManagerActor {
    * method; it ensures that all dependencies have been resolved.
    * @param config the configuration object
    * @param metaDataManager a reference to the meta data manager actor
+   * @param mediaUnionActor reference to the media union actor
    * @return a ''Props'' object for creating actor instances
    */
-  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef): Props =
-    Props(classOf[MediaManagerActorImpl], config, metaDataManager)
+  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef,
+            mediaUnionActor: ActorRef): Props =
+    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor)
 
   /**
    * Transforms a path to a string URI.
@@ -131,9 +134,11 @@ object MediaManagerActor {
  *
  * @param config the configuration object
  * @param metaDataManager a reference to the meta data manager actor
+ * @param mediaUnionActor a reference to the media union actor
  * @param readerActorMapping internal helper object for managing reader actors
  */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
+                        mediaUnionActor: ActorRef,
                         private[media] val readerActorMapping: MediaReaderActorMapping) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport with CloseSupport =>
@@ -194,11 +199,10 @@ Actor with ActorLogging {
   private val mediaFiles = collection.mutable.Map.empty[MediumID, Map[String, FileData]]
 
   /**
-   * Stores references to clients that have asked for the available media
-   * before this information has been fetched. As soon as the data about the
-   * media available is complete, these actors will receive a notification.
-   */
-  private var pendingMediaRequest = List.empty[ActorRef]
+    * A list for storing messages temporarily that cannot be sent before
+    * receiving a confirmation from the media union actor.
+    */
+  private var pendingMessages = List.empty[(ActorRef, Any)]
 
   /** The number of paths which have to be scanned in a current scan operation. */
   private var pathsToScan = 0
@@ -213,14 +217,29 @@ Actor with ActorLogging {
   private var readerCheckCancellable: Option[Cancellable] = None
 
   /**
+    * A flag to track whether a scan is the first one or a follow up scan. For
+    * all scans except for the first the media union actor has to be notified
+    * to remove the data of this archive component first.
+    */
+  private var firstScan = true
+
+  /**
+    * A flag whether a confirmation message for the remove archive component
+    * message has already been received.
+    */
+  private var removeConfirmed = false
+
+  /**
    * Creates a new instance of ''MediaManagerActor'' with a default reader
    * actor mapping.
     *
     * @param config the configuration object
    * @param metaDataManager a reference to the meta data manager actor
+    * @param mediaUnionActor the media union actor
    */
-  def this(config: MediaArchiveConfig, metaDataManager: ActorRef) =
-    this(config, metaDataManager, new MediaReaderActorMapping)
+  def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
+           mediaUnionActor: ActorRef) =
+    this(config, metaDataManager, mediaUnionActor, new MediaReaderActorMapping)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -265,13 +284,6 @@ Actor with ActorLogging {
       storeSettingsData(setData)
       stopSender()
 
-    case GetAvailableMedia =>
-      if(mediaInformationComplete) {
-        sender ! AvailableMedia(mediaMap)
-      } else {
-        pendingMediaRequest = sender() :: pendingMediaRequest
-      }
-
     case GetMediumFiles(mediumID) =>
       val optResponse = mediaFiles.get(mediumID) map
         (files => MediumFiles(mediumID, files.keySet, existing = true))
@@ -297,9 +309,16 @@ Actor with ActorLogging {
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
+      pendingMessages = Nil
 
     case CloseComplete =>
       onCloseComplete()
+
+    case MetaDataUnionActor.RemovedArchiveComponentProcessed(compID)
+      if ArchiveComponentID == compID =>
+      removeConfirmed = true
+      pendingMessages.reverse foreach(t => t._1 ! t._2)
+      pendingMessages = Nil
   }
 
   /**
@@ -308,7 +327,7 @@ Actor with ActorLogging {
     * @param idData the ''MediumIDData''
    */
   private def processIDData(idData: MediumIDData): Unit = {
-    buildEnhancedScanResult(idData) foreach (metaDataManager ! _)
+    buildEnhancedScanResult(idData) foreach (sendOrCacheMessage(metaDataManager, _))
     if (idData.mediumID.mediumDescriptionPath.isEmpty) {
       appendMedium(idData, MediumInfoParserActor.undefinedMediumInfo)
     } else {
@@ -397,13 +416,27 @@ Actor with ActorLogging {
    */
   private def processScanRequest(roots: Iterable[String]): Unit = {
     if (noScanInProgress) {
-      metaDataManager ! MediaScanStarts
+      sendScanStartMessages()
       mediaMap = Map.empty
       mediaCount = 0
       pathsToScan = roots.size
       pathsScanned = 0
       scanMediaRoots(roots)
     } else log.warning("Ignoring scan request for {}. Scan already in progress.", roots)
+  }
+
+  /**
+    * Initializes flags and sends out messages when a new scan operation
+    * starts.
+    */
+  private def sendScanStartMessages(): Unit = {
+    removeConfirmed = firstScan
+    if (firstScan) {
+      firstScan = false
+    } else {
+      mediaUnionActor ! MetaDataUnionActor.ArchiveComponentRemoved(ArchiveComponentID)
+    }
+    sendOrCacheMessage(metaDataManager, MediaScanStarts)
   }
 
   /**
@@ -523,18 +556,6 @@ Actor with ActorLogging {
     pathsScanned >= pathsToScan && mediaMap.size >= mediaCount
 
   /**
-   * Sends information about the currently available media to pending actors.
-   * This method is called when all data about media has been fetched. Actors
-   * which have requested this information before have to be notified now.
-   */
-  private def handlePendingMediaRequests(): Unit = {
-    if (pendingMediaRequest.nonEmpty) {
-      val msg = AvailableMedia(mediaMap)
-      pendingMediaRequest foreach (_ ! msg)
-    }
-  }
-
-  /**
    * Notifies this object that new media information has been added. If this
    * information is now complete, the scan operation can be terminated, and
    * pending requests can be handled.
@@ -543,8 +564,9 @@ Actor with ActorLogging {
    */
   private def mediaDataAdded(): Boolean = {
     if (mediaInformationComplete) {
-      metaDataManager ! AvailableMedia(mediaMap)
-      handlePendingMediaRequests()
+      sendOrCacheMessage(metaDataManager, AvailableMedia(mediaMap))
+      sendOrCacheMessage(mediaUnionActor,
+        MediaUnionActor.AddMedia(mediaMap, ArchiveComponentID, None))
       completeScanOperation()
       true
     } else false
@@ -556,7 +578,6 @@ Actor with ActorLogging {
   private def completeScanOperation(): Unit = {
     pathsToScan = -1
     pathsScanned = -1
-    pendingMediaRequest = List.empty
     mediaIDData.clear()
     mediaSettingsData.clear()
     currentMediumIDs.clear()
@@ -592,6 +613,20 @@ Actor with ActorLogging {
     * @return a flag whether currently no scan request is in progress
    */
   private def noScanInProgress: Boolean = pathsScanned < 0
+
+  /**
+    * Sends a message to a target actor if this is already possible. Some
+    * messages cannot be sent before the media union actor has acknowledged
+    * that it has removed the data of this archive component. If this is not
+    * yet the case, the message is cached to be sent out later.
+    *
+    * @param target the target actor
+    * @param msg    the message to be sent
+    */
+  private def sendOrCacheMessage(target: ActorRef, msg: Any): Unit = {
+    if (removeConfirmed) target ! msg
+    else pendingMessages = (target, msg) :: pendingMessages
+  }
 
   /**
    * Handles an actor terminated message. We have to determine which type of

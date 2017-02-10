@@ -9,8 +9,9 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor.ScanMedia
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
+import de.oliver_heger.linedj.archiveunion.MediaUnionActor.AddMedia
+import de.oliver_heger.linedj.archiveunion.MetaDataUnionActor
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -90,8 +91,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   "A MediaManagerActor" should "create a correct Props object" in {
-    val props = MediaManagerActor(createConfiguration(), testActor)
-    props.args should have length 2
+    val config = createConfiguration()
+    val unionActor = TestProbe()
+    val props = MediaManagerActor(config, testActor, unionActor.ref)
+    props.args should be(List(config, testActor, unionActor.ref))
 
     val manager = TestActorRef[MediaManagerActor](props)
     manager.underlyingActor shouldBe a[MediaManagerActor]
@@ -100,28 +103,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "create default helper objects" in {
-    val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
+    val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
+      testActor, TestProbe().ref))
     manager.underlyingActor.directoryScanner shouldBe a[MediaScanner]
     manager.underlyingActor.directoryScanner.excludedExtensions should be(ExcludedExtensions)
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
   }
 
-  it should "provide information about currently available media" in {
+  it should "pass media data to the media union actor" in {
     val helper = new MediaManagerTestHelper
-    val manager = helper.scanMedia()
+    helper.scanMedia()
 
-    manager ! GetAvailableMedia
-    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
-  }
-
-  it should "process a ScanAllMedia message" in {
-    val helper = new MediaManagerTestHelper
-
-    helper.testManagerActor ! ScanAllMedia
-    helper.simulateCollaboratingActors()
-    helper.testManagerActor ! GetAvailableMedia
-    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
+    helper checkMediaWithDescriptions helper.expectMediaAdded()
   }
 
   it should "stop temporary child actors when their answers are received" in {
@@ -139,13 +133,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "include medium IDs for other files" in {
     val helper = new MediaManagerTestHelper
-    val manager = helper.scanMedia()
+    helper.scanMedia()
 
-    manager ! GetAvailableMedia
-    val media = expectMsgType[AvailableMedia]
-    media.media(MediumID(helper.Drive1Root.toString, None)) should be(MediumInfoParserActor
+    val media = helper.expectMediaAdded()
+    media(MediumID(helper.Drive1Root.toString, None)) should be(MediumInfoParserActor
       .undefinedMediumInfo.copy(checksum = helper.Drive1OtherIDData.checksum))
-    media.media(MediumID(helper.Drive3Root.toString, None)) should be(MediumInfoParserActor
+    media(MediumID(helper.Drive3Root.toString, None)) should be(MediumInfoParserActor
       .undefinedMediumInfo.copy(checksum = helper.Drive3OtherIDData.checksum))
   }
 
@@ -157,9 +150,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   private def prepareHelperForScannedMedia(optMapping: Option[MediaReaderActorMapping] = None):
   MediaManagerTestHelper = {
     val helper = new MediaManagerTestHelper(optMapping = optMapping)
-    val manager = helper.scanMedia()
-    manager ! GetAvailableMedia
-    expectMsgType[AvailableMedia]
+    helper.scanMedia()
     helper
   }
 
@@ -257,49 +248,32 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     response.contentReader should be(readerProbe.ref)
   }
 
-  it should "send media information to clients when it becomes available" in {
-    val helper = new MediaManagerTestHelper
-    val probe = TestProbe()
-
-    helper.testManagerActor ! GetAvailableMedia
-    helper.testManagerActor.tell(GetAvailableMedia, probe.ref)
-    helper.scanMedia()
-    val msgMedia = expectMsgType[AvailableMedia]
-    helper.checkMediaWithDescriptions(msgMedia)
-    probe.expectMsg(msgMedia)
-  }
-
   it should "handle a scan operation that does not yield media" in {
     val helper = new MediaManagerTestHelper
 
-    helper.testManagerActor ! GetAvailableMedia
-    helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
-    val msgMedia = expectMsgType[AvailableMedia]
-    msgMedia.media should have size 0
+    helper.configureRootPathsForScans(Set.empty).sendScanRequest()
+    helper.expectMediaAdded() should have size 0
   }
 
-  it should "support multiple scan operations" in {
+  it should "reset data for a new scan operation" in {
     val helper = new MediaManagerTestHelper
-    helper.testManagerActor ! GetAvailableMedia
-    helper.scanMedia()
-    helper.checkMediaWithDescriptions(expectMsgType[AvailableMedia])
+    helper.configureRootPathsForScans(helper.RootPaths.toSet, Set.empty).scanMedia()
+    helper checkMediaWithDescriptions helper.expectMediaAdded()
 
-    helper.testManagerActor ! MediaManagerActor.ScanMedia(Nil)
-    helper.testManagerActor ! GetAvailableMedia
-    val msgMedia = expectMsgType[AvailableMedia]
-    msgMedia.media should have size 0
+    helper.sendScanRequest()
+    helper.expectRemoveComponentMessage().answerRemoveComponentMessage()
+    helper.expectMediaAdded() should have size 0
     helper.testManagerActor ! GetMediumFiles(MediumID("someMedium", None))
     expectMsgType[MediumFiles].uris shouldBe 'empty
   }
 
   it should "ignore another scan request while a scan is in progress" in {
     val helper = new MediaManagerTestHelper
-    val manager = helper.sendScanRequest()
+    helper.configureRootPathsForScans(helper.RootPaths.toSet,
+      Set("UnsupportedTestPath")).sendScanRequest()
 
-    manager ! ScanMedia(List("UnsupportedTestPath"))
     helper.scanMedia()
-    manager ! GetAvailableMedia
-    helper checkMediaWithDescriptions expectMsgType[AvailableMedia]
+    helper checkMediaWithDescriptions helper.expectMediaAdded()
   }
 
   it should "handle IO exceptions when scanning directories" in {
@@ -311,10 +285,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       }
     })
 
-    helper.testManagerActor ! GetAvailableMedia
-    helper.testManagerActor ! MediaManagerActor.ScanMedia(List("non existing directory!"))
-    val mediaMsg = expectMsgType[AvailableMedia]
-    mediaMsg.media shouldBe 'empty
+    helper.configureRootPathsForScans(Set("non existing directory!")).sendScanRequest()
+    helper.expectMediaAdded() should have size 0
   }
 
   it should "handle IO operation exceptions sent from a file loader actor" in {
@@ -330,14 +302,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     })
 
     helper.scanMedia()
-    helper.testManagerActor ! GetAvailableMedia
-    val mediaMsg = expectMsgType[AvailableMedia]
-    mediaMsg.media(helper.definedMediumID(1, helper.Medium1Path)).name should be(MediumInfoParserActor
+    val media = helper.expectMediaAdded()
+    media(helper.definedMediumID(1, helper.Medium1Path)).name should be(MediumInfoParserActor
       .undefinedMediumInfo.name)
   }
 
   it should "create a default reader actor mapping" in {
-    val actor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(), testActor))
+    val actor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
+      testActor, TestProbe().ref))
     actor.underlyingActor.readerActorMapping shouldBe a[MediaReaderActorMapping]
   }
 
@@ -479,8 +451,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
 
     helper.metaDataManagerActor.expectMsg(MediaScanStarts)
-    val messages = for (i <- 1 to 3) yield helper.metaDataManagerActor
-      .expectMsgType[EnhancedMediaScanResult]
+    val messages = (1 to 3) map (_ => helper.metaDataManagerActor
+      .expectMsgType[EnhancedMediaScanResult])
     messages should contain only(EnhancedMediaScanResult(helper.Drive1, checkMap1, fileMapping1),
       EnhancedMediaScanResult(helper.Drive2, checkMap2, fileMapping2),
       EnhancedMediaScanResult(helper.Drive3, checkMap3, fileMapping3))
@@ -494,29 +466,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       case MediaScanStarts => false
       case _: EnhancedMediaScanResult => false
       case am: AvailableMedia =>
-        helper checkMediaWithDescriptions am
+        helper checkMediaWithDescriptions am.media
         true
     }
     expectNoMoreMessage(helper.metaDataManagerActor)
   }
 
   it should "produce correct enhanced scan results in another scan operation" in {
-    def checkMetaDataMessages(helper: MediaManagerTestHelper): Unit = {
-      helper.metaDataManagerActor.expectMsg(MediaScanStarts)
-      for (i <- 1 to 3) {
-        helper.metaDataManagerActor.expectMsgType[EnhancedMediaScanResult]
-      }
-      helper.metaDataManagerActor.expectMsgType[AvailableMedia]
-      expectNoMoreMessage(helper.metaDataManagerActor)
-    }
-
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
-    checkMetaDataMessages(helper)
-    helper.resetProbes()
-    println("2nd scan.")
+    helper.checkMetaDataMessages().resetProbes()
+
     helper.scanMedia()
-    checkMetaDataMessages(helper)
+    helper.answerRemoveComponentMessage()
+    helper.checkMetaDataMessages()
   }
 
   it should "handle a close request" in {
@@ -533,6 +496,62 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.numberOfCompletedCloseOps should be(1)
   }
 
+  it should "send a component removed message before starting another scan" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    helper.checkMetaDataMessages().expectMediaAdded()
+
+    helper.sendScanRequest()
+    helper.expectRemoveComponentMessage()
+    expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
+  it should "not send enhanced scan results before a remove component confirmation" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    helper.checkMetaDataMessages().expectMediaAdded()
+
+    helper.resetProbes().scanMedia()
+    helper.expectRemoveComponentMessage()
+    expectNoMoreMessage(helper.metaDataManagerActor)
+    expectNoMoreMessage(helper.mediaUnionActor)
+    helper.answerRemoveComponentMessage()
+      .checkMetaDataMessages()
+    helper checkMediaWithDescriptions helper.expectMediaAdded()
+  }
+
+  it should "clear the list of pending messages after receiving a confirmation" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    helper.checkMetaDataMessages().expectMediaAdded()
+    helper.resetProbes().scanMedia()
+    helper.answerRemoveComponentMessage().checkMetaDataMessages()
+
+    helper.answerRemoveComponentMessage()
+    expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
+  it should "clear the list of pending messages when receiving a close request" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    helper.checkMetaDataMessages().expectMediaAdded()
+    helper.resetProbes().scanMedia()
+
+    helper.testManagerActor ! CloseRequest
+    helper.answerRemoveComponentMessage()
+    expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
+  it should "ignore a remove confirmation for another archive component" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    helper.checkMetaDataMessages().expectMediaAdded()
+    helper.resetProbes().scanMedia()
+
+    helper.answerRemoveComponentMessage("some other archive component")
+    expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
   /**
    * A helper class combining data required for typical tests of a media
    * manager actor.
@@ -546,7 +565,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @param childActorFunc an optional function for injecting child actors
    */
   private class MediaManagerTestHelper(optMapping: Option[MediaReaderActorMapping] = None,
-    childActorFunc: (ActorContext, Props) => Option[ActorRef] = (ctx, p) => None) {
+    childActorFunc: (ActorContext, Props) => Option[ActorRef] = (_, _) => None) {
     /** The root path. */
     private val root = Paths.get("root")
 
@@ -787,8 +806,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private var probes = createTestProbesMap()
 
+    /** The mock for the configuration passed to the actor. */
+    private val actorConfig = createActorConfig()
+
     /** A test probe representing the media manager actor. */
     val metaDataManagerActor = TestProbe()
+
+    /** A test probe representing the media union actor. */
+    val mediaUnionActor = TestProbe()
 
     /** A queue for storing scheduler invocations. */
     val schedulerQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
@@ -820,21 +845,90 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return a reference to the test actor
      */
     def sendScanRequest(): ActorRef = {
-      testManagerActor ! MediaManagerActor.ScanMedia(RootPaths)
+      testManagerActor ! ScanAllMedia
       testManagerActor
     }
 
     /**
-     * Checks whether the data object with available media contains all media
+     * Checks whether the map with available media contains all media
      * for which description files are provided.
-     * @param avMedia the data object with available media
-     * @return the same passed in data object
+     * @param media the map with available media
+     * @return the same passed in map
      */
-    def checkMediaWithDescriptions(avMedia: AvailableMedia): AvailableMedia = {
-      avMedia.media(definedMediumID(1, Medium1Path)) should be(Medium1SettingsData)
-      avMedia.media(definedMediumID(2, Medium2Path)) should be(Medium2SettingsData)
-      avMedia.media(definedMediumID(3, Medium3Path)) should be(Medium3SettingsData)
-      avMedia
+    def checkMediaWithDescriptions(media: Map[MediumID, MediumInfo]):
+    Map[MediumID, MediumInfo] = {
+      media(definedMediumID(1, Medium1Path)) should be(Medium1SettingsData)
+      media(definedMediumID(2, Medium2Path)) should be(Medium2SettingsData)
+      media(definedMediumID(3, Medium3Path)) should be(Medium3SettingsData)
+      media
+    }
+
+    /**
+      * Expects that media data was added to the union media actor. The map
+      * with actual media data is returned.
+      *
+      * @return the map with media data
+      */
+    def expectMediaAdded(): Map[MediumID, MediumInfo] = {
+      val addMedia = mediaUnionActor.expectMsgType[AddMedia]
+      addMedia.archiveCompID should be(ArchiveComponentID)
+      addMedia.optCtrlActor shouldBe 'empty
+      addMedia.media
+    }
+
+    /**
+      * Expects that a message about a removed archive component is sent to the
+      * media union actor.
+      *
+      * @return this test helper
+      */
+    def expectRemoveComponentMessage(): MediaManagerTestHelper = {
+      mediaUnionActor.expectMsg(MetaDataUnionActor.ArchiveComponentRemoved(ArchiveComponentID))
+      this
+    }
+
+    /**
+      * Sends a confirmation about a removed archive component to the test
+      * actor.
+      *
+      * @param compID the archive component ID to be passed
+      * @return this test helper
+      */
+    def answerRemoveComponentMessage(compID: String = ArchiveComponentID):
+    MediaManagerTestHelper = {
+      testManagerActor receive
+        MetaDataUnionActor.RemovedArchiveComponentProcessed(compID)
+      this
+    }
+
+    /**
+      * Checks whether the meta data actor received the expected messages
+      * during a scan operation.
+      *
+      * @return this test helper
+      */
+    def checkMetaDataMessages(): MediaManagerTestHelper = {
+      metaDataManagerActor.expectMsg(MediaScanStarts)
+      for (_ <- 1 to actorConfig.mediaRootPaths.size) {
+        metaDataManagerActor.expectMsgType[EnhancedMediaScanResult]
+      }
+      metaDataManagerActor.expectMsgType[AvailableMedia]
+      expectNoMoreMessage(metaDataManagerActor)
+      this
+    }
+
+    /**
+      * Prepares the mock for the actor configuration to return different root
+      * paths for multiple scan operations.
+      *
+      * @param paths1 the first return value
+      * @param paths  further paths to be returned for additional scans
+      * @return this test helper
+      */
+    def configureRootPathsForScans(paths1: Set[String], paths: Set[String]*):
+    MediaManagerTestHelper = {
+      when(actorConfig.mediaRootPaths).thenReturn(paths1, paths: _*)
+      this
     }
 
     /**
@@ -862,12 +956,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * Resets the map with test probes. Note: The file loader actor has to be
       * treated in a special way because it is created in preStart(); so it is
       * not created again on a second run.
+      * @return this test helper
       */
-    def resetProbes(): Unit = {
+    def resetProbes(): MediaManagerTestHelper = {
       val fileLoaderActorCls = FileLoaderActor().actorClass()
       val loaderActorData = probes(fileLoaderActorCls)
       probes = createTestProbesMap()
       probes += fileLoaderActorCls -> loaderActorData
+      this
     }
 
     /**
@@ -953,7 +1049,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def simulateFileLoaderActor(): Unit = {
       val NumberOfMessages = 3
-      for (i <- 1 to NumberOfMessages) {
+      for (_ <- 1 to NumberOfMessages) {
         simulateCollaboratingActorsOfType[FileLoaderActor.LoadFile](ClsFileLoaderActor)
       }
     }
@@ -983,7 +1079,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       val mapping = optMapping getOrElse new MediaReaderActorMapping
       TestActorRef[MediaManagerActor](Props(
-        new MediaManagerActor(createActorConfig(), metaDataManagerActor.ref, mapping)
+        new MediaManagerActor(actorConfig, metaDataManagerActor.ref,
+          mediaUnionActor.ref, mapping)
         with ChildActorFactory with RecordingSchedulerSupport with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorFunc(context, p) getOrElse createProbeForChildActor(checkArgs(p)).ref
@@ -1023,7 +1120,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     private def createActorConfig(): MediaArchiveConfig = {
       val config = createConfiguration()
-      when(config.mediaRootPaths).thenReturn(RootPaths.toSet)
+      val roots = RootPaths.toSet
+      when(config.mediaRootPaths).thenReturn(roots)
       config
     }
 
