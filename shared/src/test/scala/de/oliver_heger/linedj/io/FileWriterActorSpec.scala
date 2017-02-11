@@ -198,9 +198,9 @@ with MockitoSugar with FileTestHelper {
       }
     }).when(channel).close()
     val file = createFileReference()
-    val writer = system.actorOf(propsForWriterActorWithChannel(channel))
-    writer ! InitFile(file)
-    writer ! writeRequest()
+    val writer = TestActorRef(propsForWriterActorWithChannel(channel))
+    writer receive InitFile(file)
+    writer receive writeRequest()
 
     system stop writer
     latch.await(10, TimeUnit.SECONDS) shouldBe true
