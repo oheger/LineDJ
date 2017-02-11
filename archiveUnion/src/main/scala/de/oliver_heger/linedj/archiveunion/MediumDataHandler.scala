@@ -21,7 +21,7 @@ import java.nio.file.Path
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult}
 
 /**
   * An internally used helper class for storing and managing the meta data

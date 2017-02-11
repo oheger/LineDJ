@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archiveunion
+package de.oliver_heger.linedj.shared.archive.union
 
 import java.net.{URLDecoder, URLEncoder}
 import java.nio.charset.StandardCharsets

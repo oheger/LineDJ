@@ -21,11 +21,11 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
-import de.oliver_heger.linedj.archiveunion.MediaFileUriHandler
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
