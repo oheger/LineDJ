@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestActor, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.union.ArchiveComponentRemoved
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -237,7 +237,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   it should "use the sender as controller actor if not specified explicitly" in {
     val helper = new MediaUnionActorTestHelper
 
-    helper.manager ! MediaUnionActor.AddMedia(Map(mediaMapping(1, 1)), componentID(1), None)
+    helper.manager ! AddMedia(Map(mediaMapping(1, 1)), componentID(1), None)
     helper.manager ! ScanAllMedia
     expectMsg(ScanAllMedia)
   }
@@ -341,7 +341,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def addMedia(data: Map[MediumID, MediumInfo], componentIdx: Int, actor: ActorRef):
     MediaUnionActorTestHelper = {
-      manager ! MediaUnionActor.AddMedia(data, componentID(componentIdx), Some(actor))
+      manager ! AddMedia(data, componentID(componentIdx), Some(actor))
       this
     }
 

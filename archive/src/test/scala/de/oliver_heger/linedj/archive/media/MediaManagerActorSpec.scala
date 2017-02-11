@@ -10,10 +10,9 @@ import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
-import de.oliver_heger.linedj.archiveunion.MediaUnionActor.AddMedia
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{anyLong, eq => argEq}

@@ -20,26 +20,10 @@ import akka.actor.{Actor, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.union.ArchiveComponentRemoved
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediaUnionActor {
-
-  /**
-    * A message processed by [[MediaUnionActor]] which allows adding media
-    * information to the union actor.
-    *
-    * Messages of this type can be sent from archive components to the union
-    * actor with information about media contributed by this archive component.
-    * The actor creates a union of the media information passed to it.
-    *
-    * @param media         a map with media information
-    * @param archiveCompID the ID of responsible archive component
-    * @param optCtrlActor  an option for the actor to be associated with this
-    *                      archive component; if undefined, the sender is used
-    */
-  case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
-                      optCtrlActor: Option[ActorRef])
 
   private class MediaUnionActorImpl(metaDataUnionActor: ActorRef)
     extends MediaUnionActor(metaDataUnionActor) with ChildActorFactory with CloseSupport

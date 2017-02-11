@@ -18,9 +18,26 @@ package de.oliver_heger.linedj.shared.archive.union
 
 import java.nio.file.Path
 
+import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+
+/**
+  * A message processed by ''MediaUnionActor'' which allows adding media
+  * information to the union actor.
+  *
+  * Messages of this type can be sent from archive components to the union
+  * actor with information about media contributed by this archive component.
+  * The actor creates a union of the media information passed to it.
+  *
+  * @param media         a map with media information
+  * @param archiveCompID the ID of responsible archive component
+  * @param optCtrlActor  an option for the actor to be associated with this
+  *                      archive component; if undefined, the sender is used
+  */
+case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
+                    optCtrlActor: Option[ActorRef])
 
 /**
   * A message processed by the meta data union actor defining media that will
