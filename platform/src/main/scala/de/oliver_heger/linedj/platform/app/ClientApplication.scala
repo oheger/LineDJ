@@ -121,13 +121,10 @@ object ClientApplication {
   *
   * @param appName the name of this application
   */
-class ClientApplication(val appName: String) extends Application {
+class ClientApplication(val appName: String) extends Application with PlatformComponent {
   this: ApplicationStartup =>
 
   import ClientApplication._
-
-  /** The client application context. */
-  private var clientContextField: ClientApplicationContext = _
 
   /** The application manager. */
   private var applicationManagerField: ApplicationManager = _
@@ -142,15 +139,6 @@ class ClientApplication(val appName: String) extends Application {
   private var mainWindowVisible = true
 
   /**
-    * Initializes the reference to the ''ClientApplicationContext''. This
-    * method is called by the SCR.
-    * @param context the ''ClientApplicationContext''
-    */
-  def initClientContext(context: ClientApplicationContext): Unit = {
-    clientContextField = context
-  }
-
-  /**
     * Initializes the ''ApplicationManager'' service. This method is called by
     * the SCR.
     * @param appMan the ''ApplicationManager''
@@ -160,13 +148,6 @@ class ClientApplication(val appName: String) extends Application {
   }
 
   /**
-    * Returns the ''ClientApplicationContext'' used by this application. This
-    * object is available after the initialization of this application.
-    * @return the ''ClientApplicationContext''
-    */
-  def clientApplicationContext: ClientApplicationContext = clientContextField
-
-  /**
     * Returns the ''ApplicationManager''. This object is available afther the
     * initialization of this application.
     * @return the ''ApplicationManager''
@@ -174,11 +155,10 @@ class ClientApplication(val appName: String) extends Application {
   def applicationManager: ApplicationManager = applicationManagerField
 
   /**
-    * Activates this component. This method is called by the SCR. It starts
-    * the application using the mixed in [[ApplicationStartup]] implementation.
-    * @param compContext the component context
+    * @inheritdoc This implementation starts the application using the mixed
+    *             in [[ApplicationStartup]] implementation.
     */
-  def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit = {
     startApplication(this, appName)
   }
 
