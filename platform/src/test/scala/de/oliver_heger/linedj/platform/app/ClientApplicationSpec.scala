@@ -82,7 +82,7 @@ ApplicationTestSupport {
     val app = createApp()
 
     app initClientContext context
-    app.clientContext should be(context)
+    app.clientApplicationContext should be(context)
     verifyZeroInteractions(context)
   }
 
@@ -90,35 +90,35 @@ ApplicationTestSupport {
     val app = setUpApp()
 
     queryBean[StageFactory](app, JavaFxSharedWindowManager.BeanStageFactory) should be
-    app.clientContext.stageFactory
+    app.clientApplicationContext.stageFactory
   }
 
   it should "define a bean for the actor system" in {
     val app = setUpApp()
 
-    queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(app.clientContext
-      .actorSystem)
+    queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(app.
+      clientApplicationContext.actorSystem)
   }
 
   it should "define a bean for the actor factory" in {
     val app = setUpApp()
 
-    queryBean[ActorFactory](app, ClientApplication.BeanActorFactory) should be(app.clientContext
-      .actorFactory)
+    queryBean[ActorFactory](app, ClientApplication.BeanActorFactory) should be(app.
+      clientApplicationContext.actorFactory)
   }
 
   it should "define a bean for the message bus" in {
     val app = setUpApp()
 
-    queryBean[MessageBus](app, ClientApplication.BeanMessageBus) should be(app.clientContext
-      .messageBus)
+    queryBean[MessageBus](app, ClientApplication.BeanMessageBus) should be(app.
+      clientApplicationContext.messageBus)
   }
 
   it should "define a bean for the media facade" in {
     val app = setUpApp()
 
     queryBean[MediaFacade](app, ClientApplication.BeanMediaFacade) should be
-    app.clientContext.mediaFacade
+    app.clientApplicationContext.mediaFacade
   }
 
   it should "define a bean for the client application context" in {

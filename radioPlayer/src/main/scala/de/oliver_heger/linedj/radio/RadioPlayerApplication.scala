@@ -159,7 +159,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * @return the event listener sink
     */
   private def createPlayerListenerSink(player: RadioPlayer): Sink[PlayerEvent, _] = {
-    val messageBus = clientContext.messageBus
+    val messageBus = clientApplicationContext.messageBus
     Sink.foreach[PlayerEvent] { e =>
       messageBus.publish(RadioPlayerEvent(e, player))
     }

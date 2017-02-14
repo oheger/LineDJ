@@ -160,17 +160,11 @@ class ClientApplication(val appName: String) extends Application {
   }
 
   /**
-    * Returns the ''ClientApplicationContext'' used by this application.
-    * @return the ''ClientApplicationContext''
-    */
-  def clientContext: ClientApplicationContext = clientContextField
-
-  /**
     * Returns the ''ClientApplicationContext'' used by this application. This
     * object is available after the initialization of this application.
     * @return the ''ClientApplicationContext''
     */
-  def clientApplicationContext: ClientApplicationContext = clientContext
+  def clientApplicationContext: ClientApplicationContext = clientContextField
 
   /**
     * Returns the ''ApplicationManager''. This object is available afther the
@@ -239,13 +233,13 @@ class ClientApplication(val appName: String) extends Application {
     */
   override def createApplicationContext(): ApplicationContext = {
     val appCtx = super.createApplicationContext()
-    addBeanDuringApplicationStartup(JavaFxSharedWindowManager.BeanStageFactory, clientContext
-      .stageFactory)
-    addBeanDuringApplicationStartup(BeanActorSystem, clientContext.actorSystem)
-    addBeanDuringApplicationStartup(BeanActorFactory, clientContext.actorFactory)
-    addBeanDuringApplicationStartup(BeanMessageBus, clientContext.messageBus)
-    addBeanDuringApplicationStartup(BeanMediaFacade, clientContext.mediaFacade)
-    addBeanDuringApplicationStartup(BeanClientApplicationContext, clientContext)
+    addBeanDuringApplicationStartup(JavaFxSharedWindowManager.BeanStageFactory,
+      clientApplicationContext.stageFactory)
+    addBeanDuringApplicationStartup(BeanActorSystem, clientApplicationContext.actorSystem)
+    addBeanDuringApplicationStartup(BeanActorFactory, clientApplicationContext.actorFactory)
+    addBeanDuringApplicationStartup(BeanMessageBus, clientApplicationContext.messageBus)
+    addBeanDuringApplicationStartup(BeanMediaFacade, clientApplicationContext.mediaFacade)
+    addBeanDuringApplicationStartup(BeanClientApplicationContext, clientApplicationContext)
     appCtx
   }
 
