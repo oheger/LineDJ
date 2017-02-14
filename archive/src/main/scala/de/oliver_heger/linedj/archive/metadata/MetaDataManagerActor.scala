@@ -18,43 +18,34 @@ package de.oliver_heger.linedj.archive.metadata
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
+import de.oliver_heger.linedj.shared.archive.union.MediaContribution
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
 
-  private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef)
-    extends MetaDataManagerActor(config, persistenceManager) with ChildActorFactory
-      with CloseSupport
+  private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
+                                         metaDataUnionActor: ActorRef)
+    extends MetaDataManagerActor(config, persistenceManager, metaDataUnionActor)
+      with ChildActorFactory with CloseSupport
 
   /**
     * Returns creation properties for an actor instance of this type.
     *
     * @param config             the server configuration object
     * @param persistenceManager reference to the persistence manager actor
+    * @param metaDataUnionActor reference to the meta data union actor
     * @return creation properties for a new actor instance
     */
-  def apply(config: MediaArchiveConfig, persistenceManager: ActorRef): Props =
-    Props(classOf[MetaDataManagerActorImpl], config, persistenceManager)
-
-  /**
-   * Returns a flag whether the specified medium ID refers to files not
-   * assigned to a medium, but is not the global undefined medium. Such IDs
-   * have to be treated in a special way because the global undefined medium
-   * has to be updated.
-    *
-    * @param mediumID the medium ID to check
-   * @return a flag whether this is an unassigned medium
-   */
-  private def isUnassignedMedium(mediumID: MediumID): Boolean =
-    mediumID.mediumDescriptionPath.isEmpty && mediumID != MediumID.UndefinedMediumID
+  def apply(config: MediaArchiveConfig, persistenceManager: ActorRef,
+            metaDataUnionActor: ActorRef): Props =
+    Props(classOf[MetaDataManagerActorImpl], config, persistenceManager, metaDataUnionActor)
 
 }
 
@@ -102,24 +93,16 @@ object MetaDataManagerActor {
  *
  * @param config the central configuration object
  * @param persistenceManager reference to the persistence manager actor
+ * @param metaDataUnionActor reference to the meta data union actor
  */
-class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef) extends Actor
-  with ActorLogging {
+class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef,
+                           metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
-
-  import MetaDataManagerActor._
 
   /**
     * A map for storing the extracted meta data for all media.
     */
-  private val mediaMap = collection.mutable.Map.empty[MediumID, MediumDataHandler]
-
-  /** Stores the listeners registered for specific media. */
-  private val mediumListeners =
-  collection.mutable.Map.empty[MediumID, List[(ActorRef, Int)]]
-
-  /** A list with the currently registered state listeners. */
-  private var stateListeners = Set.empty[ActorRef]
+  private var mediaMap = Map.empty[MediumID, MediumDataHandler]
 
   /** A map with the processor actors for the different media roots. */
   private var processorActors = Map.empty[Path, ActorRef]
@@ -137,28 +120,15 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
 
-  /** The number of currently processed songs. */
-  private var currentSongCount = 0
-
-  /** The current duration of all processed songs. */
-  private var currentDuration = 0L
-
-  /** The current size of all processed songs. */
-  private var currentSize = 0L
-
   override def receive: Receive = {
     case MediaScanStarts if !scanInProgress =>
       initiateNewScan()
 
     case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
-      handleProcessingResult(result.mediumID, result)
-      if (isUnassignedMedium(result.mediumID)) {
-        // update global unassigned list
-        handleProcessingResult(MediumID.UndefinedMediumID, result)
+      if (handleProcessingResult(result.mediumID, result)) {
+        metaDataUnionActor ! result
+        checkAndHandleScanComplete()
       }
-      currentSongCount += 1
-      currentDuration += result.metaData.duration getOrElse 0
-      currentSize += result.metaData.size
 
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
@@ -169,6 +139,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
       persistenceManager ! esr
+      metaDataUnionActor ! MediaContribution(esr.scanResult.mediaFiles)
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
 
     case AvailableMedia(media) =>
@@ -181,53 +152,11 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case CloseRequest if scanInProgress =>
       val actorsToClose = processorActors.values.toSet + persistenceManager
-      if (onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)) {
-        fireStateEvent(MetaDataScanCanceled)
-      }
+      onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)
 
     case CloseComplete =>
       onCloseComplete()
-      mediumListeners.clear()
       completeScanOperation()
-
-    case GetMetaData(mediumID, registerAsListener, registrationID) =>
-      mediaMap get mediumID match {
-        case None =>
-          sender ! UnknownMedium(mediumID)
-
-        case Some(handler) =>
-          handler.metaData foreach (sendMetaDataResponse(sender, _, registrationID))
-          if (registerAsListener && !handler.isComplete) {
-            val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
-            mediumListeners(mediumID) = newListeners
-          }
-      }
-
-    case RemoveMediumListener(mediumID, listener) =>
-      val listeners = mediumListeners.getOrElse(mediumID, Nil)
-      val updatedListeners = listeners filterNot (_._1 == listener)
-      if (updatedListeners.nonEmpty) {
-        mediumListeners(mediumID) = updatedListeners
-      } else {
-        mediumListeners remove mediumID
-      }
-
-    case AddMetaDataStateListener(listener) =>
-      stateListeners = stateListeners + listener
-      listener ! createStateUpdatedEvent()
-      context watch listener
-      log.info("Added state listener.")
-
-    case RemoveMetaDataStateListener(listener) =>
-      if (removeStateListenerActor(listener)) {
-        context unwatch listener
-        log.info("Removed state listener.")
-      }
-
-    case Terminated(actor) =>
-      // a state listener actor died, so remove it from the set
-      removeStateListenerActor(actor)
-      log.warning("State listener terminated. Removed from collection.")
 
     case GetMetaDataFileInfo =>
       persistenceManager forward GetMetaDataFileInfo
@@ -241,24 +170,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   }
 
   /**
-    * Returns a set with the currently registered state listeners. This is
-    * mainly for testing purposes.
-    *
-    * @return a set with the registered state listeners
-    */
-  def registeredStateListeners: Set[ActorRef] = stateListeners
-
-  /**
     * Prepares a new scan operation. Initializes some internal state.
     */
   private def initiateNewScan(): Unit = {
-    fireStateEvent(MetaDataScanStarted)
     persistenceManager ! ScanForMetaDataFiles
-    mediaMap.clear()
+    mediaMap = Map.empty
+    completedMedia = Set(MediumID.UndefinedMediumID)
     scanInProgress = true
-    currentSize = 0
-    currentDuration = 0
-    currentSongCount = 0
   }
 
   /**
@@ -271,27 +189,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit = {
     val mediumID = e._1
-    val handler = mediaMap.getOrElseUpdate(mediumID, createHandlerForMedium(mediumID))
+    val handler = mediaMap.getOrElse(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2
-
-    if (isUnassignedMedium(mediumID)) {
-      prepareHandlerForMedium((MediumID.UndefinedMediumID, e._2))
-    }
-  }
-
-  /**
-    * Creates a handler object for the specified medium.
-    *
-    * @param mediumID the medium ID
-    * @return the handler for this medium
-    */
-  private def createHandlerForMedium(mediumID: MediumID): MediumDataHandler =
-  if (MediumID.UndefinedMediumID == mediumID) new MediumDataHandler(mediumID) {
-    override protected def extractUri(result: MetaDataProcessingResult): String =
-      MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
-  } else new MediumDataHandler(mediumID) {
-    override protected def extractUri(result: MetaDataProcessingResult): String =
-      result.uri
+    mediaMap += mediumID -> handler
   }
 
   /**
@@ -299,9 +199,12 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @param mediumID the ID of the affected medium
     * @param result   the result to be handled
+    * @return a flag whether this is a valid result
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult): Unit = {
-    mediaMap get mediumID foreach processMetaDataResult(mediumID, result)
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
+  Boolean = {
+    val optHandler = mediaMap get mediumID
+    optHandler.exists(processMetaDataResult(mediumID, result, _))
   }
 
   /**
@@ -310,38 +213,18 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * notified.
     *
     * @param mediumID the ID of the affected medium
-    * @param result   the processing result
-    * @param handler  the handler for this medium
+    * @param result  the processing result
+    * @param handler the handler for this medium
+    * @return a flag whether this is a valid result
     */
-  private def processMetaDataResult(mediumID: MediumID,
-                                    result: MetaDataProcessingResult)(handler: MediumDataHandler)
-  : Unit = {
-    if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
-    (handleCompleteChunk(mediumID))) {
-      mediumListeners remove mediumID
-      completedMedia += mediumID
-      if (mediumID != MediumID.UndefinedMediumID) {
-        // the undefined medium is handled at the very end of the scan
-        fireStateEvent(MediumMetaDataCompleted(mediumID))
-        fireStateEvent(createStateUpdatedEvent())
+  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
+                                    handler: MediumDataHandler): Boolean =
+    if (handler.resultReceived(result)) {
+      if (handler.isComplete) {
+        completedMedia += mediumID
       }
-      checkAndHandleScanComplete()
-    }
-  }
-
-  /**
-    * Handles a new chunk of mata data that became available. This method
-    * notifies the listeners registered for this medium.
-    *
-    * @param mediumID the ID of the affected medium
-    * @param chunk    the chunk
-    */
-  private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit = {
-    lazy val chunkMsg = chunk
-    mediumListeners get mediumID foreach { l =>
-      l foreach (t => sendMetaDataResponse(t._1, chunkMsg, t._2))
-    }
-  }
+      true
+    } else false
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the
@@ -360,22 +243,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private def completeScanOperation(): Unit = {
     scanInProgress = false
     availableMedia = None
-    if (hasUndefinedMedium) {
-      fireStateEvent(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
-    }
-    fireStateEvent(createStateUpdatedEvent())  // a final update event
-    fireStateEvent(MetaDataScanCompleted)
     completedMedia = Set.empty
   }
-
-  /**
-    * Checks whether the current list of completed media contains at least one
-    * instance without a settings file (an undefined medium).
-    *
-    * @return a flag whether an undefined medium has been encountered
-    */
-  private def hasUndefinedMedium: Boolean =
-  completedMedia.exists(_.mediumDescriptionPath.isEmpty)
 
   /**
     * Returns a flag whether the processing results for all media have been
@@ -386,48 +255,4 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def allMediaProcessingResultsReceived: Boolean =
   availableMedia exists (m => m.keySet subsetOf completedMedia)
-
-  /**
-    * Sends a meta data response message to the specified actor.
-    *
-    * @param actor the receiving actor
-    * @param chunk the chunk of data to be sent
-    * @param regID the actor's registration ID
-    */
-  private def sendMetaDataResponse(actor: ActorRef, chunk: MetaDataChunk, regID: Int): Unit = {
-    actor ! MetaDataResponse(chunk, regID)
-  }
-
-  /**
-    * Creates a ''MetaDataStateUpdated'' event with the current statistics
-    * information.
-    *
-    * @return the state object
-    */
-  private def createStateUpdatedEvent(): MetaDataStateUpdated =
-  MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount = currentSongCount,
-    duration = currentDuration, size = currentSize, scanInProgress = scanInProgress))
-
-  /**
-    * Sends the specified event to all registered state listeners.
-    *
-    * @param event the event to be sent
-    */
-  private def fireStateEvent(event: => MetaDataStateEvent): Unit = {
-    lazy val msg = event
-    registeredStateListeners foreach (_ ! msg)
-  }
-
-  /**
-    * Removes a state listener actor from the internal collection. Result is
-    * '''true''' if the listener could actually be removed.
-    *
-    * @param actor the listener actor
-    * @return a flag whether this listener actor was removed
-    */
-  private def removeStateListenerActor(actor: ActorRef): Boolean = {
-    val oldListeners = stateListeners
-    stateListeners = stateListeners filterNot (_ == actor)
-    oldListeners != stateListeners
-  }
 }
