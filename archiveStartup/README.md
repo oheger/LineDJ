@@ -1,6 +1,7 @@
 # Media Archive Startup project
 
-This module has the purpose to start the media archive in an OSGi environment.
+This module has the purpose to start the union media archive in an OSGi
+environment.
 
 ## Description
 
@@ -14,8 +15,8 @@ archive. Basically, it
 * obtains the `ClientApplicationContext` from the OSGi registry
 * reads the configuration for the management application which also contains
 the settings for the media archive
-* creates the actors implementing the functionality of the media archive
-* triggers a scan of the configured media root directories
+* creates the actors implementing the functionality of the union media archive
 
-This module must be deployed for applications that need to run the media
-archive in the local JVM.
+The union media archive is then up and running. It can be populated from
+other archive components, e.g. a local archive on the same or a remote
+machine.

@@ -25,5 +25,5 @@
   <implementation class="de.oliver_heger.linedj.archivestart.MediaArchiveStartup" />
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
-             name="clientContext" bind="initClientApplicationContext"/>
+             name="clientContext" bind="initClientContext"/>
 </component>

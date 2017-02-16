@@ -16,20 +16,15 @@
 
 package de.oliver_heger.linedj.archivestart
 
-import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
-import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import akka.actor.Props
+import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
+import de.oliver_heger.linedj.platform.app.{ActorManagement, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
-import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
 /**
-  * A class that starts the media archive in an OSGi environment.
+  * A class that starts the (union) media archive in an OSGi environment.
   *
   * This class is a declarative services component that has a dependency on the
   * ''ClientApplicationContext'' service. It is started when this service
@@ -42,22 +37,9 @@ import org.slf4j.LoggerFactory
   * dependencies. Afterwards, the media archive can be accessed via the
   * current implementation of the ''MediaFacade'' trait.
   */
-class MediaArchiveStartup {
+class MediaArchiveStartup extends PlatformComponent with ActorManagement {
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
-
-  /** The client application context. */
-  private var clientApplicationContext: ClientApplicationContext = _
-
-  /**
-    * Initializes the reference to the ''ClientApplicationContext''. This
-    * method is called by the SCR.
-    *
-    * @param clientContext the ''ClientApplicationContext''
-    */
-  def initClientApplicationContext(clientContext: ClientApplicationContext): Unit = {
-    clientApplicationContext = clientContext
-  }
 
   /**
     * Activates this component. This method is called by the SCR. Here the
@@ -65,26 +47,13 @@ class MediaArchiveStartup {
     *
     * @param compCtx the ''ComponentContext''
     */
-  def activate(compCtx: ComponentContext): Unit = {
+  override def activate(compCtx: ComponentContext): Unit = {
+    super.activate(compCtx)
     log.info("Starting up media archive.")
-    val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration
-      .asInstanceOf[HierarchicalConfiguration])
-    val persistentMetaDataManager = createActor(PersistentMetaDataManagerActor(archiveConfig),
-      "persistentMetaDataManager")
-    val metaDataManager = createActor(MetaDataManagerActor(archiveConfig,
-      persistentMetaDataManager), MediaActors.MetaDataManager.name)
-    val mediaManager = createActor(MediaManagerActor(archiveConfig, metaDataManager),
+    val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
+    val metaDataManager = createAndRegisterActor(Props(classOf[MetaDataUnionActor],
+      archiveConfig), MediaActors.MetaDataManager.name)
+    val mediaManager = createAndRegisterActor(MediaUnionActor(metaDataManager),
       MediaActors.MediaManager.name)
-    mediaManager ! ScanAllMedia
   }
-
-  /**
-    * Helper method for creating a new actor.
-    *
-    * @param props creation properties
-    * @param name  the actor name
-    * @return the new actor reference
-    */
-  private def createActor(props: Props, name: String): ActorRef =
-  clientApplicationContext.actorFactory.createActor(props, name)
 }

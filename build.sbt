@@ -162,7 +162,7 @@ lazy val archiveStartup = (project in file("archiveStartup"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform, archive)
+  ) dependsOn(platform, archiveUnion)
 
 /**
   * A project which implements an admin UI for the media archive.

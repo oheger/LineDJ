@@ -18,16 +18,12 @@ package de.oliver_heger.linedj.archivestart
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.comm.ActorFactory
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
-import org.apache.commons.configuration.HierarchicalConfiguration
-import org.mockito.Mockito._
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
@@ -44,23 +40,10 @@ object MediaArchiveStartupSpec {
     *
     * @return the configuration
     */
-  private def createArchiveConfiguration(): HierarchicalConfiguration = {
-    val config = new HierarchicalConfiguration
-    config.addProperty("media.readerTimeout", 60)
-    config.addProperty("media.readerCheckInterval", 180)
-    config.addProperty("media.readerCheckInitialDelay", 240)
-    config.addProperty("media.roots.root.path", "myMusic")
-    config.addProperty("media.roots.root.processorCount", 2)
-    config.addProperty("media.roots.root.accessRestriction", 1)
-    config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
-    config.addProperty("media.metaDataExtraction.readChunkSize", 4096)
-    config.addProperty("media.metaDataExtraction.tagSizeLimit", 16384)
+  private def createArchiveConfiguration(): Configuration = {
+    val config = new PropertiesConfiguration
     config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", 8192)
     config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", 32768)
-    config.addProperty("media.metaDataPersistence.path", "data")
-    config.addProperty("media.metaDataPersistence.chunkSize", 1024)
-    config.addProperty("media.metaDataPersistence.parallelCount", 4)
-    config.addProperty("media.metaDataPersistence.writeBlockSize", 64)
 
     config
   }
@@ -84,11 +67,12 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     new MediaArchiveStartupTestHelper().createAndActivateStartup().verifyActorsCreated()
   }
 
-  it should "send a scan message to the media manager" in {
+  it should "register the newly created actors" in {
     val helper = new MediaArchiveStartupTestHelper
-    helper.createAndActivateStartup()
+    val startup = helper.activateStartup(helper.createStartup())
 
-    helper.probeMediaManager.expectMsg(ScanAllMedia)
+    startup getActor "metaDataManager" should be(helper.probeMetaDataManager.ref)
+    startup getActor "mediaManager" should be(helper.probeMediaManager.ref)
   }
 
   /**
@@ -101,9 +85,6 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the meta data manager actor. */
     val probeMetaDataManager = TestProbe()
 
-    /** Test probe for the persistent meta data manager. */
-    val probePersistentManager = TestProbe()
-
     /** A set for the actors that have been created by the test factory. */
     private var createdActors = Set.empty[TestProbe]
 
@@ -114,7 +95,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     def createStartup(): MediaArchiveStartup = {
       val startup = new MediaArchiveStartup
-      startup initClientApplicationContext createClientContext
+      startup initClientContext createClientContext
       startup
     }
 
@@ -146,7 +127,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * Checks whether all expected actors have been created correctly.
       */
     def verifyActorsCreated(): Unit = {
-      createdActors should have size 3
+      createdActors should have size 2
     }
 
     /**
@@ -176,34 +157,17 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
             val props = invocation.getArguments.head.asInstanceOf[Props]
             val name = invocation.getArguments()(1).asInstanceOf[String]
             name match {
-              case "persistentMetaDataManager" =>
-                val refProps = PersistentMetaDataManagerActor(ArchiveConfig)
-                props.actorClass() should be(refProps.actorClass())
-                props.args.head should be(refProps.args.head)
-                actorCreation(probePersistentManager)
-
               case "metaDataManager" =>
-                props should be(MetaDataManagerActor(ArchiveConfig, probePersistentManager.ref))
+                props should be(Props(classOf[MetaDataUnionActor], ArchiveConfig))
                 actorCreation(probeMetaDataManager)
 
               case "mediaManager" =>
-                props should be(MediaManagerActor(ArchiveConfig, probeMetaDataManager.ref))
+                props should be(MediaUnionActor(probeMetaDataManager.ref))
                 actorCreation(probeMediaManager)
             }
           }
         })
       factory
-    }
-
-    /**
-      * Checks whether the expected props have been passed to the actor factory.
-      *
-      * @param expected expected props
-      * @param actual   actual props
-      */
-    private def checkProps(expected: Props, actual: Props): Unit = {
-      actual.actorClass() should be(expected.actorClass())
-      actual.args should be(expected.args)
     }
 
     /**
