@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import akka.actor.{Actor, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
@@ -62,7 +62,7 @@ object MediaUnionActor {
   *
   * @param metaDataUnionActor the actor managing the union of meta data
   */
-class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor {
+class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
 
   import MediaUnionActor._
@@ -82,6 +82,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor {
       val controller = optCtrlActor getOrElse sender()
       controllerMap += compID -> controller
       context watch controller
+      log.info(s"Received AddMedia message from component $compID.")
 
     case filesReq: GetMediumFiles =>
       forwardToController(filesReq.mediumID, filesReq)(undefinedMediumFiles)

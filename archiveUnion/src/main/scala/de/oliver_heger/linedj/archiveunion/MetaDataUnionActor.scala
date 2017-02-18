@@ -136,9 +136,11 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
   override def receive: Receive = {
     case MediaContribution(files) =>
+      log.info("Received MediaContribution.")
       if (!scanInProgress) {
         scanInProgress = true
         fireStateEvent(MetaDataScanStarted)
+        log.info("Scan starts.")
       }
       files foreach prepareHandlerForMedium
 
@@ -197,6 +199,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
     case ArchiveComponentRemoved(archiveCompID) =>
       handleRemovedArchiveComponent(archiveCompID)
+      log.info(s"Archive component removed: $archiveCompID.")
 
     case CloseRequest =>
       if (scanInProgress) {
@@ -321,6 +324,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def completeScanOperation(): Unit = {
     scanInProgress = false
+    log.info("Scan stopped.")
     undefinedMediumHandler.complete(handleCompleteChunk(MediumID.UndefinedMediumID))
     mediumListeners.remove(MediumID.UndefinedMediumID)
     if (hasUndefinedMedium) {
