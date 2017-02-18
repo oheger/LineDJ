@@ -64,7 +64,7 @@ lazy val LineDJ = (project in file("."))
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
-  trayWindowList, archiveUnion)
+  trayWindowList, archiveUnion, archiveLocalStartup)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -163,6 +163,24 @@ lazy val archiveStartup = (project in file("archiveStartup"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform, archiveUnion)
+
+/**
+  * A project which is responsible for starting up the local media archive in
+  * an OSGi environment. If this bundle is deployed in a LineDJ platform, a
+  * local archive will be started which contributes its data to the configured
+  * union archive.
+  */
+lazy val archiveLocalStartup = (project in file("archiveLocalStartup"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archiveLocalStartup",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(platform, archive)
 
 /**
   * A project which implements an admin UI for the media archive.
