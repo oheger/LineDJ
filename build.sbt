@@ -83,7 +83,7 @@ lazy val shared = (project in file("shared"))
   * The media archive project. This contains code to manage the library with
   * artists, albums, and songs.
   */
-lazy val archive = (project in file("archive"))
+lazy val archive = (project in file("mediaArchive/archive"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -98,7 +98,7 @@ lazy val archive = (project in file("archive"))
   * The media archive project. This contains code to manage the library with
   * artists, albums, and songs.
   */
-lazy val archiveUnion = (project in file("archiveUnion"))
+lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -152,7 +152,7 @@ lazy val actorSystem = (project in file("actorSystem"))
   * OSGi; therefore, there is a separate project for the startup of the
   * archive in OSGi.)
   */
-lazy val archiveStartup = (project in file("archiveStartup"))
+lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -170,7 +170,7 @@ lazy val archiveStartup = (project in file("archiveStartup"))
   * local archive will be started which contributes its data to the configured
   * union archive.
   */
-lazy val archiveLocalStartup = (project in file("archiveLocalStartup"))
+lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -185,7 +185,7 @@ lazy val archiveLocalStartup = (project in file("archiveLocalStartup"))
 /**
   * A project which implements an admin UI for the media archive.
   */
-lazy val archiveAdmin = (project in file("archiveAdmin"))
+lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
