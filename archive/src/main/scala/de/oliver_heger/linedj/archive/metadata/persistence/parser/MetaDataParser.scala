@@ -18,11 +18,11 @@ package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserImpl.ManyPartialData
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Success}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import org.slf4j.LoggerFactory
 
 object MetaDataParser {

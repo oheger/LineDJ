@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.MediaContribution
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

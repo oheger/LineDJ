@@ -27,9 +27,10 @@ import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanR
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

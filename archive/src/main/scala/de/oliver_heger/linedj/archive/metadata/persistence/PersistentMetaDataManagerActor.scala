@@ -23,10 +23,11 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl}
-import de.oliver_heger.linedj.archive.metadata.{MetaDataProcessingResult, ScanForMetaDataFiles, UnresolvedMetaDataFiles}
+import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.annotation.tailrec

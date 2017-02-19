@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {

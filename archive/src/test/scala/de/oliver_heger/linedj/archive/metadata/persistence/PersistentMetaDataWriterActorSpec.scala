@@ -28,12 +28,12 @@ import akka.stream.scaladsl.{FileIO, Source}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.scalatest.mock.MockitoSugar

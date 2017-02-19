@@ -24,11 +24,11 @@ import akka.actor._
 import akka.stream.scaladsl.{FileIO, Keep, Sink}
 import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archive.metadata.MetaDataProcessingResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object PersistentMetaDataReaderActor {

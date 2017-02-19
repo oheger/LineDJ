@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.archive.metadata
 
 import java.nio.file.Path
 
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
  * A message containing data extracted from an ID3 frame to be processed.
@@ -134,21 +133,6 @@ case class MediaFileRead(path: Path)
   * @param files    the files to be processed
   */
 case class ProcessMediaFiles(mediumID: MediumID, files: List[FileData])
-
-/**
- * A message with the result of meta data extraction for a single media file.
- *
- * Messages of this type are sent to the meta data manager actor whenever a
- * media file has been processed. The message contains the meta data that
- * could be extracted.
- *
- * @param path the path to the media file
- * @param mediumID the ID of the medium this file belongs to
- * @param uri the URI of the file
- * @param metaData an object with the meta data that could be extracted
- */
-case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
-                                    metaData: MediaMetaData)
 
 /**
   * A message defining the files of a medium for which no persistent meta data
