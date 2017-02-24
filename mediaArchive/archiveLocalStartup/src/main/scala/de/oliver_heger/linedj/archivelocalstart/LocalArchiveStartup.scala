@@ -22,13 +22,12 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
-import de.oliver_heger.linedj.platform.app.{ActorManagement, ClientApplicationContext,
-PlatformComponent}
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, PlatformComponent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext

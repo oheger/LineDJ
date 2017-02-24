@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app
+package de.oliver_heger.linedj.platform.app.support
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileReaderActor
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, PlatformComponent}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
@@ -36,19 +37,8 @@ object ActorManagementSpec {
     */
   private def genActorName(idx: Int): String = ActorName + idx
 
-  private class ComponentTestImpl extends PlatformComponent with ActorManagement {
-    /** A counter for invocations of ''deactivate()''. */
-    var deactivateCounter = 0
-
-    /**
-      * @inheritdoc This implementation is used to check whether the
-      *             original deactivate logic is correctly invoked.
-      */
-    override def deactivate(componentContext: ComponentContext): Unit = {
-      deactivateCounter += 1
-      super.deactivate(componentContext)
-    }
-
+  private class ComponentTestImpl extends PlatformComponent with SuperInvocationCheck
+    with ActorManagement {
     /**
       * Overridden to increase visibility.
       */
@@ -70,10 +60,11 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     TestKit shutdownActorSystem system
   }
 
-  "An ActorManagement" should "call the original deactivate() method" in {
+  "An ActorManagement" should "call the original life-cycle methods" in {
     val helper = new ActorManagementTestHelper
 
-    helper.deactivateComponent().checkDeactivation()
+    helper.activateComponent().checkActivation()
+      .deactivateComponent().checkDeactivation()
   }
 
   it should "make registered actors accessible" in {
@@ -142,12 +133,34 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     private var actorCount = 0
 
     /**
+      * Calls ''activate()'' on the test component.
+      *
+      * @return this test helper
+      */
+    def activateComponent(): ActorManagementTestHelper = {
+      component activate componentContext
+      verifyZeroInteractions(componentContext)
+      this
+    }
+
+    /**
       * Calls ''deactivate()'' on the test component.
       *
       * @return this test helper
       */
     def deactivateComponent(): ActorManagementTestHelper = {
       component deactivate componentContext
+      verifyZeroInteractions(componentContext)
+      this
+    }
+
+    /**
+      * Checks whether activation logic was invoked on the test instance.
+      *
+      * @return this test helper
+      */
+    def checkActivation(): ActorManagementTestHelper = {
+      component.activateCount should be(1)
       this
     }
 
@@ -157,7 +170,7 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def checkDeactivation(): ActorManagementTestHelper = {
-      component.deactivateCounter should be(1)
+      component.deactivateCount should be(1)
       this
     }
 

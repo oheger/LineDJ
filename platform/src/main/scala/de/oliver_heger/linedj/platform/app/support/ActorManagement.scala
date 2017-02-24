@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app
+package de.oliver_heger.linedj.platform.app.support
 
 import java.util.concurrent.ConcurrentHashMap
 
 import akka.actor.{ActorRef, Props}
+import de.oliver_heger.linedj.platform.app.PlatformComponent
 import org.osgi.service.component.ComponentContext
 
 /**

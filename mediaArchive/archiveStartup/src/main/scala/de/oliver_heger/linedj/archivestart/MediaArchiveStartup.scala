@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archivestart
 
 import akka.actor.Props
 import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
-import de.oliver_heger.linedj.platform.app.{ActorManagement, PlatformComponent}
+import de.oliver_heger.linedj.platform.app.PlatformComponent
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
