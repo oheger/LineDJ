@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, PlatformComponent}
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
@@ -81,7 +81,8 @@ object LocalArchiveStartup {
   * to be scanned must be provided in the configuration of the management
   * application.
   */
-class LocalArchiveStartup extends PlatformComponent with ActorManagement with Identifiable {
+class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
+  with ActorManagement with Identifiable {
 
   import LocalArchiveStartup._
 

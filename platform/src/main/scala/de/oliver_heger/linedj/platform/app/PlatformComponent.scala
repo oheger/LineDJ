@@ -35,18 +35,13 @@ import org.osgi.service.component.ComponentContext
   * logic.
   */
 trait PlatformComponent {
-  /** The client application context. */
-  private var clientContextField: ClientApplicationContext = _
-
   /**
     * Initializes the reference to the ''ClientApplicationContext''. This
     * method is called by the SCR.
     *
     * @param context the ''ClientApplicationContext''
     */
-  def initClientContext(context: ClientApplicationContext): Unit = {
-    clientContextField = context
-  }
+  def initClientContext(context: ClientApplicationContext): Unit
 
   /**
     * Returns the ''ClientApplicationContext'' used by this component. This
@@ -54,7 +49,7 @@ trait PlatformComponent {
     *
     * @return the ''ClientApplicationContext''
     */
-  def clientApplicationContext: ClientApplicationContext = clientContextField
+  def clientApplicationContext: ClientApplicationContext
 
   /**
     * Activates this component. This method is called by the SCR. It can be

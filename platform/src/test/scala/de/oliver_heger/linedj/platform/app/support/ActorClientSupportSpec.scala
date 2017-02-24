@@ -22,19 +22,19 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{Actor, ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, PlatformComponent}
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
 object ActorClientSupportSpec {
@@ -269,7 +269,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
 /**
   * A test implementation mixing in the trait to be tested.
   */
-private class SupportImpl extends PlatformComponent with SuperInvocationCheck
+private class SupportImpl extends ClientContextSupport with SuperInvocationCheck
   with ActorClientSupport {
   /**
     * Checks whether an operation on a future is possible without having to

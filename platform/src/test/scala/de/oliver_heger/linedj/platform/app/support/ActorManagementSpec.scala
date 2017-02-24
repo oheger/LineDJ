@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.app.support
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileReaderActor
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, PlatformComponent}
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
@@ -37,7 +37,7 @@ object ActorManagementSpec {
     */
   private def genActorName(idx: Int): String = ActorName + idx
 
-  private class ComponentTestImpl extends PlatformComponent with SuperInvocationCheck
+  private class ComponentTestImpl extends ClientContextSupport with SuperInvocationCheck
     with ActorManagement {
     /**
       * Overridden to increase visibility.

@@ -121,7 +121,7 @@ object ClientApplication {
   *
   * @param appName the name of this application
   */
-class ClientApplication(val appName: String) extends Application with PlatformComponent {
+class ClientApplication(val appName: String) extends Application with ClientContextSupport {
   this: ApplicationStartup =>
 
   import ClientApplication._

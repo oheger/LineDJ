@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivestart
 
 import akka.actor.Props
 import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
-import de.oliver_heger.linedj.platform.app.PlatformComponent
+import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
 import org.osgi.service.component.ComponentContext
@@ -38,7 +38,8 @@ import org.slf4j.LoggerFactory
   * dependencies. Afterwards, the media archive can be accessed via the
   * current implementation of the ''MediaFacade'' trait.
   */
-class MediaArchiveStartup extends PlatformComponent with ActorManagement {
+class MediaArchiveStartup extends PlatformComponent with ClientContextSupport
+  with ActorManagement {
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
