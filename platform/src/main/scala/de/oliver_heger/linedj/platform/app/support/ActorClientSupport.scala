@@ -17,16 +17,47 @@
 package de.oliver_heger.linedj.platform.app.support
 
 import akka.actor.{Actor, ActorRef}
+import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.PlatformComponent
-import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.FutureUICallback
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.{ActorRequest, FutureUICallback}
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 import scala.util.Try
 
 object ActorClientSupport {
+
+  /**
+    * A trait describing a request to the actor. The request can either be
+    * executed yielding a ''Future'', or the result can be passed to a callback
+    * on the UI thread.
+    */
+  trait ActorRequest {
+    /**
+      * Executes this request and returns a ''Future'' mapped to the expected
+      * result type.
+      *
+      * @param c class tag for the result type
+      * @tparam R the result type
+      * @return a ''Future'' for the result of the invocation
+      */
+    def execute[R](implicit c: ClassTag[R]): Future[R]
+
+    /**
+      * Executes this request and obtains the result, mapped to the specified
+      * result type. This result is then passed to the provided callback in the
+      * UI thread. This is useful for requests issued from UI components.
+      *
+      * @param callback the callback for propagating the result
+      * @param c        class tag for the result type
+      * @tparam R the result type
+      * @tparam U the return type of the callback (just ignored)
+      */
+    def executeUIThread[R, U](callback: Try[R] => U)(implicit c: ClassTag[R]): Unit
+  }
 
   /**
     * Internally used helper class to run an ''onComplete()'' callback of a
@@ -115,10 +146,23 @@ trait ActorClientSupport extends PlatformComponent {
     * @param timeout a timeout
     * @tparam U the return value of the callback (just ignored)
     */
-  def resolveActorUIThread[U](path: String, f: Try[ActorRef] => U)
+  def resolveActorUIThread[U](path: String)(f: Try[ActorRef] => U)
                              (implicit timeout: Timeout): Unit = {
     resolveActor(path) onCompleteUIThread f
   }
+
+  /**
+    * Produces an ''ActorRequest'' for the specified actor and message. The
+    * request can then be executed in various ways. A timeout has to be
+    * provided either directly or implicitly.
+    *
+    * @param actor   the actor to be invoked
+    * @param msg     the message to be sent to the actor
+    * @param timeout a timeout
+    * @return an ''ActorRequest'' which can be executed
+    */
+  def actorRequest(actor: ActorRef, msg: Any)(implicit timeout: Timeout): ActorRequest =
+    ActorRequestImpl(actor, msg, timeout)
 
   /**
     * @inheritdoc This implementation installs a message bus receiver to handle
@@ -166,6 +210,22 @@ trait ActorClientSupport extends PlatformComponent {
     def onCompleteUIThread[U](f: Try[T] => U): Unit = {
       future.onComplete(t => clientApplicationContext.messageBus publish FutureUICallback(f, t))
     }
+  }
+
+  /**
+    * Internal implementation of ''ActorRequest''.
+    *
+    * @param actor   the actor to be invoked
+    * @param msg     the message to be sent
+    * @param timeout the timeout
+    */
+  private case class ActorRequestImpl(actor: ActorRef, msg: Any, timeout: Timeout)
+    extends ActorRequest {
+    override def execute[R](implicit c: ClassTag[R]): Future[R] =
+      actor.ask(msg)(timeout).mapTo(c)
+
+    override def executeUIThread[R, U](callback: (Try[R]) => U)(implicit c: ClassTag[R]):
+    Unit = execute onCompleteUIThread callback
   }
 
 }

@@ -16,10 +16,11 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.pattern.AskTimeoutException
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport}
@@ -41,6 +42,9 @@ object ActorClientSupportSpec {
   /** Constant for a test PING message. */
   private val MsgPing = new Object
 
+  /** Constant for a test response message. */
+  private val MsgPong = 42
+
   /** Duration for timeouts and wait calls. */
   private val TimeoutDuration = 10.seconds
 
@@ -49,6 +53,16 @@ object ActorClientSupportSpec {
 
   /** The message bus registration ID. */
   private val RegistrationID = 20170222
+
+  /**
+    * A simple test actor which answers to a predefined message with a
+    * predefined response and ignores all other messages.
+    */
+  class AskActor extends Actor {
+    override def receive: Receive = {
+      case MsgPing => sender ! MsgPong
+    }
+  }
 }
 
 /**
@@ -114,7 +128,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val func = mock[Try[ActorRef] => Unit]
 
     helper.activate()
-    helper.support.resolveActorUIThread(path, func)
+    helper.support.resolveActorUIThread(path)(func)
     val uiMsg = helper.expectUIMessage()
     verifyZeroInteractions(func)
     helper sendToBusListener uiMsg
@@ -160,6 +174,41 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new ActorClientSupportTestHelper
 
     helper.deactivate().support.deactivateCount should be(1)
+  }
+
+  it should "support querying an actor from the UI thread" in {
+    val helper = new ActorClientSupportTestHelper
+    helper.activate()
+    val actor = system.actorOf(Props[AskActor], "askActor")
+    val refAnswer = new AtomicInteger
+
+    val request = helper.support.actorRequest(actor, MsgPing)
+    request executeUIThread { t: Try[Int] =>
+      t match {
+        case Success(i) => refAnswer.set(i)
+        case e => fail("Unexpected result: " + e)
+      }
+    }
+    refAnswer.get() should be(0)
+    helper sendToBusListener helper.expectUIMessage()
+    refAnswer.get() should be(MsgPong)
+  }
+
+  it should "respect the timeout for an actor invocation" in {
+    val helper = new ActorClientSupportTestHelper
+    helper.activate()
+    val actor = system.actorOf(Props[AskActor], "askActorTimeout")
+    val refAnswer = new AtomicReference[Try[Int]]
+    val timeout = Timeout(100.millis)
+
+    val request = helper.support.actorRequest(actor, MsgPong)(timeout)
+    request executeUIThread refAnswer.set
+    helper sendToBusListener helper.expectUIMessage()
+    refAnswer.get() match {
+      case Failure(exception) =>
+        exception shouldBe a[AskTimeoutException]
+      case r => fail("Unexpected result: " + r)
+    }
   }
 
   /**
