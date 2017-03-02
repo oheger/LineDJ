@@ -19,16 +19,19 @@ package de.oliver_heger.linedj.archiveadmin
 import java.util
 
 import akka.actor.Actor.Receive
+import akka.actor.{ActorRef, ActorSystem}
+import akka.testkit.{TestKit, TestProbe}
+import akka.util.Timeout
+import de.oliver_heger.linedj.archiveadmin.MetaDataFilesController.MetaDataFileData
+import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper._
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension
-.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension
-.{StateListenerRegistration, StateListenerUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -39,14 +42,18 @@ import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.resources.Message
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers._
+import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
+import scala.collection.immutable.IndexedSeq
+import scala.concurrent.duration._
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 object MetaDataFilesControllerSpec {
   /** The number of test media. */
@@ -60,6 +67,12 @@ object MetaDataFilesControllerSpec {
 
   /** A message bus registration ID. */
   private val MessageBusRegistrationID = 20163010
+
+  /** Constant for a default timeout. */
+  private val DefaultTimeout = Timeout(10.seconds)
+
+  /** A sequence with test data expected to be added to the table model. */
+  private val TableModelData = createModelData()
 
   /**
     * Generates a checksum for a test medium.
@@ -117,14 +130,39 @@ object MetaDataFilesControllerSpec {
   private def updateEvent(scanInProgress: Boolean): MetaDataStateUpdated =
   MetaDataStateUpdated(MetaDataState(scanInProgress = scanInProgress,
     mediaCount = 0, songCount = 0, size = 0, duration = 0))
+
+  /**
+    * Generates a sequence with model data which should be contained in the
+    * table model after test data has been processed.
+    *
+    * @return the sequence with test model data
+    */
+  private def createModelData(): IndexedSeq[MetaDataFileData] = {
+    val mediaData = (1 to MediaCount) map { i =>
+      val info = mediumInfo(i)
+      MetaDataFilesController.MetaDataFileData(info.name, info.checksum)
+    }
+    val unassignedData = List(
+      MetaDataFilesController.MetaDataFileData(null, OrphanedChecksum1),
+      MetaDataFilesController.MetaDataFileData(null, OrphanedChecksum2)
+    )
+    mediaData ++ unassignedData
+  }
 }
 
 /**
   * Test class for ''MetaDataFilesController''.
   */
-class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import MetaDataFilesControllerSpec._
+
+  def this() = this(ActorSystem("MetaDataFilesControllerSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+  }
 
   "A MetaDataFilesController" should "register consumers on startup" in {
     val helper = new MetaDataFilesControllerTestHelper
@@ -149,18 +187,13 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     messages should contain(AvailableMediaUnregistration(mediaReg.id))
   }
 
-  it should "register itself as message bus listener on startup" in {
+  it should "update its state if no meta data actor can be obtained" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow()
-    helper.findMessageBusRegistration()
-  }
-
-  it should "remove the message bus listener registration at shutdown" in {
-    val helper = new MetaDataFilesControllerTestHelper
-
-    helper.openWindow().closeWindow()
-    verify(helper.messageBus).removeListener(MessageBusRegistrationID)
+    helper.openWindow(Failure(new Exception))
+      .verifyDisabledState("files_state_error_actor_retrieve", verifyRequest = false,
+        expectedProgressState = false)
+      .checkNoExtensionRegistration()
   }
 
   it should "update its state for an archive unavailable message" in {
@@ -193,8 +226,8 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
 
     helper.openWindow()
       .sendStateEvent(MetaDataScanCompleted)
-      .verifyDisabledState("files_state_loading", verifyFacade = false)
-      .expectDataRequest()
+      .verifyDisabledState("files_state_loading", verifyRequest = false)
+      .verifyActorRequestExecuted[MetaDataFileInfo]
     helper.tableModelList.isEmpty shouldBe true
   }
 
@@ -211,8 +244,8 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
 
     helper.openWindow()
       .sendStateEvent(updateEvent(scanInProgress = false))
-      .verifyDisabledState("files_state_loading", verifyFacade = false)
-      .expectDataRequest()
+      .verifyDisabledState("files_state_loading", verifyRequest = false)
+      .verifyActorRequestExecuted[MetaDataFileInfo]
   }
 
   it should "ignore other meta data state events" in {
@@ -238,31 +271,32 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     * @param helper the helper
     */
   private def checkTableModel(helper: MetaDataFilesControllerTestHelper): Unit = {
-    val mediaData = (1 to MediaCount) map { i =>
-      val info = mediumInfo(i)
-      MetaDataFilesController.MetaDataFileData(info.name, info.checksum)
-    }
-    val unassignedData = List(
-      MetaDataFilesController.MetaDataFileData(null, OrphanedChecksum1),
-      MetaDataFilesController.MetaDataFileData(null, OrphanedChecksum2)
-    )
-    val expected = mediaData ++ unassignedData
-    helper.tableModelList.asScala should be(expected)
+    helper.tableModelList.asScala should be(TableModelData)
   }
 
   it should "populate the table when data becomes available" in {
     val helper = new MetaDataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
-    helper.openWindow().sendAvailableMedia().sendMessage(metaDataFileInfo())
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
+        .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
     verify(helper.tableHandler).tableDataChanged()
     checkTableModel(helper)
+  }
+
+  it should "handle a failed request for file information" in {
+    val helper = new MetaDataFilesControllerTestHelper
+
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest[MetaDataFileInfo](Failure(new Exception))
+      .verifyDisabledState("files_state_error_actor_access", verifyRequest = false)
   }
 
   it should "update its state when data becomes available" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow().sendAvailableMedia().sendMessage(metaDataFileInfo())
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
       .verifyAction("refreshAction", enabled = true)
       .verifyAction("removeFilesAction", enabled = false)
       .verifyProgressIndicator(enabled = false)
@@ -275,7 +309,8 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     val moreMedia = avMedia.media + (mediumID(42) -> mediumInfo(42))
 
     helper.openWindow().sendAvailableMedia(avMedia.copy(media = moreMedia))
-      .sendMessage(metaDataFileInfo())
+      .sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
     checkTableModel(helper)
   }
 
@@ -283,7 +318,9 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     val helper = new MetaDataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
-    helper.openWindow().sendMessage(metaDataFileInfo()).sendAvailableMedia()
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .sendAvailableMedia()
     verify(helper.tableHandler).tableDataChanged()
     checkTableModel(helper)
   }
@@ -291,27 +328,29 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
   it should "reset file data if the archive becomes unavailable" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow()
-      .sendMessage(metaDataFileInfo())
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
       .sendArchiveAvailability(MediaFacade.MediaArchiveUnavailable)
       .sendAvailableMedia()
-    verifyZeroInteractions(helper.tableHandler)
+    verify(helper.tableHandler, never()).tableDataChanged()
   }
 
   it should "reset file data if a scan starts" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow()
-      .sendMessage(metaDataFileInfo())
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
       .sendStateEvent(MetaDataScanStarted)
       .sendAvailableMedia()
-    verifyZeroInteractions(helper.tableHandler)
+    verify(helper.tableHandler, never()).tableDataChanged()
   }
 
   it should "enable the remove action if files are selected" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow().sendMessage(metaDataFileInfo()).sendAvailableMedia()
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .sendAvailableMedia()
       .resetMocks()
       .triggerTableSelection(Array(0))
       .verifyAction("removeFilesAction", enabled = true)
@@ -320,7 +359,9 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
   it should "disable the remove action if no files are selected" in {
     val helper = new MetaDataFilesControllerTestHelper
 
-    helper.openWindow().sendMessage(metaDataFileInfo()).sendAvailableMedia()
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .sendAvailableMedia()
       .resetMocks()
       .triggerTableSelection(Array.empty)
       .verifyAction("removeFilesAction", enabled = false)
@@ -333,7 +374,7 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       .sendArchiveAvailability(MediaFacade.MediaArchiveUnavailable)
       .resetMocks()
       .triggerTableSelection(Array(0, 1, 2))
-    verifyNoMoreInteractions(helper.actions("removeFilesAction"))
+      .verifyAction("removeFilesAction", enabled = false)
   }
 
   it should "handle a selection change event if no state is set" in {
@@ -346,23 +387,29 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
   it should "react on the remove action" in {
     val helper = new MetaDataFilesControllerTestHelper
     val selection = Array(0, 2)
-    helper.openWindow().sendMessage(metaDataFileInfo()).sendAvailableMedia()
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .sendAvailableMedia()
       .triggerTableSelection(selection).resetMocks()
 
+    helper.prepareActorRequest(RemovePersistentMetaData(Set(checksum(1), checksum(3))),
+      DefaultTimeout)
     helper.controller.removeFiles()
-    helper.verifyDisabledState("files_state_removing", verifyFacade = false)
-    verify(helper.mediaFacade).send(MediaActors.MetaDataManager,
-      RemovePersistentMetaData(Set(checksum(1), checksum(3))))
+    helper.verifyDisabledState("files_state_removing", verifyRequest = false)
+      .verifyActorRequestExecuted[RemovePersistentMetaDataResult]
   }
 
   it should "react on the refresh action" in {
     val helper = new MetaDataFilesControllerTestHelper
-    helper.openWindow().sendMessage(metaDataFileInfo()).sendAvailableMedia()
+    helper.openWindow().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .sendAvailableMedia()
       .resetMocks()
 
+    helper.prepareActorRequest(GetMetaDataFileInfo, DefaultTimeout)
     helper.controller.refresh()
-    helper.verifyDisabledState("files_state_loading", verifyFacade = false)
-      .expectDataRequest()
+    helper.verifyDisabledState("files_state_loading", verifyRequest = false)
+      .verifyActorRequestExecuted[MetaDataFileInfo]
   }
 
   it should "handle the result of a remove files operation" in {
@@ -370,9 +417,14 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetaData(checksumSet)
     val result = RemovePersistentMetaDataResult(request, checksumSet)
-    helper.openWindow().sendAvailableMedia().sendMessage(metaDataFileInfo()).resetMocks()
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .resetMocks()
 
-    helper.sendMessage(result)
+    helper.prepareActorRequest(request, DefaultTimeout)
+      .prepareTableSelection(checksumSet)
+    helper.controller.removeFiles()
+    helper.expectAndAnswerActorRequest(Success(result))
       .verifyAction("refreshAction", enabled = true)
       .verifyStatusText(new Message(null, "files_state_ready", MediaCount - 1, 0))
     val remainingChecksumSet = helper.tableModelList.asScala
@@ -382,25 +434,36 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     verify(helper.appContext, never()).messageBox(any(), any(), anyInt(), anyInt())
   }
 
-  it should "ignore a remove result if no file info is available" in {
-    val helper = new MetaDataFilesControllerTestHelper
-
-    helper.openWindow()
-      .sendMessage(RemovePersistentMetaDataResult(RemovePersistentMetaData(Set("test")),
-        Set.empty))
-    verify(helper.statusHandler, never()).setText(anyString())
-  }
-
   it should "display a warning for an incomplete remove operation" in {
     val helper = new MetaDataFilesControllerTestHelper
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetaData(checksumSet)
     val result = RemovePersistentMetaDataResult(request, checksumSet - OrphanedChecksum2)
-    helper.openWindow().sendAvailableMedia().sendMessage(metaDataFileInfo()).resetMocks()
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .resetMocks()
 
-    helper.sendMessage(result)
+    helper.prepareActorRequest(request, DefaultTimeout)
+      .prepareTableSelection(checksumSet)
+    helper.controller.removeFiles()
+    helper.expectAndAnswerActorRequest(Success(result))
     verify(helper.appContext).messageBox("files_err_remove_msg", "files_err_remove_tit",
       MessageOutput.MESSAGE_WARNING, MessageOutput.BTN_OK)
+  }
+
+  it should "handle a failed remove operation" in {
+    val helper = new MetaDataFilesControllerTestHelper
+    val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
+    val request = RemovePersistentMetaData(checksumSet)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
+      .expectAndAnswerActorRequest(Success(metaDataFileInfo()))
+      .resetMocks()
+
+    helper.prepareActorRequest(request, DefaultTimeout)
+      .prepareTableSelection(checksumSet)
+    helper.controller.removeFiles()
+    helper.expectAndAnswerActorRequest(Failure(new Exception))
+      .verifyDisabledState("files_state_error_actor_access")
   }
 
   it should "support closing the window" in {
@@ -456,38 +519,50 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     */
   private class MetaDataFilesControllerTestHelper {
     /** A mock for the message bus. */
-    val messageBus = createMessageBus()
-
-    /** A mock for the media facade. */
-    val mediaFacade = mock[MediaFacade]
+    val messageBus: MessageBus = createMessageBus()
 
     /** A mock for the application context. */
-    val appContext = createApplicationContext()
+    val appContext: ApplicationContext = createApplicationContext()
 
     /** The list serving as table model. */
     val tableModelList = new util.ArrayList[AnyRef]
 
     /** A mock for the table handler. */
-    val tableHandler = createTableHandler()
+    val tableHandler: TableHandler = createTableHandler()
 
     /** A mock for the status line. */
-    val statusHandler = mock[StaticTextHandler]
+    val statusHandler: StaticTextHandler = createStatusTextHandler()
 
     /** A mock for the progress indicator. */
-    val progressIndicator = mock[WidgetHandler]
+    val progressIndicator: WidgetHandler = mock[WidgetHandler]
 
     /** A mock for the window associated with the controller. */
-    val window = mock[Window]
+    val window: Window = mock[Window]
 
     /** A map with mock actions to be managed by the controller. */
-    val actions = createActions()
+    val actions: Map[String, FormAction] = createActions()
+
+    /** A map with the current action enabled states. */
+    private var actionStates = Map.empty[String, Boolean]
+
+    /** The current text for the status line. */
+    private var textStatus: String = _
+
+    /** The mock actor client support object. */
+    private val actorSupport = createActorSupport(messageBus)
 
     /** The test controller instance. */
-    val controller = new MetaDataFilesController(messageBus, mediaFacade, appContext,
+    val controller = new MetaDataFilesController(actorSupport, appContext,
       createActionStore(actions), tableHandler, statusHandler, progressIndicator)
+
+    /** A mock for the meta data manager actor. */
+    private val metaDataManager = TestProbe().ref
 
     /** Stores the messages passed to the message bus. */
     private var busMessages = List.empty[Any]
+
+    /** Stores an actor request sent by the controller. */
+    private var actorRequest: ActorClientSupport.ActorRequest = _
 
     /**
       * Returns a list with all messages (in order) that have been published
@@ -516,19 +591,26 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * @return this test helper
       */
     def resetMocks(): MetaDataFilesControllerTestHelper = {
-      reset(actions.values.toArray: _*)
-      reset(statusHandler, progressIndicator)
+      reset(progressIndicator, actorSupport)
+      actionStates = actionStates map(t => (t._1, false))
       this
     }
 
     /**
       * Sends an event about a newly opened window to the test controller.
+      * This should also trigger a request for the meta data manager actor.
+      * The result of this request can be specified.
       *
+      * @param actorResult the result of the request for the actor
+      * @param timeout a timeout for the meta data file info request
       * @return this test helper
       */
-    def openWindow(): MetaDataFilesControllerTestHelper = {
+    def openWindow(actorResult: Try[ActorRef] = Success(metaDataManager),
+                   timeout: Timeout = DefaultTimeout):
+    MetaDataFilesControllerTestHelper = {
+      prepareActorRequest(GetMetaDataFileInfo, timeout)
       controller windowOpened windowEvent()
-      this
+      processActorRequest(actorResult)
     }
 
     /**
@@ -543,13 +625,44 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     }
 
     /**
-      * Verifies that a request for meta data files information has been
-      * sent via the media facade.
+      * Prepares mocks to expect an actor request from the controller.
       *
+      * @param msg     the message to be sent
+      * @param timeout a timeout
       * @return this test helper
       */
-    def expectDataRequest(): MetaDataFilesControllerTestHelper = {
-      verify(mediaFacade).send(MediaActors.MetaDataManager, GetMetaDataFileInfo)
+    def prepareActorRequest(msg: Any, timeout: Timeout): MetaDataFilesControllerTestHelper = {
+      actorRequest = mock[ActorRequest]
+      when(actorSupport.actorRequest(metaDataManager, msg)(timeout)).thenReturn(actorRequest)
+      this
+    }
+
+    /**
+      * Verifies that the prepared actor request has been executed.
+      *
+      * @param c the class tag for the result type
+      * @tparam R the result type of the callback
+      * @return this test helper
+      */
+    def verifyActorRequestExecuted[R](implicit c: ClassTag[R]):
+    MetaDataFilesControllerTestHelper = {
+      verifyDataRequest(c)
+      this
+    }
+
+    /**
+      * Processes a request to the meta data actor and passes the provided
+      * result to the test controller.
+      *
+      * @param result  the result
+      * @param c the class tag for the result type
+      * @tparam R the result type of the callback
+      * @return this test helper
+      */
+    def expectAndAnswerActorRequest[R](result: Try[R])(implicit c: ClassTag[R]):
+    MetaDataFilesControllerTestHelper = {
+      val callback = verifyDataRequest(c)
+      callback(result)
       this
     }
 
@@ -560,7 +673,8 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * @return this test helper
       */
     def expectNoDataRequest(): MetaDataFilesControllerTestHelper = {
-      verify(mediaFacade, never()).send(any(classOf[MediaActor]), any())
+      verify(actorSupport, never()).actorRequest(eqArg(metaDataManager),
+        eqArg(GetMetaDataFileInfo))(any(classOf[Timeout]))
       this
     }
 
@@ -616,13 +730,13 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     }
 
     /**
-      * Sends a message on the message bus to the test controller.
+      * Checks that no interactions with the message bus took place to register
+      * the controller at extensions.
       *
-      * @param msg the message to be sent
       * @return this test helper
       */
-    def sendMessage(msg: Any): MetaDataFilesControllerTestHelper = {
-      findMessageBusRegistration().apply(msg)
+    def checkNoExtensionRegistration(): MetaDataFilesControllerTestHelper = {
+      busMessages.isEmpty shouldBe true
       this
     }
 
@@ -658,7 +772,7 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * @return this test helper
       */
     def verifyAction(name: String, enabled: Boolean): MetaDataFilesControllerTestHelper = {
-      verify(actions(name)).setEnabled(enabled)
+      actionStates(name) should be(enabled)
       this
     }
 
@@ -680,8 +794,7 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * @return this test helper
       */
     def verifyStatusText(message: Message): MetaDataFilesControllerTestHelper = {
-      val text = message.toString
-      verify(statusHandler).setText(text)
+      textStatus should be(message.toString)
       this
     }
 
@@ -701,18 +814,20 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * actions. This is a convenience method invoking a number of other check
       * methods.
       *
-      * @param statusResID  the expected resource ID for the status line
-      * @param verifyFacade flag whether the facade mock should be checked
-      *                     for zero interaction
+      * @param statusResID           the expected resource ID for the status line
+      * @param verifyRequest         flag whether it should be checked that no request
+      *                              for file information has been sent
+      * @param expectedProgressState expected state of the progress indicator
       * @return this test helper
       */
-    def verifyDisabledState(statusResID: String, verifyFacade: Boolean = true):
+    def verifyDisabledState(statusResID: String, verifyRequest: Boolean = true,
+                            expectedProgressState: Boolean = true):
     MetaDataFilesControllerTestHelper = {
       verifyAction("refreshAction", enabled = false)
       verifyAction("removeFilesAction", enabled = false)
       verifyStatusText(statusResID)
-      verifyProgressIndicator(enabled = true)
-      if (verifyFacade) {
+      verifyProgressIndicator(expectedProgressState)
+      if (verifyRequest) {
         expectNoDataRequest()
       }
       this
@@ -729,6 +844,50 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       when(tableHandler.getSelectedIndices).thenReturn(indices)
       controller.elementChanged(null)
       this
+    }
+
+    /**
+      * Prepares the table handler mock to return a selection that corresponds
+      * to the specified checksum set.
+      *
+      * @param checksumSet the set with checksum values to be selected
+      * @return this test helper
+      */
+    def prepareTableSelection(checksumSet: Set[String]): MetaDataFilesControllerTestHelper = {
+      val selection = checksumSet.map(s => TableModelData.indexWhere(s == _.checksum)).toArray
+      when(tableHandler.getSelectedIndices).thenReturn(selection)
+      this
+    }
+
+    /**
+      * Expects a request for the meta data manager actor and answers it with
+      * the given result.
+      *
+      * @param result the result for the request
+      * @return this test helper
+      */
+    private def processActorRequest(result: Try[ActorRef]): MetaDataFilesControllerTestHelper = {
+      val captor = ArgumentCaptor.forClass(classOf[Try[ActorRef] => Unit])
+      verify(actorSupport)
+        .resolveActorUIThread(eqArg("/user/localMetaDataManager"))(captor.capture())(eqArg(
+          DefaultTimeout))
+      captor.getValue.apply(result)
+      this
+    }
+
+    /**
+      * Verifies that a request to the meta data actor has been sent and
+      * returns the callback function for processing the result.
+      *
+      * @param c the class tag of the result
+      * @tparam R the result type of the request
+      * @return the callback function for result processing
+      */
+    private def verifyDataRequest[R](implicit c: ClassTag[R]): Try[R] => Unit = {
+      val captor = ArgumentCaptor.forClass(classOf[Try[R] => Unit])
+      verify(actorRequest).executeUIThread(captor.capture())(any(classOf[ClassTag[R]]))
+      val res = captor.getValue
+      res
     }
 
     /**
@@ -750,6 +909,20 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
     }
 
     /**
+      * Creates a mock object for ''ActorClientSupport''.
+      *
+      * @param bus the message bus
+      * @return the mock client support
+      */
+    private def createActorSupport(bus: MessageBus): ActorClientSupport = {
+      val support = mock[ActorClientSupport]
+      val clientApplicationContext = mock[ClientApplicationContext]
+      when(support.clientApplicationContext).thenReturn(clientApplicationContext)
+      when(clientApplicationContext.messageBus).thenReturn(bus)
+      support
+    }
+
+    /**
       * Creates a mock for the table handler.
       *
       * @return the mock table handler
@@ -766,7 +939,42 @@ class MetaDataFilesControllerSpec extends FlatSpec with Matchers with MockitoSug
       * @return the map with mock actions
       */
     private def createActions(): Map[String, FormAction] =
-    List("refreshAction", "removeFilesAction").map((_, mock[FormAction])).toMap
+    List("refreshAction", "removeFilesAction").map(n => (n, createAction(n))).toMap
+
+    /**
+      * Creates a mock action that is able to record its enabled state.
+      *
+      * @param name the name of the action
+      * @return the mock action
+      */
+    private def createAction(name: String): FormAction = {
+      val action = mock[FormAction]
+      doAnswer(new Answer[AnyRef] {
+        override def answer(invocation: InvocationOnMock): AnyRef = {
+          val enabled = invocation.getArguments.head.asInstanceOf[Boolean]
+          actionStates += (name -> enabled)
+          null
+        }
+      }).when(action).setEnabled(anyBoolean())
+      action
+    }
+
+    /**
+      * Creates a mock for the status line text handler which records the
+      * current status text.
+      *
+      * @return the mock status handler
+      */
+    private def createStatusTextHandler(): StaticTextHandler = {
+      val handler = mock[StaticTextHandler]
+      doAnswer(new Answer[AnyRef] {
+        override def answer(invocation: InvocationOnMock): AnyRef = {
+          textStatus = invocation.getArguments.head.toString
+          null
+        }
+      }).when(handler).setText(anyString())
+      handler
+    }
 
     /**
       * Creates a mock action store object that supports the specified actions.

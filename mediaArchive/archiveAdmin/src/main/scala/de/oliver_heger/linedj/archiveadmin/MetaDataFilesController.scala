@@ -16,16 +16,14 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import akka.actor.Actor.Receive
+import akka.actor.ActorRef
+import akka.util.Timeout
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension
-.{AvailableMediaRegistration, AvailableMediaUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension
-.{StateListenerRegistration, StateListenerUnregistration}
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -36,9 +34,12 @@ import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
 import net.sf.jguiraffe.resources.Message
+import org.slf4j.LoggerFactory
 
 import scala.beans.BeanProperty
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 object MetaDataFilesController {
   /**
@@ -60,6 +61,12 @@ object MetaDataFilesController {
 
   /** Status line message indicating that a file info request has been sent. */
   private val MsgLoading = new Message("files_state_loading")
+
+  /** Status line message indicating a failure of retrieving the actor. */
+  private val MsgErrorActorRetrieve = new Message("files_state_error_actor_retrieve")
+
+  /** Status line message indicating a failed actor invocation. */
+  private val MsgErrorActorAccess = new Message("files_state_error_actor_access")
 
   /** Status line message indicating an active remove operation. */
   private val MsgRemoving = new Message("files_state_removing")
@@ -84,6 +91,17 @@ object MetaDataFilesController {
 
   /** The state for an active remove operation. */
   private val StateRemoving = ControllerState(MsgRemoving)
+
+  /** The state for a failed actor retrieve operation. */
+  private val StateErrorActorRetrieve = ControllerState(MsgErrorActorRetrieve,
+    showProgress = false)
+
+  /** The state for a failed invocation of the meta data manager actor. */
+  private val StateErrorActorAccess = ControllerState(MsgErrorActorAccess,
+    showProgress = false)
+
+  /** Constant for the path to the meta data manager actor. */
+  private val PathMetaDataManagerActor = "/user/localMetaDataManager"
 
   /**
     * A data class storing the properties of a meta data file. The table
@@ -129,15 +147,14 @@ object MetaDataFilesController {
   * current meta data files information has to be retrieved. During a meta data
   * scan, the remove action has to be disabled.
   *
-  * @param messageBus         the UI message bus
-  * @param mediaFacade        the facade to the media archive
+  * @param actorSupport       the support object for dealing with actors
   * @param applicationContext the ''ApplicationContext''
   * @param actionStore        the action store
   * @param filesTableHandler  the handler for the table control
   * @param statusLine         a text handler for the status line
   * @param progressIndicator  a widget indicating processing
   */
-class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
+class MetaDataFilesController(actorSupport: ActorClientSupport,
                               applicationContext: ApplicationContext,
                               actionStore: ActionStore, filesTableHandler: TableHandler,
                               statusLine: StaticTextHandler, progressIndicator: WidgetHandler)
@@ -154,6 +171,12 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
   /** Component ID for the available media registration. */
   private val MediaRegistrationID = ComponentID()
 
+  /** The logger. */
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** The message bus. */
+  private val messageBus = actorSupport.clientApplicationContext.messageBus
+
   /** The current state the controller is in. */
   private var currentState = StateRemoving
 
@@ -163,11 +186,14 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
   /** Stores data about meta data files. */
   private var fileInfo: Option[MetaDataFileInfo] = None
 
+  /** The reference to the meta data manager actor. */
+  private var metaDataManagerActor: ActorRef = _
+
   /** The window this controller is associated with. */
   private var window: Window = _
 
   /** The ID received for the message bus listener registration. */
-  private var messageBusRegistrationID = 0
+  private implicit var timeout = Timeout(10.seconds)
 
   override def windowDeiconified(event: WindowEvent): Unit = {}
 
@@ -179,7 +205,6 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
     messageBus publish ArchiveAvailabilityUnregistration(ArchiveRegistrationID)
     messageBus publish StateListenerUnregistration(StateListenerRegistrationID)
     messageBus publish AvailableMediaUnregistration(MediaRegistrationID)
-    messageBus removeListener messageBusRegistrationID
   }
 
   override def windowClosed(event: WindowEvent): Unit = {}
@@ -192,13 +217,8 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
     *             about meta data files from the archive.
     */
   override def windowOpened(event: WindowEvent): Unit = {
-    messageBus publish ArchiveAvailabilityRegistration(ArchiveRegistrationID,
-      consumeArchiveAvailability)
-    messageBus publish StateListenerRegistration(StateListenerRegistrationID,
-      consumeStateEvents)
-    messageBus publish AvailableMediaRegistration(MediaRegistrationID, consumeAvailableMedia)
-    messageBusRegistrationID = messageBus registerListener messageBusReceive
     window = WindowUtils windowFromEvent event
+    actorSupport.resolveActorUIThread(PathMetaDataManagerActor)(metaDataManagerRetrieved)
   }
 
   override def windowDeactivated(event: WindowEvent): Unit = {}
@@ -226,7 +246,18 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
     val model = filesTableHandler.getModel
     val fileIDs = filesTableHandler.getSelectedIndices map (model.get(_)
       .asInstanceOf[MetaDataFileData].checksum)
-    mediaFacade.send(MediaActors.MetaDataManager, RemovePersistentMetaData(fileIDs.toSet))
+
+    actorSupport.actorRequest(metaDataManagerActor,
+      RemovePersistentMetaData(fileIDs.toSet)) executeUIThread {
+      t: Try[RemovePersistentMetaDataResult] =>
+        t match {
+          case Success(result) =>
+            handleRemoveResult(result)
+          case Failure(exception) =>
+            log.error("Error when removing meta data files!", exception)
+            switchToState(StateErrorActorAccess)
+        }
+    }
   }
 
   /**
@@ -246,27 +277,44 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
   }
 
   /**
-    * Returns the function for processing messages on the message bus.
+    * Callback function for the request for the meta data manager actor. This
+    * method is invoked in the UI thread when a result for the actor is
+    * available.
     *
-    * @return the message bus receive function
+    * @param actorResult the result of the actor request
     */
-  private def messageBusReceive: Receive = {
-    case info: MetaDataFileInfo =>
-      fileInfo = Some(info)
+  private def metaDataManagerRetrieved(actorResult: Try[ActorRef]): Unit =
+    actorResult match {
+      case Success(actorRef) =>
+        messageBus publish ArchiveAvailabilityRegistration(ArchiveRegistrationID,
+          consumeArchiveAvailability)
+        messageBus publish StateListenerRegistration(StateListenerRegistrationID,
+          consumeStateEvents)
+        messageBus publish AvailableMediaRegistration(MediaRegistrationID, consumeAvailableMedia)
+        metaDataManagerActor = actorRef
+
+      case Failure(_) =>
+        switchToState(StateErrorActorRetrieve)
+    }
+
+  /**
+    * Handles a result of a remove meta data files operation. The UI is
+    * updated accordingly.
+    *
+    * @param result the result
+    */
+  private def handleRemoveResult(result: RemovePersistentMetaDataResult): Unit = {
+    fileInfo foreach { info =>
+      val newFiles = info.metaDataFiles filterNot (t => result.successfulRemoved.contains(t._2))
+      val newUnused = info.unusedFiles diff result.successfulRemoved
+      fileInfo = Some(MetaDataFileInfo(newFiles, newUnused))
       dataReceived()
 
-    case RemovePersistentMetaDataResult(request, removed) =>
-      fileInfo foreach { info =>
-        val newFiles = info.metaDataFiles filterNot (t => removed.contains(t._2))
-        val newUnused = info.unusedFiles diff removed
-        fileInfo = Some(MetaDataFileInfo(newFiles, newUnused))
-        dataReceived()
-
-        if (removed.size < request.checksumSet.size) {
-          applicationContext.messageBox(ResIDRemoveFailedText, ResIDRemoveFailedTitle,
-            MessageOutput.MESSAGE_WARNING, MessageOutput.BTN_OK)
-        }
+      if (result.successfulRemoved.size < result.request.checksumSet.size) {
+        applicationContext.messageBox(ResIDRemoveFailedText, ResIDRemoveFailedTitle,
+          MessageOutput.MESSAGE_WARNING, MessageOutput.BTN_OK)
       }
+    }
   }
 
   /**
@@ -393,7 +441,17 @@ class MetaDataFilesController(messageBus: MessageBus, mediaFacade: MediaFacade,
 
       if (state.sendFileRequest) {
         filesTableHandler.getModel.clear()
-        mediaFacade.send(MediaActors.MetaDataManager, GetMetaDataFileInfo)
+        actorSupport.actorRequest(metaDataManagerActor,
+          GetMetaDataFileInfo) executeUIThread { t: Try[MetaDataFileInfo] =>
+          t match {
+            case Success(response) =>
+              fileInfo = Some(response)
+              dataReceived()
+            case Failure(ex) =>
+              log.error("Error when requesting meta data file info!", ex)
+              switchToState(StateErrorActorAccess)
+          }
+        }
       }
       if (state.resetFileData) {
         fileInfo = None
