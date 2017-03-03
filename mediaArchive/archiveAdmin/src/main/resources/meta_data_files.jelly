@@ -88,8 +88,7 @@
     <di:bean name="controller"
              beanClassName="de.oliver_heger.linedj.archiveadmin.MetaDataFilesController">
       <di:constructor>
-        <di:param refName="LineDJ_MessageBus"/>
-        <di:param refName="LineDJ_MediaFacade"/>
+        <di:param refName="jguiraffe.application"/>
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="comp:tableFiles"/>

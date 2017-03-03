@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorRef
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
@@ -38,7 +39,6 @@ import org.slf4j.LoggerFactory
 
 import scala.beans.BeanProperty
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object MetaDataFilesController {
@@ -52,6 +52,12 @@ object MetaDataFilesController {
     * The name of the action for removing the selected meta data files.
     */
   val ActionRemoveFiles = "removeFilesAction"
+
+  /**
+    * Configuration property for the timeout value to be applied for
+    * invocations of the meta data actor.
+    */
+  val PropActorTimeout = "actorTimeout"
 
   /** Status line message indicating scan in progress. */
   private val MsgScanning = new Message("files_state_scanning")
@@ -103,6 +109,9 @@ object MetaDataFilesController {
   /** Constant for the path to the meta data manager actor. */
   private val PathMetaDataManagerActor = "/user/localMetaDataManager"
 
+  /** The default timeout value for actor invocations (in seconds). */
+  private val DefaultActorTimeout = 10
+
   /**
     * A data class storing the properties of a meta data file. The table
     * managed by this controller is populated with instances of this class.
@@ -147,14 +156,14 @@ object MetaDataFilesController {
   * current meta data files information has to be retrieved. During a meta data
   * scan, the remove action has to be disabled.
   *
-  * @param actorSupport       the support object for dealing with actors
+  * @param application        the associated application
   * @param applicationContext the ''ApplicationContext''
   * @param actionStore        the action store
   * @param filesTableHandler  the handler for the table control
   * @param statusLine         a text handler for the status line
   * @param progressIndicator  a widget indicating processing
   */
-class MetaDataFilesController(actorSupport: ActorClientSupport,
+class MetaDataFilesController(application: ArchiveAdminApp,
                               applicationContext: ApplicationContext,
                               actionStore: ActionStore, filesTableHandler: TableHandler,
                               statusLine: StaticTextHandler, progressIndicator: WidgetHandler)
@@ -175,7 +184,7 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
   private val log = LoggerFactory.getLogger(getClass)
 
   /** The message bus. */
-  private val messageBus = actorSupport.clientApplicationContext.messageBus
+  private val messageBus = application.clientApplicationContext.messageBus
 
   /** The current state the controller is in. */
   private var currentState = StateRemoving
@@ -193,7 +202,7 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
   private var window: Window = _
 
   /** The ID received for the message bus listener registration. */
-  private implicit var timeout = Timeout(10.seconds)
+  private implicit var timeout: Timeout = _
 
   override def windowDeiconified(event: WindowEvent): Unit = {}
 
@@ -218,7 +227,8 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
     */
   override def windowOpened(event: WindowEvent): Unit = {
     window = WindowUtils windowFromEvent event
-    actorSupport.resolveActorUIThread(PathMetaDataManagerActor)(metaDataManagerRetrieved)
+    timeout =fetchActorTimeout()
+    application.resolveActorUIThread(PathMetaDataManagerActor)(metaDataManagerRetrieved)
   }
 
   override def windowDeactivated(event: WindowEvent): Unit = {}
@@ -247,7 +257,7 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
     val fileIDs = filesTableHandler.getSelectedIndices map (model.get(_)
       .asInstanceOf[MetaDataFileData].checksum)
 
-    actorSupport.actorRequest(metaDataManagerActor,
+    application.actorRequest(metaDataManagerActor,
       RemovePersistentMetaData(fileIDs.toSet)) executeUIThread {
       t: Try[RemovePersistentMetaDataResult] =>
         t match {
@@ -441,7 +451,7 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
 
       if (state.sendFileRequest) {
         filesTableHandler.getModel.clear()
-        actorSupport.actorRequest(metaDataManagerActor,
+        application.actorRequest(metaDataManagerActor,
           GetMetaDataFileInfo) executeUIThread { t: Try[MetaDataFileInfo] =>
           t match {
             case Success(response) =>
@@ -458,5 +468,18 @@ class MetaDataFilesController(actorSupport: ActorClientSupport,
       }
       currentState = state
     }
+  }
+
+  /**
+    * Determines the timeout value for actor invocations. This is obtained
+    * from the application's configuration. If undefined, a default value is
+    * used.
+    *
+    * @return the timeout for actor invocations
+    */
+  private def fetchActorTimeout(): Timeout = {
+    val configTimeout = application.getUserConfiguration.getInt(PropActorTimeout,
+      DefaultActorTimeout)
+    Timeout(configTimeout, TimeUnit.SECONDS)
   }
 }

@@ -41,6 +41,7 @@ import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHa
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.resources.Message
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
@@ -263,6 +264,13 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .sendStateEvent(MetaDataScanStarted)
       .sendStateEvent(updateEvent(scanInProgress = true))
       .verifyDisabledState("files_state_scanning")
+  }
+
+  it should "allow configuring the timeout for actor interactions" in {
+    val helper = new MetaDataFilesControllerTestHelper
+    helper.config.addProperty("actorTimeout", 20)
+
+    helper.openWindow(timeout = Timeout(20.seconds))
   }
 
   /**
@@ -585,6 +593,13 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     }
 
     /**
+      * Returns the configuration used by the application.
+      *
+      * @return the configuration
+      */
+    def config: Configuration = actorSupport.getUserConfiguration
+
+    /**
       * Resets the mocks for actions and controls. This can be necessary in
       * some cases if they are manipulated multiple times.
       *
@@ -610,7 +625,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     MetaDataFilesControllerTestHelper = {
       prepareActorRequest(GetMetaDataFileInfo, timeout)
       controller windowOpened windowEvent()
-      processActorRequest(actorResult)
+      processActorRequest(actorResult, timeout)
     }
 
     /**
@@ -864,13 +879,15 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * the given result.
       *
       * @param result the result for the request
+      * @param timeout the timeout for the request
       * @return this test helper
       */
-    private def processActorRequest(result: Try[ActorRef]): MetaDataFilesControllerTestHelper = {
+    private def processActorRequest(result: Try[ActorRef], timeout: Timeout):
+    MetaDataFilesControllerTestHelper = {
       val captor = ArgumentCaptor.forClass(classOf[Try[ActorRef] => Unit])
       verify(actorSupport)
         .resolveActorUIThread(eqArg("/user/localMetaDataManager"))(captor.capture())(eqArg(
-          DefaultTimeout))
+          timeout))
       captor.getValue.apply(result)
       this
     }
@@ -914,11 +931,12 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param bus the message bus
       * @return the mock client support
       */
-    private def createActorSupport(bus: MessageBus): ActorClientSupport = {
-      val support = mock[ActorClientSupport]
+    private def createActorSupport(bus: MessageBus): ArchiveAdminApp = {
+      val support = mock[ArchiveAdminApp]
       val clientApplicationContext = mock[ClientApplicationContext]
       when(support.clientApplicationContext).thenReturn(clientApplicationContext)
       when(clientApplicationContext.messageBus).thenReturn(bus)
+      when(support.getUserConfiguration).thenReturn(new PropertiesConfiguration)
       support
     }
 

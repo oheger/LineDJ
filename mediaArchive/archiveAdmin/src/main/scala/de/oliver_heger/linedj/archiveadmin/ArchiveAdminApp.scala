@@ -16,9 +16,11 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 
 /**
   * Main class of LineDJ Archive Admin application.
   */
 class ArchiveAdminApp extends ClientApplication("archiveAdmin") with ApplicationAsyncStartup
+  with ActorClientSupport
