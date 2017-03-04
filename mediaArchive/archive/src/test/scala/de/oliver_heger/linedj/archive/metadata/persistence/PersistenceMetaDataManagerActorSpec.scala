@@ -168,7 +168,7 @@ object PersistenceMetaDataManagerActorSpec {
     * @return a list with processing results for this medium
     */
   private def processingResults(mid: MediumID): List[MetaDataProcessingResult] =
-    mediumFiles(mid) map (f => MetaDataProcessingResult(Paths get f.path, mid, f.path.toString,
+    mediumFiles(mid) map (f => MetaDataProcessingResult(f.path, mid, f.path.toString,
       MediaMetaData(title = Some("Song " + f.path))))
 
   /**

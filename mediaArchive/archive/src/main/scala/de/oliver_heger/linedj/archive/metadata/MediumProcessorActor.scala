@@ -375,8 +375,8 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
     * @param metaData the meta data to be sent
     */
   private def sendProcessingResult(manager: ActorRef, p: Path, metaData: MediaMetaData): Unit = {
-    manager ! MetaDataProcessingResult(p, currentProcessingData(p).mediumID, pathUriMapping(p),
-      metaData)
+    manager ! MetaDataProcessingResult(p.toString, currentProcessingData(p).mediumID,
+      pathUriMapping(p), metaData)
     collectorMap removeItemFor p
     currentProcessingData -= p
 

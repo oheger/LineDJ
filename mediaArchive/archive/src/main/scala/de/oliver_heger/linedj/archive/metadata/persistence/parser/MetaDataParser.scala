@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence.parser
 
-import java.nio.file.Paths
-
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserImpl.ManyPartialData
 import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Success}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -60,7 +58,7 @@ object MetaDataParser {
     * Constant for an unknown file size. This value is set if the file size
     * has not been stored or is invalid.
     */
-  val UnknownFileSize = -1
+  val UnknownFileSize: Int = -1
 
   /** The logger. */
   private val log = LoggerFactory.getLogger(classOf[MetaDataParser])
@@ -90,7 +88,7 @@ object MetaDataParser {
   private def createProcessingResult(obj: Map[String, String], mediumID: MediumID):
   MetaDataProcessingResult =
     MetaDataProcessingResult(mediumID = mediumID, uri = obj(PropUri),
-      path = Paths get obj(PropPath), metaData = createMetaData(obj))
+      path = obj(PropPath), metaData = createMetaData(obj))
 
   /**
     * Extracts an optional property of type Int from the given map. If the

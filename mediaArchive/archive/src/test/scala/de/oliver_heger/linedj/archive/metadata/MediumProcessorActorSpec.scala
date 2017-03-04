@@ -347,7 +347,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     * @return the received result message
     */
   private def expectProcessingResult(p: Path, uri: String): MetaDataProcessingResult = {
-    expectMsg(MetaDataProcessingResult(p,
+    expectMsg(MetaDataProcessingResult(p.toString,
       if (MediumPaths.head == p) MediumID.fromDescriptionPath(Medium)
       else MediumID(ScanResult.root.toString, None), uri, MetaData))
   }
@@ -616,8 +616,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.actor ! ProcessMediaFiles(mid, scanResult.mediaFiles(mid))
     List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
-    expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath, mediumID =
-      mid, uri =  errorUri))
+    expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath.toString,
+      mediumID = mid, uri =  errorUri))
     expectMsg(errorPath)
 
     helper send createMp3Data(errorPath)

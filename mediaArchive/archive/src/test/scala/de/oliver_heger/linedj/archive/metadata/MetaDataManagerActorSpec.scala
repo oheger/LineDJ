@@ -104,7 +104,7 @@ object MetaDataManagerActorSpec {
     */
   private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingResult = {
     val path = Paths get file.path
-    MetaDataProcessingResult(path, mediumID, uriFor(path),
+    MetaDataProcessingResult(file.path, mediumID, uriFor(path),
       metaDataFor(path))
   }
 

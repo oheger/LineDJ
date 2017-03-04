@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.shared.archive.union
 
-import java.nio.file.Path
-
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
@@ -66,7 +64,7 @@ case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
   * @param uri the URI of the file
   * @param metaData an object with the meta data that could be extracted
   */
-case class MetaDataProcessingResult(path: Path, mediumID: MediumID, uri: String,
+case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: String,
                                     metaData: MediaMetaData)
 
 
