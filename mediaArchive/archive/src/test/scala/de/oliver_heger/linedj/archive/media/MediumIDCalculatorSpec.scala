@@ -1,6 +1,6 @@
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
@@ -45,7 +45,7 @@ FileTestHelper with MockitoSugar {
    * @param s the string
    * @return the resulting path
    */
-  private def toPath(s: String): Path = testDirectory.resolve(Paths.get(s.trim()))
+  private def toPath(s: String): String = testDirectory.resolve(Paths.get(s.trim())).toString
 
   /**
    * Creates a sequence with paths representing the content of a test medium.
@@ -73,7 +73,8 @@ FileTestHelper with MockitoSugar {
   it should "return different IDs for different content" in {
     val calculator = new MediumIDCalculator
 
-    val content = FileData(createPathInDirectory("newTrack.mp3"), 1) :: createContentList().toList
+    val content = FileData(createPathInDirectory("newTrack.mp3").toString,
+      1) :: createContentList().toList
     calculator.calculateMediumID(testDirectory, TestID, ScanResult, content)
       .checksum should not be CheckSum
   }

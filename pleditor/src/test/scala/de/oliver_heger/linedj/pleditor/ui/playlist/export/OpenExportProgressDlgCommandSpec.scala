@@ -77,7 +77,8 @@ object OpenExportProgressDlgCommandSpec {
    */
   private def createScanResult(): ScanResult = {
     val dirs = List("dir1", "otherDir") map path
-    val files = List("song1.mp3", "lala.mp3", "dumdum.ogg") map (s => FileData(path(s), 100))
+    val files = List("song1.mp3", "lala.mp3",
+      "dumdum.ogg") map (s => FileData(path(s).toString, 100))
     ScanResult(directories = dirs, files = files)
   }
 

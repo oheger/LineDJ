@@ -46,7 +46,7 @@ object MetaDataPartsCollectorSpec {
   private val ID3FrameHeader = ID3Header(version = 2, size = 42)
 
   /** A test media file. */
-  private val File = FileData(Paths get "somePath", 20150912211021L)
+  private val File = FileData(Paths.get("somePath").toString, 20150912211021L)
 
   /** The expected final meta data. */
   private val MetaData = MediaMetaData(title = ID3MetaData.title, artist = ID3MetaData.artist,

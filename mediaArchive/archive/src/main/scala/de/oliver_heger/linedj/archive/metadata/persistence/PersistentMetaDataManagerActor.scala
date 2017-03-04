@@ -55,7 +55,7 @@ object PersistentMetaDataManagerActor {
     */
   private case class MediumData(request: PersistentMetaDataReaderActor.ReadMetaDataFile,
                                 scanResult: EnhancedMediaScanResult,
-                                listenerActor: ActorRef, resolvedFiles: Set[Path] = Set.empty,
+                                listenerActor: ActorRef, resolvedFiles: Set[String] = Set.empty,
                                 readerActor: ActorRef = null) {
     /**
       * Convenience method that returns the ID of the associated medium.
@@ -82,7 +82,7 @@ object PersistentMetaDataManagerActor {
       * @return the updated instance
       */
     def updateResolvedFiles(result: MetaDataProcessingResult): MediumData =
-      copy(resolvedFiles = resolvedFiles + result.path)
+      copy(resolvedFiles = resolvedFiles + result.path.toString)
 
     /**
       * Creates an object with information about meta data files that have not

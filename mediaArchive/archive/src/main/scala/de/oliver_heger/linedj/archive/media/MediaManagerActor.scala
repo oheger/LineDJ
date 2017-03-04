@@ -381,7 +381,7 @@ Actor with ActorLogging {
     val (readerActor, optMediaReaderActor) = createActorsForFileRequest(request)
     val actualReader = optMediaReaderActor getOrElse readerActor
     val optFile = fetchFileData(request)
-    optFile foreach (f => actualReader ! ChannelHandler.InitFile(f.path))
+    optFile foreach (f => actualReader ! ChannelHandler.InitFile(Paths get f.path))
     sender ! MediumFileResponse(request, actualReader, optFile.getOrElse
       (NonExistingFile).size)
 

@@ -102,9 +102,11 @@ object MetaDataManagerActorSpec {
     * @param file     the object with file data
     * @return the processing result
     */
-  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingResult =
-    MetaDataProcessingResult(file.path, mediumID, uriFor(file.path),
-      metaDataFor(file.path))
+  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingResult = {
+    val path = Paths get file.path
+    MetaDataProcessingResult(path, mediumID, uriFor(path),
+      metaDataFor(path))
+  }
 
   /**
    * Generates a number of media files that belong to the specified test
@@ -119,7 +121,8 @@ object MetaDataManagerActorSpec {
     @tailrec
     def loop(current: List[FileData], index: Int): List[FileData] = {
       if (index == 0) current
-      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3"), 20) :: current, index - 1)
+      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3").toString,
+        20) :: current, index - 1)
     }
 
     loop(Nil, count)
@@ -192,7 +195,7 @@ object MetaDataManagerActorSpec {
     * @return the URI to file mapping for this result
     */
   private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
-    result.mediaFiles.values.flatten.map(f => (uriFor(f.path), f)).toMap
+    result.mediaFiles.values.flatten.map(f => (uriFor(Paths get f.path), f)).toMap
 
   /**
     * Helper method to ensure that no more messages are sent to a test probe.
@@ -431,7 +434,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
 
     helper.expectMediaContribution()
-      .sendProcessingResults(TestMediumID, List(FileData(path("unknownPath_42"), 42)))
+      .sendProcessingResults(TestMediumID, List(FileData(path("unknownPath_42").toString, 42)))
     expectNoMoreMessage(helper.metaDataUnionActor)
   }
 

@@ -52,6 +52,14 @@ object MediaManagerActorSpec {
   private val ExcludedExtensions = Set("TXT", "JPG")
 
   /**
+    * Conversion function from a string to a path.
+    *
+    * @param s the string
+    * @return the path
+    */
+  private def asPath(s: String): Path = Paths get s
+
+  /**
    * Helper method to ensure that no more messages are sent to a test probe.
    * This message sends a special message to the probe and checks whether it is
    * immediately received.
@@ -243,7 +251,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     response.length should be(file.size)
 
     val readerProbe = helper.probesOfType[MediaFileReaderActor].head
-    readerProbe.expectMsg(ChannelHandler.InitFile(file.path))
+    readerProbe.expectMsg(ChannelHandler.InitFile(asPath(file.path)))
     response.contentReader should be(readerProbe.ref)
   }
 
@@ -362,7 +370,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val response = expectMsgType[MediumFileResponse]
     response.length should be (targetFile.size)
     val readerProbe = helper.probesOfType[MediaFileReaderActor].head
-    readerProbe.expectMsg(ChannelHandler.InitFile(targetFile.path))
+    readerProbe.expectMsg(ChannelHandler.InitFile(asPath(targetFile.path)))
   }
 
   it should "stop the underlying reader actor when the processing reader is stopped" in {
@@ -592,7 +600,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the list with the generated paths
      */
     private def pathList(dir: Path, count: Int): List[FileData] = {
-      ((1 to count) map { i => FileData(path(dir, s"file$i.mp3"), 1000 + i * 10) }).toList
+      ((1 to count) map { i => FileData(path(dir, s"file$i.mp3").toString,
+        1000 + i * 10) }).toList
     }
 
     /**

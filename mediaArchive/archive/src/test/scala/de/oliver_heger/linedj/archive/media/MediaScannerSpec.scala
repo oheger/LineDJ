@@ -109,7 +109,7 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
    * @return a sequence with the extracts paths
    */
   private def extractPaths(files: Seq[FileData]): Seq[Path] =
-    files map (_.path)
+    files map (f => Paths get f.path)
 
   /**
    * Creates a directory structure with test media files and directories.
@@ -219,7 +219,7 @@ class MediaScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with F
   private def checkMedium(result: MediaScanResult, mediumDesc: String, content: String*):
   Option[String] = {
     val files = result.mediaFiles(MediumID.fromDescriptionPath(toPath(mediumDesc + ".settings"),
-      ArchiveComponentID)) map (_.path.toAbsolutePath.toString)
+      ArchiveComponentID)) map (f => (Paths get f.path).toAbsolutePath.toString)
     files should have length content.length
     val expPaths = paths(content: _*) map (_.toString)
     checkContainsAll(files, expPaths)

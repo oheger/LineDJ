@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import de.oliver_heger.linedj.io.{DirectoryScanner, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -78,8 +78,8 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
     val scanner = new DirectoryScanner(excludedExtensions)
     val scanResult = scanner scan root
     val (descriptions, files) = scanResult.files partition isSettingsFile
-    MediaScanResult(root, createResultMap(descriptions.map(_.path).toList, files.toList, root
-      .toString))
+    MediaScanResult(root, createResultMap(descriptions.map(p => Paths get p.path).toList,
+      files.toList, root.toString))
   }
 
   /**
@@ -136,9 +136,7 @@ private class MediaScanner(val excludedExtensions: Set[String]) {
    * @param path the path to be checked
    * @return a flag whether this path belongs to this medium
    */
-  private def belongsToMedium(prefix: String, prefixLen: Int, path: Path): Boolean = {
-    val pathStr = path.toString
-    pathStr.startsWith(prefix) && pathStr.lastIndexOf(FileSeparator) > prefixLen
-  }
+  private def belongsToMedium(prefix: String, prefixLen: Int, path: String): Boolean =
+    path.startsWith(prefix) && path.lastIndexOf(FileSeparator) > prefixLen
 
 }

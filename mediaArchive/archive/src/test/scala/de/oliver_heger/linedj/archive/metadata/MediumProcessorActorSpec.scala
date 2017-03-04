@@ -105,7 +105,7 @@ object MediumProcessorActorSpec {
     * @param idx the index
    * @return the corresponding test file
    */
-  private def mediaFile(idx: Int): FileData = FileData(path(idx), testFileSize(idx))
+  private def mediaFile(idx: Int): FileData = FileData(path(idx).toString, testFileSize(idx))
 
   /**
    * Extracts the index from the given test path.
@@ -125,8 +125,8 @@ object MediumProcessorActorSpec {
     * @param path the test path
    * @return the medium file
    */
-  private def fileFromPath(path: Path): FileData = FileData(path, testFileSize(extractIndex
-    (path)))
+  private def fileFromPath(path: Path): FileData = FileData(path.toString,
+    testFileSize(extractIndex(path)))
 
   /**
    * Creates a scan result for a medium which contains a couple of files.
@@ -589,14 +589,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "react on an exception caused by a reader actor" in {
-    val mediaFiles = MediumPaths map (FileData(_, 128))
+    val mediaFiles = MediumPaths map (p => FileData(p.toString, 128))
     val mid = MediumID.fromDescriptionPath(Medium)
     val scanResult = ScanResult.copy(mediaFiles = Map(mid -> mediaFiles))
     val errorPath = MediumPaths.head
-    val errorTuple = ExtScanResult.fileUriMapping.find(e => e._2.path == errorPath)
+    val errorPathStr = errorPath.toString
+    val errorTuple = ExtScanResult.fileUriMapping.find(e => e._2.path == errorPathStr)
     val errorUri = fileUri(42)
     val uriMapping = ExtScanResult.fileUriMapping - errorTuple.get._1 + (errorUri -> FileData
-    (errorPath, 128))
+    (errorPathStr, 128))
     val helper = new MediumProcessorActorTestHelper(numberOfRealActors = 1,
       scanResult = ExtScanResult.copy(scanResult = scanResult, fileUriMapping = uriMapping))
     val probeMp3Processor, probeId3v1Processor, probeId3v2Processor = TestProbe()

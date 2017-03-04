@@ -106,7 +106,7 @@ object PersistentMetaDataWriterActorSpec {
     * @return the URI to path mapping
     */
   private def createUriPathMapping(): Map[String, FileData] =
-    (1 to 100).map(i => (uri(i), FileData(path(i), i))).toMap
+    (1 to 100).map(i => (uri(i), FileData(path(i).toString, i))).toMap
 }
 
 /**

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.io.FileData
@@ -114,6 +114,6 @@ private class MetaDataCollectorMap extends PathItemMap[MetaDataPartsCollector] {
    * @return the ''MetaDataPartsCollector'' for this file
    */
   def getOrCreateCollector(file: FileData): MetaDataPartsCollector = {
-    getOrCreateItem(file.path, new MetaDataPartsCollector(file))
+    getOrCreateItem(Paths get file.path, new MetaDataPartsCollector(file))
   }
 }

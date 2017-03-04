@@ -148,7 +148,8 @@ object PersistenceMetaDataManagerActorSpec {
     */
   private def mediumFiles(mediumID: MediumID): List[FileData] = {
     val mediumPath = RootPath resolve mediumID.mediumURI
-    (1 to FileCount).map(i => FileData(mediumPath resolve s"song$i.mp3", i * 1000)).toList
+    (1 to FileCount).map(i => FileData((mediumPath resolve s"song$i.mp3").toString,
+      i * 1000)).toList
   }
 
   /**
@@ -167,8 +168,8 @@ object PersistenceMetaDataManagerActorSpec {
     * @return a list with processing results for this medium
     */
   private def processingResults(mid: MediumID): List[MetaDataProcessingResult] =
-    mediumFiles(mid) map (f => MetaDataProcessingResult(f.path, mid, f.path.toString,
-      MediaMetaData(title = Some("Song " + f.path.toString))))
+    mediumFiles(mid) map (f => MetaDataProcessingResult(Paths get f.path, mid, f.path.toString,
+      MediaMetaData(title = Some("Song " + f.path))))
 
   /**
     * Creates a test process medium for the specified medium.

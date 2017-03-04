@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import java.nio.file.Path
-
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
@@ -39,7 +37,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * A set with the names of all files in this medium. This is used to
     * determine whether all data has been fetched.
     */
-  private val mediumPaths = collection.mutable.Set.empty[Path]
+  private val mediumPaths = collection.mutable.Set.empty[String]
 
   /** The current data available for the represented medium. */
   protected var currentData: List[MetaDataChunk] = initialData()
@@ -74,7 +72,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
-    mediumPaths -= result.path
+    mediumPaths -= result.path.toString
     val complete = isComplete
     nextChunkData = nextChunkData + (extractUri(result) -> result.metaData)
 

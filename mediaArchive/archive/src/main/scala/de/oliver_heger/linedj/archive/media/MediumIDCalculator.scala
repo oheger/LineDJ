@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.util.zip.CRC32
 
 import de.oliver_heger.linedj.io.FileData
@@ -52,7 +52,7 @@ private class MediumIDCalculator {
    */
   def calculateMediumID(mediumRoot: Path, mediumID: MediumID, scanResult: MediaScanResult,
                         mediumContent: Seq[FileData]): MediumIDData = {
-    val paths = mediumContent map (_.path)
+    val paths = mediumContent map (Paths get _.path)
     val fileURIs = paths map (MediaFileUriHandler.generateMediaFileUri(mediumRoot, _))
     val crc = new CRC32
     fileURIs sortWith (_ < _) foreach { s =>

@@ -22,7 +22,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataCollectorMapSpec {
   /** A test path. */
-  private val TestPath = Paths get "MetaDataCollectorMapSpec.tst"
+  private val TestPath = (Paths get "MetaDataCollectorMapSpec.tst").toString
 
   /** A test media file. */
   private val TestFile = FileData(TestPath, 20150912212258L)

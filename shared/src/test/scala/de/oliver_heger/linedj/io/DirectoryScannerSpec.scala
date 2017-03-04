@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
+import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 /**
  * Test class for ''DirectoryScanner''.
@@ -77,9 +77,20 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
       sub1SubFiles, sub2 -> sub2Files)
   }
 
+  /**
+    * Extracts the file name of a path string.
+    *
+    * @param s the path string
+    * @return the file name
+    */
+  private def fileName(s: String): String = {
+    val path = Paths get s
+    path.getFileName.toString
+  }
+
   "A DirectoryScanner" should "return all files in the scanned directory structure" in {
     val fileData = setUpDirectoryStructure()
-    val allFiles = fileData.values.flatten.toSeq
+    val allFiles = fileData.values.flatten.toSeq map (_.toString)
     val scanner = new DirectoryScanner
 
     val result = scanner scan testDirectory
@@ -87,11 +98,11 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
   }
 
   it should "return correct file sizes" in {
-    val fileData = setUpDirectoryStructure()
+    setUpDirectoryStructure()
     val scanner = new DirectoryScanner(Set.empty)
 
     val result = scanner scan testDirectory
-    val wrongSizes = result.files filter (d => d.path.getFileName.toString.length != d.size)
+    val wrongSizes = result.files filter (d => fileName(d.path).length != d.size)
     wrongSizes shouldBe 'empty
   }
 
@@ -100,7 +111,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
     val scanner = new DirectoryScanner(Set("TXT"))
 
     val result = scanner scan testDirectory
-    val fileNames = result.files.map(_.path.getFileName.toString).toSet
+    val fileNames = result.files.map(f => fileName(f.path)).toSet
     fileNames should not contain "README.TXT"
     fileNames should not contain "test.txt"
   }
@@ -114,7 +125,7 @@ class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter wi
   }
 
   it should "return directories in order of visiting them" in {
-    val fileData = setUpDirectoryStructure()
+    setUpDirectoryStructure()
     val scanner = new DirectoryScanner
 
     val result = scanner scan testDirectory

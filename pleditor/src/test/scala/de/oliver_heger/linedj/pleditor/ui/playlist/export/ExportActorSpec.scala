@@ -128,7 +128,7 @@ object ExportActorSpec {
    * @return the sequence of files
    */
   private def generateFiles(names: String*): Seq[FileData] =
-    names map (n => FileData(targetPath(n), DefaultFileSize))
+    names map (n => FileData(targetPath(n).toString, DefaultFileSize))
 
   /**
    * Generates a number of test songs in a specified range.
@@ -247,8 +247,9 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     val (ops, _) = ExportActor.initializeExportData(data)
     val removeOps = ops takeWhile (_.operationType == ExportActor.OperationType.Remove)
     removeOps should have size (ops.size - 1)
-    val expPaths = TestScanResult.files.map(_.path) ++ TestScanResult.directories.tail.reverse
-    extractPaths(removeOps) should be(expPaths)
+    val expPaths = TestScanResult.files.map(_.path) ++ TestScanResult.directories
+      .tail.reverse.map(_.toString)
+    extractPaths(removeOps).map(_.toString) should be(expPaths)
     val copyOp = ops.last
     copyOp.operationType should be(ExportActor.OperationType.Copy)
     copyOp.affectedPath should be(targetPath(1))
@@ -348,7 +349,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     val helper = new ExportActorTestHelper
     helper prepareActor data
 
-    val removePath = TestScanResultWithSingleRemoveFile.files.head.path
+    val removePath = Paths get TestScanResultWithSingleRemoveFile.files.head.path
     helper.removeFileActor.expectMsg(RemoveFileActor.RemoveFile(removePath))
     helper send createCopyProgress(3)
     helper send RemoveFileActor.FileRemoved(removePath)
@@ -536,13 +537,13 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     /**
       * A promise for serving a request for the media actor.
       */
-    val promiseActorRequest = Promise[Option[ActorRef]]()
+    val promiseActorRequest: Promise[Option[ActorRef]] = Promise[Option[ActorRef]]()
 
     /** A mock for the media facade. */
-    val mediaFacade = createMediaFacade(messageQueue, promiseActorRequest)
+    val mediaFacade: MediaFacade = createMediaFacade(messageQueue, promiseActorRequest)
 
     /** The test actor. */
-    val exportActor = TestActorRef[ExportActor](actorProps())
+    val exportActor: TestActorRef[ExportActor] = TestActorRef[ExportActor](actorProps())
 
     /** Test probe for the media manager actor. */
     private val mediaManagerActor = TestProbe()

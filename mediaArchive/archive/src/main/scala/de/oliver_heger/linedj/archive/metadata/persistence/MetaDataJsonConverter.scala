@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.Path
-
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 object MetaDataJsonConverter {
@@ -42,7 +40,7 @@ class MetaDataJsonConverter {
 
   import MetaDataJsonConverter._
 
-  def convert(uri: String, path: Path, data: MediaMetaData): String = {
+  def convert(uri: String, path: String, data: MediaMetaData): String = {
 
     // Appends the specified property to the string builder
     def append(props: List[String], property: String, value: String, quote: Boolean):
@@ -65,7 +63,7 @@ class MetaDataJsonConverter {
       }
 
     val props = appendOpt(appendOpt(appendOpt(append(append(appendOpt(appendOpt(appendOpt(appendOpt(
-      append(Nil, "path", path.toString, quote = true),
+      append(Nil, "path", path, quote = true),
       "inceptionYear", data.inceptionYear, quote = false),
       "trackNumber", data.trackNumber, quote = false),
       "duration", data.duration, quote = false),

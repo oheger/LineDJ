@@ -40,7 +40,7 @@ class MetaDataJsonConverterSpec extends FlatSpec with Matchers {
   private def convertAndParse(metaData: MediaMetaData, path: Path, uri: String):
   MetaDataProcessingResult = {
     val converter = new MetaDataJsonConverter
-    val json = "[" + converter.convert(uri, path, metaData) + "]"
+    val json = "[" + converter.convert(uri, path.toString, metaData) + "]"
     val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
     val (results, optFailure) = parser.processChunk(json, MediumID("irrelevant", None), lastChunk
       = true, None)

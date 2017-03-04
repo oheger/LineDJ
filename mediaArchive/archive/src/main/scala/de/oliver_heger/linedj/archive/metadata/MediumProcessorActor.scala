@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata
 
 import java.io.IOException
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
@@ -52,8 +52,8 @@ object MediumProcessorActor {
     * @return a sequence with all paths to be processed
     */
   private def pathsToBeProcessed(procMsg: ProcessMediaFiles): List[(Path, MediaFileData)] =
-    associateWithMediumID(procMsg.mediumID, procMsg.files) map (t => (t._1.path, MediaFileData(t
-      ._1, t._2)))
+    associateWithMediumID(procMsg.mediumID, procMsg.files) map (t => (Paths get t._1.path,
+      MediaFileData(t._1, t._2)))
 
   /**
     * Creates a reverse mapping from paths to URIs based on the URI path
@@ -64,7 +64,7 @@ object MediumProcessorActor {
     * @return the path URI mapping
     */
   private def createPathUriMapping(uriPathMapping: Map[String, FileData]): Map[Path, String] =
-    uriPathMapping map(e => (e._2.path, e._1))
+    uriPathMapping map(e => (Paths get e._2.path, e._1))
 
   /**
    * Produces a list of pairs that assigns each file to its medium.

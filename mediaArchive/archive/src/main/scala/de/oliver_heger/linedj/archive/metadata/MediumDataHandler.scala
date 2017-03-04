@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import java.nio.file.Path
-
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
@@ -37,7 +35,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * A set with the paths of all files in this medium. This is used to
     * determine whether all data has been fetched.
     */
-  private var mediumPaths = Set.empty[Path]
+  private var mediumPaths = Set.empty[String]
 
   /**
     * Notifies this object that the specified list of media files is going to
@@ -62,8 +60,8 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return a flag whether this is a valid result
     */
   def resultReceived(result: MetaDataProcessingResult): Boolean = {
-    if (mediumPaths contains result.path) {
-      mediumPaths -= result.path
+    if (mediumPaths contains result.path.toString) {
+      mediumPaths -= result.path.toString
       true
     } else false
   }
