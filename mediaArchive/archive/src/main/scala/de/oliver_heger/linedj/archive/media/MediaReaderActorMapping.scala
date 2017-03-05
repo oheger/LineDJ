@@ -49,6 +49,9 @@ private class MediaReaderActorMapping {
   /** A mapping from processing actors to their underlying actors. */
   private val actorMapping = collection.mutable.Map.empty[ActorRef, Option[ActorRef]]
 
+  /** A mapping from processing actors to the client actors that read data. */
+  private val clientMapping = collection.mutable.Map.empty[ActorRef, ActorRef]
+
   /** A map storing the last update time for a reader actor. */
   private val timestamps = collection.mutable.Map.empty[ActorRef, Long]
 
@@ -57,11 +60,14 @@ private class MediaReaderActorMapping {
    * associates an actor that have been passed to a client with its underlying
    * reader actor.
    * @param mapping the mapping to be added
+   * @param client the client actor of the read operation
    * @param timestamp the timestamp for this mapping
    * @return this object
    */
-  def add(mapping: (ActorRef, Option[ActorRef]), timestamp: Long): MediaReaderActorMapping = {
+  def add(mapping: (ActorRef, Option[ActorRef]), client: ActorRef, timestamp: Long):
+  MediaReaderActorMapping = {
     actorMapping += mapping
+    clientMapping += mapping._1 -> client
     timestamps += mapping._1 -> timestamp
     this
   }
@@ -75,15 +81,29 @@ private class MediaReaderActorMapping {
   def hasActor(ref: ActorRef): Boolean = actorMapping contains ref
 
   /**
-   * Removes the mapping associated with the given actor reference. The
-   * associated actor is returned if such a mapping exists; otherwise, result
-   * is ''None''.
-   * @param ref the reference that is to be removed
-   * @return an option with the actor reference associated with the passed in reference
-   */
-  def remove(ref: ActorRef): Option[ActorRef] = {
+    * Finds all reader actors that are associated with the given client
+    * actor.
+    * @param ref the client actor reference to be checked
+    * @return an ''Iterable'' with the retrieved reader actors
+    */
+  def findReadersForClient(ref: ActorRef): Iterable[ActorRef] =
+    clientMapping.filter(_._2 == ref).keys
+
+  /**
+    * Removes the mapping associated with the given actor reference. Result is a
+    * tuple of optional actor references: the associated reader actor in the
+    * first element and the client actor in the second element. If no mapping
+    * exists for the specified actor, both elements are ''None''. Otherwise,
+    * the client actor should always be defined while the reader actor is
+    * optional.
+    *
+    * @param ref the reference that is to be removed
+    * @return a tuple with options for the reader and the client actors
+    *         associated with the passed in reference
+    */
+  def remove(ref: ActorRef): (Option[ActorRef], Option[ActorRef]) = {
     timestamps remove ref
-    actorMapping.remove(ref).flatten
+    (actorMapping.remove(ref).flatten, clientMapping remove ref)
   }
 
   /**

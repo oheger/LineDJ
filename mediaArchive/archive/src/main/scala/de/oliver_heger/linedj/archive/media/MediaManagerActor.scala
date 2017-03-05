@@ -386,7 +386,7 @@ Actor with ActorLogging {
       (NonExistingFile).size)
 
     val mapping = optMediaReaderActor.map(_ -> Some(readerActor)).getOrElse(readerActor -> None)
-    readerActorMapping.add(mapping, now())
+    readerActorMapping.add(mapping, null, now())
     context watch actualReader
   }
 
@@ -655,7 +655,9 @@ Actor with ActorLogging {
    */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
     log.info("Removing terminated reader actor from mapping.")
-    readerActorMapping remove actor foreach context.stop
+    //TODO handle client actor
+    val (optReader, _) = readerActorMapping remove actor
+    optReader foreach context.stop
   }
 
   /**

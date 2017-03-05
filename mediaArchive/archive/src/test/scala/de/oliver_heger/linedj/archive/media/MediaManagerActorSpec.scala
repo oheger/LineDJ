@@ -341,7 +341,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsgType[MediumFileResponse].length should be > 0L
     val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
-    verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))), captor.capture())
+    //TODO check correct client actor
+    verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))),
+      argEq(null), captor.capture())
     val timestamp = captor.getValue
     Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
   }
@@ -355,7 +357,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     response.contentReader should be(actReader.ref)
     optProcReader shouldBe 'empty
-    verify(mapping).add(argEq((actReader.ref, None)), anyLong())
+    //TODO check correct client actor
+    verify(mapping).add(argEq((actReader.ref, None)), argEq(null), anyLong())
   }
 
   it should "handle a file request for a file in global undefined medium" in {
@@ -401,8 +404,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val mapping = new MediaReaderActorMapping
     val procReader1, fileReader1, procReader2, fileReader2, watcher = TestProbe()
     val now = System.currentTimeMillis()
-    mapping.add(procReader1.ref -> Some(fileReader1.ref), now - 65 * 1000)
-    mapping.add(procReader2.ref -> Some(fileReader2.ref), now)
+    mapping.add(procReader1.ref -> Some(fileReader1.ref), testActor, now - 65 * 1000)
+    mapping.add(procReader2.ref -> Some(fileReader2.ref), testActor, now)
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader1.ref
     watcher watch procReader2.ref
@@ -415,7 +418,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "allow updating active reader actors" in {
     val mapping = new MediaReaderActorMapping
     val procReader, fileReader, watcher = TestProbe()
-    mapping.add(procReader.ref -> Some(fileReader.ref), 0L)
+    mapping.add(procReader.ref -> Some(fileReader.ref), testActor, 0L)
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader.ref
 
