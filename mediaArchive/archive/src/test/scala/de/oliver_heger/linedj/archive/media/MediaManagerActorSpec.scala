@@ -335,21 +335,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "add newly created reader actors to the mapping" in {
     val mapping = mock[MediaReaderActorMapping]
+    when(mapping.findReadersForClient(testActor)).thenReturn(List.empty)
     val helper = prepareHelperForScannedMedia(Some(mapping))
     helper.testManagerActor ! createRequestForExistingFile(helper)
 
     expectMsgType[MediumFileResponse].length should be > 0L
     val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
-    //TODO check correct client actor
     verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))),
-      argEq(null), captor.capture())
+      argEq(testActor), captor.capture())
     val timestamp = captor.getValue
     Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
   }
 
   it should "respect the withMetaData flag in a media file request" in {
     val mapping = mock[MediaReaderActorMapping]
+    when(mapping.findReadersForClient(testActor)).thenReturn(List.empty)
     val helper = prepareHelperForScannedMedia(Some(mapping))
     helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
 
@@ -357,8 +358,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val (optProcReader, actReader) = fetchReaderActorMapping(helper)
     response.contentReader should be(actReader.ref)
     optProcReader shouldBe 'empty
-    //TODO check correct client actor
-    verify(mapping).add(argEq((actReader.ref, None)), argEq(null), anyLong())
+    verify(mapping).add(argEq((actReader.ref, None)), argEq(testActor), anyLong())
   }
 
   it should "handle a file request for a file in global undefined medium" in {
@@ -398,6 +398,65 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     system stop actReader.ref
     awaitCond(!mapping.hasActor(actReader.ref))
+  }
+
+  it should "stop the reader actor when the client actor dies" in {
+    val helper = prepareHelperForScannedMedia()
+    val client = TestProbe()
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+    client.expectMsgType[MediumFileResponse]
+    val (optProcReader, _) = fetchReaderActorMapping(helper)
+
+    val watcher = TestProbe()
+    watcher watch optProcReader.get.ref
+    system stop client.ref
+    watcher.expectMsgType[Terminated].actor should be (optProcReader.get.ref)
+  }
+
+  it should "do only required termination handling when a client actor dies" in {
+    val helper = prepareHelperForScannedMedia()
+    helper.expectMediaAdded()
+    val client = TestProbe()
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+
+    system stop client.ref
+    helper.mediaUnionActor.expectNoMsg(1.second)
+  }
+
+  it should "stop watching a client actor if there are no more read operations" in {
+    val helper = prepareHelperForScannedMedia()
+    helper.expectMediaAdded()
+    val client = TestProbe()
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+    client.expectMsgType[MediumFileResponse]
+    val (optProcReader, reader) = fetchReaderActorMapping(helper)
+    system stop optProcReader.get.ref
+    val watcher = TestProbe()
+    watcher watch reader.ref
+    watcher.expectMsgType[Terminated]
+
+    system stop client.ref
+    helper.mediaUnionActor.expectNoMsg(1.second)
+  }
+
+  it should "handle multiple file requests when watching a client" in {
+    val helper = prepareHelperForScannedMedia()
+    helper.expectMediaAdded()
+    val client = TestProbe()
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+    client.expectMsgType[MediumFileResponse]
+    val (optProcReader, reader) = fetchReaderActorMapping(helper)
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+    client.expectMsgType[MediumFileResponse]
+    val (optProcReader2, _) = fetchReaderActorMapping(helper)
+    system stop optProcReader.get.ref
+    val watcher = TestProbe()
+    watcher watch reader.ref
+    watcher.expectMsgType[Terminated]
+
+    system stop client.ref
+    watcher watch optProcReader2.get.ref
+    watcher.expectMsgType[Terminated]
   }
 
   it should "stop reader actors that timed out" in {

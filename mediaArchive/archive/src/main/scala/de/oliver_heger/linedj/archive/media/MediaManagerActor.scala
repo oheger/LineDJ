@@ -385,8 +385,11 @@ Actor with ActorLogging {
     sender ! MediumFileResponse(request, actualReader, optFile.getOrElse
       (NonExistingFile).size)
 
+    if (readerActorMapping.findReadersForClient(sender()).isEmpty) {
+      context watch sender()
+    }
     val mapping = optMediaReaderActor.map(_ -> Some(readerActor)).getOrElse(readerActor -> None)
-    readerActorMapping.add(mapping, null, now())
+    readerActorMapping.add(mapping, sender(), now())
     context watch actualReader
   }
 
@@ -629,35 +632,46 @@ Actor with ActorLogging {
   }
 
   /**
-   * Handles an actor terminated message. We have to determine which type of
-   * actor is affected by this message. If it is a reader actor, then a
-   * download operation is finished, and some cleanup has to be done.
-   * Otherwise, this message indicates that a directory scanner actor threw an
-   * exception. In this case, the corresponding directory structure is
-   * excluded/ignored.
+    * Handles an actor terminated message. We have to determine which type of
+    * actor is affected by this message. If it is a reader actor, then a
+    * download operation is finished, and some cleanup has to be done. It can
+    * also be the client actor of a read operation; then all reader actors
+    * related to this client can be canceled. Otherwise, this message
+    * indicates that a directory scanner actor threw an exception. In this
+    * case, the corresponding directory structure is excluded/ignored.
     *
     * @param actor the affected actor
-   */
+    */
   private def handleActorTermination(actor: ActorRef): Unit = {
-    if(readerActorMapping hasActor actor) {
+    if (readerActorMapping hasActor actor) {
       handleReaderActorTermination(actor)
     } else {
-      handleScannerError()
+      val readerActors = readerActorMapping.findReadersForClient(actor)
+      readerActors foreach context.stop
+      if (readerActors.isEmpty) {
+        handleScannerError()
+      }
     }
   }
 
   /**
-   * Handles the termination of a reader actor. The terminated actor is only
-   * the processing media reader actor. It has to be ensured that the
-   * underlying reader actor is stopped as well.
+    * Handles the termination of a reader actor. The terminated actor is only
+    * the processing media reader actor. It has to be ensured that the
+    * underlying reader actor is stopped as well. Also, we can stop watching
+    * the client actor if there are no more pending read operations on behalf
+    * of it.
     *
     * @param actor the terminated actor
-   */
+    */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
     log.info("Removing terminated reader actor from mapping.")
-    //TODO handle client actor
-    val (optReader, _) = readerActorMapping remove actor
+    val (optReader, optClient) = readerActorMapping remove actor
     optReader foreach context.stop
+    optClient foreach { c =>
+      if (readerActorMapping.findReadersForClient(c).isEmpty) {
+        context unwatch c
+      }
+    }
   }
 
   /**
