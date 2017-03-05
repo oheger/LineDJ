@@ -304,7 +304,7 @@ Actor with ActorLogging {
     case CheckReaderTimeout =>
       checkForReaderActorTimeout()
 
-    case ReaderActorAlive(reader) =>
+    case ReaderActorAlive(reader, _) =>
       readerActorMapping.updateTimestamp(reader, now())
 
     case CloseRequest =>

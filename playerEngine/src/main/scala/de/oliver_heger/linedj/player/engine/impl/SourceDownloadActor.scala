@@ -126,6 +126,12 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
   /** A download response which is about to be processed. */
   private var downloadToProcess: Option[MediumFileResponse] = None
 
+  /**
+    * Stores information about the current file to be downloaded as long as the
+    * download is in progress.
+    */
+  private var downloadInProgress: Option[MediumFileRequest] = None
+
   /** The read actor currently processed by the buffer. */
   private var currentReadActor: Option[ActorRef] = None
 
@@ -171,6 +177,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
             readerActor ! AudioSource(uri = info.sourceID.uri, length =
                           response.length, skip = info.skip, skipTime = info.skipTime)
             downloadToProcess = fillBufferIfPossible(response)
+            downloadInProgress = Some(response.request)
           }
           downloadIfPossible()
 
@@ -198,7 +205,12 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
       sender ! CloseAck(self)
 
     case ReportReaderActorAlive =>
-      currentReadActor foreach (config.mediaManagerActor ! ReaderActorAlive(_))
+      for {
+        readerActor <- currentReadActor
+        downloadRequest <- downloadInProgress
+      } {
+        config.mediaManagerActor ! ReaderActorAlive(readerActor, downloadRequest.mediumID)
+      }
   }
 
   /**
@@ -258,6 +270,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     val result = downloadToProcess
     downloadToProcess = None
     currentReadActor = None
+    downloadInProgress = None
     result
   }
 

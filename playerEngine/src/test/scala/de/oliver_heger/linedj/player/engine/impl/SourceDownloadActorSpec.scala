@@ -290,7 +290,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     srcActor.expectMsgType[MediumFileRequest]
 
     actor ! SourceDownloadActor.ReportReaderActorAlive
-    srcActor.expectMsg(ReaderActorAlive(contentActor.ref))
+    srcActor.expectMsg(ReaderActorAlive(contentActor.ref, TestMediumID))
   }
 
   it should "deal with with an undefined reader when receiving a report reader alive message" in {
@@ -318,6 +318,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! LocalBufferActor.BufferFilled(contentActor.ref, SourceLength)
     val termMsg = watchActor.expectMsgType[Terminated]
     termMsg.actor should be(contentActor.ref)
+  }
+
+  it should "reset download information after it has been processed" in {
+    val srcActor, bufActor, readActor, contentActor = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(downloadRequest(1))
+    actor ! downloadResponse(1, contentActor.ref, SourceLength)
+    actor ! LocalBufferActor.BufferFilled(contentActor.ref, SourceLength)
+
+    actor ! SourceDownloadActor.ReportReaderActorAlive
+    srcActor.expectNoMsg(1.second)
   }
 
   it should "sent a download completion message after a buffer fill operation" in {

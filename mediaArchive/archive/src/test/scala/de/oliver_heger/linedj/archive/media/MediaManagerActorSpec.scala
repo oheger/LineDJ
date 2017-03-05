@@ -481,7 +481,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
     watcher watch procReader.ref
 
-    helper.testManagerActor ! ReaderActorAlive(procReader.ref)
+    helper.testManagerActor ! ReaderActorAlive(procReader.ref, null)
     helper.testManagerActor ! MediaManagerActor.CheckReaderTimeout
     expectNoMoreMessage(watcher)
   }
@@ -500,7 +500,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "cancel periodic reader checks when it is stopped" in {
     val helper = new MediaManagerTestHelper
     val probe = TestProbe()
-    helper.testManagerActor ! ReaderActorAlive(probe.ref)
+    helper.testManagerActor ! ReaderActorAlive(probe.ref, null)
 
     system stop helper.testManagerActor
     val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
