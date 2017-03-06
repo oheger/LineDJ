@@ -53,12 +53,39 @@ object MediaUnionActor {
   * the media archive.
   *
   * The union media archive can deal with media from different sources. This
-  * actor manages all media currently available. The ID is that the archive
+  * actor manages all media currently available. The idea is that the archive
   * consists of multiple components (represented by actors). On startup (or
   * when a new scan operation is triggered), all components construct a data
   * object with information about the media they can contribute. This object is
   * then sent to this actor which aggregates all available media information
   * and provides access to it.
+  *
+  * In order to contribute data to the union media archive, an archive
+  * component has to do the following interactions with this actor and
+  * support the mentioned messages:
+  *  - An [[AddMedia]] message has to be sent to this actor with media data to
+  * be added to the union archive. The sending actor becomes the controller
+  * actor for this data (unless another actor is specified in the message).
+  *  - A [[GetMediumFiles]] request for a medium ID is forwarded to the
+  * controller actor for the affected medium.
+  *  - A [[MediumFileRequest]] for a file is forwarded to the controller actor
+  * for the medium the file belongs to. File download then takes place between
+  * this actor and the sender of the request.
+  *  - A [[ReaderActorAlive]] message is forwarded to the controller actor
+  * responsible for the ''MediumID'' referenced in the message.
+  *  - A [[ScanAllMedia]] message is forwarded to all current controller
+  * actors. In reaction, they should start a new scan and report the results to
+  * this union actor. Before sending data which replaces existing one (e.g.
+  * when starting a new scan), the controller has to send an
+  * [[ArchiveComponentRemoved]] message to make sure that existing data for
+  * this component is removed.
+  *  - Close requests are forwarded to all currently available controller
+  * actors. On receiving such a request, a controller has to cancel an ongoing
+  * scan operation (if any) and then ack the request. Only after all
+  * controllers have answered the request, an ack is sent to the original
+  * sender.
+  *  - If a controller actor dies, all data contributed by this archive
+  * component is removed from the union archive.
   *
   * @param metaDataUnionActor the actor managing the union of meta data
   */
@@ -89,6 +116,9 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
 
     case fileReq: MediumFileRequest =>
       forwardToController(fileReq.mediumID, fileReq)(undefinedMediumFileResponse)
+
+    case ral: ReaderActorAlive =>
+      controllerMap.get(ral.mediumID.archiveComponentID) foreach (_ forward ral)
 
     case ScanAllMedia =>
       metaDataUnionActor ! ScanAllMedia

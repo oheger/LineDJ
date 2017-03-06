@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.TestActor.KeepRunning
-import akka.testkit.{ImplicitSender, TestActor, TestKit, TestProbe}
+import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileReaderActor}
 import de.oliver_heger.linedj.shared.archive.media._
@@ -193,6 +193,25 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     expectMsg(FileReaderActor.EndOfFile(null))
   }
 
+  it should "handle a ReaderActorAlive message" in {
+    val mediaMap = Map(mediaMapping(1, 1))
+    val mid = mediumID(1, 1)
+    val request = ReaderActorAlive(null, mid)
+    val controller = ForwardTestActor()
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap, 1, controller)
+
+    helper.manager ! request
+    expectMsg(ForwardTestActor.ForwardedMessage(request))
+  }
+
+  it should "ignore a ReaderActorAlive message for an unknown component" in {
+    val helper = new MediaUnionActorTestHelper
+    val request = ReaderActorAlive(null, mediumID(42, 28))
+
+    helper.manager receive request
+  }
+
   it should "forward a scan request to all controller actors" in {
     val helper = new MediaUnionActorTestHelper
     val ctrl1 = helper.addMedia(Map(mediaMapping(1, 1)), 1)
@@ -294,7 +313,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val metaDataActor = TestProbe()
 
     /** The actor to be tested. */
-    val manager: ActorRef = createTestActor()
+    val manager: TestActorRef[MediaUnionActor] = createTestActor()
 
     /** Counter for close requests handled by the test actor. */
     private val closeRequestCount = new AtomicInteger
@@ -393,8 +412,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return the test actor
       */
-    private def createTestActor(): ActorRef =
-      system.actorOf(Props(new MediaUnionActor(metaDataActor.ref)
+    private def createTestActor(): TestActorRef[MediaUnionActor] =
+      TestActorRef[MediaUnionActor](Props(new MediaUnionActor(metaDataActor.ref)
         with ChildActorFactory with CloseSupport {
         /**
           * Checks parameters and records this invocation.
