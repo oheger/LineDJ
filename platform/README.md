@@ -192,58 +192,58 @@ package](src/main/scala/de/oliver_heger/linedj/platform/mediaifc/ext)
  archive is currently not available this can be reflected in the UI of the
  application; for instance, menu items could be disabled.
  
- ### Media Archive State Listener extension
+### Media Archive State Listener extension
  
- With this extension update notifications about the state of the media archive
- can be received. The state of the archive contains statistics information
- about the data currently stored in the archive (such as the number of media or
- songs, the total playback duration, etc.).
+With this extension update notifications about the state of the media archive
+can be received. The state of the archive contains statistics information
+about the data currently stored in the archive (such as the number of media or
+songs, the total playback duration, etc.).
  
- It is also possible that a scan for media is triggered. Then the archive
- re-inspects the folder structure with media files and updates itself. This may
- leed to changes in the list of media available.
+It is also possible that a scan for media is triggered. Then the archive
+re-inspects the folder structure with media files and updates itself. This may
+leed to changes in the list of media available.
  
- Applications that rely on this information - for instance a media browser
- application - can use this extension to keep track on changes in the amount of
- data managed by the archive.
+Applications that rely on this information - for instance a media browser
+application - can use this extension to keep track on changes in the amount of
+data managed by the archive.
  
- ### Available Media extension
+### Available Media extension
  
- _Available media_ is a data structure listing IDs and some meta data about all
- media currently managed by the media archive. This is probably of interest for
- many applications running on the platform allowing the user to do something
- (browse, search, playback, ...) with media files. When a scan for media files
- runs and changes are detected this information is updated automatically and
- published to registered consumers. So this extension could be an alternative
- to the _Media Archive State Listener_ extension for applications only
- interested in media information.
+_Available media_ is a data structure listing IDs and some meta data about all
+media currently managed by the media archive. This is probably of interest for
+many applications running on the platform allowing the user to do something
+(browse, search, playback, ...) with media files. When a scan for media files
+runs and changes are detected this information is updated automatically and
+published to registered consumers. So this extension could be an alternative
+to the _Media Archive State Listener_ extension for applications only
+interested in media information.
  
- ### Meta Data Cache extension
+### Meta Data Cache extension
  
- It is a frequent use case to display information about media and the songs
- they contain. From the media archive the content of a medium can be queried
- (there is even support for a listener registration if currently a scan is in
- progress and the information about the medium is updated). Querying a medium
- every time it is accessed by the user from the archive may be a waste of
- bandwidth, especially if the user only works on a subset of media. Therefore,
- this extension offers caching functionality on media.
+It is a frequent use case to display information about media and the songs
+they contain. From the media archive the content of a medium can be queried
+(there is even support for a listener registration if currently a scan is in
+progress and the information about the medium is updated). Querying a medium
+every time it is accessed by the user from the archive may be a waste of
+bandwidth, especially if the user only works on a subset of media. Therefore,
+this extension offers caching functionality on media.
  
- To use this extension, media information is not directly requested from the
- archive, but by sending a corresponding message on the message bus. The
- message is received by the cache extension, and it checks whether data for
- this medium is already contained in the cache. If so, an answer can be sent
- directly to the consumer; otherwise, a request to the media archive is
- created, and the consumer is given a response when this request is processed.
+To use this extension, media information is not directly requested from the
+archive, but by sending a corresponding message on the message bus. The
+message is received by the cache extension, and it checks whether data for
+this medium is already contained in the cache. If so, an answer can be sent
+directly to the consumer; otherwise, a request to the media archive is
+created, and the consumer is given a response when this request is processed.
  
- The cache can be configured with a maximum number of entries. When this limit
- is reached media that have not been accessed recently are removed from the
- cache (the cache has LRU semantics).
+The cache can be configured with a maximum number of entries. When this limit
+is reached media that have not been accessed recently are removed from the
+cache (the cache has LRU semantics).
  
- ## Configuration
+## Configuration
  
- The following table lists the configuration options supported by the
- _Platform_ module:
+The following table lists the configuration options supported by the
+_Platform_ module:
  
- | Setting | Description |
- | ------- | ----------- |
- | media.cacheSize | The number of entries that can be stored in the _Meta Data Cache_ extension. When this limit is reached older media are removed from the cache. |
+| Setting | Description |
+| ------- | ----------- |
+| media.cacheSize | The number of entries that can be stored in the _Meta Data Cache_ extension. When this limit is reached older media are removed from the cache. |
