@@ -107,17 +107,21 @@ object PersistentMetaDataManagerActor {
   }
 
   private class PersistentMetaDataManagerActorImpl(config: MediaArchiveConfig,
+                                                   metaDataUnionActor: ActorRef,
                                                    fileScanner: PersistentMetaDataFileScanner)
-    extends PersistentMetaDataManagerActor(config, fileScanner) with ChildActorFactory
+    extends PersistentMetaDataManagerActor(config, metaDataUnionActor, fileScanner)
+      with ChildActorFactory
 
   /**
     * Returns a ''Props'' object for creating an instance of this actor class.
     *
-    * @param config the configuration
+    * @param config             the configuration
+    * @param metaDataUnionActor the meta data union actor
     * @return creation properties for a new actor instance
     */
-  def apply(config: MediaArchiveConfig): Props =
-    Props(classOf[PersistentMetaDataManagerActorImpl], config, new PersistentMetaDataFileScanner)
+  def apply(config: MediaArchiveConfig, metaDataUnionActor: ActorRef): Props =
+    Props(classOf[PersistentMetaDataManagerActorImpl], config, metaDataUnionActor,
+      new PersistentMetaDataFileScanner)
 }
 
 /**
@@ -138,10 +142,12 @@ object PersistentMetaDataManagerActor {
   * The goal is to generate persistent meta data automatically by storing the
   * information extracted from media files.
   *
-  * @param config      the configuration
-  * @param fileScanner the scanner for meta data files
+  * @param config             the configuration
+  * @param metaDataUnionActor reference to the meta data union actor
+  * @param fileScanner        the scanner for meta data files
   */
 class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
+                                     metaDataUnionActor: ActorRef,
                                      private[persistence] val fileScanner:
                                      PersistentMetaDataFileScanner) extends Actor {
   this: ChildActorFactory =>
@@ -290,7 +296,6 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       (caller, RemovePersistentMetaDataResult(req, Set.empty))
   }
 
-
   /**
     * Creates a child actor for reading a meta data file.
     *
@@ -341,24 +346,21 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   private def processUnresolvedFiles(u: UnresolvedMetaDataFiles, metaManagerActor:
   ActorRef, resolved: Int): Unit = {
     metaManagerActor ! u
-    writerActor ! createProcessMediumMessage(u, metaManagerActor, resolved)
+    writerActor ! createProcessMediumMessage(u, resolved)
   }
 
   /**
     * Creates a ''ProcessMedium'' message based on the specified parameters.
     *
     * @param u                the ''UnresolvedMetaDataFiles'' message
-    * @param metaManagerActor the meta data manager actor
     * @param resolved         the number of unresolved files
     * @return the message
     */
-  private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, metaManagerActor: ActorRef,
-                                         resolved: Int): ProcessMedium = {
+  private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, resolved: Int):
+  ProcessMedium =
     PersistentMetaDataWriterActor.ProcessMedium(mediumID = u.mediumID,
-      target = generateMetaDataPath(u), metaDataManager = metaManagerActor, uriPathMapping = u
-        .result
-        .fileUriMapping, resolvedSize = resolved)
-  }
+      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, uriPathMapping = u
+        .result.fileUriMapping, resolvedSize = resolved)
 
   /**
     * Generates the path for a meta data file based on the specified

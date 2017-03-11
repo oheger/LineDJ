@@ -211,17 +211,19 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
   "A PersistenceMetaDataManagerActor" should "create a default file scanner" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val testRef = TestActorRef[PersistentMetaDataManagerActor](PersistentMetaDataManagerActor
-    (helper.config))
+    (helper.config, helper.metaDataUnionActor.ref))
 
     testRef.underlyingActor.fileScanner should not be null
   }
 
   it should "generate correct creation properties" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
-    val props = PersistentMetaDataManagerActor(helper.config)
+    val props = PersistentMetaDataManagerActor(helper.config, helper.metaDataUnionActor.ref)
 
     classOf[PersistentMetaDataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    props.args.head should be(helper.config)
+    props.args(1) should be(helper.metaDataUnionActor.ref)
   }
 
   it should "notify the caller for unknown media immediately" in {
@@ -243,20 +245,6 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
   }
 
   /**
-    * Generates a ''ProcessMedium'' message based on the given parameters.
-    *
-    * @param index    the index
-    * @param resolved the number of resolved songs
-    * @param result   the enhanced scan result
-    * @return the ''ProcessMedium'' message
-    */
-  private def processMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
-  ProcessMedium =
-    PersistentMetaDataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
-      mediumID = mediumID(index), metaDataManager = testActor,
-      uriPathMapping = result.fileUriMapping, resolvedSize = resolved)
-
-  /**
     * Stops an actor and waits until the termination message arrives.
     *
     * @param actor the actor to be stopped
@@ -275,7 +263,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
     actor ! result
     expectMsgType[UnresolvedMetaDataFiles]
-    helper.writerActor.expectMsg(processMsg(3, 0, result))
+    helper.expectProcessMediumMsg(3, 0, result)
   }
 
   it should "create reader actors for known media" in {
@@ -367,7 +355,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     stopActor(readerActor.ref)
     val mid = mediumID(1)
     expectMsg(UnresolvedMetaDataFiles(mid, mediumFiles(mid) drop 3, esr))
-    helper.writerActor.expectMsg(processMsg(1, 3, esr))
+    helper.expectProcessMediumMsg(1, 3, esr)
   }
 
   it should "remove a processed medium from the in-progress map" in {
@@ -632,6 +620,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     /** Test probe for the child remove actor. */
     val removeActor = TestProbe()
 
+    /** Test probe for the meta data union actor. */
+    val metaDataUnionActor = TestProbe()
+
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetaDataManagerActor] = _
 
@@ -743,6 +734,35 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     }
 
     /**
+      * Checks whether the writer actor received a ''ProcessMedium'' message
+      * with the given parameters.
+      *
+      * @param index    the index
+      * @param resolved the number of resolved songs
+      * @param result   the enhanced scan result
+      * @return this test helper
+      */
+    def expectProcessMediumMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
+    PersistenceMetaDataManagerActorTestHelper = {
+      writerActor.expectMsg(processMsg(index, resolved, result))
+      this
+    }
+
+    /**
+      * Generates a ''ProcessMedium'' message based on the given parameters.
+      *
+      * @param index    the index
+      * @param resolved the number of resolved songs
+      * @param result   the enhanced scan result
+      * @return the ''ProcessMedium'' message
+      */
+    private def processMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
+    ProcessMedium =
+      PersistentMetaDataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
+        mediumID = mediumID(index), metaDataManager = metaDataUnionActor.ref,
+        uriPathMapping = result.fileUriMapping, resolvedSize = resolved)
+
+    /**
       * Creates a mock for the configuration.
       *
       * @return the configuration mock
@@ -764,7 +784,8 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       * @return creation properties for a test actor instance
       */
     private def createProps(): Props =
-      Props(new PersistentMetaDataManagerActor(config, fileScanner) with ChildActorFactory {
+      Props(new PersistentMetaDataManagerActor(config, metaDataUnionActor.ref,
+        fileScanner) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassReaderChildActor =>
@@ -799,7 +820,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       */
     private def createTestProbes(): ArrayBlockingQueue[TestProbe] = {
       val probes = new ArrayBlockingQueue[TestProbe](8)
-      for (i <- 1 to 8) probes put TestProbe()
+      for (_ <- 1 to 8) probes put TestProbe()
       probes
     }
   }
