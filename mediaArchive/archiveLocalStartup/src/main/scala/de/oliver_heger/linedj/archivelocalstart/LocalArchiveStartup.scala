@@ -167,7 +167,7 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration
       .asInstanceOf[HierarchicalConfiguration])
     val persistentMetaDataManager = createAndRegisterActor(
-      PersistentMetaDataManagerActor(archiveConfig), NamePersistenceManager)
+      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor), NamePersistenceManager)
     val metaDataManager = createAndRegisterActor(MetaDataManagerActor(archiveConfig,
       persistentMetaDataManager, metaDataUnionActor), NameMetaDataManager)
     val mediaManager = createAndRegisterActor(MediaManagerActor(archiveConfig,

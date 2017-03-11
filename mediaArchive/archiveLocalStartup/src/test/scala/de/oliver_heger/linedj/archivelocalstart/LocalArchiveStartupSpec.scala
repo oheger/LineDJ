@@ -369,9 +369,11 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
             val name = invocation.getArguments()(1).asInstanceOf[String]
             name match {
               case "persistentMetaDataManager" =>
-                val refProps = PersistentMetaDataManagerActor(ArchiveConfig)
+                val refProps = PersistentMetaDataManagerActor(ArchiveConfig,
+                  probeUnionMetaDataManager.ref)
                 props.actorClass() should be(refProps.actorClass())
                 props.args.head should be(refProps.args.head)
+                props.args(1) should be(refProps.args(1))
                 actorCreation(probePersistentManager)
 
               case "localMetaDataManager" =>
