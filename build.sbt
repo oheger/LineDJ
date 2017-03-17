@@ -7,6 +7,7 @@ import de.heikoseeberger.sbtheader.license.Apache2_0
 
 /** Definition of versions. */
 lazy val AkkaVersion = "2.4.17"
+lazy val AkkaHttpVersion = "10.0.4"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.11.8"
 
@@ -64,7 +65,7 @@ lazy val LineDJ = (project in file("."))
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
-  trayWindowList, archiveUnion, archiveLocalStartup)
+  trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -80,8 +81,25 @@ lazy val shared = (project in file("shared"))
   )
 
 /**
-  * The media archive project. This contains code to manage the library with
-  * artists, albums, and songs.
+  * An utility project providing common functionality needed by multiple
+  * archive implementations. The project contains some actor implementations
+  * and data model definitions.
+  */
+lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archive-common",
+    libraryDependencies ++= logDependencies,
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
+    OsgiKeys.privatePackage := Seq.empty
+  ) dependsOn (shared % "compile->compile;test->test")
+
+/**
+  * The media archive project. This contains code to scan a local folder
+  * structure with media files and extract meta data about artists, albums,
+  * and songs.
   */
 lazy val archive = (project in file("mediaArchive/archive"))
   .enablePlugins(SbtOsgi)
@@ -92,7 +110,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
 
 /**
   * The media archive project. This contains code to manage the library with
@@ -109,6 +127,23 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
+
+/**
+  * The HTTP archive project. Via this project media files can be managed that
+  * are stored on a remote host that can be accessed via HTTP requests.
+  */
+lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archive-http",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+    libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp.*"),
+    OsgiKeys.privatePackage := Seq.empty
+  ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
 
 /**
   * Project for the client platform. This project contains code shared by
