@@ -231,7 +231,7 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
       ParserImpl.ManyPartialData[Map[String, String]](createResultObjects().toList), "other")
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
     val parser = createParser()
-    expectParserRun(parser, 1, lastChunk = false).thenReturn(failureOut)
+    expectParserRun(parser, 1).thenReturn(failureOut)
 
     val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       None)
@@ -245,7 +245,7 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
     val partialData = List(ParserImpl.ManyPartialData[Map[String, String]](Nil))
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
     val parser = createParser()
-    expectParserRun(parser, 1, lastChunk = false).thenReturn(failureOut)
+    expectParserRun(parser, 1).thenReturn(failureOut)
 
     val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       None)
@@ -257,7 +257,7 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
     val partialData = List(ParserImpl.ManyPartialData[String](List("test")))
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
     val parser = createParser()
-    expectParserRun(parser, 1, lastChunk = false).thenReturn(failureOut)
+    expectParserRun(parser, 1).thenReturn(failureOut)
 
     val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       None)

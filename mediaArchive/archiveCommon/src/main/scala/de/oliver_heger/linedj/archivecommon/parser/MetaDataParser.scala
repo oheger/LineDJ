@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.archivecommon.parser.ParserImpl.ManyPartialData
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Success}
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
@@ -123,59 +122,6 @@ object MetaDataParser {
     }
   }
 
-  /**
-    * Converts a collection with JSON objects (as maps) received from the JSON
-    * parser to a collection of processing result objects.
-    *
-    * @param mediumID the medium ID
-    * @param objects  the JSON object maps to be converted
-    * @return a sequence with the converted results
-    */
-  private def convertJsonObjects(mediumID: MediumID, objects: IndexedSeq[Map[String, String]]):
-  IndexedSeq[MetaDataProcessingResult] = {
-    objects filter {
-      m => m.contains(PropUri) && m.contains(PropPath)
-    } map (createProcessingResult(_, mediumID))
-  }
-
-  /**
-    * Iterates over the partial data from a parser run and extracts the results
-    * obtained so far. The way the parser is constructed, there can only be a
-    * single ''ManyPartialData'' object with the JSON objects on top level.
-    * These objects are converted to ''MetaDataProcessingResult'' objects. Then
-    * the ''ManyPartialData'' has to be replaced by an empty object for the
-    * next run of the parser.
-    *
-    * @param mediumID the medium ID
-    * @param d        the list with partial data
-    * @return a tuple with updated partial data and the extracted results
-    */
-  private def extractPartialDataAndResults(mediumID: MediumID, d: List[Any]): (List[Any],
-    Seq[MetaDataProcessingResult]) = {
-    d.foldRight((List.empty[Any], Seq.empty[MetaDataProcessingResult])) { (x, s) =>
-      x match {
-        case pd: ManyPartialData[_] if containsResults(pd) =>
-          // Cast is safe because of the structure of the parser
-          val data = pd.asInstanceOf[ManyPartialData[Map[String, String]]]
-          (ParserImpl.EmptyManyPartialData :: s._1, convertJsonObjects(mediumID, data.results
-            .toIndexedSeq))
-        case _ =>
-          (x :: s._1, s._2)
-      }
-    }
-  }
-
-  /**
-    * Checks whether the given partial data object contains results that are to
-    * be extracted by the parser. As there may be different kinds of
-    * ''ManyPartialData'' objects during a parsing operation, the type of the
-    * objects contained has to be checked.
-    *
-    * @param pd the partial data object
-    * @return a flag whether this object contains parsing results
-    */
-  private def containsResults(pd: ManyPartialData[_]): Boolean =
-    pd.results.headOption.exists(_.isInstanceOf[Map[_, _]])
 }
 
 /**
@@ -201,30 +147,16 @@ object MetaDataParser {
   * @param chunkParser the underlying ''ChunkParser''
   * @param jsonParser  the underlying JSON parser
   */
-class MetaDataParser(val chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
-  Failure], val jsonParser: ParserTypes.Parser[JSONParser.JSONData]) {
+class MetaDataParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
+  Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
+  extends AbstractModelParser[MetaDataProcessingResult, MediumID](chunkParser, jsonParser) {
 
   import MetaDataParser._
 
-  /**
-    * Parses a chunk of data and returns the extract metadata.
-    *
-    * @param text       the text of the chunk to be parsed
-    * @param mediumID   the ID of the associated medium
-    * @param lastChunk  a flag whether this is the last chunk
-    * @param optFailure an optional ''Failure'' object to continue parsing
-    * @return a tuple with the extracted information and a failure which
-    *         interrupted the current parse operation
-    */
-  def processChunk(text: String, mediumID: MediumID, lastChunk: Boolean, optFailure:
-  Option[Failure]): (Seq
-    [MetaDataProcessingResult], Option[Failure]) = {
-    chunkParser.runChunk(jsonParser)(text, lastChunk, optFailure) match {
-      case Success(objects, _) =>
-        (convertJsonObjects(mediumID, objects), None)
-      case Failure(e, c, d) =>
-        val (partial, results) = extractPartialDataAndResults(mediumID, d)
-        (results, Some(Failure(e, c, partial)))
-    }
+  override def convertJsonObjects(mediumID: MediumID, objects: IndexedSeq[Map[String, String]]):
+  IndexedSeq[MetaDataProcessingResult] = {
+    objects filter {
+      m => m.contains(PropUri) && m.contains(PropPath)
+    } map (createProcessingResult(_, mediumID))
   }
 }
