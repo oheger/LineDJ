@@ -7,7 +7,7 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-package de.oliver_heger.linedj.archive.metadata.persistence.parser
+package de.oliver_heger.linedj.archivecommon.parser
 
 import java.util.regex._
 

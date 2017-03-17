@@ -30,7 +30,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
+import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult

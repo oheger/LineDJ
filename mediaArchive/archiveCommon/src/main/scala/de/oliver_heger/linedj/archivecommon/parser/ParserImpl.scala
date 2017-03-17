@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.metadata.persistence.parser
+package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes._
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes._
 
 import scala.reflect.ClassTag
 import scala.util.matching.Regex
@@ -41,7 +41,7 @@ object ParserTypes {
     def advanceBy(numChars: Int): ParseState =
       copy(loc = loc.copy(offset = loc.offset + numChars))
     def input: String = loc.input.substring(loc.offset)
-    def slice(n: Int) = loc.input.substring(loc.offset, loc.offset + n)
+    def slice(n: Int): String = loc.input.substring(loc.offset, loc.offset + n)
 
     /**
       * Obtains information about a partial parse result. This information is

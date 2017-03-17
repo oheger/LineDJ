@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.metadata.persistence.parser
+package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserImpl.ManyPartialData
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Success}
+import de.oliver_heger.linedj.archivecommon.parser.ParserImpl.ManyPartialData
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Success}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
@@ -101,7 +101,7 @@ object MetaDataParser {
   private def intProperty(obj: Map[String, String], prop: String): Option[Int] = {
     try obj.get(prop) map (_.toInt)
     catch {
-      case n: NumberFormatException =>
+      case _: NumberFormatException =>
         log.warn(s"Invalid value for property $prop: '${obj(prop)}'; ignoring.")
         None
     }

@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.{ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.metadata.persistence.parser._
+import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

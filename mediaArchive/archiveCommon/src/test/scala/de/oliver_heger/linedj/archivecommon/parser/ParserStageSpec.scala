@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.metadata.persistence.parser
+package de.oliver_heger.linedj.archivecommon.parser
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -22,8 +22,8 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.testkit.TestKit
 import akka.util.ByteString
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserStage.ChunkSequenceParser
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.archivecommon.parser.ParserStage.ChunkSequenceParser
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

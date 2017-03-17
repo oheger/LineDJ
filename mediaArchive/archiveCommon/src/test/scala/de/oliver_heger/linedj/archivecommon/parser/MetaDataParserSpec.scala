@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.metadata.persistence.parser
+package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.JSONParser.JSONData
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.{Failure, Result}
+import de.oliver_heger.linedj.archivecommon.parser.JSONParser.JSONData
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Result}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import org.mockito.Mockito._

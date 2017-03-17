@@ -25,8 +25,8 @@ import akka.stream.scaladsl.{FileIO, Keep, Sink}
 import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.archive.metadata.persistence.parser.{MetaDataParser, ParserStage}
+import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -71,7 +71,7 @@ object PersistentMetaDataReaderActor {
   * file.
   *
   * The file is read using stream processing with a [[ParserStage]] stage using
-  * a [[de.oliver_heger.linedj.archive.metadata.persistence.parser.MetaDataParser]].
+  * a [[MetaDataParser]].
   * The results extracted from a chunk of data are sent to the target actor as
   * specified in the constructor as soon as they become available. When the
   * file has been fully processed this actor stops itself; it also stops if the
