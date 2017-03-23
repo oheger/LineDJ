@@ -25,6 +25,17 @@ import org.apache.commons.configuration.Configuration
 import scala.concurrent.duration._
 import scala.util.Try
 
+/**
+  * A data class representing user credentials.
+  *
+  * This class holds credential information that is needed to connect to an
+  * HTTP archive.
+  *
+  * @param userName the user name
+  * @param password the password
+  */
+case class UserCredentials(userName: String, password: String)
+
 object HttpArchiveConfig {
   /**
     * The prefix for all configuration properties related to the HTTP archive.
@@ -56,17 +67,20 @@ object HttpArchiveConfig {
     * Tries to obtain a ''HttpArchiveConfig'' from the passed in
     * ''Configuration'' object. If mandatory parameters are missing, the
     * operation fails. Otherwise, a ''Success'' object is returned wrapping
-    * the extracted ''HttpArchiveConfig'' instance.
+    * the extracted ''HttpArchiveConfig'' instance. Note that user credentials
+    * have to be provided separately; it is typically not an option to store
+    * credentials as plain text in a configuration file.
     *
     * @param c the ''Configuration''
+    * @param credentials user credentials
     * @return a ''Try'' with the extracted archive configuration
     */
-  def apply(c: Configuration): Try[HttpArchiveConfig] = Try {
+  def apply(c: Configuration, credentials: UserCredentials): Try[HttpArchiveConfig] = Try {
     val uri = c getString PropArchiveUri
     if (uri == null) {
       throw new IllegalArgumentException("No URI for HTTP archive configured!")
     }
-    HttpArchiveConfig(c getString PropArchiveUri,
+    HttpArchiveConfig(c getString PropArchiveUri, credentials,
       c.getInt(PropProcessorCount, DefaultProcessorCount),
       if (c.containsKey(PropProcessorTimeout))
         Timeout(c.getInt(PropProcessorTimeout), TimeUnit.SECONDS)
@@ -79,9 +93,11 @@ object HttpArchiveConfig {
   * archive.
   *
   * @param archiveURI       the URI of the HTTP media archive
+  * @param credentials      credentials to connect to the archive
   * @param processorCount   the number of parallel processor actors to be used
   *                         when downloading meta data from the archive
   * @param processorTimeout the timeout for calls to processor actors
   */
-case class HttpArchiveConfig(archiveURI: Uri, processorCount: Int,
+case class HttpArchiveConfig(archiveURI: Uri, credentials: UserCredentials,
+                             processorCount: Int,
                              processorTimeout: Timeout)

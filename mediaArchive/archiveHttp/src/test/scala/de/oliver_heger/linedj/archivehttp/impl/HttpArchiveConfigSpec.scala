@@ -29,6 +29,9 @@ object HttpArchiveConfigSpec {
   /** The URI to the HTTP archive. */
   private val ArchiveUri = "https://music.archive.org/content.json"
 
+  /** An object with test user credentials. */
+  private val Credentials = UserCredentials("scott", "tiger")
+
   /** The number of processors. */
   private val ProcessorCount = 8
 
@@ -59,7 +62,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   "An HttpArchiveConfig" should "process a valid configuration" in {
     val c = createConfiguration()
 
-    HttpArchiveConfig(c) match {
+    HttpArchiveConfig(c, Credentials) match {
       case Success(config) =>
         config.archiveURI should be(Uri(ArchiveUri))
         config.processorCount should be(ProcessorCount)
@@ -73,7 +76,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = createConfiguration()
     c clearProperty HttpArchiveConfig.PropProcessorCount
 
-    HttpArchiveConfig(c) match {
+    HttpArchiveConfig(c, Credentials) match {
       case Success(config) =>
         config.processorCount should be(HttpArchiveConfig.DefaultProcessorCount)
       case Failure(e) =>
@@ -85,7 +88,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = createConfiguration()
     c clearProperty HttpArchiveConfig.PropProcessorTimeout
 
-    HttpArchiveConfig(c) match {
+    HttpArchiveConfig(c, Credentials) match {
       case Success(config) =>
         config.processorTimeout should be(HttpArchiveConfig.DefaultProcessorTimeout)
       case Failure(e) =>
@@ -97,7 +100,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = createConfiguration()
     c clearProperty HttpArchiveConfig.PropArchiveUri
 
-    HttpArchiveConfig(c) match {
+    HttpArchiveConfig(c, Credentials) match {
       case Success(_) =>
         fail("Could read invalid config!")
       case Failure(e) =>

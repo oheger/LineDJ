@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.Done
 import akka.actor.{Actor, ActorLogging}
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
@@ -75,10 +76,13 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging {
     * Creates a HTTP request for the specified path.
     *
     * @param path the path for the request
+    * @param credentials the credentials for the request
     * @return the new request
     */
-  private def createRequest(path: String): HttpRequest =
-    HttpRequest(uri = Uri(path))
+  private def createRequest(path: String, credentials: UserCredentials): HttpRequest =
+    HttpRequest(uri = Uri(path),
+      headers = List(Authorization(BasicHttpCredentials(credentials.userName,
+        credentials.password))))
 
   /**
     * Returns a list with the requests to execute for a specific medium.
@@ -89,9 +93,10 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging {
     */
   private def createRequestsForMedium(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
   List[(HttpRequest, RequestData)] =
-    List((createRequest(md.mediumDescriptionPath),
+    List((createRequest(md.mediumDescriptionPath, req.archiveConfig.credentials),
       RequestData(md, req.settingsProcessorActor)),
-      (createRequest(md.metaDataPath), RequestData(md, req.metaDataProcessorActor)))
+      (createRequest(md.metaDataPath, req.archiveConfig.credentials),
+        RequestData(md, req.metaDataProcessorActor)))
 
   /**
     * Processes a response received from the HTTP archive. The response now has

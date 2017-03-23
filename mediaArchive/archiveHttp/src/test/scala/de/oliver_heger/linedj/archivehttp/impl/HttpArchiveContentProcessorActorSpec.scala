@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.NotUsed
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.Location
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, Location}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -43,8 +43,8 @@ object HttpArchiveContentProcessorActorSpec {
   private val MetaDataProcessorName = "metaDataProcessor"
 
   /** A default configuration for the test archive. */
-  private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri), 2,
-    Timeout(10.seconds))
+  private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri),
+    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds))
 
   /**
     * Returns a test settings path for the specified index.
@@ -99,7 +99,9 @@ object HttpArchiveContentProcessorActorSpec {
     * @return the corresponding request
     */
   private def createRequest(path: String): HttpRequest =
-    HttpRequest(uri = Uri(path))
+    HttpRequest(uri = Uri(path),
+      headers = List(Authorization(BasicHttpCredentials(DefaultArchiveConfig.credentials.userName,
+        DefaultArchiveConfig.credentials.password))))
 
   /**
     * Creates a response for the specified path.
