@@ -51,6 +51,9 @@ object HttpArchiveConfig {
   /** The configuration property for the processor timeout. */
   val PropProcessorTimeout: String = PropPrefix + "processorTimeout"
 
+  /** The configuration property for the maximum size of a content file. */
+  val PropMaxContentSize: String = PropPrefix + "maxContentSize"
+
   /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
@@ -62,6 +65,12 @@ object HttpArchiveConfig {
     * ''PropProcessorTimeout'' property is not specified
     */
   val DefaultProcessorTimeout = Timeout(1.minute)
+
+  /**
+    * The default maximum size for content files loaded from an HTTP archive
+    * (in kilobytes). Responses with a larger size will be canceled.
+    */
+  val DefaultMaxContentSize = 64
 
   /**
     * Tries to obtain a ''HttpArchiveConfig'' from the passed in
@@ -84,7 +93,8 @@ object HttpArchiveConfig {
       c.getInt(PropProcessorCount, DefaultProcessorCount),
       if (c.containsKey(PropProcessorTimeout))
         Timeout(c.getInt(PropProcessorTimeout), TimeUnit.SECONDS)
-      else DefaultProcessorTimeout)
+      else DefaultProcessorTimeout,
+      c.getInt(PropMaxContentSize, DefaultMaxContentSize))
   }
 }
 
@@ -97,7 +107,11 @@ object HttpArchiveConfig {
   * @param processorCount   the number of parallel processor actors to be used
   *                         when downloading meta data from the archive
   * @param processorTimeout the timeout for calls to processor actors
+  * @param maxContentSize   the maximum size of a content file (either a
+  *                         settings or a meta data file) in kilobytes; if a
+  *                         file is larger, it is canceled
   */
 case class HttpArchiveConfig(archiveURI: Uri, credentials: UserCredentials,
                              processorCount: Int,
-                             processorTimeout: Timeout)
+                             processorTimeout: Timeout,
+                             maxContentSize: Int)

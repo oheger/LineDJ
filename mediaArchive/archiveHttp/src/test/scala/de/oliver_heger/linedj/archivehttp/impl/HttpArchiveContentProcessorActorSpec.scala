@@ -44,7 +44,7 @@ object HttpArchiveContentProcessorActorSpec {
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri),
-    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds))
+    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 64)
 
   /**
     * Returns a test settings path for the specified index.

@@ -38,6 +38,9 @@ object HttpArchiveConfigSpec {
   /** The timeout for processor actors. */
   private val ProcessorTimeout = 60
 
+  /** The maximum content size value. */
+  private val MaxContentSize = 10
+
   /**
     * Creates a configuration object with all test settings.
     *
@@ -48,6 +51,7 @@ object HttpArchiveConfigSpec {
     c.addProperty("media.http.archiveUri", ArchiveUri)
     c.addProperty("media.http.processorCount", ProcessorCount)
     c.addProperty("media.http.processorTimeout", ProcessorTimeout)
+    c.addProperty("media.http.maxContentSize", MaxContentSize)
     c
   }
 }
@@ -67,6 +71,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.archiveURI should be(Uri(ArchiveUri))
         config.processorCount should be(ProcessorCount)
         config.processorTimeout should be(Timeout(ProcessorTimeout, TimeUnit.SECONDS))
+        config.maxContentSize should be(MaxContentSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
@@ -91,6 +96,18 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     HttpArchiveConfig(c, Credentials) match {
       case Success(config) =>
         config.processorTimeout should be(HttpArchiveConfig.DefaultProcessorTimeout)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default maximum content size if unspecified" in {
+    val c = createConfiguration()
+    c clearProperty HttpArchiveConfig.PropMaxContentSize
+
+    HttpArchiveConfig(c, Credentials) match {
+      case Success(config) =>
+        config.maxContentSize should be(HttpArchiveConfig.DefaultMaxContentSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
