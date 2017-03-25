@@ -10,6 +10,7 @@ lazy val AkkaVersion = "2.4.17"
 lazy val AkkaHttpVersion = "10.0.4"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.11.8"
+lazy val VersionJetty = "9.4.2.v20170220"
 
 /** The copyright dates. */
 val CopyRight = "2015-2017"
@@ -141,6 +142,9 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
+    libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % "test",
+    libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % "test",
+    libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % "test",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
