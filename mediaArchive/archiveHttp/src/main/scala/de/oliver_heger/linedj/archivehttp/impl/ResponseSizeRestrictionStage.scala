@@ -1,0 +1,62 @@
+/*
+ * Copyright 2015-2017 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.archivehttp.impl
+
+import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
+import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.util.ByteString
+
+/**
+  * A custom ''GraphStage'' implementation which only accepts a configurable
+  * number of data.
+  *
+  * The flow stage receives ''ByteString'' objects that are passed downstream
+  * without changes. The size of data processed is accumulated. If it exceeds a
+  * given limit, the stage is canceled with a failure.
+  *
+  * @param maxSize the maximum size of the source in bytes
+  */
+class ResponseSizeRestrictionStage(val maxSize: Int) extends GraphStage[FlowShape[ByteString,
+  ByteString]] {
+  val in: Inlet[ByteString] = Inlet[ByteString]("SizeRestrictionStage.in")
+  val out: Outlet[ByteString] = Outlet[ByteString]("SizeRestrictionStage.out")
+
+  override val shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
+
+  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    new GraphStageLogic(shape) {
+      var bytesRead = 0
+
+      setHandler(in, new InHandler {
+        override def onPush(): Unit = {
+          val chunk = grab(in)
+          bytesRead += chunk.size
+          if (bytesRead > maxSize) {
+            fail(out, new IllegalStateException(s"Size limit of $maxSize exceeded!"))
+          } else {
+            push(out, chunk)
+          }
+        }
+      })
+
+      setHandler(out, new OutHandler {
+        override def onPull(): Unit = {
+          pull(in)
+        }
+      })
+    }
+}
