@@ -16,15 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import java.nio.charset.StandardCharsets
-
 import akka.actor.Actor
 import akka.http.scaladsl.model.HttpResponse
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl,
-ParserStage}
+import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 
@@ -47,9 +44,6 @@ class MetaDataResponseProcessingActor extends Actor {
 
   import MetaDataResponseProcessingActor._
 
-  /** The object for parsing meta data processing results. */
-  private val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-
   /** The object for stream materialization. */
   private implicit val mat = ActorMaterializer()
 
@@ -69,8 +63,7 @@ class MetaDataResponseProcessingActor extends Actor {
     * @return a ''Future'' for the processing result
     */
   protected def processSource(source: Source[ByteString, Any], mid: MediumID): Future[Any] = {
-    val parserStage = new ParserStage[MetaDataProcessingResult](parseFunc(mid))
-    source.via(parserStage)
+    source.via(new MetaDataParserStage(mid))
       .runFold(List.empty[MetaDataProcessingResult])((lst, r) => r :: lst)
       .map(MetaDataResponseProcessingResult(mid, _))
   }
@@ -119,21 +112,4 @@ class MetaDataResponseProcessingActor extends Actor {
   Source[ByteString, Any] =
     response.entity.dataBytes
       .via(new ResponseSizeRestrictionStage(config.maxContentSize * 1024))
-
-  /**
-    * The parsing function for the parsing stage.
-    *
-    * @param mid         the medium ID
-    * @param chunk       the current chunk
-    * @param lastFailure the failure from the last parsing operation
-    * @param lastChunk   flag whether this is the last chunk
-    * @return partial parsing results and a failure for the current operation
-    */
-  private def parseFunc(mid: MediumID)(chunk: ByteString,
-                                       lastFailure: Option[de.oliver_heger.linedj.archivecommon
-                                       .parser.ParserTypes.Failure],
-                                       lastChunk: Boolean):
-  (Iterable[MetaDataProcessingResult], Option[de.oliver_heger.linedj.archivecommon.parser
-  .ParserTypes.Failure]) =
-    parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, lastFailure)
 }

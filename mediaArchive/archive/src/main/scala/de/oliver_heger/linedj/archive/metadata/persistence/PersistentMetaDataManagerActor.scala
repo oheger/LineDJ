@@ -23,7 +23,6 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
-import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
@@ -153,9 +152,6 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   this: ChildActorFactory =>
 
   import PersistentMetaDataManagerActor._
-
-  /** The shared meta data parser. */
-  private val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
 
   /**
     * Stores information about meta data files available. The data is loaded
@@ -302,7 +298,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @return the child reader actor
     */
   private def createChildReaderActor(): ActorRef =
-    createChildActor(PersistentMetaDataReaderActor(self, parser, config
+    createChildActor(PersistentMetaDataReaderActor(self, config
       .metaDataPersistenceChunkSize))
 
   /**

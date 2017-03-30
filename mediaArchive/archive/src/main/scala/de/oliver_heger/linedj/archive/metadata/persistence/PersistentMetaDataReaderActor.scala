@@ -16,17 +16,13 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
-import akka.NotUsed
 import akka.actor._
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Keep, Sink}
-import akka.stream.{ActorMaterializer, FlowShape, Graph}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, ParserStage}
+import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataParserStage, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -44,21 +40,20 @@ object PersistentMetaDataReaderActor {
     */
   case class ReadMetaDataFile(path: Path, mediumID: MediumID)
 
-  private class PersistentMetaDataReaderActorImpl(parent: ActorRef, parser: MetaDataParser,
+  private class PersistentMetaDataReaderActorImpl(parent: ActorRef,
                                                   chunkSize: Int) extends
-    PersistentMetaDataReaderActor(parent, parser, chunkSize) with ChildActorFactory
+    PersistentMetaDataReaderActor(parent, chunkSize) with ChildActorFactory
 
   /**
     * Returns a ''Props'' object for creating new actor instances of this
     * class.
     *
     * @param parent    the parent actor
-    * @param parser    the parser
     * @param chunkSize the chunk size
     * @return creation properties
     */
-  def apply(parent: ActorRef, parser: MetaDataParser, chunkSize: Int): Props =
-    Props(classOf[PersistentMetaDataReaderActorImpl], parent, parser, chunkSize)
+  def apply(parent: ActorRef, chunkSize: Int): Props =
+    Props(classOf[PersistentMetaDataReaderActorImpl], parent, chunkSize)
 }
 
 /**
@@ -80,36 +75,20 @@ object PersistentMetaDataReaderActor {
   * way or aborted due to an error).
   *
   * @param parent    the parent actor that receives extracted results
-  * @param parser    the parser for parsing the file
   * @param chunkSize the chunk size when reading the file
   */
-class PersistentMetaDataReaderActor(parent: ActorRef, parser: MetaDataParser, chunkSize: Int)
+class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
   extends Actor with ActorLogging {
   override def receive: Receive = {
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
-      implicit val maeterializer = ActorMaterializer()
+      implicit val materializer = ActorMaterializer()
       import context.dispatcher
       val source = FileIO.fromPath(p, chunkSize)
       val sink = Sink.foreach[MetaDataProcessingResult](parent ! _)
-      val stage: Graph[FlowShape[ByteString, MetaDataProcessingResult], NotUsed] =
-        new ParserStage[MetaDataProcessingResult](parseFunc(mid))
+      val stage = new MetaDataParserStage(mid)
       val flow = source.via(stage).toMat(sink)(Keep.right)
       val future = flow.run()
       future.onComplete(_ => context.stop(self))
   }
-
-  /**
-    * The parsing function for the parsing stage.
-    *
-    * @param mid         the medium ID
-    * @param chunk       the current chunk
-    * @param lastFailure the failure from the last parsing operation
-    * @param lastChunk   flag whether this is the last chunk
-    * @return partial parsing results and a failure for the current operation
-    */
-  private def parseFunc(mid: MediumID)(chunk: ByteString, lastFailure: Option[Failure],
-                                       lastChunk: Boolean):
-  (Iterable[MetaDataProcessingResult], Option[Failure]) =
-    parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, lastFailure)
 }

@@ -21,9 +21,9 @@ import java.nio.file.{Path, Paths}
 import akka.actor.{ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object PersistentMetaDataReaderActorSpec {
@@ -105,6 +105,15 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     helper.readFile(path).expectTerminated()
   }
 
+  it should "create correct Props" in {
+    val parent = TestProbe()
+    val props = PersistentMetaDataReaderActor(parent.ref, ReadChunkSize)
+
+    classOf[PersistentMetaDataReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    props.args should be(List(parent.ref, ReadChunkSize))
+  }
+
   /**
     * A test helper class which manages the required dependencies.
     *
@@ -159,8 +168,7 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       * @return creation properties
       */
     private def createProps(): Props = {
-      val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-      PersistentMetaDataReaderActor(parent.ref, parser, chunkSize)
+      PersistentMetaDataReaderActor(parent.ref, chunkSize)
     }
   }
 

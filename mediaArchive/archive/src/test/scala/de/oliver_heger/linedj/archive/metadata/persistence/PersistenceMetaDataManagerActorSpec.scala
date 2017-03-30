@@ -22,12 +22,11 @@ import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
-import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, ParserImpl}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
@@ -59,7 +58,7 @@ object PersistenceMetaDataManagerActorSpec {
   private val FileCount = 8
 
   /** Constant for the reader child actor class. */
-  private val ClassReaderChildActor = PersistentMetaDataReaderActor(null, null, 0).actorClass()
+  private val ClassReaderChildActor = PersistentMetaDataReaderActor(null, 0).actorClass()
 
   /** Constant for the writer child actor class. */
   private val ClassWriterChildActor = classOf[PersistentMetaDataWriterActor]
@@ -789,12 +788,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassReaderChildActor =>
-              p.args should have length 3
+              p.args should have length 2
               p.args.head should be(managerActor)
-              val parser = p.args(1).asInstanceOf[MetaDataParser]
-              parser.chunkParser should be(ParserImpl)
-              parser.jsonParser should not be null
-              p.args(2) should be(ChunkSize)
+              p.args(1) should be(ChunkSize)
               val probe = testProbes.poll()
               childActorQueue put probe
               probe.ref
