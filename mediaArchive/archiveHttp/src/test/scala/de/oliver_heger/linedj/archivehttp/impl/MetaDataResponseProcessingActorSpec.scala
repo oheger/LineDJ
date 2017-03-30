@@ -1,0 +1,154 @@
+/*
+ * Copyright 2015-2017 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.archivehttp.impl
+
+import akka.actor.{ActorSystem, Props}
+import akka.http.scaladsl.model.{HttpResponse, StatusCodes, Uri}
+import akka.testkit.{ImplicitSender, TestKit}
+import akka.util.Timeout
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.concurrent.duration._
+import scala.util.{Success, Try}
+
+object MetaDataResponseProcessingActorSpec {
+  /** Test medium ID. */
+  private val TestMediumID = MediumID("testMedium", Some("test.settings"),
+    "HTTPArchive")
+
+  private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
+    UserCredentials("scott", "tiger"), processorCount = 3,
+    processorTimeout = Timeout(2.seconds), maxContentSize = 64)
+
+  /**
+    * Creates a meta data processing result object for the specified index.
+    *
+    * @param idx the index
+    * @return the test processing result
+    */
+  private def processingResult(idx: Int): MetaDataProcessingResult =
+    MetaDataProcessingResult(s"songs/song$idx.mp3", TestMediumID, s"audio://song$idx.mp3",
+      MediaMetaData(title = Some(s"Song$idx"), size = (idx + 1) * 100))
+
+  /**
+    * Creates a sequence with test meta data of the specified size.
+    *
+    * @param count the number of meta data objects
+    * @return the sequence with the produced meta data
+    */
+  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingResult] =
+    (1 to count) map processingResult
+
+  /**
+    * Generates a JSON representation for the specified meta data.
+    *
+    * @param data the meta data
+    * @return the JSON representation for this data
+    */
+  private def jsonMetaData(data: MetaDataProcessingResult): String =
+    s"""{
+       |"title":"${data.metaData.title.get}",
+       |"size":"${data.metaData.size}",
+       |"uri":"${data.uri}",
+       |"path":"${data.path}"
+       |}
+   """.stripMargin
+
+  /**
+    * Generates the JSON representation for a whole sequence of meta data
+    * objects. This method produces a JSON array with the single elements
+    * as object content.
+    *
+    * @param data the sequence of data objects
+    * @return the JSON representation for this sequence
+    */
+  private def generateJson(data: Iterable[MetaDataProcessingResult]): String =
+    data.map(jsonMetaData).mkString("[", ",\n", "]")
+
+  /**
+    * Creates a successful HTTP response with the given entity string.
+    *
+    * @param body the body of the response as string
+    * @return the response
+    */
+  private def createResponse(body: String): HttpResponse =
+    HttpResponse(entity = body)
+}
+
+/**
+  * Test class for ''MetaDataResponseProcessingActor''.
+  */
+class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+
+  import MetaDataResponseProcessingActorSpec._
+
+  def this() = this(ActorSystem("MetaDataResponseProcessingActorSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+  }
+
+  "A MetaDataResponseProcessingActor" should "directly react on a failed response" in {
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+    val response = HttpResponse(status = StatusCodes.BadRequest)
+
+    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig)
+    val errMsg = expectMsgType[ResponseProcessingError]
+    errMsg.mediumID should be(TestMediumID)
+    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
+    errMsg.exception shouldBe a[IllegalStateException]
+    errMsg.exception.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
+  }
+
+  it should "directly react on a Failure for the response" in {
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+    val exception = new Exception("Failed response")
+    val triedResponse = Try[HttpResponse](throw exception)
+
+    actor ! ProcessResponse(TestMediumID, triedResponse, DefaultArchiveConfig)
+    val errMsg = expectMsgType[ResponseProcessingError]
+    errMsg.mediumID should be(TestMediumID)
+    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
+    errMsg.exception should be(exception)
+  }
+
+  it should "handle a successful response" in {
+    val metaDataResults = createProcessingResults(8)
+    val response = createResponse(generateJson(metaDataResults))
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+
+    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig)
+    val result = expectMsgType[MetaDataResponseProcessingResult]
+    result.mediumID should be(TestMediumID)
+    result.metaData should contain theSameElementsAs metaDataResults
+  }
+
+  it should "apply a size restriction when processing a response" in {
+    val response = createResponse(generateJson(createProcessingResults(32)))
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+
+    actor ! ProcessResponse(TestMediumID, Try(response),
+      DefaultArchiveConfig.copy(maxContentSize = 1))
+    val errMsg = expectMsgType[ResponseProcessingError]
+    errMsg.mediumID should be(TestMediumID)
+    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
+  }
+}

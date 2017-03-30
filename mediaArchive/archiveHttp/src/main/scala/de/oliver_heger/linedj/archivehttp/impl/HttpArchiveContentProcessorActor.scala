@@ -109,7 +109,7 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging {
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
                                   t: (Try[HttpResponse], RequestData)): Future[Any] = {
     val mediumID: MediumID = createMediumID(req, t._2.mediumDesc)
-    val msg = ProcessResponse(mediumID, t._1)
+    val msg = ProcessResponse(mediumID, t._1, req.archiveConfig)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)
   }
 

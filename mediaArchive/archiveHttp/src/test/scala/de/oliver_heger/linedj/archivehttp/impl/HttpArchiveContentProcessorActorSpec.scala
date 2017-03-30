@@ -31,10 +31,10 @@ import scala.util.{Success, Try}
 
 object HttpArchiveContentProcessorActorSpec {
   /** Constant for the root URI of the test archive. */
-  private val ArchiveRootUri = "https://test.music.archive.org/"
+  val ArchiveRootUri = "https://test.music.archive.org/"
 
   /** Constant for the URI pointing to the content file of the test archive. */
-  private val ArchiveUri = ArchiveRootUri + "content.json"
+  val ArchiveUri = ArchiveRootUri + "content.json"
 
   /** Name of the settings processor actor. */
   private val SettingsProcessorName = "settingsProcessor"
@@ -335,9 +335,10 @@ case class TestProcessingResult(actorName: String, mediumID: MediumID, path: Str
   */
 class TestProcessorActor(name: String) extends Actor {
   override def receive: Receive = {
-    case ProcessResponse(mid, resp) =>
+    case ProcessResponse(mid, resp, config) =>
       resp match {
-        case Success(r) if r.status.isSuccess() =>
+        case Success(r) if r.status.isSuccess() &&
+          config.archiveURI == Uri(HttpArchiveContentProcessorActorSpec.ArchiveUri) =>
           sender ! TestProcessingResult(name, mid, r.header[Location].get.uri.toString())
         case _ => // ignore which leads to timeout
       }
