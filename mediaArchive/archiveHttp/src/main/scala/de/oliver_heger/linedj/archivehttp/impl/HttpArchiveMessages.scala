@@ -133,3 +133,10 @@ case class ResponseProcessingError(mediumID: MediumID, fileType: String,
   */
 case class MetaDataResponseProcessingResult(mediumID: MediumID,
                                             metaData: Iterable[MetaDataProcessingResult])
+
+/**
+  * A message to be processed by several actors loading data from the HTTP
+  * archive that tells them to stop the ongoing operation. This message is
+  * used to implement cancellation logic.
+  */
+case object CancelProcessing

@@ -18,13 +18,18 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes, Uri}
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.Timeout
+import akka.stream.{DelayOverflowStrategy, KillSwitch}
+import akka.stream.scaladsl.Source
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Success, Try}
 
@@ -35,7 +40,7 @@ object MetaDataResponseProcessingActorSpec {
 
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
     UserCredentials("scott", "tiger"), processorCount = 3,
-    processorTimeout = Timeout(2.seconds), maxContentSize = 64)
+    processorTimeout = Timeout(2.seconds), maxContentSize = 256)
 
   /**
     * Creates a meta data processing result object for the specified index.
@@ -96,7 +101,8 @@ object MetaDataResponseProcessingActorSpec {
   * Test class for ''MetaDataResponseProcessingActor''.
   */
 class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers
+  with MockitoSugar {
 
   import MetaDataResponseProcessingActorSpec._
 
@@ -150,5 +156,39 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val errMsg = expectMsgType[ResponseProcessingError]
     errMsg.mediumID should be(TestMediumID)
     errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
+  }
+
+  it should "allow cancellation of the current stream" in {
+    val responseData = generateJson(createProcessingResults(64))
+    val jsonStrings = responseData.grouped(64)
+      .map(ByteString(_))
+    val source = Source[ByteString](jsonStrings.toList).delay(1.second,
+      DelayOverflowStrategy.backpressure)
+    val actor = system.actorOf(Props(new MetaDataResponseProcessingActor {
+      override def createResponseDataSource(mid: MediumID, response: HttpResponse,
+                                            config: HttpArchiveConfig):
+      Source[ByteString, Any] = source
+    }))
+
+    actor ! ProcessResponse(TestMediumID, Try(createResponse(responseData)),
+      DefaultArchiveConfig)
+    actor ! CancelProcessing
+    expectMsgType[MetaDataResponseProcessingResult]
+  }
+
+  it should "unregister kill switches after stream completion" in {
+    val killSwitch = mock[KillSwitch]
+    val Result = 42
+    val props = Props(new MetaDataResponseProcessingActor {
+      override protected def processSource(source: Source[ByteString, Any], mid: MediumID):
+      (Future[Any], KillSwitch) = (Future.successful(Result), killSwitch)
+    })
+    val actor = TestActorRef[MetaDataResponseProcessingActor](props)
+    actor ! ProcessResponse(TestMediumID,
+      Try(createResponse(generateJson(createProcessingResults(2)))), DefaultArchiveConfig)
+    expectMsg(Result)
+
+    actor receive CancelProcessing
+    verify(killSwitch, never()).shutdown()
   }
 }
