@@ -16,16 +16,20 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.NotUsed
+import akka.{Done, NotUsed}
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, Location}
+import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.{TestKit, TestProbe}
+import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Success, Try}
 
@@ -34,7 +38,7 @@ object HttpArchiveContentProcessorActorSpec {
   val ArchiveRootUri = "https://test.music.archive.org/"
 
   /** Constant for the URI pointing to the content file of the test archive. */
-  val ArchiveUri = ArchiveRootUri + "content.json"
+  val ArchiveUri: String = ArchiveRootUri + "content.json"
 
   /** Name of the settings processor actor. */
   private val SettingsProcessorName = "settingsProcessor"
@@ -176,7 +180,7 @@ object HttpArchiveContentProcessorActorSpec {
   * Test class for ''HttpArchiveContentProcessorActor''.
   */
 class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import HttpArchiveContentProcessorActorSpec._
 
@@ -254,6 +258,35 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       .expectProcessingComplete()
   }
 
+  it should "allow canceling the current stream" in {
+    val descriptions = createMediumDescriptions(256)
+    val mapping = createResponseMapping(descriptions)
+    val helper = new ContentProcessorActorTestHelper
+    val source = Source(descriptions).delay(1.second, DelayOverflowStrategy.backpressure)
+    val actor = system.actorOf(Props[HttpArchiveContentProcessorActor])
+
+    actor ! helper.createProcessArchiveRequest(source, mapping)
+    actor ! CancelProcessing
+    helper.fishForProcessingComplete()
+  }
+
+  it should "unregister kill switches after stream completion" in {
+    val killSwitch = mock[KillSwitch]
+    val descriptions = createMediumDescriptions(256)
+    val mapping = createResponseMapping(descriptions)
+    val helper = new ContentProcessorActorTestHelper
+    val props = Props(new HttpArchiveContentProcessorActor {
+      override private[impl] def materializeStream(req: ProcessHttpArchiveRequest):
+      (KillSwitch, Future[Done]) = (killSwitch, Future.successful(Done))
+    })
+    val actor = TestActorRef[HttpArchiveContentProcessorActor](props)
+    actor ! helper.createProcessArchiveRequest(Source(descriptions), mapping)
+    helper.fishForProcessingComplete()
+
+    actor receive CancelProcessing
+    verify(killSwitch, never()).shutdown()
+  }
+
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
@@ -274,22 +307,38 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * archive.
       *
       * @param media           the sequence with media data
-      * @param config          the configuration for the archive
       * @param responseMapping the response mapping
-      * @return
+      * @param config          the configuration for the archive
+      * @return this test helper
       */
     def processArchive(media: collection.immutable.Iterable[HttpMediumDesc],
                        responseMapping: Map[HttpRequest, HttpResponse],
                        config: HttpArchiveConfig = DefaultArchiveConfig):
     ContentProcessorActorTestHelper = {
+      val source = Source[HttpMediumDesc](media)
+      val msg = createProcessArchiveRequest(source, responseMapping, config)
       val actor = system.actorOf(Props[HttpArchiveContentProcessorActor])
-      val msg = ProcessHttpArchiveRequest(mediaSource = Source[HttpMediumDesc](media),
-        clientFlow = createRequestFlow(responseMapping),
-        archiveConfig = config, settingsProcessorActor = settingsProcessor,
-        metaDataProcessorActor = metaDataProcessor, archiveActor = manager.ref)
       actor ! msg
       this
     }
+
+    /**
+      * Creates a request to process an HTTP archive based on the passed in
+      * parameters.
+      *
+      * @param source          the source to be processed
+      * @param responseMapping the response mapping
+      * @param config          the configuration for the archive
+      * @return the processing request
+      */
+    def createProcessArchiveRequest(source: Source[HttpMediumDesc, NotUsed],
+                                    responseMapping: Map[HttpRequest, HttpResponse],
+                                    config: HttpArchiveConfig = DefaultArchiveConfig):
+    ProcessHttpArchiveRequest =
+      ProcessHttpArchiveRequest(mediaSource = source,
+        clientFlow = createRequestFlow(responseMapping),
+        archiveConfig = config, settingsProcessorActor = settingsProcessor,
+        metaDataProcessorActor = metaDataProcessor, archiveActor = manager.ref)
 
     /**
       * Expects that the given number of processing results has been sent to
@@ -309,6 +358,19 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       */
     def expectProcessingComplete(): ContentProcessorActorTestHelper = {
       manager.expectMsg(HttpArchiveProcessingComplete)
+      this
+    }
+
+    /**
+      * Tries to find a processing complete message ignoring test results.
+      *
+      * @return this test helper
+      */
+    def fishForProcessingComplete(): ContentProcessorActorTestHelper = {
+      manager.fishForMessage() {
+        case r: TestProcessingResult => false
+        case HttpArchiveProcessingComplete => true
+      }
       this
     }
   }

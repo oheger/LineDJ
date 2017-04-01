@@ -21,11 +21,26 @@ import akka.actor.{Actor, ActorLogging}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream._
+import de.oliver_heger.linedj.archivehttp.impl.HttpArchiveContentProcessorActor.RemoveKillSwitch
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
 import scala.util.Try
+
+object HttpArchiveContentProcessorActor {
+
+  /**
+    * An internal message that tells the actor to remove the kill switch
+    * registration with the given ID. This message is sent to ''self'' when
+    * a stream has been completely processed.
+    *
+    * @param killSwitchID the ID of the ''KillSwitch''
+    */
+  private case class RemoveKillSwitch(killSwitchID: Int)
+
+}
 
 /**
   * An actor class that processes the content of an HTTP archive.
@@ -41,7 +56,8 @@ import scala.util.Try
   * stream. This actor configures the stream and materializes it. When the
   * stream has been fully processed the manager actor is notified.
   */
-class HttpArchiveContentProcessorActor extends Actor with ActorLogging {
+class HttpArchiveContentProcessorActor extends Actor with ActorLogging
+  with CancelableStreamSupport {
   /** The materializer for streams. */
   private implicit val materializer = createMaterializer()
 
@@ -49,27 +65,43 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case req: ProcessHttpArchiveRequest =>
-      materializeStream(req) andThen {
-        case _ => req.archiveActor ! HttpArchiveProcessingComplete
+      val (killSwitch, futStream) = materializeStream(req)
+      val killSwitchID = registerKillSwitch(killSwitch)
+      futStream andThen {
+        case _ =>
+          req.archiveActor ! HttpArchiveProcessingComplete
+          self ! RemoveKillSwitch(killSwitchID)
       }
+
+    case CancelProcessing =>
+      cancelCurrentStreams()
+
+    case RemoveKillSwitch(killSwitchID) =>
+      unregisterKillSwitch(killSwitchID)
   }
 
   /**
     * Creates the stream for processing the specified archive request.
     * This stream loads all settings and meta data files of the media contained
-    * in this HTTP archive.
+    * in this HTTP archive. The method also returns a ''KillSwitch'' to cancel
+    * stream processing on an external request.
     *
     * @param req the request to process the archive
-    * @return a ''Future'' when the stream is done
+    * @return a ''Future'' when the stream is done and a ''KillSwitch''
     */
-  private def materializeStream(req: ProcessHttpArchiveRequest): Future[Done] = {
+  private [impl] def materializeStream(req: ProcessHttpArchiveRequest):
+  (KillSwitch, Future[Done]) = {
+    val sink = Sink.foreach(req.archiveActor.!)
     req.mediaSource
+      .viaMat(KillSwitches.single)(Keep.right)
       .filter(md => md.metaDataPath != null && md.mediumDescriptionPath != null)
       .mapConcat(createRequestsForMedium(req, _))
       .via(req.clientFlow)
       .mapAsyncUnordered(req.archiveConfig.processorCount) { t =>
         processHttpResponse(req, t)
-      }.runForeach(req.archiveActor.!)
+      }
+    .toMat(sink)(Keep.both)
+    .run()
   }
 
   /**
