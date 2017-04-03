@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import akka.actor.Actor
+import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
 /**

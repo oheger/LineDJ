@@ -1,4 +1,4 @@
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.parser
 
 import java.io.{ByteArrayOutputStream, OutputStreamWriter}
 
@@ -78,6 +78,7 @@ class MediumInfoParserSpec extends FlatSpec with Matchers {
     val Content = "<configuration><name>Invalid</name><description>test</configuration>"
     val parser = new MediumInfoParser
 
-    parser.parseMediumInfo(FileTestHelper.toBytes(Content), TestMediumID) should be(None)
+    parser.parseMediumInfo(FileTestHelper.toBytes(Content),
+      TestMediumID).isFailure shouldBe true
   }
 }

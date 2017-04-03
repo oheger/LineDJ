@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.parser
 
 import java.io.ByteArrayInputStream
 
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import org.slf4j.LoggerFactory
+
+import scala.util.Try
 
 /**
  * Companion object for ''MediumInfoParser''.
@@ -77,28 +78,17 @@ private object MediumInfoParser {
  * (using the typical format). The XML is passed in as a byte array because
  * this is the result produced by a file loader actor.
  */
-private class MediumInfoParser {
+class MediumInfoParser {
 
   import MediumInfoParser._
 
-  /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
-
   /**
    * Parses the given medium information provided in binary form and converts
-   * it to a ''MediumInfo'' object if possible. In case of a failure, result is
-   * ''None''.
+   * it to a ''MediumInfo'' object if possible.
    * @param data the data to be parsed
    * @param mediumID the ID of the medium
-   * @return an option with the resulting ''MediumInfo'' object
+   * @return a ''Try'' with the resulting ''MediumInfo'' object
    */
-  def parseMediumInfo(data: Array[Byte], mediumID: MediumID): Option[MediumInfo] = {
-    try {
-      Some(extractMediumInfo(mediumID, parseMediumDescription(data)))
-    } catch {
-      case ex: Exception =>
-        log.error("Error when parsing medium description for " + mediumID, ex)
-        None
-    }
-  }
+  def parseMediumInfo(data: Array[Byte], mediumID: MediumID): Try[MediumInfo] =
+    Try(extractMediumInfo(mediumID, parseMediumDescription(data)))
 }

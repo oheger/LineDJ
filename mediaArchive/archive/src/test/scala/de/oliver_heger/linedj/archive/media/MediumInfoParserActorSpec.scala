@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.archive.media
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.ParseMediumInfo
+import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
+import scala.util.{Success, Try}
 
 object MediumInfoParserActorSpec {
   /** Constant for a medium ID. */
@@ -42,8 +43,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("MediumInfoParserActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**
@@ -59,7 +59,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val mediumSettingsData = MediumInfo(name = "TestMedium", description = "Some desc",
       mediumID = TestMediumID, orderMode = "Directories", orderParams = "", checksum = "")
     val data = new Array[Byte](16)
-    when(parser.parseMediumInfo(data, TestMediumID)).thenReturn(Some(mediumSettingsData))
+    when(parser.parseMediumInfo(data, TestMediumID)).thenReturn(Success(mediumSettingsData))
 
     val actor = parserActor(parser)
     actor ! ParseMediumInfo(data, TestMediumID)
@@ -69,7 +69,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "return a default description if a parsing error occurs" in {
     val parser = mock[MediumInfoParser]
     val data = new Array[Byte](16)
-    when(parser.parseMediumInfo(data, TestMediumID)).thenReturn(None)
+    when(parser.parseMediumInfo(data, TestMediumID))
+      .thenReturn(Try[MediumInfo](throw new Exception))
 
     val actor = parserActor(parser)
     actor ! ParseMediumInfo(data, TestMediumID)
