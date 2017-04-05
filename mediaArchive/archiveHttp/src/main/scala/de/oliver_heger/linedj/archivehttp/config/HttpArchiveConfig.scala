@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivehttp.config
 
 import java.util.concurrent.TimeUnit
 

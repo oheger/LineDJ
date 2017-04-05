@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.stream.scaladsl.Source
 import akka.stream.{ActorMaterializer, KillSwitch}
 import akka.util.ByteString
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.AbstractResponseProcessingActor.StreamCompleted
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
