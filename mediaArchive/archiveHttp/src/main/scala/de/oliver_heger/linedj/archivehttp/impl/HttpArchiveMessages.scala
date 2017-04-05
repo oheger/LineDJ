@@ -20,7 +20,7 @@ import akka.NotUsed
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Source}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 
 import scala.util.Try
@@ -133,6 +133,17 @@ case class ResponseProcessingError(mediumID: MediumID, fileType: String,
   */
 case class MetaDataResponseProcessingResult(mediumID: MediumID,
                                             metaData: Iterable[MetaDataProcessingResult])
+
+/**
+  * A message that represents a success result of processing for a response
+  * for a medium info file.
+  *
+  * Messages of this type are produced by the actor that processes medium
+  * information files.
+  *
+  * @param mediumInfo the resulting ''MediumInfo'' object
+  */
+case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo)
 
 /**
   * A message to be processed by several actors loading data from the HTTP
