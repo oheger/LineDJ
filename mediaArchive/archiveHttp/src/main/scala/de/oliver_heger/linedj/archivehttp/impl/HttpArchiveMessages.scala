@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.NotUsed
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Source}
@@ -87,7 +86,7 @@ case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
   * @param metaDataProcessorActor the actor to process meta data requests
   * @param archiveActor           the management actor to send the final result to
   */
-case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, NotUsed],
+case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      clientFlow: Flow[(HttpRequest, RequestData),
                                        (Try[HttpResponse], RequestData), _],
                                      archiveConfig: HttpArchiveConfig,

@@ -32,7 +32,7 @@ import scala.util.Try
   */
 trait HttpFlowFactory {
   def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
-  Flow[(HttpRequest, T), (Try[HttpResponse], T), Http.HostConnectionPool] = {
+  Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
     if (uri.scheme == "https")
       Http().cachedHostConnectionPoolHttps(host = uri.authority.host.address(),
         port = uri.authority.port)
