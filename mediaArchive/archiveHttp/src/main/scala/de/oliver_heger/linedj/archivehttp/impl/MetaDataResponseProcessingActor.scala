@@ -47,14 +47,14 @@ class MetaDataResponseProcessingActor
     *             [[MetaDataProcessingResult]] objects. Based on this, a
     *             result object is produced.
     */
-  protected override def processSource(source: Source[ByteString, Any], mid: MediumID):
-  (Future[Any], KillSwitch) = {
+  protected override def processSource(source: Source[ByteString, Any], mid: MediumID,
+                                      seqNo: Int): (Future[Any], KillSwitch) = {
     val sink = Sink.fold[List[MetaDataProcessingResult],
       MetaDataProcessingResult](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)
       .run
-    (futStream.map(MetaDataResponseProcessingResult(mid, _)), killSwitch)
+    (futStream.map(MetaDataResponseProcessingResult(mid, _, seqNo)), killSwitch)
   }
 }

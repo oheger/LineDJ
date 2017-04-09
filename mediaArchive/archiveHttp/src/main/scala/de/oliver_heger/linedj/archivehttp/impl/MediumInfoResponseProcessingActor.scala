@@ -57,15 +57,16 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     *             resulting byte array is passed to the parser, in order to
     *             produce a result object.
     */
-  override protected def processSource(source: Source[ByteString, Any], mid: MediumID):
-  (Future[Any], KillSwitch) = {
+  override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
+                                       seqNo: Int): (Future[Any], KillSwitch) = {
     val sink = Sink.fold[ByteString, ByteString](ByteString())(_ ++ _)
     val (killSwitch, futureResult) = source
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)
       .run()
     val futureInfo = futureResult map { bs =>
-      MediumInfoResponseProcessingResult(infoParser.parseMediumInfo(bs.toArray, mid).get)
+      MediumInfoResponseProcessingResult(infoParser.parseMediumInfo(bs.toArray, mid).get,
+        seqNo)
     }
     (futureInfo, killSwitch)
   }

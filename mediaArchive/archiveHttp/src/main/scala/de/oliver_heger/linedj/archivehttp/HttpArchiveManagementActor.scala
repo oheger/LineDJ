@@ -147,10 +147,12 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     case ScanAllMedia if !scanInProgress =>
       startArchiveProcessing()
 
-    case MediumInfoResponseProcessingResult(info) =>
+    case MediumInfoResponseProcessingResult(info, _) =>
+      //TODO check sequence number
       mediaInfo = info :: mediaInfo
 
-    case MetaDataResponseProcessingResult(mid, meta) =>
+    case MetaDataResponseProcessingResult(mid, meta, _) =>
+      //TODO check sequence number
       fileInfo = (mid, meta.map(m => FileData(m.path, m.metaData.size))) :: fileInfo
       metaData ++= meta
 
@@ -198,10 +200,12 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     * @return the processing request message
     */
   private def createProcessArchiveRequest(resp: HttpResponse): ProcessHttpArchiveRequest = {
+    //TODO set sequence number
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
-      archiveActor = self, mediaSource = resp.entity.dataBytes.via(parseStage))
+      archiveActor = self, mediaSource = resp.entity.dataBytes.via(parseStage),
+      seqNo = 0)
   }
 
   /**

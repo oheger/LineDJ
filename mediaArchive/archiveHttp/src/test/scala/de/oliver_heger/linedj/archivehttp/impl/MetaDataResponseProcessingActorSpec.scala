@@ -43,6 +43,9 @@ object MetaDataResponseProcessingActorSpec {
     UserCredentials("scott", "tiger"), processorCount = 3,
     processorTimeout = Timeout(2.seconds), maxContentSize = 256)
 
+  /** The sequence number used for requests. */
+  private val SeqNo = 42
+
   /**
     * Creates a meta data processing result object for the specified index.
     *
@@ -117,7 +120,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
     val response = HttpResponse(status = StatusCodes.BadRequest)
 
-    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig)
+    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
     val errMsg = expectMsgType[ResponseProcessingError]
     errMsg.mediumID should be(TestMediumID)
     errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
@@ -130,7 +133,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val exception = new Exception("Failed response")
     val triedResponse = Try[HttpResponse](throw exception)
 
-    actor ! ProcessResponse(TestMediumID, triedResponse, DefaultArchiveConfig)
+    actor ! ProcessResponse(TestMediumID, triedResponse, DefaultArchiveConfig, SeqNo)
     val errMsg = expectMsgType[ResponseProcessingError]
     errMsg.mediumID should be(TestMediumID)
     errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
@@ -142,10 +145,11 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig)
+    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
     result.metaData should contain theSameElementsAs metaDataResults
+    result.seqNo should be(SeqNo)
   }
 
   it should "apply a size restriction when processing a response" in {
@@ -153,7 +157,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
     actor ! ProcessResponse(TestMediumID, Try(response),
-      DefaultArchiveConfig.copy(maxContentSize = 1))
+      DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
     val errMsg = expectMsgType[ResponseProcessingError]
     errMsg.mediumID should be(TestMediumID)
     errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
@@ -172,7 +176,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     }))
 
     actor ! ProcessResponse(TestMediumID, Try(createResponse(responseData)),
-      DefaultArchiveConfig)
+      DefaultArchiveConfig, SeqNo)
     actor ! CancelProcessing
     expectMsgType[MetaDataResponseProcessingResult]
   }
@@ -181,12 +185,14 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val killSwitch = mock[KillSwitch]
     val Result = 42
     val props = Props(new MetaDataResponseProcessingActor {
-      override protected def processSource(source: Source[ByteString, Any], mid: MediumID):
-      (Future[Any], KillSwitch) = (Future.successful(Result), killSwitch)
+      override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
+                                          seqNo: Int): (Future[Any], KillSwitch) =
+        (Future.successful(Result), killSwitch)
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
     actor ! ProcessResponse(TestMediumID,
-      Try(createResponse(generateJson(createProcessingResults(2)))), DefaultArchiveConfig)
+      Try(createResponse(generateJson(createProcessingResults(2)))), DefaultArchiveConfig,
+      SeqNo)
     expectMsg(Result)
 
     actor receive CancelProcessing

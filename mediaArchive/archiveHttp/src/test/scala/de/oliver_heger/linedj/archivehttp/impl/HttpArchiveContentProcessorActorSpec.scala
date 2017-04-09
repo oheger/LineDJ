@@ -41,6 +41,9 @@ object HttpArchiveContentProcessorActorSpec {
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = ArchiveRootUri + "content.json"
 
+  /** The sequence number of the test scan operation. */
+  val SeqNo = 42
+
   /** Name of the settings processor actor. */
   private val SettingsProcessorName = "settingsProcessor"
 
@@ -339,7 +342,8 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       ProcessHttpArchiveRequest(mediaSource = source,
         clientFlow = createRequestFlow(responseMapping),
         archiveConfig = config, settingsProcessorActor = settingsProcessor,
-        metaDataProcessorActor = metaDataProcessor, archiveActor = manager.ref)
+        metaDataProcessorActor = metaDataProcessor, archiveActor = manager.ref,
+        seqNo = SeqNo)
 
     /**
       * Expects that the given number of processing results has been sent to
@@ -398,7 +402,8 @@ case class TestProcessingResult(actorName: String, mediumID: MediumID, path: Str
   */
 class TestProcessorActor(name: String) extends Actor {
   override def receive: Receive = {
-    case ProcessResponse(mid, resp, config) =>
+    case ProcessResponse(mid, resp, config, seqNo)
+      if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo =>
       resp match {
         case Success(r) if r.status.isSuccess() &&
           config.archiveURI == Uri(HttpArchiveContentProcessorActorSpec.ArchiveUri) =>

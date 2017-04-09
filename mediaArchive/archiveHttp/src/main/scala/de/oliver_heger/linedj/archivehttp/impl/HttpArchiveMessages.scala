@@ -66,9 +66,10 @@ case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
   * @param mediumID      the ID of the medium affected
   * @param response      the response received from the archive
   * @param archiveConfig the config for the HTTP archive
+  * @param seqNo         the sequence number of the current scan operation
   */
 case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
-                           archiveConfig: HttpArchiveConfig)
+                           archiveConfig: HttpArchiveConfig, seqNo: Int)
 
 /**
   * A data class combining the relevant information for processing the content
@@ -79,12 +80,19 @@ case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
   * settings and metadata of all hosted media. The class is used by the actor
   * that handles the gathering of media data from an archive.
   *
+  * Each scan operation started by the management actor has a sequence number
+  * which is also part of this message. Result messages sent back to the
+  * management actor must have the same sequence number. This is used to
+  * identify stale messages from older scan operations; it is part of the
+  * mechanism to handle cancellation of scan operations.
+  *
   * @param mediaSource            the source for the content of the HTTP archive
   * @param clientFlow             a flow for requesting files from the archive
   * @param archiveConfig          the configuration for the HTTP archive
   * @param settingsProcessorActor the actor to process settings requests
   * @param metaDataProcessorActor the actor to process meta data requests
   * @param archiveActor           the management actor to send the final result to
+  * @param seqNo                  the sequence number of the current scan operation
   */
 case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      clientFlow: Flow[(HttpRequest, RequestData),
@@ -92,7 +100,7 @@ case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      archiveConfig: HttpArchiveConfig,
                                      settingsProcessorActor: ActorRef,
                                      metaDataProcessorActor: ActorRef,
-                                     archiveActor: ActorRef)
+                                     archiveActor: ActorRef, seqNo: Int)
 
 /**
   * A message that indicates that processing of the content of an HTTP archive
@@ -100,9 +108,12 @@ case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
   *
   * This message is sent to the manager actor for an HTTP archive to notify it
   * that the process operation is now done and that no further messages about
-  * the content of this archive are going to be sent.
+  * the content of this archive are going to be sent. The sequence number part
+  * of this message identifies the scan operation this message belongs to.
+  *
+  * @param seqNo the sequence number of the current scan operation
   */
-case object HttpArchiveProcessingComplete
+case class HttpArchiveProcessingComplete(seqNo: Int)
 
 /**
   * A message that indicates that processing of the response for a specific
@@ -130,9 +141,11 @@ case class ResponseProcessingError(mediumID: MediumID, fileType: String,
   *
   * @param mediumID the ID of the medium
   * @param metaData a list with meta data objects for the songs on this medium
+  * @param seqNo    the sequence number of the current scan operation
   */
 case class MetaDataResponseProcessingResult(mediumID: MediumID,
-                                            metaData: Iterable[MetaDataProcessingResult])
+                                            metaData: Iterable[MetaDataProcessingResult],
+                                            seqNo: Int)
 
 /**
   * A message that represents a success result of processing for a response
@@ -142,8 +155,9 @@ case class MetaDataResponseProcessingResult(mediumID: MediumID,
   * information files.
   *
   * @param mediumInfo the resulting ''MediumInfo'' object
+  * @param seqNo      the sequence number of the current scan operation
   */
-case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo)
+case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo, seqNo: Int)
 
 /**
   * A message to be processed by several actors loading data from the HTTP

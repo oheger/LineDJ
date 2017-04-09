@@ -152,7 +152,7 @@ object HttpArchiveManagementActorSpec {
     * @return the processing result for this medium
     */
   private def mediumInfoResult(idx: Int): MediumInfoResponseProcessingResult =
-    MediumInfoResponseProcessingResult(mediumInfo(idx))
+    MediumInfoResponseProcessingResult(mediumInfo(idx), 0)
 
   /**
     * Creates a number of medium info processing results.
@@ -188,7 +188,7 @@ object HttpArchiveManagementActorSpec {
   private def metaDataProcessingResult(medium: Int, songCount: Int):
   MetaDataResponseProcessingResult = {
     val metaData = (1 to songCount).map(metaDataResult(medium, _))
-    MetaDataResponseProcessingResult(mediumID(medium), metaData)
+    MetaDataResponseProcessingResult(mediumID(medium), metaData, 0)
   }
 
   /**

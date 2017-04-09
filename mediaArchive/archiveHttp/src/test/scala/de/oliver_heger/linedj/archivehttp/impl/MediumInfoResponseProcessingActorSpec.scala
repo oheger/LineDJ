@@ -57,7 +57,11 @@ object MediumInfoResponseProcessingActorSpec {
     description = "A test medium", mediumID = TestMediumID,
     orderMode = null, orderParams = null, checksum = "12345")
 
+  /** A timeout value for waiting for async results. */
   private val WaitTimeout = 3.seconds
+
+  /** Sequence number for the current test scan operation. */
+  private val SeqNo = 111
 
   /**
     * Creates a source which produces the chunks of the test medium
@@ -79,7 +83,7 @@ object MediumInfoResponseProcessingActorSpec {
   private def invoke(actor: TestActorRef[MediumInfoResponseProcessingActorTestImpl],
                      source: Source[ByteString, Any] = mediumInfoSource()):
   (Future[Any], KillSwitch) =
-    actor.underlyingActor.processSource(source, TestMediumID)
+    actor.underlyingActor.processSource(source, TestMediumID, SeqNo)
 }
 
 /**
@@ -123,7 +127,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
 
     val (futureStream, _) = invoke(actor)
     val result = Await.result(futureStream, WaitTimeout)
-    result should be(MediumInfoResponseProcessingResult(TestMediumInfo))
+    result should be(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
   }
 
   it should "handle a parsing error" in {
@@ -166,6 +170,7 @@ class MediumInfoResponseProcessingActorTestImpl(parser: MediumInfoParser)
   /**
     * Overridden to allow access from test code.
     */
-  override def processSource(source: Source[ByteString, Any], mid: MediumID):
-  (Future[Any], KillSwitch) = super.processSource(source, mid)
+  override def processSource(source: Source[ByteString, Any], mid: MediumID,
+                             seqNo: Int): (Future[Any], KillSwitch) =
+    super.processSource(source, mid, seqNo)
 }

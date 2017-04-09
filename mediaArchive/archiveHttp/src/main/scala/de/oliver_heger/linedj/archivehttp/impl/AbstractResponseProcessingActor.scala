@@ -65,8 +65,8 @@ abstract class AbstractResponseProcessingActor(val fileType: String) extends Act
   import context.dispatcher
 
   override def receive: Receive = {
-    case ProcessResponse(mid, triedResponse, config) =>
-      handleHttpResponse(mid, triedResponse, config)
+    case ProcessResponse(mid, triedResponse, config, seqNo) =>
+      handleHttpResponse(mid, triedResponse, config, seqNo)
 
     case CancelProcessing =>
       cancelCurrentStreams()
@@ -87,10 +87,11 @@ abstract class AbstractResponseProcessingActor(val fileType: String) extends Act
     *
     * @param source the source to be processed
     * @param mid    the current ''MediumID''
+    * @param seqNo  the sequence number of the current scan operation
     * @return a ''Future'' for the processing result and a ''KillSwitch''
     */
-  protected def processSource(source: Source[ByteString, Any], mid: MediumID):
-  (Future[Any], KillSwitch)
+  protected def processSource(source: Source[ByteString, Any], mid: MediumID,
+                             seqNo: Int): (Future[Any], KillSwitch)
 
   /**
     * Creates the source for the stream of the response's data bytes.
@@ -114,15 +115,16 @@ abstract class AbstractResponseProcessingActor(val fileType: String) extends Act
     * @param mid           the medium ID
     * @param triedResponse a ''Try'' for the HTTP response
     * @param config        the HTTP archive configuration
+    * @param seqNo         the current sequence number
     */
   private def handleHttpResponse(mid: MediumID, triedResponse: Try[HttpResponse],
-                                 config: HttpArchiveConfig): Unit = {
+                                 config: HttpArchiveConfig, seqNo: Int): Unit = {
     triedResponse match {
       case Success(response) =>
         if (response.status.isSuccess()) {
           val client = sender()
           val (futureStream, killSwitch) = processSource(
-            createResponseDataSource(mid, response, config), mid)
+            createResponseDataSource(mid, response, config), mid, seqNo)
           val killSwitchID = registerKillSwitch(killSwitch)
           futureStream.onComplete { triedResult =>
             handleStreamCompletion(mid, client, killSwitchID, triedResult)
