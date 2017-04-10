@@ -26,11 +26,10 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved,
-MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -148,20 +147,23 @@ object HttpArchiveManagementActorSpec {
   /**
     * Creates a result for a medium info processing operation.
     *
-    * @param idx the index of the test medium
+    * @param idx   the index of the test medium
+    * @param seqNo the sequence number
     * @return the processing result for this medium
     */
-  private def mediumInfoResult(idx: Int): MediumInfoResponseProcessingResult =
-    MediumInfoResponseProcessingResult(mediumInfo(idx), 0)
+  private def mediumInfoResult(idx: Int, seqNo: Int): MediumInfoResponseProcessingResult =
+    MediumInfoResponseProcessingResult(mediumInfo(idx), seqNo)
 
   /**
     * Creates a number of medium info processing results.
     *
+    * @param seqNo   the sequence number for the results
     * @param indices the indices of the media
     * @return a sequence with the results
     */
-  private def createInfoResults(indices: Int*): Seq[MediumInfoResponseProcessingResult] =
-    indices map mediumInfoResult
+  private def createInfoResults(seqNo: Int, indices: Int*):
+  Seq[MediumInfoResponseProcessingResult] =
+    indices map (mediumInfoResult(_, seqNo))
 
   /**
     * Creates a meta data processing result object.
@@ -183,24 +185,26 @@ object HttpArchiveManagementActorSpec {
     *
     * @param medium    the index of the medium
     * @param songCount the number of songs in the result
+    * @param seqNo     the sequence number
     * @return the processing result
     */
-  private def metaDataProcessingResult(medium: Int, songCount: Int):
+  private def metaDataProcessingResult(medium: Int, songCount: Int, seqNo: Int):
   MetaDataResponseProcessingResult = {
     val metaData = (1 to songCount).map(metaDataResult(medium, _))
-    MetaDataResponseProcessingResult(mediumID(medium), metaData, 0)
+    MetaDataResponseProcessingResult(mediumID(medium), metaData, seqNo)
   }
 
   /**
     * Creates a number of meta data processing results for the specified
     * media.
     *
+    * @param seqNo   the sequence number
     * @param indices the indices of the media
     * @return a sequence with the results
     */
-  private def createMetaDataProcessingResults(indices: Int*):
+  private def createMetaDataProcessingResults(seqNo: Int, indices: Int*):
   Seq[MetaDataResponseProcessingResult] =
-    indices.map(i => metaDataProcessingResult(i, i + 1))
+    indices.map(i => metaDataProcessingResult(i, i + 1, seqNo))
 }
 
 /**
@@ -262,13 +266,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "send data for processing results to the union archive" in {
     val helper = new HttpArchiveManagementActorTestHelper
-    val infoResults = createInfoResults(1, 2, 3, 4)
-    val metaResults = createMetaDataProcessingResults(1, 2, 3, 4)
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2, 3, 4)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1, 2, 3, 4)
 
-    helper.triggerScan()
+    helper
       .sendMessages(infoResults)
       .sendMessages(metaResults)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
       .expectAddMedia(infoResults: _*)
       .expectMediaContribution(metaResults: _*)
       .expectMetaData(metaResults: _*)
@@ -276,18 +281,19 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "ignore incomplete media when sending results to the union archive" in {
-    val infoResults = createInfoResults(3, 4, 5)
-    val metaResults = createMetaDataProcessingResults(3, 4, 5)
-    val extraInfoResults = createInfoResults(1, 2)
-    val extraMetaResults = createMetaDataProcessingResults(6, 7, 8)
     val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 3, 4, 5)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 3, 4, 5)
+    val extraInfoResults = createInfoResults(request.seqNo, 1, 2)
+    val extraMetaResults = createMetaDataProcessingResults(request.seqNo, 6, 7, 8)
 
-    helper.triggerScan()
+    helper
       .sendMessages(metaResults)
       .sendMessages(extraInfoResults)
       .sendMessages(extraMetaResults)
       .sendMessages(infoResults)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
       .expectAddMedia(infoResults: _*)
       .expectMediaContribution(metaResults: _*)
       .expectMetaData(metaResults: _*)
@@ -295,30 +301,33 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "not send data to the union archive if there are no results" in {
-    val infoResults = createInfoResults(1, 2)
-    val metaResults = createMetaDataProcessingResults(3, 4)
     val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 3, 4)
 
-    helper.triggerScan()
+    helper
       .sendMessages(infoResults)
       .sendMessages(metaResults)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
       .expectNoMoreUnionArchiveInteraction()
   }
 
   it should "reset temporary data after a scan is completed" in {
-    val infoResults1 = createInfoResults(1, 2)
-    val infoResults2 = createInfoResults(3, 4)
-    val metaResults1 = createMetaDataProcessingResults(3, 4)
-    val metaResults2 = createMetaDataProcessingResults(1, 2)
     val helper = new HttpArchiveManagementActorTestHelper
-    helper.triggerScan()
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults1 = createInfoResults(request.seqNo, 1, 2)
+    val metaResults1 = createMetaDataProcessingResults(request.seqNo, 3, 4)
+    helper
       .sendMessages(infoResults1).sendMessages(metaResults1)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
 
-    helper.triggerScan()
+    val request2 = helper.triggerScan().expectProcessingRequest()
+    val infoResults2 = createInfoResults(request2.seqNo, 3, 4)
+    val metaResults2 = createMetaDataProcessingResults(request2.seqNo, 1, 2)
+    helper
       .sendMessages(infoResults2).sendMessages(metaResults2)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request2.seqNo)
       .expectNoMoreUnionArchiveInteraction()
   }
 
@@ -332,20 +341,21 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "reset the scan in progress flag on completion" in {
     val helper = new HttpArchiveManagementActorTestHelper
-    helper.triggerScan().expectProcessingRequest()
+    val request = helper.triggerScan().expectProcessingRequest()
 
-    helper.sendProcessingComplete()
+    helper.sendProcessingComplete(request.seqNo)
       .triggerScan()
       .expectProcessingRequest()
   }
 
   it should "send a removed message to the union actor when starting a new scan" in {
-    val infoResults = createInfoResults(1, 2)
-    val metaResults = createMetaDataProcessingResults(1, 2)
     val helper = new HttpArchiveManagementActorTestHelper
-    helper.triggerScan()
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1, 2)
+    helper
       .sendMessages(infoResults).sendMessages(metaResults)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
       .expectAddMedia(infoResults: _*)
       .expectMediaContribution(metaResults: _*)
       .expectMetaData(metaResults: _*)
@@ -355,20 +365,76 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "only send a remove message if data was added to the union archive" in {
-    val infoResults = createInfoResults(1, 2)
-    val metaResults = createMetaDataProcessingResults(1, 2)
     val helper = new HttpArchiveManagementActorTestHelper
-    helper.triggerScan()
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1, 2)
+    helper
       .sendMessages(infoResults).sendMessages(metaResults)
-      .sendProcessingComplete()
+      .sendProcessingComplete(request.seqNo)
       .expectAddMedia(infoResults: _*)
       .expectMediaContribution(metaResults: _*)
       .expectMetaData(metaResults: _*)
-      .triggerScan()
-      .sendProcessingComplete()
+
+    val request2 = helper.triggerScan().expectProcessingRequest()
+    helper.sendProcessingComplete(request2.seqNo)
     helper.probeUnionMediaManager.expectMsg(ArchiveComponentRemoved(ArchiveURIStr))
 
     helper.triggerScan()
+    expectNoMoreMsg(helper.probeUnionMediaManager)
+  }
+
+  it should "ignore processing results from an outdated scan" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1, 2)
+    val request2 = helper.sendProcessingComplete(request.seqNo)
+      .triggerScan().expectProcessingRequest()
+
+    helper.sendMessages(infoResults).sendMessages(metaResults)
+      .sendProcessingComplete(request2.seqNo)
+    expectNoMoreMsg(helper.probeUnionMediaManager)
+  }
+
+  it should "ignore a completion message from an outdated scan" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val request2 = helper.sendProcessingComplete(request.seqNo)
+      .triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request2.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request2.seqNo, 1, 2)
+
+    helper.sendMessages(infoResults).sendMessages(metaResults)
+      .sendProcessingComplete(request.seqNo)
+    expectNoMoreMsg(helper.probeUnionMediaManager)
+    helper.sendProcessingComplete(request2.seqNo)
+      .expectAddMedia(infoResults: _*)
+  }
+
+  it should "handle and propagate a cancel message" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    helper.triggerScan().expectProcessingRequest()
+
+    helper post CloseRequest
+    expectMsg(CloseAck(helper.manager))
+    helper.probeContentProcessor.expectMsg(CancelProcessing)
+    helper.probeMediumInfoProcessor.expectMsg(CancelProcessing)
+    helper.probeMetaDataProcessor.expectMsg(CancelProcessing)
+  }
+
+  it should "correctly complete the current scan when it is canceled" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1, 2)
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1, 2)
+    helper.sendMessages(infoResults).sendMessages(metaResults)
+      .post(CloseRequest)
+    expectMsgType[CloseAck]
+    helper.probeContentProcessor.expectMsg(CancelProcessing)
+
+    val request2 = helper.triggerScan().expectProcessingRequest()
+    helper.sendProcessingComplete(request2.seqNo)
     expectNoMoreMsg(helper.probeUnionMediaManager)
   }
 
@@ -410,6 +476,17 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     }
 
     /**
+      * Sends a message via the ! method to the test actor.
+      *
+      * @param msg the message to be sent
+      * @return this test helper
+      */
+    def post(msg: Any): HttpArchiveManagementActorTestHelper = {
+      manager ! msg
+      this
+    }
+
+    /**
       * Sends a sequence of messages to the test actor.
       *
       * @param msgs the sequence of messages
@@ -432,10 +509,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * Sends a message to the test actor that the processing is now
       * complete.
       *
+      * @param seqNo the current sequence number
       * @return this test helper
       */
-    def sendProcessingComplete(): HttpArchiveManagementActorTestHelper = {
-      send(HttpArchiveProcessingComplete)
+    def sendProcessingComplete(seqNo: Int): HttpArchiveManagementActorTestHelper = {
+      send(HttpArchiveProcessingComplete(seqNo))
     }
 
     /**

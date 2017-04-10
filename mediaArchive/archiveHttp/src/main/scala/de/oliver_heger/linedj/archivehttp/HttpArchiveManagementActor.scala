@@ -28,10 +28,9 @@ import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved,
-MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
@@ -127,6 +126,18 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
   /** A set with meta data objects aggregated during a scan operation. */
   private var metaData = Set.empty[MetaDataProcessingResult]
 
+  /**
+    * A sequence number identifying the current scan operation. The sequence
+    * number is increased every time is scan is completed. Because all
+    * processing results contain the sequence number of the current operation
+    * it is possible to find out which results are from an older operation.
+    * (This greatly simplifies cancellation of operations: it is no necessary
+    * to wait until all involved actors have finished processing, but the
+    * sequence number is just changed, and results from older operations are
+    * ignored.)
+    */
+  private var seqNo = 0
+
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
 
@@ -147,16 +158,14 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     case ScanAllMedia if !scanInProgress =>
       startArchiveProcessing()
 
-    case MediumInfoResponseProcessingResult(info, _) =>
-      //TODO check sequence number
+    case MediumInfoResponseProcessingResult(info, sn) if sn == seqNo =>
       mediaInfo = info :: mediaInfo
 
-    case MetaDataResponseProcessingResult(mid, meta, _) =>
-      //TODO check sequence number
+    case MetaDataResponseProcessingResult(mid, meta, sn) if sn == seqNo =>
       fileInfo = (mid, meta.map(m => FileData(m.path, m.metaData.size))) :: fileInfo
       metaData ++= meta
 
-    case HttpArchiveProcessingComplete =>
+    case HttpArchiveProcessingComplete(sn) if sn == seqNo =>
       val validMedia = completeMedia
       if (validMedia.nonEmpty) {
         unionMediaManager ! createAddMediaMsg(validMedia)
@@ -164,10 +173,14 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
         filteredMetaDataResults(validMedia) foreach unionMetaDataManager.!
         dataInUnionArchive = true
       }
-      mediaInfo = List.empty
-      fileInfo = List.empty
-      metaData = Set.empty
-      scanInProgress = false
+      completeScanOperation()
+
+    case CloseRequest =>
+      archiveContentProcessor ! CancelProcessing
+      mediumInfoProcessor ! CancelProcessing
+      metaDataProcessor ! CancelProcessing
+      sender ! CloseAck(self)
+      completeScanOperation()
   }
 
   /**
@@ -200,12 +213,11 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     * @return the processing request message
     */
   private def createProcessArchiveRequest(resp: HttpResponse): ProcessHttpArchiveRequest = {
-    //TODO set sequence number
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
       archiveActor = self, mediaSource = resp.entity.dataBytes.via(parseStage),
-      seqNo = 0)
+      seqNo = seqNo)
   }
 
   /**
@@ -230,6 +242,17 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     Source.single((contentRequest, UnusedReqData))
       .via(httpFlow)
       .runWith(Sink.last[(Try[HttpResponse], RequestData)])
+  }
+
+  /**
+    * Resets internal flags after a scan operation has completed.
+    */
+  private def completeScanOperation(): Unit = {
+    mediaInfo = List.empty
+    fileInfo = List.empty
+    metaData = Set.empty
+    scanInProgress = false
+    seqNo += 1
   }
 
   /**
