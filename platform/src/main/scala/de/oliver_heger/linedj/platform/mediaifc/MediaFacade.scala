@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object MediaFacade {
 
@@ -60,6 +60,21 @@ object MediaFacade {
     * This can be used to mark an invalid listener ID.
     */
   val InvalidListenerRegistrationID = 0
+
+  /**
+    * A class allowing access to all actors comprising the interface to the
+    * media archive.
+    *
+    * ''MediaFacade'' has a method to request all actors at once. This is
+    * needed by most clients that have to interact with the archive. This
+    * method returns a ''Future'' of this class. If successful, actor
+    * references are directly available.
+    *
+    * @param mediaManager    the reference to the media manager
+    * @param metaDataManager the reference to the meta data manager
+    */
+  case class MediaFacadeActors(mediaManager: ActorRef, metaDataManager: ActorRef)
+
 }
 
 /**
@@ -146,6 +161,29 @@ trait MediaFacade {
     * @return a future with an optional actor reference
     */
   def requestActor(target: MediaActor)(implicit timeout: Timeout): Future[Option[ActorRef]]
+
+  /**
+    * Returns a ''Future'' with an object that provides access to all actors
+    * of the media facade. While ''requestActor()'' can be used if only a
+    * single actors is needed, this method returns all actors of the media
+    * facade. This is more convenient for clients needing full interaction
+    * with the archive.
+    *
+    * @param timeout a timeout for requesting the single actors
+    * @param ec      an execution context
+    * @return a ''Future'' with an object exposing all actors of the interface
+    */
+  def requestFacadeActors()(implicit timeout: Timeout, ec: ExecutionContext):
+  Future[MediaFacadeActors] = {
+    def requestArchiveActor(t: MediaActor): Future[ActorRef] =
+      requestActor(t) map (_.get)
+
+    val futMedia = requestArchiveActor(MediaActors.MediaManager)
+    val futMeta = requestArchiveActor(MediaActors.MetaDataManager)
+    Future.sequence(List(futMedia, futMeta)) map { lst =>
+      MediaFacadeActors(lst.head, lst(1))
+    }
+  }
 
   /**
     * A convenience method which calls the meta data manager actor to request

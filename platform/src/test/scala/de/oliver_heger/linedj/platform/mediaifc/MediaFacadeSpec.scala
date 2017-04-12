@@ -26,14 +26,18 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.Failure
 
 /**
   * Test class for ''MediaFacade''.
   */
-class MediaFacadeSpec extends FlatSpec with Matchers {
+class MediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
   "A MediaFacade" should "register a meta data listener" in {
     val facade = new MediaFacadeImpl
     val MediumId = MediumID("A medium", None)
@@ -65,16 +69,90 @@ class MediaFacadeSpec extends FlatSpec with Matchers {
     val ids = threads.foldLeft(Set.empty[Int])((s, t) => s ++ t.ids)
     ids should have size ThreadCount*32
   }
+
+  /**
+    * Expects that the given future result is a failure.
+    *
+    * @param facade    the media facade
+    * @param futActors the future
+    */
+  private def expectFailedFuture(facade: MediaFacadeImpl, futActors: Future[MediaFacade
+  .MediaFacadeActors]): Unit = {
+    Await.ready(futActors, facade.expTimeout.duration).value match {
+      case Some(Failure(_)) => // expected
+      case _ => fail("Unexpected result!")
+    }
+  }
+
+  /**
+    * Helper method for querying the facade actors.
+    *
+    * @param facade the facade object to be used
+    */
+  private def checkSuccessfulFacadeActorsRequest(facade: MediaFacadeImpl): Unit = {
+    val actMediaManager = mock[ActorRef]
+    val actMetaManager = mock[ActorRef]
+    facade.responseMediaManager = Future.successful(Some(actMediaManager))
+    facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
+    implicit val timeout = facade.expTimeout
+
+    val futActors = facade.requestFacadeActors()
+    val actors = Await.result(futActors, facade.expTimeout.duration)
+    actors.mediaManager should be(actMediaManager)
+    actors.metaDataManager should be(actMetaManager)
+  }
+
+  it should "allow querying an object with interface actors" in {
+    checkSuccessfulFacadeActorsRequest(new MediaFacadeImpl)
+  }
+
+  it should "allow querying interface actors with a different timeout" in {
+    checkSuccessfulFacadeActorsRequest(new MediaFacadeImpl(Timeout(1.second)))
+  }
+
+  it should "take the timeout into account when querying interface actors" in {
+
+  }
+
+  it should "fail to return interface actors if an actor cannot be obtained" in {
+    val facade = new MediaFacadeImpl
+    val actMediaManager = mock[ActorRef]
+    facade.responseMediaManager = Future.successful(Some(actMediaManager))
+    facade.responseMetaDataManager = Future.failed(new Exception("test exception"))
+    implicit val timeout = facade.expTimeout
+
+    val futActors = facade.requestFacadeActors()
+    expectFailedFuture(facade, futActors)
+  }
+
+  it should "fail to return interface actors if one actor is undefined" in {
+    val facade = new MediaFacadeImpl
+    val actMetaManager = mock[ActorRef]
+    facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
+    facade.responseMediaManager = Future.successful(None)
+    implicit val timeout = facade.expTimeout
+
+    val futActors = facade.requestFacadeActors()
+    expectFailedFuture(facade, futActors)
+  }
 }
 
 /**
   * Test implementation of the trait.
+  *
+  * @param expTimeout the timeout for actor requests
   */
-class MediaFacadeImpl extends MediaFacade {
+class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends MediaFacade {
   override val bus: MessageBus = null
 
   /** Records messages passed to the send() method (in reverse order). */
   var sentMessages = List.empty[(MediaActor, Any)]
+
+  /** Response to be returned for the media manager by requestActor(). */
+  var responseMediaManager: Future[Option[ActorRef]] = _
+
+  /** Response to be returned for the meta data manager by requestActor(). */
+  var responseMetaDataManager: Future[Option[ActorRef]] = _
 
   override def activate(enabled: Boolean): Unit = ???
 
@@ -86,8 +164,19 @@ class MediaFacadeImpl extends MediaFacade {
 
   override def requestMediaState(): Unit = ???
 
+  /**
+    * @inheritdoc Returns the response defined for the specified actor.
+    */
   override def requestActor(target: MediaActor)(implicit timeout: Timeout):
-  Future[Option[ActorRef]] = ???
+  Future[Option[ActorRef]] = {
+    if (timeout != expTimeout) {
+      throw new AssertionError("Unexpected timeout: " + timeout)
+    }
+    target match {
+      case MediaActors.MediaManager => responseMediaManager
+      case MediaActors.MetaDataManager => responseMetaDataManager
+    }
+  }
 
   override def removeMetaDataListener(mediumID: MediumID): Unit = ???
 
