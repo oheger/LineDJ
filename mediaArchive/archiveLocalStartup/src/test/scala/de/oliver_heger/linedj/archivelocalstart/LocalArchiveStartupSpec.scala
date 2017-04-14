@@ -23,15 +23,15 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.comm.ActorFactory
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, anyString}
+import org.mockito.Matchers.{any, anyString, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -40,7 +40,7 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.Promise
+import scala.concurrent.{ExecutionContext, Promise}
 
 object LocalArchiveStartupSpec {
   /** The reference configuration for the media archive. */
@@ -107,6 +107,8 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.activate()
       .prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .expectNoStartOfArchive()
+      .processUIFuture()
       .verifyActorsCreated()
   }
 
@@ -118,6 +120,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
     helper.prepareArchiveActorsRequest(timeout = Timeout(5.seconds))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
   }
 
@@ -127,6 +130,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.activate()
       .prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .probeMediaManager.expectMsg(ScanAllMedia)
   }
 
@@ -134,6 +138,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new LocalArchiveStartupTestHelper
     helper.activate().prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
 
     helper.deactivate().verifyActorsStopped()
@@ -143,17 +148,19 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new LocalArchiveStartupTestHelper
     helper.activate().prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
       .probeMediaManager.expectMsg(ScanAllMedia)
 
     helper.sendAvailability(MediaFacade.MediaArchiveAvailable)
-      .expectNoStartOfArchive()
+      .messageBus.expectNoMessage()
   }
 
   it should "stop the archive when the union archive is unavailable" in {
     val helper = new LocalArchiveStartupTestHelper
     helper.activate().prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
 
     helper.sendAvailability(MediaFacade.MediaArchiveUnavailable)
@@ -164,28 +171,33 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new LocalArchiveStartupTestHelper
     helper.activate().prepareArchiveActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
       .sendAvailability(MediaFacade.MediaArchiveUnavailable)
       .verifyActorsStopped()
 
     helper.sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .processUIFuture()
       .verifyActorsCreated()
-  }
-
-  it should "not start the archive if union actors cannot be fetched" in {
-    val helper = new LocalArchiveStartupTestHelper
-    helper.activate()
-      .prepareArchiveActorsRequest(metaDataActor = Promise.successful(None))
-      .sendAvailability(MediaFacade.MediaArchiveUnavailable)
-
-    helper.expectNoStartOfArchive()
   }
 
   it should "not start the archive if fetching union actors fails" in {
     val helper = new LocalArchiveStartupTestHelper
     helper.activate()
-      .prepareArchiveActorsRequest(mediaActor = Promise.failed(new Exception("BOOM")))
-      .sendAvailability(MediaFacade.MediaArchiveUnavailable)
+      .prepareArchiveActorsRequest(actors = Promise.failed(new Exception("BOOM")))
+      .sendAvailability(MediaFacade.MediaArchiveAvailable)
+    .processUIFuture()
+
+    helper.messageBus.expectNoMessage()
+  }
+
+  it should "not start the archive if it becomes unavailable while fetching actors" in {
+    val helper = new LocalArchiveStartupTestHelper
+    helper.activate()
+    .prepareArchiveActorsRequest()
+    .sendAvailability(MediaFacade.MediaArchiveAvailable)
+    .sendAvailability(MediaFacade.MediaArchiveUnavailable)
+    .processUIFuture()
 
     helper.expectNoStartOfArchive()
   }
@@ -212,14 +224,17 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** The startup instance to be tested. */
     val startup = new LocalArchiveStartup
 
-    /** The registration for the archive availability extension. */
-    lazy val registration: ArchiveAvailabilityRegistration = fetchRegistration()
+    /** The test message bus. */
+    val messageBus = new MessageBusTestImpl
 
     /** The client application context. */
     private val clientContext = createClientContext()
 
     /** A set for the actors that have been created by the test factory. */
     private var createdActors = Set.empty[TestProbe]
+
+    /** The registration for the archive availability extension. */
+    var registration: ArchiveAvailabilityRegistration = _
 
     /**
       * Activates the test component.
@@ -229,6 +244,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     def activate(): LocalArchiveStartupTestHelper = {
       startup initClientContext clientContext
       startup activate mock[ComponentContext]
+      registration = fetchRegistration()
       this
     }
 
@@ -248,30 +264,40 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def expectDeRegistration(): LocalArchiveStartupTestHelper = {
-      verify(clientContext.messageBus)
-        .publish(ArchiveAvailabilityUnregistration(startup.componentID))
+      val unReg = messageBus.expectMessageType[ArchiveAvailabilityUnregistration]
+      unReg.id should be(startup.componentID)
       this
     }
 
     /**
       * Prepares a request for the actors of the union media archive. The mock
-      * is prepared to return ''Future'' objects for the actors based on the
-      * provided promises.
+      * is prepared to return a ''Future'' object for the actors based on the
+      * provided promise.
       *
-      * @param mediaActor    promise for the media actor
-      * @param metaDataActor promise for the meta data actor
+      * @param actors promise for the archive actors
+      * @param timeout a timeout for the request
       * @return this test helper
       */
-    def prepareArchiveActorsRequest(mediaActor: Promise[Option[ActorRef]] =
-                                    Promise.successful(Some(probeUnionMediaManager.ref)),
-                                    metaDataActor: Promise[Option[ActorRef]] =
-                                    Promise.successful(Some(probeUnionMetaDataManager.ref)),
+    def prepareArchiveActorsRequest(actors: Promise[MediaFacadeActors] =
+                                    Promise.successful(MediaFacadeActors(
+                                      probeUnionMediaManager.ref,
+                                    probeUnionMetaDataManager.ref)),
                                     timeout: Timeout = Timeout(10.seconds))
     : LocalArchiveStartupTestHelper = {
-      when(clientContext.mediaFacade.requestActor(MediaActors.MediaManager)(timeout))
-        .thenReturn(mediaActor.future)
-      when(clientContext.mediaFacade.requestActor(MediaActors.MetaDataManager)(timeout))
-        .thenReturn(metaDataActor.future)
+      when(clientContext.mediaFacade.requestFacadeActors()(eqArg(timeout),
+        any(classOf[ExecutionContext])))
+        .thenReturn(actors.future)
+      this
+    }
+
+    /**
+      * Expects a message to be sent on the UI bus for completing a future in
+      * the UI thread. This message is delivered.
+      *
+      * @return this test helper
+      */
+    def processUIFuture(): LocalArchiveStartupTestHelper = {
+      messageBus.processNextMessage[Any]()
       this
     }
 
@@ -321,7 +347,9 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def expectNoStartOfArchive(): LocalArchiveStartupTestHelper = {
-      probeMetaDataManager.expectNoMsg(1.second)
+      val testMsg = new Object
+      probeMetaDataManager.ref ! testMsg
+      probeMetaDataManager.expectMsg(testMsg)
       createdActors should have size 0
       this
     }
@@ -332,11 +360,8 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the registration object
       */
-    private def fetchRegistration(): ArchiveAvailabilityRegistration = {
-      val captor = ArgumentCaptor.forClass(classOf[ArchiveAvailabilityRegistration])
-      verify(clientContext.messageBus).publish(captor.capture())
-      captor.getValue
-    }
+    private def fetchRegistration(): ArchiveAvailabilityRegistration =
+      messageBus.expectMessageType[ArchiveAvailabilityRegistration]
 
     /**
       * Creates a mock ''ClientApplicationContext''.
@@ -349,7 +374,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       when(clientContext.managementConfiguration).thenReturn(createArchiveConfiguration())
       when(clientContext.actorFactory).thenReturn(actorFactory)
       when(clientContext.actorSystem).thenReturn(system)
-      when(clientContext.messageBus).thenReturn(mock[MessageBus])
+      when(clientContext.messageBus).thenReturn(messageBus)
       when(clientContext.mediaFacade).thenReturn(mock[MediaFacade])
       clientContext
     }
