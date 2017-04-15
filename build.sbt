@@ -66,7 +66,8 @@ lazy val LineDJ = (project in file("."))
   reorderAlbum, reorderArtist, playerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
-  trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp)
+  trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
+  archiveHttpStartup)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -145,8 +146,9 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % "test",
     libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % "test",
     libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % "test",
-    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp.*"),
-    OsgiKeys.privatePackage := Seq.empty
+    OsgiKeys.exportPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl",
+      "de.oliver_heger.linedj.archivehttp.*"),
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
 
 /**
@@ -219,7 +221,26 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform, archive)
+  ) dependsOn(platform % "compile->compile;test->test", archive)
+
+/**
+  * A project which is responsible for starting up an HTTP media archive in
+  * an OSGi environment. If this bundle is deployed in a LineDJ platform,
+  * components will be started which read the content from an HTTP archive and
+  * contributes this data to the configured union archive.
+  */
+lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archiveHttpStartup",
+    libraryDependencies ++= osgiDependencies,
+    libraryDependencies ++= jguiraffeDependencies,
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.*"),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(platform % "compile->compile;test->test", archiveHttp)
 
 /**
   * A project which implements an admin UI for the media archive.
