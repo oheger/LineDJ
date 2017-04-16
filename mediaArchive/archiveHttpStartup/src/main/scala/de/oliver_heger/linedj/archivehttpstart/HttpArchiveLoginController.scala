@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
-import akka.actor.Actor
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}
 import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
@@ -39,16 +39,18 @@ import net.sf.jguiraffe.gui.forms.ComponentHandler
   * application class. Communication with the application is done via the
   * UI message bus.
   *
-  * @param bus         the UI message bus
-  * @param txtUser     the text component for the user name
-  * @param txtPassword the text component for the password
-  * @param btnLogin    the component for the login button
-  * @param btnLogout   the component for the logout button
+  * @param bus               the UI message bus
+  * @param txtUser           the text component for the user name
+  * @param txtPassword       the text component for the password
+  * @param btnLogin          the component for the login button
+  * @param btnLogout         the component for the logout button
+  * @param statusLineHandler the object for managing the status line
   */
 class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
                                  txtPassword: ComponentHandler[String],
                                  btnLogin: ComponentHandler[_],
-                                 btnLogout: ComponentHandler[_])
+                                 btnLogout: ComponentHandler[_],
+                                 statusLineHandler: StatusLineHandler)
   extends WindowListener with FormActionListener {
   /** The registration ID for the message bus receiver. */
   private var busRegistrationID: Int = _
@@ -123,5 +125,15 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
     btnLogout setEnabled false
   }
 
-  private def messageBusReceive: Receive = Actor.emptyBehavior
+  /**
+    * The handling function for messages received via the message bus.
+    * This controller handles notifications of state changes of the monitored
+    * HTTP archive.
+    *
+    * @return the message handling fucntion
+    */
+  private def messageBusReceive: Receive = {
+    case state: HttpArchiveState =>
+      statusLineHandler archiveStateChanged state
+  }
 }

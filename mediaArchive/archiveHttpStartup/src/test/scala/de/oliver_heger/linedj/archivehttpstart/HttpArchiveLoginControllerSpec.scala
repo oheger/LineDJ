@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateNotLoggedIn}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
@@ -115,6 +116,14 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
     helper.messageBus.expectMessageType[LoginStateChanged] should be(LoginStateChanged(None))
   }
 
+  it should "pass an HTTP archive state to the status line handler" in {
+    val helper = new LoginControllerTestHelper
+
+    helper.openWindow()
+      .sendOnMessageBus(HttpArchiveStateNotLoggedIn)
+      .verifyStatusLineHandler(HttpArchiveStateNotLoggedIn)
+  }
+
   /**
     * A test helper class managing dependencies for the controller under test.
     */
@@ -139,6 +148,9 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
 
     /** Mock for the logout button. */
     private val btnLogout = createButtonMock(answerLogout)
+
+    /** Mock for the status line handler. */
+    private val statusLineHandler = mock[StatusLineHandler]
 
     /** The test controller. */
     val controller: HttpArchiveLoginController = createController()
@@ -257,6 +269,29 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
     }
 
     /**
+      * Sends the provided message directly on the test message bus.
+      *
+      * @param msg the message
+      * @return this test helper
+      */
+    def sendOnMessageBus(msg: Any): LoginControllerTestHelper = {
+      messageBus publishDirectly msg
+      this
+    }
+
+    /**
+      * Verifies that the specified state has been passed to the status line
+      * handler.
+      *
+      * @param state the expected state
+      * @return this test helper
+      */
+    def verifyStatusLineHandler(state: HttpArchiveState): LoginControllerTestHelper = {
+      verify(statusLineHandler).archiveStateChanged(state)
+      this
+    }
+
+    /**
       * Checks whether a button has the expected enabled state.
       *
       * @param state   the answer monitoring the button state
@@ -300,7 +335,8 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
       * @return the test controller
       */
     private def createController(): HttpArchiveLoginController =
-      new HttpArchiveLoginController(messageBus, txtUser, txtPassword, btnLogin, btnLogout)
+      new HttpArchiveLoginController(messageBus, txtUser, txtPassword, btnLogin, btnLogout,
+        statusLineHandler)
   }
 
 }
