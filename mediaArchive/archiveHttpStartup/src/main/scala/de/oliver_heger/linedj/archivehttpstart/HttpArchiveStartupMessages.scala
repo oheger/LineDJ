@@ -79,3 +79,15 @@ object HttpArchiveStates {
   case object HttpArchiveStateAvailable
     extends HttpArchiveState("Available", isActive = true)
 }
+
+/**
+  * A message for requesting the current state of the HTTP archive.
+  *
+  * This message is sent by the HTTP archive login controller after the
+  * main window has been opened. The application answers by publishing the
+  * current archive state on the message bus. This is necessary because the
+  * controller may miss some state change messages during initialization. By
+  * sending a request explicitly, it can be sure that it receives the most
+  * recent state.
+  */
+case object HttpArchiveStateRequest

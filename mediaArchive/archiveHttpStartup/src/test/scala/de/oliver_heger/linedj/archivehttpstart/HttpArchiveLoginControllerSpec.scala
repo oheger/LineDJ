@@ -162,6 +162,7 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
       */
     def openWindow(): LoginControllerTestHelper = {
       controller windowOpened windowEvent()
+      messageBus.expectMessageType[Any] should be(HttpArchiveStateRequest)
       this
     }
 

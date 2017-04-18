@@ -74,6 +74,7 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
   override def windowOpened(event: WindowEvent): Unit = {
     busRegistrationID = bus registerListener messageBusReceive
     btnLogout setEnabled false
+    bus publish HttpArchiveStateRequest  // request initial state
   }
 
   /**
