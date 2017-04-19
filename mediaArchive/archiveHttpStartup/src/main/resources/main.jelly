@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2017 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the main window of the HTTP archive startup
+     application.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+            tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+            resgrp="application" taskBean="exitTask"/>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- Icons for the archive's state -->
+  <f:icon resource="state_unavail.png" var="iconUnavailable"/>
+  <f:icon resource="state_avail.png" var="iconAvailable"/>
+
+  <!-- Status line handler -->
+  <di:bean name="statusLineHandler"
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.StatusLineHandler">
+    <di:constructor>
+      <di:param refName="comp:txtStatusLine"/>
+      <di:param>
+        <f:localized resid="state_invalid_config"/>
+      </di:param>
+      <di:param>
+        <f:localized resid="state_no_archive"/>
+      </di:param>
+      <di:param>
+        <f:localized resid="state_no_login"/>
+      </di:param>
+      <di:param>
+        <f:localized resid="state_active"/>
+      </di:param>
+      <di:param refName="iconUnavailable"/>
+      <di:param refName="iconAvailable"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Login controller -->
+  <di:bean name="loginController"
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveLoginController">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:txtUser"/>
+      <di:param refName="comp:txtPassword"/>
+      <di:param refName="comp:btnLogin"/>
+      <di:param refName="comp:btnLogout"/>
+      <di:param refName="statusLineHandler"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Main window -->
+  <w:frame titleres="main_title" menu="mainMenu">
+    <f:icon resource="app_icon.png"/>
+    <f:borderlayout/>
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout/>
+      <f:panel>
+        <f:borderconstr name="CENTER"/>
+        <f:percentlayout columns="4dlu end/preferred 3dlu start/minimum(3cm) 4dlu"
+                         rows="4dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+        <f:label textres="lab_log_prompt">
+          <f:percentconstr col="1" row="1" spanx="3"/>
+        </f:label>
+        <f:label textres="lab_log_user">
+          <f:percentconstr col="1" row="3"/>
+        </f:label>
+        <f:textfield name="txtUser" tooltipres="txt_log_user_tip">
+          <f:percentconstr col="3" row="3"/>
+        </f:textfield>
+        <f:label textres="lab_log_password">
+          <f:percentconstr col="1" row="5"/>
+        </f:label>
+        <f:password name="txtPassword" tooltipres="txt_log_password_tip">
+          <f:percentconstr col="3" row="5"/>
+        </f:password>
+      </f:panel>
+
+      <!-- The button bar -->
+      <f:panel>
+        <f:borderconstr name="SOUTH"/>
+        <f:buttonlayout/>
+        <f:button name="btnLogin" textres="btn_log_in"
+          mnemonicres="btn_log_in_mnemo"/>
+        <f:button name="btnLogout" textres="btn_log_out"
+          mnemonicres="btn_log_out_mnemo"/>
+      </f:panel>
+    </f:panel>
+
+    <!-- Status line -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="2dlu"/>
+      <f:statictext name="txtStatusLine">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <w:controller beanName="loginController"/>
+  </w:frame>
+
+  <!--Listener registrations for the buttons -->
+  <a:eventListener component="btnLogin" eventType="ACTION"
+    beanName="loginController"/>
+  <a:eventListener component="btnLogout" eventType="ACTION"
+    beanName="loginController"/>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+           beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+</j:jelly>
+

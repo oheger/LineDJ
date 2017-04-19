@@ -25,16 +25,14 @@ import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.{ApplicationSyncStartup, ApplicationTestSupport,
-ClientApplicationContext, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.platform.app.{ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent,
-MediaFacadeActors}
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import net.sf.jguiraffe.gui.app.ApplicationContext
+import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
@@ -321,23 +319,42 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     helper.messageBus.expectNoMessage()
   }
 
+  it should "setup the main window" in {
+    val helper = new StartupTestHelper(skipUI = false)
+
+    helper.startupApplication(handleAvailabilityReg = false)
+    helper.queryBean[HttpArchiveLoginController](helper.app.getMainWindowBeanContext,
+      "loginController")
+  }
+
   /**
     * A test implementation of the startup application.
+    *
+    * @param skipUI flag whether UI creation is to be skipped
     */
-  private class HttpArchiveStartupApplicationTestImpl
+  private class HttpArchiveStartupApplicationTestImpl(skipUI: Boolean)
     extends HttpArchiveStartupApplication with ApplicationSyncStartup {
-    override def initGUI(appCtx: ApplicationContext): Unit = {}
+    override def initGUI(appCtx: ApplicationContext): Unit = {
+      if (!skipUI) super.initGUI(appCtx)
+    }
+
+    /**
+      * @inheritdoc Never shows the main window.
+      */
+    override def showMainWindow(window: Window): Unit = {}
   }
 
   /**
     * A test helper class managing a test instance and allowing access to it.
+    *
+    * @param skipUI flag whether UI creation is to be skipped
     */
-  private class StartupTestHelper extends ApplicationTestSupport {
+  private class StartupTestHelper(skipUI: Boolean = true) extends ApplicationTestSupport {
     /** A test message bus. */
     val messageBus = new MessageBusTestImpl
 
     /** The application to be tested. */
-    val app = new HttpArchiveStartupApplicationTestImpl
+    val app = new HttpArchiveStartupApplicationTestImpl(skipUI)
 
     /** Stores the registration of the app for the availability extension. */
     var availabilityRegistration: ArchiveAvailabilityRegistration = _
@@ -367,11 +384,14 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     /**
       * Initializes and starts the test application.
       *
+      * @param handleAvailabilityReg flag whether a registration is expected
       * @return this test helper
       */
-    def startupApplication(): StartupTestHelper = {
+    def startupApplication(handleAvailabilityReg: Boolean = true): StartupTestHelper = {
       activateApp(app)
-      availabilityRegistration = messageBus.expectMessageType[ArchiveAvailabilityRegistration]
+      if (handleAvailabilityReg) {
+        availabilityRegistration = messageBus.expectMessageType[ArchiveAvailabilityRegistration]
+      }
       this
     }
 
