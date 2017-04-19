@@ -159,8 +159,16 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     Await.result(futureStream, TimeoutValue).head
   }
 
+  /**
+    * Creates a test HTTP flow factory.
+    *
+    * @return the test instance
+    */
+  private def createHttpFlowFactory(): HttpFlowFactory =
+    new HttpFlowFactory {}
+
   "A HttpFlowFactory" should "create a flow through which a request can be sent" in {
-    val factory = new HttpFlowFactory {}
+    val factory = createHttpFlowFactory()
     val serverUri = Uri.from(scheme = "http", host = "localhost", port = localPort)
     val flow = factory.createHttpFlow[String](serverUri)
     val Path = "/my/test/path/data.tst"
@@ -170,7 +178,7 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "support multiple requests" in {
-    val factory = new HttpFlowFactory {}
+    val factory = createHttpFlowFactory()
     val serverUri = Uri.from(scheme = "http", host = "localhost", port = localPort)
     val flow = factory.createHttpFlow[String](serverUri)
 
@@ -179,8 +187,23 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
   }
 
+  it should "extract the port from a URI" in {
+    val factory = createHttpFlowFactory()
+    val serverUri = Uri.from(scheme = "http", host = "localhost", port = localPort)
+
+    factory.extractPort(serverUri, localPort + 1) should be(localPort)
+  }
+
+  it should "return a default port for URIs without a port" in {
+    val factory = createHttpFlowFactory()
+    val uri = Uri("https://test.org")
+    val DefaultPort = 8888
+
+    factory.extractPort(uri, DefaultPort) should be(DefaultPort)
+  }
+
   it should "behave differently for HTTPS" in {
-    val factory = new HttpFlowFactory {}
+    val factory = createHttpFlowFactory()
     val serverUri = Uri.from(scheme = "https", host = "localhost", port = localPort)
     val flow = factory.createHttpFlow[String](serverUri)
 
@@ -194,7 +217,7 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   "A client flow" should "support response size restriction" in {
-    val factory = new HttpFlowFactory {}
+    val factory = createHttpFlowFactory()
     val serverUri = Uri.from(scheme = "http", host = "localhost", port = localPort)
     val flow = factory.createHttpFlow[String](serverUri)
     val sizeStage = new ResponseSizeRestrictionStage(2 * TestContent.length + 8)

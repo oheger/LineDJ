@@ -35,9 +35,21 @@ trait HttpFlowFactory {
   Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
     if (uri.scheme == "https")
       Http().cachedHostConnectionPoolHttps(host = uri.authority.host.address(),
-        port = uri.authority.port)
+        port = extractPort(uri, 443))
     else
       Http().cachedHostConnectionPool[T](host = uri.authority.host.address(),
-        port = uri.authority.port)
+        port = extractPort(uri, 80))
   }
+
+  /**
+    * Extracts the port from a URI. If the port is defined, it is used.
+    * Otherwise the provided default port is returned.
+    *
+    * @param uri         the URI
+    * @param defaultPort the default port
+    * @return the extracted port
+    */
+  def extractPort(uri: Uri, defaultPort: Int): Int =
+    if (uri.authority.port != 0) uri.authority.port
+    else defaultPort
 }
