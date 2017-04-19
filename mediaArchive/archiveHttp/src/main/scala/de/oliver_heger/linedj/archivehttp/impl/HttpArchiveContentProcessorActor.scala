@@ -70,7 +70,7 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging
       val killSwitchID = registerKillSwitch(killSwitch)
       futStream andThen {
         case _ =>
-          req.archiveActor ! HttpArchiveProcessingComplete
+          req.archiveActor ! HttpArchiveProcessingComplete(req.seqNo)
           self ! RemoveKillSwitch(killSwitchID)
       }
 

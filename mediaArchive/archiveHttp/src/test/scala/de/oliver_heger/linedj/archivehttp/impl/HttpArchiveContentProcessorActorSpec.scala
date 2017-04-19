@@ -362,7 +362,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * @return this test helper
       */
     def expectProcessingComplete(): ContentProcessorActorTestHelper = {
-      manager.expectMsg(HttpArchiveProcessingComplete)
+      manager.expectMsg(HttpArchiveProcessingComplete(SeqNo))
       this
     }
 
@@ -374,7 +374,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     def fishForProcessingComplete(): ContentProcessorActorTestHelper = {
       manager.fishForMessage() {
         case r: TestProcessingResult => false
-        case HttpArchiveProcessingComplete => true
+        case HttpArchiveProcessingComplete(SeqNo) => true
       }
       this
     }
