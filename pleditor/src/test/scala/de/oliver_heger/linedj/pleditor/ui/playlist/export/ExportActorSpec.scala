@@ -21,7 +21,6 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
@@ -188,7 +187,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ExportActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "ExportActorSpec")
+  def this() = this(ActorSystem("ExportActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system

@@ -17,11 +17,10 @@
 package de.oliver_heger.linedj.io
 
 import akka.actor.ActorSystem
-import akka.testkit.{TestProbe, ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
-import org.scalatest.{Matchers, BeforeAndAfterAll, FlatSpecLike}
-import scala.concurrent.duration._
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object CopyStateSpec {
   /** Constant for the read chunk size. */
@@ -56,8 +55,7 @@ FlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("CopyStateSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**

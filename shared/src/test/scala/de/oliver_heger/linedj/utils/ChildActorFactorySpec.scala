@@ -6,8 +6,6 @@ import de.oliver_heger.linedj.io.FileReaderActor
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-
 /**
  * Test class for ''ChildActorFactory''.
  *
@@ -21,8 +19,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   def this() = this(ActorSystem("ChildActorFactorySpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "A ChildActorFactory" should "create a correct child actor" in {

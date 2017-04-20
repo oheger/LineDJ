@@ -19,13 +19,11 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.ChannelHandler
 import de.oliver_heger.linedj.archive.mp3.{ID3TagProvider, ID3v1Extractor}
+import de.oliver_heger.linedj.io.ChannelHandler
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object ID3v1FrameProcessorActorSpec {
   /** The test path . */
@@ -43,8 +41,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("ID3v1FrameProcessorActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "An ID3v1FrameProcessorActor" should "pass a chunk of data to the extractor" in {

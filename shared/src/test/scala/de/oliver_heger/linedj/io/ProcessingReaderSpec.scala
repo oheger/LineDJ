@@ -70,8 +70,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with FileT
   private lazy val fileWithTrailingSpace = createDataFile(TestData + ' ')
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
     tearDownTestFile()
   }
 

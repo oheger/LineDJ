@@ -116,8 +116,7 @@ FileTestHelper {
   }
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
     tearDownTestFile()
   }
 

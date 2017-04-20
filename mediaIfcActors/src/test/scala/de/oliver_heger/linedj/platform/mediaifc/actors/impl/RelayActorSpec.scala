@@ -20,7 +20,6 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
@@ -49,7 +48,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   import RelayActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "RelayActorSpec")
+  def this() = this(ActorSystem("RelayActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system

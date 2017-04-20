@@ -8,8 +8,6 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-
 /**
  * Test class for ''FileSaverActor''.
  */
@@ -24,8 +22,7 @@ with FlatSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfter with 
   def this() = this(ActorSystem("FileSaverActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   after {

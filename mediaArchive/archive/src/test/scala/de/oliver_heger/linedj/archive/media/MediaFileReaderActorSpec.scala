@@ -6,15 +6,13 @@ import java.nio.file.Paths
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3HeaderExtractor}
 import de.oliver_heger.linedj.io.ChannelHandler.InitFile
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
-import de.oliver_heger.linedj.archive.mp3.{ID3HeaderExtractor, ID3Header}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object MediaFileReaderActorSpec {
   /** Chunk size for read operations. */
@@ -83,8 +81,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("MediaFileReaderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   /**

@@ -20,7 +20,6 @@ import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -32,7 +31,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
  */
 class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
-  def this() = this(ActorSystemTestHelper createActorSystem "RemoteLookupActorSpec")
+  def this() = this(ActorSystem("RemoteLookupActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system

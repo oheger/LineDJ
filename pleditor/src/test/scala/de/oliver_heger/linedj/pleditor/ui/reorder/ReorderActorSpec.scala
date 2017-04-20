@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
@@ -30,11 +29,10 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
   */
 class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
 with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
-  def this() = this(ActorSystemTestHelper.createActorSystem("ReorderActorSpec"))
+  def this() = this(ActorSystem("ReorderActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem system
   }
 
   /**

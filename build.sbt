@@ -6,7 +6,7 @@ import de.heikoseeberger.sbtheader.HeaderPlugin
 import de.heikoseeberger.sbtheader.license.Apache2_0
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.4.17"
+lazy val AkkaVersion = "2.5.0"
 lazy val AkkaHttpVersion = "10.0.4"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.11.8"

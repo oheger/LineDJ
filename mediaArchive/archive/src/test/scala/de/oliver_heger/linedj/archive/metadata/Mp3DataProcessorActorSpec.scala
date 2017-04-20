@@ -19,13 +19,11 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.archive.mp3.Mp3DataExtractor
+import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.duration._
 
 object Mp3DataProcessorActorSpec {
   /** Constant for a test path. */
@@ -43,8 +41,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   def this() = this(ActorSystem("Mp3DataProcessorActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    system awaitTermination 10.seconds
+    TestKit shutdownActorSystem system
   }
 
   "An Mp3DataProcessorActor" should "pass a chunk of data to the extractor" in {

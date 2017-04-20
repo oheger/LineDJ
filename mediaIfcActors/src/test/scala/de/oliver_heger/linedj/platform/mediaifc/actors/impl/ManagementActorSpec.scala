@@ -20,7 +20,6 @@ import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
@@ -45,7 +44,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
 
   import ManagementActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "ManagementActorSpec")
+  def this() = this(ActorSystem("ManagementActorSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system

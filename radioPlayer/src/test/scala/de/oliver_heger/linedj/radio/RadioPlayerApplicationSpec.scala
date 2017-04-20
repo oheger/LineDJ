@@ -26,7 +26,6 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.io.CloseAck
@@ -52,7 +51,7 @@ import scala.util.Random
 class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
   with ApplicationTestSupport {
-  def this() = this(ActorSystemTestHelper createActorSystem "RadioPlayerApplicationSpec")
+  def this() = this(ActorSystem("RadioPlayerApplicationSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system

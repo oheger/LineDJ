@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.SupervisionTestActor
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
@@ -41,11 +40,10 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
   import ReorderManagerActorSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "ReorderManagerActorSpec")
+  def this() = this(ActorSystem("ReorderManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
-    system.shutdown()
-    ActorSystemTestHelper waitForShutdown system
+    TestKit shutdownActorSystem  system
   }
 
   "A ReorderManagerActor" should "create correct Props" in {

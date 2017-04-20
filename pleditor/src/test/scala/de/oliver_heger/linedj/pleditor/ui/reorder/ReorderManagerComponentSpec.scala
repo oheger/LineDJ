@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.ActorSystemTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.model.SongData
@@ -46,7 +45,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
 
   import ReorderManagerComponentSpec._
 
-  def this() = this(ActorSystemTestHelper createActorSystem "ReorderManagerComponentSpec")
+  def this() = this(ActorSystem("ReorderManagerComponentSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
