@@ -15,10 +15,10 @@
  */
 package de.oliver_heger.linedj.archive.metadata
 
-import de.oliver_heger.linedj.archive.mp3.ID3TagProvider
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataID3CollectorSpec {
   /** A test title.*/
@@ -87,8 +87,8 @@ class MetaDataID3CollectorSpec extends FlatSpec with Matchers with MockitoSugar 
    * @param track the track number
    * @return the mock provider
    */
-  private def createMockProvider(title: Option[String] = None, artist: Option[String] = None, album: Option[String] = None, year:Option[Int] = None, track:Option[Int] = None): ID3TagProvider = {
-    val provider = mock[ID3TagProvider]
+  private def createMockProvider(title: Option[String] = None, artist: Option[String] = None, album: Option[String] = None, year:Option[Int] = None, track:Option[Int] = None): MetaDataProvider = {
+    val provider = mock[MetaDataProvider]
     when(provider.album).thenReturn(album)
     when(provider.artist).thenReturn(artist)
     when(provider.inceptionYearString).thenReturn(year map(_.toString))

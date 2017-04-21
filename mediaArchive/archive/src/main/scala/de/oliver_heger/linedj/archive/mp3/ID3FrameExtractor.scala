@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archive.mp3
 
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+
 import scala.collection.mutable.ArrayBuffer
 
 object ID3FrameExtractor {
@@ -171,7 +173,7 @@ object ID3FrameExtractor {
      * @param frame the frame
      * @return an ''ID3TagProvider'' for reading data from this frame
      */
-    def createProvider(frame: ID3Frame): ID3TagProvider =
+    def createProvider(frame: ID3Frame): MetaDataProvider =
       new ID3v2TagProvider(frame, tagNames)
   }
 
@@ -340,7 +342,7 @@ class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.M
    * is created, and a new provided is returned for it.
    * @return an option with an ''ID3TagProvider'' for the current frame data
    */
-  def createTagProvider(): Option[ID3TagProvider] =
+  def createTagProvider(): Option[MetaDataProvider] =
     versionData map (_.createProvider(createFrame()))
 }
 

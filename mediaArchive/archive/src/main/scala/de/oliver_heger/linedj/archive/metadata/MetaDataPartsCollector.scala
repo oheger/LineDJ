@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.mp3.ID3TagProvider
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
@@ -82,7 +82,7 @@ private class MetaDataPartsCollector(val file: FileData,
    * @param provider the provider for ID3v1 information
    * @return an option for the resulting meta data
    */
-  def setID3v1MetaData(provider: Option[ID3TagProvider]): Option[MediaMetaData] =
+  def setID3v1MetaData(provider: Option[MetaDataProvider]): Option[MediaMetaData] =
     id3MetaDataAdded(1, provider)
 
   /**
@@ -116,7 +116,7 @@ private class MetaDataPartsCollector(val file: FileData,
    * @param data the optional data
    * @return an option for the resulting meta data
    */
-  private def id3MetaDataAdded(version: Int, data: Option[ID3TagProvider]): Option[MediaMetaData]
+  private def id3MetaDataAdded(version: Int, data: Option[MetaDataProvider]): Option[MediaMetaData]
   = {
     data foreach (id3Collector.addProvider(version, _))
     outstandingID3Data -= version

@@ -20,7 +20,8 @@ import java.nio.file.Paths
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.mp3.{ID3FrameExtractor, ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.archive.mp3.{ID3FrameExtractor, ID3Header}
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -72,7 +73,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "handle the last processing message" in {
     val context = mock[MetaDataExtractionContext]
     val extractor = mock[ID3FrameExtractor]
-    val provider = mock[ID3TagProvider]
+    val provider = mock[MetaDataProvider]
     when(context.createID3FrameExtractor(Header)).thenReturn(extractor)
     when(context.collectorActor).thenReturn(testActor)
     when(extractor.createTagProvider()).thenReturn(Some(provider))

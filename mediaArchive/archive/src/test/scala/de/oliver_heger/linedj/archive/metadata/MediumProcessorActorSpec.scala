@@ -22,7 +22,8 @@ import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
-import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.archive.mp3.ID3Header
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -370,7 +371,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @return the meta data object
    */
   private def createID3FrameMetaData(p: Path): ID3FrameMetaData =
-    ID3FrameMetaData(p, ID3Header(2, 32), Some(mock[ID3TagProvider]))
+    ID3FrameMetaData(p, ID3Header(2, 32), Some(mock[MetaDataProvider]))
 
   /**
    * Checks whether a meta data result message for an ID3v2 frame is correctly
@@ -419,7 +420,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   private def checkID3v1ResultHandling(p: Path, complete: Boolean):
   MediumProcessorActorTestHelper = {
     val helper = MediumProcessorActorTestHelper()
-    val id3MetaData = ID3v1MetaData(p, Some(mock[ID3TagProvider]))
+    val id3MetaData = ID3v1MetaData(p, Some(mock[MetaDataProvider]))
     val collector = helper installCollector p
     val probe = TestProbe()
     when(collector.setID3v1MetaData(id3MetaData.metaData)).thenAnswer(metaDataResultAnswer
@@ -452,7 +453,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val p = path(12)
     when(helper.id3v1ProcessorMap.removeItemFor(p)).thenReturn(None)
 
-    helper send ID3v1MetaData(p, Some(mock[ID3TagProvider]))
+    helper send ID3v1MetaData(p, Some(mock[MetaDataProvider]))
     verifyZeroInteractions(helper.collectorMap)
   }
 

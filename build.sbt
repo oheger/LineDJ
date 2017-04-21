@@ -143,7 +143,8 @@ lazy val archive = (project in file("mediaArchive/archive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
-  ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
+  ) dependsOn (shared % "compile->compile;test->test", archiveCommon,
+      metaDataExtract, id3Extract)
 
 /**
   * The media archive project. This contains code to manage the library with

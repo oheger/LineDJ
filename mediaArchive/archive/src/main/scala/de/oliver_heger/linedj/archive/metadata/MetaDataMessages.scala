@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.archive.metadata
 import java.nio.file.Path
 
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
-import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.archive.mp3.ID3Header
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -45,14 +46,14 @@ Boolean)
  *
  * A message of this type is generated when an ID3 frame has been fully
  * processed. The actual result - the ID3 tags extracted from the frame - is
- * represented by an [[ID3TagProvider]] object. If the audio file did not
+ * represented by an [[MetaDataProvider]] object. If the audio file did not
  * contain valid information in this frame, this may be undefined.
  *
  * @param path the path to the affected media file
  * @param frameHeader the header of the processed ID3v2 frame
  * @param metaData an option with the extracted meta data
  */
-case class ID3FrameMetaData(path: Path, frameHeader: ID3Header, metaData: Option[ID3TagProvider])
+case class ID3FrameMetaData(path: Path, frameHeader: ID3Header, metaData: Option[MetaDataProvider])
 
 /**
  * A message containing a chunk of data from an MP3 audio file.
@@ -91,13 +92,13 @@ case class Mp3MetaData(path: Path, version: Int, layer: Int, sampleRate: Int, mi
  * A message of this type is generated when an MP3 file has been fully
  * processed. If the file contained an ID3v1 frame at the end, it can be
  * extracted and passed to the central collector actor. The meta data is
- * represented by an [[ID3TagProvider]] object. If the audio file did not
+ * represented by an [[MetaDataProvider]] object. If the audio file did not
  * contain valid ID3v1 information, this may be undefined.
  *
  * @param path the path of the affected media file
  * @param metaData the ID3v1 meta data
  */
-case class ID3v1MetaData(path: Path, metaData: Option[ID3TagProvider])
+case class ID3v1MetaData(path: Path, metaData: Option[MetaDataProvider])
 
 /**
  * A message telling media read actors that a specific media file should be

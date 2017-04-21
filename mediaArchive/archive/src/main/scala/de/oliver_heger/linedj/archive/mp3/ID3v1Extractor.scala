@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.mp3
 
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 
 object ID3v1Extractor {
@@ -63,7 +64,7 @@ object ID3v1Extractor {
    * @param buf the buffer with the ID3v1 data
    * @return an option of an ''ID3TagProvider'' for extracting tag information
    */
-  def providerFor(buf: Array[Byte]): Option[ID3TagProvider] = {
+  def providerFor(buf: Array[Byte]): Option[MetaDataProvider] = {
     buf match {
       case Array('T', 'A', 'G', _*) if buf.length == FrameSize =>
         Some(createProviderFromBuffer(buf))
@@ -76,7 +77,7 @@ object ID3v1Extractor {
    * @param buf the buffer with ID3 data
    * @return an ''ID3TagProvider'' providing access to the tag values
    */
-  private def createProviderFromBuffer(buf: Array[Byte]): ID3TagProvider =
+  private def createProviderFromBuffer(buf: Array[Byte]): MetaDataProvider =
     ID3v1TagProvider(title = extractString(buf, TitlePos, TitleLen),
       artist = extractString(buf, ArtistPos, ArtistLen),
       album = extractString(buf, AlbumPos, AlbumLen),
@@ -136,7 +137,7 @@ object ID3v1Extractor {
                                       artist: Option[String], album: Option[String],
                                       inceptionYearString: Option[String], trackNoString:
                                       Option[String])
-    extends ID3TagProvider
+    extends MetaDataProvider
 
 }
 
@@ -185,6 +186,6 @@ class ID3v1Extractor(private[mp3] val tailBuffer: TailBuffer) {
    * provider. Otherwise, result is ''None''.
    * @return an option for an ''ID3TagProvider''
    */
-  def createTagProvider(): Option[ID3TagProvider] =
+  def createTagProvider(): Option[MetaDataProvider] =
     providerFor(tailBuffer.tail())
 }

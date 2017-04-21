@@ -19,7 +19,8 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.archive.mp3.{ID3TagProvider, ID3v1Extractor}
+import de.oliver_heger.linedj.archive.mp3.ID3v1Extractor
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.ChannelHandler
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -54,7 +55,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
   it should "send results to the collector actor" in {
     val helper = new ID3v1FrameProcessorTestHelper
-    val provider = mock[ID3TagProvider]
+    val provider = mock[MetaDataProvider]
     when(helper.extractor.createTagProvider()).thenReturn(Some(provider))
 
     helper sendDirect MediaFileRead(TestPath)

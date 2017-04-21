@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import de.oliver_heger.linedj.archive.mp3.ID3TagProvider
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 object MetaDataID3Collector {
-  private def createCombinedProvider(providers: List[ProviderData]): ID3TagProvider = {
+  private def createCombinedProvider(providers: List[ProviderData]): MetaDataProvider = {
     val orderedProviders = providers sortWith(_.id3Version > _.id3Version) map(_.provider)
     new CombinedID3TagProvider(orderedProviders)
   }
@@ -31,7 +31,7 @@ object MetaDataID3Collector {
    * @param id3Version the version
    * @param provider the provider
    */
-  private case class ProviderData(id3Version: Int, provider: ID3TagProvider)
+  private case class ProviderData(id3Version: Int, provider: MetaDataProvider)
 
   /**
    * An internally used implementation of ''ID3TagProvider'' that is based on a
@@ -40,7 +40,7 @@ object MetaDataID3Collector {
    * class assumes that the list is ordered based on some criteria.
    * @param providers the list with the managed providers
    */
-  private class CombinedID3TagProvider(providers: List[ID3TagProvider]) extends ID3TagProvider {
+  private class CombinedID3TagProvider(providers: List[MetaDataProvider]) extends MetaDataProvider {
     override def title: Option[String] = property(_.title)
 
     override def inceptionYearString: Option[String] = property(_.inceptionYearString)
@@ -58,7 +58,7 @@ object MetaDataID3Collector {
      * @param p a function selecting a property
      * @return the value of the property selected by the function
      */
-    private def property(p: ID3TagProvider => Option[String]): Option[String] = {
+    private def property(p: MetaDataProvider => Option[String]): Option[String] = {
       val definingProvider = providers find (p(_).isDefined)
       definingProvider flatMap p
     }
@@ -74,7 +74,7 @@ object MetaDataID3Collector {
  * filling a [[MediaMetaData]] structure.
  *
  * To an instance of ''MetaDataID3Collector'' multiple
- * [[de.oliver_heger.linedj.archive.mp3.ID3TagProvider]] objects can be added, together
+ * [[MetaDataProvider]] objects can be added, together
  * with the ID3 version they stem from. From this information a combined
  * ''ID3TagProvider'' is created providing access to the accumulated data. If
  * there are multiple values for meta data from different ID3 frames, frames
@@ -96,7 +96,7 @@ private class MetaDataID3Collector {
    * @param provider the provider to be added
    * @return this object
    */
-  def addProvider(id3Version: Int, provider: ID3TagProvider): MetaDataID3Collector = {
+  def addProvider(id3Version: Int, provider: MetaDataProvider): MetaDataID3Collector = {
     providers = ProviderData(provider = provider, id3Version = id3Version) :: providers
     this
   }
@@ -106,7 +106,7 @@ private class MetaDataID3Collector {
    * providers that have been added so far to this object.
    * @return an ''ID3TagProvider'' with accumulated data
    */
-  def createCombinedID3TagProvider(): ID3TagProvider = {
+  def createCombinedID3TagProvider(): MetaDataProvider = {
     createCombinedProvider(providers)
   }
 }

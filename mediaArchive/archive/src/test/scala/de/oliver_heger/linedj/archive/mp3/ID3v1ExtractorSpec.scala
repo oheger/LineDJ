@@ -16,7 +16,9 @@
 package de.oliver_heger.linedj.archive.mp3
 
 import java.nio.file.{Files, Paths}
+
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.DynamicInputStream
 import org.mockito.Mockito._
@@ -133,7 +135,7 @@ class ID3v1ExtractorSpec extends FlatSpec with Matchers with MockitoSugar {
    * @param txt the text
    * @return the tag provider
    */
-  private def providerFromStringExtractionTest(txt: String): ID3TagProvider = {
+  private def providerFromStringExtractionTest(txt: String): MetaDataProvider = {
     val data = new Array[Byte](128)
     fillArray(data, "TAG")
     fillArray(data, txt, 3)

@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archive.metadata
 import java.nio.file.Paths
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3TagProvider}
+import de.oliver_heger.linedj.archive.mp3.ID3Header
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -26,7 +27,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataPartsCollectorSpec {
   /** Stub for an ID3 tag provider. */
-  private val ID3MetaData = new ID3TagProvider {
+  private val ID3MetaData = new MetaDataProvider {
     override val inceptionYearString = Some("1969")
 
     override val album = Some("Led Zeppelin II")

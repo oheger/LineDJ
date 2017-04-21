@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.mp3
+package de.oliver_heger.linedj.extract.metadata
 
 /**
- * Definition of a trait providing direct access to the most important ID3
- * tags.
+ * Definition of a trait providing direct access to the most important meta
+ * data tags for audio files.
  *
- * Through the interface defined here values for central ID3 tags can be
- * queried without having to respect a specific ID3 version. Because all tags
+ * Through the interface defined here values for central meta data can be
+ * queried without having to respect a specific version. Because all tags
  * may be absent the methods return ''Option'' objects.
  */
-trait ID3TagProvider {
+trait MetaDataProvider {
   /**
    * Returns the title of the song.
    * @return an option for the song title
