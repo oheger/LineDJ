@@ -67,7 +67,7 @@ lazy val LineDJ = (project in file("."))
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup)
+  archiveHttpStartup, metaDataExtract, id3Extract)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -79,8 +79,39 @@ lazy val shared = (project in file("shared"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-shared",
-    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*")
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
+    OsgiKeys.privatePackage := Seq.empty
   )
+
+/**
+  * A project with traits and classes dealing with the generic extraction of
+  * meta data from media files. There will be other projects that handle
+  * specific kinds of meta data, such as ID3 tags.
+  */
+lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-extract",
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
+    OsgiKeys.privatePackage := Seq.empty
+  ) dependsOn (shared % "compile->compile;test->test")
+
+/**
+  * A project with classes that can extract meta data from mp3 audio files.
+  * This functionality is required by multiple projects dealing with media
+  * files; hence, it is made available as a separate project.
+  */
+lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-archive-id3extract",
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
+    OsgiKeys.privatePackage := Seq.empty
+  ) dependsOn (shared % "compile->compile;test->test", metaDataExtract)
 
 /**
   * An utility project providing common functionality needed by multiple
