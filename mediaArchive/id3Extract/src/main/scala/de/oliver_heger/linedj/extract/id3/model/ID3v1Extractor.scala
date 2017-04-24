@@ -19,6 +19,15 @@ package de.oliver_heger.linedj.extract.id3.model
 import akka.util.ByteString
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 
+/**
+  * A class for extracting ID3 version 1 information from an audio file.
+  *
+  * ID3v1 data is stored as the last 128 bytes of an MP3 file (if it is
+  * available at all). This class provides a method for checking such a
+  * block of data and extracting ID3 information if available. The method
+  * assumes that the ID3v1 frame has already been obtained using a
+  * [[TailBuffer]] object.
+  */
 object ID3v1Extractor {
   /** Constant for the size of a binary buffer containing a valid ID3v1 frame. */
   val FrameSize = 128
@@ -62,10 +71,11 @@ object ID3v1Extractor {
     * can be queried from the returned provider object. Otherwise, result is
     * ''None''.
     *
-    * @param buf the buffer with the ID3v1 data
+    * @param tailBuffer the buffer with the ID3v1 data
     * @return an option of an ''ID3TagProvider'' for extracting tag information
     */
-  def providerFor(buf: ByteString): Option[MetaDataProvider] = {
+  def providerFor(tailBuffer: TailBuffer): Option[MetaDataProvider] = {
+    val buf = tailBuffer.tail()
     if (buf.startsWith("TAG") && buf.length == FrameSize)
       Some(createProviderFromBuffer(buf))
     else None
@@ -140,55 +150,4 @@ object ID3v1Extractor {
                                       Option[String])
     extends MetaDataProvider
 
-}
-
-/**
-  * A class for extracting ID3 version 1 information from an audio file.
-  *
-  * ID3v1 data is stored as the last 128 bytes of an MP3 file (if it is
-  * available at all). During extraction of audio meta data, the file is
-  * completely read. This class should be used in the same process without
-  * having to start another read operation. Therefore, usage of this class is as
-  * follows:
-  *
-  * An arbitrary number of data chunks of arbitrary size can be passed to the
-  * ''addData()'' method. For a typical audio file the majority of these chunks
-  * is simply ignored because only the last chunk is probably relevant. After
-  * all data has been read and passed to an ''ID3v1Extractor'' instance, the
-  * ''createTagProvider()'' method can be called. If a valid block with ID3v1
-  * data is found, a corresponding tag provider is returned.
-  *
-  * @param tailBuffer the tail buffer; this is used only for testing purposes
-  */
-class ID3v1Extractor(private[model] val tailBuffer: TailBuffer) {
-
-  import ID3v1Extractor._
-
-  /**
-    * Creates a new instance of ''ID3v1Extractor''.
-    */
-  def this() = this(new TailBuffer(128))
-
-  /**
-    * Adds a chunk of data to this object. This method can be called as often as
-    * necessary to specify the whole data to be processed. With the data
-    * accumulated here the final result is calculated.
-    *
-    * @param data the chunk of data to be added
-    * @return a reference to this object
-    */
-  def addData(data: ByteString): ID3v1Extractor = {
-    tailBuffer addData data
-    this
-  }
-
-  /**
-    * Tries to create a tag provider for the data added to this object. If a
-    * valid ID3v1 frame is found, information is extracted and returned in the
-    * provider. Otherwise, result is ''None''.
-    *
-    * @return an option for an ''ID3TagProvider''
-    */
-  def createTagProvider(): Option[MetaDataProvider] =
-    providerFor(tailBuffer.tail())
 }

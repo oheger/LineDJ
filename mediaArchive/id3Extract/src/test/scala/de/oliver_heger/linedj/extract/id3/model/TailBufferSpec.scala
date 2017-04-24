@@ -54,53 +54,45 @@ class TailBufferSpec extends FlatSpec with Matchers {
   import TailBufferSpec._
 
   "A TailBuffer" should "return an empty array if it contains no data" in {
-    val buffer = new TailBuffer(100)
+    val buffer = TailBuffer(100)
 
     buffer.tail() should have length 0
   }
 
   it should "return a smaller array for the last block if there is not enough data" in {
-    val buffer = new TailBuffer(16384)
     val data = ByteString(testBytes())
 
-    buffer.addData(data) should be(buffer)
+    val buffer = TailBuffer(16384).addData(data)
     buffer.tail() should be(data)
   }
 
   it should "drop data if a block is larger than the configured size" in {
-    val buffer = new TailBuffer(BufferSize)
+    val buffer = TailBuffer(BufferSize) addData testBytesString()
 
-    buffer addData testBytesString()
     buffer.tail() should be(TestTail)
   }
 
   it should "process multiple larger blocks correctly" in {
-    val blockSize = 2 * BufferSize
-    val mod = testBytes().length % blockSize
-    val buffer = new TailBuffer(BufferSize)
+    val buffer = TailBuffer(BufferSize, ByteString(testBytes().reverse))
 
-    for (block <- testBytes().drop(mod).grouped(blockSize)) {
-      buffer.addData(ByteString(block))
-    }
-    buffer.tail() should be(TestTail)
+    buffer.addData(ByteString(testBytes())).tail() should be(TestTail)
   }
 
   it should "process small blocks correctly as well" in {
     val blockSize = BufferSize / 3
-    val buffer = new TailBuffer(BufferSize)
+    var buffer =TailBuffer(BufferSize)
 
     for (block <- testBytes() grouped blockSize) {
-      buffer.addData(ByteString(block))
+      buffer = buffer.addData(ByteString(block))
     }
     buffer.tail() should be(TestTail)
   }
 
   it should "process small blocks after big blocks correctly" in {
-    val buffer = new TailBuffer(BufferSize)
+    var buffer = TailBuffer(BufferSize).addData(ByteString(testBytes().reverse))
 
-    buffer.addData(ByteString(testBytes().reverse))
     for (block <- testBytes() grouped 16) {
-      buffer.addData(ByteString(block))
+      buffer = buffer.addData(ByteString(block))
     }
     buffer.tail() should be(TestTail)
   }
@@ -108,10 +100,10 @@ class TailBufferSpec extends FlatSpec with Matchers {
   it should "remember parts of a big block when a small one arrives" in {
     val bytes = testBytes()
     val bigIndex = bytes.length - BufferSize + 2
-    val buffer = new TailBuffer(BufferSize)
+    var buffer = TailBuffer(BufferSize)
 
     for (block <- testBytes() grouped bigIndex) {
-      buffer.addData(ByteString(block))
+      buffer = buffer.addData(ByteString(block))
     }
     buffer.tail() should be(TestTail)
   }

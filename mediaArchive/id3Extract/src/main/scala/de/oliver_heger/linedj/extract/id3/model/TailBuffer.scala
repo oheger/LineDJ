@@ -28,52 +28,36 @@ import akka.util.ByteString
   * task of this class is to provide the last block of the given size after the
   * file has been processed.
   *
-  * Usage of this class is as follows: For each file to be processed a new
-  * instance is created with the block size past to the constructor. Then
-  * chunks of data can be added of arbitrary size by calling ''addData()''.
-  * When all chunks of data have been passed to the object the ''tail()''
-  * method returns the last chunk of the configured size. Note that this
-  * block may be smaller than configured if not enough data was added before.
+  * Usage of this class is as follows: Starting with an initial, empty
+  * instance, updated instances can be created by calling ''addData()''
+  * passing in chunks of arbitrary data. To obtain a trimmed result, the
+  * ''tail()'' method has to be invoked. Note that the resulting block may be
+  * smaller than configured if not enough data was added before.
   *
-  * Implementation note: This class is not thread-safe.
-  *
-  * @param size the size of the block to be collected by this object
+  * @param size   the size of the block to be collected by this object
+  * @param buffer the buffer with current data managed by this instance
   */
-private class TailBuffer(val size: Int) {
+case class TailBuffer(size: Int, buffer: ByteString = ByteString.empty) {
   /**
-    * A dynamic buffer for collecting results. This buffer is used if results
-    * smaller than the tail buffer size have to be dealt with.
-    */
-  private var buffer = ByteString.empty
-
-  /**
-    * Adds the given chunk of data. Information about the tail (i.e. the last
-    * block) is updated accordingly.
+    * Returns an updated instance of ''TailBuffer'' with the passed in block
+    * of data added to the internal state.
     *
     * @param data the block of data to be added
-    * @return this buffer
+    * @return the updated buffer
     */
-  def addData(data: ByteString): TailBuffer = {
-    if (data.length >= size) {
-      buffer = data
-    } else {
-      buffer = buffer.takeRight(size - data.length) ++ data
-    }
-    this
-  }
+  def addData(data: ByteString): TailBuffer =
+    copy(buffer = if (data.length >= size) data
+    else buffer.takeRight(size - data.length) ++ data)
 
   /**
-    * Returns the last chunk of the data processed so far of the configured
-    * size. If more data than the configured block size has been processed, the
-    * returned byte string will be of the expected size. Otherwise, it is
-    * smaller.
+    * Returns a trimmed ''ByteString'' for the last block of data for the
+    * configured buffer size. While the ''buffer'' property may contain more
+    * data, this method returns the correct tail buffer of the expected size
+    * (or a smaller one if the amount of data provided has been smaller than
+    * the configured size).
     *
     * @return a ''ByteString'' with the last block of data
     */
-  def tail(): ByteString = {
-    if (buffer.length > size) {
-      buffer = buffer takeRight size
-    }
-    buffer
-  }
+  def tail(): ByteString =
+    buffer takeRight size
 }
