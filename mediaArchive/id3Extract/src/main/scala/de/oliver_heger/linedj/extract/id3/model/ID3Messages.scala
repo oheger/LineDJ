@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.extract.id3.model
 
 import akka.util.ByteString
+import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 
 /**
   * A message containing data extracted from an ID3 frame to be processed.
@@ -44,3 +45,16 @@ case class ProcessID3FrameData(frameHeader: ID3Header, data: ByteString,
   * @param frameHeader the header of the affected ID3v2 frame
   */
 case class IncompleteID3Frame(frameHeader: ID3Header)
+
+/**
+  * A message with the meta data result extracted from an ID3v1 frame.
+  *
+  * A message of this type is generated when an MP3 file has been fully
+  * processed. If the file contained an ID3v1 frame at the end, it can be
+  * extracted and passed to the central collector actor. The meta data is
+  * represented by an [[MetaDataProvider]] object. If the audio file did not
+  * contain valid ID3v1 information, this may be undefined.
+  *
+  * @param metaData the ID3v1 meta data
+  */
+case class ID3v1MetaData(metaData: Option[MetaDataProvider])
