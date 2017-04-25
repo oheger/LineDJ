@@ -72,3 +72,42 @@ case class ID3FrameMetaData(header: ID3Header, metaData: Option[MetaDataProvider
   * @param metaData the ID3v1 meta data
   */
 case class ID3v1MetaData(metaData: Option[MetaDataProvider])
+
+/**
+  * A message containing a chunk of data from an MP3 audio file.
+  *
+  * In order to extract some meta data (like length or ID3v1 data) from an MP3
+  * audio file, the file has to be fully read. A message of this type is sent
+  * for each chunk of data. It is then dispatched to all actors that need this
+  * information in order to do specific processing.
+  *
+  * @param data a ''ByteString'' containing the chunk of data
+  */
+case class ProcessMp3Data(data: ByteString)
+
+/**
+  * A message with meta data extracted from an MP3 audio file.
+  *
+  * A message of this type is generated and passed to the meta data collector
+  * actor after an MP3 audio file has been read completely. It contains all the
+  * results accumulated during file processing.
+  *
+  * @param version        the MPEG version
+  * @param layer          the audio layer version
+  * @param sampleRate     the sample rate (in samples per second)
+  * @param minimumBitRat  the minimum bit rate (in bps)
+  * @param maximumBitRate the maximum bit rate (in bps)
+  * @param duration       the duration (rounded, in milliseconds)
+  */
+case class Mp3MetaData(version: Int, layer: Int, sampleRate: Int, minimumBitRat: Int,
+                       maximumBitRate: Int, duration: Int)
+
+/**
+  * A message requesting MP3 meta data to be sent.
+  *
+  * This message is sent to the actor which processes MP3 frames and calculates
+  * aggregated results when an audio file has been read completely. As a
+  * response, the actor sends the currently aggregated meta data back to the
+  * sender.
+  */
+case object Mp3MetaDataRequest
