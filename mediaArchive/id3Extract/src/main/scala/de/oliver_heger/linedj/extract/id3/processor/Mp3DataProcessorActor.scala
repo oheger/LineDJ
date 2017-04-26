@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.extract.id3.model.{Mp3DataExtractor, Mp3MetaData,
-Mp3MetaDataRequest, ProcessMp3Data}
+import de.oliver_heger.linedj.extract.id3.model._
 
 /**
   * An actor for processing MP3 data in order to extract meta data.
@@ -38,6 +37,7 @@ class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) 
   override def receive: Receive = {
     case ProcessMp3Data(data) =>
       extractor addData data
+      sender ! Mp3DataProcessed
 
     case Mp3MetaDataRequest =>
       sender ! createMetaData()

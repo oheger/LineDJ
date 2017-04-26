@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.ByteString
-import de.oliver_heger.linedj.extract.id3.model.{Mp3DataExtractor, Mp3MetaData,
-Mp3MetaDataRequest, ProcessMp3Data}
+import de.oliver_heger.linedj.extract.id3.model._
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -68,8 +67,9 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val data = generateChunk()
     val helper = new Mp3DataProcessorTestHelper
 
-    helper.sendMessage(ProcessMp3Data(data))
-      .verifyExtractorFilled(data)
+    helper.postMessage(ProcessMp3Data(data))
+    expectMsg(Mp3DataProcessed)
+    helper.verifyExtractorFilled(data)
   }
 
   it should "pass results to the collector when the file has been fully read" in {
@@ -91,18 +91,6 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     /** The test actor reference. */
     private val actor: TestActorRef[Mp3DataProcessorActor] = createTestActor()
-
-    /**
-      * Convenience method for sending a message directly to the test actor.
-      * The receive method is directly invoked.
-      *
-      * @param msg the message to be sent
-      * @return this test helper
-      */
-    def sendMessage(msg: Any): Mp3DataProcessorTestHelper = {
-      actor receive msg
-      this
-    }
 
     /**
       * Sends the specified message to the test actor using the ''tell''
