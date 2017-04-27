@@ -67,6 +67,19 @@ case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
 case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: String,
                                     metaData: MediaMetaData)
 
+/**
+  * A message indicating a failure during a meta data extraction operation.
+  *
+  * Messages of this type are produced when no meta data can be extracted from
+  * a specific file. This normally means that the file is corrupt.
+  *
+  * @param path      the path to the media file
+  * @param mediumID  the ID of the medium this file belongs to
+  * @param uri       the URI of the file
+  * @param exception the exception which is the cause of the failure
+  */
+case class MetaDataProcessingError(path: String, mediumID: MediumID, uri: String,
+                                   exception: Throwable)
 
 /**
   * A message processed by ''MetaDataUnionActor'' telling it that a component
