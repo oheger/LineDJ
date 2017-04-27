@@ -20,7 +20,7 @@ import akka.actor.ActorRef
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.util.ByteString
-import de.oliver_heger.linedj.extract.id3.model.{ID3v1Extractor, ID3v1MetaData, TailBuffer}
+import de.oliver_heger.linedj.extract.id3.model.{ID3v1Extractor, TailBuffer}
 
 /**
   * A specialized processing stage for extracting ID3v1 tag information from
@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.extract.id3.model.{ID3v1Extractor, ID3v1MetaData, 
   * extracts the last 128 bytes block of the file, which may contain and ID3
   * version 1 frame. This data is passed to an extractor. The result of the
   * extraction operation is then passed to a processor actor as an
-  * [[de.oliver_heger.linedj.extract.id3.model.ID3v1MetaData]] message. Note
+  * [[de.oliver_heger.linedj.extract.id3.processor.ID3v1MetaData]] message. Note
   * that messages of this type are always sent, even if no valid ID3v1 data
   * was found.
   *

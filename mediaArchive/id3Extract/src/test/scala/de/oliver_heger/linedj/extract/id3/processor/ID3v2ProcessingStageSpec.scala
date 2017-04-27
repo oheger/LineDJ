@@ -24,8 +24,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
-import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header,
-IncompleteID3Frame, ProcessID3FrameData}
+import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStageSpec.FetchFrameData
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}

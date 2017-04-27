@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import de.oliver_heger.linedj.extract.id3.model.{ID3FrameMetaData, Mp3MetaData}
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData

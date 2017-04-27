@@ -20,8 +20,7 @@ import akka.actor.ActorRef
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
-import de.oliver_heger.linedj.extract.id3.model.{ID3Header, ID3HeaderExtractor,
-IncompleteID3Frame, ProcessID3FrameData}
+import de.oliver_heger.linedj.extract.id3.model.{ID3Header, ID3HeaderExtractor}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage.{ChunkProcessingResult,
 ProcessingState, ProcessingStateFrameSearch}
 

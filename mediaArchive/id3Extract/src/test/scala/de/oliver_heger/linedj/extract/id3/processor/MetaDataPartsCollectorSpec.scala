@@ -17,7 +17,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.extract.id3.model.{ID3FrameMetaData, ID3Header, Mp3MetaData}
+import de.oliver_heger.linedj.extract.id3.model.ID3Header
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
