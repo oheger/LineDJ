@@ -65,7 +65,29 @@ case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
   * @param metaData an object with the meta data that could be extracted
   */
 case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: String,
-                                    metaData: MediaMetaData)
+                                    metaData: MediaMetaData) {
+  /**
+    * Returns a new instance of ''MetaDataProcessingResult'' with the same
+    * properties as this instance, but with updated meta data.
+    *
+    * @param metaData the new meta data
+    * @return the updated instance
+    */
+  def withMetaData(metaData: MediaMetaData): MetaDataProcessingResult =
+    copy(metaData = metaData)
+
+  /**
+    * Converts this result into an error result using the specified exception
+    * as cause. This is useful when during processing of an MP3 file an
+    * error occurs.
+    *
+    * @param exception the exception causing the error
+    * @return the transformed error result
+    */
+  def toError(exception: Throwable): MetaDataProcessingError =
+    MetaDataProcessingError(path = path, uri = uri, mediumID = mediumID,
+      exception = exception)
+}
 
 /**
   * A message indicating a failure during a meta data extraction operation.
@@ -80,6 +102,19 @@ case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: Strin
   */
 case class MetaDataProcessingError(path: String, mediumID: MediumID, uri: String,
                                    exception: Throwable)
+
+/**
+  * A message serving as a request to process a meta data file.
+  *
+  * To identify the file, a number of properties are needed - a path, a URI, a
+  * medium ID. This information is provided in form of a result object with
+  * undefined meta data - a result template. The actor processing this message
+  * can use this template to generate the final processing result.
+  *
+  * @param fileData       an object describing the file to be processed
+  * @param resultTemplate a template for the expected result
+  */
+case class ProcessMetaDataFile(fileData: FileData, resultTemplate: MetaDataProcessingResult)
 
 /**
   * A message processed by ''MetaDataUnionActor'' telling it that a component
