@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivecommon.stream
 
 import akka.stream.KillSwitch
 
