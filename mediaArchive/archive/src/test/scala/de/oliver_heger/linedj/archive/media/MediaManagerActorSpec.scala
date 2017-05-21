@@ -113,8 +113,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "create default helper objects" in {
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
       testActor, TestProbe().ref))
-    manager.underlyingActor.directoryScanner shouldBe a[MediaScanner]
-    manager.underlyingActor.directoryScanner.excludedExtensions should be(ExcludedExtensions)
     manager.underlyingActor.idCalculator shouldBe a[MediumIDCalculator]
     manager.underlyingActor.mediumInfoParser shouldBe a[MediumInfoParser]
   }
@@ -131,8 +129,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
 
     val exitProbe = TestProbe()
-    for {cls <- List[Class[_]](classOf[MediaScannerActor], classOf[MediumIDCalculatorActor],
-      classOf[MediumInfoParserActor])
+    for {cls <- List[Class[_]](classOf[MediumIDCalculatorActor], classOf[MediumInfoParserActor])
          probe <- helper.probesOfActorClass(cls)} {
       exitProbe watch probe.ref
       exitProbe.expectMsgType[Terminated]
@@ -557,6 +554,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.testManagerActor ! CloseRequest
     helper.numberOfCloseRequests should be(1)
+    helper.mediaScannerProbe.expectMsg(MediaScannerActor.CancelScans)
   }
 
   it should "handle a close complete message" in {
@@ -1023,16 +1021,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       probes.getOrElse(actorClass, Nil)
 
     /**
-      * Resets the map with test probes. Note: The file loader actor has to be
-      * treated in a special way because it is created in preStart(); so it is
-      * not created again on a second run.
+      * Returns the test probe for the media scanner actor.
+      *
+      * @return the probe for the media scanner actor
+      */
+    def mediaScannerProbe: TestProbe = probesOfType[MediaScannerActor].head
+
+    /**
+      * Resets the map with test probes. Note: Some actors have to be
+      * treated in a special way because they are created in preStart(); they
+      * must not be created again for a 2nd run.
       * @return this test helper
       */
     def resetProbes(): MediaManagerTestHelper = {
-      val fileLoaderActorCls = FileLoaderActor().actorClass()
-      val loaderActorData = probes(fileLoaderActorCls)
+      val reusedClasses = List(FileLoaderActor().actorClass(), ClsDirScanner)
+      val reusedData = reusedClasses map probes
       probes = createTestProbesMap()
-      probes += fileLoaderActorCls -> loaderActorData
+      reusedClasses.zip(reusedData).foreach(t => probes += t._1 -> t._2)
       this
     }
 
@@ -1085,7 +1090,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def expectedArgForActorClass(props: Props): Iterable[Any] =
       props.actorClass() match {
         case MediaManagerActorSpec.ClsDirScanner =>
-          Some(testManagerActor.underlyingActor.directoryScanner)
+          Some(ExcludedExtensions)
 
         case MediaManagerActorSpec.ClsIDCalculator =>
           Some(testManagerActor.underlyingActor.idCalculator)
@@ -1105,10 +1110,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * are expected, and corresponding responses are generated.
      */
     def simulateCollaboratingActors(): Unit = {
-      simulateCollaboratingActorsOfType[MediaScannerActor.ScanPath] (classOf[MediaScannerActor])
+      simulateMediaScannerActor()
       simulateCollaboratingActorsOfType[MediumIDCalculatorActor.CalculateMediumID] (classOf[MediumIDCalculatorActor])
       simulateFileLoaderActor()
       simulateCollaboratingActorsOfType[MediumInfoParserActor.ParseMediumInfo] (classOf[MediumInfoParserActor])
+    }
+
+    /**
+      * Simulates the communication with the media scanner actor. There is
+      * only a single actor instance handling all scan requests.
+      */
+    private def simulateMediaScannerActor(): Unit = {
+      val NumberOfMessages = 3
+      simulateCollaboratingActorForMultiMessages[MediaScannerActor.ScanPath](ClsDirScanner,
+        NumberOfMessages)
     }
 
     /**
@@ -1119,8 +1134,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def simulateFileLoaderActor(): Unit = {
       val NumberOfMessages = 3
-      for (_ <- 1 to NumberOfMessages) {
-        simulateCollaboratingActorsOfType[FileLoaderActor.LoadFile](ClsFileLoaderActor)
+      simulateCollaboratingActorForMultiMessages[FileLoaderActor.LoadFile](ClsFileLoaderActor,
+        NumberOfMessages)
+    }
+
+    /**
+      * Simulates the communication with a collaborating actor for which only
+      * one instance exists which has to be invoked with multiple messages.
+      *
+      * @param actorCls the actor class
+      * @param count    the number of expected messages
+      * @param t        the class tag for the message type
+      * @tparam T the message type
+      */
+    private def simulateCollaboratingActorForMultiMessages[T](actorCls: Class[_], count: Int)
+                                                             (implicit t: ClassTag[T]) {
+      for (_ <- 1 to count) {
+        simulateCollaboratingActorsOfType[T](actorCls)
       }
     }
 

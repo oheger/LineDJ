@@ -149,9 +149,6 @@ Actor with ActorLogging {
   /** The extractor for ID3 information. */
   val id3Extractor = new ID3HeaderExtractor
 
-  /** A helper object for scanning directory structures. */
-  private[media] val directoryScanner = new MediaScanner(config.excludedFileExtensions)
-
   /** A helper object for calculating media IDs. */
   private[media] val idCalculator = new MediumIDCalculator
 
@@ -160,6 +157,9 @@ Actor with ActorLogging {
 
   /** The actor for loading files. */
   private var loaderActor: ActorRef = _
+
+  /** The actor for scanning media directory structures. */
+  private var mediaScannerActor: ActorRef = _
 
   /** The map with the media currently available. */
   private var mediaMap = Map.empty[MediumID, MediumInfo]
@@ -253,6 +253,8 @@ Actor with ActorLogging {
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     loaderActor = createChildActor(FileLoaderActor())
+    mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
+      config.excludedFileExtensions))
     readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
       config.readerCheckInterval, self, CheckReaderTimeout))
   }
@@ -272,14 +274,13 @@ Actor with ActorLogging {
 
     case scanResult: MediaScanResult =>
       processScanResult(scanResult)
-      context unwatch sender()
-      stopSender()
 
     case FileContent(path, content) =>
       processMediumDescription(path, content)
 
     case idData: MediumIDData =>
       processIDData(idData)
+      stopSender()
 
     case setData: MediumInfo =>
       storeSettingsData(setData)
@@ -310,6 +311,7 @@ Actor with ActorLogging {
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
+      mediaScannerActor ! MediaScannerActor.CancelScans
       pendingMessages = Nil
 
     case CloseComplete =>
@@ -336,7 +338,6 @@ Actor with ActorLogging {
       createAndStoreMediumInfo(idData.mediumID)
     }
     mediaFiles += idData.mediumID -> idData.fileURIMapping
-    stopSender()
   }
 
   /**
@@ -451,10 +452,7 @@ Actor with ActorLogging {
   private def scanMediaRoots(roots: Iterable[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
-      val dirScannerActor = createChildActor(Props(classOf[MediaScannerActor],
-        directoryScanner))
-      context watch dirScannerActor
-      dirScannerActor ! MediaScannerActor.ScanPath(Paths.get(root))
+      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root))
     }
     mediaDataAdded()
   }
@@ -637,9 +635,7 @@ Actor with ActorLogging {
     * actor is affected by this message. If it is a reader actor, then a
     * download operation is finished, and some cleanup has to be done. It can
     * also be the client actor of a read operation; then all reader actors
-    * related to this client can be canceled. Otherwise, this message
-    * indicates that a directory scanner actor threw an exception. In this
-    * case, the corresponding directory structure is excluded/ignored.
+    * related to this client can be canceled.
     *
     * @param actor the affected actor
     */
@@ -649,9 +645,6 @@ Actor with ActorLogging {
     } else {
       val readerActors = readerActorMapping.findReadersForClient(actor)
       readerActors foreach context.stop
-      if (readerActors.isEmpty) {
-        handleScannerError()
-      }
     }
   }
 
@@ -673,15 +666,6 @@ Actor with ActorLogging {
         context unwatch c
       }
     }
-  }
-
-  /**
-   * Handles a terminated message caused by a directory scanner that has
-   * thrown an exception.
-   */
-  private def handleScannerError(): Unit = {
-    log.warning("Received Terminated message.")
-    incrementScannedPaths()
   }
 
   /**
