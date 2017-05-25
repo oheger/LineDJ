@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream._
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.impl.HttpArchiveContentProcessorActor.RemoveKillSwitch
@@ -75,7 +76,7 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging
           self ! RemoveKillSwitch(killSwitchID)
       }
 
-    case CancelProcessing =>
+    case CancelStreams =>
       cancelCurrentStreams()
 
     case RemoveKillSwitch(killSwitchID) =>

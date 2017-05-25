@@ -39,7 +39,6 @@ object MetaDataResponseProcessingActor {
   */
 class MetaDataResponseProcessingActor
   extends AbstractResponseProcessingActor(MetaDataResponseProcessingActor.FileType) {
-  import context.dispatcher
 
   /**
     * @inheritdoc This implementation processes the content of a meta data

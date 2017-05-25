@@ -158,10 +158,3 @@ case class MetaDataResponseProcessingResult(mediumID: MediumID,
   * @param seqNo      the sequence number of the current scan operation
   */
 case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo, seqNo: Int)
-
-/**
-  * A message to be processed by several actors loading data from the HTTP
-  * archive that tells them to stop the ongoing operation. This message is
-  * used to implement cancellation logic.
-  */
-case object CancelProcessing

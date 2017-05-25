@@ -22,6 +22,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -177,7 +178,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
 
     actor ! ProcessResponse(TestMediumID, Try(createResponse(responseData)),
       DefaultArchiveConfig, SeqNo)
-    actor ! CancelProcessing
+    actor ! CancelStreams
     expectMsgType[MetaDataResponseProcessingResult]
   }
 
@@ -195,7 +196,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
       SeqNo)
     expectMsg(Result)
 
-    actor receive CancelProcessing
+    actor receive CancelStreams
     verify(killSwitch, never()).shutdown()
   }
 }

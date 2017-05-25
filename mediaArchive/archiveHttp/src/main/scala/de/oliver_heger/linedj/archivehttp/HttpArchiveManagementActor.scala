@@ -26,6 +26,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, ParserStage}
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -176,9 +177,9 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
       completeScanOperation()
 
     case CloseRequest =>
-      archiveContentProcessor ! CancelProcessing
-      mediumInfoProcessor ! CancelProcessing
-      metaDataProcessor ! CancelProcessing
+      archiveContentProcessor ! CancelStreams
+      mediumInfoProcessor ! CancelStreams
+      metaDataProcessor ! CancelStreams
       sender ! CloseAck(self)
       completeScanOperation()
   }

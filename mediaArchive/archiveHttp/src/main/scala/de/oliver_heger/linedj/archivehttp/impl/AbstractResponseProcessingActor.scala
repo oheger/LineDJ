@@ -16,14 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.ActorRef
 import akka.http.scaladsl.model.HttpResponse
+import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
-import akka.stream.{ActorMaterializer, KillSwitch}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
+import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.AbstractResponseProcessingActor.StreamCompleted
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
@@ -58,23 +57,12 @@ object AbstractResponseProcessingActor {
   * @param fileType a name for the file type processed by this actor; this is
   *                 used when generating error messages
   */
-abstract class AbstractResponseProcessingActor(val fileType: String) extends Actor
-  with CancelableStreamSupport {
-  /** The object for stream materialization. */
-  protected implicit val mat = ActorMaterializer()
+abstract class AbstractResponseProcessingActor(val fileType: String)
+  extends AbstractStreamProcessingActor with CancelableStreamSupport {
 
-  import context.dispatcher
-
-  override def receive: Receive = {
+  override def customReceive: Receive = {
     case ProcessResponse(mid, triedResponse, config, seqNo) =>
       handleHttpResponse(mid, triedResponse, config, seqNo)
-
-    case CancelProcessing =>
-      cancelCurrentStreams()
-
-    case StreamCompleted(client, result, killSwitchID) =>
-      client ! result
-      unregisterKillSwitch(killSwitchID)
   }
 
   /**
@@ -123,12 +111,10 @@ abstract class AbstractResponseProcessingActor(val fileType: String) extends Act
     triedResponse match {
       case Success(response) =>
         if (response.status.isSuccess()) {
-          val client = sender()
           val (futureStream, killSwitch) = processSource(
             createResponseDataSource(mid, response, config), mid, seqNo)
-          val killSwitchID = registerKillSwitch(killSwitch)
-          futureStream.onComplete { triedResult =>
-            handleStreamCompletion(mid, client, killSwitchID, triedResult)
+          processStreamResult(futureStream, killSwitch) { f =>
+            ResponseProcessingError(mid, fileType, f.exception)
           }
         } else {
           sender() ! ResponseProcessingError(mid, fileType,
@@ -137,27 +123,5 @@ abstract class AbstractResponseProcessingActor(val fileType: String) extends Act
       case Failure(exception) =>
         sender() ! ResponseProcessingError(mid, fileType, exception)
     }
-  }
-
-  /**
-    * Handles the result when a stream completes. This method produces either
-    * a success or an error result. A special message is sent to ''self'',
-    * so that the result can be evaluated by the actor and cleanup for the
-    * completed stream can be done.
-    *
-    * @param mid          the medium ID
-    * @param client       the client actor
-    * @param killSwitchID the ID of the kill switch of the stream
-    * @param triedResult  the result of stream processing
-    */
-  private def handleStreamCompletion(mid: MediumID, client: ActorRef, killSwitchID: Int,
-                                     triedResult: Try[Any]): Unit = {
-    val procResult = triedResult match {
-      case Success(result) =>
-        result
-      case Failure(exception) =>
-        ResponseProcessingError(mid, fileType, exception)
-    }
-    self ! StreamCompleted(client, procResult, killSwitchID)
   }
 }

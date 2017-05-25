@@ -24,6 +24,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
@@ -270,7 +271,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val actor = system.actorOf(Props[HttpArchiveContentProcessorActor])
 
     actor ! helper.createProcessArchiveRequest(source, mapping)
-    actor ! CancelProcessing
+    actor ! CancelStreams
     helper.fishForProcessingComplete()
   }
 
@@ -287,7 +288,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     actor ! helper.createProcessArchiveRequest(Source(descriptions), mapping)
     helper.fishForProcessingComplete()
 
-    actor receive CancelProcessing
+    actor receive CancelStreams
     verify(killSwitch, never()).shutdown()
   }
 
@@ -373,7 +374,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       */
     def fishForProcessingComplete(): ContentProcessorActorTestHelper = {
       manager.fishForMessage() {
-        case r: TestProcessingResult => false
+        case _: TestProcessingResult => false
         case HttpArchiveProcessingComplete(SeqNo) => true
       }
       this

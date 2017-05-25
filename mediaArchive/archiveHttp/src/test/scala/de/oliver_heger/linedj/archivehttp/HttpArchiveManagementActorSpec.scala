@@ -24,6 +24,7 @@ import akka.stream.scaladsl.Flow
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -418,9 +419,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     helper post CloseRequest
     expectMsg(CloseAck(helper.manager))
-    helper.probeContentProcessor.expectMsg(CancelProcessing)
-    helper.probeMediumInfoProcessor.expectMsg(CancelProcessing)
-    helper.probeMetaDataProcessor.expectMsg(CancelProcessing)
+    helper.probeContentProcessor.expectMsg(CancelStreams)
+    helper.probeMediumInfoProcessor.expectMsg(CancelStreams)
+    helper.probeMetaDataProcessor.expectMsg(CancelStreams)
   }
 
   it should "correctly complete the current scan when it is canceled" in {
@@ -431,7 +432,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.sendMessages(infoResults).sendMessages(metaResults)
       .post(CloseRequest)
     expectMsgType[CloseAck]
-    helper.probeContentProcessor.expectMsg(CancelProcessing)
+    helper.probeContentProcessor.expectMsg(CancelStreams)
 
     val request2 = helper.triggerScan().expectProcessingRequest()
     helper.sendProcessingComplete(request2.seqNo)
