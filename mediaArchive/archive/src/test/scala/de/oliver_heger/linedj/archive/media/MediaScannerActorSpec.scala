@@ -8,7 +8,8 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.media.MediaScannerActor.{CancelScans, ScanPath}
+import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
@@ -291,7 +292,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val scanActor = createActorForSource(source)
     scanActor ! ScanPath(RootPath)
 
-    scanActor ! CancelScans
+    scanActor ! CancelStreams
     val result = expectMsgType[MediaScanResult]
     val expectedFiles = files.filterNot(_.path.endsWith(".settings"))
     val allFiles = result.mediaFiles.values.flatten.toList
@@ -317,7 +318,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }))
 
     scan(scanActor)
-    scanActor ! CancelScans
+    scanActor ! CancelStreams
     scan(scanActor)
     verify(refKillSwitch.get(), never()).shutdown()
   }

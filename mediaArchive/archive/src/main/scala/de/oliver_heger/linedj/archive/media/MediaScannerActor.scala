@@ -18,15 +18,14 @@ package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.{Files, Path, Paths}
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.ActorLogging
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, KillSwitch, KillSwitches}
-import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
+import akka.stream.{KillSwitch, KillSwitches}
+import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{DirectoryStreamSource, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 /**
   * Companion object.
@@ -132,18 +131,6 @@ object MediaScannerActor {
     path.startsWith(prefix) && path.lastIndexOf(FileSeparator) > prefixLen
 
   /**
-    * An internal message generated when a stream has been processed. The
-    * result then has to be sent to the calling actor, and some internal state
-    * has to be updated.
-    *
-    * @param client the client actor
-    * @param result the result to be propagated
-    * @param ksID   the ID of the kill switch
-    */
-  private case class PropagateResult(client: ActorRef, result: MediaScanResult,
-                                     ksID: Int)
-
-  /**
     * A message received by ''DirectoryScannerActor'' telling it to scan a
     * specific directory for media files. When the scan is done, an object of
     * type [[MediaScanResult]] is sent back.
@@ -151,12 +138,6 @@ object MediaScannerActor {
     * @param path the path to be scanned
     */
   case class ScanPath(path: Path)
-
-  /**
-    * A message telling the [[MediaScannerActor]] to cancel all ongoing scan
-    * operations. Currently active streams are stopped.
-    */
-  case object CancelScans
 
 }
 
@@ -169,31 +150,20 @@ object MediaScannerActor {
   * filter) a [[MediaScanResult]] is generated and sent back to the caller.
   *
   * All ongoing scan operations can be canceled by sending the actor a
-  * ''CancelScans'' message. The actor does not sent a response on this
+  * ''CancelStreams'' message. The actor does not send a response on this
   * message, but for all ongoing scan operations result messages are generated
   * (with the files encountered until the operation was canceled).
   *
   * @param exclusions the set of file extensions to exclude
   */
-class MediaScannerActor(exclusions: Set[String]) extends Actor with ActorLogging with
-  CancelableStreamSupport {
+class MediaScannerActor(exclusions: Set[String]) extends AbstractStreamProcessingActor
+  with ActorLogging with CancelableStreamSupport {
 
   import MediaScannerActor._
 
-  /** The object to materialize streams. */
-  private implicit val mat = ActorMaterializer()
-
-  override def receive: Receive = {
+  override def customReceive: Receive = {
     case ScanPath(path) =>
       handleScanRequest(path)
-
-    case CancelScans =>
-      log.info("Canceling current streams.")
-      cancelCurrentStreams()
-
-    case PropagateResult(client, result, ksID) =>
-      client ! result
-      unregisterKillSwitch(ksID)
   }
 
   /**
@@ -202,20 +172,11 @@ class MediaScannerActor(exclusions: Set[String]) extends Actor with ActorLogging
     * @param path the path to be scanned
     */
   private def handleScanRequest(path: Path): Unit = {
-    import context.dispatcher
-    val client = sender()
     val source = createSource(path)
     val (ks, futStream) = runStream(source)
-    val ksID = registerKillSwitch(ks)
-    futStream.map(createScanResult(path, _)) onComplete { triedRes =>
-      val result = triedRes match {
-        case Success(res) =>
-          res
-        case Failure(exception) =>
-          log.error(exception, "Ignoring media path " + path)
-          MediaScanResult(path, Map.empty)
-      }
-      self ! PropagateResult(client, result, ksID)
+    processStreamResult(futStream.map(createScanResult(path, _)), ks) { f =>
+      log.error(f.exception, "Ignoring media path " + path)
+      MediaScanResult(path, Map.empty)
     }
     log.info("Started scan operation for " + path)
   }

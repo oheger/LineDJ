@@ -11,6 +11,7 @@ import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
@@ -554,7 +555,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.testManagerActor ! CloseRequest
     helper.numberOfCloseRequests should be(1)
-    helper.mediaScannerProbe.expectMsg(MediaScannerActor.CancelScans)
+    helper.mediaScannerProbe.expectMsg(AbstractStreamProcessingActor.CancelStreams)
   }
 
   it should "handle a close complete message" in {

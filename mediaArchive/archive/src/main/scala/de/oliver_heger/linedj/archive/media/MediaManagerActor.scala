@@ -24,6 +24,7 @@ import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
+import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io._
@@ -311,7 +312,7 @@ Actor with ActorLogging {
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
-      mediaScannerActor ! MediaScannerActor.CancelScans
+      mediaScannerActor ! AbstractStreamProcessingActor.CancelStreams
       pendingMessages = Nil
 
     case CloseComplete =>
