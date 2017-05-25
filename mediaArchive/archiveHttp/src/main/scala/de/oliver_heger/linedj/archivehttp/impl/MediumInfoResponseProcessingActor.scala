@@ -24,6 +24,11 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
 
+object MediumInfoResponseProcessingActor {
+  /** Constant for the file type processed by this actor. */
+  val FileType = "MediumInfo"
+}
+
 /**
   * An actor class for processing responses for medium info files (aka
   * playlist settings).
@@ -39,7 +44,7 @@ import scala.concurrent.Future
   * @param infoParser the parser for medium info files
   */
 class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
-  extends AbstractResponseProcessingActor(null) {
+  extends AbstractResponseProcessingActor(MediumInfoResponseProcessingActor.FileType) {
   /**
     * Default constructor. This constructor creates an instance with a default
     * [[MediumInfoParser]] object.
@@ -47,8 +52,6 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     * @return the new instance
     */
   def this() = this(new MediumInfoParser)
-
-  import context.dispatcher
 
   /**
     * @inheritdoc This implementation reads the full content of the source and

@@ -136,6 +136,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID)))
       .thenThrow(exception)
     val actor = createActor(parser)
+    actor.underlyingActor.fileType should be(MediumInfoResponseProcessingActor.FileType)
 
     val (futureStream, _) = invoke(actor)
     intercept[IllegalStateException] {
