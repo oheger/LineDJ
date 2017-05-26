@@ -861,13 +861,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       FileLoaderActor.LoadFile(Medium2Desc) -> FileLoaderActor.FileContent(Medium2Desc,
         Medium2BinaryDesc),
       FileLoaderActor.LoadFile(Medium3Desc) -> FileLoaderActor.FileContent(Medium3Desc,
-        Medium3BinaryDesc),
-      MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumID) ->
-        Medium1SettingsData.copy(checksum = ""),
-      MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumID) ->
-        Medium2SettingsData.copy(checksum = ""),
-      MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumID) ->
-        Medium3SettingsData.copy(checksum = ""))
+        Medium3BinaryDesc))
+      //TODO correct messages for the medium info parser actor
+//      MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumID) ->
+//        Medium1SettingsData.copy(checksum = ""),
+//      MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumID) ->
+//        Medium2SettingsData.copy(checksum = ""),
+//      MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumID) ->
+//        Medium3SettingsData.copy(checksum = ""))
 
     /**
      * A map for storing actors created by the test child actor factory. Each

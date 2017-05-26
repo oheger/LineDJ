@@ -500,7 +500,8 @@ Actor with ActorLogging {
   private def processMediumDescription(path: Path, content: Array[Byte]): Unit = {
     findMediumIDForDescriptionPath(path) foreach { id =>
       val parserActor = createChildActor(Props(classOf[MediumInfoParserActor], mediumInfoParser))
-      parserActor ! MediumInfoParserActor.ParseMediumInfo(content, id)
+      //TODO produce correct message
+      parserActor ! MediumInfoParserActor.ParseMediumInfo(null, id, 0)
     }
   }
 
