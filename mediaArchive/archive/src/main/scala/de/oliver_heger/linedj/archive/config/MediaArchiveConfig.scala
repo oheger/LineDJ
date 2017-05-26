@@ -42,6 +42,9 @@ object MediaArchiveConfig {
   /** The configuration property for the interval for reader timeout checks. */
   private val PropReaderCheckInterval = "readerCheckInterval"
 
+  /** The configuration property for the info size restriction. */
+  private val PropInfoSizeLimit = "infoSizeLimit"
+
   /** The configuration property for the excluded file extensions. */
   private val PropExcludedExtensions = "excludedExtensions"
 
@@ -92,7 +95,8 @@ object MediaArchiveConfig {
     PropExcludedExtensions, PropMetaDataReadChunkSize, PropTagSizeLimit,
     PropMetaDataUpdateChunkSize, PropMetaDataMaxMessageSize,
     PropMetaDataPersistencePath, PropMetaDataPersistenceChunkSize,
-    PropMetaDataPersistenceParallelCount, PropMetaDataPersistenceWriteBlockSize)
+    PropMetaDataPersistenceParallelCount, PropMetaDataPersistenceWriteBlockSize,
+    PropInfoSizeLimit)
 
   /** The map with keys used by TypeSafe Configuration. */
   private val TKeys = keyMapping(TConfigPrefix)
@@ -113,6 +117,7 @@ object MediaArchiveConfig {
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
     metaDataReadChunkSize = config getInt TKeys(PropMetaDataReadChunkSize),
     tagSizeLimit = config getInt TKeys(PropTagSizeLimit),
+    infoSizeLimit = config getInt TKeys(PropInfoSizeLimit),
     metaDataUpdateChunkSize = config getInt TKeys(PropMetaDataUpdateChunkSize),
     initMetaDataMaxMsgSize = config getInt TKeys(PropMetaDataMaxMessageSize),
     metaDataPersistencePath = Paths.get(config getString TKeys(PropMetaDataPersistencePath)),
@@ -134,6 +139,7 @@ object MediaArchiveConfig {
     readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
     metaDataReadChunkSize = config getInt CKeys(PropMetaDataReadChunkSize),
+    infoSizeLimit = config getInt CKeys(PropInfoSizeLimit),
     tagSizeLimit = config getInt CKeys(PropTagSizeLimit),
     metaDataUpdateChunkSize = config getInt CKeys(PropMetaDataUpdateChunkSize),
     initMetaDataMaxMsgSize = config getInt CKeys(PropMetaDataMaxMessageSize),
@@ -326,6 +332,7 @@ object MediaArchiveConfig {
  * @param readerCheckInterval the check interval for reader actors
  * @param readerCheckInitialDelay the initial delay for reader actor checks
  * @param metaDataReadChunkSize the read chunk size when extracting meta data
+ * @param infoSizeLimit the maximum size of a medium description file
  * @param tagSizeLimit the size limit for ID3 tags
  * @param metaDataUpdateChunkSize the size of a chunk of meta data sent to a
  *                                registered meta data listener as an update
@@ -358,6 +365,7 @@ case class MediaArchiveConfig private[config](readerTimeout: FiniteDuration,
                                               readerCheckInterval: FiniteDuration,
                                               readerCheckInitialDelay: FiniteDuration,
                                               metaDataReadChunkSize: Int,
+                                              infoSizeLimit: Int,
                                               tagSizeLimit: Int,
                                               metaDataUpdateChunkSize: Int,
                                               initMetaDataMaxMsgSize: Int,

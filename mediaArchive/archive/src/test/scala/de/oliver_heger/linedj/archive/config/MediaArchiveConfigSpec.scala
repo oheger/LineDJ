@@ -44,6 +44,9 @@ object MediaArchiveConfigSpec {
   /** Test value for the size limit for ID3 tags. */
   private val TagSizeLimit = 4096
 
+  /** Test value for the size limit for medium info files. */
+  private val InfoSizeLimit = 8888
+
   /** Test value for the chunk size of a meta data notification. */
   private val MetaDataChunkSize = 10
 
@@ -70,6 +73,7 @@ object MediaArchiveConfigSpec {
     */
   private def createHierarchicalConfig(): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
+    config.addProperty("media.infoSizeLimit", InfoSizeLimit)
     config.addProperty("media.readerTimeout", 60)
     config.addProperty("media.readerCheckInterval", ReaderCheckInterval.toSeconds)
     config.addProperty("media.readerCheckInitialDelay", ReaderCheckDelay.toSeconds)
@@ -112,6 +116,7 @@ with Matchers with BeforeAndAfterAll {
     ConfigFactory.parseString(
       s"""splaya {
          | media {
+         |   infoSizeLimit = ${MediaArchiveConfigSpec.InfoSizeLimit}
          |   readerTimeout = 60s
          |   readerCheckInterval = ${MediaArchiveConfigSpec.ReaderCheckInterval.toString()}
           |   readerCheckInitialDelay = ${MediaArchiveConfigSpec.ReaderCheckDelay.toString()}
@@ -205,9 +210,8 @@ with Matchers with BeforeAndAfterAll {
   it should "correct the maximum message size if necessary" in {
     val oc = createTConfig()
     val config = new MediaArchiveConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
-      .readerCheckInterval,
-      readerCheckInitialDelay = oc.readerCheckInitialDelay, metaDataReadChunkSize = oc
-        .metaDataReadChunkSize,
+      .readerCheckInterval, readerCheckInitialDelay = oc.readerCheckInitialDelay,
+      metaDataReadChunkSize = oc.metaDataReadChunkSize, infoSizeLimit = 1024,
       tagSizeLimit = oc.tagSizeLimit, excludedFileExtensions = oc.excludedFileExtensions,
       rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150,
       metaDataPersistencePath = Paths get "foo", metaDataPersistenceChunkSize = 42,
@@ -251,6 +255,10 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the read chunk size" in {
     createCConfig().metaDataReadChunkSize should be(ReadChunkSize)
+  }
+
+  it should "return the info size limit" in {
+    createCConfig().infoSizeLimit should be(InfoSizeLimit)
   }
 
   it should "return the tag size limit" in {
