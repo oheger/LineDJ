@@ -26,6 +26,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.archivecommon.stream.StreamSizeRestrictionStage
 import org.eclipse.jetty.server.{AbstractNetworkConnector, Server}
 import org.eclipse.jetty.servlet.ServletHandler
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -220,7 +221,7 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val factory = createHttpFlowFactory()
     val serverUri = Uri.from(scheme = "http", host = "localhost", port = localPort)
     val flow = factory.createHttpFlow[String](serverUri)
-    val sizeStage = new ResponseSizeRestrictionStage(2 * TestContent.length + 8)
+    val sizeStage = new StreamSizeRestrictionStage(2 * TestContent.length + 8)
 
     @tailrec def requestContent(results: List[Try[String]], i: Int): List[Try[String]] =
       if (i <= 0) results

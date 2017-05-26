@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
+import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
@@ -94,7 +94,7 @@ abstract class AbstractResponseProcessingActor(val fileType: String)
                                              config: HttpArchiveConfig):
   Source[ByteString, Any] =
     response.entity.dataBytes
-      .via(new ResponseSizeRestrictionStage(config.maxContentSize * 1024))
+      .via(new StreamSizeRestrictionStage(config.maxContentSize * 1024))
 
   /**
     * Handle a HTTP response for a meta data file. Checks whether the response

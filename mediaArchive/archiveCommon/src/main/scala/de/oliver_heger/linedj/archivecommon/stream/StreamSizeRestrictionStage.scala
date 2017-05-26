@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivecommon.stream
 
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
 
 /**
@@ -30,7 +30,7 @@ import akka.util.ByteString
   *
   * @param maxSize the maximum size of the source in bytes
   */
-class ResponseSizeRestrictionStage(val maxSize: Int) extends GraphStage[FlowShape[ByteString,
+class StreamSizeRestrictionStage(val maxSize: Int) extends GraphStage[FlowShape[ByteString,
   ByteString]] {
   val in: Inlet[ByteString] = Inlet[ByteString]("SizeRestrictionStage.in")
   val out: Outlet[ByteString] = Outlet[ByteString]("SizeRestrictionStage.out")
