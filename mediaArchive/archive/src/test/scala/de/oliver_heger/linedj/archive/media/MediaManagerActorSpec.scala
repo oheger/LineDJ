@@ -53,6 +53,9 @@ object MediaManagerActorSpec {
   /** The set with excluded file extensions. */
   private val ExcludedExtensions = Set("TXT", "JPG")
 
+  /** The maximum size of medium description files. */
+  private val InfoSizeLimit = 9876
+
   /**
     * Conversion function from a string to a path.
     *
@@ -70,6 +73,22 @@ object MediaManagerActorSpec {
   private def expectNoMoreMessage(probe: TestProbe): Unit = {
     probe.ref ! TestMessage
     probe.expectMsg(TestMessage)
+  }
+
+  /**
+    * Constructs a message mapping for the medium info parser actor. A parse
+    * medium info request is assigned a response message.
+    *
+    * @param descPath the description path to be parsed
+    * @param mid      the medium ID
+    * @param info     the resulting medium info
+    * @return the mapping
+    */
+  private def mediumInfoRequestMapping(descPath: Path, mid: MediumID, info: MediumInfo):
+  (Any, Any) = {
+    val request = MediumInfoParserActor.ParseMediumInfo(descPath, mid, 0)
+    val response = MediumInfoParserActor.ParseMediumInfoResult(request, info)
+    request -> response
   }
 }
 
@@ -96,6 +115,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     when(config.readerCheckInterval).thenReturn(ReaderCheckInterval)
     when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)
     when(config.excludedFileExtensions).thenReturn(ExcludedExtensions)
+    when(config.infoSizeLimit).thenReturn(InfoSizeLimit)
     config
   }
 
@@ -130,7 +150,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
 
     val exitProbe = TestProbe()
-    for {cls <- List[Class[_]](classOf[MediumIDCalculatorActor], classOf[MediumInfoParserActor])
+    for {cls <- List[Class[_]](classOf[MediumIDCalculatorActor])
          probe <- helper.probesOfActorClass(cls)} {
       exitProbe watch probe.ref
       exitProbe.expectMsgType[Terminated]
@@ -293,24 +313,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.configureRootPathsForScans(Set("non existing directory!")).sendScanRequest()
     helper.expectMediaAdded() should have size 0
-  }
-
-  it should "handle IO operation exceptions sent from a file loader actor" in {
-    val helper = new MediaManagerTestHelper(childActorFunc = { (ctx, props) =>
-      if (props.actorClass() == ClsFileLoaderActor) {
-        Some(ctx.actorOf(Props(new Actor {
-          override def receive: Receive = {
-            case FileLoaderActor.LoadFile(p) =>
-              sender ! FileOperationActor.IOOperationError(p, new Exception("TestException"))
-          }
-        })))
-      } else None
-    })
-
-    helper.scanMedia()
-    val media = helper.expectMediaAdded()
-    media(helper.definedMediumID(1, helper.Medium1Path)).name should be(MediumInfoParserActor
-      .undefinedMediumInfo.name)
   }
 
   it should "create a default reader actor mapping" in {
@@ -766,9 +768,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /** Settings data for medium 1. */
     val Medium1SettingsData: MediumInfo = settingsData(Medium1Path, 1)
 
-    /** Binary content of the description file for medium 1. */
-    val Medium1BinaryDesc = new Array[Byte](1)
-
     /** Root path of medium 2. */
     val Medium2Path: Path = mediumPath(Drive1Root, 2)
 
@@ -780,9 +779,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /** Settings data for medium 2. */
     val Medium2SettingsData: MediumInfo = settingsData(Medium2Path, 2)
-
-    /** Binary content of the description file for medium 2. */
-    val Medium2BinaryDesc = new Array[Byte](2)
 
     /** Root of the second drive. */
     val Drive2Root: Path = path("drive2")
@@ -798,9 +794,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /** Settings data for medium 3. */
     val Medium3SettingsData: MediumInfo = settingsData(Medium3Path, 3)
-
-    /** Binary content of the description file for medium 3. */
-    val Medium3BinaryDesc = new Array[Byte](3)
 
     /** Root of the third drive. */
     val Drive3Root: Path = path("3rdDrive")
@@ -856,19 +849,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         Drive1, Drive1OtherFiles) -> Drive1OtherIDData,
       MediumIDCalculatorActor.CalculateMediumID(Drive3Root, MediumID(Drive3Root.toString, None),
         Drive3, Drive3OtherFiles) -> Drive3OtherIDData,
-      FileLoaderActor.LoadFile(Medium1Desc) -> FileLoaderActor.FileContent(Medium1Desc,
-        Medium1BinaryDesc),
-      FileLoaderActor.LoadFile(Medium2Desc) -> FileLoaderActor.FileContent(Medium2Desc,
-        Medium2BinaryDesc),
-      FileLoaderActor.LoadFile(Medium3Desc) -> FileLoaderActor.FileContent(Medium3Desc,
-        Medium3BinaryDesc))
-      //TODO correct messages for the medium info parser actor
-//      MediumInfoParserActor.ParseMediumInfo(Medium1BinaryDesc, Medium1SettingsData.mediumID) ->
-//        Medium1SettingsData.copy(checksum = ""),
-//      MediumInfoParserActor.ParseMediumInfo(Medium2BinaryDesc, Medium2SettingsData.mediumID) ->
-//        Medium2SettingsData.copy(checksum = ""),
-//      MediumInfoParserActor.ParseMediumInfo(Medium3BinaryDesc, Medium3SettingsData.mediumID) ->
-//        Medium3SettingsData.copy(checksum = ""))
+      mediumInfoRequestMapping(Medium1Desc, Medium1SettingsData.mediumID,
+        Medium1SettingsData.copy(checksum = "")),
+      mediumInfoRequestMapping(Medium2Desc, Medium2SettingsData.mediumID,
+        Medium2SettingsData.copy(checksum = "")),
+      mediumInfoRequestMapping(Medium3Desc, Medium3SettingsData.mediumID,
+        Medium3SettingsData.copy(checksum = "")))
 
     /**
      * A map for storing actors created by the test child actor factory. Each
@@ -1036,7 +1022,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return this test helper
       */
     def resetProbes(): MediaManagerTestHelper = {
-      val reusedClasses = List(FileLoaderActor().actorClass(), ClsDirScanner)
+      val reusedClasses = List(ClsDirScanner, ClsInfoParser)
       val reusedData = reusedClasses map probes
       probes = createTestProbesMap()
       reusedClasses.zip(reusedData).foreach(t => probes += t._1 -> t._2)
@@ -1078,8 +1064,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return the checked ''Props'' object
      */
     private def checkArgs(props: Props): Props = {
-      val expectedArgs = expectedArgForActorClass(props)
-      props.args should contain theSameElementsAs expectedArgs
+      if (ClsInfoParser == props.actorClass()) {
+        props.args should have length 2
+        props.args.head shouldBe a[MediumInfoParser]
+        props.args(1) should be(InfoSizeLimit)
+      } else {
+        val expectedArgs = expectedArgForActorClass(props)
+        props.args should contain theSameElementsAs expectedArgs
+      }
       props
     }
 
@@ -1091,16 +1083,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def expectedArgForActorClass(props: Props): Iterable[Any] =
       props.actorClass() match {
-        case MediaManagerActorSpec.ClsDirScanner =>
+        case ClsDirScanner =>
           Some(ExcludedExtensions)
 
-        case MediaManagerActorSpec.ClsIDCalculator =>
+        case ClsIDCalculator =>
           Some(testManagerActor.underlyingActor.idCalculator)
 
-        case MediaManagerActorSpec.ClsInfoParser =>
-          Some(testManagerActor.underlyingActor.mediumInfoParser)
-
-        case MediaManagerActorSpec.ClsMediaReaderActor =>
+        case ClsMediaReaderActor =>
           List(probesOfType[FileReaderActor].head.ref, testManagerActor.underlyingActor.id3Extractor)
 
         case _ => None
@@ -1114,8 +1103,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     def simulateCollaboratingActors(): Unit = {
       simulateMediaScannerActor()
       simulateCollaboratingActorsOfType[MediumIDCalculatorActor.CalculateMediumID] (classOf[MediumIDCalculatorActor])
-      simulateFileLoaderActor()
-      simulateCollaboratingActorsOfType[MediumInfoParserActor.ParseMediumInfo] (classOf[MediumInfoParserActor])
+      simulateInfoParserActor()
     }
 
     /**
@@ -1129,15 +1117,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
-     * Simulates the communication with the file loader actor. This is slightly
-     * different from other helper actors as only a single actor reference is
-     * used. Therefore, this reference has to be triggered manually for each
-     * expected message.
+     * Simulates the communication with the info parser actor. There is
+      * only a single actor instance handling all parse requests.
      */
-    private def simulateFileLoaderActor(): Unit = {
+    private def simulateInfoParserActor(): Unit = {
       val NumberOfMessages = 3
-      simulateCollaboratingActorForMultiMessages[FileLoaderActor.LoadFile](ClsFileLoaderActor,
-        NumberOfMessages)
+      simulateCollaboratingActorForMultiMessages[MediumInfoParserActor.ParseMediumInfo](
+        ClsInfoParser, NumberOfMessages)
     }
 
     /**

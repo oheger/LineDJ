@@ -26,7 +26,6 @@ import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.io.FileLoaderActor.{FileContent, LoadFile}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaFileUriHandler, RemovedArchiveComponentProcessed}
@@ -103,15 +102,6 @@ object MediaManagerActor {
   private def mediumPathFromDescription(descPath: Path): Path = descPath.getParent
 
   /**
-   * Creates a dummy ''MediumSettingsData'' object for a medium description
-   * file which could not be loaded.
-   * @param mediumID the ID of the affected medium
-   * @return the dummy settings data
-   */
-  private def createDummySettingsDataForPath(mediumID: MediumID): MediumInfo =
-    MediumInfoParserActor.DummyMediumSettingsData.copy(mediumID = mediumID)
-
-  /**
    * Convenience method for returning the current system time.
    * @return the current time
    */
@@ -156,8 +146,8 @@ Actor with ActorLogging {
   /** A helper object for parsing medium description files. */
   private[media] val mediumInfoParser = new MediumInfoParser
 
-  /** The actor for loading files. */
-  private var loaderActor: ActorRef = _
+  /** The actor for parsing media description files. */
+  private var mediumInfoParserActor: ActorRef = _
 
   /** The actor for scanning media directory structures. */
   private var mediaScannerActor: ActorRef = _
@@ -253,7 +243,8 @@ Actor with ActorLogging {
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    loaderActor = createChildActor(FileLoaderActor())
+    mediumInfoParserActor = createChildActor(Props(classOf[MediumInfoParserActor],
+      mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
       config.excludedFileExtensions))
     readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
@@ -276,16 +267,12 @@ Actor with ActorLogging {
     case scanResult: MediaScanResult =>
       processScanResult(scanResult)
 
-    case FileContent(path, content) =>
-      processMediumDescription(path, content)
-
     case idData: MediumIDData =>
       processIDData(idData)
       stopSender()
 
-    case setData: MediumInfo =>
-      storeSettingsData(setData)
-      stopSender()
+    case MediumInfoParserActor.ParseMediumInfoResult(_, info) =>
+      storeSettingsData(info)
 
     case GetMediumFiles(mediumID) =>
       val optResponse = mediaFiles.get(mediumID) map
@@ -297,12 +284,6 @@ Actor with ActorLogging {
 
     case t: Terminated =>
       handleActorTermination(t.actor)
-
-    case FileOperationActor.IOOperationError(path, ex) =>
-      log.warning("Loading a description file caused an exception: {}!", ex)
-      findMediumIDForDescriptionPath(path) foreach { id =>
-        storeSettingsData(createDummySettingsDataForPath(id))
-      }
 
     case CheckReaderTimeout =>
       checkForReaderActorTimeout()
@@ -476,7 +457,7 @@ Actor with ActorLogging {
       e._1.mediumDescriptionPath match {
         case Some(path) =>
           val settingsPath = Paths get path
-          loaderActor ! LoadFile(settingsPath)
+          mediumInfoParserActor ! MediumInfoParserActor.ParseMediumInfo(settingsPath, e._1, 0)
           val mediumPath = mediumPathFromDescription(settingsPath)
           triggerIDCalculation(mediumPath, e._1, e._2)
 
@@ -487,22 +468,6 @@ Actor with ActorLogging {
 
     mediaCount += scanResult.mediaFiles.size
     incrementScannedPaths()
-  }
-
-  /**
-   * Processes the data of a medium description (in binary form). This method
-   * is called when a description file has been loaded. Now it has to be
-   * parsed.
-    *
-    * @param path the path to the description file
-   * @param content the binary content of the description file
-   */
-  private def processMediumDescription(path: Path, content: Array[Byte]): Unit = {
-    findMediumIDForDescriptionPath(path) foreach { id =>
-      val parserActor = createChildActor(Props(classOf[MediumInfoParserActor], mediumInfoParser))
-      //TODO produce correct message
-      parserActor ! MediumInfoParserActor.ParseMediumInfo(null, id, 0)
-    }
   }
 
   /**
