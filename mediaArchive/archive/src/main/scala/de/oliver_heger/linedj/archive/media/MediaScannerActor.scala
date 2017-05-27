@@ -131,13 +131,24 @@ object MediaScannerActor {
     path.startsWith(prefix) && path.lastIndexOf(FileSeparator) > prefixLen
 
   /**
-    * A message received by ''DirectoryScannerActor'' telling it to scan a
+    * A message received by ''MediaScannerActor'' telling it to scan a
     * specific directory for media files. When the scan is done, an object of
     * type [[MediaScanResult]] is sent back.
     *
-    * @param path the path to be scanned
+    * @param path  the path to be scanned
+    * @param seqNo the sequence number for this request
     */
-  case class ScanPath(path: Path)
+  case class ScanPath(path: Path, seqNo: Int)
+
+  /**
+    * A message sent by [[MediaScannerActor]] as result for a scan request.
+    * The message contains a [[MediaScanResult]] with all the files that have
+    * been found during the scan operation.
+    *
+    * @param request the original request
+    * @param result  the actual scan result
+    */
+  case class ScanPathResult(request: ScanPath, result: MediaScanResult)
 
 }
 
@@ -162,23 +173,25 @@ class MediaScannerActor(exclusions: Set[String]) extends AbstractStreamProcessin
   import MediaScannerActor._
 
   override def customReceive: Receive = {
-    case ScanPath(path) =>
-      handleScanRequest(path)
+    case req: ScanPath =>
+      handleScanRequest(req)
   }
 
   /**
     * Processes a scan request.
     *
-    * @param path the path to be scanned
+    * @param req the request to be handled
     */
-  private def handleScanRequest(path: Path): Unit = {
-    val source = createSource(path)
+  private def handleScanRequest(req: ScanPath): Unit = {
+    val source = createSource(req.path)
     val (ks, futStream) = runStream(source)
-    processStreamResult(futStream.map(createScanResult(path, _)), ks) { f =>
-      log.error(f.exception, "Ignoring media path " + path)
-      MediaScanResult(path, Map.empty)
+    processStreamResult(futStream map { s =>
+      ScanPathResult(req, createScanResult(req.path, s))
+    }, ks) { f =>
+      log.error(f.exception, "Ignoring media path " + req.path)
+      ScanPathResult(req, MediaScanResult(req.path, Map.empty))
     }
-    log.info("Started scan operation for " + path)
+    log.info("Started scan operation for " + req.path)
   }
 
   /**

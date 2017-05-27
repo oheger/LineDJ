@@ -90,6 +90,38 @@ object MediaManagerActorSpec {
     val response = MediumInfoParserActor.ParseMediumInfoResult(request, info)
     request -> response
   }
+
+  /**
+    * Constructs a message mapping for the medium scanner actor. A ScanPath
+    * request is assigned a response message.
+    *
+    * @param path       the path to be scanned
+    * @param scanResult the result of the scan operation
+    * @return the mapping
+    */
+  private def scanRequestMapping(path: Path, scanResult: MediaScanResult): (Any, Any) = {
+    val request = MediaScannerActor.ScanPath(path, 0)
+    val response = MediaScannerActor.ScanPathResult(request, scanResult)
+    request -> response
+  }
+
+  /**
+    * Constructs a message mapping for the ID calculator actor. An ID
+    * calculation request is assigned a response message.
+    *
+    * @param path   the root path
+    * @param mid    the medium ID
+    * @param sr     the scan result
+    * @param files  the sequence with files
+    * @param result the result
+    * @return the mapping
+    */
+  private def idRequestMapping(path: Path, mid: MediumID, sr: MediaScanResult,
+                               files: Seq[FileData], result: MediumIDData): (Any, Any) = {
+    val request = MediumIDCalculatorActor.CalculateMediumID(path, mid, sr, files, 0)
+    val response = MediumIDCalculatorActor.CalculateMediumIDResult(request, result)
+    request -> response
+  }
 }
 
 /**
@@ -737,19 +769,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         mediumID = definedMediumID(mediumNo, mediumRoot), orderMode = "", orderParams = "",
         checksum = checksum(mediumNo))
 
-    /**
-     * Generates a request for an ID calculation.
-     * @param medPath the medium path
-     * @param mediumNo the medium number
-     * @param scanResult the scan result
-     * @param content the medium content
-     * @return the request message
-     */
-    private def calcRequest(medPath: Path, mediumNo: Int, scanResult: MediaScanResult, content:
-    Seq[FileData]): MediumIDCalculatorActor.CalculateMediumID =
-      MediumIDCalculatorActor.CalculateMediumID(medPath, definedMediumID(mediumNo, medPath),
-        scanResult, content)
-
     /** Root of the first drive. */
     val Drive1Root: Path = path("drive1")
 
@@ -839,16 +858,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * A map with messages that are expected by collaboration actors and
      * their corresponding responses.
      */
-    private val ActorMessages = Map[Any, Any](MediaScannerActor.ScanPath(Drive1Root) -> Drive1,
-      MediaScannerActor.ScanPath(Drive2Root) -> Drive2,
-      MediaScannerActor.ScanPath(Drive3Root) -> Drive3,
-      calcRequest(Medium1Path, 1, Drive1, Medium1Content) -> Medium1IDData,
-      calcRequest(Medium2Path, 2, Drive1, Medium2Content) -> Medium2IDData,
-      calcRequest(Medium3Path, 3, Drive2, Medium3Content) -> Medium3IDData,
-      MediumIDCalculatorActor.CalculateMediumID(Drive1Root, MediumID(Drive1Root.toString, None),
-        Drive1, Drive1OtherFiles) -> Drive1OtherIDData,
-      MediumIDCalculatorActor.CalculateMediumID(Drive3Root, MediumID(Drive3Root.toString, None),
-        Drive3, Drive3OtherFiles) -> Drive3OtherIDData,
+    private val ActorMessages = Map[Any, Any](scanRequestMapping(Drive1Root, Drive1),
+      scanRequestMapping(Drive2Root, Drive2),
+      scanRequestMapping(Drive3Root, Drive3),
+      idRequestMapping(Medium1Path, definedMediumID(1, Medium1Path), Drive1,
+        Medium1Content, Medium1IDData),
+      idRequestMapping(Medium2Path, definedMediumID(2, Medium2Path), Drive1,
+        Medium2Content, Medium2IDData),
+      idRequestMapping(Medium3Path, definedMediumID(3, Medium3Path), Drive2,
+        Medium3Content, Medium3IDData),
+      idRequestMapping(Drive1Root, MediumID(Drive1Root.toString, None),
+        Drive1, Drive1OtherFiles, Drive1OtherIDData),
+      idRequestMapping(Drive3Root, MediumID(Drive3Root.toString, None),
+        Drive3, Drive3OtherFiles, Drive3OtherIDData),
       mediumInfoRequestMapping(Medium1Desc, Medium1SettingsData.mediumID,
         Medium1SettingsData.copy(checksum = "")),
       mediumInfoRequestMapping(Medium2Desc, Medium2SettingsData.mediumID,

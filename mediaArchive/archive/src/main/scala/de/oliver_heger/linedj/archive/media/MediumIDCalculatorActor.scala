@@ -20,7 +20,7 @@ import java.nio.file.Path
 
 import akka.actor.Actor
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.archive.media.MediumIDCalculatorActor.CalculateMediumID
+import de.oliver_heger.linedj.archive.media.MediumIDCalculatorActor.{CalculateMediumID, CalculateMediumIDResult}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
@@ -29,16 +29,29 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 object MediumIDCalculatorActor {
 
   /**
-   * A message processed by ''MediumIDCalculatorActor'' telling it that it
-   * should calculate a medium ID based on the passed in information.
-   * @param mediumRoot the root path of the medium
-   * @param mediumID the medium URI
-   * @param scanResult the associated ''MediaScanResult''
-   * @param mediumContent a sequence with the media files on this medium
-   */
+    * A message processed by ''MediumIDCalculatorActor'' telling it that it
+    * should calculate a medium ID based on the passed in information.
+    *
+    * @param mediumRoot    the root path of the medium
+    * @param mediumID      the medium URI
+    * @param scanResult    the associated ''MediaScanResult''
+    * @param mediumContent a sequence with the media files on this medium
+    * @param seqNo         the sequence number
+    */
   private[media] case class CalculateMediumID(mediumRoot: Path, mediumID: MediumID,
                                               scanResult: MediaScanResult,
-                                              mediumContent: Seq[FileData])
+                                              mediumContent: Seq[FileData],
+                                              seqNo: Int)
+
+  /**
+    * A message sent by ''MediumIDCalculatorActor'' as result of the ID
+    * calculation.
+    *
+    * @param request the original request
+    * @param result  the result of the ID calculation
+    */
+  private[media] case class CalculateMediumIDResult(request: CalculateMediumID,
+                                                    result: MediumIDData)
 
 }
 
@@ -55,7 +68,9 @@ object MediumIDCalculatorActor {
  */
 class MediumIDCalculatorActor(calculator: MediumIDCalculator) extends Actor {
   override def receive: Receive = {
-    case CalculateMediumID(mediumRoot, mediumID, scanResult, mediumContent) =>
-      sender ! calculator.calculateMediumID(mediumRoot, mediumID, scanResult, mediumContent)
+    case req: CalculateMediumID =>
+      val result = calculator.calculateMediumID(req.mediumRoot, req.mediumID,
+        req.scanResult, req.mediumContent)
+      sender ! CalculateMediumIDResult(req, result)
   }
 }

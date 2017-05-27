@@ -264,10 +264,10 @@ Actor with ActorLogging {
     case ScanAllMedia =>
       processScanRequest(config.mediaRootPaths)
 
-    case scanResult: MediaScanResult =>
+    case MediaScannerActor.ScanPathResult(_, scanResult) =>
       processScanResult(scanResult)
 
-    case idData: MediumIDData =>
+    case MediumIDCalculatorActor.CalculateMediumIDResult(_, idData) =>
       processIDData(idData)
       stopSender()
 
@@ -434,7 +434,8 @@ Actor with ActorLogging {
   private def scanMediaRoots(roots: Iterable[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
-      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root))
+      //TODO set sequence number
+      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root), 0)
     }
     mediaDataAdded()
   }
@@ -449,7 +450,8 @@ Actor with ActorLogging {
   private def processScanResult(scanResult: MediaScanResult): Unit = {
     def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[FileData]): Unit = {
       val idActor = createChildActor(Props(classOf[MediumIDCalculatorActor], idCalculator))
-      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files)
+      //TODO set correct sequence number
+      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files, 0)
     }
 
     currentMediumIDs ++= scanResult.mediaFiles.keySet

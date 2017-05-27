@@ -4,7 +4,7 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.archive.media.MediumIDCalculatorActor.CalculateMediumID
+import de.oliver_heger.linedj.archive.media.MediumIDCalculatorActor.{CalculateMediumID, CalculateMediumIDResult}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
@@ -42,7 +42,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   "A MediumCalculatorActor" should "calculate a medium ID" in {
     val calc = mock[MediumIDCalculator]
     val rootPath = Paths.get("root")
-    val uri = "test://SomeMediumURI"
     val content = List(fileData(rootPath resolve "test.mp3", 1))
     val mediumID = MediumID("a path", None)
     val scanResult = mock[MediaScanResult]
@@ -51,7 +50,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     when(calc.calculateMediumID(rootPath, mediumID, scanResult, content)).thenReturn(data)
 
     val actor = calculatorActor(calc)
-    actor ! CalculateMediumID(rootPath, mediumID, scanResult, content)
-    expectMsg(data)
+    val request = CalculateMediumID(rootPath, mediumID, scanResult, content, 111)
+    actor ! request
+    expectMsg(CalculateMediumIDResult(request, data))
   }
 }

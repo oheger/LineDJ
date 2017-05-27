@@ -8,7 +8,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
+import de.oliver_heger.linedj.archive.media.MediaScannerActor.{ScanPath, ScanPathResult}
 import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -22,6 +22,9 @@ import scala.concurrent.duration._
 object MediaScannerActorSpec {
   /** The root directory of the test folder structure. */
   private val RootPath = Paths get "musicArchive"
+
+  /** A test sequence number. */
+  private val SeqNo = 128
 
   /**
     * The ID for an undefined medium as is expected to be produced by
@@ -198,8 +201,11 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the result
     */
   private def scan(actor: ActorRef, root: Path = RootPath): MediaScanResult = {
-    actor ! ScanPath(root)
-    expectMsgType[MediaScanResult]
+    val request = ScanPath(root, SeqNo)
+    actor ! request
+    val result = expectMsgType[ScanPathResult]
+    result.request should be(request)
+    result.result
   }
 
   "A MediaScannerActor" should "find media files in a directory structure" in {
@@ -290,12 +296,12 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val files = testMediaFiles()
     val source = Source(files).delay(200.milliseconds, DelayOverflowStrategy.backpressure)
     val scanActor = createActorForSource(source)
-    scanActor ! ScanPath(RootPath)
+    scanActor ! ScanPath(RootPath, SeqNo)
 
     scanActor ! CancelStreams
-    val result = expectMsgType[MediaScanResult]
+    val result = expectMsgType[ScanPathResult]
     val expectedFiles = files.filterNot(_.path.endsWith(".settings"))
-    val allFiles = result.mediaFiles.values.flatten.toList
+    val allFiles = result.result.mediaFiles.values.flatten.toList
     allFiles.size should be < expectedFiles.size
   }
 
