@@ -1,7 +1,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor._
@@ -22,6 +22,7 @@ import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -121,6 +122,46 @@ object MediaManagerActorSpec {
     val request = MediumIDCalculatorActor.CalculateMediumID(path, mid, sr, files, 0)
     val response = MediumIDCalculatorActor.CalculateMediumIDResult(request, result)
     request -> response
+  }
+
+  /**
+    * Determines the sequence number from the specified message.
+    *
+    * @param msg the message
+    * @return the sequence number
+    */
+  private def extractSeqNo(msg: Any): Int = msg match {
+    case m: MediaScannerActor.ScanPath => m.seqNo
+    case m: MediumInfoParserActor.ParseMediumInfo => m.seqNo
+    case m: MediumIDCalculatorActor.CalculateMediumID => m.seqNo
+  }
+
+  /**
+    * Updates the sequence number for the specified message. The messages are
+    * just templates; they have to be assigned the correct sequence number.
+    *
+    * @param msg   the message
+    * @param seqNo the sequence number
+    * @return the updated message
+    */
+  private def updateSeqNo(msg: Any, seqNo: Int): Any = msg match {
+    case m: MediaScannerActor.ScanPath =>
+      m.copy(seqNo = seqNo)
+
+    case m: MediaScannerActor.ScanPathResult =>
+      MediaScannerActor.ScanPathResult(m.request.copy(seqNo = seqNo), m.result)
+
+    case m: MediumInfoParserActor.ParseMediumInfo =>
+      m.copy(seqNo = seqNo)
+
+    case m: MediumInfoParserActor.ParseMediumInfoResult =>
+      MediumInfoParserActor.ParseMediumInfoResult(m.request.copy(seqNo = seqNo), m.info)
+
+    case m: MediumIDCalculatorActor.CalculateMediumID =>
+      m.copy(seqNo = seqNo)
+
+    case m: MediumIDCalculatorActor.CalculateMediumIDResult =>
+      MediumIDCalculatorActor.CalculateMediumIDResult(m.request.copy(seqNo = seqNo), m.result)
   }
 }
 
@@ -453,7 +494,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
 
     system stop client.ref
-    helper.mediaUnionActor.expectNoMsg(1.second)
+    helper.expectNoMessageToUnionActor()
   }
 
   it should "stop watching a client actor if there are no more read operations" in {
@@ -469,7 +510,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     watcher.expectMsgType[Terminated]
 
     system stop client.ref
-    helper.mediaUnionActor.expectNoMsg(1.second)
+    helper.expectNoMessageToUnionActor()
   }
 
   it should "handle multiple file requests when watching a client" in {
@@ -577,7 +618,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "produce correct enhanced scan results in another scan operation" in {
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
-    helper.checkMetaDataMessages().resetProbes()
+    helper.checkMetaDataMessages().reset()
 
     helper.scanMedia()
     helper.answerRemoveComponentMessage()
@@ -614,7 +655,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.scanMedia()
     helper.checkMetaDataMessages().expectMediaAdded()
 
-    helper.resetProbes().scanMedia()
+    helper.reset().scanMedia()
     helper.expectRemoveComponentMessage()
     expectNoMoreMessage(helper.metaDataManagerActor)
     expectNoMoreMessage(helper.mediaUnionActor)
@@ -627,7 +668,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
     helper.checkMetaDataMessages().expectMediaAdded()
-    helper.resetProbes().scanMedia()
+    helper.reset().scanMedia()
     helper.answerRemoveComponentMessage().checkMetaDataMessages()
 
     helper.answerRemoveComponentMessage()
@@ -638,7 +679,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
     helper.checkMetaDataMessages().expectMediaAdded()
-    helper.resetProbes().scanMedia()
+    helper.reset().scanMedia()
 
     helper.testManagerActor ! CloseRequest
     helper.answerRemoveComponentMessage()
@@ -649,10 +690,69 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     helper.scanMedia()
     helper.checkMetaDataMessages().expectMediaAdded()
-    helper.resetProbes().scanMedia()
+    helper.reset().scanMedia()
 
     helper.answerRemoveComponentMessage("some other archive component")
     expectNoMoreMessage(helper.metaDataManagerActor)
+  }
+
+  it should "increase the sequence number after a scan operation" in {
+    val helper = new MediaManagerTestHelper
+    helper.scanMedia()
+    val seqNo1 = helper.seqNo
+
+    helper.reset().scanMedia()
+    helper.seqNo should not be seqNo1
+  }
+
+  it should "ignore scan results with invalid sequence numbers" in {
+    val helper = new MediaManagerTestHelper
+    helper.sendScanRequest()
+    helper.simulateMediaScannerActor()
+    val scanRequest = MediaScannerActor.ScanPath(asPath("testPath"), -1)
+    val scanResult = MediaScanResult(scanRequest.path,
+      Map(MediumID("anotherMedium", Some("more.settings")) -> List(FileData("file1", 222))))
+
+    helper.testManagerActor ! MediaScannerActor.ScanPathResult(scanRequest, scanResult)
+    helper.simulateIDCalculatorActor()
+    helper.simulateInfoParserActor()
+    helper checkMediaWithDescriptions helper.expectMediaAdded()
+  }
+
+  it should "ignore ID calculation and info results with invalid sequence numbers" in {
+    val helper = new MediaManagerTestHelper
+    helper.sendScanRequest()
+    helper.simulateMediaScannerActor()
+    val scanResult = MediaScanResult(asPath("aPath"),
+      Map(MediumID("anotherMedium", Some("more.settings")) -> List(FileData("file1", 222))))
+    val mid = MediumID("invalidMedium", Some("invalid.settings"))
+    val idRequest = MediumIDCalculatorActor.CalculateMediumID(asPath("invalidPath"),
+      mid, scanResult, List(FileData("f1.mp3", 28), FileData("f2.mp3", 32)), -1)
+    val idResult = MediumIDData("aCheckSum", idRequest.mediumID, idRequest.scanResult,
+      Map.empty)
+    val infoRequest = MediumInfoParserActor.ParseMediumInfo(asPath(mid.mediumDescriptionPath.get),
+      mid, -1)
+    val infoResult = MediumInfo("aMedium", "aDesc", mid, "", "", "")
+
+    helper.testManagerActor ! MediumIDCalculatorActor.CalculateMediumIDResult(idRequest,
+      idResult)
+    helper.testManagerActor ! MediumInfoParserActor.ParseMediumInfoResult(infoRequest,
+      infoResult)
+    helper.simulateIDCalculatorActor()
+    helper.simulateInfoParserActor()
+    val mediaMap = helper.expectMediaAdded()
+    mediaMap.keySet should not contain mid
+  }
+
+  it should "update the sequence number when a scan is canceled" in {
+    val helper = new MediaManagerTestHelper
+    helper.sendScanRequest()
+    helper.simulateMediaScannerActor()
+    helper.testManagerActor ! CloseRequest
+
+    helper.simulateInfoParserActor()
+    helper.simulateIDCalculatorActor()
+    helper.expectNoMessageToUnionActor()
   }
 
   /**
@@ -906,6 +1006,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /** Counter for handling of completed close requests. */
     private val closeCompleteCount = new AtomicInteger
 
+    /** Keeps track on the sequence numbers encountered. */
+    private val seqNumbers = new AtomicReference(Set.empty[Int])
+
     /**
      * Executes a request for scanning media data on the test actor. This
      * method sends a ''ScanMedia'' message to the test actor and simulates the
@@ -953,6 +1056,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       addMedia.archiveCompID should be(ArchiveComponentID)
       addMedia.optCtrlActor shouldBe 'empty
       addMedia.media
+    }
+
+    /**
+      * Checks that no message has been sent to the union media manager.
+      *
+      * @return this test helper
+      */
+    def expectNoMessageToUnionActor(): MediaManagerTestHelper = {
+      mediaUnionActor.expectNoMsg(1.second)
+      this
     }
 
     /**
@@ -1038,12 +1151,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     def mediaScannerProbe: TestProbe = probesOfType[MediaScannerActor].head
 
     /**
+      * Resets this test helper, so that another scan operation can be
+      * started.
+      *
+      * @return this test helper
+      */
+    def reset(): MediaManagerTestHelper = {
+      seqNumbers set Set.empty
+      resetProbes()
+    }
+
+    /**
       * Resets the map with test probes. Note: Some actors have to be
       * treated in a special way because they are created in preStart(); they
       * must not be created again for a 2nd run.
       * @return this test helper
       */
-    def resetProbes(): MediaManagerTestHelper = {
+    private def resetProbes(): MediaManagerTestHelper = {
       val reusedClasses = List(ClsDirScanner, ClsInfoParser)
       val reusedData = reusedClasses map probes
       probes = createTestProbesMap()
@@ -1124,15 +1248,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     def simulateCollaboratingActors(): Unit = {
       simulateMediaScannerActor()
-      simulateCollaboratingActorsOfType[MediumIDCalculatorActor.CalculateMediumID] (classOf[MediumIDCalculatorActor])
+      simulateIDCalculatorActor()
       simulateInfoParserActor()
+    }
+
+    /**
+      * Simulates the communication with the ID calculator actor.
+      */
+    def simulateIDCalculatorActor(): Unit = {
+      simulateCollaboratingActorsOfType[MediumIDCalculatorActor.
+      CalculateMediumID](classOf[MediumIDCalculatorActor])
     }
 
     /**
       * Simulates the communication with the media scanner actor. There is
       * only a single actor instance handling all scan requests.
       */
-    private def simulateMediaScannerActor(): Unit = {
+    def simulateMediaScannerActor(): Unit = {
       val NumberOfMessages = 3
       simulateCollaboratingActorForMultiMessages[MediaScannerActor.ScanPath](ClsDirScanner,
         NumberOfMessages)
@@ -1142,10 +1274,22 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * Simulates the communication with the info parser actor. There is
       * only a single actor instance handling all parse requests.
      */
-    private def simulateInfoParserActor(): Unit = {
+    def simulateInfoParserActor(): Unit = {
       val NumberOfMessages = 3
       simulateCollaboratingActorForMultiMessages[MediumInfoParserActor.ParseMediumInfo](
         ClsInfoParser, NumberOfMessages)
+    }
+
+    /**
+      * Returns the sequence number that was used during the last scan
+      * operation.
+      *
+      * @return the sequence number
+      */
+    def seqNo: Int = {
+      val seqNos = seqNumbers.get()
+      seqNos should have size 1
+      seqNos.head
     }
 
     /**
@@ -1169,7 +1313,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * class. This method determines all test probes of the given actor class.
      * For each probe a message of the given type is expected, and - based on
      * the map with actor messages - a corresponding response is sent to the
-     * test actor.
+     * test actor. Things become a bit tricky because sequence numbers have to
+     * be handled.
      * @param actorCls the actor class
      * @param t the class tag for the message type
      * @tparam T the message type
@@ -1178,7 +1323,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     : Unit = {
       probes(actorCls) foreach { p =>
         val msg = p.expectMsgType[T](t)
-        testManagerActor.tell(ActorMessages(msg), p.ref)
+        val seqNo = extractSeqNo(msg)
+        addSeqNo(seqNo)
+        val msg2 = updateSeqNo(msg, 0)
+        testManagerActor.tell(updateSeqNo(ActorMessages(msg2), seqNo), p.ref)
       }
     }
 
@@ -1245,6 +1393,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createTestProbesMap(): collection.mutable.Map[Class[_], List[TestProbe]] =
       collection.mutable.Map(ClsFileLoaderActor -> Nil,
         MediaManagerActorSpec.ClsInfoParser -> Nil)
+
+    /**
+      * Updates the set with sequence numbers.
+      *
+      * @param n the number to be added
+      */
+    @tailrec private def addSeqNo(n: Int): Unit = {
+      val currentSet = seqNumbers.get()
+      val nextSet = currentSet + n
+      if (!seqNumbers.compareAndSet(currentSet, nextSet)) {
+        addSeqNo(n)
+      }
+    }
   }
 
 }

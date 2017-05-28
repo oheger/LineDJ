@@ -196,6 +196,13 @@ Actor with ActorLogging {
     */
   private var pendingMessages = List.empty[(ActorRef, Any)]
 
+  /**
+    * The current sequence number. The number is increased after a scan
+    * operation. As all messages exchanged with collaboration actors contain
+    * such numbers, it is possible to detect outdated messages.
+    */
+  private var sequenceNumber = 0
+
   /** The number of paths which have to be scanned in a current scan operation. */
   private var pathsToScan = 0
 
@@ -264,14 +271,16 @@ Actor with ActorLogging {
     case ScanAllMedia =>
       processScanRequest(config.mediaRootPaths)
 
-    case MediaScannerActor.ScanPathResult(_, scanResult) =>
+    case MediaScannerActor.ScanPathResult(req, scanResult) if req.seqNo == sequenceNumber =>
       processScanResult(scanResult)
 
-    case MediumIDCalculatorActor.CalculateMediumIDResult(_, idData) =>
+    case MediumIDCalculatorActor.CalculateMediumIDResult(req, idData)
+      if req.seqNo == sequenceNumber =>
       processIDData(idData)
       stopSender()
 
-    case MediumInfoParserActor.ParseMediumInfoResult(_, info) =>
+    case MediumInfoParserActor.ParseMediumInfoResult(req, info)
+      if req.seqNo == sequenceNumber =>
       storeSettingsData(info)
 
     case GetMediumFiles(mediumID) =>
@@ -295,6 +304,7 @@ Actor with ActorLogging {
       onCloseRequest(self, List(metaDataManager), sender(), me)
       mediaScannerActor ! AbstractStreamProcessingActor.CancelStreams
       pendingMessages = Nil
+      completeScanOperation()
 
     case CloseComplete =>
       onCloseComplete()
@@ -434,8 +444,7 @@ Actor with ActorLogging {
   private def scanMediaRoots(roots: Iterable[String]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
-      //TODO set sequence number
-      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root), 0)
+      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root), sequenceNumber)
     }
     mediaDataAdded()
   }
@@ -450,8 +459,8 @@ Actor with ActorLogging {
   private def processScanResult(scanResult: MediaScanResult): Unit = {
     def triggerIDCalculation(mediumPath: Path, mediumID: MediumID, files: Seq[FileData]): Unit = {
       val idActor = createChildActor(Props(classOf[MediumIDCalculatorActor], idCalculator))
-      //TODO set correct sequence number
-      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files, 0)
+      idActor ! MediumIDCalculatorActor.CalculateMediumID(mediumPath, mediumID, scanResult, files,
+        sequenceNumber)
     }
 
     currentMediumIDs ++= scanResult.mediaFiles.keySet
@@ -459,7 +468,8 @@ Actor with ActorLogging {
       e._1.mediumDescriptionPath match {
         case Some(path) =>
           val settingsPath = Paths get path
-          mediumInfoParserActor ! MediumInfoParserActor.ParseMediumInfo(settingsPath, e._1, 0)
+          mediumInfoParserActor ! MediumInfoParserActor.ParseMediumInfo(settingsPath, e._1,
+            sequenceNumber)
           val mediumPath = mediumPathFromDescription(settingsPath)
           triggerIDCalculation(mediumPath, e._1, e._2)
 
@@ -553,6 +563,7 @@ Actor with ActorLogging {
     mediaSettingsData.clear()
     currentMediumIDs.clear()
     enhancedScanResultMapping.clear()
+    sequenceNumber += 1
   }
 
   /**
@@ -658,17 +669,4 @@ Actor with ActorLogging {
     log.warning("Reader actor {} stopped because of timeout!", actor.path)
   }
 
-  /**
-   * Tries to obtain the medium ID for the specified file path. When reading a
-   * medium description file only the path is available. This has to be
-   * translated again to the ID of the affected medium. For this purpose, a set
-   * with the currently processed media IDs is stored.
-    *
-    * @param path the path of the description file
-   * @return the medium ID if it could be resolved
-   */
-  private def findMediumIDForDescriptionPath(path: Path): Option[MediumID] = {
-    val optPath = Some(path.toString)
-    currentMediumIDs find(_.mediumDescriptionPath == optPath)
-  }
 }
