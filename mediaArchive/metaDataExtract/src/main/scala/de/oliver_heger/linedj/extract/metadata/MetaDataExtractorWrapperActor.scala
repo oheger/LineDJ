@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataExtractorWrapperActor {
@@ -88,7 +88,8 @@ object MetaDataExtractorWrapperActor {
   *
   * @param extractorFactory the factory for extractor actors
   */
-class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) extends Actor {
+class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) extends Actor
+  with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
 
   import MetaDataExtractorWrapperActor._
@@ -109,6 +110,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     */
   private def receiveProcessing: Receive = {
     case p: ProcessMetaDataFile =>
+      log.info("Meta data processing request for {}.", p.fileData.path)
       val ext = extractExtension(p.fileData.path)
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
@@ -117,7 +119,8 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
         requests += p.resultTemplate.uri -> sender()
       }
 
-    case result: MetaDataProcessingSuccess =>
+    case result: MetaDataProcessingResult =>
+      log.info("Received processing result for {}.", result.path)
       requests.get(result.uri) foreach (_ ! result)
       requests -= result.uri
 

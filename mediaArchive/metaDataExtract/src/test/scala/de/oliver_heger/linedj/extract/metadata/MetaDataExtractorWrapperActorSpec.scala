@@ -25,7 +25,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
@@ -210,6 +210,17 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       .post(result2)
     expectMsg(result1)
     probe.expectMsg(result2)
+  }
+
+  it should "handle error processing results" in {
+    val File = "errorFile"
+    val errResult = MetaDataProcessingError(testPath(File, SupportedFileExtension), TestMediumID,
+      testUri(File, SupportedFileExtension), new Exception("failed"))
+    val helper = new ExtractorActorTestHelper
+
+    helper.postProcessRequest(File, SupportedFileExtension)
+      .post(errResult)
+    expectMsg(errResult)
   }
 
   it should "ignore result messages for unknown requests" in {
