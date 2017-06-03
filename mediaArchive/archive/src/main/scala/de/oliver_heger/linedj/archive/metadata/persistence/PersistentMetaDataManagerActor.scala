@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, Unresolved
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.annotation.tailrec
@@ -80,7 +80,7 @@ object PersistentMetaDataManagerActor {
       * @param result the processing result
       * @return the updated instance
       */
-    def updateResolvedFiles(result: MetaDataProcessingResult): MediumData =
+    def updateResolvedFiles(result: MetaDataProcessingSuccess): MediumData =
       copy(resolvedFiles = resolvedFiles + result.path.toString)
 
     /**
@@ -218,7 +218,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       processPendingScanResults(res :: pendingScanResults)
       checksumMapping = checksumMapping ++ res.checksumMapping
 
-    case result: MetaDataProcessingResult =>
+    case result: MetaDataProcessingSuccess =>
       val optMediaData = mediaInProgress get result.mediumID
       optMediaData foreach { d =>
         d.listenerActor ! result

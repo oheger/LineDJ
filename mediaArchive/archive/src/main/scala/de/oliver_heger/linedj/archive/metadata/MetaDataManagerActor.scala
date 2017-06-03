@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
@@ -124,7 +124,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case MediaScanStarts if !scanInProgress =>
       initiateNewScan()
 
-    case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
+    case result: MetaDataProcessingSuccess if !isCloseRequestInProgress =>
       if (handleProcessingResult(result.mediumID, result)) {
         metaDataUnionActor ! result
         checkAndHandleScanComplete()
@@ -201,7 +201,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param result   the result to be handled
     * @return a flag whether this is a valid result
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingSuccess):
   Boolean = {
     val optHandler = mediaMap get mediumID
     optHandler.exists(processMetaDataResult(mediumID, result, _))
@@ -217,7 +217,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param handler the handler for this medium
     * @return a flag whether this is a valid result
     */
-  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
+  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingSuccess,
                                     handler: MediumDataHandler): Boolean =
     if (handler.resultReceived(result)) {
       if (handler.isComplete) {

@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 object MetaDataParserStage {
   /** The object for parsing meta data processing results. */
@@ -38,7 +38,7 @@ object MetaDataParserStage {
     */
   private def parseFunc(mid: MediumID)(chunk: ByteString, lastFailure: Option[Failure],
                                        lastChunk: Boolean):
-  (Iterable[MetaDataProcessingResult], Option[Failure]) =
+  (Iterable[MetaDataProcessingSuccess], Option[Failure]) =
     parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, lastFailure)
 }
 
@@ -54,4 +54,4 @@ object MetaDataParserStage {
   * @param mediumID the ID of the medium that is parsed
   */
 class MetaDataParserStage(val mediumID: MediumID)
-  extends ParserStage[MetaDataProcessingResult](MetaDataParserStage.parseFunc(mediumID))
+  extends ParserStage[MetaDataProcessingSuccess](MetaDataParserStage.parseFunc(mediumID))

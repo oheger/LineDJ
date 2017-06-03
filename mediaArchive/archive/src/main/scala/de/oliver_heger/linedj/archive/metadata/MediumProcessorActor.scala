@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MediumProcessorActor {
@@ -375,7 +375,7 @@ class MediumProcessorActor(data: EnhancedMediaScanResult, config: MediaArchiveCo
     * @param metaData the meta data to be sent
     */
   private def sendProcessingResult(manager: ActorRef, p: Path, metaData: MediaMetaData): Unit = {
-    manager ! MetaDataProcessingResult(p.toString, currentProcessingData(p).mediumID,
+    manager ! MetaDataProcessingSuccess(p.toString, currentProcessingData(p).mediumID,
       pathUriMapping(p), metaData)
     collectorMap removeItemFor p
     currentProcessingData -= p

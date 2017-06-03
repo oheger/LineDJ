@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 /**
   * An internally used helper class for storing and managing the meta data
@@ -59,7 +59,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param result the received result
     * @return a flag whether this is a valid result
     */
-  def resultReceived(result: MetaDataProcessingResult): Boolean = {
+  def resultReceived(result: MetaDataProcessingSuccess): Boolean = {
     if (mediumPaths contains result.path.toString) {
       mediumPaths -= result.path.toString
       true

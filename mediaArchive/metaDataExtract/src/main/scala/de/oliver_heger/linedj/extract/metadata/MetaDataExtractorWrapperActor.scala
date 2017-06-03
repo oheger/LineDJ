@@ -20,7 +20,7 @@ import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataExtractorWrapperActor {
@@ -31,7 +31,7 @@ object MetaDataExtractorWrapperActor {
     * @param p the process request
     * @return the minimum result
     */
-  private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingResult = {
+  private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingSuccess = {
     val data = MediaMetaData(size = p.fileData.size)
     val result = p.resultTemplate.copy(metaData = data)
     result
@@ -117,7 +117,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
         requests += p.resultTemplate.uri -> sender()
       }
 
-    case result: MetaDataProcessingResult =>
+    case result: MetaDataProcessingSuccess =>
       requests.get(result.uri) foreach (_ ! result)
       requests -= result.uri
 

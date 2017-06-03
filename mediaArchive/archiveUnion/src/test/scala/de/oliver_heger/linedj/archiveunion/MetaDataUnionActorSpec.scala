@@ -527,7 +527,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val file = Contribution.files(TestMediumID).head
     helper.sendContribution()
     val path = Paths get file.path
-    helper.actor receive MetaDataProcessingResult(file.path, TestMediumID, uriFor(path),
+    helper.actor receive MetaDataProcessingSuccess(file.path, TestMediumID, uriFor(path),
       metaDataFor(path).copy(duration = None))
 
     val listener = helper.newStateListener(expectStateMsg = false)
@@ -933,7 +933,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     MetaDataUnionActorTestHelper = {
       files foreach { m =>
         val path = Paths get m.path
-        actor receive MetaDataProcessingResult(m.path, mediumID, uriFor(path),
+        actor receive MetaDataProcessingSuccess(m.path, mediumID, uriFor(path),
           metaDataFor(path))
       }
       this

@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Source}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 import scala.util.Try
 
@@ -144,7 +144,7 @@ case class ResponseProcessingError(mediumID: MediumID, fileType: String,
   * @param seqNo    the sequence number of the current scan operation
   */
 case class MetaDataResponseProcessingResult(mediumID: MediumID,
-                                            metaData: Iterable[MetaDataProcessingResult],
+                                            metaData: Iterable[MetaDataProcessingSuccess],
                                             seqNo: Int)
 
 /**

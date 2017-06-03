@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
@@ -347,8 +347,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     * @param uri the expected URI of the file
     * @return the received result message
     */
-  private def expectProcessingResult(p: Path, uri: String): MetaDataProcessingResult = {
-    expectMsg(MetaDataProcessingResult(p.toString,
+  private def expectProcessingResult(p: Path, uri: String): MetaDataProcessingSuccess = {
+    expectMsg(MetaDataProcessingSuccess(p.toString,
       if (MediumPaths.head == p) MediumID.fromDescriptionPath(Medium)
       else MediumID(ScanResult.root.toString, None), uri, MetaData))
   }
@@ -617,7 +617,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.actor ! ProcessMediaFiles(mid, scanResult.mediaFiles(mid))
     List(probeMp3Processor, probeId3v1Processor, probeId3v2Processor) foreach checkActorStopped
-    expectMsg(MetaDataProcessingResult(metaData = MediaMetaData(), path = errorPath.toString,
+    expectMsg(MetaDataProcessingSuccess(metaData = MediaMetaData(), path = errorPath.toString,
       mediumID = mid, uri =  errorUri))
     expectMsg(errorPath)
 

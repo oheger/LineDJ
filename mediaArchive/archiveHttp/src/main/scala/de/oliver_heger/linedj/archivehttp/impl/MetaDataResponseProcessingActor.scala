@@ -21,7 +21,7 @@ import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 import scala.concurrent.Future
 
@@ -34,7 +34,7 @@ object MetaDataResponseProcessingActor {
   * An actor class responsible for processing a response for a meta data file.
   *
   * This actor parses the meta data file into a sequence of
-  * [[MetaDataProcessingResult]] objects. This sequence is then passed in a
+  * [[MetaDataProcessingSuccess]] objects. This sequence is then passed in a
   * [[MetaDataResponseProcessingResult]] message to the sender actor.
   */
 class MetaDataResponseProcessingActor
@@ -43,13 +43,13 @@ class MetaDataResponseProcessingActor
   /**
     * @inheritdoc This implementation processes the content of a meta data
     *             file and parses it into a sequence of
-    *             [[MetaDataProcessingResult]] objects. Based on this, a
+    *             [[MetaDataProcessingSuccess]] objects. Based on this, a
     *             result object is produced.
     */
   protected override def processSource(source: Source[ByteString, Any], mid: MediumID,
                                       seqNo: Int): (Future[Any], KillSwitch) = {
-    val sink = Sink.fold[List[MetaDataProcessingResult],
-      MetaDataProcessingResult](List.empty)((lst, r) => r :: lst)
+    val sink = Sink.fold[List[MetaDataProcessingSuccess],
+      MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)

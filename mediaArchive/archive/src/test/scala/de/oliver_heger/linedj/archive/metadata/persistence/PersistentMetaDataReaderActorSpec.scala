@@ -22,7 +22,7 @@ import akka.actor.{ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -145,9 +145,9 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       * @param count the number of messages
       * @return a set with the received messages
       */
-    def expectMetaData(count: Int): Set[MetaDataProcessingResult] = {
-      (1 to count).foldLeft(Set.empty[MetaDataProcessingResult]) { (s, _) =>
-        s + parent.expectMsgType[MetaDataProcessingResult]
+    def expectMetaData(count: Int): Set[MetaDataProcessingSuccess] = {
+      (1 to count).foldLeft(Set.empty[MetaDataProcessingSuccess]) { (s, _) =>
+        s + parent.expectMsgType[MetaDataProcessingSuccess]
       }
     }
 

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivecommon.parser
 import de.oliver_heger.linedj.archivecommon.parser.JSONParser.JSONData
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Result}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
 import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.mock.MockitoSugar
@@ -120,7 +120,7 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
     * @param p the test parser
     * @return the result returned by the parser
     */
-  private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingResult = {
+  private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingSuccess = {
     val (data, failure) = p.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       optFailure = None)
     failure shouldBe 'empty

@@ -35,8 +35,8 @@ object MetaDataProcessingResultSpec {
     *
     * @return the test result
     */
-  private def createResult(): MetaDataProcessingResult =
-    MetaDataProcessingResult(TestPath, TestMedium, TestUri, null)
+  private def createResult(): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(TestPath, TestMedium, TestUri, null)
 }
 
 /**

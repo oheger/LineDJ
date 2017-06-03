@@ -25,7 +25,7 @@ import akka.stream.{ActorMaterializer, KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object Mp3MetaDataExtractorActor {
@@ -111,7 +111,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * @param result a template for the processing result
     * @return the new processing actor and a kill switch
     */
-  private def startProcessingStream(file: FileData, result: MetaDataProcessingResult):
+  private def startProcessingStream(file: FileData, result: MetaDataProcessingSuccess):
   (ActorRef, KillSwitch) = {
     val actor = createChildActor(Mp3FileProcessorActor(metaDataActor, tagSizeLimit,
       file, result))

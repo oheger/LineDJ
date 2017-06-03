@@ -24,7 +24,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
@@ -65,7 +65,7 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
     val futureStream = Source.single(data)
       .via(stage)
-      .runFold(List.empty[MetaDataProcessingResult])((lst, r) => r :: lst)
+      .runFold(List.empty[MetaDataProcessingSuccess])((lst, r) => r :: lst)
     val lstMetaData = Await.result(futureStream, 3.seconds)
     lstMetaData should have size 2
     val titles = lstMetaData map (_.metaData.title.get)

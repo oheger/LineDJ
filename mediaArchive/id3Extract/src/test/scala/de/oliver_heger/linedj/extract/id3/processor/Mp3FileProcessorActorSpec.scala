@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError,
-MetaDataProcessingResult}
+MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
@@ -45,7 +45,7 @@ object Mp3FileProcessorActorSpec {
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =
-    MetaDataProcessingResult(path = "some/dir/" + FileSpec.path,
+    MetaDataProcessingSuccess(path = "some/dir/" + FileSpec.path,
       mediumID = MediumID("some/medium", None), uri = "mp3://testSong.mp3",
       metaData = MediaMetaData())
 

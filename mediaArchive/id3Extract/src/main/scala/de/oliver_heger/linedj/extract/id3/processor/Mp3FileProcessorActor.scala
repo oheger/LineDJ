@@ -22,14 +22,14 @@ import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError,
-MetaDataProcessingResult}
+MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object Mp3FileProcessorActor {
 
   private class Mp3FileProcessorActorImpl(metaDataActor: ActorRef, tagSizeLimit: Int,
                                           collector: MetaDataPartsCollector,
-                                          resultTemplate: MetaDataProcessingResult)
+                                          resultTemplate: MetaDataProcessingSuccess)
     extends Mp3FileProcessorActor(metaDataActor, tagSizeLimit, collector, resultTemplate)
       with ChildActorFactory
 
@@ -46,7 +46,7 @@ object Mp3FileProcessorActor {
     * @return a ''Props'' object for creating a new actor instance
     */
   def apply(metaDataActor: ActorRef, tagSizeLimit: Int, mp3File: FileData,
-            resultData: MetaDataProcessingResult): Props =
+            resultData: MetaDataProcessingSuccess): Props =
     Props(classOf[Mp3FileProcessorActorImpl], metaDataActor, tagSizeLimit,
       new MetaDataPartsCollector(mp3File), resultData)
 }
@@ -69,7 +69,7 @@ object Mp3FileProcessorActor {
   */
 class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
                             collector: MetaDataPartsCollector,
-                            resultTemplate: MetaDataProcessingResult) extends Actor {
+                            resultTemplate: MetaDataProcessingSuccess) extends Actor {
   this: ChildActorFactory =>
 
   /** The reference to the MP3 data processor actor. */

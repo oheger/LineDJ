@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -173,11 +173,11 @@ object HttpArchiveManagementActorSpec {
     * @param song   the index of the song
     * @return the processing result object
     */
-  private def metaDataResult(medium: Int, song: Int): MetaDataProcessingResult = {
+  private def metaDataResult(medium: Int, song: Int): MetaDataProcessingSuccess = {
     val metaData = MediaMetaData(title = Some(s"Song $song of $medium"),
       size = 1000 + song * 100)
     val mid = mediumID(medium)
-    MetaDataProcessingResult(path = mid.mediumURI + "/song" + song,
+    MetaDataProcessingSuccess(path = mid.mediumURI + "/song" + song,
       uri = s"song://${mid.mediumURI}/song$song.mp3", mediumID = mid, metaData = metaData)
   }
 
@@ -578,8 +578,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     HttpArchiveManagementActorTestHelper = {
       val metaData = results.flatMap(_.metaData).toSet
       val receivedData = (1 to metaData.size).foldLeft(
-        Set.empty[MetaDataProcessingResult])((s, _) =>
-        s + probeUnionMetaDataManager.expectMsgType[MetaDataProcessingResult])
+        Set.empty[MetaDataProcessingSuccess])((s, _) =>
+        s + probeUnionMetaDataManager.expectMsgType[MetaDataProcessingSuccess])
       receivedData should be(metaData)
       this
     }

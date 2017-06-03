@@ -31,7 +31,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
@@ -125,7 +125,7 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
   private var fileInfo = List.empty[(MediumID, Iterable[FileData])]
 
   /** A set with meta data objects aggregated during a scan operation. */
-  private var metaData = Set.empty[MetaDataProcessingResult]
+  private var metaData = Set.empty[MetaDataProcessingSuccess]
 
   /**
     * A sequence number identifying the current scan operation. The sequence
@@ -291,6 +291,6 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     * @param validMedia the set with complete media
     * @return the set with results to be sent to the union archive
     */
-  private def filteredMetaDataResults(validMedia: Set[MediumID]): Set[MetaDataProcessingResult] =
+  private def filteredMetaDataResults(validMedia: Set[MediumID]): Set[MetaDataProcessingSuccess] =
     metaData filter (validMedia contains _.mediumID)
 }

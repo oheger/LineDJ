@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -38,7 +38,7 @@ class MetaDataJsonConverterSpec extends FlatSpec with Matchers {
     * @return the parsed meta data processing result
     */
   private def convertAndParse(metaData: MediaMetaData, path: Path, uri: String):
-  MetaDataProcessingResult = {
+  MetaDataProcessingSuccess = {
     val converter = new MetaDataJsonConverter
     val json = "[" + converter.convert(uri, path.toString, metaData) + "]"
     val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))

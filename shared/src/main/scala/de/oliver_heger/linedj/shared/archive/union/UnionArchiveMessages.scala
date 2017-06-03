@@ -44,7 +44,7 @@ case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
   * An archive component first has to send this message to the meta data union
   * actor. So the actor knows which files are available and which meta data is
   * expected. Then for each contributed media file a
-  * [[MetaDataProcessingResult]] message has to be sent. That way the meta data
+  * [[MetaDataProcessingSuccess]] message has to be sent. That way the meta data
   * actor is able to determine when the meta data for all managed media is
   * complete.
   *
@@ -53,19 +53,51 @@ case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
 case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
 
 /**
-  * A message with the result of meta data extraction for a single media file.
+  * A trait describing the result of a meta data processing operation.
+  *
+  * A result consists of some meta information about the file that was subject
+  * of the operation. Concrete sub classes will then contain either an actual
+  * result or an error message.
+  */
+sealed trait MetaDataProcessingResult {
+  /**
+    * Returns the path of the media file.
+    *
+    * @return the path
+    */
+  def path: String
+
+  /**
+    * Returns the ID of the medium the media file belongs to
+    *
+    * @return the medium ID
+    */
+  def mediumID: MediumID
+
+  /**
+    * Returns the URI of the media file.
+    *
+    * @return the URI
+    */
+  def uri: String
+}
+
+/**
+  * A message with the successful result of meta data extraction for a single
+  * media file.
   *
   * Messages of this type are sent to the meta data manager actor whenever a
-  * media file has been processed. The message contains the meta data that
-  * could be extracted.
+  * media file has been processed successfully. The message contains the meta
+  * data that could be extracted.
   *
   * @param path the path to the media file
   * @param mediumID the ID of the medium this file belongs to
   * @param uri the URI of the file
   * @param metaData an object with the meta data that could be extracted
   */
-case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: String,
-                                    metaData: MediaMetaData) {
+case class MetaDataProcessingSuccess(override val path: String, override val mediumID: MediumID,
+                                     override val uri: String, metaData: MediaMetaData)
+  extends MetaDataProcessingResult {
   /**
     * Returns a new instance of ''MetaDataProcessingResult'' with the same
     * properties as this instance, but with updated meta data.
@@ -73,7 +105,7 @@ case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: Strin
     * @param metaData the new meta data
     * @return the updated instance
     */
-  def withMetaData(metaData: MediaMetaData): MetaDataProcessingResult =
+  def withMetaData(metaData: MediaMetaData): MetaDataProcessingSuccess =
     copy(metaData = metaData)
 
   /**
@@ -100,8 +132,9 @@ case class MetaDataProcessingResult(path: String, mediumID: MediumID, uri: Strin
   * @param uri       the URI of the file
   * @param exception the exception which is the cause of the failure
   */
-case class MetaDataProcessingError(path: String, mediumID: MediumID, uri: String,
-                                   exception: Throwable)
+case class MetaDataProcessingError(override val path: String, override val mediumID: MediumID,
+                                   override val uri: String, exception: Throwable)
+  extends MetaDataProcessingResult
 
 /**
   * A message serving as a request to process a meta data file.
@@ -114,7 +147,7 @@ case class MetaDataProcessingError(path: String, mediumID: MediumID, uri: String
   * @param fileData       an object describing the file to be processed
   * @param resultTemplate a template for the expected result
   */
-case class ProcessMetaDataFile(fileData: FileData, resultTemplate: MetaDataProcessingResult)
+case class ProcessMetaDataFile(fileData: FileData, resultTemplate: MetaDataProcessingSuccess)
 
 /**
   * A message processed by ''MetaDataUnionActor'' telling it that a component

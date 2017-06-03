@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.scalatest.mock.MockitoSugar
@@ -253,9 +253,9 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @param endIndex   the end index (inclusive)
     * @param mid        the medium ID
     */
-  private def checkProcessingResults(results: Seq[MetaDataProcessingResult], startIndex: Int,
+  private def checkProcessingResults(results: Seq[MetaDataProcessingSuccess], startIndex: Int,
                                      endIndex: Int, mid: MediumID = TestMedium): Unit = {
-    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingResult(path(i).toString,
+    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(path(i).toString,
       mid, uri(i), metaData(i)))
     results should contain theSameElementsAs expResults
   }
@@ -305,7 +305,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the extracted results
     */
   private def parseMetaData(file: Path, mid: MediumID = TestMedium):
-  Seq[MetaDataProcessingResult] = {
+  Seq[MetaDataProcessingSuccess] = {
     val json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8)
     val (results, failure) = invokeParser(json, mid)
     failure shouldBe 'empty
@@ -321,7 +321,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @param mid  the medium ID
     * @return a tuple with the results and the optional failure
     */
-  private def invokeParser(json: String, mid: MediumID): (Seq[MetaDataProcessingResult],
+  private def invokeParser(json: String, mid: MediumID): (Seq[MetaDataProcessingSuccess],
     Option[ParserTypes.Failure]) = {
     val split = json.length > 1024
     if (split) {

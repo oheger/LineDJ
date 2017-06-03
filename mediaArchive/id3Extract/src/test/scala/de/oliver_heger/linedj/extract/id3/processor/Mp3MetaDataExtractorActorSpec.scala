@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -46,7 +46,7 @@ object Mp3MetaDataExtractorActorSpec {
   private val TestFileData = FileData("someMp3File.mp3", 2354875L)
 
   /** A test result template object. */
-  private val ResultTemplate = MetaDataProcessingResult("somePath.mp3",
+  private val ResultTemplate = MetaDataProcessingSuccess("somePath.mp3",
     MediumID("someMedium", Some("someSettings")), "someURI", null)
 
   /**

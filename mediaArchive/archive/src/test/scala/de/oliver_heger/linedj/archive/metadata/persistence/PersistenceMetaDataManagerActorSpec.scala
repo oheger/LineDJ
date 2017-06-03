@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, Unresolved
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -157,7 +157,7 @@ object PersistenceMetaDataManagerActorSpec {
     * @param medIdx the index of the medium
     * @return a list with processing results for this medium
     */
-  private def processingResults(medIdx: Int): List[MetaDataProcessingResult] =
+  private def processingResults(medIdx: Int): List[MetaDataProcessingSuccess] =
     processingResults(mediumID(medIdx))
 
   /**
@@ -166,8 +166,8 @@ object PersistenceMetaDataManagerActorSpec {
     * @param mid the medium ID
     * @return a list with processing results for this medium
     */
-  private def processingResults(mid: MediumID): List[MetaDataProcessingResult] =
-    mediumFiles(mid) map (f => MetaDataProcessingResult(f.path, mid, f.path.toString,
+  private def processingResults(mid: MediumID): List[MetaDataProcessingSuccess] =
+    mediumFiles(mid) map (f => MetaDataProcessingSuccess(f.path, mid, f.path.toString,
       MediaMetaData(title = Some("Song " + f.path))))
 
   /**
@@ -299,7 +299,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     *
     * @param results the expected results
     */
-  private def expectProcessingResults(results: List[MetaDataProcessingResult]): Unit = {
+  private def expectProcessingResults(results: List[MetaDataProcessingSuccess]): Unit = {
     results foreach (r => expectMsg(r))
   }
 
@@ -665,7 +665,7 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
       * @param results the result objects to be sent
       * @return this test helper
       */
-    def sendProcessingResults(results: Iterable[MetaDataProcessingResult]):
+    def sendProcessingResults(results: Iterable[MetaDataProcessingSuccess]):
     PersistenceMetaDataManagerActorTestHelper = {
       results foreach managerActor.receive
       this

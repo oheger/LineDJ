@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -102,9 +102,9 @@ object MetaDataManagerActorSpec {
     * @param file     the object with file data
     * @return the processing result
     */
-  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingResult = {
+  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess = {
     val path = Paths get file.path
-    MetaDataProcessingResult(file.path, mediumID, uriFor(path),
+    MetaDataProcessingSuccess(file.path, mediumID, uriFor(path),
       metaDataFor(path))
   }
 

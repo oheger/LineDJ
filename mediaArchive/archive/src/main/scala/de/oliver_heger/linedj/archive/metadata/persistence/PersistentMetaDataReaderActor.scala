@@ -24,7 +24,7 @@ import akka.stream.scaladsl.{FileIO, Keep, Sink}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataParserStage, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object PersistentMetaDataReaderActor {
@@ -85,7 +85,7 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
       implicit val materializer = ActorMaterializer()
       import context.dispatcher
       val source = FileIO.fromPath(p, chunkSize)
-      val sink = Sink.foreach[MetaDataProcessingResult](parent ! _)
+      val sink = Sink.foreach[MetaDataProcessingSuccess](parent ! _)
       val stage = new MetaDataParserStage(mid)
       val flow = source.via(stage).toMat(sink)(Keep.right)
       val future = flow.run()

@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -53,8 +53,8 @@ object MetaDataResponseProcessingActorSpec {
     * @param idx the index
     * @return the test processing result
     */
-  private def processingResult(idx: Int): MetaDataProcessingResult =
-    MetaDataProcessingResult(s"songs/song$idx.mp3", TestMediumID, s"audio://song$idx.mp3",
+  private def processingResult(idx: Int): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(s"songs/song$idx.mp3", TestMediumID, s"audio://song$idx.mp3",
       MediaMetaData(title = Some(s"Song$idx"), size = (idx + 1) * 100))
 
   /**
@@ -63,7 +63,7 @@ object MetaDataResponseProcessingActorSpec {
     * @param count the number of meta data objects
     * @return the sequence with the produced meta data
     */
-  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingResult] =
+  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingSuccess] =
     (1 to count) map processingResult
 
   /**
@@ -72,7 +72,7 @@ object MetaDataResponseProcessingActorSpec {
     * @param data the meta data
     * @return the JSON representation for this data
     */
-  private def jsonMetaData(data: MetaDataProcessingResult): String =
+  private def jsonMetaData(data: MetaDataProcessingSuccess): String =
     s"""{
        |"title":"${data.metaData.title.get}",
        |"size":"${data.metaData.size}",
@@ -89,7 +89,7 @@ object MetaDataResponseProcessingActorSpec {
     * @param data the sequence of data objects
     * @return the JSON representation for this sequence
     */
-  private def generateJson(data: Iterable[MetaDataProcessingResult]): String =
+  private def generateJson(data: Iterable[MetaDataProcessingSuccess]): String =
     data.map(jsonMetaData).mkString("[", ",\n", "]")
 
   /**

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archiveunion
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
-import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingSuccess}
 
 /**
   * An internally used helper class for storing and managing the meta data
@@ -70,7 +70,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     *         returned explicitly so that it is available without having to
     *         evaluate the lazy meta data chunk expression)
     */
-  def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
+  def storeResult(result: MetaDataProcessingSuccess, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
     mediumPaths -= result.path.toString
     val complete = isComplete
@@ -126,7 +126,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param result the meta data result
     * @return the URI to be used for the represented file
     */
-  protected def extractUri(result: MetaDataProcessingResult): String = result.uri
+  protected def extractUri(result: MetaDataProcessingSuccess): String = result.uri
 
   /**
     * Updates the current result object by adding the content of the given
@@ -256,7 +256,7 @@ private class UndefinedMediumDataHandler extends MediumDataHandler(MediumID.Unde
     * @param result the meta data result
     * @return the URI to be used for the represented file
     */
-  override protected def extractUri(result: MetaDataProcessingResult): String =
+  override protected def extractUri(result: MetaDataProcessingSuccess): String =
     MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
 
   /**

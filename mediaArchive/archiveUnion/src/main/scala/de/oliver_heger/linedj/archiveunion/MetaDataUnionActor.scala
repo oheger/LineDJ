@@ -20,7 +20,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, MediaContribution, MetaDataProcessingResult, RemovedArchiveComponentProcessed}
+import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess, RemovedArchiveComponentProcessed}
 
 object MetaDataUnionActor {
 
@@ -60,7 +60,7 @@ object MetaDataUnionActor {
   *
   *  - A [[MediaContribution]] message has to be sent listing all media and
   * files a component wants to contribute.
-  *  - For each file part of the contribution a [[MetaDataProcessingResult]]
+  *  - For each file part of the contribution a [[MetaDataProcessingSuccess]]
   * message has to be sent.
   * - When data owned by a component becomes invalid and should be replaced
   * with newer information the same steps have to be followed, but an
@@ -144,7 +144,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       }
       files foreach prepareHandlerForMedium
 
-    case result: MetaDataProcessingResult if scanInProgress =>
+    case result: MetaDataProcessingSuccess if scanInProgress =>
       val completedMediaSize = completedMedia.size
       if (handleProcessingResult(result.mediumID, result)) {
         if (isUnassignedMedium(result.mediumID)) {
@@ -262,7 +262,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param result   the result to be handled
     * @return a flag whether the medium ID could be resolved
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingSuccess):
   Boolean =
     mediaMap.get(mediumID) match {
       case Some(handler) =>
@@ -280,7 +280,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param result   the processing result
     * @param handler  the handler for this medium
     */
-  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
+  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingSuccess,
                                     handler: MediumDataHandler): Unit = {
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {

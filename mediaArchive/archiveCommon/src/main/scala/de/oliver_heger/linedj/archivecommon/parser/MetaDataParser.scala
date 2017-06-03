@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivecommon.parser
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.slf4j.LoggerFactory
 
 object MetaDataParser {
@@ -85,8 +85,8 @@ object MetaDataParser {
     * @return the processing result
     */
   private def createProcessingResult(obj: Map[String, String], mediumID: MediumID):
-  MetaDataProcessingResult =
-    MetaDataProcessingResult(mediumID = mediumID, uri = obj(PropUri),
+  MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(mediumID = mediumID, uri = obj(PropUri),
       path = obj(PropPath), metaData = createMetaData(obj))
 
   /**
@@ -149,12 +149,12 @@ object MetaDataParser {
   */
 class MetaDataParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
   Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[MetaDataProcessingResult, MediumID](chunkParser, jsonParser) {
+  extends AbstractModelParser[MetaDataProcessingSuccess, MediumID](chunkParser, jsonParser) {
 
   import MetaDataParser._
 
   override def convertJsonObjects(mediumID: MediumID, objects: IndexedSeq[Map[String, String]]):
-  IndexedSeq[MetaDataProcessingResult] = {
+  IndexedSeq[MetaDataProcessingSuccess] = {
     objects filter {
       m => m.contains(PropUri) && m.contains(PropPath)
     } map (createProcessingResult(_, mediumID))
