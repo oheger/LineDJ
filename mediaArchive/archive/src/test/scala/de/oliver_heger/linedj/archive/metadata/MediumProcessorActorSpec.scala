@@ -23,7 +23,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.mp3.ID3Header
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.{MetaDataProvider, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
