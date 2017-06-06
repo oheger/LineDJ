@@ -19,7 +19,7 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import com.typesafe.config.ConfigFactory
+import akka.util.Timeout
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -46,6 +46,9 @@ object MediaArchiveConfigSpec {
 
   /** Test value for the size limit for medium info files. */
   private val InfoSizeLimit = 8888
+
+  /** Test value for the processing timeout. */
+  private val ProcessingTimeout = Timeout(128.seconds)
 
   /** Test value for the chunk size of a meta data notification. */
   private val MetaDataChunkSize = 10
@@ -85,6 +88,8 @@ object MediaArchiveConfigSpec {
     config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
     config.addProperty("media.metaDataExtraction.readChunkSize", ReadChunkSize)
     config.addProperty("media.metaDataExtraction.tagSizeLimit", TagSizeLimit)
+    config.addProperty("media.metaDataExtraction.processingTimeout",
+      ProcessingTimeout.duration.toSeconds)
     config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize)
     config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize)
     config.addProperty("media.metaDataPersistence.path", MetaDataPersistencePath.toString)
@@ -112,136 +117,13 @@ with Matchers with BeforeAndAfterAll {
 
   import MediaArchiveConfigSpec._
 
-  def this() = this(ActorSystem("ServerConfigSpec",
-    ConfigFactory.parseString(
-      s"""splaya {
-         | media {
-         |   infoSizeLimit = ${MediaArchiveConfigSpec.InfoSizeLimit}
-         |   readerTimeout = 60s
-         |   readerCheckInterval = ${MediaArchiveConfigSpec.ReaderCheckInterval.toString()}
-          |   readerCheckInitialDelay = ${MediaArchiveConfigSpec.ReaderCheckDelay.toString()}
-          |   paths = [
-          |     {
-          |       path = ${MediaArchiveConfigSpec.MusicRoot.rootPath}
-          |       processorCount = ${MediaArchiveConfigSpec.MusicRoot.processorCount}
-          |     },
-          |     {
-          |       path = ${MediaArchiveConfigSpec.CDRomRoot.rootPath}
-          |       processorCount = ${MediaArchiveConfigSpec.CDRomRoot.processorCount}
-          |       accessRestriction = ${MediaArchiveConfigSpec.CDRomRoot.accessRestriction.get}
-          |     }
-          |   ]
-          |   excludedExtensions = [
-          |       "JPG", "pdf", "tex"
-          |   ]
-          |   metaDataExtraction {
-          |     readChunkSize = ${MediaArchiveConfigSpec.ReadChunkSize}
-          |     tagSizeLimit = ${MediaArchiveConfigSpec.TagSizeLimit}
-          |     metaDataUpdateChunkSize = ${MediaArchiveConfigSpec.MetaDataChunkSize}
-          |     metaDataMaxMessageSize = ${MediaArchiveConfigSpec.MetaDataMaxMsgSize}
-          |   }
-          |   metaDataPersistence {
-          |     path = ${MediaArchiveConfigSpec.MetaDataPersistencePath}
-          |     chunkSize = ${MediaArchiveConfigSpec.MetaDataPersistenceChunkSize}
-          |     parallelCount = ${MediaArchiveConfigSpec.MetaDataPersistenceParallelCount}
-          |     writeBlockSize = ${MediaArchiveConfigSpec.MetaDataPersistenceWriteBlockSize}
-          |   }
-          | }
-          |}
-       """.stripMargin)))
+  def this() = this(ActorSystem("ServerConfigSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
   }
 
-  /**
-    * Convenience method for creating a test (type-safe) configuration object
-    * based on the config of the test actor system.
-    *
-    * @return the test configuration
-    */
-  private def createTConfig(): MediaArchiveConfig = MediaArchiveConfig(system.settings.config)
-
-  "A ServerConfig created from a TypeSafe Config" should
-    "return the timeout for reader actors" in {
-    createTConfig().readerTimeout should be(60.seconds)
-  }
-
-  it should "return the reader check interval" in {
-    createTConfig().readerCheckInterval should be(ReaderCheckInterval)
-  }
-
-  it should "return the initial reader check delay" in {
-    createTConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
-  }
-
-  it should "return a collection of paths with media files" in {
-    val paths = createTConfig().mediaRoots
-    paths should contain only(MusicRoot, CDRomRoot)
-  }
-
-  it should "allow access to a media root based on its path" in {
-    val config = createTConfig()
-
-    config rootFor MusicRoot.rootPath should be(Some(MusicRoot))
-    config rootFor CDRomRoot.rootPath should be(Some(CDRomRoot))
-  }
-
-  it should "return None for an unknown root path" in {
-    createTConfig() rootFor Paths.get("unknownPath") shouldBe 'empty
-  }
-
-  it should "return the read chunk size" in {
-    createTConfig().metaDataReadChunkSize should be(ReadChunkSize)
-  }
-
-  it should "return the tag size limit" in {
-    createTConfig().tagSizeLimit should be(TagSizeLimit)
-  }
-
-  it should "return the meta data chunk size" in {
-    createTConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
-  }
-
-  it should "return the maximum meta data message size" in {
-    createTConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
-  }
-
-  it should "correct the maximum message size if necessary" in {
-    val oc = createTConfig()
-    val config = new MediaArchiveConfig(readerTimeout = oc.readerTimeout, readerCheckInterval = oc
-      .readerCheckInterval, readerCheckInitialDelay = oc.readerCheckInitialDelay,
-      metaDataReadChunkSize = oc.metaDataReadChunkSize, infoSizeLimit = 1024,
-      tagSizeLimit = oc.tagSizeLimit, excludedFileExtensions = oc.excludedFileExtensions,
-      rootMap = Map.empty, metaDataUpdateChunkSize = 8, initMetaDataMaxMsgSize = 150,
-      metaDataPersistencePath = Paths get "foo", metaDataPersistenceChunkSize = 42,
-      metaDataPersistenceParallelCount = 2, metaDataPersistenceWriteBlockSize = 43)
-
-    config.metaDataMaxMessageSize should be(152)
-  }
-
-  it should "return the file extensions to be excluded" in {
-    createTConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
-  }
-
-  it should "return the path for meta data persistence" in {
-    createTConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
-  }
-
-  it should "return the meta data persistence chunk size" in {
-    createTConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
-  }
-
-  it should "return the meta data persistence parallel count" in {
-    createTConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
-  }
-
-  it should "return the meta data persistence write block size" in {
-    createTConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
-  }
-
-  "A ServerConfig created from a Hierarchical Config" should
-    "return the timeout for reader actors" in {
+  "A ServerConfig" should "return the timeout for reader actors" in {
     createCConfig().readerTimeout should be(60.seconds)
   }
 
@@ -263,6 +145,10 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the tag size limit" in {
     createCConfig().tagSizeLimit should be(TagSizeLimit)
+  }
+
+  it should "return the processing timeout" in {
+    createCConfig().processingTimeout should be(ProcessingTimeout)
   }
 
   it should "return the meta data chunk size" in {

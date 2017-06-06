@@ -20,42 +20,42 @@ import java.nio.file.{Path, Paths}
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-import com.typesafe.config.{Config, ConfigObject}
+import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.concurrent.duration._
 
 object MediaArchiveConfig {
-  /** Constant for the prefix for TypeSafe configuration options. */
-  private val TConfigPrefix = "splaya.media."
-
   /** Constant for the prefix for Commons Configuration options. */
   private val CConfigPrefix = "media."
 
   /** The configuration property for the reader timeout. */
-  private val PropReaderActorTimeout = "readerTimeout"
+  private val PropReaderActorTimeout = CConfigPrefix + "readerTimeout"
 
   /** The configuration property for the initial delay for reader timeout checks. */
-  private val PropReaderCheckDelay = "readerCheckInitialDelay"
+  private val PropReaderCheckDelay = CConfigPrefix + "readerCheckInitialDelay"
 
   /** The configuration property for the interval for reader timeout checks. */
-  private val PropReaderCheckInterval = "readerCheckInterval"
+  private val PropReaderCheckInterval = CConfigPrefix + "readerCheckInterval"
 
   /** The configuration property for the info size restriction. */
-  private val PropInfoSizeLimit = "infoSizeLimit"
+  private val PropInfoSizeLimit = CConfigPrefix + "infoSizeLimit"
 
   /** The configuration property for the excluded file extensions. */
-  private val PropExcludedExtensions = "excludedExtensions"
+  private val PropExcludedExtensions = CConfigPrefix + "excludedExtensions"
 
   /** Constant for the prefix for the meta data extraction configuration. */
-  private val MetaExtractionPrefix = "metaDataExtraction."
+  private val MetaExtractionPrefix = CConfigPrefix + "metaDataExtraction."
 
   /** The configuration property for meta data extraction chunk size. */
   private val PropMetaDataReadChunkSize = MetaExtractionPrefix + "readChunkSize"
 
   /** The configuration property for the size restriction for ID3 tags. */
   private val PropTagSizeLimit = MetaExtractionPrefix + "tagSizeLimit"
+
+  /** The configuration property for the processing timeout. */
+  private val PropProcessingTimeout = MetaExtractionPrefix + "processingTimeout"
 
   /** The configuration property for the size of meta data update chunks. */
   private val PropMetaDataUpdateChunkSize = MetaExtractionPrefix + "metaDataUpdateChunkSize"
@@ -64,7 +64,7 @@ object MediaArchiveConfig {
   private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
 
   /** Constant for the prefix for the meta data persistence configuration. */
-  private val MetaPersistencePrefix = "metaDataPersistence."
+  private val MetaPersistencePrefix = CConfigPrefix + "metaDataPersistence."
 
   /** The configuration property for the meta data persistence path. */
   private val PropMetaDataPersistencePath = MetaPersistencePrefix + "path"
@@ -87,46 +87,6 @@ object MediaArchiveConfig {
   /** Constant for the accessRestriction property of a media root object. */
   private val RootPropAccessRestriction = "accessRestriction"
 
-  /** Constant for a configuration key to map objects to. */
-  private val ObjectKey = "Kex"
-
-  /** A list with the supported (top-level) property keys. */
-  private val Keys = List(PropReaderActorTimeout, PropReaderCheckDelay, PropReaderCheckInterval,
-    PropExcludedExtensions, PropMetaDataReadChunkSize, PropTagSizeLimit,
-    PropMetaDataUpdateChunkSize, PropMetaDataMaxMessageSize,
-    PropMetaDataPersistencePath, PropMetaDataPersistenceChunkSize,
-    PropMetaDataPersistenceParallelCount, PropMetaDataPersistenceWriteBlockSize,
-    PropInfoSizeLimit)
-
-  /** The map with keys used by TypeSafe Configuration. */
-  private val TKeys = keyMapping(TConfigPrefix)
-
-  /** The map with keys used by Commons Configuration. */
-  private val CKeys = keyMapping(CConfigPrefix)
-
-  /**
-    * Creates a new instance of ''ServerConfig'' based on the passed in
-    * ''Config'' object.
-    *
-    * @param config the configuration to be wrapped
-    * @return the new ''ServerConfig'' instance
-    */
-  def apply(config: Config): MediaArchiveConfig =
-  new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
-    readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
-    readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
-    metaDataReadChunkSize = config getInt TKeys(PropMetaDataReadChunkSize),
-    tagSizeLimit = config getInt TKeys(PropTagSizeLimit),
-    infoSizeLimit = config getInt TKeys(PropInfoSizeLimit),
-    metaDataUpdateChunkSize = config getInt TKeys(PropMetaDataUpdateChunkSize),
-    initMetaDataMaxMsgSize = config getInt TKeys(PropMetaDataMaxMessageSize),
-    metaDataPersistencePath = Paths.get(config getString TKeys(PropMetaDataPersistencePath)),
-    metaDataPersistenceChunkSize = config getInt TKeys(PropMetaDataPersistenceChunkSize),
-    metaDataPersistenceParallelCount = config getInt TKeys(PropMetaDataPersistenceParallelCount),
-    metaDataPersistenceWriteBlockSize = config getInt TKeys(PropMetaDataPersistenceWriteBlockSize),
-    excludedFileExtensions = obtainExcludedExtensions(config),
-    rootMap = createMediaData(config))
-
   /**
     * Creates a new instance of ''ServerConfig'' based on the passed in
     * ''HierarchicalConfiguration'' object.
@@ -138,76 +98,18 @@ object MediaArchiveConfig {
   new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
     readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
-    metaDataReadChunkSize = config getInt CKeys(PropMetaDataReadChunkSize),
-    infoSizeLimit = config getInt CKeys(PropInfoSizeLimit),
-    tagSizeLimit = config getInt CKeys(PropTagSizeLimit),
-    metaDataUpdateChunkSize = config getInt CKeys(PropMetaDataUpdateChunkSize),
-    initMetaDataMaxMsgSize = config getInt CKeys(PropMetaDataMaxMessageSize),
-    metaDataPersistencePath = Paths.get(config getString CKeys(PropMetaDataPersistencePath)),
-    metaDataPersistenceChunkSize = config getInt CKeys(PropMetaDataPersistenceChunkSize),
-    metaDataPersistenceParallelCount = config getInt CKeys(PropMetaDataPersistenceParallelCount),
-    metaDataPersistenceWriteBlockSize = config getInt CKeys(PropMetaDataPersistenceWriteBlockSize),
+    metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
+    infoSizeLimit = config getInt PropInfoSizeLimit,
+    tagSizeLimit = config getInt PropTagSizeLimit,
+    processingTimeout = durationProperty(config, PropProcessingTimeout),
+    metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
+    initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize,
+    metaDataPersistencePath = Paths.get(config getString PropMetaDataPersistencePath),
+    metaDataPersistenceChunkSize = config getInt PropMetaDataPersistenceChunkSize,
+    metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
+    metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
     excludedFileExtensions = obtainExcludedExtensions(config),
     rootMap = createMediaData(config))
-
-  /**
-   * Reads a property of type duration from the given configuration.
-   * @param config the configuration
-   * @param property the property key
-   * @return the duration value for this key
-   */
-  private def durationProperty(config: Config, property: String): FiniteDuration = {
-    val millis = config.getDuration(TKeys(property), TimeUnit.MILLISECONDS)
-    FiniteDuration(millis, MILLISECONDS)
-  }
-
-  /**
-   * Generates a map with information about media roots. The map uses root
-   * paths as keys and associated ''MediaRootData'' objects as values
-   * @param config the configuration
-   * @return a map with information about media roots
-   */
-  private def createMediaData(config: Config): Map[Path, MediaRootData] = {
-    import collection.JavaConversions._
-    val mediaRoots = config.getObjectList(TConfigPrefix + "paths").map(createMediaRoot)
-    Map(mediaRoots map (r => (r.rootPath, r)): _*)
-  }
-
-  /**
-   * Creates a ''MediaRootData'' object from the given configuration
-   * information.
-   * @param o the configuration object
-   * @return the ''MediaRootData''
-   */
-  private def createMediaRoot(o: ConfigObject): MediaRootData = {
-    val config = o atPath ObjectKey
-    val Prefix = ObjectKey + "."
-    MediaRootData(Paths.get(config.getString(Prefix + RootPropPath)),
-      config.getInt(Prefix + RootPropProcessorCount),
-      accessRestrictionProperty(config))
-  }
-
-  /**
-   * Extracts the property for the access restriction of a media root from the
-   * given configuration.
-   * @param config the configuration
-   * @return the access restriction property
-   */
-  private def accessRestrictionProperty(config: Config): Option[Int] = {
-    val key = ObjectKey + "." + RootPropAccessRestriction
-    if (config.hasPath(key)) Some(config.getInt(key))
-    else None
-  }
-
-  /**
-    * Determines the set with the file extensions to be excluded from the given
-    * TypeSafe configuration.
-    *
-    * @param config the configuration
-    * @return the set with excluded file extensions
-    */
-  private def obtainExcludedExtensions(config: Config): Set[String] =
-  createExclusionSet(config.getStringList(TKeys(PropExcludedExtensions)))
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -217,7 +119,7 @@ object MediaArchiveConfig {
     * @return the set with excluded file extensions
     */
   private def obtainExcludedExtensions(config: Configuration): Set[String] =
-  createExclusionSet(config getList CKeys(PropExcludedExtensions))
+  createExclusionSet(config getList PropExcludedExtensions)
 
   /**
     * Reads a property from the given configuration object and converts it to a
@@ -228,7 +130,7 @@ object MediaArchiveConfig {
     * @return the resulting duration
     */
   private def durationProperty(config: Configuration, key: String): FiniteDuration =
-  FiniteDuration(config getLong CKeys(key), TimeUnit.SECONDS)
+  FiniteDuration(config getLong key, TimeUnit.SECONDS)
 
   /**
     * Generates a map with information about media roots from the given
@@ -293,19 +195,6 @@ object MediaArchiveConfig {
   Map(mediaRoots map (r => (r.rootPath, r)): _*)
 
   /**
-    * Creates a map with a configuration key mapping. This function applies the
-    * given prefix to all supported configuration keys. The resulting map has
-    * unqualified property keys as keys and the keys with prefix as values.
-    * That way the different prefixes used by the supported configuration
-    * mechanisms can be handled.
-    *
-    * @param prefix the prefix to be applied
-    * @return a key mapping from unqualified to prefixed keys
-    */
-  private def keyMapping(prefix: String): Map[String, String] =
-  (Keys zip Keys.map(prefix + _)).toMap
-
-  /**
    * A data class storing information about a media root. A media root is a
    * directory structure that contains media files. In addition to the actual
    * root path, some meta data is provided which is needed while processing
@@ -334,6 +223,8 @@ object MediaArchiveConfig {
  * @param metaDataReadChunkSize the read chunk size when extracting meta data
  * @param infoSizeLimit the maximum size of a medium description file
  * @param tagSizeLimit the size limit for ID3 tags
+ * @param processingTimeout a timeout for the processing of a single media
+  *                         file
  * @param metaDataUpdateChunkSize the size of a chunk of meta data sent to a
  *                                registered meta data listener as an update
  *                                notification; this property determines how
@@ -367,6 +258,7 @@ case class MediaArchiveConfig private[config](readerTimeout: FiniteDuration,
                                               metaDataReadChunkSize: Int,
                                               infoSizeLimit: Int,
                                               tagSizeLimit: Int,
+                                              processingTimeout: Timeout,
                                               metaDataUpdateChunkSize: Int,
                                               initMetaDataMaxMsgSize: Int,
                                               metaDataPersistencePath: Path,
