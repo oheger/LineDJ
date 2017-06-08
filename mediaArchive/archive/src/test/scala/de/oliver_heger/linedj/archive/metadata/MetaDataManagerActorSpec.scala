@@ -19,26 +19,38 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archive.media._
-import de.oliver_heger.linedj.extract.metadata.ProcessMediaFiles
+import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
+import org.mockito.Matchers.any
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
+import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
   /** The maximum message size. */
   private val MaxMessageSize = 24
+
+  /** The number of parallel processors for the test root. */
+  private val AsyncCount = 3
+
+  /** The test timeout value for media file processing.*/
+  private val ProcessingTimeout = Timeout(42.seconds)
 
   /** ID of a test medium. */
   private val TestMediumID = mediumID("medium1")
@@ -55,6 +67,14 @@ object MetaDataManagerActorSpec {
 
   /** A special test message sent to actors. */
   private val TestMessage = new Object
+
+  /**
+    * A data class used to record the creation of child actors.
+    *
+    * @param probe the test probe to represent the child
+    * @param props the creation Props
+    */
+  private case class ChildCreation(probe: TestProbe, props: Props)
 
   /**
    * Helper method for generating a path.
@@ -276,6 +296,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     esr
   }
 
+  /**
+    * Verifies that a child actor has been stopped.
+    *
+    * @param probe the probe representing the child actor
+    */
+  private def assertActorStopped(probe: TestProbe): Unit = {
+    val watchProbe = TestProbe()
+    watchProbe watch probe.ref
+    watchProbe.expectMsgType[Terminated]
+  }
+
   it should "extract meta data from files that could not be resolved" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
@@ -304,8 +335,41 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.nextChild().expectMsgType[ProcessMediaFiles]
 
     helper.actor ! unresolved2
-    helper.nextChild().expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
+    val creation = helper.nextChildCreation()
+    creation.probe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
+    creation.props.args(3) should be(1) // default async count
     helper.numberOfChildActors should be(2)
+  }
+
+  it should "stop processor actors when a scan is complete" in {
+    val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
+    helper.startProcessing()
+    val files = generateMediaFiles(path("otherPath"), 2)
+    val otherResult = processAnotherScanResult(helper, files)
+    val unresolved1 = UnresolvedMetaDataFiles(MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
+    val unresolved2 = UnresolvedMetaDataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
+    helper.actor ! unresolved1
+    helper.actor ! unresolved2
+    helper.sendAllProcessingResults(ScanResult)
+    helper.sendAvailableMedia()
+
+    assertActorStopped(helper.nextChild())
+    assertActorStopped(helper.nextChild())
+  }
+
+  it should "restart processor actors for a new scan" in {
+    val unresolved = UnresolvedMetaDataFiles(MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.actor ! unresolved
+    helper.sendAvailableMedia()
+      helper.sendAllProcessingResults(ScanResult)
+
+    helper.startProcessing(checkPersistenceMan = false)
+    helper.actor ! unresolved
+    awaitCond(helper.numberOfChildActors == 2)
   }
 
   it should "reset the scanInProgress flag if all data is available" in {
@@ -315,7 +379,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendAllProcessingResults(ScanResult)
     helper.sendAvailableMedia()
 
-    helper.actor ! EnhancedScanResult
+    helper.actor receive EnhancedScanResult
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -333,11 +397,29 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "propagate processing results to the meta data union actor" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
-    helper.expectMediaContribution().sendAvailableMedia().
-      sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
+    helper.expectMediaContribution().sendAvailableMedia()
+        .sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
     helper.expectPropagatedProcessingResults(TestMediumID,
       ScanResult.mediaFiles(TestMediumID))
+  }
+
+  it should "handle a processing error result" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
+    helper.expectMediaContribution().sendAvailableMedia()
+    val mediaData = EnhancedScanResult.scanResult.mediaFiles.toList
+    mediaData.tail.foreach(t => helper.sendProcessingResults(t._1, t._2))
+
+    val errData = mediaData.head
+    val filesOk = errData._2.tail
+    helper.sendProcessingResults(errData._1, filesOk)
+    val errResult = processingResultFor(errData._1, errData._2.head)
+      .toError(new Exception("Failed processing!"))
+    helper.actor receive errResult
+    helper.actor receive EnhancedScanResult
+    expectNoMoreMessage(helper.persistenceManager)
   }
 
   it should "handle a Cancel request in the middle of processing" in {
@@ -509,7 +591,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * be used to access the corresponding test probes and check whether the
       * expected messages have been sent to child actors.
       */
-    private val childActorQueue = new LinkedBlockingQueue[TestProbe]
+    private val childActorQueue = new LinkedBlockingQueue[ChildCreation]
 
     /**
       * Stores the currently active processor actors. This is used to determine
@@ -633,15 +715,23 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     def numberOfSatisfiedConditions: Int = conditionSatisfiedCounter.get()
 
     /**
+      * Returns information about the next child actor that has been created
+      * or fails if no child creation took place.
+      *
+      * @return data about the next child actor
+      */
+    def nextChildCreation(): ChildCreation = {
+      awaitCond(!childActorQueue.isEmpty)
+      childActorQueue.poll()
+    }
+
+    /**
       * Returns the next child actor that has been created or fails if no
       * child creation took place.
       *
       * @return the probe for the next child actor
       */
-    def nextChild(): TestProbe = {
-      awaitCond(!childActorQueue.isEmpty)
-      childActorQueue.poll()
-    }
+    def nextChild(): TestProbe = nextChildCreation().probe
 
     /**
       * Sends an ''AvailableMedia'' message for the given scan result to the
@@ -695,12 +785,18 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {
-            val sampleProps = MediumProcessorActor(EnhancedScanResult, config)
+            val sampleProps = MetaDataExtractionActor(actor, EnhancedScanResult.fileUriMapping,
+              null, 0, null)
             p.actorClass() should be(sampleProps.actorClass())
-            p.args should be(sampleProps.args)
+            p.args.head should be(actor)
+            p.args(1) should be(EnhancedScanResult.fileUriMapping)
+            p.args(2) shouldBe a[ExtractorActorFactoryImpl]
+            p.args(2).asInstanceOf[ExtractorActorFactoryImpl].config should be(config)
+            p.args(3) should be(AsyncCount)
+            p.args(4) should be(ProcessingTimeout)
           }
           val probe = TestProbe()
-          childActorQueue offer probe
+          childActorQueue offer ChildCreation(probe, p)
           probe.ref
         }
 
@@ -743,6 +839,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       val config = mock[MediaArchiveConfig]
       when(config.metaDataUpdateChunkSize).thenReturn(2)
       when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
+      when(config.rootFor(any(classOf[Path]))).thenAnswer(new Answer[Option[MediaRootData]] {
+        override def answer(invocation: InvocationOnMock): Option[MediaRootData] = {
+          if(invocation.getArguments.head == EnhancedScanResult.scanResult.root)
+            Some(MediaRootData(EnhancedScanResult.scanResult.root, AsyncCount, None))
+          else None
+        }
+      })
+      when(config.processingTimeout).thenReturn(ProcessingTimeout)
       config
     }
   }

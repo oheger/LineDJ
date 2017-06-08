@@ -20,16 +20,19 @@ import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
-import de.oliver_heger.linedj.extract.metadata.ProcessMediaFiles
+import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object MetaDataManagerActor {
+  /** Default root data used for unknown root paths. */
+  private val DefaultMediaRoot = MediaRootData(null, 1, None)
 
   private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
                                          metaDataUnionActor: ActorRef)
@@ -51,54 +54,34 @@ object MetaDataManagerActor {
 }
 
 /**
- * The central actor class for managing meta data extraction.
- *
- * This actor is notified by the media manager actor when the content of a root
- * directory structure has been scanned; it then receives a
- * [[de.oliver_heger.linedj.archive.media.MediaScanResult]] message. This message is
- * handled by creating a new child actor of type [[MediumProcessorActor]] which
- * is then told to extract all meta data for the files on this medium.
- *
- * The extracting of meta data over complex directory structures can be a time
- * consuming process; it may take a while until complete results are available.
- * Therefore, this manager actor takes a different approach for exposing
- * information to clients than the media manager actor (which may delay
- * responses until all information is there): it returns the information
- * currently available, but allows the caller to register itself as listener.
- * Listeners receive notifications when more meta data is available or when a
- * whole medium has been processed.
- *
- * This actor supports two types of event listeners: Generic meta data state
- * listeners receive notifications about important state changes of this
- * actor, e.g. when a new scan for meta data starts or progress notifications
- * during a scan operation.
- *
- * Meta data medium listeners are only interested in a specific medium. On the
- * first call to this actor it is checked whether the requested medium has
- * already been fully processed. If this is case, the meta data is returned
- * directly, and the caller is not registered as a listener. Otherwise, the
- * caller is sent the meta data currently available and is registered as
- * listener (if requested; this can be controlled by a flag). Listeners are
- * then notified when a configurable chunk of meta data becomes available. When
- * the monitored medium has been fully processed the listener registration is
- * removed automatically.
- *
- * More information about the messages supported by this actor and the overall
- * protocol can be found in the description of the message classes defined in
- * the companion object. In addition to these messages, this actor also deals
- * with some messages that target the persistent meta data manager actor -
- * which is an internal actor and not part of the official interface of the
- * media archive. Therefore, messages served by the persistence manager are
- * passed to this actor and just forwarded. This includes messages related to
- * the current set of persistent meta data files.
- *
- * @param config the central configuration object
- * @param persistenceManager reference to the persistence manager actor
- * @param metaDataUnionActor reference to the meta data union actor
- */
+  * The central actor class for managing meta data extraction for a local
+  * archive.
+  *
+  * This actor class coordinates the work of the media manager actor (which
+  * scans a directory structure with media files) with the persistence
+  * manager actor (which manages already extracted meta data for media files).
+  * It receives messages about the media files detected in a folder
+  * structure that has been scanned. It matches this data against the meta
+  * data read from persistent meta data files. For files for which no meta
+  * data is available an extraction process is triggered, so that the
+  * persistent meta data can be updated.
+  *
+  * All meta data - either read from persistent files or extracted manually -
+  * is sent to a union meta data manager actor. It is then stored in the union
+  * archive an can be queried by clients.
+  *
+  * @param config             the central configuration object
+  * @param persistenceManager reference to the persistence manager actor
+  * @param metaDataUnionActor reference to the meta data union actor
+  */
 class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef,
                            metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
+
+  import MetaDataManagerActor._
+
+  /** The factory for extractor actors. */
+  private val ExtractorFactory = new ExtractorActorFactoryImpl(config)
 
   /**
     * A map for storing the extracted meta data for all media.
@@ -125,7 +108,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case MediaScanStarts if !scanInProgress =>
       initiateNewScan()
 
-    case result: MetaDataProcessingSuccess if !isCloseRequestInProgress =>
+    case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
       if (handleProcessingResult(result.mediumID, result)) {
         metaDataUnionActor ! result
         checkAndHandleScanComplete()
@@ -134,7 +117,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
       val actorMap = if (processorActors contains root) processorActors
-      else processorActors + (root -> createChildActor(MediumProcessorActor(result, config)))
+      else processorActors + (root -> createProcessorActor(root, result))
       actorMap(root) ! ProcessMediaFiles(mid, files)
       processorActors = actorMap
 
@@ -171,6 +154,17 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   }
 
   /**
+    * Creates a meta data processing actor for the specified root path.
+    *
+    * @param root   the root path
+    * @param result the scan result object for this path
+    * @return the new processing actor
+    */
+  private def createProcessorActor(root: Path, result: EnhancedMediaScanResult): ActorRef =
+    createChildActor(MetaDataExtractionActor(self, result.fileUriMapping, ExtractorFactory,
+      config.rootFor(root).getOrElse(DefaultMediaRoot).processorCount, config.processingTimeout))
+
+  /**
     * Prepares a new scan operation. Initializes some internal state.
     */
   private def initiateNewScan(): Unit = {
@@ -202,7 +196,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param result   the result to be handled
     * @return a flag whether this is a valid result
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingSuccess):
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
   Boolean = {
     val optHandler = mediaMap get mediumID
     optHandler.exists(processMetaDataResult(mediumID, result, _))
@@ -218,7 +212,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param handler the handler for this medium
     * @return a flag whether this is a valid result
     */
-  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingSuccess,
+  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
                                     handler: MediumDataHandler): Boolean =
     if (handler.resultReceived(result)) {
       if (handler.isComplete) {
@@ -245,6 +239,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     scanInProgress = false
     availableMedia = None
     completedMedia = Set.empty
+    processorActors.values.foreach(context.stop)
+    processorActors = Map.empty
   }
 
   /**
