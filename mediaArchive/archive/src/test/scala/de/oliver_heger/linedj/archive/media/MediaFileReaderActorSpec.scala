@@ -5,11 +5,11 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.mp3.{ID3Header, ID3HeaderExtractor}
+import de.oliver_heger.linedj.extract.id3.model.{ID3Header, ID3HeaderExtractor}
 import de.oliver_heger.linedj.io.ChannelHandler.InitFile
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult, SkipData}
-import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -135,9 +135,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val header1 = ID3Header(1, 128)
     val header2 = ID3Header(1, 256)
 
-    when(extractor.extractID3Header(aryEq(headerData1))).thenReturn(Some(header1))
-    when(extractor.extractID3Header(aryEq(headerData2))).thenReturn(Some(header2))
-    when(extractor.extractID3Header(aryEq(chunk3))).thenReturn(None)
+    when(extractor.extractID3Header(ByteString(headerData1))).thenReturn(Some(header1))
+    when(extractor.extractID3Header(ByteString(headerData2))).thenReturn(Some(header2))
+    when(extractor.extractID3Header(ByteString(chunk3))).thenReturn(None)
 
     val reader = system.actorOf(Props(classOf[MediaFileReaderActor], readerProbe.ref, extractor))
     reader ! InitMsg
@@ -157,7 +157,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val extractor = mock[ID3HeaderExtractor]
     val readerProbe = TestProbe()
     val chunk = FileTestHelper.testBytes() take ID3HeaderExtractor.ID3HeaderSize
-    when(extractor.extractID3Header(aryEq(chunk))).thenReturn(None)
+    when(extractor.extractID3Header(ByteString(chunk))).thenReturn(None)
 
     val reader = system.actorOf(Props(classOf[MediaFileReaderActor], readerProbe.ref, extractor))
     reader ! InitMsg

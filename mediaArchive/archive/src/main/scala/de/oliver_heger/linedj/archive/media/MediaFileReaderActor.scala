@@ -17,10 +17,11 @@
 package de.oliver_heger.linedj.archive.media
 
 import akka.actor.ActorRef
+import akka.util.ByteString
 import de.oliver_heger.linedj.io.ChannelHandler.InitFile
 import de.oliver_heger.linedj.io.FileReaderActor.SkipData
 import de.oliver_heger.linedj.io.ProcessingReader
-import de.oliver_heger.linedj.archive.mp3.ID3HeaderExtractor
+import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 
 /**
  * A specialized file reader actor for media files to be sent to clients.
@@ -62,7 +63,7 @@ class MediaFileReaderActor(override val readerActor: ActorRef, val extractor: ID
   override protected def dataRead(data: Array[Byte]): Unit = {
     if (endOfID3Headers) super.dataRead(data)
     else {
-      extractor.extractID3Header(data) match {
+      extractor.extractID3Header(ByteString(data)) match {
         case Some(header) =>
           readerActor ! SkipData(header.size)
           readFromWrappedActor(ID3HeaderExtractor.ID3HeaderSize)
