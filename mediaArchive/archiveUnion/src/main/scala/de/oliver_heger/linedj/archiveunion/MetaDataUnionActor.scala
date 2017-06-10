@@ -20,7 +20,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess, RemovedArchiveComponentProcessed}
+import de.oliver_heger.linedj.shared.archive.union._
 
 object MetaDataUnionActor {
 
@@ -144,16 +144,14 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       }
       files foreach prepareHandlerForMedium
 
-    case result: MetaDataProcessingSuccess if scanInProgress =>
+    case result: MetaDataProcessingResult if scanInProgress =>
       val completedMediaSize = completedMedia.size
       if (handleProcessingResult(result.mediumID, result)) {
         if (isUnassignedMedium(result.mediumID)) {
           // update global unassigned list
           handleProcessingResult(MediumID.UndefinedMediumID, result)
         }
-        currentSongCount += 1
-        currentDuration += result.metaData.duration getOrElse 0
-        currentSize += result.metaData.size
+        updateStatistics(result)
       }
       if (completedMedia.size != completedMediaSize) {
         checkAndHandleScanComplete()
@@ -262,7 +260,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param result   the result to be handled
     * @return a flag whether the medium ID could be resolved
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingSuccess):
+  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
   Boolean =
     mediaMap.get(mediumID) match {
       case Some(handler) =>
@@ -280,7 +278,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param result   the processing result
     * @param handler  the handler for this medium
     */
-  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingSuccess,
+  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
                                     handler: MediumDataHandler): Unit = {
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {
@@ -307,6 +305,21 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       l foreach (t => sendMetaDataResponse(t._1, chunkMsg, t._2))
     }
   }
+
+  /**
+    * Updates statistics for a newly received processing result.
+    *
+    * @param result the processing result
+    */
+  private def updateStatistics(result: MetaDataProcessingResult): Unit =
+    result match {
+      case success: MetaDataProcessingSuccess =>
+        val metaData = success.metaData
+        currentSongCount += 1
+        currentDuration += metaData.duration getOrElse 0
+        currentSize += metaData.size
+      case _ =>
+    }
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the

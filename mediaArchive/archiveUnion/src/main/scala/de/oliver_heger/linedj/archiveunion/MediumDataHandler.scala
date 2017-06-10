@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archiveunion
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
-import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult, MetaDataProcessingSuccess}
 
 /**
   * An internally used helper class for storing and managing the meta data
@@ -70,11 +70,11 @@ private class MediumDataHandler(mediumID: MediumID) {
     *         returned explicitly so that it is available without having to
     *         evaluate the lazy meta data chunk expression)
     */
-  def storeResult(result: MetaDataProcessingSuccess, chunkSize: Int, maxChunkSize: Int)
+  def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
     mediumPaths -= result.path.toString
     val complete = isComplete
-    nextChunkData = nextChunkData + (extractUri(result) -> result.metaData)
+    nextChunkData = updateNextChunkData(result)
 
     processNextChunkData(chunkSize, maxChunkSize, complete, f)
   }
@@ -168,6 +168,19 @@ private class MediumDataHandler(mediumID: MediumID) {
       complete
     } else false
   }
+
+  /**
+    * Updates the map with data for the next chunk with a received result.
+    *
+    * @param result the result
+    * @return the updated next chunk data
+    */
+  private def updateNextChunkData(result: MetaDataProcessingResult): Map[String, MediaMetaData] =
+    result match {
+      case result@MetaDataProcessingSuccess(_, _, _, metaData) =>
+        nextChunkData + (extractUri(result) -> metaData)
+      case _ => nextChunkData
+    }
 
   /**
     * Creates an initial chunk of meta data.

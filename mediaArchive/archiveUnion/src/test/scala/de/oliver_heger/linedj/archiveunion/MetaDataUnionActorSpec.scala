@@ -140,6 +140,20 @@ object MetaDataUnionActorSpec {
   }
 
   /**
+    * Generates a meta data processing result for the specified parameters.
+    *
+    * @param mediumID the medium ID
+    * @param file     the file data
+    * @return a successful processing result for this file
+    */
+  private def processingResult(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess = {
+    val path = Paths get file.path
+    val metaDataMsg = MetaDataProcessingSuccess(file.path, mediumID, uriFor(path),
+      metaDataFor(path))
+    metaDataMsg
+  }
+
+  /**
     * Creates a test media contribution object.
     *
     * @return the contribution object
@@ -290,6 +304,19 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
   }
 
   /**
+    * Generates an alternative contribution with a single medium and the
+    * specified files.
+    *
+    * @param files the list of files for the contribution
+    * @return the contribution
+    */
+  private def createOtherContribution(files: Iterable[FileData]): MediaContribution = {
+    val root = path("anotherRootDirectory")
+    val medID = MediumID(root.toString, Some("someDescFile.txt"), ArchiveCompID)
+    MediaContribution(Map(medID -> files))
+  }
+
+  /**
     * Generates an alternative contribution with a single medium of the
     * specified content and tells the test actor to process it.
     *
@@ -299,9 +326,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def processAnotherContribution(helper: MetaDataUnionActorTestHelper,
                                          files: Iterable[FileData]): MediaContribution = {
-    val root = path("anotherRootDirectory")
-    val medID = MediumID(root.toString, Some("someDescFile.txt"), ArchiveCompID)
-    val contribution = MediaContribution(Map(medID -> files))
+    val contribution: MediaContribution = createOtherContribution(files)
     helper.processContribution(contribution)
     contribution
   }
@@ -850,6 +875,43 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.queryAndExpectUnknownMedium(TestMediumID)
   }
 
+  it should "handle processing error results" in {
+    val files = generateMediaFiles(path("someRootPath"), 8)
+    val contribution = createOtherContribution(files)
+    val mid = extractMediumID(contribution)
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+
+    val successFiles = helper.sendContribution(contribution)
+      .sendProcessingResultsAndError(mid, files)
+    findScanCompletedEvent(listener)()
+    val msg = helper.queryAndExpectMetaData(mid, registerAsListener = false)
+    checkMetaDataChunk(msg, mid, successFiles, expComplete = true)
+  }
+
+  it should "notify medium listeners correctly even in case of an error" in {
+    val files = generateMediaFiles(path("someRootPathWithError"), 3)
+    val contribution = createOtherContribution(files)
+    val mid = extractMediumID(contribution)
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+
+    val successFiles = helper.sendContribution(contribution)
+          .queryMetaData(mid, registerAsListener = true)
+      .sendProcessingResultsAndError(mid, files)
+    findScanCompletedEvent(listener)()
+
+    @tailrec def findCompletedMessage(fileUris: List[String]): List[String] = {
+      val chunk = helper.expectMetaDataResponse()
+      val allUris = chunk.data.keys.toList ::: fileUris
+      if(chunk.complete) allUris
+      else findCompletedMessage(allUris)
+    }
+    val receivedUris = findCompletedMessage(Nil)
+    val expUris = successFiles map(fd => uriFor(path(fd.path)))
+    receivedUris should contain theSameElementsAs expUris
+  }
+
   /**
     * Test helper class which manages a test actor instance and offers some
     * convenience methods for test cases.
@@ -932,9 +994,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def sendProcessingResults(mediumID: MediumID, files: Iterable[FileData]):
     MetaDataUnionActorTestHelper = {
       files foreach { m =>
-        val path = Paths get m.path
-        actor receive MetaDataProcessingSuccess(m.path, mediumID, uriFor(path),
-          metaDataFor(path))
+        actor receive processingResult(mediumID, m)
       }
       this
     }
@@ -960,6 +1020,24 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def processContribution(contribution: MediaContribution): MetaDataUnionActorTestHelper = {
       actor ! contribution
       sendAllProcessingResults(contribution)
+    }
+
+    /**
+      * Sends a list with processing results to the test actor, but replaces
+      * the last elements by an error result. This is used to test error
+      * handling.
+      *
+      * @param mediumID the medium ID
+      * @param files    the list of files
+      * @return the list with successful results sent to the test actor
+      */
+    def sendProcessingResultsAndError(mediumID: MediumID, files: Iterable[FileData]):
+    Iterable[FileData] = {
+      val successFiles = files dropRight 1
+      val errResult = processingResult(mediumID, files.last).toError(new Exception("Error"))
+      sendProcessingResults(mediumID, successFiles)
+      actor receive errResult
+      successFiles
     }
 
     /**
