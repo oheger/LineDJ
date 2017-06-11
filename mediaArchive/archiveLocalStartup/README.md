@@ -41,9 +41,11 @@ configuration options:
     <excludedExtensions>PDF</excludedExtensions>
     <excludedExtensions>TEX</excludedExtensions>
     <excludedExtensions>DB</excludedExtensions>
+    <infoSizeLimit>32768</infoSizeLimit>
     <metaDataExtraction>
       <readChunkSize>16384</readChunkSize>
       <tagSizeLimit>4096</tagSizeLimit>
+      <processingTimeout>60</processingTimeout>
     </metaDataExtraction>
     <metaDataPersistence>
       <path>C:\data\music\metadata</path>
@@ -54,7 +56,7 @@ configuration options:
     <roots>
       <root>
         <path>C:\data\music\archive</path>
-        <processorCount>2</processorCount>
+        <processorCount>1</processorCount>
       </root>
       <root>
         <path>D:\</path>
@@ -73,8 +75,10 @@ The options have the following meaning:
 | Setting | Description |
 | ------- | ----------- |
 | excludedExtensions | With this list property (elements can be repeated as often as necessary) the extensions of files can be specified which should be ignored when scanning for media files. Such files are not included in media. |
+| infoSizeLimit | Files with information about a medium (typically called `playlist.settings`) are fully read and processed in-memory. To avoid unrestricted memory consumption, with this property a maximum file size (in bytes) can be specified. Info files which are larger will not be processed. |
 | metaDataExtraction.readChunkSize | Block size to be used when reading media files. A buffer of this size is created in memory. |
 | metaDataExtraction.tagSizeLimit | Defines a maximum size of an ID3 tag to be processed. Tags can become large, e.g. when they contain an image. The archive only extracts text-based meta data. If a tag length is greater than this value, it is ignored. |
+| metaDataExtraction.processingTimeout | Here a timeout (in seconds) for the processing of a single media file can be specified. If meta data extraction for this file takes longer, processing is aborted, and the file is ignored. |
 | metaDataPersistence.path | Defines a path (on the local file system) where files with extracted meta data information can be stored. Here files with the extension `.mdt` (for meta data) are created containing the ID3 information extracted from media files. These files are loaded when the archive starts up, so that media files do not have to be scanned again. |
 | metaDataPersistence.chunkSize | Specifies the block size to be used when reading or writing meta data files. |
 | metaDataPersistence.paralellCount | Here a number can be specified how many meta data files are read in parallel. Increasing the number can speedup startup time of the archive (provided that the local disc can handle the load). |
