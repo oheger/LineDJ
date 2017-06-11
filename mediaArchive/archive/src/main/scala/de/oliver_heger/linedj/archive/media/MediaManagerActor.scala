@@ -474,7 +474,8 @@ Actor with ActorLogging {
           triggerIDCalculation(mediumPath, e._1, e._2)
 
         case _ =>
-          triggerIDCalculation(scanResult.root, MediumID(pathToURI(scanResult.root), None), e._2)
+          triggerIDCalculation(scanResult.root,
+            MediumID(pathToURI(scanResult.root), None, ArchiveComponentID), e._2)
       }
     }
 

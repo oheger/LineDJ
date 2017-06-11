@@ -924,15 +924,15 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val Drive1 = MediaScanResult(Drive1Root, Map(
       MediumID.fromDescriptionPath(Medium1Desc) -> Medium1Content,
       MediumID.fromDescriptionPath(Medium2Desc) -> Medium2Content,
-      MediumID(Drive1Root.toString, None) -> Drive1OtherFiles))
+      MediumID(Drive1Root.toString, None, ArchiveComponentID) -> Drive1OtherFiles))
 
     /** Scan result for drive 2. */
     val Drive2 = MediaScanResult(Drive2Root, Map(MediumID.fromDescriptionPath(Medium3Desc) ->
       Medium3Content))
 
     /** Scan result for drive 3. */
-    val Drive3 = MediaScanResult(Drive3Root, Map(MediumID(Drive3Root.toString, None) ->
-      Drive3OtherFiles))
+    val Drive3 = MediaScanResult(Drive3Root,
+      Map(MediumID(Drive3Root.toString, None, ArchiveComponentID) -> Drive3OtherFiles))
 
     /** ID data for medium 1. */
     val Medium1IDData: MediumIDData = idData(1, Medium1Path, Medium1Content, Drive1)
@@ -967,9 +967,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         Medium2Content, Medium2IDData),
       idRequestMapping(Medium3Path, definedMediumID(3, Medium3Path), Drive2,
         Medium3Content, Medium3IDData),
-      idRequestMapping(Drive1Root, MediumID(Drive1Root.toString, None),
+      idRequestMapping(Drive1Root, MediumID(Drive1Root.toString, None, ArchiveComponentID),
         Drive1, Drive1OtherFiles, Drive1OtherIDData),
-      idRequestMapping(Drive3Root, MediumID(Drive3Root.toString, None),
+      idRequestMapping(Drive3Root, MediumID(Drive3Root.toString, None, ArchiveComponentID),
         Drive3, Drive3OtherFiles, Drive3OtherIDData),
       mediumInfoRequestMapping(Medium1Desc, Medium1SettingsData.mediumID,
         Medium1SettingsData.copy(checksum = "")),
