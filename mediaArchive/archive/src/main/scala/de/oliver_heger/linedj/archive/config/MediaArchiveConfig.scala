@@ -39,6 +39,9 @@ object MediaArchiveConfig {
   /** The configuration property for the interval for reader timeout checks. */
   private val PropReaderCheckInterval = CConfigPrefix + "readerCheckInterval"
 
+  /** The configuration property for the download chunk size. */
+  private val PropDownloadChunkSize = CConfigPrefix + "downloadChunkSize"
+
   /** The configuration property for the info size restriction. */
   private val PropInfoSizeLimit = CConfigPrefix + "infoSizeLimit"
 
@@ -98,6 +101,7 @@ object MediaArchiveConfig {
   new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
     readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
     readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
+    downloadChunkSize = config getInt PropDownloadChunkSize,
     metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
     infoSizeLimit = config getInt PropInfoSizeLimit,
     tagSizeLimit = config getInt PropTagSizeLimit,
@@ -220,6 +224,7 @@ object MediaArchiveConfig {
  * @param readerTimeout the timeout for reader actors
  * @param readerCheckInterval the check interval for reader actors
  * @param readerCheckInitialDelay the initial delay for reader actor checks
+ * @param downloadChunkSize chunk size for download operations
  * @param metaDataReadChunkSize the read chunk size when extracting meta data
  * @param infoSizeLimit the maximum size of a medium description file
  * @param tagSizeLimit the size limit for ID3 tags
@@ -255,6 +260,7 @@ object MediaArchiveConfig {
 case class MediaArchiveConfig private[config](readerTimeout: FiniteDuration,
                                               readerCheckInterval: FiniteDuration,
                                               readerCheckInitialDelay: FiniteDuration,
+                                              downloadChunkSize: Int,
                                               metaDataReadChunkSize: Int,
                                               infoSizeLimit: Int,
                                               tagSizeLimit: Int,

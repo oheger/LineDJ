@@ -57,6 +57,7 @@ object LocalArchiveStartupSpec {
     config.addProperty("media.readerTimeout", 60)
     config.addProperty("media.readerCheckInterval", 180)
     config.addProperty("media.readerCheckInitialDelay", 240)
+    config.addProperty("media.downloadChunkSize", 16384)
     config.addProperty("media.infoSizeLimit", 16384)
     config.addProperty("media.roots.root.path", "myMusic")
     config.addProperty("media.roots.root.processorCount", 2)

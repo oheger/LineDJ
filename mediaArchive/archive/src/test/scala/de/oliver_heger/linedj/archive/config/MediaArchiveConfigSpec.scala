@@ -41,6 +41,9 @@ object MediaArchiveConfigSpec {
   /** Test value for the chunk size when extracting meta data. */
   private val ReadChunkSize = 16384
 
+  /** Test value for the chunk size for download operations. */
+  private val DownloadChunkSize = 7777
+
   /** Test value for the size limit for ID3 tags. */
   private val TagSizeLimit = 4096
 
@@ -80,6 +83,7 @@ object MediaArchiveConfigSpec {
     config.addProperty("media.readerTimeout", 60)
     config.addProperty("media.readerCheckInterval", ReaderCheckInterval.toSeconds)
     config.addProperty("media.readerCheckInitialDelay", ReaderCheckDelay.toSeconds)
+    config.addProperty("media.downloadChunkSize", DownloadChunkSize)
     config.addProperty("media.roots.root.path", MusicRoot.rootPath.toString)
     config.addProperty("media.roots.root.processorCount", MusicRoot.processorCount)
     config.addProperty("media.roots.root(-1).path", CDRomRoot.rootPath.toString)
@@ -133,6 +137,10 @@ with Matchers with BeforeAndAfterAll {
 
   it should "return the initial reader check delay" in {
     createCConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
+  }
+
+  it should "return the download chunk size" in {
+    createCConfig().downloadChunkSize should be(DownloadChunkSize)
   }
 
   it should "return the read chunk size" in {
