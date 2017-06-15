@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.shared.archive.media
 
 import akka.actor.ActorRef
+import akka.util.ByteString
 
 /**
  * A message processed by ''MediaManagerActor'' telling it to respond with a
@@ -113,6 +114,38 @@ case class MediumFileRequest(mediumID: MediumID, uri: String, withMetaData: Bool
  * @param length the length of the file (in bytes)
  */
 case class MediumFileResponse(request: MediumFileRequest, contentReader: ActorRef, length: Long)
+
+/**
+  * A request sent to an actor for downloading media data from the archive
+  * requesting a chunk of data.
+  *
+  * Messages of this type have to be sent to the reader actors received via a
+  * [[MediumFileResponse]] message. Each message requests a block of data of
+  * the specified size.
+  *
+  * @param size the size of data to be returned
+  */
+case class DownloadData(size: Int)
+
+/**
+  * A message representing the result of a [[DownloadData]] message.
+  *
+  * The message contains a ''ByteString'' with data. The size of this string is
+  * guaranteed to be not bigger than the requested size. It may, however, be
+  * smaller, if the amount of data available is less than the requested block
+  * size.
+  *
+  * @param data the data that has been requested
+  */
+case class DownloadDataResult(data: ByteString)
+
+/**
+  * A message indicating that a download is complete.
+  *
+  * This message is sent as response of a [[DownloadData]] request if no more
+  * data is available.
+  */
+case object DownloadComplete
 
 /**
   * A message processed by ''MediaManagerActor'' telling it to scan all
