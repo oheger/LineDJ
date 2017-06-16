@@ -127,11 +127,11 @@ object MediaManagerActor {
  * @param config the configuration object
  * @param metaDataManager a reference to the meta data manager actor
  * @param mediaUnionActor a reference to the media union actor
- * @param readerActorMapping internal helper object for managing reader actors
+ * @param downloadActorData internal helper object for managing reader actors
  */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         mediaUnionActor: ActorRef,
-                        private[media] val readerActorMapping: DownloadActorData) extends
+                        private[media] val downloadActorData: DownloadActorData) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport with CloseSupport =>
 
@@ -298,7 +298,7 @@ Actor with ActorLogging {
       checkForReaderActorTimeout()
 
     case ReaderActorAlive(reader, _) =>
-      readerActorMapping.updateTimestamp(reader, now())
+      downloadActorData.updateTimestamp(reader, now())
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
@@ -372,37 +372,23 @@ Actor with ActorLogging {
     * @param request the file request
    */
   private def processFileRequest(request: MediumFileRequest): Unit = {
-    val (readerActor, optMediaReaderActor) = createActorsForFileRequest(request)
-    val actualReader = optMediaReaderActor getOrElse readerActor
-    val optFile = fetchFileData(request)
-    optFile foreach (f => actualReader ! ChannelHandler.InitFile(Paths get f.path))
-    sender ! MediumFileResponse(request, actualReader, optFile.getOrElse
-      (NonExistingFile).size)
+    val response = fetchFileData(request) match {
+      case Some(fileData) =>
+        val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
+          Paths get fileData.path, config.downloadChunkSize, !request.withMetaData))
 
-    if (readerActorMapping.findReadersForClient(sender()).isEmpty) {
-      context watch sender()
+        if (downloadActorData.findReadersForClient(sender()).isEmpty) {
+          context watch sender()
+        }
+        downloadActorData.add(downloadActor, sender(), now())
+        context watch downloadActor
+        MediumFileResponse(request, Some(downloadActor), fileData.size)
+
+      case None =>
+        MediumFileResponse(request, None, NonExistingFile.size)
     }
-    val mapping = optMediaReaderActor.map(_ -> Some(readerActor)).getOrElse(readerActor -> None)
-    //TODO adapt handling of download actors
-    readerActorMapping.add(mapping._1, sender(), now())
-    context watch actualReader
-  }
 
-  /**
-   * Creates the actors for serving a media file request. If the file is to be
-   * read verbatim, only a reader actor is produced. If meta data is to be
-   * filtered out, a processing reader has to be created which is backed by the
-   * file reader.
-    *
-    * @param request the request
-   * @return a tuple with the created reader actors
-   */
-  private def createActorsForFileRequest(request: MediumFileRequest): (ActorRef,
-    Option[ActorRef]) = {
-    val readerActor = createChildActor(Props[FileReaderActor])
-    val mediaReaderActor = if (request.withMetaData) None
-    else Some(createChildActor(Props(classOf[MediaFileReaderActor], readerActor, id3Extractor)))
-    (readerActor, mediaReaderActor)
+    sender ! response
   }
 
   /**
@@ -622,18 +608,16 @@ Actor with ActorLogging {
     * @param actor the affected actor
     */
   private def handleActorTermination(actor: ActorRef): Unit = {
-    if (readerActorMapping hasActor actor) {
+    if (downloadActorData hasActor actor) {
       handleReaderActorTermination(actor)
     } else {
-      val readerActors = readerActorMapping.findReadersForClient(actor)
+      val readerActors = downloadActorData.findReadersForClient(actor)
       readerActors foreach context.stop
     }
   }
 
   /**
-    * Handles the termination of a reader actor. The terminated actor is only
-    * the processing media reader actor. It has to be ensured that the
-    * underlying reader actor is stopped as well. Also, we can stop watching
+    * Handles the termination of a reader actor. We can stop watching
     * the client actor if there are no more pending read operations on behalf
     * of it.
     *
@@ -641,14 +625,12 @@ Actor with ActorLogging {
     */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
     log.info("Removing terminated reader actor from mapping.")
-    //TODO adapt removing of download actors
-//    val (optReader, optClient) = readerActorMapping remove actor
-//    optReader foreach context.stop
-//    optClient foreach { c =>
-//      if (readerActorMapping.findReadersForClient(c).isEmpty) {
-//        context unwatch c
-//      }
-//    }
+    val optClient = downloadActorData remove actor
+    optClient foreach { c =>
+      if (downloadActorData.findReadersForClient(c).isEmpty) {
+        context unwatch c
+      }
+    }
   }
 
   /**
@@ -658,7 +640,7 @@ Actor with ActorLogging {
    * crash of the corresponding client.
    */
   private def checkForReaderActorTimeout(): Unit = {
-    readerActorMapping.findTimeouts(now(), config.readerTimeout) foreach
+    downloadActorData.findTimeouts(now(), config.readerTimeout) foreach
       stopReaderActor
   }
 

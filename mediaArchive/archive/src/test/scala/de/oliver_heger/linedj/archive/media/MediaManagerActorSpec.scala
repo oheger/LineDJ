@@ -17,8 +17,10 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => argEq}
+import org.mockito.Matchers.{any, anyLong, eq => argEq}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -56,6 +58,9 @@ object MediaManagerActorSpec {
 
   /** The maximum size of medium description files. */
   private val InfoSizeLimit = 9876
+
+  /** The chunk size for download operations. */
+  private val DownloadChunkSize = 11111
 
   /**
     * Conversion function from a string to a path.
@@ -163,6 +168,16 @@ object MediaManagerActorSpec {
     case m: MediumIDCalculatorActor.CalculateMediumIDResult =>
       MediumIDCalculatorActor.CalculateMediumIDResult(m.request.copy(seqNo = seqNo), m.result)
   }
+
+  /**
+    * Internal data class to store information about test probes created for
+    * child actors.
+    *
+    * @param probe the probe
+    * @param props the creation Props of this child actor
+    */
+  private case class ProbeData(probe: TestProbe, props: Props)
+
 }
 
 /**
@@ -189,6 +204,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)
     when(config.excludedFileExtensions).thenReturn(ExcludedExtensions)
     when(config.infoSizeLimit).thenReturn(InfoSizeLimit)
+    when(config.downloadChunkSize).thenReturn(DownloadChunkSize)
     config
   }
 
@@ -302,10 +318,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
     response.length should be(-1)
-    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
-    val readRequest = FileReaderActor.ReadData(32)
-    response.contentReader ! readRequest
-    readerProbe.expectMsg(readRequest)
+    response.contentReader shouldBe 'empty
+    val optDownloadActor = helper.probesOfType[MediaFileDownloadActor].headOption
+    optDownloadActor shouldBe 'empty
   }
 
   it should "return a file response for an unknown medium ID" in {
@@ -342,9 +357,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     response.request should be(request)
     response.length should be(file.size)
 
-    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
-    readerProbe.expectMsg(ChannelHandler.InitFile(asPath(file.path)))
-    response.contentReader should be(readerProbe.ref)
+    val downloadProbe = fetchDownloadActor(helper)
+    downloadProbe.props.args should be(List(asPath(file.path), DownloadChunkSize, true))
+    response.contentReader should be(Some(downloadProbe.probe.ref))
   }
 
   it should "handle a scan operation that does not yield media" in {
@@ -391,50 +406,43 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "create a default reader actor mapping" in {
     val actor = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
       testActor, TestProbe().ref))
-    actor.underlyingActor.readerActorMapping shouldBe a[DownloadActorData]
+    actor.underlyingActor.downloadActorData shouldBe a[DownloadActorData]
   }
 
   /**
-   * Obtains the mapping for the last created reader actor. This method returns
-   * a tuple with the test probes created for the media reader and its
-   * underlying reader.
+   * Obtains information about the last created download actor.
    * @param helper the test helper
-   * @return a tuple with the test probes created for the reader actors
+   * @return a data object for the last download actor
    */
-  private def fetchReaderActorMapping(helper: MediaManagerTestHelper): (Option[TestProbe], TestProbe) = {
-    val procReader = helper.probesOfType[MediaFileReaderActor].headOption
-    val actReader = helper.probesOfType[FileReaderActor].head
-    (procReader, actReader)
-  }
+  private def fetchDownloadActor(helper: MediaManagerTestHelper): ProbeData =
+    helper.probeDataOfType[MediaFileDownloadActor].head
 
-  it should "add newly created reader actors to the mapping" in {
-    val mapping = mock[DownloadActorData]
-    when(mapping.findReadersForClient(testActor)).thenReturn(List.empty)
-    val helper = prepareHelperForScannedMedia(Some(mapping))
-    helper.testManagerActor ! createRequestForExistingFile(helper)
+  it should "add newly created download actors to the mapping" in {
+    val actorData = mock[DownloadActorData]
+    when(actorData.findReadersForClient(testActor)).thenReturn(List.empty)
+    val helper = prepareHelperForScannedMedia(Some(actorData))
+    val request = createRequestForExistingFile(helper)
+    helper.testManagerActor ! request
 
     expectMsgType[MediumFileResponse].length should be > 0L
-    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
+    val probeData = fetchDownloadActor(helper)
     val captor = ArgumentCaptor forClass classOf[Long]
-    //TODO adapt after changes of mapping
-//    verify(mapping).add(argEq((optProcReader.get.ref, Some(actReader.ref))),
-//      argEq(testActor), captor.capture())
+    verify(actorData).add(argEq(probeData.probe.ref), argEq(testActor), captor.capture())
     val timestamp = captor.getValue
     Duration(System.currentTimeMillis() - timestamp, MILLISECONDS) should be <= 10.seconds
   }
 
   it should "respect the withMetaData flag in a media file request" in {
-    val mapping = mock[DownloadActorData]
-    when(mapping.findReadersForClient(testActor)).thenReturn(List.empty)
-    val helper = prepareHelperForScannedMedia(Some(mapping))
+    val actorData = mock[DownloadActorData]
+    when(actorData.findReadersForClient(testActor)).thenReturn(List.empty)
+    val helper = prepareHelperForScannedMedia(Some(actorData))
     helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
 
     val response = expectMsgType[MediumFileResponse]
-    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
-    response.contentReader should be(actReader.ref)
-    optProcReader shouldBe 'empty
-    //TODO adapt after changes of mapping
-    //verify(mapping).add(argEq((actReader.ref, None)), argEq(testActor), anyLong())
+    val probeData = fetchDownloadActor(helper)
+    response.contentReader should be(Some(probeData.probe.ref))
+    probeData.props.args(2) shouldBe false
+    verify(actorData).add(argEq(probeData.probe.ref), argEq(testActor), anyLong())
   }
 
   it should "handle a file request for a file in global undefined medium" in {
@@ -448,32 +456,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     val response = expectMsgType[MediumFileResponse]
     response.length should be (targetFile.size)
-    val readerProbe = helper.probesOfType[MediaFileReaderActor].head
-    readerProbe.expectMsg(ChannelHandler.InitFile(asPath(targetFile.path)))
-  }
-
-  it should "stop the underlying reader actor when the processing reader is stopped" in {
-    val helper = prepareHelperForScannedMedia()
-    helper.testManagerActor ! createRequestForExistingFile(helper)
-    expectMsgType[MediumFileResponse]
-    val (optProcReader, actReader) = fetchReaderActorMapping(helper)
-
-    val watcher = TestProbe()
-    watcher watch actReader.ref
-    system stop optProcReader.get.ref
-    watcher.expectMsgType[Terminated].actor should be (actReader.ref)
-  }
-
-  it should "deal with undefined options when stopping a file reader actor" in {
-    val mapping = new DownloadActorData
-    val helper = prepareHelperForScannedMedia(optMapping = Some(mapping))
-    helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
-    expectMsgType[MediumFileResponse]
-    val (_, actReader) = fetchReaderActorMapping(helper)
-    mapping hasActor actReader.ref shouldBe true
-
-    system stop actReader.ref
-    awaitCond(!mapping.hasActor(actReader.ref))
+    val downloadProbe = fetchDownloadActor(helper)
+    downloadProbe.props.args.head should be(asPath(targetFile.path))
   }
 
   it should "stop the reader actor when the client actor dies" in {
@@ -481,12 +465,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val client = TestProbe()
     helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
     client.expectMsgType[MediumFileResponse]
-    val (optProcReader, _) = fetchReaderActorMapping(helper)
+    val downloadData = fetchDownloadActor(helper)
 
     val watcher = TestProbe()
-    watcher watch optProcReader.get.ref
+    watcher watch downloadData.probe.ref
     system stop client.ref
-    watcher.expectMsgType[Terminated].actor should be (optProcReader.get.ref)
+    watcher.expectMsgType[Terminated].actor should be (downloadData.probe.ref)
   }
 
   it should "do only required termination handling when a client actor dies" in {
@@ -500,19 +484,32 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "stop watching a client actor if there are no more read operations" in {
-    val helper = prepareHelperForScannedMedia()
-    helper.expectMediaAdded()
     val client = TestProbe()
+    val actorData = mock[DownloadActorData]
+    when(actorData.findReadersForClient(client.ref))
+      .thenReturn(List.empty, List(client.ref), List.empty)
+    when(actorData.remove(any(classOf[ActorRef]))).thenReturn(Some(client.ref))
+    when(actorData.hasActor(any(classOf[ActorRef]))).thenAnswer(new Answer[Boolean] {
+      override def answer(invocation: InvocationOnMock): Boolean =
+        invocation.getArguments.head != client.ref
+    })
+    val helper = prepareHelperForScannedMedia(Some(actorData))
+    helper.expectMediaAdded()
     helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
     client.expectMsgType[MediumFileResponse]
-    val (optProcReader, reader) = fetchReaderActorMapping(helper)
-    system stop optProcReader.get.ref
+    val downloadData = fetchDownloadActor(helper)
+    helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
+    client.expectMsgType[MediumFileResponse]
+    val downloadData2 = fetchDownloadActor(helper)
+    system stop downloadData.probe.ref
     val watcher = TestProbe()
-    watcher watch reader.ref
+    watcher watch downloadData.probe.ref
     watcher.expectMsgType[Terminated]
+    when(actorData.findReadersForClient(client.ref)).thenReturn(List(downloadData2.probe.ref))
 
     system stop client.ref
-    helper.expectNoMessageToUnionActor()
+    watcher watch downloadData2.probe.ref
+    watcher.expectNoMsg(1.second)
   }
 
   it should "handle multiple file requests when watching a client" in {
@@ -521,28 +518,27 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val client = TestProbe()
     helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
     client.expectMsgType[MediumFileResponse]
-    val (optProcReader, reader) = fetchReaderActorMapping(helper)
+    val downloadData = fetchDownloadActor(helper)
     helper.testManagerActor.tell(createRequestForExistingFile(helper), client.ref)
     client.expectMsgType[MediumFileResponse]
-    val (optProcReader2, _) = fetchReaderActorMapping(helper)
-    system stop optProcReader.get.ref
+    val downloadData2 = fetchDownloadActor(helper)
+    system stop downloadData.probe.ref
     val watcher = TestProbe()
-    watcher watch reader.ref
+    watcher watch downloadData.probe.ref
     watcher.expectMsgType[Terminated]
 
     system stop client.ref
-    watcher watch optProcReader2.get.ref
+    watcher watch downloadData2.probe.ref
     watcher.expectMsgType[Terminated]
   }
 
   it should "stop reader actors that timed out" in {
-    val mapping = new DownloadActorData
-    val procReader1, fileReader1, procReader2, fileReader2, watcher = TestProbe()
+    val actorData = new DownloadActorData
+    val procReader1, procReader2, watcher = TestProbe()
     val now = System.currentTimeMillis()
-    //TODO adapt after changes of mapping
-//    mapping.add(procReader1.ref -> Some(fileReader1.ref), testActor, now - 65 * 1000)
-//    mapping.add(procReader2.ref -> Some(fileReader2.ref), testActor, now)
-    val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
+    actorData.add(procReader1.ref, testActor, now - 65 * 1000)
+    actorData.add(procReader2.ref, testActor, now)
+    val helper = new MediaManagerTestHelper(optMapping = Some(actorData))
     watcher watch procReader1.ref
     watcher watch procReader2.ref
 
@@ -552,11 +548,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "allow updating active reader actors" in {
-    val mapping = new DownloadActorData
-    val procReader, fileReader, watcher = TestProbe()
-    //TODO adapt after changes of mapping
-    //mapping.add(procReader.ref -> Some(fileReader.ref), testActor, 0L)
-    val helper = new MediaManagerTestHelper(optMapping = Some(mapping))
+    val actorData = new DownloadActorData
+    val procReader, watcher = TestProbe()
+    actorData.add(procReader.ref, testActor, 0L)
+    val helper = new MediaManagerTestHelper(optMapping = Some(actorData))
     watcher watch procReader.ref
 
     helper.testManagerActor ! ReaderActorAlive(procReader.ref, null)
@@ -1138,6 +1133,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       probesOfActorClass(t.runtimeClass)
 
     /**
+      * Returns a list with information about test probes created fro the
+      * specified child actor class.
+      *
+      * @param t the class tag of the requested child actor type
+      * @tparam T the child actor type
+      * @return a list with data about these test probes
+      */
+    def probeDataOfType[T](implicit t: ClassTag[T]): List[ProbeData] =
+      probeDataOfActorClass(t.runtimeClass)
+
+    /**
      * Returns a list with the test probes created for child actors of the
      * given actor class. This method expects the desired child actor class
      * directly as argument.
@@ -1145,6 +1151,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @return a list with the child actors of this class
      */
     def probesOfActorClass(actorClass: Class[_]): List[TestProbe] =
+      probeDataOfActorClass(actorClass) map(_.probe)
+
+    /**
+      * Returns a list with information about test probes created for the
+      * specified child actor class.
+      *
+      * @param actorClass the child actor class
+      * @return a list with data about these test probes
+      */
+    def probeDataOfActorClass(actorClass: Class[_]): List[ProbeData] =
       probes.getOrElse(actorClass, Nil)
 
     /**
@@ -1202,7 +1218,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def createProbeForChildActor(props: Props): TestProbe = {
       val probe = TestProbe()
       val probeList = probes.getOrElse(props.actorClass(), Nil)
-      probes += props.actorClass() -> (probe :: probeList)
+      probes += props.actorClass() -> (ProbeData(probe, props) :: probeList)
       probe
     }
 
@@ -1219,8 +1235,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         props.args.head shouldBe a[MediumInfoParser]
         props.args(1) should be(InfoSizeLimit)
       } else {
-        val expectedArgs = expectedArgForActorClass(props)
-        props.args should contain theSameElementsAs expectedArgs
+        expectedArgForActorClass(props) match {
+          case Some(expectedArgs) =>
+            props.args should contain theSameElementsAs expectedArgs
+          case _ =>
+        }
       }
       props
     }
@@ -1231,16 +1250,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * @param props the ''Props'' object
      * @return an Iterable with the arguments to be checked
      */
-    private def expectedArgForActorClass(props: Props): Iterable[Any] =
+    private def expectedArgForActorClass(props: Props): Option[Iterable[Any]] =
       props.actorClass() match {
         case ClsDirScanner =>
-          Some(ExcludedExtensions)
+          Some(List(ExcludedExtensions))
 
         case ClsIDCalculator =>
-          Some(testManagerActor.underlyingActor.idCalculator)
+          Some(List(testManagerActor.underlyingActor.idCalculator))
 
         case ClsMediaReaderActor =>
-          List(probesOfType[FileReaderActor].head.ref, testManagerActor.underlyingActor.id3Extractor)
+          Some(List(probesOfType[FileReaderActor].head.ref,
+            testManagerActor.underlyingActor.id3Extractor))
 
         case _ => None
       }
@@ -1326,11 +1346,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def simulateCollaboratingActorsOfType[T](actorCls: Class[_])(implicit t: ClassTag[T])
     : Unit = {
       probes(actorCls) foreach { p =>
-        val msg = p.expectMsgType[T](t)
+        val msg = p.probe.expectMsgType[T](t)
         val seqNo = extractSeqNo(msg)
         addSeqNo(seqNo)
         val msg2 = updateSeqNo(msg, 0)
-        testManagerActor.tell(updateSeqNo(ActorMessages(msg2), seqNo), p.ref)
+        testManagerActor.tell(updateSeqNo(ActorMessages(msg2), seqNo), p.probe.ref)
       }
     }
 
@@ -1394,7 +1414,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      * In this case, the map still needs to contain empty lists.)
      * @return the initial map with test probes
      */
-    private def createTestProbesMap(): collection.mutable.Map[Class[_], List[TestProbe]] =
+    private def createTestProbesMap(): collection.mutable.Map[Class[_], List[ProbeData]] =
       collection.mutable.Map(ClsFileLoaderActor -> Nil,
         MediaManagerActorSpec.ClsInfoParser -> Nil)
 

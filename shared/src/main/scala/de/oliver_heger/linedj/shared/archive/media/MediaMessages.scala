@@ -105,15 +105,17 @@ case class MediumFileRequest(mediumID: MediumID, uri: String, withMetaData: Bool
  *
  * Via the information stored here all required information about a media
  * file to be played by a client can be obtained. The actual audio data is
- * made available via a ''FileReaderActor'' which can be read chunk-wise. Note
+ * made available via a download actor which can be read chunk-wise. Note
  * that it is in the responsibility of the receiver of this message to stop the
- * actor when it is no longer needed.
+ * actor when it is no longer needed. If the requested file is not available,
+ * a ''None'' reference is returned for the download actor.
  *
  * @param request the request message identifying the file in question
- * @param contentReader a reference to a ''FileReaderActor'' for reading the audio data
+ * @param contentReader optional reference to an actor for download
  * @param length the length of the file (in bytes)
  */
-case class MediumFileResponse(request: MediumFileRequest, contentReader: ActorRef, length: Long)
+case class MediumFileResponse(request: MediumFileRequest, contentReader: Option[ActorRef],
+                              length: Long)
 
 /**
   * A request sent to an actor for downloading media data from the archive
