@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archiveunion
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileReaderActor}
+import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -170,10 +170,8 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     * @param req the request
     * @return the response for this request
     */
-  private def undefinedMediumFileResponse(req: MediumFileRequest): MediumFileResponse = {
-    val readerActor = context.actorOf(Props[FileReaderActor])
-    MediumFileResponse(req, readerActor, -1)
-  }
+  private def undefinedMediumFileResponse(req: MediumFileRequest): MediumFileResponse =
+    MediumFileResponse(req, None, -1)
 
   /**
     * Updates the specified media object by removing all media owned by the

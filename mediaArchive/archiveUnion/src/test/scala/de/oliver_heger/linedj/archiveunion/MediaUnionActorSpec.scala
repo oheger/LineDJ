@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.TestActor.KeepRunning
 import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
-import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileReaderActor}
+import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -183,14 +183,13 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     response.length should be(-1)
   }
 
-  it should "return an un-initialized reader actor for an invalid file request" in {
+  it should "return an undefined reader actor for an invalid file request" in {
     val request = MediumFileRequest(mediumID(1, 1), "someFile", withMetaData = true)
     val helper = new MediaUnionActorTestHelper
 
     helper.manager ! request
     val response = expectMsgType[MediumFileResponse]
-    response.contentReader ! FileReaderActor.ReadData(1)
-    expectMsg(FileReaderActor.EndOfFile(null))
+    response.contentReader shouldBe 'empty
   }
 
   it should "handle a ReaderActorAlive message" in {
