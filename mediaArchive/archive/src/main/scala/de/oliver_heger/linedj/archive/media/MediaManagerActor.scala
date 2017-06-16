@@ -131,7 +131,7 @@ object MediaManagerActor {
  */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         mediaUnionActor: ActorRef,
-                        private[media] val readerActorMapping: MediaReaderActorMapping) extends
+                        private[media] val readerActorMapping: DownloadActorData) extends
 Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport with CloseSupport =>
 
@@ -238,7 +238,7 @@ Actor with ActorLogging {
    */
   def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
            mediaUnionActor: ActorRef) =
-    this(config, metaDataManager, mediaUnionActor, new MediaReaderActorMapping)
+    this(config, metaDataManager, mediaUnionActor, new DownloadActorData)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -383,7 +383,8 @@ Actor with ActorLogging {
       context watch sender()
     }
     val mapping = optMediaReaderActor.map(_ -> Some(readerActor)).getOrElse(readerActor -> None)
-    readerActorMapping.add(mapping, sender(), now())
+    //TODO adapt handling of download actors
+    readerActorMapping.add(mapping._1, sender(), now())
     context watch actualReader
   }
 
@@ -640,13 +641,14 @@ Actor with ActorLogging {
     */
   private def handleReaderActorTermination(actor: ActorRef): Unit = {
     log.info("Removing terminated reader actor from mapping.")
-    val (optReader, optClient) = readerActorMapping remove actor
-    optReader foreach context.stop
-    optClient foreach { c =>
-      if (readerActorMapping.findReadersForClient(c).isEmpty) {
-        context unwatch c
-      }
-    }
+    //TODO adapt removing of download actors
+//    val (optReader, optClient) = readerActorMapping remove actor
+//    optReader foreach context.stop
+//    optClient foreach { c =>
+//      if (readerActorMapping.findReadersForClient(c).isEmpty) {
+//        context unwatch c
+//      }
+//    }
   }
 
   /**

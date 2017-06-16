@@ -29,26 +29,16 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
  * Clients can request reader actors for loading the content of media files.
  * They are then responsible for stopping these actors when they are done. This
  * is a risk because client code may forget to stop an actor or crash before
- * such cleanup can be done. Further, there are actually multiple actors
- * involved in a download operation; all of these have to be stopped when a
- * download is complete.
+ * such cleanup can be done.
  *
- * This class provides functionality to solve these problems. It implements a
- * mapping from reader actors passed to clients (which are actually processing
- * readers) to their underlying file reader actors. The underlying actor is
- * optional; sometimes reader actors are directly passed to clients. No matter
- * which way is used, it must be possible to determine all actors involved in a
- * download operation.
- *
- * Additionally, for each actor a timestamp is stored. It is then possible to
- * check in regular intervals for actors that are timed out - which likely
+ * This class stores information related to download actors. It implements a
+ * mapping from download actors to the client actors they have been propagated
+ * to. Additionally, for each actor a timestamp is stored. It is then possible
+ * to check in regular intervals for actors that are timed out - which likely
  * indicates the crash of a client. These actors can then be stopped by the
- * server.
+ * archive.
  */
-private class MediaReaderActorMapping {
-  /** A mapping from processing actors to their underlying actors. */
-  private val actorMapping = collection.mutable.Map.empty[ActorRef, Option[ActorRef]]
-
+private class DownloadActorData {
   /** A mapping from processing actors to the client actors that read data. */
   private val clientMapping = collection.mutable.Map.empty[ActorRef, ActorRef]
 
@@ -59,29 +49,29 @@ private class MediaReaderActorMapping {
    * Adds the given mapping with its timestamp to this object. The mapping
    * associates an actor that have been passed to a client with its underlying
    * reader actor.
-   * @param mapping the mapping to be added
+   * @param downloadActor the download actor to be managed
    * @param client the client actor of the read operation
    * @param timestamp the timestamp for this mapping
    * @return this object
    */
-  def add(mapping: (ActorRef, Option[ActorRef]), client: ActorRef, timestamp: Long):
-  MediaReaderActorMapping = {
-    actorMapping += mapping
-    clientMapping += mapping._1 -> client
-    timestamps += mapping._1 -> timestamp
+  def add(downloadActor: ActorRef, client: ActorRef, timestamp: Long):
+  DownloadActorData = {
+    clientMapping += downloadActor -> client
+    timestamps += downloadActor -> timestamp
     this
   }
 
   /**
-   * Checks whether a mapping for the specified actor reference is contained in
-   * this object.
+   * Checks whether information about the specified download actor is contained
+   * in this object.
    * @param ref the actor reference to be checked
-   * @return '''true''' if this reference is contained in this object; '''false''' otherwise
+   * @return '''true''' if this reference is contained in this object;
+   *         '''false''' otherwise
    */
-  def hasActor(ref: ActorRef): Boolean = actorMapping contains ref
+  def hasActor(ref: ActorRef): Boolean = clientMapping contains ref
 
   /**
-    * Finds all reader actors that are associated with the given client
+    * Finds all download actors that are associated with the given client
     * actor.
     * @param ref the client actor reference to be checked
     * @return an ''Iterable'' with the retrieved reader actors
@@ -90,20 +80,16 @@ private class MediaReaderActorMapping {
     clientMapping.filter(_._2 == ref).keys
 
   /**
-    * Removes the mapping associated with the given actor reference. Result is a
-    * tuple of optional actor references: the associated reader actor in the
-    * first element and the client actor in the second element. If no mapping
-    * exists for the specified actor, both elements are ''None''. Otherwise,
-    * the client actor should always be defined while the reader actor is
-    * optional.
+    * Removes information about the given actor reference. Result is the
+    * optional actor reference to the client actor. It is ''None'' if the
+    * actor cannot be resolved.
     *
-    * @param ref the reference that is to be removed
-    * @return a tuple with options for the reader and the client actors
-    *         associated with the passed in reference
+    * @param ref the actor reference that is to be removed
+    * @return an ''Option'' with the associated client actor
     */
-  def remove(ref: ActorRef): (Option[ActorRef], Option[ActorRef]) = {
+  def remove(ref: ActorRef): Option[ActorRef] = {
     timestamps remove ref
-    (actorMapping.remove(ref).flatten, clientMapping remove ref)
+    clientMapping remove ref
   }
 
   /**
