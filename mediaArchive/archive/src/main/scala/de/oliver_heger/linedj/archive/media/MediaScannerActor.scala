@@ -21,7 +21,7 @@ import java.nio.file.{Files, Path, Paths}
 import akka.actor.ActorLogging
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches}
-import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{DirectoryStreamSource, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 

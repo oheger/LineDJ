@@ -21,8 +21,9 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
+import de.oliver_heger.linedj.archivecommon.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future

@@ -22,9 +22,8 @@ import akka.pattern.ask
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor,
-CancelableStreamSupport}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData

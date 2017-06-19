@@ -23,10 +23,10 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream._
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.impl.HttpArchiveContentProcessorActor.RemoveKillSwitch
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
+import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future

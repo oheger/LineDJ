@@ -26,9 +26,9 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, ParserStage}
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}

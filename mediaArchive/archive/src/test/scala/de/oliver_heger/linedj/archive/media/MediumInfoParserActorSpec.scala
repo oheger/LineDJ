@@ -24,10 +24,9 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo,
-ParseMediumInfoResult}
+import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo, ParseMediumInfoResult}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._

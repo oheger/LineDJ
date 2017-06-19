@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivecommon.stream
+package de.oliver_heger.linedj.io.stream
 
 import akka.actor.{ActorSystem, Props}
 import akka.stream._

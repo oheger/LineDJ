@@ -26,7 +26,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
+import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}

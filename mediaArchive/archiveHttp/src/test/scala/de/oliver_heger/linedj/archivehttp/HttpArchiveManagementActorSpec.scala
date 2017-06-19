@@ -24,9 +24,9 @@ import akka.stream.scaladsl.Flow
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData

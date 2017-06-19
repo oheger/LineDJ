@@ -23,7 +23,7 @@ import akka.actor.{Actor, ActorRef, Props, Terminated}
 import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, KillSwitch, KillSwitches}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.stream.CancelableStreamSupport
+import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory

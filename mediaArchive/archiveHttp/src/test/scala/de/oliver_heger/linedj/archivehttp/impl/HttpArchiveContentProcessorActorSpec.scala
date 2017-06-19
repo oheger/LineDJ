@@ -24,8 +24,8 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

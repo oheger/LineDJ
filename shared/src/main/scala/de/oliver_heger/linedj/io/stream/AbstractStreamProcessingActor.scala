@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivecommon.stream
+package de.oliver_heger.linedj.io.stream
 
 import akka.actor.Actor.emptyBehavior
 import akka.actor.{Actor, ActorRef}
 import akka.stream.{ActorMaterializer, KillSwitch}
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.{CancelStreams,
-StreamCompleted}
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.{CancelStreams, StreamCompleted}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

@@ -23,7 +23,8 @@ import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.archivecommon.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
+import de.oliver_heger.linedj.archivecommon.stream.StreamSizeRestrictionStage
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
 import scala.concurrent.Future

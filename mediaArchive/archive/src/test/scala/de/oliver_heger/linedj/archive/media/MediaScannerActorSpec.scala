@@ -9,8 +9,8 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.{ScanPath, ScanPathResult}
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar

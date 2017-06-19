@@ -23,10 +23,10 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.archivecommon.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaFileUriHandler, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
