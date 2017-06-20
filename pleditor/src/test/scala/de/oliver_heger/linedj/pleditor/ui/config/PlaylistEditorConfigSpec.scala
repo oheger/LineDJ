@@ -102,4 +102,32 @@ class PlaylistEditorConfigSpec extends FlatSpec with Matchers with MockitoSugar 
     bc.exportClearMode = ClearMode
     config getInt "browser.export.defaultClearMode" should be(ClearMode)
   }
+
+  it should "return the download chunk size" in {
+    val ChunkSize = 16384
+    val config = createConfig(createWrappedConfigWithOption("browser.export.downloadChunkSize",
+      java.lang.Integer.valueOf(ChunkSize)))
+
+    config.downloadChunkSize should be(ChunkSize)
+  }
+
+  it should "return a default download chunk size if unspecified" in {
+    val config = createConfig(new PropertiesConfiguration)
+
+    config.downloadChunkSize should be(16384)
+  }
+
+  it should "return the progress size" in {
+    val ProgressSize = 1024 * 1024
+    val config = createConfig(createWrappedConfigWithOption("browser.export.progressSize",
+      java.lang.Integer.valueOf(ProgressSize)))
+
+    config.progressSize should be(ProgressSize)
+  }
+
+  it should "return a default progress size" in {
+    val config = createConfig(new PropertiesConfiguration)
+
+    config.progressSize should be(1024 * 1024)
+  }
 }

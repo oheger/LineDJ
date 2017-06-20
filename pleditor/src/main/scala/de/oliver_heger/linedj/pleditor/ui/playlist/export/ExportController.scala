@@ -22,6 +22,7 @@ import akka.actor.Actor.Receive
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportError
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
@@ -66,6 +67,7 @@ object ExportController {
  *
  * @param applicationContext the application context
  * @param mediaFacade the facade to the media archive
+ * @param config the configuration for the playlist editor
  * @param actorFactory the factory for actors
  * @param exportData describes the export operation
  * @param progressRemove handler for the progress bar for remove operations
@@ -73,10 +75,10 @@ object ExportController {
  * @param currentFile handler for the text for the current file
  */
 class ExportController(applicationContext: ApplicationContext, mediaFacade: MediaFacade,
-                       actorFactory: ActorFactory, exportData: ExportActor.ExportData,
-                       progressRemove: ProgressBarHandler, progressCopy: ProgressBarHandler,
-                       currentFile: StaticTextHandler) extends WindowListener with
-MessageBusListener with FormActionListener {
+                       config: PlaylistEditorConfig, actorFactory: ActorFactory,
+                       exportData: ExportActor.ExportData, progressRemove: ProgressBarHandler,
+                       progressCopy: ProgressBarHandler, currentFile: StaticTextHandler)
+  extends WindowListener with MessageBusListener with FormActionListener {
 
   import ExportController._
 
@@ -116,7 +118,8 @@ MessageBusListener with FormActionListener {
   override def windowOpened(windowEvent: WindowEvent): Unit = {
     listenerID = mediaFacade.bus registerListener receive
 
-    exportActor = actorFactory.createActor(ExportActor(mediaFacade), ExportActorName)
+    val props = ExportActor(mediaFacade, config.downloadChunkSize, config.progressSize)
+    exportActor = actorFactory.createActor(props, ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
   }

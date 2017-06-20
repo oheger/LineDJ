@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
+import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -55,6 +56,12 @@ object ExportControllerSpec {
 
   /** A test path to be used as current file. */
   private val TestPath = Paths get "CurrentFile.tst"
+
+  /** The download chunk size. */
+  private val DownloadChunkSize = 7777
+
+  /** The progress size. */
+  private val ProgressSize = 123456789
 
   /**
    * Creates a list with a number of test songs.
@@ -182,32 +189,32 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
    */
   private class ExportControllerTestHelper {
     /** Mock for the remote message bus. */
-    val mediaFacade = createRemoteMediaFacade()
+    val mediaFacade: MediaFacade = createRemoteMediaFacade()
 
     /** Test probe for the export actor. */
     val exportActor = TestProbe()
 
     /** Mock for the actor factory. */
-    val factory = createActorFactory(exportActor, mediaFacade)
+    val factory: ActorFactory = createActorFactory(exportActor, mediaFacade)
 
     /** Mock for the remove progress bar handler. */
-    val progressRemove = mock[ProgressBarHandler]
+    val progressRemove: ProgressBarHandler = mock[ProgressBarHandler]
 
     /** Mock for the copy progress bar handler. */
-    val progressCopy = mock[ProgressBarHandler]
+    val progressCopy: ProgressBarHandler = mock[ProgressBarHandler]
 
     /** Mock for the current file text handler. */
-    val textFile = mock[StaticTextHandler]
+    val textFile: StaticTextHandler = mock[StaticTextHandler]
 
     /** Mock for the window. */
-    val window = mock[Window]
+    val window: Window = mock[Window]
 
     /** Mock for the application context. */
-    val applicationContext = mock[ApplicationContext]
+    val applicationContext: ApplicationContext = mock[ApplicationContext]
 
     /** The test controller. */
-    val controller = new ExportController(applicationContext, mediaFacade, factory,
-      TestExportData, progressRemove, progressCopy, textFile)
+    val controller = new ExportController(applicationContext, mediaFacade, createConfig(),
+      factory, TestExportData, progressRemove, progressCopy, textFile)
 
     /**
      * Simulates the opening of the window. At this time the controller does
@@ -321,11 +328,23 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
           classOf[ExportActor].isAssignableFrom(props.actorClass()) shouldBe true
           classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-          props.args should contain only facade
+          props.args should be(List(facade, DownloadChunkSize, ProgressSize))
           actor.ref
         }
       })
       factory
+    }
+
+    /**
+      * Creates a mock configuration for the playlist editor.
+      *
+      * @return the mock configuration
+      */
+    private def createConfig(): PlaylistEditorConfig = {
+      val config = mock[PlaylistEditorConfig]
+      when(config.downloadChunkSize).thenReturn(DownloadChunkSize)
+      when(config.progressSize).thenReturn(ProgressSize)
+      config
     }
   }
 

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.pleditor.ui.config
 
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
+import org.apache.commons.configuration.Configuration
 
 object PlaylistEditorConfig {
   /** The prefix for all configuration keys. */
@@ -31,6 +32,18 @@ object PlaylistEditorConfig {
 
   /** Key for the default export clear mode. */
   private val KeyExportClearMode = ExportPrefix + "defaultClearMode"
+
+  /** Key for the download chunk size. */
+  private val KeyDownloadChunkSize = ExportPrefix + "downloadChunkSize"
+
+  /** Key for progress size. */
+  private val KeyProgressSize = ExportPrefix + "progressSize"
+
+  /** The default download chunk size. */
+  private val DefaultDownloadChunkSize = 16384
+
+  /** The default progress size. */
+  private val DefaultProgressSize = 1024 * 1024
 }
 
 /**
@@ -48,7 +61,7 @@ class PlaylistEditorConfig(app: Application) {
   import PlaylistEditorConfig._
 
   /** The wrapped user configuration. */
-  val userConfiguration = app.getUserConfiguration
+  val userConfiguration: Configuration = app.getUserConfiguration
 
   /**
    * Returns the default path to be used for export operations.
@@ -70,4 +83,22 @@ class PlaylistEditorConfig(app: Application) {
   def exportClearMode_=(mode: Int): Unit = {
     userConfiguration.setProperty(KeyExportClearMode, mode)
   }
+
+  /**
+    * Returns the chunk size for download operations.
+    *
+    * @return the download chunk size
+    */
+  def downloadChunkSize: Int =
+    userConfiguration.getInt(KeyDownloadChunkSize, DefaultDownloadChunkSize)
+
+  /**
+    * Returns the progress size. This size controls the frequency of update
+    * notifications during a copy operation. After this number of bytes has
+    * been processed, the copy actor sends a notification.
+    *
+    * @return the size for progress notifications
+    */
+  def progressSize: Int =
+    userConfiguration.getInt(KeyProgressSize, DefaultProgressSize)
 }

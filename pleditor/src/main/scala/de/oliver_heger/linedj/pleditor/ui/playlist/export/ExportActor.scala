@@ -127,8 +127,8 @@ object ExportActor {
     */
   private [export] case class MediaManagerFetched(manager: ActorRef)
 
-  private class ExportActorImpl(mediaFacade: MediaFacade)
-    extends ExportActor(mediaFacade) with ChildActorFactory
+  private class ExportActorImpl(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
+    extends ExportActor(mediaFacade, chunkSize, progressSize) with ChildActorFactory
 
   /**
     * A special instance of an ''ExportResult'' that represents an error during
@@ -150,10 +150,12 @@ object ExportActor {
   /**
    * Returns a ''Props'' object for creating an instance of this actor class.
    * @param mediaFacade the facade to the media archive
+   * @param chunkSize chunks size of copy operations
+   * @param progressSize size for sending progress notifications
    * @return creation properties for an actor instance
    */
-  def apply(mediaFacade: MediaFacade): Props =
-    Props(classOf[ExportActorImpl], mediaFacade)
+  def apply(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int): Props =
+    Props(classOf[ExportActorImpl], mediaFacade, chunkSize, progressSize)
 
   /** An expression defining illegal characters in a song title. */
   private val InvalidCharacters = "[:*?\"<>\t|/\\\\]".r
@@ -301,8 +303,11 @@ object ExportActor {
  * it is possible to give feedback to the user.
  *
  * @param mediaFacade the facade to the media archive
+ * @param chunkSize chunks size of copy operations
+ * @param progressSize size for sending progress notifications
  */
-class ExportActor(mediaFacade: MediaFacade) extends Actor with ActorLogging {
+class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
+  extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import ExportActor._
@@ -369,7 +374,7 @@ class ExportActor(mediaFacade: MediaFacade) extends Actor with ActorLogging {
    */
   private def prepareReceive: Receive = {
     case MediaManagerFetched(actor) =>
-      copyFileActor = createChildActor(Props(classOf[CopyFileActor], self, actor))
+      copyFileActor = createChildActor(CopyFileActor(self, actor, chunkSize, progressSize))
       context watch copyFileActor
       startExportIfPossible()
 

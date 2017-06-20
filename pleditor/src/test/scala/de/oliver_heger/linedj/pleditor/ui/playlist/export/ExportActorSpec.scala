@@ -45,13 +45,19 @@ object ExportActorSpec {
   private val ClassRemoveFileActor = classOf[RemoveFileActor]
 
   /** Constant for the copy file actor class. */
-  private val ClassCopyFileActor = classOf[CopyFileActor]
+  private val ClassCopyFileActor = CopyFileActor(null, null, 0, 0).actorClass()
 
   /** Constant for the export path. */
   private val ExportPath = Paths get "export"
 
   /** A default file size for generated files. */
   private val DefaultFileSize = 100
+
+  /** The chunk size for I/O operations. */
+  private val ChunkSize = 16384
+
+  /** The progress size for update notifications. */
+  private val ProgressSize = 4096
 
   /** A test scan result object. */
   private val TestScanResult = createScanResult()
@@ -464,7 +470,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     val helper = new ExportActorTestHelper
     val data = ExportActor.ExportData(songs(4), TestScanResultWithSingleRemoveFile, ExportPath,
       clearTarget = true, overrideFiles = true)
-    val exportActor = system.actorOf(ExportActor(helper.mediaFacade))
+    val exportActor = system.actorOf(ExportActor(helper.mediaFacade, ChunkSize, ProgressSize))
     exportActor ! ExportActor.MediaManagerFetched(TestProbe().ref)
 
     exportActor ! data // the first remove operation will fail
@@ -652,7 +658,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
      * @return the properties
      */
     private def actorProps(): Props = {
-      Props(new ExportActor(mediaFacade) with ChildActorFactory {
+      Props(new ExportActor(mediaFacade, ChunkSize, ProgressSize) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassRemoveFileActor =>
@@ -660,8 +666,7 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
               removeFileActor.ref
 
             case ClassCopyFileActor =>
-              p.args should have size 2
-              p.args should contain inOrderOnly(exportActor, mediaManagerActor.ref)
+              p.args should be(List(exportActor, mediaManagerActor.ref, ChunkSize, ProgressSize))
               copyFileActor.ref
           }
         }
