@@ -84,12 +84,12 @@ object SourceDownloadActorSpec {
     * Generates a ''MediumFileResponse'' based on the given parameters.
     *
     * @param index  an index for generating unique test data
-    * @param actor  the reader actor for the response
+    * @param actor  the reader actor for the response (may be '''null''')
     * @param length the length of the source
     * @return the response message
     */
   private def downloadResponse(index: Int, actor: ActorRef, length: Long): MediumFileResponse =
-    MediumFileResponse(downloadRequest(index), actor, length)
+    MediumFileResponse(downloadRequest(index), Option(actor), length)
 }
 
 /**
@@ -152,7 +152,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   private def createConfig(mediaManager: ActorRef): PlayerConfig =
     PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
       downloadInProgressNotificationInterval = ReaderAliveInterval,
-      actorCreator = (props, name) => null, mediaManagerActor = mediaManager)
+      actorCreator = (_, _) => null, mediaManagerActor = mediaManager)
 
   /**
    * Convenience method for creating a download test actor which is initialized
@@ -280,6 +280,20 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! downloadResponse(2, contentActor2.ref, SourceLength)
     readActor.expectMsg(AudioSource(sourceURI(2), SourceLength, 0, 0))
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
+  }
+
+  it should "ignore download response messages with an undefined download actor" in {
+    val srcActor, bufActor, readActor, contentActor = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsg(downloadRequest(1))
+    actor ! createPlaylistInfo(2)
+
+    actor ! downloadResponse(1, null, SourceLength)
+    srcActor.expectMsg(downloadRequest(2))
+    actor ! downloadResponse(2, contentActor.ref, SourceLength)
+    readActor.expectMsg(AudioSource(sourceURI(2), SourceLength, 0, 0))
+    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor.ref))
   }
 
   it should "report that a reader actor is still alive" in {

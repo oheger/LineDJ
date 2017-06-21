@@ -234,7 +234,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
    * @return a flag whether the response is valid
    */
   private def isValidDownloadResponse(response: MediumFileResponse): Boolean =
-    response.length >= 0
+    response.length >= 0 && response.contentReader.isDefined
 
   /**
    * Sets the current download to ''None''. The old value is returned.
@@ -284,13 +284,14 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
    */
   private def fillBufferIfPossible(response: MediumFileResponse):
   Option[MediumFileResponse] = {
+    assert(response.contentReader.isDefined)
     currentReadActor match {
       case Some(_) =>
         Some(response)
 
       case None =>
-        bufferActor ! FillBuffer(response.contentReader)
-        currentReadActor = Some(response.contentReader)
+        bufferActor ! FillBuffer(response.contentReader.get)
+        currentReadActor = response.contentReader
         None
     }
   }
