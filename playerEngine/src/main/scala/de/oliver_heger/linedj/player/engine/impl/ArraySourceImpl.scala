@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.engine.impl
 import java.io.InputStream
 import java.net.URL
 
+import akka.util.ByteString
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 
 /**
@@ -50,6 +51,16 @@ private object ArraySourceImpl {
     if(offsetDelta <= 0) source
     else new ArraySourceImpl(source.data, offset = source.offset + offsetDelta,
       length = math.max(source.length - offsetDelta, 0))
+
+  /**
+    * Creates a new ''ArraySource'' from a ''ByteString''. The resulting
+    * source contains all data from the byte string.
+    *
+    * @param bs the ''ByteString''
+    * @return the new ''ArraySource''
+    */
+  def apply(bs: ByteString): ArraySource =
+    new ArraySourceImpl(bs.toArray, bs.length)
 }
 
 /**

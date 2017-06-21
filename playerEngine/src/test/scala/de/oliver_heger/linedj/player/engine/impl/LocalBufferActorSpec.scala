@@ -9,12 +9,14 @@ import java.util.regex.Pattern
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.ByteString
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
-import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData, ReadResult}
+import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.FileWriterActor.{WriteResult, WriteResultStatus}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Matchers._
@@ -50,7 +52,7 @@ object LocalBufferActorSpec {
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(bufferFileSize = FileTestHelper.testBytes().length, bufferChunkSize = ChunkSize,
-      actorCreator = (props, name) => null, mediaManagerActor = null)
+      actorCreator = (_, _) => null, mediaManagerActor = null)
 }
 
 /**
@@ -100,16 +102,16 @@ with MockitoSugar {
     var bytesWritten = 0
 
     fishForMessage() {
-      case FileReaderActor.ReadData(count) =>
+      case DownloadData(count) =>
         count should be(ChunkSize)
         if (pos >= data.length) {
-          bufferActor ! FileReaderActor.EndOfFile(null)
+          bufferActor ! DownloadComplete
           false
         } else {
           val actCount = scala.math.min(data.length - pos, count)
           val resultData = new Array[Byte](actCount)
           System.arraycopy(data, pos, resultData, 0, actCount)
-          bufferActor ! FileReaderActor.ReadResult(resultData, actCount)
+          bufferActor ! DownloadDataResult(ByteString(resultData))
           pos += actCount
           false
         }
@@ -214,7 +216,7 @@ with MockitoSugar {
   Option[ActorRef], bufferManager: Option[BufferFileManager]): Props = {
     Props(new LocalBufferActor(Config, bufferManager getOrElse createBufferFileManager())
       with ChildActorFactory {
-      var readerList = readers
+      private var readerList = readers
 
       override def createChildActor(p: Props): ActorRef = {
         p.args shouldBe 'empty
@@ -287,7 +289,7 @@ with MockitoSugar {
     val bufferActor = system.actorOf(propsWithMockFactory())
     bufferActor ! FillBuffer(testActor)
 
-    expectMsgType[ReadData]
+    expectMsgType[DownloadData]
     bufferActor ! FillBuffer(testActor)
     expectMsg(BufferBusy)
   }
@@ -296,7 +298,7 @@ with MockitoSugar {
     val bufferManager = createBufferFileManager()
     val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
     bufferActor ! FillBuffer(testActor)
-    expectMsgType[ReadData]
+    expectMsgType[DownloadData]
 
     verify(bufferManager).clearBufferDirectory()
   }
@@ -328,7 +330,7 @@ with MockitoSugar {
     val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
 
     bufferActor ! FillBuffer(testActor)
-    expectMsgType[FileReaderActor.ReadData]
+    expectMsgType[DownloadData]
     bufferActor ! FileReaderActor.ReadResult(testBytes(), 22)
     bufferActor ! FillBuffer(testActor)
     expectMsg(BufferBusy)
@@ -471,9 +473,9 @@ with MockitoSugar {
 
     readActor3 watch readActor2.ref
     bufferActor ! FillBuffer(testActor)
-    expectMsgType[FileReaderActor.ReadData]
+    expectMsgType[DownloadData]
     readRequest(bufferActor, readActor1)
-    expectMsgType[ReadData]
+    expectMsgType[DownloadData]
     readRequest(bufferActor, readActor2)
     readActor3.expectMsgType[Terminated]
     bufferActor ! FillBuffer(testActor)
@@ -581,9 +583,9 @@ with MockitoSugar {
       bufferManager = Some(bufferManager)))
 
     bufferActor ! FillBuffer(testActor)
-    expectMsgType[ReadData]
+    expectMsgType[DownloadData]
     bufferActor ! CloseRequest
-    bufferActor ! ReadResult(testBytes(), 10)
+    bufferActor ! DownloadDataResult(ByteString(TestData.substring(0, 10)))
     expectMsg(CloseAck(bufferActor))
     bufferActor ! FillBuffer(testActor)
     expectMsg(BufferBusy)
@@ -595,10 +597,10 @@ with MockitoSugar {
     val bufferActor = system.actorOf(propsWithMockFactory())
 
     bufferActor ! FillBuffer(probe.ref)
-    probe.expectMsgType[ReadData]
-    bufferActor.tell(ReadResult(testBytes(), 8), probe.ref)
+    probe.expectMsgType[DownloadData]
+    bufferActor.tell(DownloadDataResult(ByteString(TestData.substring(0, 8))), probe.ref)
     expectMsgType[InitFile]
-    expectMsgType[ReadResult]
+    expectMsgType[ArraySourceImpl]
     bufferActor ! CloseRequest
     bufferActor ! WriteResult(FileWriterActor.WriteResultStatus.Ok, 8)
     expectMsg(CloseRequest)
@@ -615,7 +617,7 @@ with MockitoSugar {
     expectMsg(CloseRequest)
     bufferActor ! CloseAck(testActor)
     bufferActor ! FillBuffer(testActor)
-    expectMsgType[ReadData]
+    expectMsgType[DownloadData]
     verify(bufferManager).append(any(classOf[Path]))
   }
 
@@ -643,7 +645,7 @@ with MockitoSugar {
     }
     val supervisionTestActor = SupervisionTestActor(system, strategy, Props(new Actor {
       override def receive: Receive = {
-        case FileReaderActor.ReadData(_) =>
+        case DownloadData(_) =>
           throw new IOException("Test exception")
       }
     }))

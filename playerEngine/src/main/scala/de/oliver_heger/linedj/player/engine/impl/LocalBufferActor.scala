@@ -16,46 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.nio.file.{FileSystems, Path}
+import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.util.ByteString
 import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
-import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadData}
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
  * Companion object to ''LocalBufferActor''.
  */
 object LocalBufferActor {
-  /** The system property defining the temporary directory. */
-  private val PropTempDir = "java.io.tmpdir"
-
-  /** The prefix for all configuration properties related to this actor. */
-  private val PropertyPrefix = "splaya.buffer."
-
-  /** The property for the size of temporary files. */
-  private val PropFileSize = PropertyPrefix + "fileSize"
-
-  /** The property for the chunk size for I/O operations. */
-  private val PropChunkSize = PropertyPrefix + "chunkSize"
-
-  /** The property for the file prefix for temporary buffer files. */
-  private val PropFilePrefix = PropertyPrefix + "filePrefix"
-
-  /** The property for the file extension for temporary buffer files. */
-  private val PropFileExtension = PropertyPrefix + "fileExtension"
-
-  /**
-   * Obtains the path for temporary files. This is the default value for the
-   * buffer directory.
-    *
-    * @return the temporary path
-   */
-  private def temporaryPath: Path = FileSystems.getDefault.getPath(System getProperty PropTempDir)
 
   /**
    * A message that tells the ''LocalBufferActor'' to fill its buffer with the
@@ -161,11 +137,11 @@ object LocalBufferActor {
  *
  * Basically, the buffer consists of two temporary files of a configurable
  * size. The buffer actor supports a message for filling the buffer which
- * references a ''FileReaderActor''. This actor is used to read data until the
- * buffer is full. On the other hand, a ''FileReaderActor'' can be queried from
- * reading from the buffer.
+ * references a ''MediaFileDownloadActor''. This actor is used to read data
+ * until the buffer is full. On the other hand, a ''FileReaderActor'' can be
+ * queried for reading from the buffer.
  *
- * Filling the buffer works by reading the content of the provided reader actor
+ * Filling the buffer works by reading the content of the provided actor
  * and storing it in a temporary file. When the first temporary file is
  * completely written (i.e. its configured file size is reached) it is made
  * available for reading. At the same time the second temporary file can be
@@ -206,7 +182,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   private var currentPath: Option[Path] = None
 
   /** A read result which has to be processed after finishing the current write operation. */
-  private var pendingReadResult: Option[ArraySource] = None
+  private var pendingReadResult: Option[ByteString] = None
 
   /** The number of bytes that have been written to the current temporary file. */
   private var bytesWrittenToFile = 0
@@ -243,11 +219,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
         context watch actor
       }
 
-    case readResult: ArraySource =>
+    case DownloadDataResult(readResult) =>
       readOperationInProgress = false
       handleReadResult(readResult)
 
-    case WriteResult(_, length) =>
+    case WriteResult(_, _) =>
       if (bytesWrittenToFile >= config.bufferFileSize) {
         writerActor ! CloseRequest
       } else {
@@ -261,7 +237,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       serveReadRequest()
       continueFilling()
 
-    case EndOfFile(_) =>
+    case DownloadComplete =>
       fillOperationCompleted(sender())
 
     case ReadBuffer =>
@@ -293,7 +269,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   def closing: Receive = {
-    case FillBuffer(readerActor) =>
+    case FillBuffer(_) =>
       sender ! BufferBusy
 
     case CloseAck(actor) if writerActor == actor =>
@@ -325,7 +301,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       case None =>
         if (!readOperationInProgress) {
           fillActor foreach { a =>
-            a ! ReadData(config.bufferChunkSize)
+            a ! DownloadData(config.bufferChunkSize)
             readOperationInProgress = true
           }
         }
@@ -398,7 +374,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     *
     * @param readResult the object with the result of the read operation
     */
-  private def handleReadResult(readResult: ArraySource): Unit = {
+  private def handleReadResult(readResult: ByteString): Unit = {
     if (!bufferManager.isFull) {
       val (request, pending) = currentAndPendingWriteRequest(readResult)
       ensureWriteActorInitialized() ! request
@@ -434,13 +410,14 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     * @param readResult the read result
    * @return a tuple with the current and the pending write request
    */
-  private def currentAndPendingWriteRequest(readResult: ArraySource): (ArraySource,
-    Option[ArraySource]) = {
-    if (readResult.length + bytesWrittenToFile <= config.bufferFileSize) (readResult, None)
+  private def currentAndPendingWriteRequest(readResult: ByteString): (ArraySource,
+    Option[ByteString]) = {
+    if (readResult.length + bytesWrittenToFile <= config.bufferFileSize)
+      (ArraySourceImpl(readResult), None)
     else {
       val actLength = config.bufferFileSize - bytesWrittenToFile
-      (new ArraySourceImpl(readResult.data, length = actLength),
-        Some(ArraySourceImpl(readResult, actLength)))
+      val splitData = readResult splitAt actLength
+      (ArraySourceImpl(splitData._1), Some(splitData._2))
     }
   }
 
@@ -452,7 +429,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
    */
   private def serveFillRequest(): Unit = {
     if (pendingFillRequest) {
-      fillActor.get ! ReadData(config.bufferChunkSize)
+      fillActor.get ! DownloadData(config.bufferChunkSize)
       pendingFillRequest = false
     }
   }
