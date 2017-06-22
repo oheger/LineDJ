@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.download
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}

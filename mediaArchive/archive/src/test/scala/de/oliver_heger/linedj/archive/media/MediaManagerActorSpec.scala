@@ -9,6 +9,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archivecommon.download.DownloadActorData
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io._

@@ -22,6 +22,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archivecommon.download.DownloadActorData
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete

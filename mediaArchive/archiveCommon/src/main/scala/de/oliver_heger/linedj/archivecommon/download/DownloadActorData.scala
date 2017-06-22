@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.download
 
 import java.util.concurrent.TimeUnit
 
@@ -38,7 +38,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
  * indicates the crash of a client. These actors can then be stopped by the
  * archive.
  */
-private class DownloadActorData {
+class DownloadActorData {
   /** A mapping from processing actors to the client actors that read data. */
   private val clientMapping = collection.mutable.Map.empty[ActorRef, ActorRef]
 
