@@ -125,6 +125,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .settings(
     name := "linedj-archive-common",
     libraryDependencies ++= logDependencies,
+    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
