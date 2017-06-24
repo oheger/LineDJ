@@ -22,7 +22,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archivecommon.download.DownloadActorData
+import de.oliver_heger.linedj.archivecommon.download.DownloadManagerActor
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
@@ -49,14 +49,6 @@ object MediaManagerActor {
    *              contain media data
    */
   case class ScanMedia(roots: Iterable[String])
-
-  /**
-   * A message processed by ''MediaManagerActor'' telling it to check whether
-   * there are reader actors with a timeout. This message is processed
-   * periodically. This ensures that clients that terminated unexpectedly do
-   * not cause hanging actor references.
-   */
-  case object CheckReaderTimeout
 
   /**
    * Constant for a prototype of a ''MediumFiles'' message for an unknown
@@ -102,11 +94,6 @@ object MediaManagerActor {
    */
   private def mediumPathFromDescription(descPath: Path): Path = descPath.getParent
 
-  /**
-   * Convenience method for returning the current system time.
-   * @return the current time
-   */
-  private def now(): Long = System.currentTimeMillis()
 }
 
 /**
@@ -128,13 +115,11 @@ object MediaManagerActor {
  * @param config the configuration object
  * @param metaDataManager a reference to the meta data manager actor
  * @param mediaUnionActor a reference to the media union actor
- * @param downloadActorData internal helper object for managing reader actors
  */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
-                        mediaUnionActor: ActorRef,
-                        private[media] val downloadActorData: DownloadActorData) extends
+                        mediaUnionActor: ActorRef) extends
 Actor with ActorLogging {
-  me: ChildActorFactory with SchedulerSupport with CloseSupport =>
+  me: ChildActorFactory with CloseSupport =>
 
   import MediaManagerActor._
 
@@ -152,6 +137,9 @@ Actor with ActorLogging {
 
   /** The actor for scanning media directory structures. */
   private var mediaScannerActor: ActorRef = _
+
+  /** The actor that manages download operations. */
+  private var downloadManagerActor: ActorRef = _
 
   /** The map with the media currently available. */
   private var mediaMap = Map.empty[MediumID, MediumInfo]
@@ -213,9 +201,6 @@ Actor with ActorLogging {
   /** The number of available media.*/
   private var mediaCount = 0
 
-  /** Cancellable for the periodic reader timeout check. */
-  private var readerCheckCancellable: Option[Cancellable] = None
-
   /**
     * A flag to track whether a scan is the first one or a follow up scan. For
     * all scans except for the first the media union actor has to be notified
@@ -228,18 +213,6 @@ Actor with ActorLogging {
     * message has already been received.
     */
   private var removeConfirmed = false
-
-  /**
-   * Creates a new instance of ''MediaManagerActor'' with a default reader
-   * actor mapping.
-    *
-    * @param config the configuration object
-   * @param metaDataManager a reference to the meta data manager actor
-    * @param mediaUnionActor the media union actor
-   */
-  def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
-           mediaUnionActor: ActorRef) =
-    this(config, metaDataManager, mediaUnionActor, new DownloadActorData)
 
   /**
    * The supervisor strategy used by this actor stops the affected child on
@@ -255,14 +228,7 @@ Actor with ActorLogging {
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
       config.excludedFileExtensions))
-    readerCheckCancellable = Some(scheduleMessage(config.downloadConfig.downloadCheckInterval,
-      config.downloadConfig.downloadCheckInterval, self, CheckReaderTimeout))
-  }
-
-  @throws[Exception](classOf[Exception])
-  override def postStop(): Unit = {
-    super.postStop()
-    readerCheckCancellable foreach (_.cancel())
+    downloadManagerActor = createChildActor(DownloadManagerActor(config.downloadConfig))
   }
 
   override def receive: Receive = {
@@ -291,15 +257,6 @@ Actor with ActorLogging {
 
     case request: MediumFileRequest =>
       processFileRequest(request)
-
-    case t: Terminated =>
-      handleActorTermination(t.actor)
-
-    case CheckReaderTimeout =>
-      checkForReaderActorTimeout()
-
-    case ReaderActorAlive(reader, _) =>
-      downloadActorData.updateTimestamp(reader, now())
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
@@ -377,12 +334,8 @@ Actor with ActorLogging {
       case Some(fileData) =>
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
           Paths get fileData.path, config.downloadConfig.downloadChunkSize, !request.withMetaData))
-
-        if (downloadActorData.findReadersForClient(sender()).isEmpty) {
-          context watch sender()
-        }
-        downloadActorData.add(downloadActor, sender(), now())
-        context watch downloadActor
+        downloadManagerActor !
+          DownloadManagerActor.DownloadOperationStarted(downloadActor, sender())
         MediumFileResponse(request, Some(downloadActor), fileData.size)
 
       case None =>
@@ -597,62 +550,6 @@ Actor with ActorLogging {
   private def sendOrCacheMessage(target: ActorRef, msg: Any): Unit = {
     if (removeConfirmed) target ! msg
     else pendingMessages = (target, msg) :: pendingMessages
-  }
-
-  /**
-    * Handles an actor terminated message. We have to determine which type of
-    * actor is affected by this message. If it is a reader actor, then a
-    * download operation is finished, and some cleanup has to be done. It can
-    * also be the client actor of a read operation; then all reader actors
-    * related to this client can be canceled.
-    *
-    * @param actor the affected actor
-    */
-  private def handleActorTermination(actor: ActorRef): Unit = {
-    if (downloadActorData hasActor actor) {
-      handleReaderActorTermination(actor)
-    } else {
-      val readerActors = downloadActorData.findReadersForClient(actor)
-      readerActors foreach context.stop
-    }
-  }
-
-  /**
-    * Handles the termination of a reader actor. We can stop watching
-    * the client actor if there are no more pending read operations on behalf
-    * of it.
-    *
-    * @param actor the terminated actor
-    */
-  private def handleReaderActorTermination(actor: ActorRef): Unit = {
-    log.info("Removing terminated reader actor from mapping.")
-    val optClient = downloadActorData remove actor
-    optClient foreach { c =>
-      if (downloadActorData.findReadersForClient(c).isEmpty) {
-        context unwatch c
-      }
-    }
-  }
-
-  /**
-   * Checks all currently active reader actors for timeouts. This method is
-   * called periodically. It checks whether there are actors which have not
-   * been updated during a configurable interval. This typically indicates a
-   * crash of the corresponding client.
-   */
-  private def checkForReaderActorTimeout(): Unit = {
-    downloadActorData.findTimeouts(now(), config.downloadConfig.downloadTimeout) foreach
-      stopReaderActor
-  }
-
-  /**
-   * Stops a reader actor when the timeout was reached.
-    *
-    * @param actor the actor to be stopped
-   */
-  private def stopReaderActor(actor: ActorRef): Unit = {
-    context stop actor
-    log.warning("Reader actor {} stopped because of timeout!", actor.path)
   }
 
 }
