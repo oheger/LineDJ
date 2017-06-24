@@ -37,7 +37,7 @@ case object GetAvailableMedia
  * @param reader the reader actor in question
  * @param mediumID the ID of the medium which is subject of the operation
  */
-case class ReaderActorAlive(reader: ActorRef, mediumID: MediumID)
+case class DownloadActorAlive(reader: ActorRef, mediumID: MediumID)
 
 /**
  * A message processed by ''MediaManagerActor'' telling it to return a list

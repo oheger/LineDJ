@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, ReaderActorAlive}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, DownloadActorAlive}
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -304,7 +304,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     srcActor.expectMsgType[MediumFileRequest]
 
     actor ! SourceDownloadActor.ReportReaderActorAlive
-    srcActor.expectMsg(ReaderActorAlive(contentActor.ref, TestMediumID))
+    srcActor.expectMsg(DownloadActorAlive(contentActor.ref, TestMediumID))
   }
 
   it should "deal with with an undefined reader when receiving a report reader alive message" in {

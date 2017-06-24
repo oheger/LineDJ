@@ -80,9 +80,8 @@ object MediaArchiveConfigSpec {
   private def createHierarchicalConfig(): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
     config.addProperty("media.infoSizeLimit", InfoSizeLimit)
-    config.addProperty("media.readerTimeout", 60)
-    config.addProperty("media.readerCheckInterval", ReaderCheckInterval.toSeconds)
-    config.addProperty("media.readerCheckInitialDelay", ReaderCheckDelay.toSeconds)
+    config.addProperty("media.downloadTimeout", 60)
+    config.addProperty("media.downloadCheckInterval", ReaderCheckInterval.toSeconds)
     config.addProperty("media.downloadChunkSize", DownloadChunkSize)
     config.addProperty("media.roots.root.path", MusicRoot.rootPath.toString)
     config.addProperty("media.roots.root.processorCount", MusicRoot.processorCount)
@@ -121,13 +120,13 @@ with Matchers with BeforeAndAfterAll {
 
   import MediaArchiveConfigSpec._
 
-  def this() = this(ActorSystem("ServerConfigSpec"))
+  def this() = this(ActorSystem("MediaArchiveConfigSpec"))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
   }
 
-  "A ServerConfig" should "return the timeout for reader actors" in {
+  "A MediaArchiveConfig" should "return the timeout for reader actors" in {
     createCConfig().downloadConfig.downloadTimeout should be(60.seconds)
   }
 

@@ -27,10 +27,10 @@ object DownloadConfig {
   private val ConfigPrefix = "media."
 
   /** The configuration property for the reader timeout. */
-  val PropDownloadActorTimeout: String = ConfigPrefix + "readerTimeout"
+  val PropDownloadActorTimeout: String = ConfigPrefix + "downloadTimeout"
 
   /** The configuration property for the interval for reader timeout checks. */
-  val PropDownloadCheckInterval: String = ConfigPrefix + "readerCheckInterval"
+  val PropDownloadCheckInterval: String = ConfigPrefix + "downloadCheckInterval"
 
   /** The configuration property for the download chunk size. */
   val PropDownloadChunkSize: String = ConfigPrefix + "downloadChunkSize"

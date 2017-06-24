@@ -39,8 +39,8 @@ object DownloadConfigSpec {
     */
   private def createUnderlyingConfig(): Configuration = {
     val config = new PropertiesConfiguration
-    config.addProperty("media.readerTimeout", DownloadTimeout.toSeconds)
-    config.addProperty("media.readerCheckInterval", DownloadCheckInterval.toSeconds)
+    config.addProperty("media.downloadTimeout", DownloadTimeout.toSeconds)
+    config.addProperty("media.downloadCheckInterval", DownloadCheckInterval.toSeconds)
     config.addProperty("media.downloadChunkSize", DownloadChunkSize)
     config
   }
@@ -88,13 +88,13 @@ class DownloadConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "use a default download timeout" in {
-    val config = createConfig(createUnderlyingConfigWithout("media.readerTimeout"))
+    val config = createConfig(createUnderlyingConfigWithout("media.downloadTimeout"))
 
     config.downloadTimeout should be(DownloadConfig.DefaultDownloadActorTimeout)
   }
 
   it should "use a default download check interval" in {
-    val config = createConfig(createUnderlyingConfigWithout("media.readerCheckInterval"))
+    val config = createConfig(createUnderlyingConfigWithout("media.downloadCheckInterval"))
 
     config.downloadCheckInterval should be(DownloadConfig.DefaultDownloadCheckInterval)
   }

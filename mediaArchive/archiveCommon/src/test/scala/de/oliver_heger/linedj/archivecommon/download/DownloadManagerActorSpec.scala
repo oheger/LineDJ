@@ -21,7 +21,7 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
-import de.oliver_heger.linedj.shared.archive.media.ReaderActorAlive
+import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
@@ -172,7 +172,7 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val downloadActor = TestProbe()
     helper.downloadData.add(downloadActor.ref, testActor, 0)
 
-    helper.send(ReaderActorAlive(downloadActor.ref, null))
+    helper.send(DownloadActorAlive(downloadActor.ref, null))
       .sendCheckForTimeouts()
     expectNoTermination(downloadActor.ref)
   }

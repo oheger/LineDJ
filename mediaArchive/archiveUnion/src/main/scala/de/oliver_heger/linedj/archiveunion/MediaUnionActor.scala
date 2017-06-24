@@ -71,7 +71,7 @@ object MediaUnionActor {
   *  - A [[MediumFileRequest]] for a file is forwarded to the controller actor
   * for the medium the file belongs to. File download then takes place between
   * this actor and the sender of the request.
-  *  - A [[ReaderActorAlive]] message is forwarded to the controller actor
+  *  - A [[DownloadActorAlive]] message is forwarded to the controller actor
   * responsible for the ''MediumID'' referenced in the message.
   *  - A [[ScanAllMedia]] message is forwarded to all current controller
   * actors. In reaction, they should start a new scan and report the results to
@@ -117,7 +117,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     case fileReq: MediumFileRequest =>
       forwardToController(fileReq.mediumID, fileReq)(undefinedMediumFileResponse)
 
-    case ral: ReaderActorAlive =>
+    case ral: DownloadActorAlive =>
       controllerMap.get(ral.mediumID.archiveComponentID) foreach (_ forward ral)
 
     case ScanAllMedia =>

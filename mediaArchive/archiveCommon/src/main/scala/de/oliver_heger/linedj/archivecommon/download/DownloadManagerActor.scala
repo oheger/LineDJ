@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivecommon.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated}
-import de.oliver_heger.linedj.shared.archive.media.ReaderActorAlive
+import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
 object DownloadManagerActor {
@@ -122,7 +122,7 @@ class DownloadManagerActor(config: DownloadConfig,
     case CheckDownloadTimeout =>
       checkForDownloadActorTimeout()
 
-    case ReaderActorAlive(reader, _) =>
+    case DownloadActorAlive(reader, _) =>
       downloadData.updateTimestamp(reader, now())
 
     case t: Terminated =>

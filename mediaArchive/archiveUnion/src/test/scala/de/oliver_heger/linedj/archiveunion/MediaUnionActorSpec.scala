@@ -195,7 +195,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   it should "handle a ReaderActorAlive message" in {
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
-    val request = ReaderActorAlive(null, mid)
+    val request = DownloadActorAlive(null, mid)
     val controller = ForwardTestActor()
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(mediaMap, 1, controller)
@@ -206,7 +206,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   it should "ignore a ReaderActorAlive message for an unknown component" in {
     val helper = new MediaUnionActorTestHelper
-    val request = ReaderActorAlive(null, mediumID(42, 28))
+    val request = DownloadActorAlive(null, mediumID(42, 28))
 
     helper.manager receive request
   }
