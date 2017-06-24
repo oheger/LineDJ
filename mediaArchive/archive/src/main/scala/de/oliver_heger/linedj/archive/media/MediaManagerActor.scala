@@ -255,8 +255,8 @@ Actor with ActorLogging {
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
       config.excludedFileExtensions))
-    readerCheckCancellable = Some(scheduleMessage(config.readerCheckInitialDelay,
-      config.readerCheckInterval, self, CheckReaderTimeout))
+    readerCheckCancellable = Some(scheduleMessage(config.downloadConfig.downloadCheckInterval,
+      config.downloadConfig.downloadCheckInterval, self, CheckReaderTimeout))
   }
 
   @throws[Exception](classOf[Exception])
@@ -376,7 +376,7 @@ Actor with ActorLogging {
     val response = fetchFileData(request) match {
       case Some(fileData) =>
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
-          Paths get fileData.path, config.downloadChunkSize, !request.withMetaData))
+          Paths get fileData.path, config.downloadConfig.downloadChunkSize, !request.withMetaData))
 
         if (downloadActorData.findReadersForClient(sender()).isEmpty) {
           context watch sender()
@@ -641,7 +641,7 @@ Actor with ActorLogging {
    * crash of the corresponding client.
    */
   private def checkForReaderActorTimeout(): Unit = {
-    downloadActorData.findTimeouts(now(), config.readerTimeout) foreach
+    downloadActorData.findTimeouts(now(), config.downloadConfig.downloadTimeout) foreach
       stopReaderActor
   }
 

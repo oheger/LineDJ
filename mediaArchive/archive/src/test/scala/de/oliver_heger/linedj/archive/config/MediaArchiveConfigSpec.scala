@@ -128,19 +128,15 @@ with Matchers with BeforeAndAfterAll {
   }
 
   "A ServerConfig" should "return the timeout for reader actors" in {
-    createCConfig().readerTimeout should be(60.seconds)
+    createCConfig().downloadConfig.downloadTimeout should be(60.seconds)
   }
 
   it should "return the reader check interval" in {
-    createCConfig().readerCheckInterval should be(ReaderCheckInterval)
-  }
-
-  it should "return the initial reader check delay" in {
-    createCConfig().readerCheckInitialDelay should be(ReaderCheckDelay)
+    createCConfig().downloadConfig.downloadCheckInterval should be(ReaderCheckInterval)
   }
 
   it should "return the download chunk size" in {
-    createCConfig().downloadChunkSize should be(DownloadChunkSize)
+    createCConfig().downloadConfig.downloadChunkSize should be(DownloadChunkSize)
   }
 
   it should "return the read chunk size" in {

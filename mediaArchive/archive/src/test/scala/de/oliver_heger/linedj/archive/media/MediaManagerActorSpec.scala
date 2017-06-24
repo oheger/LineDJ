@@ -9,7 +9,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archivecommon.download.DownloadActorData
+import de.oliver_heger.linedj.archivecommon.download.{DownloadActorData, DownloadConfig}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io._
@@ -47,9 +47,6 @@ object MediaManagerActorSpec {
 
   /** A special test message sent to actors. */
   private val TestMessage = new Object
-
-  /** The initial delay for reader actor timeout checks. */
-  private val ReaderCheckDelay = 10.minutes
 
   /** The interval for reader actor timeout checks. */
   private val ReaderCheckInterval = 5.minutes
@@ -199,13 +196,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @return the mock configuration
    */
   private def createConfiguration(): MediaArchiveConfig = {
+    val downloadConfig = mock[DownloadConfig]
     val config = mock[MediaArchiveConfig]
-    when(config.readerTimeout).thenReturn(60.seconds)
-    when(config.readerCheckInterval).thenReturn(ReaderCheckInterval)
-    when(config.readerCheckInitialDelay).thenReturn(ReaderCheckDelay)
+    when(downloadConfig.downloadTimeout).thenReturn(60.seconds)
+    when(downloadConfig.downloadCheckInterval).thenReturn(ReaderCheckInterval)
+    when(downloadConfig.downloadChunkSize).thenReturn(DownloadChunkSize)
     when(config.excludedFileExtensions).thenReturn(ExcludedExtensions)
     when(config.infoSizeLimit).thenReturn(InfoSizeLimit)
-    when(config.downloadChunkSize).thenReturn(DownloadChunkSize)
+    when(config.downloadConfig).thenReturn(downloadConfig)
     config
   }
 
@@ -565,7 +563,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val expectedReceiver = helper.testManagerActor
 
     val invocation = RecordingSchedulerSupport.expectInvocation(helper.schedulerQueue)
-    invocation.initialDelay should be(ReaderCheckDelay)
+    invocation.initialDelay should be(ReaderCheckInterval)
     invocation.interval should be (ReaderCheckInterval)
     invocation.receiver should be(expectedReceiver)
     invocation.message should be(MediaManagerActor.CheckReaderTimeout)

@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
+import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.concurrent.duration._
@@ -29,18 +30,6 @@ import scala.concurrent.duration._
 object MediaArchiveConfig {
   /** Constant for the prefix for Commons Configuration options. */
   private val CConfigPrefix = "media."
-
-  /** The configuration property for the reader timeout. */
-  private val PropReaderActorTimeout = CConfigPrefix + "readerTimeout"
-
-  /** The configuration property for the initial delay for reader timeout checks. */
-  private val PropReaderCheckDelay = CConfigPrefix + "readerCheckInitialDelay"
-
-  /** The configuration property for the interval for reader timeout checks. */
-  private val PropReaderCheckInterval = CConfigPrefix + "readerCheckInterval"
-
-  /** The configuration property for the download chunk size. */
-  private val PropDownloadChunkSize = CConfigPrefix + "downloadChunkSize"
 
   /** The configuration property for the info size restriction. */
   private val PropInfoSizeLimit = CConfigPrefix + "infoSizeLimit"
@@ -98,11 +87,7 @@ object MediaArchiveConfig {
     * @return the new ''ServerConfig'' instance
     */
   def apply(config: HierarchicalConfiguration): MediaArchiveConfig =
-  new MediaArchiveConfig(readerTimeout = durationProperty(config, PropReaderActorTimeout),
-    readerCheckInterval = durationProperty(config, PropReaderCheckInterval),
-    readerCheckInitialDelay = durationProperty(config, PropReaderCheckDelay),
-    downloadChunkSize = config getInt PropDownloadChunkSize,
-    metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
+  new MediaArchiveConfig(metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
     infoSizeLimit = config getInt PropInfoSizeLimit,
     tagSizeLimit = config getInt PropTagSizeLimit,
     processingTimeout = durationProperty(config, PropProcessingTimeout),
@@ -113,7 +98,8 @@ object MediaArchiveConfig {
     metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
     metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
     excludedFileExtensions = obtainExcludedExtensions(config),
-    rootMap = createMediaData(config))
+    rootMap = createMediaData(config),
+    downloadConfig = DownloadConfig(config))
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -221,10 +207,7 @@ object MediaArchiveConfig {
  * system. It offers methods for accessing specific configuration properties.
  * Instances are created using a static factory method.
  *
- * @param readerTimeout the timeout for reader actors
- * @param readerCheckInterval the check interval for reader actors
- * @param readerCheckInitialDelay the initial delay for reader actor checks
- * @param downloadChunkSize chunk size for download operations
+ * @param downloadConfig the configuration for download operations
  * @param metaDataReadChunkSize the read chunk size when extracting meta data
  * @param infoSizeLimit the maximum size of a medium description file
  * @param tagSizeLimit the size limit for ID3 tags
@@ -257,10 +240,7 @@ object MediaArchiveConfig {
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  */
-case class MediaArchiveConfig private[config](readerTimeout: FiniteDuration,
-                                              readerCheckInterval: FiniteDuration,
-                                              readerCheckInitialDelay: FiniteDuration,
-                                              downloadChunkSize: Int,
+case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataReadChunkSize: Int,
                                               infoSizeLimit: Int,
                                               tagSizeLimit: Int,
