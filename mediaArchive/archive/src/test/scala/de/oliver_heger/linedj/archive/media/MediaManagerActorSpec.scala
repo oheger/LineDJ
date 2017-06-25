@@ -15,7 +15,6 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Matchers.{eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -33,9 +32,6 @@ object MediaManagerActorSpec {
 
   /** Class for the medium info parser child actor. */
   val ClsInfoParser: Class[MediumInfoParserActor] = classOf[MediumInfoParserActor]
-
-  /** Class for the media reader actor child actor. */
-  val ClsMediaReaderActor: Class[MediaFileReaderActor] = classOf[MediaFileReaderActor]
 
   /** Class for the file loader actor. */
   val ClsFileLoaderActor: Class[_ <: Actor] = FileLoaderActor().actorClass()
@@ -1123,10 +1119,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
         case ClsIDCalculator =>
           Some(List(testManagerActor.underlyingActor.idCalculator))
-
-        case ClsMediaReaderActor =>
-          Some(List(probesOfType[FileReaderActor].head.ref,
-            testManagerActor.underlyingActor.id3Extractor))
 
         case ClsDownloadManagerActor =>
           Some(List(actorConfig.downloadConfig))
