@@ -24,10 +24,10 @@ import akka.stream.scaladsl.FileIO
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.io.stream.ActorSource
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult}
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData,
-DownloadDataResult}
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await

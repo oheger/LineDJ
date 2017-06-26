@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadManagerActor}
+import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadManagerActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io._

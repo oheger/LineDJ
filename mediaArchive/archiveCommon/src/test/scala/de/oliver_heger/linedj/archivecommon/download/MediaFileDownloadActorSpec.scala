@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.download
 
 import java.nio.file.{Path, Paths}
 
@@ -24,9 +24,8 @@ import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData,
-DownloadDataResult}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
@@ -87,7 +86,7 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
                                   srcTransform: Source[ByteString, Any] => Source[ByteString, Any]
                                   = identity): ActorRef = {
     val props = Props(new MediaFileDownloadActor(path, ChunkSize, filterMetaData) {
-      override private[media] def createSource(): Source[ByteString, Any] =
+      override private[download] def createSource(): Source[ByteString, Any] =
         srcTransform(super.createSource())
     })
     val strategy = OneForOneStrategy() {

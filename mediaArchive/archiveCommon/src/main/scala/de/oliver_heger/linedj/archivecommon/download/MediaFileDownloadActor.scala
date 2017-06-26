@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.media
+package de.oliver_heger.linedj.archivecommon.download
 
 import java.nio.file.Path
 
@@ -22,10 +22,8 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archive.media.MediaFileDownloadActor._
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData,
-DownloadDataResult}
+import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 
 object MediaFileDownloadActor {
 
@@ -93,8 +91,9 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, filterMetaData: Boolean
 
   override def preStart(): Unit = {
     val source = createSource()
-    val filterSource = if (filterMetaData) source.via(new ID3v2ProcessingStage(None))
-    else source
+    //TODO apply filtering
+    val filterSource = /*if (filterMetaData) source.via(new ID3v2ProcessingStage(None))
+    else */source
     val sink = Sink.actorRefWithAck(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
     filterSource.runWith(sink)
   }
@@ -131,7 +130,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, filterMetaData: Boolean
     *
     * @return the source for the stream
     */
-  private[media] def createSource(): Source[ByteString, Any] =
+  private[download] def createSource(): Source[ByteString, Any] =
     FileIO.fromPath(path, chunkSize)
 
   /**
