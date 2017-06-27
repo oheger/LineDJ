@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.metadata
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, PathUtils}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -35,18 +35,6 @@ object MetaDataExtractorWrapperActor {
     val data = MediaMetaData(size = p.fileData.size)
     val result = p.resultTemplate.copy(metaData = data)
     result
-  }
-
-  /**
-    * Extracts a file extension from the given path.
-    *
-    * @param path the path
-    * @return the file extension
-    */
-  private def extractExtension(path: String): String = {
-    val pos = path lastIndexOf '.'
-    if (pos >= 0) path.substring(pos + 1)
-    else ""
   }
 
   /**
@@ -111,7 +99,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
   private def receiveProcessing: Receive = {
     case p: ProcessMetaDataFile =>
       log.info("Meta data processing request for {}.", p.fileData.path)
-      val ext = extractExtension(p.fileData.path)
+      val ext = PathUtils extractExtension p.fileData.path
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
       a ! m

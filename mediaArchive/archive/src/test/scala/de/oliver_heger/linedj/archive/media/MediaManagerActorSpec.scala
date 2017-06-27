@@ -10,6 +10,7 @@ import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMa
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.io.PathUtils._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, RemovedArchiveComponentProcessed}
@@ -54,14 +55,6 @@ object MediaManagerActorSpec {
 
   /** The chunk size for download operations. */
   private val DownloadChunkSize = 11111
-
-  /**
-    * Conversion function from a string to a path.
-    *
-    * @param s the string
-    * @return the path
-    */
-  private def asPath(s: String): Path = Paths get s
 
   /**
    * Helper method to ensure that no more messages are sent to a test probe.
@@ -567,7 +560,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     helper.sendScanRequest()
     helper.simulateMediaScannerActor()
-    val scanRequest = MediaScannerActor.ScanPath(asPath("testPath"), -1)
+    val scanRequest = MediaScannerActor.ScanPath("testPath", -1)
     val scanResult = MediaScanResult(scanRequest.path,
       Map(MediumID("anotherMedium", Some("more.settings")) -> List(FileData("file1", 222))))
 
@@ -581,14 +574,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MediaManagerTestHelper
     helper.sendScanRequest()
     helper.simulateMediaScannerActor()
-    val scanResult = MediaScanResult(asPath("aPath"),
+    val scanResult = MediaScanResult("aPath",
       Map(MediumID("anotherMedium", Some("more.settings")) -> List(FileData("file1", 222))))
     val mid = MediumID("invalidMedium", Some("invalid.settings"))
-    val idRequest = MediumIDCalculatorActor.CalculateMediumID(asPath("invalidPath"),
+    val idRequest = MediumIDCalculatorActor.CalculateMediumID("invalidPath",
       mid, scanResult, List(FileData("f1.mp3", 28), FileData("f2.mp3", 32)), -1)
     val idResult = MediumIDData("aCheckSum", idRequest.mediumID, idRequest.scanResult,
       Map.empty)
-    val infoRequest = MediumInfoParserActor.ParseMediumInfo(asPath(mid.mediumDescriptionPath.get),
+    val infoRequest = MediumInfoParserActor.ParseMediumInfo(mid.mediumDescriptionPath.get,
       mid, -1)
     val infoResult = MediumInfo("aMedium", "aDesc", mid, "", "", "")
 
