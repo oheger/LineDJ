@@ -21,9 +21,10 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
+import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -34,9 +35,6 @@ import scala.concurrent.duration._
 object MediaFileDownloadActorSpec {
   /** Chunk size for test read operations. */
   private val ChunkSize = 16
-
-  /** The name of a test MP3 file. */
-  private val TestMp3File = "/testID3v2Data.bin"
 
   /**
     * Returns a source transformation function that adds a delay to a source.
@@ -49,13 +47,22 @@ object MediaFileDownloadActorSpec {
     src => src.delay(delay, DelayOverflowStrategy.backpressure)
 
   /**
-    * Returns a path to the test MP3 file.
+    * A test transformation function on bytes. This is used to test whether the
+    * source transformation function is correctly evaluated.
     *
-    * @return the path to the test MP3 file
+    * @param b the byte
+    * @return the transformed byte
     */
-  private def pathToTestFile: Path = {
-    val fileURI = getClass.getResource(TestMp3File).toURI
-    Paths get fileURI
+  private def byteTransform(b: Byte): Byte = (b ^ 42).toByte
+
+  /**
+    * Returns a default transformation function. This function transforms mp3
+    * files using the byte transformation.
+    *
+    * @return the default transformation function
+    */
+  private def transformFunc: DownloadTransformFunc = {
+    case "mp3" => Flow.fromFunction[ByteString, ByteString](bs => bs map byteTransform)
   }
 }
 
@@ -77,15 +84,17 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
   /**
     * Creates a test actor instance for the specified parameters.
     *
-    * @param path           the path of the file to be read
-    * @param filterMetaData flag whether meta data is to be filtered
-    * @param srcTransform   a function to transform the original source
+    * @param path         the path of the file to be read
+    * @param transform    the transformation function to be used
+    * @param srcTransform a function to transform the original source
     * @return the test actor instance
     */
-  private def createDownloadActor(path: Path, filterMetaData: Boolean = false,
+  private def createDownloadActor(path: Path,
+                                  transform: MediaFileDownloadActor.DownloadTransformFunc
+                                  = MediaFileDownloadActor.IdentityTransform,
                                   srcTransform: Source[ByteString, Any] => Source[ByteString, Any]
                                   = identity): ActorRef = {
-    val props = Props(new MediaFileDownloadActor(path, ChunkSize, filterMetaData) {
+    val props = Props(new MediaFileDownloadActor(path, ChunkSize, transform) {
       override private[download] def createSource(): Source[ByteString, Any] =
         srcTransform(super.createSource())
     })
@@ -187,17 +196,26 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     probe.expectMsgType[Terminated]
   }
 
-  it should "support filtering out ID3 data" in {
-    val actor = createDownloadActor(pathToTestFile, filterMetaData = true)
+  it should "not apply a transformation if the file extension does not match" in {
+    val path = createDataFile()
+    val actor = createDownloadActor(path, transform = transformFunc)
 
     val result = download(actor)
-    result.utf8String should startWith("Lorem ipsum")
+    result.toArray should be(FileTestHelper.testBytes())
   }
 
-  it should "only filter out ID3 data if this is enabled" in {
-    val actor = createDownloadActor(pathToTestFile)
+  it should "apply a transformation if the file extension matches" in {
+    val path = writeFileContent(createPathInDirectory("testSong.mp3"), FileTestHelper.TestData)
+    val expectedResult = FileTestHelper.testBytes() map byteTransform
+    val actor = createDownloadActor(path, transform = transformFunc)
 
     val result = download(actor)
-    result.take(3).utf8String should be("ID3")
+    result.toArray should be(expectedResult)
+  }
+
+  it should "provide an identity transformation that throws on an invocation" in {
+    intercept[UnsupportedOperationException] {
+      MediaFileDownloadActor.IdentityTransform("mp3")
+    }
   }
 }

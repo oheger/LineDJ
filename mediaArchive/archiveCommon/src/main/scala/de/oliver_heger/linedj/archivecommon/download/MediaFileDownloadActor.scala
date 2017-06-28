@@ -19,10 +19,11 @@ package de.oliver_heger.linedj.archivecommon.download
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{FileIO, Sink, Source}
+import akka.stream.{ActorMaterializer, FlowShape, Graph}
+import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
+import de.oliver_heger.linedj.io.PathUtils
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 
 object MediaFileDownloadActor {
@@ -48,6 +49,34 @@ object MediaFileDownloadActor {
     */
   private case class DownloadRequest(client: ActorRef, request: DownloadData)
 
+  /**
+    * Definition of a transformation function for the streams to be downloaded
+    * to clients. It is sometimes necessary to somehow manipulate the content
+    * of a media file that is sent to a client. One example is filtering out
+    * of meta data (like ID3 tags).
+    *
+    * This can be achieved by passing a concrete transformation function to
+    * the actor. The function is invoked with the file extension of the file to
+    * be downloaded. It can then return a flow stage that performs a
+    * transformation on the stream. The idea is that different file types may
+    * require different transformations. If a file extension is not handled by
+    * the function, no transformation is applied.
+    */
+  type DownloadTransformFunc =
+    PartialFunction[String, Graph[FlowShape[ByteString, ByteString], Any]]
+
+  /**
+    * An implementation of a transformation function which does not apply any
+    * transformation. This function does not touch the underlying file source,
+    * no matter which file extension is passed in. Actually, it is a partial
+    * function that is defined nowhere.
+    */
+  object IdentityTransform extends DownloadTransformFunc {
+    override def isDefinedAt(x: String): Boolean = false
+
+    override def apply(ext: String): Flow[ByteString, ByteString, Any] =
+      throw new UnsupportedOperationException("apply() not supported for IdentityTransform!")
+  }
 }
 
 /**
@@ -55,9 +84,12 @@ object MediaFileDownloadActor {
   * archive.
   *
   * This actor class manages a ''Source'' to a file located on the local hard
-  * disk. If requested, ID3 tags can be filtered out automatically. The data
-  * of this source is then made available to clients via a request-response
-  * protocol:
+  * disk. By specifying a transformation function, the content of the file to
+  * be downloaded can be manipulated; this is mainly used to remove meta data
+  * from a media file.
+  *
+  * The data of this source is then made available to clients via a
+  * request-response protocol:
   *
   *  - By sending a ''DownloadData'' message, a client requests a block of
   * data with the specified size.
@@ -70,9 +102,9 @@ object MediaFileDownloadActor {
   *
   * @param path           the path to the file to be downloaded
   * @param chunkSize      the chunk size for read operations
-  * @param filterMetaData flag whether meta data should be filtered
+  * @param trans a function to optionally transform the data source
   */
-class MediaFileDownloadActor(path: Path, chunkSize: Int, filterMetaData: Boolean)
+class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransformFunc)
   extends Actor with ActorLogging {
   /** The object to materialize streams. */
   private implicit val materializer = ActorMaterializer()
@@ -91,9 +123,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, filterMetaData: Boolean
 
   override def preStart(): Unit = {
     val source = createSource()
-    //TODO apply filtering
-    val filterSource = /*if (filterMetaData) source.via(new ID3v2ProcessingStage(None))
-    else */source
+    val filterSource = applyTransformation(source)
     val sink = Sink.actorRefWithAck(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
     filterSource.runWith(sink)
   }
@@ -132,6 +162,20 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, filterMetaData: Boolean
     */
   private[download] def createSource(): Source[ByteString, Any] =
     FileIO.fromPath(path, chunkSize)
+
+  /**
+    * Applies the transformation function to the specified source. If a
+    * transformation is defined for the current file extension, it is added to
+    * the source. Otherwise, the source is returned without changes.
+    *
+    * @param source the source to be transformed
+    * @return the transformed source
+    */
+  private def applyTransformation(source: Source[ByteString, Any]): Source[ByteString, Any] = {
+    val extension = PathUtils extractExtension path.toString
+    if (trans isDefinedAt extension) source.via(trans(extension))
+    else source
+  }
 
   /**
     * Checks whether a download response can be sent to a client actor. This
