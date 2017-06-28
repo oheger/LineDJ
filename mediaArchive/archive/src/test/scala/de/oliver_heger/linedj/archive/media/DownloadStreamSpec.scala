@@ -63,7 +63,7 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     implicit val mat = ActorMaterializer()
     implicit val ec = system.dispatcher
     val downloadActor = system.actorOf(Props(classOf[MediaFileDownloadActor], testPath,
-      ChunkSize, false))
+      ChunkSize, MediaFileDownloadActor.IdentityTransform))
     val source = ActorSource[ByteString](downloadActor, DownloadData(ChunkSize)) {
       case DownloadDataResult(data) => ActorDataResult(data)
       case DownloadComplete => ActorCompletionResult()

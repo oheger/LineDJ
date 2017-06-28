@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archivecommon.download.{DownloadManagerActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
+import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
@@ -94,6 +95,16 @@ object MediaManagerActor {
    */
   private def mediumPathFromDescription(descPath: Path): Path = descPath.getParent
 
+  /**
+    * The transformation function to remove meta data from a file to be
+    * downloaded.
+    *
+    * @return the download transformation function
+    */
+  private def downloadTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc = {
+    case s if s matches "(?i)mp3" =>
+      new ID3v2ProcessingStage(None)
+  }
 }
 
 /**
@@ -332,8 +343,10 @@ Actor with ActorLogging {
   private def processFileRequest(request: MediumFileRequest): Unit = {
     val response = fetchFileData(request) match {
       case Some(fileData) =>
+        val transFunc = if(request.withMetaData) MediaFileDownloadActor.IdentityTransform
+        else downloadTransformationFunc
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
-          Paths get fileData.path, config.downloadConfig.downloadChunkSize, !request.withMetaData))
+          Paths get fileData.path, config.downloadConfig.downloadChunkSize, transFunc))
         downloadManagerActor !
           DownloadManagerActor.DownloadOperationStarted(downloadActor, sender())
         MediumFileResponse(request, Some(downloadActor), fileData.size)

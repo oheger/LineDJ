@@ -9,6 +9,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadManagerActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
+import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.PathUtils._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
@@ -327,7 +328,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    * @return the request object
    */
   private def createRequestForExistingFile(helper: MediaManagerTestHelper,
-                                            withMetaData: Boolean = false): MediumFileRequest = {
+                                            withMetaData: Boolean = true): MediumFileRequest = {
     val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
     MediumFileRequest(helper.Medium1IDData.mediumID, fileURI, withMetaData)
   }
@@ -343,7 +344,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     response.length should be(file.size)
 
     val downloadProbe = fetchDownloadActor(helper)
-    downloadProbe.props.args should be(List(asPath(file.path), DownloadChunkSize, true))
+    downloadProbe.props.args should be(List(asPath(file.path), DownloadChunkSize,
+      MediaFileDownloadActor.IdentityTransform))
     response.contentReader should be(Some(downloadProbe.probe.ref))
   }
 
@@ -407,14 +409,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       probeData.probe.ref, testActor))
   }
 
-  it should "respect the withMetaData flag in a media file request" in {
+  it should "specify a correct transform function in a media file request" in {
     val helper = prepareHelperForScannedMedia()
-    helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = true)
+    helper.testManagerActor ! createRequestForExistingFile(helper, withMetaData = false)
 
     val response = expectMsgType[MediumFileResponse]
     val probeData = fetchDownloadActor(helper)
     response.contentReader should be(Some(probeData.probe.ref))
-    probeData.props.args(2) shouldBe false
+    val func = probeData.props.args(2).asInstanceOf[MediaFileDownloadActor.DownloadTransformFunc]
+    func("mp3") shouldBe a[ID3v2ProcessingStage]
+    func("MP3") shouldBe a[ID3v2ProcessingStage]
+    func isDefinedAt "mp4" shouldBe false
   }
 
   it should "handle a file request for a file in global undefined medium" in {
