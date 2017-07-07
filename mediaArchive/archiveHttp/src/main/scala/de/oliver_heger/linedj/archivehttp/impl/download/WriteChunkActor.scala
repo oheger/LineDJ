@@ -16,17 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
-import akka.actor.{ActorLogging, ActorRef}
-import akka.stream.KillSwitches
-import akka.stream.scaladsl.{FileIO, Keep, Source}
+import akka.actor.ActorLogging
+import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivehttp.impl.download.WriteChunkActor.{StreamFailure,
-WriteRequest, WriteResponse}
-import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
-
-import scala.util.{Failure, Success, Try}
+import de.oliver_heger.linedj.archivehttp.impl.download.WriteChunkActor.{WriteRequest, WriteResponse}
+import de.oliver_heger.linedj.io.stream.{AbstractFileWriterActor, CancelableStreamSupport}
 
 object WriteChunkActor {
 
@@ -49,14 +45,6 @@ object WriteChunkActor {
     * @param request reference to the original request
     */
   case class WriteResponse(request: WriteRequest)
-
-  /**
-    * Internal class representing a stream processing error.
-    *
-    * @param ex the exception
-    */
-  private case class StreamFailure(ex: Throwable)
-
 }
 
 /**
@@ -76,7 +64,7 @@ object WriteChunkActor {
   * been written successfully. In case of an error, it stops itself - then the
   * whole download should be aborted.
   */
-class WriteChunkActor extends AbstractStreamProcessingActor with CancelableStreamSupport
+class WriteChunkActor extends AbstractFileWriterActor with CancelableStreamSupport
   with ActorLogging {
   /**
     * The custom receive function. Here derived classes can provide their own
@@ -86,67 +74,6 @@ class WriteChunkActor extends AbstractStreamProcessingActor with CancelableStrea
     */
   override protected def customReceive: Receive = {
     case req: WriteRequest =>
-      createTargetDirectoryIfNecessary(req) match {
-        case Failure(e) =>
-          log.error(e, "Could not create target directory for " + req.target)
-          context stop self
-
-        case Success(_) =>
-          val sink = FileIO toPath req.target
-          val (ks, futIO) = req.source.viaMat(KillSwitches.single)(Keep.right)
-            .toMat(sink)(Keep.both)
-            .run()
-          val futWrite = futIO map { r =>
-            r.status.get // throws in case of a failed operation
-            WriteResponse(req)
-          }
-          processStreamResult(futWrite, ks)(f => StreamFailure(f.exception))
-      }
+      writeFile(req.source, req.target, WriteResponse(req))
   }
-
-  /**
-    * Sends the specified result to the original caller. This method is called
-    * for each completed stream. This base implementation just sends the result
-    * to the caller. Derived classes could override it to execute some
-    * additional logic.
-    *
-    * @param client the client to receive the response
-    * @param result the result message
-    */
-  override protected def propagateResult(client: ActorRef, result: Any): Unit = {
-    result match {
-      case StreamFailure(ex) =>
-        log.error(ex, "Could not write file! Stopping actor.")
-        context stop self
-
-      case r =>
-        super.propagateResult(client, r)
-    }
-  }
-
-  /**
-    * Creates the target directory. This method is called if the target
-    * directory does not exist.
-    *
-    * @param dir the target directory
-    * @return the newly created target path
-    */
-  private[download] def createTargetDirectory(dir: Path): Path = {
-    Files.createDirectories(dir)
-  }
-
-  /**
-    * Checks whether the target directory of the write operation already
-    * exists. If not, it is attempted to be created now.
-    *
-    * @param req the write request
-    * @return a ''Try'' with the target directory
-    */
-  private def createTargetDirectoryIfNecessary(req: WriteRequest): Try[Path] =
-    Try {
-      val dir = req.target.getParent
-      if (!Files.exists(dir)) {
-        createTargetDirectory(dir)
-      } else dir
-    }
 }
