@@ -25,6 +25,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.{RemoveFileActor, ScanResult}
+import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -351,7 +352,8 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     mediaFacade.requestActor(MediaActors.MediaManager).map(o =>
       MediaManagerFetched(o.get)) pipeTo self
 
-    removeFileActor = createChildActor(Props[RemoveFileActor])
+    removeFileActor = createChildActor(Props[RemoveFileActor]
+      .withDispatcher(ClientApplication.BlockingDispatcherName))
     context watch removeFileActor
   }
 
@@ -374,7 +376,8 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
    */
   private def prepareReceive: Receive = {
     case MediaManagerFetched(actor) =>
-      copyFileActor = createChildActor(CopyFileActor(self, actor, chunkSize, progressSize))
+      copyFileActor = createChildActor(CopyFileActor(self, actor, chunkSize, progressSize)
+        .withDispatcher(ClientApplication.BlockingDispatcherName))
       context watch copyFileActor
       startExportIfPossible()
 

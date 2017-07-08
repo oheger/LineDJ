@@ -21,10 +21,12 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import com.typesafe.config.ConfigFactory
+import de.oliver_heger.linedj.io.{FileData, RemoveFileActor, ScanResult}
+import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.io.{FileData, RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID}
@@ -193,7 +195,16 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ExportActorSpec._
 
-  def this() = this(ActorSystem("ExportActorSpec"))
+  def this() = this(ActorSystem("ExportActorSpec",
+    ConfigFactory.parseString("""blocking-dispatcher {
+                                |    type = Dispatcher
+                                |    executor = "thread-pool-executor"
+                                |    thread-pool-executor {
+                                |        fixed-pool-size = 8
+                                |    }
+                                |    throughput = 1
+                                |}
+                                |""".stripMargin)))
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -663,10 +674,12 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
           p.actorClass() match {
             case ClassRemoveFileActor =>
               p.args shouldBe 'empty
+              p.dispatcher should be(ClientApplication.BlockingDispatcherName)
               removeFileActor.ref
 
             case ClassCopyFileActor =>
               p.args should be(List(exportActor, mediaManagerActor.ref, ChunkSize, ProgressSize))
+              p.dispatcher should be(ClientApplication.BlockingDispatcherName)
               copyFileActor.ref
           }
         }
