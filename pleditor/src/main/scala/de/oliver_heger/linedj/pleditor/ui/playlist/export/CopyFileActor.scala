@@ -20,17 +20,12 @@ import java.nio.file.Path
 
 import akka.NotUsed
 import akka.actor._
-import akka.stream.scaladsl.{FileIO, Keep, Source}
-import akka.stream.{IOResult, KillSwitches}
+import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult,
-ActorErrorResult}
-import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, ActorSource,
-CancelableStreamSupport, StreamSourceActorWrapper}
+import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult, ActorErrorResult}
+import de.oliver_heger.linedj.io.stream._
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
-
-import scala.util.Failure
 
 object CopyFileActor {
 
@@ -137,7 +132,7 @@ object CopyFileActor {
   *                     notification message is sent
   */
 class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
-                    progressSize: Int) extends AbstractStreamProcessingActor with ActorLogging {
+                    progressSize: Int) extends AbstractFileWriterActor with ActorLogging {
   this: ChildActorFactory with CancelableStreamSupport =>
 
   import CopyFileActor._
@@ -147,12 +142,6 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
 
   /** The current download actor. */
   private var downloadActor: ActorRef = _
-
-  /** A counter for the number of bytes that have been written. */
-  private var bytesWritten = 0
-
-  /** A counter for the progress of a copy operation. */
-  private var copyProgressCount = 0
 
   override def customReceive: Receive = {
     case copyRequest: CopyMediumFile if currentCopyRequest == null =>
@@ -180,20 +169,8 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
     *             Otherwise, a completion message is sent to the parent.
     */
   override protected def propagateResult(client: ActorRef, result: Any): Unit = {
-    result match {
-      case StreamFailure(ex) =>
-        log.error(ex, "Copy operation failed! Stopping actor.")
-        context stop self
-      case res: IOResult =>
-        res.status match {
-          case Failure(ex) =>
-            log.error(ex, "Target file could not be written! Stopping actor.")
-            context stop self
-
-          case _ =>
-            copyRequestCompleted()
-        }
-    }
+    copyRequestCompleted()
+    super.propagateResult(client, result)
   }
 
   /**
@@ -213,12 +190,10 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
     */
   private def runCopyStream(): Unit = {
     val source = createSource()
-    val sink = FileIO.toPath(currentCopyRequest.target)
-    val (ks, futStream) = source.viaMat(KillSwitches.single)(Keep.right)
       .via(new CopyProgressNotificationStage(parent, currentCopyRequest, progressSize))
-      .toMat(sink)(Keep.both)
-      .run()
-    processStreamResult(futStream, ks) { f => StreamFailure(f.exception) }
+    writeFile(source, currentCopyRequest.target,
+      MediumFileCopied(currentCopyRequest.request, currentCopyRequest.target),
+      parent)
   }
 
   /**
@@ -226,11 +201,9 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
     * internal fields and sends out corresponding messages.
     */
   private def copyRequestCompleted(): Unit = {
-    sendCopyCompletedNotification()
     context stop downloadActor
     downloadActor = null
-    bytesWritten = 0
-    copyProgressCount = 0
+    currentCopyRequest = null
   }
 
   /**

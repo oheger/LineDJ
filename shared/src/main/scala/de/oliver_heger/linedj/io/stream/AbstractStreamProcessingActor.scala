@@ -98,12 +98,13 @@ trait AbstractStreamProcessingActor extends Actor {
     *
     * @param result     the ''Future'' of stream processing
     * @param ks         the kill switch
+    * @param client     the client actor to receive result messages
     * @param errHandler the error handler function
     * @tparam M the type of the result
     */
-  protected def processStreamResult[M](result: Future[M], ks: KillSwitch)
+  protected def processStreamResult[M](result: Future[M], ks: KillSwitch,
+                                       client: ActorRef = sender())
                                       (errHandler: Failure[M] => Any): Unit = {
-    val client = sender()
     val killSwitchID = registerKillSwitch(ks)
     result onComplete { triedResult =>
       val result = triedResult match {

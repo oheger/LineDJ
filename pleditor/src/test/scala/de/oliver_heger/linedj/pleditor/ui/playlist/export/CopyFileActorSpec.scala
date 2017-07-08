@@ -155,6 +155,17 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     readDataFile(target) should be(downloadContent().utf8String)
   }
 
+  it should "send the confirmation message to the correct client actor" in {
+    val readerActor = system.actorOf(Props[DownloadActorTestImpl])
+    val probeManager = TestProbe()
+    val actor = system.actorOf(actorProps(mediaManagerProbe = Some(probeManager)))
+    val target = createPathInDirectory(TargetFile)
+
+    actor ! CopyFileActor.CopyMediumFile(FileRequest, target)
+    actor.tell(MediumFileResponse(FileRequest, Some(readerActor), 100), probeManager.ref)
+    expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
+  }
+
   it should "ignore MediumFileResponse messages during processing and support multiple copy " +
     "operations" in {
     val mediaManagerProbe = TestProbe()

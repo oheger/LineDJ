@@ -83,9 +83,10 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @param source    the ''Source'' with the file data
     * @param target    the path to the target file
     * @param resultMsg the success message to be sent to the client
+    * @param client    the client actor to receive a result message
     */
   protected def writeFile(source: Source[ByteString, Any], target: Path,
-                          resultMsg: => Any): Unit = {
+                          resultMsg: => Any, client: ActorRef = sender()): Unit = {
     createTargetDirectoryIfNecessary(target) match {
       case Failure(e) =>
         log.error(e, "Could not create target directory for " + target)
@@ -100,7 +101,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
           r.status.get // throws in case of a failed operation
           resultMsg
         }
-        processStreamResult(futWrite, ks)(f => StreamFailure(f.exception))
+        processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception))
     }
   }
 
