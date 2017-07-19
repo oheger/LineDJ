@@ -24,7 +24,7 @@ import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
 import de.oliver_heger.linedj.io.PathUtils
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.shared.archive.media._
 
 object MediaFileDownloadActor {
 
@@ -100,14 +100,24 @@ object MediaFileDownloadActor {
   * sent while one is pending, a ''DownloadDataResult'' with an empty byte
   * string is sent immediately.
   *
-  * @param path           the path to the file to be downloaded
-  * @param chunkSize      the chunk size for read operations
-  * @param trans a function to optionally transform the data source
+  * @param path            the path to the file to be downloaded
+  * @param chunkSize       the chunk size for read operations
+  * @param trans           a function to optionally transform the data source
+  * @param optManagerActor an optional reference to the download manager actor;
+  *                        this actor is notified if there is activity
   */
-class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransformFunc)
+class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransformFunc,
+                             optManagerActor: Option[ActorRef])
   extends Actor with ActorLogging {
+
+  def this(path: Path, chunkSize: Int, trans: DownloadTransformFunc) =
+    this(path, chunkSize, trans, None)
+
   /** The object to materialize streams. */
   private implicit val materializer = ActorMaterializer()
+
+  /** A message to notify the download manager when there is activity. */
+  private var aliveMessage: Any = _
 
   /** Stores a current block of data. */
   private var currentData: Option[ByteString] = None
@@ -122,6 +132,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   private var complete = false
 
   override def preStart(): Unit = {
+    aliveMessage = DownloadActorAlive(self, MediumID.UndefinedMediumID)
     val source = createSource()
     val filterSource = applyTransformation(source)
     val sink = Sink.actorRefWithAck(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
@@ -149,6 +160,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     case req: DownloadData if currentRequest.isEmpty =>
       currentRequest = Some(DownloadRequest(sender(), req))
       sendDownloadResponseIfAvailable()
+      optManagerActor foreach(_ ! aliveMessage)
 
     case DownloadData(_) if currentRequest.isDefined =>
       sender ! DownloadDataResult(ByteString.empty)
@@ -160,7 +172,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     *
     * @return the source for the stream
     */
-  private[download] def createSource(): Source[ByteString, Any] =
+  protected def createSource(): Source[ByteString, Any] =
     FileIO.fromPath(path, chunkSize)
 
   /**

@@ -25,7 +25,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -95,7 +95,7 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
                                   srcTransform: Source[ByteString, Any] => Source[ByteString, Any]
                                   = identity): ActorRef = {
     val props = Props(new MediaFileDownloadActor(path, ChunkSize, transform) {
-      override private[download] def createSource(): Source[ByteString, Any] =
+      override protected def createSource(): Source[ByteString, Any] =
         srcTransform(super.createSource())
     })
     val strategy = OneForOneStrategy() {
@@ -217,5 +217,15 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     intercept[UnsupportedOperationException] {
       MediaFileDownloadActor.IdentityTransform("mp3")
     }
+  }
+
+  it should "notify the download manager actor about a request" in {
+    val probeManager = TestProbe()
+    val path = createDataFile()
+    val actor = system.actorOf(Props(classOf[MediaFileDownloadActor], path, ChunkSize,
+      MediaFileDownloadActor.IdentityTransform, Some(probeManager.ref)))
+
+    actor ! DownloadData(ChunkSize)
+    probeManager.expectMsg(DownloadActorAlive(actor, MediumID.UndefinedMediumID))
   }
 }
