@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
@@ -45,6 +46,13 @@ object HttpArchiveConfig {
   /** The configuration property for the archive URI. */
   val PropArchiveUri: String = PropPrefix + "archiveUri"
 
+  /**
+    * The configuration property for the name of the HTTP archive. The name is
+    * optional, but recommended. If it is missing, a name is generated from the
+    * archive URI.
+    */
+  val PropArchiveName: String = PropPrefix + "archiveName"
+
   /** The configuration property for the processor count. */
   val PropProcessorCount: String = PropPrefix + "processorCount"
 
@@ -53,6 +61,37 @@ object HttpArchiveConfig {
 
   /** The configuration property for the maximum size of a content file. */
   val PropMaxContentSize: String = PropPrefix + "maxContentSize"
+
+  /**
+    * The configuration property for the size of the in-memory buffer used to
+    * buffer incoming data during a download operation. Note that this is a
+    * mandatory property; no default value is provided.
+    */
+  val PropDownloadBufferSize: String = PropPrefix + "downloadBufferSize"
+
+  /**
+    * The configuration property for the maximum inactivity interval during a
+    * download operation. It is expected that an HTTP connection will be closed
+    * if there is no activity for a given time frame. Therefore, a download
+    * operation has to continue even if the client does not request further
+    * data. This property defines the time span when a download actor has to
+    * request another data chunk even if the client did not send a request.
+    * Note that this is a mandatory property; no default value is provided.
+    */
+  val PropDownloadMaxInactivity: String = PropPrefix + "downloadMaxInactivity"
+
+  /**
+    * The configuration property for the read chunk size during download
+    * operations. This chunk size is applied when reading from a temporary
+    * file that has been created during a download operation.
+    */
+  val PropDownloadReadChunkSize: String = PropPrefix + "downloadReadChunkSize"
+
+  /**
+    * The configuration property for the chunk size of a read operation
+    * triggered by the actor to prevent a timeout of the HTTP connection.
+    */
+  val PropTimeoutReadChunkSize: String = PropPrefix + "timeoutReadChunkSize"
 
   /**
     * The default processor count value. This value is assumed if the
@@ -73,6 +112,12 @@ object HttpArchiveConfig {
   val DefaultMaxContentSize = 64
 
   /**
+    * The default chunk size for read operations from temporary files created
+    * during download operations.
+    */
+  val DefaultDownloadReadChunkSize = 8192
+
+  /**
     * Tries to obtain a ''HttpArchiveConfig'' from the passed in
     * ''Configuration'' object. If mandatory parameters are missing, the
     * operation fails. Otherwise, a ''Success'' object is returned wrapping
@@ -89,12 +134,38 @@ object HttpArchiveConfig {
     if (uri == null) {
       throw new IllegalArgumentException("No URI for HTTP archive configured!")
     }
-    HttpArchiveConfig(c getString PropArchiveUri, credentials,
+    HttpArchiveConfig(c getString PropArchiveUri,
+      extractArchiveName(c),
+      credentials,
       c.getInt(PropProcessorCount, DefaultProcessorCount),
       if (c.containsKey(PropProcessorTimeout))
         Timeout(c.getInt(PropProcessorTimeout), TimeUnit.SECONDS)
       else DefaultProcessorTimeout,
-      c.getInt(PropMaxContentSize, DefaultMaxContentSize))
+      c.getInt(PropMaxContentSize, DefaultMaxContentSize),
+      c getInt PropDownloadBufferSize,
+      c.getInt(PropDownloadMaxInactivity).seconds,
+      c.getInt(PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
+      c.getInt(PropTimeoutReadChunkSize, DefaultDownloadReadChunkSize),
+      DownloadConfig(c))
+  }
+
+  /**
+    * Extracts the name for the archive from the configuration. If not
+    * specified, the name is extracted from the URI.
+    *
+    * @param c the configuration
+    * @return the archive name
+    */
+  private def extractArchiveName(c: Configuration): String = {
+    val name = c getString PropArchiveName
+    if (name != null) name
+    else {
+      val uri = Uri(c getString PropArchiveUri)
+      val nameWithPath = uri.authority.host.address().replace('.', '_') +
+        uri.path.toString().replace('/', '_')
+      val posExt = nameWithPath lastIndexOf '.'
+      if (posExt > 0) nameWithPath.substring(0, posExt) else nameWithPath
+    }
   }
 }
 
@@ -102,16 +173,35 @@ object HttpArchiveConfig {
   * A class defining the configuration settings to be applied for an HTTP
   * archive.
   *
-  * @param archiveURI       the URI of the HTTP media archive
-  * @param credentials      credentials to connect to the archive
-  * @param processorCount   the number of parallel processor actors to be used
-  *                         when downloading meta data from the archive
-  * @param processorTimeout the timeout for calls to processor actors
-  * @param maxContentSize   the maximum size of a content file (either a
-  *                         settings or a meta data file) in kilobytes; if a
-  *                         file is larger, it is canceled
+  * @param archiveURI            the URI of the HTTP media archive
+  * @param archiveName           a name for the HTTP media archive
+  * @param credentials           credentials to connect to the archive
+  * @param processorCount        the number of parallel processor actors to be used
+  *                              when downloading meta data from the archive
+  * @param processorTimeout      the timeout for calls to processor actors
+  * @param maxContentSize        the maximum size of a content file (either a
+  *                              settings or a meta data file) in kilobytes; if a
+  *                              file is larger, it is canceled
+  * @param downloadBufferSize    the size of the in-memory buffer for download
+  *                              operations
+  * @param downloadMaxInactivity definition of an inactivity span for download
+  *                              operations; if no data is requested by the
+  *                              client in this interval, a data chunk must be
+  *                              requested from the HTTP archive
+  * @param downloadReadChunkSize a chunk size when reading data from a temporary
+  *                              file created during a download operation
+  * @param timeoutReadChunkSize  a chunk size for requests sent to avoid a
+  *                              timeout
+  * @param downloadConfig        configuration for standard download properties
   */
-case class HttpArchiveConfig(archiveURI: Uri, credentials: UserCredentials,
+case class HttpArchiveConfig(archiveURI: Uri,
+                             archiveName: String,
+                             credentials: UserCredentials,
                              processorCount: Int,
                              processorTimeout: Timeout,
-                             maxContentSize: Int)
+                             maxContentSize: Int,
+                             downloadBufferSize: Int,
+                             downloadMaxInactivity: FiniteDuration,
+                             downloadReadChunkSize: Int,
+                             timeoutReadChunkSize: Int,
+                             downloadConfig: DownloadConfig)

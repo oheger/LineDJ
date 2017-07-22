@@ -52,8 +52,11 @@ object HttpArchiveContentProcessorActorSpec {
   private val MetaDataProcessorName = "metaDataProcessor"
 
   /** A default configuration for the test archive. */
-  private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri),
-    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 64)
+  private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri), "Test",
+    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 64,
+    downloadConfig = null, downloadBufferSize = 512,
+    downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
+    timeoutReadChunkSize = 222)
 
   /**
     * Returns a test settings path for the specified index.

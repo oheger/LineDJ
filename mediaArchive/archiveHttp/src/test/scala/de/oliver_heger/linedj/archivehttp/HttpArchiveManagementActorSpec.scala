@@ -65,7 +65,9 @@ object HttpArchiveManagementActorSpec {
   private def createArchiveConfig(): HttpArchiveConfig =
     HttpArchiveConfig(archiveURI = Uri(ArchiveURIStr), processorCount = 2,
       maxContentSize = 256, processorTimeout = Timeout(1.minute),
-      credentials = UserCredentials("scott", "tiger"))
+      credentials = UserCredentials("scott", "tiger"), downloadConfig = null,
+      downloadBufferSize = 1024, downloadMaxInactivity = 1.minute,
+      downloadReadChunkSize = 4000, timeoutReadChunkSize = 2222, archiveName = "Foo")
 
   /**
     * Checks that no further messages have been sent to the specified test
