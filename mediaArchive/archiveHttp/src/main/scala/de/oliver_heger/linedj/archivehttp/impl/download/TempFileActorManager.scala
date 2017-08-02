@@ -20,8 +20,7 @@ import java.nio.file.Path
 
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
-import de.oliver_heger.linedj.archivehttp.impl.download.TempFileActorManager.{RequestData,
-TempFileData}
+import de.oliver_heger.linedj.archivehttp.impl.download.TempFileActorManager.TempFileData
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -29,17 +28,6 @@ import scala.collection.SortedSet
 import scala.collection.immutable.TreeSet
 
 object TempFileActorManager {
-
-  /**
-    * An internally used data class that stores information about a request to
-    * be processed by ''TempFileActorManager''.
-    *
-    * @param downloadActor the owning download actor
-    * @param client        the client actor
-    * @param request       the actual request to be handled
-    */
-  private case class RequestData(downloadActor: ActorRef, client: ActorRef,
-                                 request: DownloadData)
 
   /**
     * An internally used data class to store information about a temporary file
@@ -74,48 +62,61 @@ object TempFileActorManager {
   * written during the current download operation. It offers methods to access
   * data and to update the state when new temporary files are added.
   *
+  * @param downloadActor the actor controlling the current download
   * @param readChunkSize the chunk size for read file operations
   * @param actorFactory  the factory for creating child actors
   */
-private class TempFileActorManager(val readChunkSize: Int,
+private class TempFileActorManager(val downloadActor: ActorRef,
+                                   val readChunkSize: Int,
                                    val actorFactory: ChildActorFactory) {
   /** A set with write operations that are currently pending. */
   private var pendingWrites: SortedSet[Int] = TreeSet.empty
 
   /** Stores the current download data request. */
-  private var currentRequest: Option[RequestData] = None
+  private var currentRequest: Option[DownloadRequestData] = None
 
   /** Stores the currently processed reader actor. */
-  private var currentReader: Option[ActorRef] = None
+  private var currentReader: Option[TempReadOperation] = None
 
   /** Stores the temporary files to be processed by this object. */
   private var temporaryFiles: SortedSet[TempFileData] = TreeSet.empty
 
   /**
+    * Returns an ''Iterable'' with the paths of temporary files that have been
+    * created, but not yet been read.
+    *
+    * @return an ''Iterable'' with paths to files that have not been read
+    */
+  def pendingTempPaths: Iterable[Path] = {
+    val currentPath = currentReader.map(r => List(r.path)) getOrElse List.empty[Path]
+    val waitingPaths = temporaryFiles.map(_.path).toList
+    currentPath ::: waitingPaths
+  }
+
+  /**
     * Handles a request from a client for a block of data if this is
     * currently possible. If necessary, a new chunk writer actor is created
     * for one of the managed temporary files. The current reader actor is
-    * sent a read request. Ther return value indicates whether this object
+    * sent a read request. The return value indicates whether this object
     * could handle the request.
     *
-    * @param downloadActor the actor controlling the current download
-    * @param client        the requesting client
-    * @param request       the request to be processed
+    * @param client  the requesting client
+    * @param request the request to be processed
     * @return a flag whether this request can be handled
     */
-  def initiateClientRequest(downloadActor: ActorRef, client: ActorRef,
+  def initiateClientRequest(client: ActorRef,
                             request: DownloadData): Boolean = {
     if (currentRequest.isDefined) true
     else {
       currentReader = obtainCurrentReaderActor()
       currentReader match {
-        case Some(actor) =>
-          currentRequest = Some(RequestData(downloadActor, client, request))
-          sendDownloadRequest(actor, request, downloadActor)
+        case Some(TempReadOperation(actor, _)) =>
+          currentRequest = Some(DownloadRequestData(request, client))
+          sendDownloadRequest(actor, request)
           true
         case None =>
           if (pendingWrites.nonEmpty) {
-            currentRequest = Some(RequestData(downloadActor, client, request))
+            currentRequest = Some(DownloadRequestData(request, client))
             true
           } else false
       }
@@ -145,7 +146,7 @@ private class TempFileActorManager(val readChunkSize: Int,
 
     currentRequest foreach { req =>
       currentReader = obtainCurrentReaderActor()
-      currentReader foreach (sendDownloadRequest(_, req.request, req.downloadActor))
+      currentReader foreach (op => sendDownloadRequest(op.reader, req.request))
     }
   }
 
@@ -164,21 +165,37 @@ private class TempFileActorManager(val readChunkSize: Int,
   /**
     * Notifies this object that a file read operation is now complete. If
     * possible, the current client request is served by starting with the
-    * next temporary file. If there is none, the method returns '''false''',
-    * and the download actor has to become active.
+    * next temporary file. The return value indicates whether a pending request
+    * could be handled by this object; in this case, it is ''None''.
+    * Otherwise, result is a defined ''Option'' with a
+    * [[DownloadRequestData]] object, and the caller must take care to serve
+    * this request.
     *
-    * @return '''true''' if the request could be handled; '''false''' if no
-    *         more data is available, and the caller has to handle the request
+    * @return ''None'' if the request could be handled; a defined ''Option'' if
+    *         no more data is available, and the caller has to handle a
+    *         currently pending request
     */
-  def downloadCompletedArrived(): Boolean = {
+  def downloadCompletedArrived(): Option[CompletedTempReadOperation] =
+    currentReader map { op =>
+      CompletedTempReadOperation(op, obtainPendingRequest())
+    }
+
+  /**
+    * Returns an option with the currently pending request. This is needed to
+    * find out whether further processing can be done when a temporary file
+    * has been read completely.
+    *
+    * @return an ''Option'' with the currently pending request
+    */
+  private def obtainPendingRequest(): Option[DownloadRequestData] =
     currentRequest match {
       case Some(req) =>
         currentReader = None
         currentRequest = None
-        initiateClientRequest(req.downloadActor, req.client, req.request)
-      case None => true
+        if (initiateClientRequest(req.client, req.request)) None
+        else Some(req)
+      case None => None
     }
-  }
 
   /**
     * Obtains a reference to the current reader actor if possible. If a reader
@@ -187,13 +204,14 @@ private class TempFileActorManager(val readChunkSize: Int,
     *
     * @return an ''Option'' for the current reader actor
     */
-  private def obtainCurrentReaderActor(): Option[ActorRef] =
+  private def obtainCurrentReaderActor(): Option[TempReadOperation] =
     currentReader orElse {
       temporaryFiles.headOption flatMap matchTempFileIndex map { t =>
         temporaryFiles -= t
         pendingWrites -= t.seqNo
-        actorFactory.createChildActor(Props(classOf[MediaFileDownloadActor],
+        val actor = actorFactory.createChildActor(Props(classOf[MediaFileDownloadActor],
           t.path, readChunkSize, MediaFileDownloadActor.IdentityTransform))
+        TempReadOperation(actor, t.path)
       }
     }
 
@@ -201,15 +219,11 @@ private class TempFileActorManager(val readChunkSize: Int,
     * Sends a download request to a download actor for one of the managed
     * files.
     *
-    * @param actor         the target actor
-    * @param request       the download request
-    * @param downloadActor the owning download actor
-    * @return the target actor
+    * @param actor   the target actor
+    * @param request the download request
     */
-  private def sendDownloadRequest(actor: ActorRef, request: DownloadData, downloadActor:
-  ActorRef): ActorRef = {
+  private def sendDownloadRequest(actor: ActorRef, request: DownloadData): Unit = {
     actor.tell(request, downloadActor)
-    actor
   }
 
   /**

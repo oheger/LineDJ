@@ -46,6 +46,9 @@ object TempFileActorManagerSpec {
   /** A timeout value used within tests. */
   private val TestTimeout = 3.seconds
 
+  /** A default request for download data. */
+  private val DefaultRequest = DownloadData(DownloadChunkSize)
+
   /**
     * Generates a path for a download file.
     *
@@ -125,13 +128,20 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .expectClientMsg(result)
   }
 
+  it should "return None for an unexpected download completed message" in {
+    val helper = new TempFileManagerTestHelper
+
+    helper.passDownloadCompleted() should be(None)
+    helper.verifyNoActorCreation()
+  }
+
   it should "handle a download completed message if there is no more data" in {
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1)
       .tempFileWritten(1)
       .initiateClientRequest(expectedResult = true)
 
-    helper.passDownloadCompleted(expectedResult = false)
+    helper.passAndCheckDownloadCompleted(canHandle = false)
       .initiateClientRequest(expectedResult = false)
   }
 
@@ -141,14 +151,6 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.passDownloadResult(createDownloadResult())
   }
 
-  it should "ignore an unexpected download completed message" in {
-    val helper = new TempFileManagerTestHelper
-    helper.pendingWriteOperation(1).tempFileWritten(1)
-
-    helper.passDownloadCompleted(expectedResult = true)
-      .verifyNoActorCreation()
-  }
-
   it should "not reset the reader actor for an unexpected download completed message" in {
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).tempFileWritten(1)
@@ -156,8 +158,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .initiateClientRequest(expectedResult = true).nextChildActor()
 
     helper.passDownloadResult(createDownloadResult("First result"))
-      .passDownloadCompleted(expectedResult = true)
-      .initiateClientRequest(expectedResult = true)
+      .passDownloadCompleted()
+    helper.initiateClientRequest(expectedResult = true)
       .verifyNoActorCreation()
   }
 
@@ -173,7 +175,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.passDownloadResult(result1).expectClientMsg(result1)
       .initiateClientRequest(expectedResult = true)
       .expectReadActorRequest(data1.actorIdx)
-    helper.passDownloadCompleted(expectedResult = true)
+    helper.passDownloadCompleted().get.pendingRequest should be(None)
 
     val data2 = helper.nextChildActor()
     helper.expectReadActorRequest(data2.actorIdx)
@@ -220,6 +222,31 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     creationData.creationProps.args.head should be(createTempPath(1))
   }
 
+  it should "not return temp paths before files have been created" in {
+    val helper = new TempFileManagerTestHelper
+
+    helper.tempPaths.isEmpty shouldBe true
+  }
+
+  it should "return pending temp paths" in {
+    val expPaths = List(createTempPath(1), createTempPath(2))
+    val helper = new TempFileManagerTestHelper
+    helper.pendingWriteOperation(1).pendingWriteOperation(2)
+      .tempFileWritten(1).tempFileWritten(2)
+
+    helper.tempPaths should contain theSameElementsAs expPaths
+  }
+
+  it should "include a path as pending that is currently read" in {
+    val expPaths = List(createTempPath(1), createTempPath(2))
+    val helper = new TempFileManagerTestHelper
+    helper.pendingWriteOperation(1).tempFileWritten(1)
+        .pendingWriteOperation(2).tempFileWritten(2)
+      .initiateClientRequest(expectedResult = true)
+
+    helper.tempPaths should contain theSameElementsAs expPaths
+  }
+
   /**
     * Test helper class managing a test instance and its dependencies.
     */
@@ -240,7 +267,15 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private val childActorCount = new AtomicInteger
 
     /** Instance to be tested. */
-    private val manager = new TempFileActorManager(ReadChunkSize, childFactory)
+    private val manager = new TempFileActorManager(probeDownloadActor.ref, ReadChunkSize,
+      childFactory)
+
+    /**
+      * Queries the pending temp paths from the test instance.
+      *
+      * @return the pending temp paths
+      */
+    def tempPaths: Iterable[Path] = manager.pendingTempPaths
 
     /**
       * Invokes the method to initiate a request on the test instance.
@@ -249,8 +284,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def initiateClientRequest(expectedResult: Boolean): TempFileManagerTestHelper = {
-      manager.initiateClientRequest(probeDownloadActor.ref, probeClient.ref,
-        DownloadData(DownloadChunkSize)) shouldBe expectedResult
+      manager.initiateClientRequest(probeClient.ref,
+        DefaultRequest) shouldBe expectedResult
       this
     }
 
@@ -310,14 +345,29 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
 
     /**
+      * Passes a download completed message to the test instance and returns
+      * the result.
+      * @return the result returned by the test instance
+      */
+    def passDownloadCompleted(): Option[CompletedTempReadOperation] =
+      manager.downloadCompletedArrived()
+
+    /**
       * Passes a download completed notification to the test instance and
       * checks the return value.
       *
-      * @param expectedResult the expected return value
+      * @param canHandle flag whether the test instance can handle the request
+      * @param pathIdx   the index of the path that was read
       * @return this test helper
       */
-    def passDownloadCompleted(expectedResult: Boolean): TempFileManagerTestHelper = {
-      manager downloadCompletedArrived() shouldBe expectedResult
+    def passAndCheckDownloadCompleted(canHandle: Boolean, pathIdx: Int = 1):
+    TempFileManagerTestHelper = {
+      val result = if (canHandle) None
+      else Some(DownloadRequestData(DefaultRequest, probeClient.ref))
+      val opData = manager.downloadCompletedArrived().get
+      opData.pendingRequest shouldBe result
+      opData.operation.path should be(createTempPath(pathIdx))
+      opData.operation.reader should be(nextChildActor().actor)
       this
     }
 
