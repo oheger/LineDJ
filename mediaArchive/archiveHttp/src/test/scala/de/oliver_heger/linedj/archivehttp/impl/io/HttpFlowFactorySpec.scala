@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivehttp.impl.io
 
 import javax.net.ssl.SSLException
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
