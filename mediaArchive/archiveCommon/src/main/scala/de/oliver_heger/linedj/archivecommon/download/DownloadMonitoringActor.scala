@@ -20,10 +20,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
-object DownloadManagerActor {
+object DownloadMonitoringActor {
 
   /**
-    * A message processed by [[DownloadManagerActor]] notifying it about a new
+    * A message processed by [[DownloadMonitoringActor]] notifying it about a new
     * download operation.
     *
     * Data about the download operation is stored, so that it can be tracked,
@@ -40,8 +40,8 @@ object DownloadManagerActor {
     */
   private[download] case object CheckDownloadTimeout
 
-  private class DownloadManagerActorImpl(config: DownloadConfig)
-    extends DownloadManagerActor(config) with SchedulerSupport
+  private class DownloadMonitoringActorImpl(config: DownloadConfig)
+    extends DownloadMonitoringActor(config) with SchedulerSupport
 
   /**
     * Returns the current system time.
@@ -52,17 +52,17 @@ object DownloadManagerActor {
 
   /**
     * Returns a ''Props'' object for creating a new instance of the
-    * [[DownloadManagerActor]] class.
+    * [[DownloadMonitoringActor]] class.
     *
     * @param config the configuration for download operations
     * @return ''Props'' to create a new actor instance
     */
   def apply(config: DownloadConfig): Props =
-    Props(classOf[DownloadManagerActorImpl], config)
+    Props(classOf[DownloadMonitoringActorImpl], config)
 }
 
 /**
-  * An actor class which manages download operations.
+  * An actor class which monitors download operations.
   *
   * This class is responsible for keeping track of all download actors
   * currently in progress for a media archive. Via a download actor, a client
@@ -81,12 +81,12 @@ object DownloadManagerActor {
   * @param config       the configuration for download operations
   * @param downloadData a helper object for managing download actors
   */
-class DownloadManagerActor(config: DownloadConfig,
-                           private[download] val downloadData: DownloadActorData)
+class DownloadMonitoringActor(config: DownloadConfig,
+                              private[download] val downloadData: DownloadActorData)
   extends Actor with ActorLogging {
   me: SchedulerSupport =>
 
-  import DownloadManagerActor._
+  import DownloadMonitoringActor._
 
   /** Cancelable for the scheduler invocation for periodic timeout checks. */
   private var timeoutCheckCancelable: Cancellable = _

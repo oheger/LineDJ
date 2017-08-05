@@ -22,7 +22,7 @@ import java.nio.file.{Path, Paths}
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archivecommon.download.{DownloadManagerActor, MediaFileDownloadActor}
+import de.oliver_heger.linedj.archivecommon.download.{DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -239,7 +239,7 @@ Actor with ActorLogging {
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
       config.excludedFileExtensions))
-    downloadManagerActor = createChildActor(DownloadManagerActor(config.downloadConfig))
+    downloadManagerActor = createChildActor(DownloadMonitoringActor(config.downloadConfig))
   }
 
   override def receive: Receive = {
@@ -348,7 +348,7 @@ Actor with ActorLogging {
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
           Paths get fileData.path, config.downloadConfig.downloadChunkSize, transFunc))
         downloadManagerActor !
-          DownloadManagerActor.DownloadOperationStarted(downloadActor, sender())
+          DownloadMonitoringActor.DownloadOperationStarted(downloadActor, sender())
         MediumFileResponse(request, Some(downloadActor), fileData.size)
 
       case None =>

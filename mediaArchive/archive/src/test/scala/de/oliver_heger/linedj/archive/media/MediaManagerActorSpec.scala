@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadManagerActor, MediaFileDownloadActor}
+import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.model.ID3HeaderExtractor
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -40,7 +40,7 @@ object MediaManagerActorSpec {
 
   /** Class for the download manager actor. */
   val ClsDownloadManagerActor: Class[_ <: Actor] =
-    DownloadManagerActor(DownloadConfig(new PropertiesConfiguration)).actorClass()
+    DownloadMonitoringActor(DownloadConfig(new PropertiesConfiguration)).actorClass()
 
   /** A special test message sent to actors. */
   private val TestMessage = new Object
@@ -405,7 +405,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     expectMsgType[MediumFileResponse].length should be > 0L
     val probeData = fetchDownloadActor(helper)
-    helper.downloadManager.expectMsg(DownloadManagerActor.DownloadOperationStarted(
+    helper.downloadManager.expectMsg(DownloadMonitoringActor.DownloadOperationStarted(
       probeData.probe.ref, testActor))
   }
 

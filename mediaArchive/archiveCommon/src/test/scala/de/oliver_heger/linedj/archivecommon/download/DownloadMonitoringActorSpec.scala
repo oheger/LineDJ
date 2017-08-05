@@ -33,7 +33,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-object DownloadManagerActorSpec {
+object DownloadMonitoringActorSpec {
   /** The interval for reader actor timeout checks. */
   private val DownloadCheckInterval = 5.minutes
 
@@ -44,11 +44,11 @@ object DownloadManagerActorSpec {
 /**
   * Test class for ''DownloadManagerActor''.
   */
-class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+class DownloadMonitoringActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
-  def this() = this(ActorSystem("DownloadManagerActorSpec"))
+  def this() = this(ActorSystem("DownloadMonitoringActorSpec"))
 
-  import DownloadManagerActorSpec._
+  import DownloadMonitoringActorSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -88,17 +88,17 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     config
   }
 
-  "A DownloadManagerActor" should "return correct properties" in {
+  "A DownloadMonitoringActor" should "return correct properties" in {
     val config = mock[DownloadConfig]
-    val props = DownloadManagerActor(config)
+    val props = DownloadMonitoringActor(config)
 
-    classOf[DownloadManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[DownloadMonitoringActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should contain only config
   }
 
   it should "create a default DownloadActorData object" in {
-    val actor = TestActorRef[DownloadManagerActor](DownloadManagerActor(createConfig()))
+    val actor = TestActorRef[DownloadMonitoringActor](DownloadMonitoringActor(createConfig()))
 
     actor.underlyingActor.downloadData shouldBe a[DownloadActorData]
   }
@@ -183,7 +183,7 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val invocation = helper.fetchSchedulerInvocation()
     invocation.initialDelay should be(DownloadCheckInterval)
     invocation.interval should be(DownloadCheckInterval)
-    invocation.message should be(DownloadManagerActor.CheckDownloadTimeout)
+    invocation.message should be(DownloadMonitoringActor.CheckDownloadTimeout)
   }
 
   it should "cancel periodic download checks when it is stopped" in {
@@ -232,7 +232,7 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def sendDownloadOperation(client: ActorRef = testActor): TestProbe = {
       val downloadProbe = TestProbe()
-      send(DownloadManagerActor.DownloadOperationStarted(downloadProbe.ref, client))
+      send(DownloadMonitoringActor.DownloadOperationStarted(downloadProbe.ref, client))
       downloadProbe
     }
 
@@ -243,7 +243,7 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def sendCheckForTimeouts(): DownloadManagerTestHelper =
-      send(DownloadManagerActor.CheckDownloadTimeout)
+      send(DownloadMonitoringActor.CheckDownloadTimeout)
 
     /**
       * Expects that a download operation was reported to the test actor and
@@ -301,8 +301,8 @@ class DownloadManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the test actor reference
       */
-    private def createTestActor(): TestActorRef[DownloadManagerActor] =
-      TestActorRef(Props(new DownloadManagerActor(createConfig(), downloadData) with
+    private def createTestActor(): TestActorRef[DownloadMonitoringActor] =
+      TestActorRef(Props(new DownloadMonitoringActor(createConfig(), downloadData) with
         RecordingSchedulerSupport {
         override val queue: BlockingQueue[RecordingSchedulerSupport.SchedulerInvocation] =
           schedulerQueue
