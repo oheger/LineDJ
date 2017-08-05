@@ -26,7 +26,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpFlowFactory
+import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
@@ -35,9 +35,9 @@ import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRe
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.{Success, Try}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 object HttpArchiveManagementActorSpec {
   /** URI to the test music archive. */
@@ -233,6 +233,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     classOf[HttpArchiveManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[HttpRequestSupport[RequestData]].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ArchiveConfig, mediaManager.ref, metaManager.ref))
   }
 
@@ -242,7 +243,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     val request = helper.triggerScan().expectProcessingRequest()
     request.archiveConfig should be(ArchiveConfig)
     request.archiveActor should be(helper.manager)
-    request.clientFlow should be(helper.httpFlow)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
     request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
     implicit val mat = ActorMaterializer()
@@ -255,15 +255,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "not send a process request for a response error" in {
-    val failedResponse = Try[HttpResponse](throw new Exception("Failed request"))
-    val helper = new HttpArchiveManagementActorTestHelper(failedResponse)
-
-    helper.triggerScan().expectNoProcessingRequest()
-  }
-
-  it should "not send a process request for a non-successful response" in {
-    val response = Success(HttpResponse(status = StatusCodes.BadRequest))
-    val helper = new HttpArchiveManagementActorTestHelper(response)
+    val helper = new HttpArchiveManagementActorTestHelper(successResponse = false)
 
     helper.triggerScan().expectNoProcessingRequest()
   }
@@ -444,9 +436,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   /**
     * A test helper class managing all dependencies of a test actor instance.
+    *
+    * @param successResponse flag whether the archive request should be
+    *                        successful
     */
-  private class HttpArchiveManagementActorTestHelper(triedResponse: Try[HttpResponse] =
-                                                     Try(createSuccessResponse())) {
+  private class HttpArchiveManagementActorTestHelper(successResponse: Boolean = true) {
     /** Test probe for the union media manager actor. */
     val probeUnionMediaManager = TestProbe()
 
@@ -462,11 +456,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the medium info processor actor. */
     val probeMediumInfoProcessor = TestProbe()
 
+    /** Mock for the HTTP flow returned by the mock factory implementation. */
+    private val httpFlow = createTestHttpFlow[RequestData]()
+
     /** The actor to be tested. */
     val manager: TestActorRef[HttpArchiveManagementActor] = createTestActor()
-
-    /** The HTTP flow used by the actor. */
-    var httpFlow: Flow[_, _, _] = _
 
     /**
       * Sends a message directly to the test actor.
@@ -614,13 +608,30 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       */
     private def createProps(): Props =
       Props(new HttpArchiveManagementActor(ArchiveConfig, probeUnionMediaManager.ref,
-        probeUnionMetaDataManager.ref) with ChildActorFactory with HttpFlowFactory {
+        probeUnionMetaDataManager.ref) with ChildActorFactory with HttpFlowFactory
+        with HttpRequestSupport[RequestData] {
         override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
           uri should be(ArchiveConfig.archiveURI)
-          val flow = createTestHttpFlow[T]()
-          httpFlow = flow
-          flow
+          system should be(testSystem)
+          mat should not be null
+          httpFlow.asInstanceOf[Flow[(HttpRequest, T), (Try[HttpResponse], T), Any]]
+        }
+
+        /**
+          * @inheritdoc This implementation returns a test response.
+          */
+        override def sendRequest(request: HttpRequest, data: RequestData, flow: Flow[
+          (HttpRequest, RequestData), (Try[HttpResponse], RequestData), Any])
+                                (implicit mat: Materializer, ec: ExecutionContext):
+        Future[(HttpResponse, RequestData)] = {
+          mat should not be null
+          ec should not be null
+          data.mediumDesc should be(null)
+          request should be(ArchiveRequest)
+          flow should be(httpFlow)
+          if (successResponse) Future((createSuccessResponse(), data))
+          else Future.failed(new Exception("Failure"))
         }
 
         /**
@@ -644,17 +655,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       })
 
     /**
-      * Creates the test HTTP flow. Here a simulated flow is returned which
-      * maps the expected test request to a specific response.
+      * Creates the test HTTP flow. This flow is not actually invoked; so only
+      * a dummy is returned.
       *
-      * @tparam T the type of the flow
       * @return the test HTTP flow
       */
     private def createTestHttpFlow[T](): Flow[(HttpRequest, T), (Try[HttpResponse], T), NotUsed] = {
       Flow.fromFunction[(HttpRequest, T), (Try[HttpResponse], T)] { req =>
-        val resp = if (req._1 == ArchiveRequest) triedResponse
-        else Try[HttpResponse](throw new IllegalArgumentException("Unexpected request!"))
-        (resp, req._2)
+        (Try(HttpResponse()), req._2)
       }
     }
   }

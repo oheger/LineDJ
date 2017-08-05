@@ -22,13 +22,13 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.Flow
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpFlowFactory
+import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
@@ -44,7 +44,7 @@ object HttpArchiveManagementActor {
                                                unionMediaManager: ActorRef,
                                                unionMetaDataManager: ActorRef)
     extends HttpArchiveManagementActor(config, unionMediaManager, unionMetaDataManager)
-      with ChildActorFactory with HttpFlowFactory
+      with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData]
 
   /**
     * Returns creation ''Props'' for this actor class.
@@ -93,7 +93,7 @@ object HttpArchiveManagementActor {
 class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: ActorRef,
                                  unionMetaDataManager: ActorRef) extends Actor
   with ActorLogging {
-  this: ChildActorFactory with HttpFlowFactory =>
+  this: ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData] =>
 
   import HttpArchiveManagementActor._
 
@@ -146,8 +146,7 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
   /** A flag whether this actor has contributed data to the union archive. */
   private var dataInUnionArchive = false
 
-  import context.dispatcher
-  import context.system
+  import context.{dispatcher, system}
 
   override def preStart(): Unit = {
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
@@ -195,9 +194,7 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
       dataInUnionArchive = false
     }
 
-    loadArchiveContent().map(_._1.get)
-      .filter(_.status.isSuccess())
-      .map { resp => createProcessArchiveRequest(resp)
+    loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1)
       } onComplete {
       case Success(req) =>
         archiveContentProcessor ! req
@@ -238,12 +235,10 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     *
     * @return a ''Future'' with the result of the operation
     */
-  private def loadArchiveContent(): Future[(Try[HttpResponse], RequestData)] = {
+  private def loadArchiveContent(): Future[(HttpResponse, RequestData)] = {
     val contentRequest = createArchiveContentRequest()
     log.info("Requesting content of archive {}.", contentRequest.uri)
-    Source.single((contentRequest, UnusedReqData))
-      .via(httpFlow)
-      .runWith(Sink.last[(Try[HttpResponse], RequestData)])
+    sendRequest(contentRequest, UnusedReqData, httpFlow)
   }
 
   /**
