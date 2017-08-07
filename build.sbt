@@ -182,7 +182,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     OsgiKeys.exportPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl",
       "de.oliver_heger.linedj.archivehttp.*"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
-  ) dependsOn (shared % "compile->compile;test->test", archiveCommon)
+  ) dependsOn (shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
 /**
   * Project for the client platform. This project contains code shared by
