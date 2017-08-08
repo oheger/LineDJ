@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp
 
+import java.nio.file.Paths
+
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
@@ -24,15 +26,19 @@ import akka.stream.scaladsl.Flow
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.ForwardTestActor
+import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -57,6 +63,10 @@ object HttpArchiveManagementActorSpec {
 
   /** Class for the meta data processor actor. */
   private val ClsMetaDataProcessor = classOf[MetaDataResponseProcessingActor]
+
+  /** Class for the download management actor. */
+  private val ClsDownloadManagementAactor =
+    HttpDownloadManagementActor(null, null, null, null).actorClass()
 
   /**
     * Creates a test configuration for a media archive.
@@ -215,7 +225,7 @@ object HttpArchiveManagementActorSpec {
   * Test class for ''HttpArchiveManagementActor''.
   */
 class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import HttpArchiveManagementActorSpec._
 
@@ -228,13 +238,17 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   "A HttpArchiveManagementActor" should "create correct Props" in {
     val mediaManager = TestProbe()
     val metaManager = TestProbe()
-    val props = HttpArchiveManagementActor(ArchiveConfig, mediaManager.ref,
-      metaManager.ref)
+    val monitoringActor = TestProbe()
+    val removeActor = TestProbe()
+    val pathGenerator = new TempPathGenerator(Paths get "temp")
+    val props = HttpArchiveManagementActor(ArchiveConfig, pathGenerator, mediaManager.ref,
+      metaManager.ref, monitoringActor.ref, removeActor.ref)
     classOf[HttpArchiveManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpRequestSupport[RequestData]].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(ArchiveConfig, mediaManager.ref, metaManager.ref))
+    props.args should be(List(ArchiveConfig, pathGenerator, mediaManager.ref, metaManager.ref,
+      monitoringActor.ref, removeActor.ref))
   }
 
   it should "pass a process request to the content processor actor" in {
@@ -434,6 +448,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     expectNoMoreMsg(helper.probeUnionMediaManager)
   }
 
+  it should "forward a file download request to the download manager" in {
+    val request = MediumFileRequest(MediumID("aMedium", None), "fileUri", withMetaData = true)
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.post(request)
+    expectMsg(ForwardedMessage(request))
+  }
+
   /**
     * A test helper class managing all dependencies of a test actor instance.
     *
@@ -456,8 +478,20 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the medium info processor actor. */
     val probeMediumInfoProcessor = TestProbe()
 
+    /** Test probe for the monitoring actor. */
+    private val probeMonitoringActor = TestProbe()
+
+    /** Test probe for the remove file actor. */
+    private val probeRemoveActor = TestProbe()
+
+    /** Mock for the temp path generator. */
+    private val pathGenerator = mock[TempPathGenerator]
+
     /** Mock for the HTTP flow returned by the mock factory implementation. */
     private val httpFlow = createTestHttpFlow[RequestData]()
+
+    /** The actor simulating the download management actor. */
+    private val downloadManagementActor = ForwardTestActor()
 
     /** The actor to be tested. */
     val manager: TestActorRef[HttpArchiveManagementActor] = createTestActor()
@@ -607,9 +641,10 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return creation Props for the test actor
       */
     private def createProps(): Props =
-      Props(new HttpArchiveManagementActor(ArchiveConfig, probeUnionMediaManager.ref,
-        probeUnionMetaDataManager.ref) with ChildActorFactory with HttpFlowFactory
-        with HttpRequestSupport[RequestData] {
+      Props(new HttpArchiveManagementActor(ArchiveConfig, pathGenerator,
+        probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
+        probeMonitoringActor.ref, probeRemoveActor.ref)
+        with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData] {
         override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
           uri should be(ArchiveConfig.archiveURI)
@@ -651,6 +686,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
             case ClsMetaDataProcessor =>
               p.args should have size 0
               probeMetaDataProcessor.ref
+
+            case ClsDownloadManagementAactor =>
+              p.args should be(List(ArchiveConfig, pathGenerator, probeMonitoringActor.ref,
+                probeRemoveActor.ref))
+              downloadManagementActor
           }
       })
 

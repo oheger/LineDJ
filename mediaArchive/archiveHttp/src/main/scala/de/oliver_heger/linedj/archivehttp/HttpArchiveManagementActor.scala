@@ -28,10 +28,11 @@ import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -41,23 +42,31 @@ import scala.util.{Success, Try}
 object HttpArchiveManagementActor {
 
   private class HttpArchiveManagementActorImpl(config: HttpArchiveConfig,
+                                               pathGenerator: TempPathGenerator,
                                                unionMediaManager: ActorRef,
-                                               unionMetaDataManager: ActorRef)
-    extends HttpArchiveManagementActor(config, unionMediaManager, unionMetaDataManager)
+                                               unionMetaDataManager: ActorRef,
+                                               monitoringActor: ActorRef,
+                                               removeActor: ActorRef)
+    extends HttpArchiveManagementActor(config, pathGenerator, unionMediaManager,
+      unionMetaDataManager, monitoringActor, removeActor)
       with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData]
 
   /**
     * Returns creation ''Props'' for this actor class.
     *
     * @param config               the configuration for the HTTP archive
+    * @param pathGenerator the generator for paths for temp files
     * @param unionMediaManager    the union media manager actor
     * @param unionMetaDataManager the union meta data manager actor
+    * @param monitoringActor the download monitoring actor
+    * @param removeActor the actor for removing temp files
     * @return ''Props'' for creating a new actor instance
     */
-  def apply(config: HttpArchiveConfig, unionMediaManager: ActorRef,
-            unionMetaDataManager: ActorRef): Props =
-    Props(classOf[HttpArchiveManagementActorImpl], config, unionMediaManager,
-      unionMetaDataManager)
+  def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
+            unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
+            monitoringActor: ActorRef, removeActor: ActorRef): Props =
+    Props(classOf[HttpArchiveManagementActorImpl], config, pathGenerator, unionMediaManager,
+      unionMetaDataManager, monitoringActor, removeActor)
 
   /** The object for parsing medium descriptions in JSON. */
   private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
@@ -87,11 +96,15 @@ object HttpArchiveManagementActor {
   * union media archive.
   *
   * @param config               the configuration for the HTTP archive
+  * @param pathGenerator        the generator for paths for temp files
   * @param unionMediaManager    the union media manager actor
   * @param unionMetaDataManager the union meta data manager actor
+  * @param monitoringActor      the download monitoring actor
+  * @param removeActor          the actor for removing temp files
   */
-class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: ActorRef,
-                                 unionMetaDataManager: ActorRef) extends Actor
+class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
+                                 unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
+                                 monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
   with ActorLogging {
   this: ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData] =>
 
@@ -111,6 +124,9 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
 
   /** The meta data processor actor. */
   private var metaDataProcessor: ActorRef = _
+
+  /** The download management actor. */
+  private var downloadManagementActor: ActorRef = _
 
   /** The flow for sending HTTP requests. */
   private var httpFlow:
@@ -152,6 +168,9 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
     mediumInfoProcessor = createChildActor(Props[MediumInfoResponseProcessingActor])
     metaDataProcessor = createChildActor(Props[MetaDataResponseProcessingActor])
+    downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
+      pathGenerator = pathGenerator, monitoringActor = monitoringActor,
+      removeActor = removeActor))
     httpFlow = createHttpFlow[RequestData](config.archiveURI)
   }
 
@@ -175,6 +194,9 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, unionMediaManager: A
         dataInUnionArchive = true
       }
       completeScanOperation()
+
+    case req: MediumFileRequest =>
+      downloadManagementActor forward req
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams
