@@ -44,30 +44,30 @@ object HttpArchiveConfig {
   val PropPrefix = "media.http."
 
   /** The configuration property for the archive URI. */
-  val PropArchiveUri: String = PropPrefix + "archiveUri"
+  val PropArchiveUri: String = "archiveUri"
 
   /**
     * The configuration property for the name of the HTTP archive. The name is
     * optional, but recommended. If it is missing, a name is generated from the
     * archive URI.
     */
-  val PropArchiveName: String = PropPrefix + "archiveName"
+  val PropArchiveName: String = "archiveName"
 
   /** The configuration property for the processor count. */
-  val PropProcessorCount: String = PropPrefix + "processorCount"
+  val PropProcessorCount: String = "processorCount"
 
   /** The configuration property for the processor timeout. */
-  val PropProcessorTimeout: String = PropPrefix + "processorTimeout"
+  val PropProcessorTimeout: String = "processorTimeout"
 
   /** The configuration property for the maximum size of a content file. */
-  val PropMaxContentSize: String = PropPrefix + "maxContentSize"
+  val PropMaxContentSize: String = "maxContentSize"
 
   /**
     * The configuration property for the size of the in-memory buffer used to
     * buffer incoming data during a download operation. Note that this is a
     * mandatory property; no default value is provided.
     */
-  val PropDownloadBufferSize: String = PropPrefix + "downloadBufferSize"
+  val PropDownloadBufferSize: String = "downloadBufferSize"
 
   /**
     * The configuration property for the maximum inactivity interval during a
@@ -78,20 +78,20 @@ object HttpArchiveConfig {
     * request another data chunk even if the client did not send a request.
     * Note that this is a mandatory property; no default value is provided.
     */
-  val PropDownloadMaxInactivity: String = PropPrefix + "downloadMaxInactivity"
+  val PropDownloadMaxInactivity: String = "downloadMaxInactivity"
 
   /**
     * The configuration property for the read chunk size during download
     * operations. This chunk size is applied when reading from a temporary
     * file that has been created during a download operation.
     */
-  val PropDownloadReadChunkSize: String = PropPrefix + "downloadReadChunkSize"
+  val PropDownloadReadChunkSize: String = "downloadReadChunkSize"
 
   /**
     * The configuration property for the chunk size of a read operation
     * triggered by the actor to prevent a timeout of the HTTP connection.
     */
-  val PropTimeoutReadChunkSize: String = PropPrefix + "timeoutReadChunkSize"
+  val PropTimeoutReadChunkSize: String = "timeoutReadChunkSize"
 
   /**
     * The default processor count value. This value is assumed if the
@@ -117,36 +117,46 @@ object HttpArchiveConfig {
     */
   val DefaultDownloadReadChunkSize = 8192
 
+  /** The separator for property keys. */
+  private val Separator = "."
+
   /**
     * Tries to obtain a ''HttpArchiveConfig'' from the passed in
-    * ''Configuration'' object. If mandatory parameters are missing, the
+    * ''Configuration'' object. Properties are resolved in a relative way from
+    * the given prefix key. If mandatory parameters are missing, the
     * operation fails. Otherwise, a ''Success'' object is returned wrapping
     * the extracted ''HttpArchiveConfig'' instance. Note that user credentials
     * have to be provided separately; it is typically not an option to store
-    * credentials as plain text in a configuration file.
+    * credentials as plain text in a configuration file. The configuration for
+    * download operations has to be provided separately as well; it may be
+    * defined in a different configuration source.
     *
-    * @param c the ''Configuration''
-    * @param credentials user credentials
+    * @param c              the ''Configuration''
+    * @param prefix         the prefix path for all keys
+    * @param credentials    user credentials
+    * @param downloadConfig the download configuration
     * @return a ''Try'' with the extracted archive configuration
     */
-  def apply(c: Configuration, credentials: UserCredentials): Try[HttpArchiveConfig] = Try {
-    val uri = c getString PropArchiveUri
+  def apply(c: Configuration, prefix: String, credentials: UserCredentials,
+            downloadConfig: DownloadConfig): Try[HttpArchiveConfig] = Try {
+    val Path = if(prefix endsWith Separator) prefix else prefix + Separator
+    val uri = c.getString(Path + PropArchiveUri)
     if (uri == null) {
       throw new IllegalArgumentException("No URI for HTTP archive configured!")
     }
-    HttpArchiveConfig(c getString PropArchiveUri,
-      extractArchiveName(c),
+    HttpArchiveConfig(c.getString(Path + PropArchiveUri),
+      extractArchiveName(c, Path),
       credentials,
-      c.getInt(PropProcessorCount, DefaultProcessorCount),
-      if (c.containsKey(PropProcessorTimeout))
-        Timeout(c.getInt(PropProcessorTimeout), TimeUnit.SECONDS)
+      c.getInt(Path + PropProcessorCount, DefaultProcessorCount),
+      if (c.containsKey(Path + PropProcessorTimeout))
+        Timeout(c.getInt(Path + PropProcessorTimeout), TimeUnit.SECONDS)
       else DefaultProcessorTimeout,
-      c.getInt(PropMaxContentSize, DefaultMaxContentSize),
-      c getInt PropDownloadBufferSize,
-      c.getInt(PropDownloadMaxInactivity).seconds,
-      c.getInt(PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
-      c.getInt(PropTimeoutReadChunkSize, DefaultDownloadReadChunkSize),
-      DownloadConfig(c))
+      c.getInt(Path + PropMaxContentSize, DefaultMaxContentSize),
+      c getInt Path + PropDownloadBufferSize,
+      c.getInt(Path + PropDownloadMaxInactivity).seconds,
+      c.getInt(Path + PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
+      c.getInt(Path + PropTimeoutReadChunkSize, DefaultDownloadReadChunkSize),
+      downloadConfig)
   }
 
   /**
@@ -154,13 +164,14 @@ object HttpArchiveConfig {
     * specified, the name is extracted from the URI.
     *
     * @param c the configuration
+    * @param prefix the prefix for configuration keys
     * @return the archive name
     */
-  private def extractArchiveName(c: Configuration): String = {
-    val name = c getString PropArchiveName
+  private def extractArchiveName(c: Configuration, prefix: String): String = {
+    val name = c.getString(prefix + PropArchiveName)
     if (name != null) name
     else {
-      val uri = Uri(c getString PropArchiveUri)
+      val uri = Uri(c.getString(prefix + PropArchiveUri))
       val nameWithPath = uri.authority.host.address().replace('.', '_') +
         uri.path.toString().replace('/', '_')
       val posExt = nameWithPath lastIndexOf '.'
