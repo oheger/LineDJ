@@ -180,12 +180,14 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
   private def startupHttpArchive(actors: MediaFacade.MediaFacadeActors, credentials:
   UserCredentials): Unit = {
     if (canStartHttpArchive) {
+      //TODO correct configuration
       val config = HttpArchiveConfig(clientApplicationContext.managementConfiguration,
-        credentials)
+        null, credentials, null)
       config match {
         case Success(c) =>
-          val props = HttpArchiveManagementActor(c, actors.mediaManager,
-            actors.metaDataManager)
+          //TODO correct properties
+          val props = HttpArchiveManagementActor(c, null, actors.mediaManager,
+            actors.metaDataManager, null, null)
           val actor = clientApplicationContext.actorFactory.createActor(props, ManagementActorName)
           actor ! ScanAllMedia
           registerActor(ManagementActorName, actor)

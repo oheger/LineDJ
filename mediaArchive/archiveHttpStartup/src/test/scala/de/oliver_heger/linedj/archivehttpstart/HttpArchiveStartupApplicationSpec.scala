@@ -76,7 +76,7 @@ object HttpArchiveStartupApplicationSpec {
     * @return the archive config
     */
   private def createArchiveConfig(): HttpArchiveConfig =
-    HttpArchiveConfig(createArchiveSourceConfig(), ArchiveCredentials).get
+    HttpArchiveConfig(createArchiveSourceConfig(), null, ArchiveCredentials, null).get
 }
 
 /**
@@ -511,8 +511,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return the actor factory
       */
     private def createActorFactory(): ActorFactory = {
-      val refProps = HttpArchiveManagementActor(createArchiveConfig(),
-        probeUnionMediaManager.ref, probeUnionMetaManager.ref)
+      //TODO correct props
+      val refProps = HttpArchiveManagementActor(createArchiveConfig(), null,
+        probeUnionMediaManager.ref, probeUnionMetaManager.ref, null, null)
       val factory = mock[ActorFactory]
       when(factory.createActor(refProps, "httpArchiveManagementActor"))
         .thenAnswer(new Answer[ActorRef] {
