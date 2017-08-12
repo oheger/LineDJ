@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Terminated}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -30,20 +29,20 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.mockito.stubbing.{Answer, OngoingStubbing}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{ExecutionContext, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Promise}
+import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupApplicationSpec {
   /** The URL to the test HTTP archive. */
@@ -71,12 +70,12 @@ object HttpArchiveStartupApplicationSpec {
   }
 
   /**
-    * Creates a config for the test HTTP archive.
+    * Generates a ''Failure'' object for a failed archive startup.
     *
-    * @return the archive config
+    * @return the ''Failure''
     */
-  private def createArchiveConfig(): HttpArchiveConfig =
-    HttpArchiveConfig(createArchiveSourceConfig(), null, ArchiveCredentials, null).get
+  private def failedArchiveCreation(): Try[Map[String, ActorRef]] =
+    Try(throw new Exception("Failure!"))
 }
 
 /**
@@ -98,6 +97,12 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
     app shouldBe a[HttpArchiveStartupApplication]
     app.appName should be("httpArchiveStartup")
+  }
+
+  it should "create a default archive starter" in {
+    val app = new HttpArchiveStartupApplication
+
+    app.archiveStarter shouldBe a[HttpArchiveStarter]
   }
 
   it should "register itself for the archive available extension" in {
@@ -149,14 +154,27 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   /**
-    * Helper method which sends all data and messages required to create the
-    * archive management actor.
+    * Creates a map with actors as simulated result for the archive starter
+    * object.
     *
-    * @param helper the test helper
+    * @return the map with test actors
+    */
+  private def createActorsMap(): Map[String, ActorRef] =
+    Map("actor1" -> TestProbe().ref, "actor2" -> TestProbe().ref)
+
+  /**
+    * Helper method which sends all data and messages required to create the
+    * archive management actors.
+    *
+    * @param helper        the test helper
+    * @param archiveActors a map with the actors to be returned by the starter
     * @return the test helper
     */
-  private def triggerActorCreation(helper: StartupTestHelper): StartupTestHelper = {
+  private def triggerArchiveCreation(helper: StartupTestHelper,
+                                     archiveActors: Try[Map[String, ActorRef]] =
+                                     Success(createActorsMap())): StartupTestHelper = {
     helper.startupApplication()
+      .initArchiveStartupResult(archiveActors)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
@@ -169,12 +187,14 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     * state in the standard way.
     *
     * @param helper the test helper
-    * @return the test probe for the management actor
+    * @param archiveActors a map with the actors to be returned by the starter
     */
-  private def enterArchiveAvailableState(helper: StartupTestHelper): TestProbe = {
-    triggerActorCreation(helper)
+  private def enterArchiveAvailableState(helper: StartupTestHelper,
+                                         archiveActors: Map[String, ActorRef]
+                                         = createActorsMap()): Unit = {
+    triggerArchiveCreation(helper, Success(archiveActors))
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateAvailable)
-      .expectActorCreation()
+      .expectArchiveCreation()
   }
 
   it should "create the archive actor if all information is available" in {
@@ -185,9 +205,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
   it should "handle an invalid configuration when creating the archive actor" in {
     val helper = new StartupTestHelper
-    helper.configuration.clearProperty(HttpArchiveConfig.PropArchiveUri)
 
-    triggerActorCreation(helper)
+    triggerArchiveCreation(helper, failedArchiveCreation())
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateInvalidConfig)
   }
 
@@ -202,6 +221,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   it should "take a timeout from the configuration into account" in {
     val InitTimeout = 28
     val helper = new StartupTestHelper
+    helper.initArchiveStartupResult(Success(createActorsMap()))
     helper.configuration.setProperty(HttpArchiveStartupApplication.PropArchiveInitTimeout,
       InitTimeout)
 
@@ -211,7 +231,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
       .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
       .processUIFuture()
-      .expectActorCreation()
+      .expectArchiveCreation()
   }
 
   it should "handle a failed future when requesting the facade actors" in {
@@ -226,23 +246,17 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNoUnionArchive)
   }
 
-  it should "create the archive actor if information comes in different order" in {
+  it should "create the archive if information comes in different order" in {
     val helper = new StartupTestHelper
 
     helper.startupApplication()
+      .initArchiveStartupResult(Success(createActorsMap()))
       .prepareMediaFacadeActorsRequest()
       .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .processUIFuture()
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateAvailable)
-      .expectActorCreation()
-  }
-
-  it should "trigger a scan after starting the management actor" in {
-    val helper = new StartupTestHelper
-
-    triggerActorCreation(helper)
-      .expectActorCreation().expectMsg(ScanAllMedia)
+      .expectArchiveCreation()
   }
 
   it should "check preconditions again after facade actors have been fetched" in {
@@ -268,23 +282,24 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   /**
-    * Expects that an actor (represented by a test probe) gets terminated.
+    * Expects that an actor gets terminated.
     *
-    * @param probe the test probe
+    * @param actor the actor to be checked
     */
-  private def expectTermination(probe: TestProbe): Unit = {
+  private def expectTermination(actor: ActorRef): Unit = {
     val probeWatch = TestProbe()
-    probeWatch watch probe.ref
+    probeWatch watch actor
     probeWatch.expectMsgType[Terminated]
   }
 
-  it should "stop the archive actor if the user logs out" in {
+  it should "stop the archive actors if the user logs out" in {
     val helper = new StartupTestHelper
-    val probeManagementActor = enterArchiveAvailableState(helper)
+    val archiveActors = createActorsMap()
+    enterArchiveAvailableState(helper, archiveActors)
 
     helper.sendOnMessageBus(LoginStateChanged(None))
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
-    expectTermination(probeManagementActor)
+    archiveActors.values foreach expectTermination
   }
 
   it should "not send a message if the archive state does not change" in {
@@ -295,12 +310,13 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     helper.messageBus.expectNoMessage()
   }
 
-  it should "stop the archive actor on shutdown" in {
+  it should "stop the archive actors on shutdown" in {
     val helper = new StartupTestHelper
-    val probeManagementActor = enterArchiveAvailableState(helper)
+    val archiveActors = createActorsMap()
+    enterArchiveAvailableState(helper, archiveActors)
 
     helper.deactivateApplication()
-    expectTermination(probeManagementActor)
+    archiveActors.values foreach expectTermination
   }
 
   it should "ignore a duplicate availability message" in {
@@ -330,10 +346,12 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   /**
     * A test implementation of the startup application.
     *
-    * @param skipUI flag whether UI creation is to be skipped
+    * @param starter the object for starting the archive
+    * @param skipUI  flag whether UI creation is to be skipped
     */
-  private class HttpArchiveStartupApplicationTestImpl(skipUI: Boolean)
-    extends HttpArchiveStartupApplication with ApplicationSyncStartup {
+  private class HttpArchiveStartupApplicationTestImpl(starter: HttpArchiveStarter,
+                                                      skipUI: Boolean)
+    extends HttpArchiveStartupApplication(starter) with ApplicationSyncStartup {
     override def initGUI(appCtx: ApplicationContext): Unit = {
       if (!skipUI) super.initGUI(appCtx)
     }
@@ -353,14 +371,14 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     /** A test message bus. */
     val messageBus = new MessageBusTestImpl
 
-    /** The application to be tested. */
-    val app = new HttpArchiveStartupApplicationTestImpl(skipUI)
+    /** A mock for the actor factory. */
+    val actorFactory: ActorFactory = mock[ActorFactory]
 
     /** Stores the registration of the app for the availability extension. */
     var availabilityRegistration: ArchiveAvailabilityRegistration = _
 
-    /** A queue which stores actors created by the actor factory. */
-    private val actorsQueue = new LinkedBlockingQueue[TestProbe]
+    /** A counter to keep track on archive startup operations. */
+    private val archiveStartupCount = new AtomicInteger
 
     /** Test probe for the union media manager actor. */
     private val probeUnionMediaManager = TestProbe()
@@ -368,11 +386,20 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     /** Test probe for the union meta data manager actor. */
     private val probeUnionMetaManager = TestProbe()
 
+    /** The configuration for the archive. */
+    private val archiveConfig = createArchiveSourceConfig()
+
     /** Mock for the media facade. */
     private val mockFacade = mock[MediaFacade]
 
+    /** Mock for the archive starter. */
+    private val archiveStarter = mock[HttpArchiveStarter]
+
     /** The client application context. */
     private val clientApplicationContext = createTestClientApplicationContext()
+
+    /** The application to be tested. */
+    val app = new HttpArchiveStartupApplicationTestImpl(archiveStarter, skipUI)
 
     /**
       * Returns the configuration of the simulated application.
@@ -441,14 +468,37 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
-      * Expects that the actor for archive management has been created.
+      * Prepares the mock startup object for a startup operation and defines
+      * the map of actors to be returned. With this method successful and
+      * failed archive creations can be prepared.
       *
-      * @return the test probe for the management actor
+      * @param actors a ''Try'' with the map of actors to be returned by the
+      *               mock
+      * @return this test helper
       */
-    def expectActorCreation(): TestProbe = {
-      val probe = actorsQueue.poll(3, TimeUnit.SECONDS)
-      probe should not be null
-      probe
+    def initArchiveStartupResult(actors: Try[Map[String, ActorRef]]): StartupTestHelper = {
+      actors match {
+        case Success(_) =>
+          expectStarterInvocation().thenAnswer(new Answer[Try[Map[String, ActorRef]]] {
+            override def answer(invocation: InvocationOnMock): Try[Map[String, ActorRef]] = {
+              archiveStartupCount.incrementAndGet()
+              actors
+            }
+          })
+        case f@Failure(_) =>
+          expectStarterInvocation().thenReturn(f)
+      }
+      this
+    }
+
+    /**
+      * Expects that the HTTP archive has been created.
+      *
+      * @return this test helper
+      */
+    def expectArchiveCreation(): StartupTestHelper = {
+      awaitCond(archiveStartupCount.get() == 1)
+      this
     }
 
     /**
@@ -498,33 +548,22 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       new ClientApplicationContextImpl {
         override val actorSystem: ActorSystem = system
         override val messageBus: MessageBus = testMsgBus
-        override val actorFactory: ActorFactory = createActorFactory()
-        override val managementConfiguration: Configuration = createArchiveSourceConfig()
+        override val actorFactory: ActorFactory = StartupTestHelper.this.actorFactory
+        override val managementConfiguration: Configuration = archiveConfig
         override val mediaFacade: MediaFacade = mockFacade
       }
     }
 
     /**
-      * Creates a stub actor factory for creating the HTTP archive manager
-      * actor.
-      *
-      * @return the actor factory
+      * Helper method to set expectations for the starter mock. This can be
+      * used to prepare the mock to answer a startup request.
+      * @return the stubbing object to define the behavior of the startup
+      *         method
       */
-    private def createActorFactory(): ActorFactory = {
-      //TODO correct props
-      val refProps = HttpArchiveManagementActor(createArchiveConfig(), null,
-        probeUnionMediaManager.ref, probeUnionMetaManager.ref, null, null)
-      val factory = mock[ActorFactory]
-      when(factory.createActor(refProps, "httpArchiveManagementActor"))
-        .thenAnswer(new Answer[ActorRef] {
-          override def answer(invocation: InvocationOnMock): ActorRef = {
-            val probe = TestProbe()
-            actorsQueue offer probe
-            probe.ref
-          }
-        })
-      factory
-    }
+    private def expectStarterInvocation(): OngoingStubbing[Try[Map[String, ActorRef]]] =
+      when(archiveStarter.startup(MediaFacadeActors(probeUnionMediaManager.ref,
+        probeUnionMetaManager.ref), archiveConfig, "media.http", ArchiveCredentials,
+        actorFactory))
   }
 
 }

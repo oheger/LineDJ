@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import akka.actor.Actor.Receive
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
@@ -27,9 +26,7 @@ import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._
@@ -38,9 +35,6 @@ import scala.util.{Failure, Success}
 object HttpArchiveStartupApplication {
   /** Property for the initialization timeout of the local archive. */
   val PropArchiveInitTimeout = "media.initTimeout"
-
-  /** The name of the HTTP archive management actor. */
-  val ManagementActorName = "httpArchiveManagementActor"
 
   /** The default initialization timeout (in seconds). */
   private val DefaultInitTimeout = 10
@@ -54,10 +48,21 @@ object HttpArchiveStartupApplication {
   * are created and connected to the union archive. The availability of the
   * union archive is monitored; the HTTP archive can only be started if it
   * is present.
+  *
+  * @param archiveStarter the object to start the HTTP archive
   */
-class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartup")
+class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
+  extends ClientApplication("httpArchiveStartup")
   with ApplicationAsyncStartup with Identifiable with ActorClientSupport
   with ActorManagement {
+
+  /**
+    * Creates a new instance of ''HttpArchiveStartupApplication'' with default
+    * settings.
+    *
+    * @return the new instance
+    */
+  def this() = this(new HttpArchiveStarter)
 
   import HttpArchiveStartupApplication._
 
@@ -155,7 +160,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private def triggerArchiveStartIfPossible(): Boolean = {
     if (canStartHttpArchive && archiveNotStarted) {
-      implicit val timeout = fetchInitializationTimeout()
+      implicit val timeout: Timeout = fetchInitializationTimeout()
       clientApplicationContext.mediaFacade.requestFacadeActors().onCompleteUIThread {
         case Success(actors) =>
           startupHttpArchive(actors, archiveCredentials.get)
@@ -180,18 +185,14 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
   private def startupHttpArchive(actors: MediaFacade.MediaFacadeActors, credentials:
   UserCredentials): Unit = {
     if (canStartHttpArchive) {
-      //TODO correct configuration
-      val config = HttpArchiveConfig(clientApplicationContext.managementConfiguration,
-        null, credentials, null)
-      config match {
-        case Success(c) =>
-          //TODO correct properties
-          val props = HttpArchiveManagementActor(c, null, actors.mediaManager,
-            actors.metaDataManager, null, null)
-          val actor = clientApplicationContext.actorFactory.createActor(props, ManagementActorName)
-          actor ! ScanAllMedia
-          registerActor(ManagementActorName, actor)
+      archiveStarter.startup(actors, clientApplicationContext.managementConfiguration,
+        "media.http", credentials, clientApplicationContext.actorFactory) match {
+        case Success(archiveActors) =>
+          archiveActors foreach { t =>
+            registerActor(t._1, t._2)
+          }
           switchArchiveState(HttpArchiveStates.HttpArchiveStateAvailable)
+
         case Failure(ex) =>
           log.error("Could not create HTTP archive configuration!", ex)
           switchArchiveState(HttpArchiveStates.HttpArchiveStateInvalidConfig)
