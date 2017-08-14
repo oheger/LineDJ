@@ -38,11 +38,6 @@ import scala.util.Try
 case class UserCredentials(userName: String, password: String)
 
 object HttpArchiveConfig {
-  /**
-    * The prefix for all configuration properties related to the HTTP archive.
-    */
-  val PropPrefix = "media.http."
-
   /** The configuration property for the archive URI. */
   val PropArchiveUri: String = "archiveUri"
 
@@ -94,6 +89,58 @@ object HttpArchiveConfig {
   val PropTimeoutReadChunkSize: String = "timeoutReadChunkSize"
 
   /**
+    * The common prefix for all configuration properties related to the
+    * URI-mapping configuration.
+    */
+  val PrefixUriMapping = "uriMapping."
+
+  /**
+    * The configuration property for a prefix to be removed from a URI defined
+    * in a meta data file. When doing the mapping it is expected that all URIs
+    * start with this prefix - other URIs are ignored. The prefix is then
+    * removed, so that the remaining part can be further processed, e.g.
+    * concatenated to the root path of the current medium. If this property is
+    * undefined, no prefix is removed.
+    */
+  val PropMappingRemovePrefix: String = PrefixUriMapping + "removePrefix"
+
+  /**
+    * The configuration property defining the template to be applied for URI
+    * mapping. This template defines how resulting URIs look like. It is an
+    * arbitrary string which can contain a few number of variables. The
+    * variables are replaced by current values obtained during URI processing.
+    * The following variables are supported:
+    *
+    *  - ''${medium}'' the root path to the medium the current file belongs to
+    *  - ''${uri}'' the processed URI of the file
+    *
+    * For instance, the expression ''/test${medium}/${uri}'' generates relative
+    * URIs (resolved against the root URI of the HTTP archive) pointing to
+    * files below a path ''test'' that are structured in directories
+    * corresponding to their media.
+    *
+    * The default value is ''${uri}'', i.e. the URI is used as is.
+    */
+  val PropMappingUriTemplate: String = PrefixUriMapping + "uriTemplate"
+
+  /**
+    * The configuration property that controls the URL encoding of URIs. If
+    * set to '''true''', the single components of URIs obtained from meta data
+    * files are encoded. (As they might contain path separators, those
+    * separators are not encoded.) The default value is '''false'''.
+    */
+  val PropMappingEncoding: String = PrefixUriMapping + "urlEncoding"
+
+  /**
+    * The configuration property defining the path separator used within URIs
+    * of the HTTP archive. This is evaluated if the ''urlEncoding'' flag is
+    * set. Then URIs are split at this separator, and the single components
+    * are encoded. If no separator is provided, URL encoding is done on the
+    * whole URI string.
+    */
+  val PropMappingPathSeparator: String = PrefixUriMapping + "pathSeparator"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -116,6 +163,9 @@ object HttpArchiveConfig {
     * during download operations.
     */
   val DefaultDownloadReadChunkSize = 8192
+
+  /** Default value for the URI mapping template. */
+  val DefaultUriMappingTemplate = "${uri}"
 
   /** The separator for property keys. */
   private val Separator = "."
@@ -156,7 +206,8 @@ object HttpArchiveConfig {
       c.getInt(Path + PropDownloadMaxInactivity).seconds,
       c.getInt(Path + PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
       c.getInt(Path + PropTimeoutReadChunkSize, DefaultDownloadReadChunkSize),
-      downloadConfig)
+      downloadConfig,
+      extractMappingConfig(c, Path))
   }
 
   /**
@@ -178,7 +229,40 @@ object HttpArchiveConfig {
       if (posExt > 0) nameWithPath.substring(0, posExt) else nameWithPath
     }
   }
+
+  /**
+    * Extracts the properties for URI mapping from the given configuration.
+    *
+    * @param c      the configuration
+    * @param prefix the prefix for configuration keys
+    * @return the URI mapping configuration
+    */
+  private def extractMappingConfig(c: Configuration, prefix: String): UriMappingConfig =
+    UriMappingConfig(removePrefix = c.getString(prefix + PropMappingRemovePrefix),
+      uriTemplate = c.getString(prefix + PropMappingUriTemplate, DefaultUriMappingTemplate),
+      pathSeparator = c.getString(prefix + PropMappingPathSeparator),
+      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false))
 }
+
+/**
+  * A configuration class to define the mapping of URIs read from meta data
+  * files.
+  *
+  * The URIs stored in the meta data files read from an HTTP archive are not
+  * necessarily in a form that they can be used directly for accessing files
+  * from the archive. So a mapping may be required firs. This class combines
+  * the properties that make up such a mapping.
+  *
+  * The properties are all optional; default values are used if they are not
+  * specified.
+  *
+  * @param removePrefix a prefix to be removed from URIs
+  * @param uriTemplate  a template to construct the resulting URI
+  * @param pathSeparator the path
+  * @param urlEncode    flag whether the URI needs to be encoded
+  */
+case class UriMappingConfig(removePrefix: String, uriTemplate: String,
+                            pathSeparator: String, urlEncode: Boolean)
 
 /**
   * A class defining the configuration settings to be applied for an HTTP
@@ -204,6 +288,7 @@ object HttpArchiveConfig {
   * @param timeoutReadChunkSize  a chunk size for requests sent to avoid a
   *                              timeout
   * @param downloadConfig        configuration for standard download properties
+  * @param mappingConfig         configuration for URI mapping
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
@@ -215,4 +300,5 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              downloadMaxInactivity: FiniteDuration,
                              downloadReadChunkSize: Int,
                              timeoutReadChunkSize: Int,
-                             downloadConfig: DownloadConfig)
+                             downloadConfig: DownloadConfig,
+                             mappingConfig: UriMappingConfig)

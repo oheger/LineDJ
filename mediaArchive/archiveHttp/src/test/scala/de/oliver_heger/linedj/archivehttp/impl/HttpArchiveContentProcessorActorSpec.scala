@@ -56,7 +56,7 @@ object HttpArchiveContentProcessorActorSpec {
     UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 64,
     downloadConfig = null, downloadBufferSize = 512,
     downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
-    timeoutReadChunkSize = 222)
+    timeoutReadChunkSize = 222, mappingConfig = null)
 
   /**
     * Returns a test settings path for the specified index.

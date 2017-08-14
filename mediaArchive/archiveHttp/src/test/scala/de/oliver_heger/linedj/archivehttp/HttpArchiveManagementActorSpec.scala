@@ -78,7 +78,8 @@ object HttpArchiveManagementActorSpec {
       maxContentSize = 256, processorTimeout = Timeout(1.minute),
       credentials = UserCredentials("scott", "tiger"), downloadConfig = null,
       downloadBufferSize = 1024, downloadMaxInactivity = 1.minute,
-      downloadReadChunkSize = 4000, timeoutReadChunkSize = 2222, archiveName = "Foo")
+      downloadReadChunkSize = 4000, timeoutReadChunkSize = 2222, archiveName = "Foo",
+      mappingConfig = null)
 
   /**
     * Checks that no further messages have been sent to the specified test
@@ -259,7 +260,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     request.archiveActor should be(helper.manager)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
     request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
-    implicit val mat = ActorMaterializer()
+    implicit val mat: ActorMaterializer = ActorMaterializer()
 
     val futureDescriptions = request.mediaSource.runFold(
       List.empty[HttpMediumDesc])((lst, md) => md :: lst)

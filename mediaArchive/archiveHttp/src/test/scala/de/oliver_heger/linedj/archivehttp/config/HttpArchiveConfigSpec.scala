@@ -64,6 +64,15 @@ object HttpArchiveConfigSpec {
   /** The read chunk to apply when a timeout occurs. */
   private val TimeoutReadChunkSize = 6000
 
+  /** The prefix to be removed during URI mapping. */
+  private val RemovePrefix = "path://"
+
+  /** The template for URIs. */
+  private val UriTemplate = "/foo/${uri}"
+
+  /** The path separator for URIs. */
+  private val UriPathSeparator = "\\"
+
   /**
     * Creates a configuration object with all test settings.
     *
@@ -81,6 +90,10 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".downloadMaxInactivity", DownloadMaxInactivity.toSeconds)
     c.addProperty(at + ".downloadReadChunkSize", DownloadReadChunkSize)
     c.addProperty(at + ".timeoutReadChunkSize", TimeoutReadChunkSize)
+    c.addProperty(at + ".uriMapping.removePrefix", RemovePrefix)
+    c.addProperty(at + ".uriMapping.uriTemplate", UriTemplate)
+    c.addProperty(at + ".uriMapping.pathSeparator", UriPathSeparator)
+    c.addProperty(at + ".uriMapping.urlEncoding", true)
     c
   }
 
@@ -122,6 +135,10 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.downloadReadChunkSize should be(DownloadReadChunkSize)
         config.downloadMaxInactivity should be(DownloadMaxInactivity)
         config.timeoutReadChunkSize should be(TimeoutReadChunkSize)
+        config.mappingConfig.removePrefix should be(RemovePrefix)
+        config.mappingConfig.uriTemplate should be(UriTemplate)
+        config.mappingConfig.pathSeparator should be(UriPathSeparator)
+        config.mappingConfig.urlEncode shouldBe true
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
@@ -248,6 +265,26 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         fail("Could read invalid config!")
       case Failure(e) =>
         e shouldBe a[IllegalArgumentException]
+    }
+  }
+
+  it should "use defaults for the URI mapping config" in {
+    val c = clearProperty(
+      clearProperty(
+        clearProperty(
+          clearProperty(createConfiguration(), HttpArchiveConfig.PropMappingRemovePrefix),
+          HttpArchiveConfig.PropMappingUriTemplate),
+        HttpArchiveConfig.PropMappingPathSeparator),
+      HttpArchiveConfig.PropMappingEncoding)
+
+    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+      case Success(config) =>
+        config.mappingConfig.removePrefix should be(null)
+        config.mappingConfig.uriTemplate should be("${uri}")
+        config.mappingConfig.pathSeparator should be(null)
+        config.mappingConfig.urlEncode shouldBe false
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
     }
   }
 }
