@@ -77,11 +77,12 @@ abstract class AbstractResponseProcessingActor(val fileType: String)
     *
     * @param source the source to be processed
     * @param mid    the current ''MediumID''
+    * @param config the archive configuration
     * @param seqNo  the sequence number of the current scan operation
     * @return a ''Future'' for the processing result and a ''KillSwitch''
     */
   protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                             seqNo: Int): (Future[Any], KillSwitch)
+                              config: HttpArchiveConfig, seqNo: Int): (Future[Any], KillSwitch)
 
   /**
     * Creates the source for the stream of the response's data bytes.
@@ -113,7 +114,7 @@ abstract class AbstractResponseProcessingActor(val fileType: String)
       case Success(response) =>
         if (response.status.isSuccess()) {
           val (futureStream, killSwitch) = processSource(
-            createResponseDataSource(mid, response, config), mid, seqNo)
+            createResponseDataSource(mid, response, config), mid, config, seqNo)
           processStreamResult(futureStream, killSwitch) { f =>
             ResponseProcessingError(mid, fileType, f.exception)
           }

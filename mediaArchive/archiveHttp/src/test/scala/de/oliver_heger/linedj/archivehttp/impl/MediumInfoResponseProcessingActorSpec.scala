@@ -25,6 +25,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{TestActorRef, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
@@ -83,7 +84,7 @@ object MediumInfoResponseProcessingActorSpec {
   private def invoke(actor: TestActorRef[MediumInfoResponseProcessingActorTestImpl],
                      source: Source[ByteString, Any] = mediumInfoSource()):
   (Future[Any], KillSwitch) =
-    actor.underlyingActor.processSource(source, TestMediumID, SeqNo)
+    actor.underlyingActor.processSource(source, TestMediumID, null, SeqNo)
 }
 
 /**
@@ -172,6 +173,6 @@ class MediumInfoResponseProcessingActorTestImpl(parser: MediumInfoParser)
     * Overridden to allow access from test code.
     */
   override def processSource(source: Source[ByteString, Any], mid: MediumID,
-                             seqNo: Int): (Future[Any], KillSwitch) =
-    super.processSource(source, mid, seqNo)
+                             config: HttpArchiveConfig, seqNo: Int): (Future[Any], KillSwitch) =
+    super.processSource(source, mid, config, seqNo)
 }

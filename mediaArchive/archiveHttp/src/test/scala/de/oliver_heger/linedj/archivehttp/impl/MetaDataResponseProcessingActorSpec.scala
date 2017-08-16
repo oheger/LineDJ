@@ -22,7 +22,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig, UserCredentials}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -40,33 +40,52 @@ object MetaDataResponseProcessingActorSpec {
   private val TestMediumID = MediumID("testMedium", Some("test.settings"),
     "HTTPArchive")
 
+  /** A test mapping configuration. */
+  private val MappingConfig = UriMappingConfig(removePrefix = "audio://",
+    pathSeparator = null, urlEncode = false, uriTemplate = "/test/${uri}")
+
+  /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
     "Test", UserCredentials("scott", "tiger"), processorCount = 3,
     processorTimeout = Timeout(2.seconds), maxContentSize = 256,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
-    downloadReadChunkSize = 500, timeoutReadChunkSize = 250, mappingConfig = null)
+    downloadReadChunkSize = 500, timeoutReadChunkSize = 250, mappingConfig = MappingConfig)
 
   /** The sequence number used for requests. */
   private val SeqNo = 42
 
   /**
+    * Generates a URI for a test media file.
+    *
+    * @param idx    the index of the test file
+    * @param mapped flag whether the URI should be mapped
+    * @return the new URI
+    */
+  private def createUri(idx: Int, mapped: Boolean): String =
+    if (mapped) s"/test/song$idx.mp3"
+    else s"audio://song$idx.mp3"
+
+  /**
     * Creates a meta data processing result object for the specified index.
     *
     * @param idx the index
+    * @param mapped flag whether the URI should be mapped
     * @return the test processing result
     */
-  private def processingResult(idx: Int): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(s"songs/song$idx.mp3", TestMediumID, s"audio://song$idx.mp3",
+  private def processingResult(idx: Int, mapped: Boolean): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(s"songs/song$idx.mp3", TestMediumID, createUri(idx, mapped),
       MediaMetaData(title = Some(s"Song$idx"), size = (idx + 1) * 100))
 
   /**
     * Creates a sequence with test meta data of the specified size.
     *
-    * @param count the number of meta data objects
+    * @param count  the number of meta data objects
+    * @param mapped flag whether the URIs of files should be mapped
     * @return the sequence with the produced meta data
     */
-  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingSuccess] =
-    (1 to count) map processingResult
+  private def createProcessingResults(count: Int, mapped: Boolean):
+  IndexedSeq[MetaDataProcessingSuccess] =
+    (1 to count) map (processingResult(_, mapped))
 
   /**
     * Generates a JSON representation for the specified meta data.
@@ -144,19 +163,45 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
   }
 
   it should "handle a successful response" in {
-    val metaDataResults = createProcessingResults(8)
+    val metaDataResults = createProcessingResults(8, mapped = false)
+    val mappedResults = createProcessingResults(8, mapped = true)
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
     actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
-    result.metaData should contain theSameElementsAs metaDataResults
+    result.metaData should contain theSameElementsAs mappedResults
     result.seqNo should be(SeqNo)
   }
 
+  it should "filter out results rejected by the URI mapper" in {
+    val MaxIndex = 6
+    val mapper = new UriMapper {
+      /**
+        * @inheritdoc This implementation rejects all test files with an index
+        *             bigger than the specified maximum index.
+        */
+      override def mapUri(config: UriMappingConfig, mid: MediumID, uriOrg: String):
+      Option[String] = {
+        val extPos = uriOrg.indexOf(".mp3")
+        val fileIdx = uriOrg.substring(extPos - 1, extPos).toInt
+        if (fileIdx <= MaxIndex) super.mapUri(config, mid, uriOrg)
+        else None
+      }
+    }
+    val metaDataResults = createProcessingResults(8, mapped = false)
+    val mappedResults = createProcessingResults(MaxIndex, mapped = true)
+    val response = createResponse(generateJson(metaDataResults))
+    val actor = system.actorOf(Props(classOf[MetaDataResponseProcessingActor], mapper))
+
+    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig, SeqNo)
+    val result = expectMsgType[MetaDataResponseProcessingResult]
+    result.metaData should contain theSameElementsAs mappedResults
+  }
+
   it should "apply a size restriction when processing a response" in {
-    val response = createResponse(generateJson(createProcessingResults(32)))
+    val response = createResponse(generateJson(createProcessingResults(32, mapped = false)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
     actor ! ProcessResponse(TestMediumID, Try(response),
@@ -167,7 +212,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
   }
 
   it should "allow cancellation of the current stream" in {
-    val responseData = generateJson(createProcessingResults(64))
+    val responseData = generateJson(createProcessingResults(64, mapped = false))
     val jsonStrings = responseData.grouped(64)
       .map(ByteString(_))
     val source = Source[ByteString](jsonStrings.toList).delay(1.second,
@@ -189,13 +234,14 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val Result = 42
     val props = Props(new MetaDataResponseProcessingActor {
       override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                          seqNo: Int): (Future[Any], KillSwitch) =
+                                           config: HttpArchiveConfig, seqNo: Int):
+      (Future[Any], KillSwitch) =
         (Future.successful(Result), killSwitch)
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
     actor ! ProcessResponse(TestMediumID,
-      Try(createResponse(generateJson(createProcessingResults(2)))), DefaultArchiveConfig,
-      SeqNo)
+      Try(createResponse(generateJson(createProcessingResults(2, mapped = false)))),
+      DefaultArchiveConfig, SeqNo)
     expectMsg(Result)
 
     actor receive CancelStreams

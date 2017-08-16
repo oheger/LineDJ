@@ -20,6 +20,7 @@ import akka.stream.{KillSwitch, KillSwitches}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
@@ -61,7 +62,8 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     *             produce a result object.
     */
   override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                       seqNo: Int): (Future[Any], KillSwitch) = {
+                                       config: HttpArchiveConfig, seqNo: Int):
+  (Future[Any], KillSwitch) = {
     val sink = Sink.fold[ByteString, ByteString](ByteString())(_ ++ _)
     val (killSwitch, futureResult) = source
       .viaMat(KillSwitches.single)(Keep.right)
