@@ -17,21 +17,20 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import java.io.IOException
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
-.DownloadOperationStarted
+import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-.DownloadOperationRequest
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor.DownloadOperationRequest
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}
@@ -52,6 +51,8 @@ object HttpDownloadManagementActorSpec {
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
+
+  private val Credentials = UserCredentials("foo", "bar")
 
   /**
     * A data class storing information about child actors created by the test
@@ -355,6 +356,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private def createConfig(): HttpArchiveConfig = {
       val config = mock[HttpArchiveConfig]
       when(config.archiveURI).thenReturn(Uri(ArchiveUri))
+      when(config.credentials).thenReturn(Credentials)
       config
     }
 
@@ -405,6 +407,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
         Future[(HttpResponse, DownloadOperationRequest)] = {
           mat should not be null
           request.method should be(HttpMethods.GET)
+          request.headers should contain(Authorization(BasicHttpCredentials(Credentials.userName,
+            Credentials.password)))
           data.request should be(expectedRequest)
           data.client should be(testActor)
           request.uri should be(Uri(data.request.uri))

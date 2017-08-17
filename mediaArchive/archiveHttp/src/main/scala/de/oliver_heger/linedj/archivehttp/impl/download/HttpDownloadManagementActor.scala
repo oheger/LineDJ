@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
@@ -157,7 +158,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     val downloadOp = DownloadOperationRequest(req, sender())
     val flow = fetchHttpFlow()
 
-    Future(HttpRequest(uri = Uri(req.uri))) flatMap { downloadRequest =>
+    Future(createDownloadRequest(req)) flatMap { downloadRequest =>
       sendRequest(downloadRequest, downloadOp, flow)
     } onComplete {
       case Success(t) =>
@@ -167,6 +168,17 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
         downloadOp.client ! MediumFileResponse(req, None, -1)
     }
   }
+
+  /**
+    * Creates the request to download the requested file.
+    *
+    * @param req the ''MediumFileRequest''
+    * @return the HTTP request to start the download operation
+    */
+  private def createDownloadRequest(req: MediumFileRequest): HttpRequest =
+    HttpRequest(uri = Uri(req.uri),
+      headers = List(Authorization(BasicHttpCredentials(config.credentials.userName,
+        config.credentials.password))))
 
   /**
     * Processes a successful response for a request to download a file.
