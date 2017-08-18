@@ -141,26 +141,6 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     mediaMap should be(mediaMap1 ++ mediaMap2)
   }
 
-  it should "handle a request for medium files" in {
-    val mediaMap = Map(mediaMapping(1, 1))
-    val mid = mediumID(1, 1)
-    val filesMsg = GetMediumFiles(mid)
-    val controller = ForwardTestActor()
-    val helper = new MediaUnionActorTestHelper
-    helper.addMedia(mediaMap, 1, controller)
-
-    helper.manager ! filesMsg
-    expectMsg(ForwardTestActor.ForwardedMessage(filesMsg))
-  }
-
-  it should "handle an invalid request for medium files" in {
-    val mid = mediumID(1, 1)
-    val helper = new MediaUnionActorTestHelper
-
-    helper.manager ! GetMediumFiles(mid)
-    expectMsg(MediumFiles(mid, Set.empty, existing = false))
-  }
-
   it should "handle a request for a medium file" in {
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
@@ -248,8 +228,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val ctrl = helper.addMedia(mediaMap, 1)
 
     stopActor(ctrl.ref)
-    helper.manager ! GetMediumFiles(mediumID(1, 1))
-    expectMsgType[MediumFiles].existing shouldBe false
+    helper.manager ! MediumFileRequest(mediumID(1, 1), "someUri", withMetaData = true)
+    expectMsgType[MediumFileResponse].contentReader shouldBe 'empty
   }
 
   it should "use the sender as controller actor if not specified explicitly" in {
@@ -321,7 +301,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     private val closeCompleteCount = new AtomicInteger
 
     /** Stores actors to be handled by a close request. */
-    private var closeActors = Iterable.empty[ActorRef]
+    private var closeActors: Iterable[ActorRef] = Iterable.empty[ActorRef]
 
     /**
       * Sends a query for available media to the test actor and returns the

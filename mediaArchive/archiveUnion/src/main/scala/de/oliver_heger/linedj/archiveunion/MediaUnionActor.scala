@@ -36,16 +36,6 @@ object MediaUnionActor {
     */
   def apply(metaDataUnionActor: ActorRef): Props =
     Props(classOf[MediaUnionActorImpl], metaDataUnionActor)
-
-  /**
-    * Generates a ''MediumFiles'' object as response for a request which
-    * cannot be resolved.
-    *
-    * @param req the request
-    * @return the ''MediumFiles'' to answer this request
-    */
-  private def undefinedMediumFiles(req: GetMediumFiles): MediumFiles =
-    MediumFiles(req.mediumID, Set.empty, existing = false)
 }
 
 /**
@@ -66,8 +56,6 @@ object MediaUnionActor {
   *  - An [[AddMedia]] message has to be sent to this actor with media data to
   * be added to the union archive. The sending actor becomes the controller
   * actor for this data (unless another actor is specified in the message).
-  *  - A [[GetMediumFiles]] request for a medium ID is forwarded to the
-  * controller actor for the affected medium.
   *  - A [[MediumFileRequest]] for a file is forwarded to the controller actor
   * for the medium the file belongs to. File download then takes place between
   * this actor and the sender of the request.
@@ -92,8 +80,6 @@ object MediaUnionActor {
 class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
 
-  import MediaUnionActor._
-
   /** The map with the currently available media. */
   private var availableMedia = AvailableMedia(Map.empty)
 
@@ -110,9 +96,6 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       controllerMap += compID -> controller
       context watch controller
       log.info(s"Received AddMedia message from component $compID.")
-
-    case filesReq: GetMediumFiles =>
-      forwardToController(filesReq.mediumID, filesReq)(undefinedMediumFiles)
 
     case fileReq: MediumFileRequest =>
       forwardToController(fileReq.mediumID, fileReq)(undefinedMediumFileResponse)
