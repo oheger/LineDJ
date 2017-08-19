@@ -56,5 +56,23 @@ trait HttpRequestSupport[T] {
       .via(flow)
       .runWith(Sink.last[(Try[HttpResponse], T)])
       .map(f => (f._1.get, f._2))
-      .filter(_._1.status.isSuccess())
+        .map ( handleFailedResponse)
+
+  /**
+    * Checks whether the response is a failure. In this case, it is transformed
+    * to a special ''FailedRequestException''. It is also necessary to discard
+    * the body.
+    *
+    * @param t   the tuple with the response and the data object
+    * @param mat the object to materialize streams
+    * @return the transformed tuple
+    */
+  private def handleFailedResponse(t: (HttpResponse, T))(implicit mat: Materializer):
+  (HttpResponse, T) = {
+    if (!t._1.status.isSuccess()) {
+      t._1.discardEntityBytes()
+      throw FailedRequestException(t._1)
+    }
+    t
+  }
 }

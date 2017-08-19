@@ -18,14 +18,18 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.TestKit
+import akka.util.ByteString
+import org.mockito.Mockito._
+import org.mockito.Matchers.any
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 
 object HttpRequestSupportSpec {
@@ -40,7 +44,7 @@ object HttpRequestSupportSpec {
   * Test class for ''HttpRequestSupport''.
   */
 class HttpRequestSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("HttpRequestSupportSpec"))
 
   import HttpRequestSupportSpec._
@@ -58,8 +62,8 @@ class HttpRequestSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def checkRequestExecution(response: Try[HttpResponse]):
   Future[(HttpResponse, String)] = {
-    implicit val mat = ActorMaterializer()
-    implicit val ec = system.dispatcher
+    implicit val mat: ActorMaterializer = ActorMaterializer()
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
     val sender = new HttpRequestSupport[String] {}
     sender.sendRequest(TestRequest, TestData, createTestHttpFlow(response))
   }
@@ -115,6 +119,16 @@ class HttpRequestSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
   it should "return a failed future for a non-success response" in {
     val response = HttpResponse(status = StatusCodes.BadRequest)
 
-    checkFailedRequestExecution(Try(response)) shouldBe a[NoSuchElementException]
+    checkFailedRequestExecution(Try(response)) should be(FailedRequestException(response))
+  }
+
+  it should "discard the body of a failed response" in {
+    val content = ByteString("This is the body of the test response.")
+    val entity = mock[ResponseEntity]
+    when(entity.dataBytes).thenReturn(Source.single(content))
+    val response = HttpResponse(status = StatusCodes.Unauthorized, entity = entity)
+    checkFailedRequestExecution(Try(response))
+
+    verify(entity).discardBytes(any())
   }
 }
