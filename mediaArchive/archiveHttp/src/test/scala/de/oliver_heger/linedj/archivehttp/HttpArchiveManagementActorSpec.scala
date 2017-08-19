@@ -17,11 +17,13 @@
 package de.oliver_heger.linedj.archivehttp
 
 import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
+import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Flow
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -31,7 +33,7 @@ import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
@@ -48,6 +50,9 @@ import scala.util.Try
 object HttpArchiveManagementActorSpec {
   /** URI to the test music archive. */
   private val ArchiveURIStr = "https://my.music.la/content.json"
+
+  /** Constant for an archive name. */
+  private val ArchiveName = "MyMusic"
 
   /** The test archive configuration. */
   private val ArchiveConfig = createArchiveConfig()
@@ -78,7 +83,7 @@ object HttpArchiveManagementActorSpec {
       maxContentSize = 256, processorTimeout = Timeout(1.minute),
       credentials = UserCredentials("scott", "tiger"), downloadConfig = null,
       downloadBufferSize = 1024, downloadMaxInactivity = 1.minute,
-      downloadReadChunkSize = 4000, timeoutReadChunkSize = 2222, archiveName = "Foo",
+      downloadReadChunkSize = 4000, timeoutReadChunkSize = 2222, archiveName = ArchiveName,
       mappingConfig = null)
 
   /**
@@ -270,9 +275,19 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "not send a process request for a response error" in {
-    val helper = new HttpArchiveManagementActorTestHelper(successResponse = false)
+    val helper = new HttpArchiveManagementActorTestHelper
 
-    helper.triggerScan().expectNoProcessingRequest()
+    helper.initArchiveResponse(Future.failed(new Exception)).triggerScan()
+      .expectNoProcessingRequest()
+  }
+
+  it should "recover from an error, so that a new request can be processed" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.initArchiveResponse(Future.failed(new Exception)).triggerScan()
+      .initArchiveResponse(null).triggerScan()
+      .expectProcessingRequest()
+    helper.expectNoMoreUnionArchiveInteraction()
   }
 
   it should "send data for processing results to the union archive" in {
@@ -457,13 +472,100 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     expectMsg(ForwardedMessage(request))
   }
 
+  it should "return the correct initial state" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.checkArchiveState(HttpArchiveStateDisconnected)
+  }
+
+  it should "return a success state if it is ready" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+
+    helper.sendProcessingComplete(request.seqNo)
+      .checkArchiveState(HttpArchiveStateConnected)
+  }
+
+  it should "switch to a success state as soon as info data comes in" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val infoResults = createInfoResults(request.seqNo, 1)
+
+    helper.sendMessages(infoResults)
+      .checkArchiveState(HttpArchiveStateConnected)
+  }
+
+  it should "switch to a success state as soon as meta data comes in" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    val metaResults = createMetaDataProcessingResults(request.seqNo, 1)
+
+    helper.sendMessages(metaResults)
+      .checkArchiveState(HttpArchiveStateConnected)
+  }
+
+  it should "not answer a state request while loading data" in {
+    implicit val timeout: Timeout = Timeout(100.millis)
+    val helper = new HttpArchiveManagementActorTestHelper
+    helper.triggerScan()
+
+    val futState = helper.manager ? HttpArchiveStateRequest
+    intercept[AskTimeoutException] {
+      Await.result(futState, 10.seconds)
+    }
+  }
+
+  it should "answer a state request when the state becomes available" in {
+    val probe = TestProbe()
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+
+    helper.manager.tell(HttpArchiveStateRequest, probe.ref)
+    helper.manager ! HttpArchiveStateRequest
+    helper.manager.tell(HttpArchiveStateRequest, probe.ref)
+    helper.sendProcessingComplete(request.seqNo)
+    val expState = HttpArchiveStateResponse(ArchiveName, HttpArchiveStateConnected)
+    expectMsg(expState)
+    probe.expectMsg(expState)
+    expectNoMoreMsg(probe) // check that message was sent only once
+  }
+
+  it should "reset the set of pending archive state clients" in {
+    val probe = TestProbe()
+    val helper = new HttpArchiveManagementActorTestHelper
+    val request = helper.triggerScan().expectProcessingRequest()
+    helper.manager.tell(HttpArchiveStateRequest, probe.ref)
+    helper.sendProcessingComplete(request.seqNo)
+    probe.expectMsgType[HttpArchiveStateResponse]
+
+    val request2 = helper.triggerScan().expectProcessingRequest()
+    helper.sendProcessingComplete(request2.seqNo)
+    expectNoMoreMsg(probe)
+  }
+
+  it should "return a server error state if the server could not be contacted" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val exception = new Exception("Server not reachable!")
+
+    helper.initArchiveResponse(Future.failed(exception))
+      .triggerScan()
+      .checkArchiveState(HttpArchiveStateServerError(exception))
+  }
+
+  it should "return a request failed state if the request was not successful" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+    val status = StatusCodes.Unauthorized
+    val response = HttpResponse(status = status)
+
+    helper.initArchiveResponse(Future.failed(FailedRequestException(response)))
+      .triggerScan()
+      .checkArchiveState(HttpArchiveStateFailedRequest(status))
+  }
+
   /**
     * A test helper class managing all dependencies of a test actor instance.
-    *
-    * @param successResponse flag whether the archive request should be
-    *                        successful
     */
-  private class HttpArchiveManagementActorTestHelper(successResponse: Boolean = true) {
+  private class HttpArchiveManagementActorTestHelper {
     /** Test probe for the union media manager actor. */
     val probeUnionMediaManager = TestProbe()
 
@@ -496,6 +598,12 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     /** The actor to be tested. */
     val manager: TestActorRef[HttpArchiveManagementActor] = createTestActor()
+
+    /**
+      * Stores a future response to be returned for a request of the archive's
+      * content file.
+      */
+    private val archiveResponse = new AtomicReference[Future[(HttpResponse, RequestData)]]
 
     /**
       * Sends a message directly to the test actor.
@@ -629,6 +737,35 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     }
 
     /**
+      * Allows setting an explicit response to be returned by the request to
+      * the HTTP archive's content file. If no response was set, a successful
+      * response is generated automatically.
+      *
+      * @param response the future with the response
+      * @return this test helper
+      */
+    def initArchiveResponse(response: Future[(HttpResponse, RequestData)]):
+    HttpArchiveManagementActorTestHelper = {
+      archiveResponse.set(response)
+      this
+    }
+
+    /**
+      * Queries the current state from the test archive and compares it with
+      * the expected state.
+      *
+      * @param expState the expected state
+      * @return this test helper
+      */
+    def checkArchiveState(expState: HttpArchiveState): HttpArchiveManagementActorTestHelper = {
+      post(HttpArchiveStateRequest)
+      val stateResponse = expectMsgType[HttpArchiveStateResponse]
+      stateResponse.archiveName should be(ArchiveName)
+      stateResponse.state should be(expState)
+      this
+    }
+
+    /**
       * Creates the test actor.
       *
       * @return the test actor
@@ -666,8 +803,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
           data.mediumDesc should be(null)
           request should be(ArchiveRequest)
           flow should be(httpFlow)
-          if (successResponse) Future((createSuccessResponse(), data))
-          else Future.failed(new Exception("Failure"))
+          val resp = archiveResponse.get()
+          if(resp != null) resp else Future((createSuccessResponse(), data))
         }
 
         /**

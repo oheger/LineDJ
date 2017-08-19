@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Source}
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveState, HttpArchiveStateConnected}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
@@ -111,9 +112,11 @@ case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
   * the content of this archive are going to be sent. The sequence number part
   * of this message identifies the scan operation this message belongs to.
   *
-  * @param seqNo the sequence number of the current scan operation
+  * @param seqNo     the sequence number of the current scan operation
+  * @param nextState the next state of the HTTP archive
   */
-case class HttpArchiveProcessingComplete(seqNo: Int)
+case class HttpArchiveProcessingComplete(seqNo: Int, nextState: HttpArchiveState =
+HttpArchiveStateConnected)
 
 /**
   * A message that indicates that processing of the response for a specific

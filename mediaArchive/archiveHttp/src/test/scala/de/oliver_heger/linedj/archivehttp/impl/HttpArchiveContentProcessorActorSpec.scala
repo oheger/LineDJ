@@ -378,7 +378,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     def fishForProcessingComplete(): ContentProcessorActorTestHelper = {
       manager.fishForMessage() {
         case _: TestProcessingResult => false
-        case HttpArchiveProcessingComplete(SeqNo) => true
+        case HttpArchiveProcessingComplete(SeqNo, _) => true
       }
       this
     }

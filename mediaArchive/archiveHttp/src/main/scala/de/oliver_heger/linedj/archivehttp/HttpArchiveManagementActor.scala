@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl, Pars
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
@@ -83,6 +83,21 @@ object HttpArchiveManagementActor {
                                   lastChunk: Boolean):
   (Iterable[HttpMediumDesc], Option[Failure]) =
     parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), null, lastChunk, lastFailure)
+
+  /**
+    * Maps the specified exception to a state object for the current archive.
+    * Some exceptions have to be treated in a special way.
+    *
+    * @param ex the exception
+    * @return the corresponding ''HttpArchiveState''
+    */
+  private def stateFromException(ex: Throwable): HttpArchiveState =
+    ex match {
+      case FailedRequestException(response) =>
+        HttpArchiveStateFailedRequest(response.status)
+      case _ =>
+        HttpArchiveStateServerError(ex)
+    }
 }
 
 /**
@@ -114,7 +129,7 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
   private val UnusedReqData = RequestData(null, null)
 
   /** Object for materializing streams. */
-  private implicit val materializer = ActorMaterializer()
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   /** The archive content processor actor. */
   private var archiveContentProcessor: ActorRef = _
@@ -133,13 +148,13 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     Flow[(HttpRequest, RequestData), (Try[HttpResponse], RequestData), Any] = _
 
   /** A list with information of media discovered during a scan operation. */
-  private var mediaInfo = List.empty[MediumInfo]
+  private var mediaInfo: List[MediumInfo] = List.empty[MediumInfo]
 
   /**
     * A list with information about files per medium constructed during a
     * scan operation.
     */
-  private var fileInfo = List.empty[(MediumID, Iterable[FileData])]
+  private var fileInfo: List[(MediumID, Iterable[FileData])] = List.empty[(MediumID, Iterable[FileData])]
 
   /** A set with meta data objects aggregated during a scan operation. */
   private var metaData = Set.empty[MetaDataProcessingSuccess]
@@ -155,6 +170,17 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     * ignored.)
     */
   private var seqNo = 0
+
+  /**
+    * Stores a response for a request to the archive's current state.
+    */
+  private var archiveStateResponse: Option[HttpArchiveStateResponse] = None
+
+  /**
+    * A set with clients that asked for the archive's state, but could not be
+    * served so far because a load operation was in progress.
+    */
+  private var pendingStateClients = Set.empty[ActorRef]
 
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
@@ -172,6 +198,7 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))
     httpFlow = createHttpFlow[RequestData](config.archiveURI)
+    updateArchiveState(HttpArchiveStateDisconnected)
   }
 
   override def receive: Receive = {
@@ -180,12 +207,14 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
 
     case MediumInfoResponseProcessingResult(info, sn) if sn == seqNo =>
       mediaInfo = info :: mediaInfo
+      updateArchiveState(HttpArchiveStateConnected)
 
     case MetaDataResponseProcessingResult(mid, meta, sn) if sn == seqNo =>
       fileInfo = (mid, meta.map(m => FileData(m.path, m.metaData.size))) :: fileInfo
       metaData ++= meta
+      updateArchiveState(HttpArchiveStateConnected)
 
-    case HttpArchiveProcessingComplete(sn) if sn == seqNo =>
+    case HttpArchiveProcessingComplete(sn, nextState) if sn == seqNo =>
       val validMedia = completeMedia
       if (validMedia.nonEmpty) {
         unionMediaManager ! createAddMediaMsg(validMedia)
@@ -193,10 +222,19 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
         filteredMetaDataResults(validMedia) foreach unionMetaDataManager.!
         dataInUnionArchive = true
       }
+      updateArchiveState(nextState)
       completeScanOperation()
 
     case req: MediumFileRequest =>
       downloadManagementActor forward req
+
+    case HttpArchiveStateRequest =>
+      archiveStateResponse match {
+        case Some(response) =>
+          sender ! response
+        case None =>
+          pendingStateClients += sender()
+      }
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams
@@ -211,18 +249,22 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     */
   private def startArchiveProcessing(): Unit = {
     scanInProgress = true
+    archiveStateResponse = None
     if (dataInUnionArchive) {
       unionMediaManager ! ArchiveComponentRemoved(config.archiveURI.toString())
       dataInUnionArchive = false
     }
 
-    loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1)
-      } onComplete {
+    val currentSeqNo = seqNo
+    loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1, currentSeqNo)
+    } onComplete {
       case Success(req) =>
         archiveContentProcessor ! req
       case scala.util.Failure(ex) =>
         log.error(ex, "Could not load content document for archive " +
           config.archiveURI)
+        self ! HttpArchiveProcessingComplete(currentSeqNo,
+          nextState = stateFromException(ex))
     }
   }
 
@@ -230,15 +272,17 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     * Creates a request to process an HTTP archive from the given response for
     * the archive's content document.
     *
-    * @param resp the response from the archive
+    * @param resp     the response from the archive
+    * @param curSeqNo the current sequence number for the message
     * @return the processing request message
     */
-  private def createProcessArchiveRequest(resp: HttpResponse): ProcessHttpArchiveRequest = {
+  private def createProcessArchiveRequest(resp: HttpResponse, curSeqNo: Int):
+  ProcessHttpArchiveRequest = {
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
       archiveActor = self, mediaSource = resp.entity.dataBytes.via(parseStage),
-      seqNo = seqNo)
+      seqNo = curSeqNo)
   }
 
   /**
@@ -272,6 +316,21 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     metaData = Set.empty
     scanInProgress = false
     seqNo += 1
+  }
+
+  /**
+    * Updates the current archive state. If there are clients waiting for a
+    * state notification, they are notified now.
+    *
+    * @param state the new state
+    */
+  private def updateArchiveState(state: HttpArchiveState): Unit = {
+    log.info("Next archive state: {}.", state)
+    val response = HttpArchiveStateResponse(config.archiveName, state)
+    archiveStateResponse = Some(response)
+
+    pendingStateClients foreach(_ ! response)
+    pendingStateClients = Set.empty
   }
 
   /**
