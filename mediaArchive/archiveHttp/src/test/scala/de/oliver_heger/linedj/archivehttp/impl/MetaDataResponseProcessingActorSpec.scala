@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, StatusCodes, Uri}
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
@@ -28,6 +28,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
+import org.mockito.Matchers.any
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -150,7 +151,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     errMsg.exception.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
   }
 
-  it should "directly react on a Failure for the response" in {
+  it should "directly react on an exception when receiving the response" in {
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
     val exception = new Exception("Failed response")
     val triedResponse = Try[HttpResponse](throw exception)
@@ -160,6 +161,16 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     errMsg.mediumID should be(TestMediumID)
     errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
     errMsg.exception should be(exception)
+  }
+
+  it should "discard the entity when receiving a failure response" in {
+    val entity = mock[ResponseEntity]
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+    val response = HttpResponse(status = StatusCodes.BadRequest, entity = entity)
+
+    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
+    expectMsgType[ResponseProcessingError]
+    verify(entity).discardBytes(any())
   }
 
   it should "handle a successful response" in {

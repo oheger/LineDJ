@@ -121,6 +121,7 @@ abstract class AbstractResponseProcessingActor(val fileType: String)
         } else {
           sender() ! ResponseProcessingError(mid, fileType,
             new IllegalStateException(s"Failed response: ${response.status}"))
+          response.discardEntityBytes()
         }
       case Failure(exception) =>
         sender() ! ResponseProcessingError(mid, fileType, exception)
