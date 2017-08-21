@@ -29,9 +29,6 @@ object MediaArchiveConfigSpec {
   /** The reader check interval. */
   private val ReaderCheckInterval = 10.minutes
 
-  /** The reader check delay. */
-  private val ReaderCheckDelay = 5.minutes
-
   /** Test root object. */
   private val MusicRoot = MediaArchiveConfig.MediaRootData(Paths get "music1", 3, None)
 
@@ -71,6 +68,18 @@ object MediaArchiveConfigSpec {
   /** Test value for the meta data persistence write block size. */
   private val MetaDataPersistenceWriteBlockSize = 40
 
+  /** Test path to the content file of the media archive. */
+  private val TocFile = "path/to/media/content.json"
+
+  /** Test remove prefix for medium description files. */
+  private val TocRemoveDescPrefix = "C:\\data\\music\\archive\\"
+
+  /** Test prefix for URIs in the archive ToC. */
+  private val TocRootPrefix = "/remote/archive"
+
+  /** Test prefix for meta data files. */
+  private val TocMetaDataPrefix = "/metadata"
+
   /**
     * Creates a test (commons) configuration with the settings used by this
     * test class.
@@ -100,6 +109,12 @@ object MediaArchiveConfigSpec {
     config.addProperty("media.metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount)
     config.addProperty("media.metaDataPersistence.writeBlockSize",
       MetaDataPersistenceWriteBlockSize)
+    config.addProperty("media.toc.file", TocFile)
+    config.addProperty("media.toc.descRemovePrefix", TocRemoveDescPrefix)
+    config.addProperty("media.toc.descPathSeparator", "\\")
+    config.addProperty("media.toc.descUrlEncoding", true)
+    config.addProperty("media.toc.rootPrefix", TocRootPrefix)
+    config.addProperty("media.toc.metaDataPrefix", TocMetaDataPrefix)
 
     config
   }
@@ -190,5 +205,34 @@ with Matchers with BeforeAndAfterAll {
   it should "return a sequence of root paths" in {
     val paths = createCConfig().mediaRootPaths
     paths should contain only(MusicRoot.rootPath.toString, CDRomRoot.rootPath.toString)
+  }
+
+  it should "contain a config for the archive's ToC" in {
+    val tocConfig = createCConfig().contentTableConfig
+
+    tocConfig.contentFile should be(Some(Paths.get(TocFile)))
+    tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix)
+    tocConfig.descriptionPathSeparator should be("\\")
+    tocConfig.rootPrefix should be(TocRootPrefix)
+    tocConfig.metaDataPrefix should be(TocMetaDataPrefix)
+    tocConfig.descriptionUrlEncoding shouldBe true
+  }
+
+  it should "use default values for the ToC config" in {
+    val config = createHierarchicalConfig()
+    config.clearProperty("media.toc.file")
+    config.clearProperty("media.toc.descRemovePrefix")
+    config.clearProperty("media.toc.descPathSeparator")
+    config.clearProperty("media.toc.descUrlEncoding")
+    config.clearProperty("media.toc.rootPrefix")
+    config.clearProperty("media.toc.metaDataPrefix")
+    val tocConfig = MediaArchiveConfig(config).contentTableConfig
+
+    tocConfig.contentFile shouldBe 'empty
+    tocConfig.descriptionRemovePrefix should be(null)
+    tocConfig.descriptionPathSeparator should be(null)
+    tocConfig.rootPrefix should be("")
+    tocConfig.metaDataPrefix should be("")
+    tocConfig.descriptionUrlEncoding shouldBe false
   }
 }

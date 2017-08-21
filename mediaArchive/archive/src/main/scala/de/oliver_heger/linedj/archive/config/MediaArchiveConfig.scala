@@ -79,6 +79,49 @@ object MediaArchiveConfig {
   /** Constant for the accessRestriction property of a media root object. */
   private val RootPropAccessRestriction = "accessRestriction"
 
+  /** Prefix for properties for the ToC of an archive. */
+  private val ToCPrefix = CConfigPrefix + "toc."
+
+  /** The configuration property for the file where to store the archive ToC. */
+  private val PropTocFile = ToCPrefix + "file"
+
+  /**
+    * The configuration property for prefix to be removed from a medium
+    * description path when writing the archive's ToC.
+    */
+  private val PropTocDescRemovePrefix = ToCPrefix + "descRemovePrefix"
+
+  /**
+    * The configuration property for the path separator in medium description
+    * files. This has to be treated in a special way if URI encoding is
+    * enabled.
+    */
+  private val PropTocDescPatSeparator = ToCPrefix + "descPathSeparator"
+
+  /**
+    * The configuration property for the flag whether URL encoding has to be
+    * applied to the paths to medium description files when generating their
+    * URIs in the archive ToC.
+    */
+  private val PropTocDescUrlEncoding = ToCPrefix + "descUrlEncoding"
+
+  /**
+    * The configuration property for the prefix for medium description files.
+    * When writing the ToC this prefix is added to the paths to medium
+    * description files.
+    */
+  private val PropTocRootPrefix = ToCPrefix + "rootPrefix"
+
+  /**
+    * The configuration property for the prefix for meta data files. When
+    * writing the ToC it is assumed that all meta data files are located in a
+    * directory defined by this setting.
+    */
+  private val PropTocMetaDataPrefix = ToCPrefix + "metaDataPrefix"
+
+  /** Constant for an empty prefix. */
+  private val EmptyPrefix = ""
+
   /**
     * Creates a new instance of ''ServerConfig'' based on the passed in
     * ''HierarchicalConfiguration'' object.
@@ -99,7 +142,8 @@ object MediaArchiveConfig {
     metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
     excludedFileExtensions = obtainExcludedExtensions(config),
     rootMap = createMediaData(config),
-    downloadConfig = DownloadConfig(config))
+    downloadConfig = DownloadConfig(config),
+    contentTableConfig = createTocConfig(config))
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -185,10 +229,36 @@ object MediaArchiveConfig {
   Map(mediaRoots map (r => (r.rootPath, r)): _*)
 
   /**
+    * Extracts the settings for the ''ArchiveContentTableConfig'' from the
+    * given configuration object.
+    *
+    * @param c the configuration
+    * @return the config for the table of content
+    */
+  private def createTocConfig(c: Configuration): ArchiveContentTableConfig =
+    ArchiveContentTableConfig(contentFile = extractTocPath(c),
+      descriptionRemovePrefix = c getString PropTocDescRemovePrefix,
+      descriptionPathSeparator = c getString PropTocDescPatSeparator,
+      descriptionUrlEncoding = c.getBoolean(PropTocDescUrlEncoding, false),
+      rootPrefix = c.getString(PropTocRootPrefix, EmptyPrefix),
+      metaDataPrefix = c.getString(PropTocMetaDataPrefix, EmptyPrefix))
+
+  /**
+    * Extracts the path for the file where to store the ToC (if any) from the
+    * given configuration.
+    *
+    * @param c the configuration
+    * @return an ''Option'' for the path extracted
+    */
+  private def extractTocPath(c: Configuration): Option[Path] =
+    Option(c getString PropTocFile).map(Paths.get(_))
+
+  /**
    * A data class storing information about a media root. A media root is a
    * directory structure that contains media files. In addition to the actual
    * root path, some meta data is provided which is needed while processing
    * this structure.
+ *
    * @param rootPath the root path to the structure
    * @param processorCount the number of parallel processors during meta data
    *                       extraction
@@ -239,6 +309,7 @@ object MediaArchiveConfig {
  * @param excludedFileExtensions the set with file extensions (in upper case)
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
+ * @param contentTableConfig the config for the archives's table of content
  */
 case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataReadChunkSize: Int,
@@ -252,7 +323,8 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataPersistenceParallelCount: Int,
                                               metaDataPersistenceWriteBlockSize: Int,
                                               excludedFileExtensions: Set[String],
-                                              rootMap: Map[Path, MediaRootData]) {
+                                              rootMap: Map[Path, MediaRootData],
+                                              contentTableConfig: ArchiveContentTableConfig) {
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
@@ -296,3 +368,41 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
     else (initMetaDataMaxMsgSize / metaDataUpdateChunkSize + 1) * metaDataUpdateChunkSize
   }
 }
+
+/**
+  * A class defining configuration options for the "table of content" of a
+  * media archive.
+  *
+  * If defined, an archive writes a JSON document in a standard format that
+  * lists all defined media and their meta data files. This can be useful, for
+  * instance, to export this data to an HTTP archive.
+  *
+  * When writing such a content file, some transformations have to be done
+  * depending on the layout of the target structure. These are defined here.
+  * Basically, the single media are identified by the path to their medium
+  * description file. As this file is typically an OS-specific absolute path,
+  * it has to be transformed to a relative URI. This is done by removing a
+  * prefix (for the absolute path), adding an optional other prefix (for the
+  * target location on a server) and doing URI encoding on all path components.
+  *
+  * Relative URIs for meta data files are generated as well. They are derived
+  * from the checksum of the medium and located under a configurable prefix.
+  *
+  * @param contentFile              the path to the content file to be written;
+  *                                 if undefined, no content file is created
+  * @param descriptionRemovePrefix  a prefix to be removed from the path to
+  *                                 medium description files; can be undefined,
+  *                                 then no prefix is removed
+  * @param descriptionPathSeparator the separator character used in the path to
+  *                                 the medium description file
+  * @param descriptionUrlEncoding   flag whether for medium description paths
+  *                                 URL encoding is required
+  * @param rootPrefix               the prefix to be added to description files
+  * @param metaDataPrefix           the prefix to be added to meta data files
+  */
+case class ArchiveContentTableConfig(contentFile: Option[Path],
+                                     descriptionRemovePrefix: String,
+                                     descriptionPathSeparator: String,
+                                     descriptionUrlEncoding: Boolean,
+                                     rootPrefix: String,
+                                     metaDataPrefix: String)
