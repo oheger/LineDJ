@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
@@ -262,7 +263,13 @@ object HttpArchiveConfig {
   * @param urlEncode    flag whether the URI needs to be encoded
   */
 case class UriMappingConfig(removePrefix: String, uriTemplate: String,
-                            pathSeparator: String, urlEncode: Boolean)
+                            pathSeparator: String, urlEncode: Boolean) extends UriMappingSpec {
+  override val prefixToRemove: String = removePrefix
+
+  override val urlEncoding: Boolean = urlEncode
+
+  override val uriPathSeparator: String = pathSeparator
+}
 
 /**
   * A class defining the configuration settings to be applied for an HTTP

@@ -14,11 +14,18 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivecommon.uri
 
-import de.oliver_heger.linedj.archivehttp.config.UriMappingConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.{FlatSpec, Matchers}
+
+/**
+  * Implementation of the mapping spec.
+  */
+case class UriMappingSpecImpl(override val prefixToRemove: String,
+                              override val uriTemplate: String,
+                              override val uriPathSeparator: String,
+                              override val urlEncoding: Boolean) extends UriMappingSpec
 
 object UriMapperSpec {
   /** Path to the test medium. */
@@ -28,9 +35,9 @@ object UriMapperSpec {
   private val UriPrefix = "path://"
 
   /** A default mapping configuration. */
-  private val MappingConfig = UriMappingConfig(removePrefix = UriPrefix,
-    uriTemplate = "${medium}/songs/${uri}", urlEncode = false,
-    pathSeparator = null)
+  private val MappingConfig = UriMappingSpecImpl(prefixToRemove = UriPrefix,
+    uriTemplate = "${medium}/songs/${uri}", urlEncoding = false,
+    uriPathSeparator = null)
 
   /** A test medium ID. */
   private val TestMedium = MediumID("someMedium", Some(MediumPath + "/playlist.settings"))
@@ -51,7 +58,7 @@ class UriMapperSpec extends FlatSpec with Matchers {
     * @param mid    the medium ID
     * @return the resulting URI
     */
-  private def mapUri(u: String, config: UriMappingConfig = MappingConfig,
+  private def mapUri(u: String, config: UriMappingSpec = MappingConfig,
                      mid: MediumID = TestMedium): Option[String] = {
     val mapper = new UriMapper
     mapper.mapUri(config, mid, u)
@@ -86,20 +93,20 @@ class UriMapperSpec extends FlatSpec with Matchers {
     val uri = "someFile.mp3"
     val exp = MediumPath + "/songs/someFile.mp3"
 
-    mapUri(uri, config = MappingConfig.copy(removePrefix = null)).get should be(exp)
+    mapUri(uri, config = MappingConfig.copy(prefixToRemove = null)).get should be(exp)
   }
 
   it should "apply URL encoding" in {
     val uri = UriPrefix + "a/test song.mp3"
     val exp = MediumPath + "/songs/a%2Ftest%20song.mp3"
 
-    mapUri(uri, config = MappingConfig.copy(urlEncode = true)).get should be(exp)
+    mapUri(uri, config = MappingConfig.copy(urlEncoding = true)).get should be(exp)
   }
 
   it should "URL encode URIs with multiple path components" in {
     val uri = UriPrefix + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
     val exp = MediumPath + "/songs/Prince%20-%20%281988%29%20-%20Lovesexy/03%20-%20Glam%20Slam.mp3"
-    val config = MappingConfig.copy(urlEncode = true, pathSeparator = "/")
+    val config = MappingConfig.copy(urlEncoding = true, uriPathSeparator = "/")
 
     mapUri(uri, config = config).get should be(exp)
   }

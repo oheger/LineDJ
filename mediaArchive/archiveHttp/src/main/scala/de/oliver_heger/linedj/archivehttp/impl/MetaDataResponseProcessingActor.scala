@@ -20,6 +20,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
+import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess

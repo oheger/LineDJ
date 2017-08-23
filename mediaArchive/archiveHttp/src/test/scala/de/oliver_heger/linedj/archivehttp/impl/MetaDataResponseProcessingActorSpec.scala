@@ -22,6 +22,7 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
+import de.oliver_heger.linedj.archivecommon.uri.{UriMapper, UriMappingSpec}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig, UserCredentials}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -193,7 +194,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
         * @inheritdoc This implementation rejects all test files with an index
         *             bigger than the specified maximum index.
         */
-      override def mapUri(config: UriMappingConfig, mid: MediumID, uriOrg: String):
+      override def mapUri(config: UriMappingSpec, mid: MediumID, uriOrg: String):
       Option[String] = {
         val extPos = uriOrg.indexOf(".mp3")
         val fileIdx = uriOrg.substring(extPos - 1, extPos).toInt

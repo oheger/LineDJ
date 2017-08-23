@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl
+package de.oliver_heger.linedj.archivecommon.uri
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-import de.oliver_heger.linedj.archivehttp.config.UriMappingConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 object UriMapper {
@@ -48,10 +47,10 @@ object UriMapper {
     * @param strippedUri the URI with the prefix already removed
     * @return the resulting URI
     */
-  private def applyUriTemplate(config: UriMappingConfig, mid: MediumID, strippedUri: String):
+  private def applyUriTemplate(config: UriMappingSpec, mid: MediumID, strippedUri: String):
   String =
-    config.uriTemplate.replace("${medium}", mediumPath(mid))
-      .replace("${uri}", urlEncode(config, strippedUri))
+    config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mid))
+      .replace(UriMappingSpec.VarUri, urlEncode(config, strippedUri))
 
   /**
     * Removes the prefix from the URI if possible. If a prefix is defined, but
@@ -73,12 +72,12 @@ object UriMapper {
     * @param uri    the URI
     * @return the encoded URI
     */
-  private def urlEncode(config: UriMappingConfig, uri: String): String =
-    if (config.urlEncode) {
-      if (config.pathSeparator == null) encode(uri)
+  private def urlEncode(config: UriMappingSpec, uri: String): String =
+    if (config.urlEncoding) {
+      if (config.uriPathSeparator == null) encode(uri)
       else {
-        val components = uri split config.pathSeparator
-        components.map(encode).mkString(config.pathSeparator)
+        val components = uri split config.uriPathSeparator
+        components.map(encode).mkString(config.uriPathSeparator)
       }
     }
     else uri
@@ -97,14 +96,13 @@ object UriMapper {
   * A class that processes URIs obtained from meta data files from an HTTP
   * archive.
   *
-  * This class applies the data stored in a
-  * [[de.oliver_heger.linedj.archivehttp.config.UriMappingConfig]] to URIs
+  * This class applies the data stored in a [[UriMappingSpec]] to URIs
   * encountered in meta data files.
   *
   * If an URI cannot be mapped, the mapping function returns an empty
   * option. In this case, the file is ignored.
   */
-private class UriMapper {
+class UriMapper {
 
   import UriMapper._
 
@@ -116,7 +114,7 @@ private class UriMapper {
     * @param uriOrg the original URI to be processed
     * @return an option for the processed URI
     */
-  def mapUri(config: UriMappingConfig, mid: MediumID, uriOrg: String): Option[String] =
-    Option(uriOrg).flatMap(removePrefix(config.removePrefix, _))
+  def mapUri(config: UriMappingSpec, mid: MediumID, uriOrg: String): Option[String] =
+    Option(uriOrg).flatMap(removePrefix(config.prefixToRemove, _))
       .map(u => applyUriTemplate(config, mid, u))
 }
