@@ -124,6 +124,38 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val content = readDataFile(target)
     content.length should be < FileTestHelper.TestData.length
   }
+
+  it should "allow overriding the error handling function for write errors" in {
+    val target = createPathInDirectory("customFailureHandling").resolve("sub")
+    val actor = system.actorOf(Props(new FileWriterActorTestImpl {
+      // override to not create the directory
+      override private[stream] def createTargetDirectory(dir: Path): Path = dir
+
+      override protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
+        client ! e
+      }
+    }))
+
+    actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())), target)
+    expectMsgType[IOException]
+  }
+
+  it should "allow overriding the error handling function for create dir errors" in {
+    val exception = new IOException("Cannot create directory!")
+    val actor = system.actorOf(Props(new FileWriterActorTestImpl {
+      override private[stream] def createTargetDirectory(dir: Path): Path = {
+        throw exception
+      }
+
+      override protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
+        client ! e
+      }
+    }))
+
+    actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())),
+      Paths.get("invalid", "path"))
+    expectMsg(exception)
+  }
 }
 
 /**

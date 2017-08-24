@@ -69,7 +69,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     result match {
       case StreamFailure(ex) =>
         log.error(ex, "Could not write file! Stopping actor.")
-        context stop self
+        handleFailure(client, ex)
 
       case r =>
         super.propagateResult(client, r)
@@ -90,7 +90,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     createTargetDirectoryIfNecessary(target) match {
       case Failure(e) =>
         log.error(e, "Could not create target directory for " + target)
-        context stop self
+        handleFailure(client, e)
 
       case Success(_) =>
         val sink = FileIO toPath target
@@ -103,6 +103,17 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
         }
         processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception))
     }
+  }
+
+  /**
+    * Method to handle a (fatal) error during a write operation. This
+    * implementation stops the actor. Derived classes can define a different
+    * error handling strategy.
+    * @param client the current client actor
+    * @param e the exception that occurred
+    */
+  protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
+    context stop self
   }
 
   /**
