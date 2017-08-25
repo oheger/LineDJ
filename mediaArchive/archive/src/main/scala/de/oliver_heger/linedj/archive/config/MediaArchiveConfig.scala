@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.concurrent.duration._
@@ -118,9 +119,6 @@ object MediaArchiveConfig {
     * directory defined by this setting.
     */
   private val PropTocMetaDataPrefix = ToCPrefix + "metaDataPrefix"
-
-  /** Constant for an empty prefix. */
-  private val EmptyPrefix = ""
 
   /**
     * Creates a new instance of ''ServerConfig'' based on the passed in
@@ -240,8 +238,8 @@ object MediaArchiveConfig {
       descriptionRemovePrefix = c getString PropTocDescRemovePrefix,
       descriptionPathSeparator = c getString PropTocDescPatSeparator,
       descriptionUrlEncoding = c.getBoolean(PropTocDescUrlEncoding, false),
-      rootPrefix = c.getString(PropTocRootPrefix, EmptyPrefix),
-      metaDataPrefix = c.getString(PropTocMetaDataPrefix, EmptyPrefix))
+      rootPrefix = Option(c.getString(PropTocRootPrefix)),
+      metaDataPrefix = Option(c.getString(PropTocMetaDataPrefix)))
 
   /**
     * Extracts the path for the file where to store the ToC (if any) from the
@@ -404,5 +402,17 @@ case class ArchiveContentTableConfig(contentFile: Option[Path],
                                      descriptionRemovePrefix: String,
                                      descriptionPathSeparator: String,
                                      descriptionUrlEncoding: Boolean,
-                                     rootPrefix: String,
-                                     metaDataPrefix: String)
+                                     rootPrefix: Option[String],
+                                     metaDataPrefix: Option[String]) extends UriMappingSpec {
+  override val prefixToRemove: String = descriptionRemovePrefix
+
+  /**
+    * @inheritdoc For the purpose of writing the ToC for an archive, the
+    *             template is fix.
+    */
+  override val uriTemplate: String = rootPrefix.getOrElse("") + UriMappingSpec.VarUri
+
+  override val urlEncoding: Boolean = descriptionUrlEncoding
+
+  override val uriPathSeparator: String = descriptionPathSeparator
+}

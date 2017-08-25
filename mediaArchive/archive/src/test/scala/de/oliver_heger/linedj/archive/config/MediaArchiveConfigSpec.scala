@@ -213,8 +213,8 @@ with Matchers with BeforeAndAfterAll {
     tocConfig.contentFile should be(Some(Paths.get(TocFile)))
     tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix)
     tocConfig.descriptionPathSeparator should be("\\")
-    tocConfig.rootPrefix should be(TocRootPrefix)
-    tocConfig.metaDataPrefix should be(TocMetaDataPrefix)
+    tocConfig.rootPrefix should be(Some(TocRootPrefix))
+    tocConfig.metaDataPrefix should be(Some(TocMetaDataPrefix))
     tocConfig.descriptionUrlEncoding shouldBe true
   }
 
@@ -231,8 +231,8 @@ with Matchers with BeforeAndAfterAll {
     tocConfig.contentFile shouldBe 'empty
     tocConfig.descriptionRemovePrefix should be(null)
     tocConfig.descriptionPathSeparator should be(null)
-    tocConfig.rootPrefix should be("")
-    tocConfig.metaDataPrefix should be("")
+    tocConfig.rootPrefix shouldBe 'empty
+    tocConfig.metaDataPrefix shouldBe 'empty
     tocConfig.descriptionUrlEncoding shouldBe false
   }
 }

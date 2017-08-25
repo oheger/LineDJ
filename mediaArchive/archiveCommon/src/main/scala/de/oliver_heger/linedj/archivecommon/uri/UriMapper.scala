@@ -77,7 +77,7 @@ object UriMapper {
       if (config.uriPathSeparator == null) encode(uri)
       else {
         val components = uri split config.uriPathSeparator
-        components.map(encode).mkString(config.uriPathSeparator)
+        components.map(encode).mkString("/")
       }
     }
     else uri

@@ -109,8 +109,9 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * Method to handle a (fatal) error during a write operation. This
     * implementation stops the actor. Derived classes can define a different
     * error handling strategy.
+    *
     * @param client the current client actor
-    * @param e the exception that occurred
+    * @param e      the exception that occurred
     */
   protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
     context stop self
