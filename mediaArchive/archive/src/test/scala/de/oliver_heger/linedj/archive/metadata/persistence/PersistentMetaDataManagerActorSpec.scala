@@ -21,7 +21,7 @@ import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.{ArchiveContentTableConfig, MediaArchiveConfig}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -38,7 +38,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
-object PersistenceMetaDataManagerActorSpec {
+object PersistentMetaDataManagerActorSpec {
   /** A test path with persistent meta data files. */
   private val FilePath = Paths get "testPath"
 
@@ -65,6 +65,9 @@ object PersistenceMetaDataManagerActorSpec {
 
   /** Constant for the meta data file remove child actor class. */
   private val ClassRemoveChildActor = MetaDataFileRemoveActor().actorClass()
+
+  /** Constant for the ToC writer actor class. */
+  private val ClassToCWriterActor = classOf[ArchiveToCWriterActor]
 
   /**
     * Generates a checksum based on the given index.
@@ -191,15 +194,29 @@ object PersistenceMetaDataManagerActorSpec {
     */
   private def expectMessages[T](probes: TestProbe*)(implicit t: ClassTag[T]): Set[T] =
     probes.foldLeft(Set.empty[T])((s, p) => s + p.expectMsgType[T])
+
+  /**
+    * Creates a dummy configuration for writing a ToC. Relevant is only whether
+    * the target path is defined.
+    *
+    * @param defined flag whether the target path is defined
+    * @return the config
+    */
+  private def createToCConfig(defined: Boolean): ArchiveContentTableConfig = {
+    val path = if (defined) Some(Paths get "toc.json") else None
+    ArchiveContentTableConfig(contentFile = path, descriptionPathSeparator = null,
+      descriptionRemovePrefix = null, descriptionUrlEncoding = false,
+      rootPrefix = None, metaDataPrefix = None)
+  }
 }
 
 /**
   * Test class for ''PersistenceMetaDataManagerActor''.
   */
-class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
-  import PersistenceMetaDataManagerActorSpec._
+  import PersistentMetaDataManagerActorSpec._
 
   def this() = this(ActorSystem("PersistenceMetaDataManagerActorSpec"))
 
@@ -603,6 +620,32 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     request2.pathMapping should be(persistentFileMapping(2, 3, 4))
   }
 
+  it should "trigger a ToC write operation at the end of a scan" in {
+    val tocConfig = createToCConfig(defined = true)
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
+    actor ! enhancedScanResult(1, 2, 3)
+    val expContent = List((mediumID(1), checksum(1)), (mediumID(2), checksum(2)),
+      (mediumID(3), checksum(3)))
+
+    helper.sendScanComplete(tocConfig)
+    val op = helper.tocWriterActor.expectMsgType[ArchiveToCWriterActor.WriteToC]
+    op.config should be(tocConfig)
+    op.content should contain theSameElementsAs expContent
+  }
+
+  it should "not trigger a ToC write operation if no target path is defined" in {
+    val tocConfig = createToCConfig(defined = false)
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
+    actor ! enhancedScanResult(1, 2, 3)
+
+    helper.sendScanComplete(tocConfig)
+    val TestMsg = new Object
+    helper.tocWriterActor.ref ! TestMsg
+    helper.tocWriterActor.expectMsg(TestMsg)
+  }
+
   /**
     * A test helper class collecting all dependencies of the test actor.
     */
@@ -621,6 +664,9 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
 
     /** Test probe for the meta data union actor. */
     val metaDataUnionActor = TestProbe()
+
+    /** Test probe for the ToC writer actor. */
+    val tocWriterActor = TestProbe()
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetaDataManagerActor] = _
@@ -748,6 +794,20 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
     }
 
     /**
+      * Sends a ScanComplete message to the test actor and initializes the
+      * configuration for ToC writing.
+      *
+      * @param tocConfig the ToC config
+      * @return this test helper
+      */
+    def sendScanComplete(tocConfig: ArchiveContentTableConfig):
+    PersistenceMetaDataManagerActorTestHelper = {
+      when(config.contentTableConfig).thenReturn(tocConfig)
+      managerActor receive PersistentMetaDataManagerActor.ScanCompleted
+      this
+    }
+
+    /**
       * Generates a ''ProcessMedium'' message based on the given parameters.
       *
       * @param index    the index
@@ -803,6 +863,10 @@ class PersistenceMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestK
             case ClassRemoveChildActor =>
               p.args should have length 0
               removeActor.ref
+
+            case ClassToCWriterActor =>
+              p.args should have length 0
+              tocWriterActor.ref
           }
         }
       })

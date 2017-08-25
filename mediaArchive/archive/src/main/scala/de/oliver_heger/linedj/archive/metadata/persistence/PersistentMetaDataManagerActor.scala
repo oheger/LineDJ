@@ -43,6 +43,13 @@ object PersistentMetaDataManagerActor {
   val EmptyMetaDataFilInfo = MetaDataFileInfo(Map.empty, Set.empty)
 
   /**
+    * A message expected by [[PersistentMetaDataManagerActor]] at the end of
+    * a scan operation. This allows the actor to do some post processing after
+    * a scan.
+    */
+  case object ScanCompleted
+
+  /**
     * An internally used data class that stores information about media that
     * are currently processed by this actor.
     *
@@ -194,6 +201,9 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   /** The child actor for remove meta data files operation. */
   private var removeActor: ActorRef = _
 
+  /** The child actor for writing a ToC for the archive. */
+  private var tocWriterActor: ActorRef = _
+
   /** The current number of active reader actors. */
   private var activeReaderActors = 0
 
@@ -206,6 +216,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     writerActor = createChildActor(Props(classOf[PersistentMetaDataWriterActor],
       config.metaDataPersistenceWriteBlockSize))
     removeActor = createChildActor(MetaDataFileRemoveActor())
+    tocWriterActor = createChildActor(Props[ArchiveToCWriterActor])
   }
 
   override def receive: Receive = {
@@ -233,9 +244,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       }
 
     case GetMetaDataFileInfo =>
-      val info = optMetaDataFiles map(createMetaDataFileInfo(_,
-        checksumMapping)) getOrElse EmptyMetaDataFilInfo
-      sender ! info
+      sender ! fetchCurrentMetaFileInfo()
 
     case req: RemovePersistentMetaData =>
       val (target, msg) = generateRemoveRequestResponse(req, optMetaDataFiles, sender())
@@ -246,6 +255,13 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         deleted)
       optMetaDataFiles = optMetaDataFiles map { files =>
         files.filterNot(t => deleted.contains(t._1))
+      }
+
+    case ScanCompleted =>
+      if (config.contentTableConfig.contentFile.isDefined) {
+        val info = fetchCurrentMetaFileInfo()
+        tocWriterActor ! ArchiveToCWriterActor.WriteToC(config.contentTableConfig,
+          info.metaDataFiles.toList)
       }
 
     case Terminated(reader) =>
@@ -478,6 +494,16 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
           , readerCount + 1)
       case _ => (requests, inProgress, readerCount)
     }
+
+  /**
+    * Returns an object with information about the meta data files managed by
+    * this actor.
+    *
+    * @return information about meta data files
+    */
+  private def fetchCurrentMetaFileInfo(): MetaDataFileInfo =
+    optMetaDataFiles map (createMetaDataFileInfo(_,
+      checksumMapping)) getOrElse EmptyMetaDataFilInfo
 
   /**
     * Creates an object with information about meta data files.
