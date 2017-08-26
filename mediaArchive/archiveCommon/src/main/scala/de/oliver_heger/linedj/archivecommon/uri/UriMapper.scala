@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivecommon.uri
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
@@ -76,7 +77,7 @@ object UriMapper {
     if (config.urlEncoding) {
       if (config.uriPathSeparator == null) encode(uri)
       else {
-        val components = uri split config.uriPathSeparator
+        val components = uri split Pattern.quote(config.uriPathSeparator)
         components.map(encode).mkString("/")
       }
     }

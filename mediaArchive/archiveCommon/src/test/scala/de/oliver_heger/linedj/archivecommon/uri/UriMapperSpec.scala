@@ -111,6 +111,14 @@ class UriMapperSpec extends FlatSpec with Matchers {
     mapUri(uri, config = config).get should be(exp)
   }
 
+  it should "quote the path separator character when used in split" in {
+    val uri = UriPrefix + "Prince - (1988) - Lovesexy\\03 - Glam Slam.mp3"
+    val exp = MediumPath + "/songs/Prince%20-%20%281988%29%20-%20Lovesexy/03%20-%20Glam%20Slam.mp3"
+    val config = MappingConfig.copy(urlEncoding = true, uriPathSeparator = "\\")
+
+    mapUri(uri, config = config).get should be(exp)
+  }
+
   it should "handle a null URI as input" in {
     mapUri(null) shouldBe 'empty
   }
