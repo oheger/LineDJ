@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archive.media._
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
@@ -358,6 +359,21 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     assertActorStopped(helper.nextChild())
   }
 
+  it should "notify the persistence manager actor when a scan is complete" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.sendAvailableMedia()
+      .sendAllProcessingResults(ScanResult)
+
+    helper.persistenceManager.fishForMessage() {
+      case PersistentMetaDataManagerActor.ScanCompleted =>
+        true
+      case _ => // ignore all other messages
+        false
+    }
+    expectNoMoreMessage(helper.persistenceManager)
+  }
+
   it should "restart processor actors for a new scan" in {
     val unresolved = UnresolvedMetaDataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
@@ -365,7 +381,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     helper.actor ! unresolved
     helper.sendAvailableMedia()
-      helper.sendAllProcessingResults(ScanResult)
+      .sendAllProcessingResults(ScanResult)
 
     helper.startProcessing(checkPersistenceMan = false)
     helper.actor ! unresolved
@@ -380,6 +396,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendAvailableMedia()
 
     helper.actor receive EnhancedScanResult
+    helper.expectPersistenceManagerCompleteNotification()
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -419,6 +436,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       .toError(new Exception("Failed processing!"))
     helper.actor receive errResult
     helper.actor receive EnhancedScanResult
+    helper.expectPersistenceManagerCompleteNotification()
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -754,6 +772,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     def persistenceManagerActorRef: ActorRef =
     optPersistenceManager getOrElse persistenceManager.ref
+
+    /**
+      * Checks that a scan complete notification has been sent to the
+      * persistence meta data mnager actor.
+      *
+      * @return this test helper
+      */
+    def expectPersistenceManagerCompleteNotification(): MetaDataManagerActorTestHelper = {
+      persistenceManager.expectMsg(PersistentMetaDataManagerActor.ScanCompleted)
+      this
+    }
 
     /**
       * Initializes flags required by tests of the close/cancel handling.

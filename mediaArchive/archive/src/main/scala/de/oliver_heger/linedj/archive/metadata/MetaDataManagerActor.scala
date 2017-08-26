@@ -22,6 +22,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
@@ -227,6 +228,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def checkAndHandleScanComplete(): Unit = {
     if (allMediaProcessingResultsReceived) {
+      persistenceManager ! PersistentMetaDataManagerActor.ScanCompleted
       completeScanOperation()
     }
   }
