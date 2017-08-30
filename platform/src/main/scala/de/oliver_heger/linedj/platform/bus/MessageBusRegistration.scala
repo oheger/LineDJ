@@ -35,18 +35,33 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
  * @param listeners a collection with the listeners to be registered
  */
 class MessageBusRegistration(listeners: java.util.Collection[MessageBusListener]) {
+  /** The message bus. */
+  private var messageBus: MessageBus = _
+
+  /** Stores the registration IDs for the single bus listeners. */
+  private var registrationIDs: Iterable[Int] = _
+
   /**
-   * Injection method for the message bus. This method (with this bean-like
-   * signature) is called by the dependency injection framework to inject a
-   * reference to the central message bus. Despite the naming convention, the
-   * bus is not stored, but all managed bus listeners are registered.
-   * @param bus the ''MessageBus''
-   */
+    * Injection method for the message bus. This method (with this bean-like
+    * signature) is called by the dependency injection framework to inject a
+    * reference to the central message bus. The bus is not only stored, but all
+    * managed bus listeners are registered.
+    *
+    * @param bus the ''MessageBus''
+    */
   def setMessageBus(bus: MessageBus): Unit = {
     import collection.JavaConversions._
 
-    listeners foreach { l =>
+    messageBus = bus
+    registrationIDs = listeners map { l =>
       bus registerListener l.receive
     }
+  }
+
+  /**
+    * Removes all registrations that have been made in ''setMessageBus()''.
+    */
+  def removeRegistrations(): Unit = {
+    registrationIDs foreach (messageBus removeListener _)
   }
 }

@@ -44,7 +44,7 @@ class MessageBusRegistrationSpec extends FlatSpec with Matchers with MockitoSuga
    * @return the map with test listeners
    */
   private def createListeners(): Map[MessageBusListener, Actor.Receive] = {
-    val listeners = 1 to 5 map (i => createListenerMock())
+    val listeners = 1 to 5 map (_ => createListenerMock())
     Map(listeners: _*)
   }
 
@@ -56,5 +56,21 @@ class MessageBusRegistrationSpec extends FlatSpec with Matchers with MockitoSuga
 
     registration setMessageBus bus
     listenerMap.values foreach verify(bus).registerListener
+  }
+
+  it should "remove registrations in a shutdown method" in {
+    import collection.JavaConversions._
+    val bus = mock[MessageBus]
+    val listenerMap = createListeners()
+    listenerMap.values.zipWithIndex.foreach { t =>
+      when(bus.registerListener(t._1)).thenReturn(t._2)
+    }
+    val registration = new MessageBusRegistration(listenerMap.keySet)
+    registration setMessageBus bus
+
+    registration.removeRegistrations()
+    (0 until listenerMap.size) foreach { i =>
+      verify(bus).removeListener(i)
+    }
   }
 }
