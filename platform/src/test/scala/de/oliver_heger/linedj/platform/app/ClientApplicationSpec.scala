@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
@@ -30,6 +32,7 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
+import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -283,5 +286,17 @@ ApplicationTestSupport {
     notifyWindowOpened(appContext)
     notifyWindowOpened(appContext)
     verify(sync).asyncInvoke(any(classOf[Runnable]))
+  }
+
+  it should "trigger a shutdown when it is deactivated" in {
+    val shutdownCounter = new AtomicInteger
+    val app = new ClientApplication("testClientApp") with ApplicationSyncStartup {
+      override def shutdown(force: Boolean):Unit = {
+        if(force) shutdownCounter.incrementAndGet()
+      }
+    }
+
+    app.deactivate(mock[ComponentContext])
+    shutdownCounter.get() should be(1)
   }
 }

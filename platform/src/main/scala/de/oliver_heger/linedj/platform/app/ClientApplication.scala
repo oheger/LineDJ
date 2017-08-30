@@ -163,11 +163,21 @@ class ClientApplication(val appName: String) extends Application with ClientCont
   }
 
   /**
+    * @inheritdoc This implementation ensures that the current application is
+    *             gracefully shutdown.
+    */
+  override def deactivate(componentContext: ComponentContext): Unit = {
+    shutdown(true)
+    super.deactivate(componentContext)
+  }
+
+  /**
     * Updates the title of this application. This method should be used to
     * change the title of the main window of this application. It not only
     * updates the title but also informs the [[ApplicationManager]] about the
     * new title. '''Note:''' This method can only be called on the event
     * dispatch thread!
+ *
     * @param newTitle the new title of this application's main window
     */
   def updateTitle(newTitle: String): Unit = {
