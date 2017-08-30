@@ -30,7 +30,7 @@ lazy val testDependencies = Seq(
 )
 
 lazy val jguiraffeDependencies = Seq(
-  "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.3.1" exclude
+  "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" exclude
     ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 )
@@ -51,6 +51,7 @@ val defaultSettings = Seq(
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
   libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
+  resolvers += Resolver.mavenLocal,
   HeaderPlugin.autoImport.headers := Map(
     "scala" -> Apache2_0(CopyRight, "The Developers Team."),
     "conf" -> Apache2_0(CopyRight, "The Developers Team.", "#")
@@ -194,7 +195,6 @@ lazy val platform = (project in file("platform"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-platform",
-    resolvers += Resolver.mavenLocal,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
@@ -301,7 +301,6 @@ lazy val mediaBrowser = (project in file("browser"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-browser",
-    resolvers += Resolver.mavenLocal,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -326,7 +325,6 @@ lazy val playlistEditor = (project in file("pleditor"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-pleditor",
-    resolvers += Resolver.mavenLocal,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
@@ -353,7 +351,6 @@ lazy val reorderMedium = (project in file("reorderMedium"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-medium",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.medium.*"
     ),
@@ -372,7 +369,6 @@ lazy val reorderAlbum = (project in file("reorderAlbum"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-album",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.album.*"
     ),
@@ -391,7 +387,6 @@ lazy val reorderArtist = (project in file("reorderArtist"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-artist",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.artist.*"
     ),
@@ -411,7 +406,6 @@ lazy val reorderRandomSongs = (project in file("reorderRandomSongs"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-random-songs",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.random.*"
     ),
@@ -431,7 +425,6 @@ lazy val reorderRandomArtists = (project in file("reorderRandomArtists"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-random-artists",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.randomartist.*"
     ),
@@ -452,7 +445,6 @@ lazy val reorderRandomAlbums = (project in file("reorderRandomAlbums"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-reorder-random-albums",
-    resolvers += Resolver.mavenLocal,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.randomalbum.*"
     ),
@@ -488,7 +480,6 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .settings(spiFlySettings: _*)
   .settings(
     name := "mp3-playback-context-factory",
-    resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Seq(
       "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2",
       "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3",
@@ -513,7 +504,6 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   .settings(osgiSettings: _*)
   .settings(
     name := "radio-player",
-    resolvers += Resolver.mavenLocal,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
