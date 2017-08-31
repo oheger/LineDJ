@@ -116,6 +116,50 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
   }
 
+  it should "return an empty set if no actors have been registered yet" in {
+    val helper = new ActorManagementTestHelper
+
+    helper.component.managedActorNames shouldBe 'empty
+  }
+
+  it should "return the names of registered actors" in {
+    val helper = new ActorManagementTestHelper
+    val expNames = (1 to 10).map(_ => helper.registerActor()._1)
+
+    helper.component.managedActorNames should contain theSameElementsAs expNames
+  }
+
+  it should "return None when removing an unknown actor" in {
+    val helper = new ActorManagementTestHelper
+
+    helper.component.unregisterActor("someActor") shouldBe 'empty
+  }
+
+  it should "support removing a registration for an actor" in {
+    val helper = new ActorManagementTestHelper
+    val (name1, _) = helper.registerActor()
+    val (name2, actor2) = helper.registerActor()
+
+    helper.component.unregisterActor(name2) should be(Some(actor2))
+    helper.component.managedActorNames should contain only name1
+  }
+
+  it should "return false for an attempt to stop an unknown actor" in {
+    val helper = new ActorManagementTestHelper
+
+    helper.component.unregisterAndStopActor("someActor") shouldBe false
+  }
+
+  it should "support removing and stopping an actor" in {
+    val helper = new ActorManagementTestHelper
+    val (name1, _) = helper.registerActor()
+    val (name2, actor2) = helper.registerActor()
+
+    helper.component.unregisterAndStopActor(name2) shouldBe true
+    helper.checkActorsStopped(actor2)
+    helper.component.managedActorNames should contain only name1
+  }
+
   /**
     * A helper class managing a test instance and its dependencies.
     */

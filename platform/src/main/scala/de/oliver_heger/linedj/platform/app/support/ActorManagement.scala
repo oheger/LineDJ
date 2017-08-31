@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.platform.app.PlatformComponent
 import org.osgi.service.component.ComponentContext
+import scala.collection.JavaConverters._
 
 /**
   * A trait supporting a [[PlatformComponent]] with actor management.
@@ -40,11 +41,15 @@ import org.osgi.service.component.ComponentContext
   * component is deactivated, but actors are typically created in other
   * threads; so thread-safe access is mandatory.
   *
-  * An concrete subclass can rely on the storage of actors and access the
+  * A concrete subclass can rely on the storage of actors and access the
   * managed actor references via the ''getActor()'' method. However, due to the
   * thread-safe access, there might be a certain overhead which might not be
   * necessary if actors are only accessed from a specific thread, e.g. the UI
   * thread.
+  *
+  * It is also possible to remove registered actors again (e.g. if they have
+  * been stopped manually) and to query the names of the actors that are
+  * currently managed.
   */
 trait ActorManagement extends PlatformComponent {
   /** A map for storing registered actors. */
@@ -65,6 +70,16 @@ trait ActorManagement extends PlatformComponent {
   }
 
   /**
+    * Removes the registration for the actor with the specified name. An
+    * option with the associated ''ActorRef'' is returned.
+    *
+    * @param name the name of the actor to be removed
+    * @return an ''Option'' with the reference to the removed actor
+    */
+  def unregisterActor(name: String): Option[ActorRef] =
+    Option(managedActors remove name)
+
+  /**
     * Creates a new actor based on the specified parameters (using the actor
     * factory of the ''ClientApplicationContext'') and registers it. This is a
     * convenience method allowing the creation and registration of an actor in
@@ -76,6 +91,23 @@ trait ActorManagement extends PlatformComponent {
     */
   def createAndRegisterActor(props: Props, name: String): ActorRef =
     registerActor(name, clientApplicationContext.actorFactory.createActor(props, name))
+
+  /**
+    * Removes the specified actor from this instance and stops it. The return
+    * value indicates whether the operation was successful; a result of
+    * '''false''' means that no actor with the given name could be found.
+    *
+    * @param name the name of the actor to be removed
+    * @return a flag whether the operation was successful
+    */
+  def unregisterAndStopActor(name: String): Boolean =
+    unregisterActor(name) match {
+      case Some(actor) =>
+        stopActor(actor)
+        true
+      case None =>
+        false
+    }
 
   /**
     * Returns the actor reference for the specified name. This actor must have
@@ -93,6 +125,14 @@ trait ActorManagement extends PlatformComponent {
   }
 
   /**
+    * Returns an ''Iterable'' with the names of the actors that are currently
+    * managed by this instance.
+    *
+    * @return an ''Iterable'' with the names of the managed actors
+    */
+  def managedActorNames: Iterable[String] = managedActors.keySet().asScala
+
+  /**
     * @inheritdoc This implementation stops all actors that have been
     *             registered.
     */
@@ -108,9 +148,17 @@ trait ActorManagement extends PlatformComponent {
     * life cycle.
     */
   protected def stopActors(): Unit = {
-    import scala.collection.JavaConverters._
     val actors = managedActors.values().asScala
-    actors foreach (a => clientApplicationContext.actorSystem stop a)
+    actors foreach stopActor
     managedActors.clear()
+  }
+
+  /**
+    * Stops the specified actor.
+    *
+    * @param a the actor to be stopped
+    */
+  private def stopActor(a: ActorRef): Unit = {
+    clientApplicationContext.actorSystem stop a
   }
 }
