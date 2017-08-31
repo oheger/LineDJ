@@ -108,6 +108,9 @@
       </di:param>
     </di:constructor>
     <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+    <di:shutdown>
+      <di:methodInvocation method="removeRegistrations"/>
+    </di:shutdown>
   </di:bean>
 
   <!-- Consumer registration -->
