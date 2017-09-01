@@ -17,18 +17,20 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 
 /**
-  * A message indicating the change of the login state for an HTTP archive.
+  * A message indicating the change of the login state for a realm.
   *
   * Messages of this type are sent by the [[HttpArchiveLoginController]] when
   * the user entered new login credentials or pressed the ''Logout'' button.
   * In the latter case, no credentials are available, and the ''Option'' is
   * ''None''.
   *
+  * @param realm       the realm affected by this change
   * @param credentials the credentials for login into the HTTP archive
   */
-case class LoginStateChanged(credentials: Option[UserCredentials])
+case class LoginStateChanged(realm: String, credentials: Option[UserCredentials])
 
 /**
   * An object defining the possible states of an HTTP archive.
@@ -78,7 +80,26 @@ object HttpArchiveStates {
     */
   case object HttpArchiveStateAvailable
     extends HttpArchiveState("Available", isActive = true)
+
+  /**
+    * A class representing an error state of an HTTP archive. This state is
+    * used if the initialization of the archive failed.
+    *
+    * @param state the state of the archive
+    */
+  case class HttpArchiveErrorState(state: de.oliver_heger.linedj.archivehttp.HttpArchiveState)
+    extends HttpArchiveState("Error", isActive = false)
 }
+
+/**
+  * A message indicating a change of the state of an HTTP archive.
+  *
+  * The message contains the name of the archive affected and its new state.
+  *
+  * @param archiveName the archive name
+  * @param state       the state of the archive
+  */
+case class HttpArchiveStateChanged(archiveName: String, state: HttpArchiveState)
 
 /**
   * A message for requesting the current state of the HTTP archive.

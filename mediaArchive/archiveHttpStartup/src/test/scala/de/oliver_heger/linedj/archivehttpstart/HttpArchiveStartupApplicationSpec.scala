@@ -178,7 +178,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
       .processUIFuture()
   }
 
@@ -229,7 +229,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .prepareMediaFacadeActorsRequest(timeout = Timeout(InitTimeout.seconds))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
       .processUIFuture()
       .expectArchiveCreation()
   }
@@ -241,7 +241,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .prepareMediaFacadeActorsRequest(actors = Promise.failed(new Exception))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
       .processUIFuture()
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNoUnionArchive)
   }
@@ -252,7 +252,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     helper.startupApplication()
       .initArchiveStartupResult(Success(createActorsMap()))
       .prepareMediaFacadeActorsRequest()
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .processUIFuture()
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateAvailable)
@@ -263,7 +263,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
     helper.startupApplication()
       .prepareMediaFacadeActorsRequest()
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
     val uiFutureMsg = helper.messageBus.expectMessageType[Any]
 
@@ -276,8 +276,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
 
     helper.startupApplication()
-      .sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
-      .sendOnMessageBus(LoginStateChanged(None))
+      .sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
+      .sendOnMessageBus(LoginStateChanged(null, None))
     helper.messageBus.expectNoMessage()
   }
 
@@ -297,7 +297,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val archiveActors = createActorsMap()
     enterArchiveAvailableState(helper, archiveActors)
 
-    helper.sendOnMessageBus(LoginStateChanged(None))
+    helper.sendOnMessageBus(LoginStateChanged(null, None))
       .expectArchiveStateNotification(HttpArchiveStates.HttpArchiveStateNotLoggedIn)
     archiveActors.values foreach expectTermination
   }
@@ -331,7 +331,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
     enterArchiveAvailableState(helper)
 
-    helper.sendOnMessageBus(LoginStateChanged(Some(ArchiveCredentials)))
+    helper.sendOnMessageBus(LoginStateChanged(null, Some(ArchiveCredentials)))
     helper.messageBus.expectNoMessage()
   }
 

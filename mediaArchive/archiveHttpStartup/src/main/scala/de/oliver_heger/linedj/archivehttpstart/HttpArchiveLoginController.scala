@@ -110,7 +110,7 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
     */
   private def handleLogin(): Unit = {
     val credentials = UserCredentials(txtUser.getData, txtPassword.getData)
-    bus publish LoginStateChanged(Some(credentials))
+    bus publish LoginStateChanged(null, Some(credentials))
     btnLogout setEnabled true
     btnLogin setEnabled false
     txtPassword setData "" // reset password
@@ -121,7 +121,7 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
     * clicked.
     */
   private def handleLogout(): Unit = {
-    bus publish LoginStateChanged(None)
+    bus publish LoginStateChanged(null, None)
     btnLogin setEnabled true
     btnLogout setEnabled false
   }

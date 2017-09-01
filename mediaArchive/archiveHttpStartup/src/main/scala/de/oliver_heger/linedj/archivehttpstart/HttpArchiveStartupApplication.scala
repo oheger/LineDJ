@@ -121,11 +121,11 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     case HttpArchiveStateRequest =>
       publish(archiveState)
 
-    case LoginStateChanged(optCreds@Some(_)) =>
+    case LoginStateChanged(_, optCreds@Some(_)) =>
       archiveCredentials = optCreds
       triggerArchiveStartIfPossible()
 
-    case LoginStateChanged(None) =>
+    case LoginStateChanged(_, None) =>
       archiveCredentials = None
       if (unionArchiveAvailability == MediaFacade.MediaArchiveAvailable) {
         switchArchiveState(HttpArchiveStates.HttpArchiveStateNotLoggedIn)

@@ -102,7 +102,7 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
       .verifyLogoutButtonEnabled(state = true)
       .verifyPasswordReset()
     helper.messageBus.expectMessageType[LoginStateChanged] should be(LoginStateChanged(
-      Some(UserCredentials(UserName, Password))
+      null, Some(UserCredentials(UserName, Password))
     ))
   }
 
@@ -113,7 +113,7 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
       .logoutClicked()
       .verifyLoginButtonEnabled(state = true)
       .verifyLogoutButtonEnabled(state = false)
-    helper.messageBus.expectMessageType[LoginStateChanged] should be(LoginStateChanged(None))
+    helper.messageBus.expectMessageType[LoginStateChanged] should be(LoginStateChanged(null, None))
   }
 
   it should "pass an HTTP archive state to the status line handler" in {
