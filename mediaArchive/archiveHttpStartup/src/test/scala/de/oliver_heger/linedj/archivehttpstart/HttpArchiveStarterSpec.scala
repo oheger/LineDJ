@@ -20,27 +20,19 @@ import java.nio.file.{Files, Paths}
 import java.time.Instant
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.Uri
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.impl.download.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
-import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
-import scala.util.Try
-
 object HttpArchiveStarterSpec {
-  /** The URL to the test HTTP archive. */
-  private val ArchiveURL = "https://my.test.music.archive.la/content.json"
-
   /** Test user name. */
   private val UserName = "scott"
 
@@ -53,12 +45,6 @@ object HttpArchiveStarterSpec {
   /** The test path for temporary files. */
   private val PathTempDir = Paths get "tempDir"
 
-  /** The prefix for keys in the configuration. */
-  private val Prefix = "media.http."
-
-  /** Test value for the download actor timeout. */
-  private val DownloadTimeout = 1.hour
-
   /**
     * Creates a configuration object with the properties defining the test
     * HTTP archive.
@@ -66,11 +52,7 @@ object HttpArchiveStarterSpec {
     * @return the configuration
     */
   private def createArchiveSourceConfig(): Configuration = {
-    val props = new PropertiesConfiguration
-    props.addProperty(Prefix + HttpArchiveConfig.PropArchiveUri, ArchiveURL)
-    props.addProperty(Prefix + HttpArchiveConfig.PropDownloadMaxInactivity, 300)
-    props.addProperty(Prefix + HttpArchiveConfig.PropDownloadBufferSize, 32768)
-    props.addProperty(DownloadConfig.PropDownloadActorTimeout, DownloadTimeout.toSeconds)
+    val props = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration(), 1)
     props.addProperty(HttpArchiveStarter.PropTempDirectory, PathTempDir.toString)
     props
   }
@@ -96,39 +78,11 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .checkActorProps()
   }
 
-  it should "create a correct download configuration" in {
-    val helper = new StarterTestHelper
-
-    val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val downloadConfig = creationProps(HttpArchiveStarter.DownloadMonitoringActorName)
-      .args.head.asInstanceOf[DownloadConfig]
-    downloadConfig.downloadTimeout should be(DownloadTimeout)
-  }
-
-  it should "create a correct archive configuration" in {
-    val helper = new StarterTestHelper
-
-    val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val managerProps = creationProps(HttpArchiveStarter.ManagementActorName)
-    val config = managerProps.args.head.asInstanceOf[HttpArchiveConfig]
-    config.archiveURI should be(Uri(ArchiveURL))
-    config.credentials should be(ArchiveCredentials)
-    val downloadConfig = creationProps(HttpArchiveStarter.DownloadMonitoringActorName)
-      .args.head.asInstanceOf[DownloadConfig]
-    config.downloadConfig should be theSameInstanceAs downloadConfig
-  }
-
-  it should "fail for an invalid archive configuration" in {
-    val helper = new StarterTestHelper
-
-    helper.startArchive(new PropertiesConfiguration).isFailure shouldBe true
-  }
-
   it should "create a correct temp path generator" in {
     val helper = new StarterTestHelper
 
     val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val pathGen = creationProps(HttpArchiveStarter.ManagementActorName)
+    val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
       .args(1).asInstanceOf[TempPathGenerator]
 
     pathGen.rootPath should be(PathTempDir)
@@ -141,7 +95,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new StarterTestHelper
 
     val creationProps = helper.startArchiveAndCheckActors(config).actorCreationProps
-    val pathGen = creationProps(HttpArchiveStarter.ManagementActorName)
+    val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
       .args(1).asInstanceOf[TempPathGenerator]
     val tempFile = Files.createTempFile("Test", ".tmp")
     try {
@@ -163,7 +117,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
   it should "start a clear temp files operation" in {
     val helper = new StarterTestHelper
     val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val pathGen = creationProps(HttpArchiveStarter.ManagementActorName)
+    val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
       .args(1).asInstanceOf[TempPathGenerator]
 
     helper.expectClearTempDirectory(pathGen)
@@ -185,6 +139,12 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     /** Test actors for the union archive. */
     private val unionArchiveActors = createUnionArchiveActors()
 
+    /** The default test configuration. */
+    private val sourceConfig = createArchiveSourceConfig()
+
+    /** The data object for the archive to be started. */
+    private val archiveData = createArchiveData()
+
     /** The factory for creating child actors. */
     private val actorFactory = createActorFactory()
 
@@ -201,8 +161,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param c the configuration to be used
       * @return the result of the starter
       */
-    def startArchive(c: Configuration): Try[Map[String, ActorRef]] =
-      starter.startup(unionArchiveActors, c, Prefix, ArchiveCredentials, actorFactory)
+    def startArchive(c: Configuration): Map[String, ActorRef] =
+      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory)
 
     /**
       * Invokes the test instance to start the archive and checks whether the
@@ -211,13 +171,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param c the configuration to be used
       * @return this test helper
       */
-    def startArchiveAndCheckActors(c: Configuration = createArchiveSourceConfig()):
-    StarterTestHelper = {
-      val actors = startArchive(c).get
+    def startArchiveAndCheckActors(c: Configuration = sourceConfig): StarterTestHelper = {
+      val actors = startArchive(c)
       actors should have size 3
-      actors(HttpArchiveStarter.ManagementActorName) should be(probeManagerActor.ref)
-      actors(HttpArchiveStarter.DownloadMonitoringActorName) should be(probeMonitoringActor.ref)
-      actors(HttpArchiveStarter.RemoveFileActorName) should be(probeRemoveActor.ref)
+      actors(actorName(HttpArchiveStarter.ManagementActorName)) should be(probeManagerActor.ref)
+      actors(actorName(HttpArchiveStarter.
+        DownloadMonitoringActorName)) should be(probeMonitoringActor.ref)
+      actors(actorName(HttpArchiveStarter.RemoveFileActorName)) should be(probeRemoveActor.ref)
       this
     }
 
@@ -235,19 +195,22 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return this test helper
       */
     def checkActorProps(): StarterTestHelper = {
-      val propsManager = actorCreationProps(HttpArchiveStarter.ManagementActorName)
+      val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
       classOf[ChildActorFactory].isAssignableFrom(propsManager.actorClass()) shouldBe true
       propsManager.args should have size 6
+      propsManager.args.head should be(archiveData.config)
       propsManager.args(2) should be(unionArchiveActors.mediaManager)
       propsManager.args(3) should be(unionArchiveActors.metaDataManager)
       propsManager.args(4) should be(probeMonitoringActor.ref)
       propsManager.args(5) should be(probeRemoveActor.ref)
 
-      val propsMonitor = actorCreationProps(HttpArchiveStarter.DownloadMonitoringActorName)
+      val propsMonitor = actorCreationProps(actorName(
+        HttpArchiveStarter.DownloadMonitoringActorName))
       classOf[SchedulerSupport].isAssignableFrom(propsMonitor.actorClass()) shouldBe true
+      propsMonitor.args.head should be(archiveData.config.downloadConfig)
 
-      val propsRemove = actorCreationProps(HttpArchiveStarter.RemoveFileActorName)
+      val propsRemove = actorCreationProps(actorName(HttpArchiveStarter.RemoveFileActorName))
       propsRemove should be(RemoveTempFilesActor(ClientApplication.BlockingDispatcherName))
 
       this
@@ -278,6 +241,27 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     /**
+      * Generates a full actor name based on its suffix.
+      *
+      * @param n the name suffix for the actor
+      * @return the full actor name
+      */
+    def actorName(n: String): String =
+      archiveData.shortName + '_' + n
+
+    /**
+      * Creates the test archive data from the configuration passed to this
+      * object.
+      *
+      * @return the test archive data
+      */
+    private def createArchiveData(): HttpArchiveData = {
+      val manager = HttpArchiveConfigManager(sourceConfig)
+      val data = manager.archives(StartupConfigTestHelper.archiveName(1))
+      data.copy(config = data.config.copy(credentials = ArchiveCredentials))
+    }
+
+    /**
       * Creates an object with test actors for the union archive.
       *
       * @return the union archive actors
@@ -291,20 +275,17 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the actor factory
       */
-    private def createActorFactory(): ActorFactory =
+    private def createActorFactory(): ActorFactory = {
+      val probes = Map(actorName(HttpArchiveStarter.ManagementActorName) -> probeManagerActor.ref,
+        actorName(HttpArchiveStarter.RemoveFileActorName) -> probeRemoveActor.ref,
+        actorName(HttpArchiveStarter.DownloadMonitoringActorName) -> probeMonitoringActor.ref)
       new ActorFactory(system) {
         override def createActor(props: Props, name: String): ActorRef = {
           creationProps += name -> props
-          name match {
-            case HttpArchiveStarter.ManagementActorName =>
-              probeManagerActor.ref
-            case HttpArchiveStarter.RemoveFileActorName =>
-              probeRemoveActor.ref
-            case HttpArchiveStarter.DownloadMonitoringActorName =>
-              probeMonitoringActor.ref
-          }
+          probes(name)
         }
       }
+    }
   }
 
 }

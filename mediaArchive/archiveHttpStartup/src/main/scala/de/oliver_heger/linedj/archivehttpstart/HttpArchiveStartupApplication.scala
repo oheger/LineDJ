@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupApplication {
   /** Property for the initialization timeout of the local archive. */
@@ -43,11 +43,13 @@ object HttpArchiveStartupApplication {
 /**
   * An application class for stating up an HTTP archive.
   *
-  * This application presents a window in which the user can enter credentials
-  * for the managed HTTP archive. After login the actors of the HTTP archive
-  * are created and connected to the union archive. The availability of the
-  * union archive is monitored; the HTTP archive can only be started if it
-  * is present.
+  * The application manages an arbitrary number of realms and HTTP archives
+  * assigned to these realms. It presents information about the status of the
+  * archives and the realms. The user can enter credentials for realms, then
+  * the associated archives are started.
+  *
+  * The availability of the union archive is monitored; HTTP archives can
+  * only be started if it is present.
   *
   * @param archiveStarter the object to start the HTTP archive
   */
@@ -185,8 +187,8 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def startupHttpArchive(actors: MediaFacade.MediaFacadeActors, credentials:
   UserCredentials): Unit = {
     if (canStartHttpArchive) {
-      archiveStarter.startup(actors, clientApplicationContext.managementConfiguration,
-        "media.http", credentials, clientApplicationContext.actorFactory) match {
+      Try(archiveStarter.startup(actors, null, clientApplicationContext.managementConfiguration,
+        credentials, clientApplicationContext.actorFactory)) match {
         case Success(archiveActors) =>
           archiveActors foreach { t =>
             registerActor(t._1, t._2)

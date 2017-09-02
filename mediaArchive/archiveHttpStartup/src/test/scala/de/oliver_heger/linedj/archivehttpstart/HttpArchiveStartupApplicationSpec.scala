@@ -467,6 +467,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       this
     }
 
+    //TODO adapt to changes on starter signature
     /**
       * Prepares the mock startup object for a startup operation and defines
       * the map of actors to be returned. With this method successful and
@@ -478,15 +479,15 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     def initArchiveStartupResult(actors: Try[Map[String, ActorRef]]): StartupTestHelper = {
       actors match {
-        case Success(_) =>
-          expectStarterInvocation().thenAnswer(new Answer[Try[Map[String, ActorRef]]] {
-            override def answer(invocation: InvocationOnMock): Try[Map[String, ActorRef]] = {
+        case Success(map) =>
+          expectStarterInvocation().thenAnswer(new Answer[Map[String, ActorRef]] {
+            override def answer(invocation: InvocationOnMock): Map[String, ActorRef] = {
               archiveStartupCount.incrementAndGet()
-              actors
+              map
             }
           })
-        case f@Failure(_) =>
-          expectStarterInvocation().thenReturn(f)
+        case Failure(_) =>
+          expectStarterInvocation().thenReturn(null)
       }
       this
     }
@@ -560,9 +561,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return the stubbing object to define the behavior of the startup
       *         method
       */
-    private def expectStarterInvocation(): OngoingStubbing[Try[Map[String, ActorRef]]] =
+    private def expectStarterInvocation(): OngoingStubbing[Map[String, ActorRef]] =
       when(archiveStarter.startup(MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaManager.ref), archiveConfig, "media.http", ArchiveCredentials,
+        probeUnionMetaManager.ref), null, archiveConfig, ArchiveCredentials,
         actorFactory))
   }
 

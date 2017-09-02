@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.nio.file.Paths
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor}
+import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl.download.{RemoveTempFilesActor, TempPathGenerator}
@@ -28,8 +28,6 @@ import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.Configuration
-
-import scala.util.Try
 
 object HttpArchiveStarter {
   /** The name of the HTTP archive management actor. */
@@ -50,6 +48,17 @@ object HttpArchiveStarter {
 
   /** System property for the OS temp directory. */
   private val SysPropTempDir = "java.io.tmpdir"
+
+  /**
+    * Generates the name of an actor for an HTTP archive based on the short
+    * name for the target archive and the provided suffix.
+    *
+    * @param arcShortName the short name of the HTTP archive
+    * @param suffix the suffix, the actual actor name
+    * @return the resulting full actor name
+    */
+  def archiveActorName(arcShortName: String, suffix: String): String =
+    s"${arcShortName}_$suffix"
 
   /**
     * Creates the ''TempPathGenerator'' to be used by the archive. Makes sure
@@ -85,22 +94,19 @@ class HttpArchiveStarter {
     * Starts up the HTTP archive with the specified settings.
     *
     * @param unionArchiveActors an object with the actors for the union archive
+    * @param archiveData        data for the archive to be started
     * @param config             the configuration
-    * @param keyPrefix          the prefix key for configuration settings
     * @param credentials        the user credentials for reading data from the archive
     * @param actorFactory       the actor factory
-    * @return a ''Try'' with a map of the actors created; keys are the names of
+    * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
-  def startup(unionArchiveActors: MediaFacadeActors, config: Configuration, keyPrefix: String,
-              credentials: UserCredentials, actorFactory: ActorFactory):
-  Try[Map[String, ActorRef]] = {
-    val downloadConfig = DownloadConfig(config)
-    val archiveConfig = HttpArchiveConfig(config, keyPrefix, credentials, downloadConfig)
-
-    archiveConfig.map { ac =>
-      createArchiveActors(unionArchiveActors, actorFactory, ac, config)
-    }
+  def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
+              config: Configuration, credentials: UserCredentials, actorFactory: ActorFactory):
+  Map[String, ActorRef] = {
+    val archiveConfig = archiveData.config.copy(credentials = credentials)
+      createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+        archiveData.shortName)
   }
 
   /**
@@ -109,26 +115,35 @@ class HttpArchiveStarter {
     *
     * @param unionArchiveActors the object with actors of the union archive
     * @param actorFactory       the actor factory
-    * @param ac                 the archive configuration
+    * @param archiveConfig      the config of the archive to be created
     * @param config             the original configuration
+    * @param shortName          the short name of the archive to be created
+    *
     * @return the map with the actors created by this method
     */
-  private def createArchiveActors(unionArchiveActors: MediaFacadeActors, actorFactory:
-  ActorFactory, ac: HttpArchiveConfig, config: Configuration): Map[String, ActorRef] = {
+  private def createArchiveActors(unionArchiveActors: MediaFacadeActors,
+                                  actorFactory: ActorFactory, archiveConfig: HttpArchiveConfig,
+                                  config: Configuration, shortName: String):
+  Map[String, ActorRef] = {
+    def actorName(n: String): String = archiveActorName(shortName, n)
+
+    val managerName = actorName(ManagementActorName)
+    val monitorName = actorName(DownloadMonitoringActorName)
+    val removeName = actorName(RemoveFileActorName)
     val pathGenerator = createPathGenerator(config)
     val removeActor = actorFactory.createActor(
-      RemoveTempFilesActor(ClientApplication.BlockingDispatcherName), RemoveFileActorName)
-    val monitoringActor = actorFactory.createActor(DownloadMonitoringActor(ac.downloadConfig),
-      DownloadMonitoringActorName)
-    val managerActor = actorFactory.createActor(HttpArchiveManagementActor(ac,
+      RemoveTempFilesActor(ClientApplication.BlockingDispatcherName), removeName)
+    val monitoringActor = actorFactory.createActor(
+      DownloadMonitoringActor(archiveConfig.downloadConfig), monitorName)
+    val managerActor = actorFactory.createActor(HttpArchiveManagementActor(archiveConfig,
       pathGenerator, unionArchiveActors.mediaManager, unionArchiveActors.metaDataManager,
-      monitoringActor, removeActor), ManagementActorName)
+      monitoringActor, removeActor), managerName)
 
     managerActor ! ScanAllMedia
     removeActor ! RemoveTempFilesActor.ClearTempDirectory(pathGenerator.rootPath, pathGenerator)
 
-    Map(ManagementActorName -> managerActor,
-      DownloadMonitoringActorName -> monitoringActor,
-      RemoveFileActorName -> removeActor)
+    Map(managerName -> managerActor,
+      monitorName -> monitoringActor,
+      removeName -> removeActor)
   }
 }
