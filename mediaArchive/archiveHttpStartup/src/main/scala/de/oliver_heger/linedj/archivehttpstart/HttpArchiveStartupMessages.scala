@@ -74,6 +74,15 @@ object HttpArchiveStates {
     extends HttpArchiveState("NotLoggedIn", isActive = false)
 
   /**
+    * An object representing the HTTP archive state that the archive is
+    * currently initializing itself. This is the state after the archive's
+    * actors have been created. When initialization is complete a final state
+    * will be entered.
+    */
+  case object HttpArchiveStateInitializing
+    extends HttpArchiveState("Initializing", isActive = false)
+
+  /**
     * An object representing the HTTP archive state ''available''. In this
     * state the content of the HTTP archive can be accessed and has been
     * contributed to the central union archive.
