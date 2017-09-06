@@ -50,7 +50,7 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
                                  txtPassword: ComponentHandler[String],
                                  btnLogin: ComponentHandler[_],
                                  btnLogout: ComponentHandler[_],
-                                 statusLineHandler: StatusLineHandler)
+                                 statusLineHandler: ArchiveStatusHelper)
   extends WindowListener with FormActionListener {
   /** The registration ID for the message bus receiver. */
   private var busRegistrationID: Int = _
@@ -135,6 +135,6 @@ class HttpArchiveLoginController(bus: UIBus, txtUser: ComponentHandler[String],
     */
   private def messageBusReceive: Receive = {
     case state: HttpArchiveState =>
-      statusLineHandler archiveStateChanged state
+      statusLineHandler updateStatusLine state
   }
 }

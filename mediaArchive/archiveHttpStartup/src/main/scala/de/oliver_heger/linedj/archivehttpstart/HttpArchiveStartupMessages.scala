@@ -50,14 +50,6 @@ object HttpArchiveStates {
   sealed abstract class HttpArchiveState(val name: String, val isActive: Boolean)
 
   /**
-    * An object representing the HTTP archive state that the archive's
-    * configuration is invalid. This is a fatal error which makes it
-    * impossible to start the HTTP archive.
-    */
-  case object HttpArchiveStateInvalidConfig
-    extends HttpArchiveState("InvalidConfig", isActive = false)
-
-  /**
     * An object representing the HTTP archive state that the union archive is
     * not available. In this case, no HTTP archive is started because there is
     * nothing it can contribute to.

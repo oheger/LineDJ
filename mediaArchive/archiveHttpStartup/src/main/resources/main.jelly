@@ -42,7 +42,7 @@
 
   <!-- Status line handler -->
   <di:bean name="statusLineHandler"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.StatusLineHandler">
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.ArchiveStatusHelper">
     <di:constructor>
       <di:param refName="comp:txtStatusLine"/>
       <di:param>

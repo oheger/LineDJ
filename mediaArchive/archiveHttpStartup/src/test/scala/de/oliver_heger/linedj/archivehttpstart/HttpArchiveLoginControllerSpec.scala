@@ -150,7 +150,7 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
     private val btnLogout = createButtonMock(answerLogout)
 
     /** Mock for the status line handler. */
-    private val statusLineHandler = mock[StatusLineHandler]
+    private val statusLineHandler = mock[ArchiveStatusHelper]
 
     /** The test controller. */
     val controller: HttpArchiveLoginController = createController()
@@ -288,7 +288,7 @@ class HttpArchiveLoginControllerSpec extends FlatSpec with Matchers with Mockito
       * @return this test helper
       */
     def verifyStatusLineHandler(state: HttpArchiveState): LoginControllerTestHelper = {
-      verify(statusLineHandler).archiveStateChanged(state)
+      verify(statusLineHandler).updateStatusLine(state)
       this
     }
 
