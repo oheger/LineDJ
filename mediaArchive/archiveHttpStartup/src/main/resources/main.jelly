@@ -29,90 +29,124 @@
             tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
             resgrp="application" taskBean="exitTask"/>
 
+  <!-- Actions for changing the login state of realms -->
+  <a:action name="actionLogin" textres="act_login_text" tooltipres="act_login_tip"
+            mnemonicres="act_login_mnemo" taskBean="loginTask">
+    <f:icon resource="login.png"/>
+  </a:action>
+
+  <a:action name="actionLogout" textres="act_logout_text" tooltipres="act_logout_tip"
+            mnemonicres="act_logout_mnemo" taskBean="logoutTask">
+    <f:icon resource="logout.png"/>
+  </a:action>
+
+  <a:action name="actionLogoutAll" textres="act_logoutall_text" tooltipres="act_logoutall_tip"
+            mnemonicres="act_logoutall_mnemo" taskBean="logoutAllTask">
+    <f:icon resource="logoutAll.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_realms_text" mnemonicres="menu_realms_mnemo">
+      <a:menuitem actionName="actionLogin"/>
+      <a:menuitem actionName="actionLogout"/>
+      <a:menuitem actionName="actionLogoutAll"/>
     </a:menu>
   </a:menubar>
 
   <!-- Icons for the archive's state -->
   <f:icon resource="state_unavail.png" var="iconUnavailable"/>
   <f:icon resource="state_avail.png" var="iconAvailable"/>
+  <f:icon resource="state_init.png" var="iconPending"/>
 
-  <!-- Status line handler -->
-  <di:bean name="statusLineHandler"
+  <!-- Status line helper -->
+  <di:bean name="statusHelper"
     beanClassName="de.oliver_heger.linedj.archivehttpstart.ArchiveStatusHelper">
     <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
       <di:param refName="comp:txtStatusLine"/>
-      <di:param>
-        <f:localized resid="state_invalid_config"/>
-      </di:param>
-      <di:param>
-        <f:localized resid="state_no_archive"/>
-      </di:param>
-      <di:param>
-        <f:localized resid="state_no_login"/>
-      </di:param>
-      <di:param>
-        <f:localized resid="state_active"/>
-      </di:param>
       <di:param refName="iconUnavailable"/>
       <di:param refName="iconAvailable"/>
+      <di:param refName="iconPending"/>
     </di:constructor>
   </di:bean>
 
-  <!-- Login controller -->
-  <di:bean name="loginController"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveLoginController">
+  <!-- The models of the archives and realms tables. -->
+  <di:bean name="archivesTableModel" beanClassName="java.util.ArrayList"/>
+  <di:bean name="realmsTableModel" beanClassName="java.util.ArrayList"/>
+
+  <!-- Reference to the currently selected realm -->
+  <di:bean name="refCurrentRealm" beanClassName="java.util.concurrent.atomic.AtomicReference"/>
+
+  <!-- Message bus registration -->
+  <di:bean name="LineDJ_messageBusRegistration"
+           beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="overviewController"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+    <di:shutdown>
+      <di:methodInvocation method="removeRegistrations"/>
+    </di:shutdown>
+  </di:bean>
+
+  <!-- Overview controller -->
+  <di:bean name="overviewController"
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveOverviewController">
     <di:constructor>
       <di:param refName="LineDJ_MessageBus"/>
-      <di:param refName="comp:txtUser"/>
-      <di:param refName="comp:txtPassword"/>
-      <di:param refName="comp:btnLogin"/>
-      <di:param refName="comp:btnLogout"/>
-      <di:param refName="statusLineHandler"/>
+      <di:param refName="httpArchiveConfigManager"/>
+      <di:param refName="ACTION_STORE"/>
+      <di:param refName="comp:tabArchives"/>
+      <di:param refName="comp:tabRealms"/>
+      <di:param refName="statusHelper"/>
+      <di:param refName="refCurrentRealm"/>
     </di:constructor>
   </di:bean>
 
   <!-- Main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
-    <f:borderlayout/>
-    <f:panel>
-      <f:borderconstr name="CENTER"/>
-      <f:borderlayout/>
-      <f:panel>
-        <f:borderconstr name="CENTER"/>
-        <f:percentlayout columns="4dlu end/preferred 3dlu start/minimum(3cm) 4dlu"
-                         rows="4dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
-        <f:label textres="lab_log_prompt">
-          <f:percentconstr col="1" row="1" spanx="3"/>
-        </f:label>
-        <f:label textres="lab_log_user">
-          <f:percentconstr col="1" row="3"/>
-        </f:label>
-        <f:textfield name="txtUser" tooltipres="txt_log_user_tip">
-          <f:percentconstr col="3" row="3"/>
-        </f:textfield>
-        <f:label textres="lab_log_password">
-          <f:percentconstr col="1" row="5"/>
-        </f:label>
-        <f:password name="txtPassword" tooltipres="txt_log_password_tip">
-          <f:percentconstr col="3" row="5"/>
-        </f:password>
-      </f:panel>
+    <f:borderlayout canShrink="false"/>
 
-      <!-- The button bar -->
-      <f:panel>
-        <f:borderconstr name="SOUTH"/>
-        <f:buttonlayout/>
-        <f:button name="btnLogin" textres="btn_log_in"
-          mnemonicres="btn_log_in_mnemo"/>
-        <f:button name="btnLogout" textres="btn_log_out"
-          mnemonicres="btn_log_out_mnemo"/>
-      </f:panel>
-    </f:panel>
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="actionLogin"/>
+      <a:separator/>
+      <a:toolbutton actionName="actionLogout"/>
+      <a:toolbutton actionName="actionLogoutAll"/>
+    </a:toolbar>
+
+    <f:splitter orientation="VERTICAL">
+      <f:borderconstr name="CENTER"/>
+
+      <!-- Table for archives -->
+      <f:table name="tabArchives" model="archivesTableModel" multiSelection="false"
+        scrollHeight="5cm">
+        <f:column name="icon" percentWidth="20" headerres="tcol_state"
+                  columnClass="Icon"/>
+        <f:column name="name" percentWidth="80" headerres="tcol_archive"
+                  columnClass="String">
+        </f:column>
+      </f:table>
+
+      <!-- Table for realms -->
+      <f:table name="tabRealms" model="realmsTableModel" multiSelection="false"
+        scrollHeight="5cm">
+        <f:column name="icon" percentWidth="20" headerres="tcol_state"
+                  columnClass="Icon"/>
+        <f:column name="name" percentWidth="80" headerres="tcol_realm"
+                  columnClass="String">
+        </f:column>
+      </f:table>
+    </f:splitter>
 
     <!-- Status line -->
     <f:panel>
@@ -123,14 +157,14 @@
       </f:statictext>
     </f:panel>
 
-    <w:controller beanName="loginController"/>
+    <w:controller beanName="overviewController"/>
   </w:frame>
 
-  <!--Listener registrations for the buttons -->
-  <a:eventListener component="btnLogin" eventType="ACTION"
-    beanName="loginController"/>
-  <a:eventListener component="btnLogout" eventType="ACTION"
-    beanName="loginController"/>
+  <!-- Change listener registrations for table selections -->
+  <a:eventListener component="tabArchives" eventType="CHANGE"
+    beanName="overviewController"/>
+  <a:eventListener component="tabRealms" eventType="CHANGE"
+    beanName="overviewController"/>
 
   <!-- Action tasks and commands -->
 
@@ -139,5 +173,34 @@
            beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
+  <!-- Command and task for the realm login dialog -->
+  <di:bean name="openLoginDialogCommand"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenLoginDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:login.jelly"/>
+      <di:param refName="refCurrentRealm"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="loginTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openLoginDialogCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:actionLogin"/>
+  </di:bean>
+
+  <!-- Logout tasks -->
+  <di:bean name="logoutTask"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.LogoutTask">
+    <di:constructor>
+      <di:param refName="overviewController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="logoutAllTask"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.LogoutAllTask">
+    <di:constructor>
+      <di:param refName="overviewController"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>
 

@@ -460,9 +460,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper()
 
     helper.startupApplication()
-    val configManager = helper.app.getApplicationContext.getBeanContext
-      .getBean(HttpArchiveStartupApplication.BeanConfigManager)
-      .asInstanceOf[HttpArchiveConfigManager]
+    val configManager = helper.queryBean[HttpArchiveConfigManager](helper.app,
+      HttpArchiveStartupApplication.BeanConfigManager)
 
     configManager.archives should have size 3
   }
@@ -471,8 +470,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper(skipUI = false)
 
     helper.startupApplication(handleAvailabilityReg = false)
-    helper.queryBean[HttpArchiveLoginController](helper.app.getMainWindowBeanContext,
-      "loginController")
+    helper.queryBean[HttpArchiveOverviewController](helper.app.getMainWindowBeanContext,
+      "overviewController")
   }
 
   /**
