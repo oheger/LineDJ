@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.Actor.Receive
 import akka.actor.ActorRef
 import akka.pattern.ask
@@ -129,11 +131,12 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   import HttpArchiveStartupApplication._
 
   /**
-    * Stores the ID for the message bus registration. Note: Both registration
-    * and un-registration happen on the OSGi management thread. Therefore, it
-    * is safe to store this value in a plain variable.
+    * Stores the ID for the message bus registration. Note: The registration
+    * is done during application context creation in a background thread.
+    * Therefore, is has to be ensured that the value is published in a safe
+    * way.
     */
-  private var messageBusRegistrationID: Int = _
+  private val messageBusRegistrationID = new AtomicInteger
 
   /**
     * Stores the current availability state of the union archive. This field is
@@ -160,8 +163,6 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     */
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
-    publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
-    messageBusRegistrationID = messageBus registerListener messageBusReceive
   }
 
   /**
@@ -169,8 +170,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     *             bus.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
-    messageBus removeListener messageBusRegistrationID
-    publish(ArchiveAvailabilityUnregistration(componentID))
+    removeRegistrations()
     super.deactivate(componentContext)
   }
 
@@ -183,6 +183,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     configManager = HttpArchiveConfigManager(clientApplicationContext.managementConfiguration)
     archiveStates = createInitialArchiveState()
     addBeanDuringApplicationStartup(BeanConfigManager, configManager)
+    addRegistrations()
     context
   }
 
@@ -200,6 +201,23 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     }
 
   /**
+    * Adds the required registrations for message bus listeners and consumers.
+    */
+  private def addRegistrations(): Unit = {
+    publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
+    messageBusRegistrationID.set(messageBus registerListener messageBusReceive)
+  }
+
+  /**
+    * Removes the registrations for message bus listeners and consumers. This
+    * method is invoked when the application is deactivated.
+    */
+  private def removeRegistrations(): Unit = {
+    messageBus removeListener messageBusRegistrationID.get()
+    publish(ArchiveAvailabilityUnregistration(componentID))
+  }
+
+  /**
     * Returns the message processing function for the UI bus.
     *
     * @return the message processing function
@@ -209,14 +227,12 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       publishArchiveStates()
 
     case LoginStateChanged(realm, Some(creds)) =>
+      removeRealmCredentials(realm)
       realms += realm -> creds
       triggerArchiveStartIfPossible()
 
     case LoginStateChanged(realm, None) =>
-      realms -= realm
-      if (canStartHttpArchives) {
-        logoutArchives(realm)
-      }
+      removeRealmCredentials(realm)
 
     case not@HttpArchiveStateChanged(_, HttpArchiveStateInitializing) =>
       queryAndPublishArchiveState(not)
@@ -238,7 +254,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       val timeoutSecs = clientApplicationContext.managementConfiguration.getInt(
         PropArchiveStateRequestTimeout, DefaultStateRequestTimeout)
       implicit val timeout: Timeout = Timeout(timeoutSecs.seconds)
-      val futState = mgrActor ? HttpArchiveStateRequest
+      val futState = mgrActor ? de.oliver_heger.linedj.archivehttp.HttpArchiveStateRequest
       futState.mapTo[HttpArchiveStateResponse]
         .map(r => mapArchiveStartedState(r.archiveName, r.state))
         .onComplete {
@@ -388,6 +404,19 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     }
 
   /**
+    * Resets the credentials of the specified realm and logs out all archives
+    * associated with this realm.
+    *
+    * @param realm the name of the realm affected
+    */
+  private def removeRealmCredentials(realm: String): Unit = {
+    realms -= realm
+    if (canStartHttpArchives) {
+      logoutArchives(realm)
+    }
+  }
+
+  /**
     * Stops all archives after the realm they belong to has been logged out.
     *
     * @param realm the name of the realm
@@ -398,8 +427,10 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       archiveStates(name).actors.keys foreach unregisterAndStopActor
       val newState = ArchiveStateData(actors = Map.empty,
         state = HttpArchiveStateChanged(name, HttpArchiveStateNotLoggedIn))
-      archiveStates += name -> newState
-      publish(newState.state)
+      if (archiveStates(name) != newState) {
+        archiveStates += name -> newState
+        publish(newState.state)
+      }
     }
   }
 

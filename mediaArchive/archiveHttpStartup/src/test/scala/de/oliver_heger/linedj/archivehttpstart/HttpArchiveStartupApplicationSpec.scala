@@ -298,6 +298,23 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveCreation()
   }
 
+  it should "do a logout first if a login message is received" in {
+    val helper = new StartupTestHelper
+
+    helper.startupApplication()
+      .initArchiveStartupResult(createActorsMap(2), 2, 2)
+      .prepareMediaFacadeActorsRequest()
+      .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3)
+      .sendLoginForRealm(2)
+      .processUIFuture()
+      .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
+      .sendLoginForRealm(2)
+      .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateNotLoggedIn))
+      .processUIFuture()
+      .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
+  }
+
   it should "check preconditions again after facade actors have been fetched" in {
     val helper = new StartupTestHelper
     helper.startupApplication()
@@ -367,15 +384,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     enterArchiveAvailableState(helper)
 
     helper.sendAvailability(MediaFacade.MediaArchiveAvailable)
-    helper.messageBus.expectNoMessage()
-  }
-
-  it should "ignore a duplicate credentials message" in {
-    val helper = new StartupTestHelper
-    prepareMultiRealmLogin(helper)
-    enterArchiveAvailableState(helper)
-
-    helper.sendLoginForRealm(1)
     helper.messageBus.expectNoMessage()
   }
 
@@ -742,7 +750,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   */
 class ArchiveStateActor(stateResponse: HttpArchiveStateResponse) extends Actor {
   override def receive: Receive = {
-    case HttpArchiveStateRequest =>
+    case de.oliver_heger.linedj.archivehttp.HttpArchiveStateRequest =>
       sender ! stateResponse
   }
 }
