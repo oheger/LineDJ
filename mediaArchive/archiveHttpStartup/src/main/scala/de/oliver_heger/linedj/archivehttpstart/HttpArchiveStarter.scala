@@ -44,7 +44,7 @@ object HttpArchiveStarter {
     * during a download operation. If the property is not specified, the
     * OS temp directory is used.
     */
-  val PropTempDirectory = "media.http.tempDir"
+  val PropTempDirectory = "media.downloadTempDir"
 
   /** System property for the OS temp directory. */
   private val SysPropTempDir = "java.io.tmpdir"
