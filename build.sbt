@@ -345,7 +345,7 @@ lazy val playlistEditor = (project in file("pleditor"))
   * implementation of ''PlaylistReorderer'' which orders playlist elements
   * based on their URI.
   */
-lazy val reorderMedium = (project in file("reorderMedium"))
+lazy val reorderMedium = (project in file("reorder/reorderMedium"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -363,7 +363,7 @@ lazy val reorderMedium = (project in file("reorderMedium"))
   * implementation of ''PlaylistReorderer'' which orders playlist elements
   * based on an album ordering.
   */
-lazy val reorderAlbum = (project in file("reorderAlbum"))
+lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -381,7 +381,7 @@ lazy val reorderAlbum = (project in file("reorderAlbum"))
   * implementation of ''PlaylistReorderer'' which orders playlist elements
   * based on an artist ordering.
   */
-lazy val reorderArtist = (project in file("reorderArtist"))
+lazy val reorderArtist = (project in file("reorder/reorderArtist"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -400,7 +400,7 @@ lazy val reorderArtist = (project in file("reorderArtist"))
   * playlist elements. (No properties are used to group songs; they are
   * simply reordered arbitrarily.)
   */
-lazy val reorderRandomSongs = (project in file("reorderRandomSongs"))
+lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -419,7 +419,7 @@ lazy val reorderRandomSongs = (project in file("reorderRandomSongs"))
   * the artists of the songs in the playlist. The songs of an artist are
   * sorted in album order.
   */
-lazy val reorderRandomArtists = (project in file("reorderRandomArtists"))
+lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -439,7 +439,7 @@ lazy val reorderRandomArtists = (project in file("reorderRandomArtists"))
   * by their track number (and name). The artists are not taken into
   * account.
   */
-lazy val reorderRandomAlbums = (project in file("reorderRandomAlbums"))
+lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
