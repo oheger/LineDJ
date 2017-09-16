@@ -36,7 +36,7 @@ import scala.concurrent.duration._
 object ArchiveToCWriterActorSpec {
   /** A default config for writing the ToC file. */
   private val ToCConfig = ArchiveContentTableConfig(contentFile = Some(Paths.get("content.json")),
-    descriptionRemovePrefix = "C:\\music\\", descriptionPathSeparator = "\\\\",
+    descriptionRemovePrefix = "C:\\music\\", descriptionPathSeparator = "\\",
     descriptionUrlEncoding = false, rootPrefix = Some("/music/"),
     metaDataPrefix = Some("/meta/"))
 
