@@ -734,8 +734,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val archiveData = archiveConfigManager.archives(
         StartupConfigTestHelper.archiveName(archiveIdx))
       val creds = credentials(realmIdx)
+      //TODO set correct numeric index
       when(archiveStarter.startup(MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaManager.ref), archiveData, archiveConfig, creds, actorFactory))
+        probeUnionMetaManager.ref), archiveData, archiveConfig, creds, actorFactory, 0))
     }
   }
 

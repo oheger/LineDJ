@@ -55,10 +55,11 @@ object HttpArchiveStarter {
     *
     * @param arcShortName the short name of the HTTP archive
     * @param suffix the suffix, the actual actor name
+    * @param index an index to make actor names unique
     * @return the resulting full actor name
     */
-  def archiveActorName(arcShortName: String, suffix: String): String =
-    s"${arcShortName}_$suffix"
+  def archiveActorName(arcShortName: String, suffix: String, index: Int): String =
+    s"$arcShortName${index}_$suffix"
 
   /**
     * Creates the ''TempPathGenerator'' to be used by the archive. Makes sure
@@ -77,14 +78,20 @@ object HttpArchiveStarter {
   * A helper class that takes care that an HTTP archive is started correctly.
   *
   * This class externalizes the logic to start an HTTP archive as defined by a
-  * ''Configuration'' object. It extracts the configuration settings, creates
+  * [[HttpArchiveData]] object. It extracts the configuration settings, creates
   * all required actors, and initiates a media scan operation.
   *
-  * It is possible to specify a configuration key prefix, from which the
-  * settings for the archive are to be read. So the configuration format is
-  * under control of the caller. If the configuration does not contain all
-  * mandatory settings, archive creation will fail. (For this reason, the
-  * creation method returns a ''Try'' object.)
+  * The creation method returns a map with all actors that have been created
+  * for the archive. The keys of the map are the names of the actors. Because
+  * multiple archives can be active in parallel actor names have to be
+  * generated dynamically. The short name of an HTTP archive is included into
+  * actor names. In addition, a numeric index is expected as argument to
+  * guarantee uniqueness of actor names. This is actually needed to deal with a
+  * race condition: When the user updates the credentials of an archive, the
+  * corresponding actors are stopped and new ones are created. As stopping
+  * actors is an asynchronous operation, it can happen that the creation of new
+  * actors fail because names are already in use. The numeric index integrated
+  * into generated actor names prevents this.
   */
 class HttpArchiveStarter {
 
@@ -98,15 +105,16 @@ class HttpArchiveStarter {
     * @param config             the configuration
     * @param credentials        the user credentials for reading data from the archive
     * @param actorFactory       the actor factory
+    * @param index              an index for unique actor name generation
     * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, credentials: UserCredentials, actorFactory: ActorFactory):
-  Map[String, ActorRef] = {
+              config: Configuration, credentials: UserCredentials, actorFactory: ActorFactory,
+              index: Int): Map[String, ActorRef] = {
     val archiveConfig = archiveData.config.copy(credentials = credentials)
       createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-        archiveData.shortName)
+        archiveData.shortName, index)
   }
 
   /**
@@ -118,14 +126,15 @@ class HttpArchiveStarter {
     * @param archiveConfig      the config of the archive to be created
     * @param config             the original configuration
     * @param shortName          the short name of the archive to be created
+    * @param index              an index for unique actor name generation
     *
     * @return the map with the actors created by this method
     */
   private def createArchiveActors(unionArchiveActors: MediaFacadeActors,
                                   actorFactory: ActorFactory, archiveConfig: HttpArchiveConfig,
-                                  config: Configuration, shortName: String):
+                                  config: Configuration, shortName: String, index: Int):
   Map[String, ActorRef] = {
-    def actorName(n: String): String = archiveActorName(shortName, n)
+    def actorName(n: String): String = archiveActorName(shortName, n, index)
 
     val managerName = actorName(ManagementActorName)
     val monitorName = actorName(DownloadMonitoringActorName)

@@ -45,6 +45,9 @@ object HttpArchiveStarterSpec {
   /** The test path for temporary files. */
   private val PathTempDir = Paths get "tempDir"
 
+  /** A default numeric index to be passed to the starter. */
+  private val ArcIndex = 28
+
   /**
     * Creates a configuration object with the properties defining the test
     * HTTP archive.
@@ -76,6 +79,15 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     helper.startArchiveAndCheckActors()
       .checkActorProps()
+  }
+
+  it should "generate unique actor names based on the numeric index" in {
+    val OtherIndex = ArcIndex + 1
+    val helper = new StarterTestHelper(OtherIndex)
+
+    val actors = helper.startArchive(createArchiveSourceConfig())
+    actors.contains(helper.actorName(HttpArchiveStarter.ManagementActorName,
+      OtherIndex)) shouldBe true
   }
 
   it should "create a correct temp path generator" in {
@@ -125,8 +137,10 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   /**
     * A test helper class managing a test instance and its dependencies.
+    *
+    * @param index the numeric index to be passed to the starter
     */
-  private class StarterTestHelper {
+  private class StarterTestHelper(index: Int = ArcIndex) {
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -162,7 +176,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory)
+      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory, index)
 
     /**
       * Invokes the test instance to start the archive and checks whether the
@@ -246,8 +260,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param n the name suffix for the actor
       * @return the full actor name
       */
-    def actorName(n: String): String =
-      archiveData.shortName + '_' + n
+    def actorName(n: String, index: Int = ArcIndex): String =
+      archiveData.shortName + index + '_' + n
 
     /**
       * Creates the test archive data from the configuration passed to this
@@ -276,9 +290,11 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the actor factory
       */
     private def createActorFactory(): ActorFactory = {
-      val probes = Map(actorName(HttpArchiveStarter.ManagementActorName) -> probeManagerActor.ref,
-        actorName(HttpArchiveStarter.RemoveFileActorName) -> probeRemoveActor.ref,
-        actorName(HttpArchiveStarter.DownloadMonitoringActorName) -> probeMonitoringActor.ref)
+      val probes = Map(
+        actorName(HttpArchiveStarter.ManagementActorName, index) -> probeManagerActor.ref,
+        actorName(HttpArchiveStarter.RemoveFileActorName, index) -> probeRemoveActor.ref,
+        actorName(HttpArchiveStarter.DownloadMonitoringActorName, index)
+          -> probeMonitoringActor.ref)
       new ActorFactory(system) {
         override def createActor(props: Props, name: String): ActorRef = {
           creationProps += name -> props

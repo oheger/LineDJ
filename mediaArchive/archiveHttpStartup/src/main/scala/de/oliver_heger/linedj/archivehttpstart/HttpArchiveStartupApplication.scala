@@ -246,9 +246,10 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * @param stateChange the state change notification
     */
   private def queryAndPublishArchiveState(stateChange: HttpArchiveStateChanged): Unit = {
+    // TODO set correct index
     val mgrName = HttpArchiveStarter.archiveActorName(
       configManager.archives(stateChange.archiveName).shortName,
-      HttpArchiveStarter.ManagementActorName)
+      HttpArchiveStarter.ManagementActorName, 0)
     val optMgrActor = archiveStates(stateChange.archiveName).actors get mgrName
     optMgrActor foreach { mgrActor =>
       val timeoutSecs = clientApplicationContext.managementConfiguration.getInt(
@@ -370,9 +371,10 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit = {
     if (canStartHttpArchives) {
       archivesToBeStarted foreach { e =>
+        //TODO set correct numeric index
         val actors = archiveStarter.startup(mediaActors, e._2,
           clientApplicationContext.managementConfiguration, realms(e._2.realm),
-          clientApplicationContext.actorFactory)
+          clientApplicationContext.actorFactory, 0)
         actors foreach (e => registerActor(e._1, e._2))
         val arcState = ArchiveStateData(actors = actors,
           state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing))
