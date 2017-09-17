@@ -34,7 +34,8 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.{any, anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.{Answer, OngoingStubbing}
@@ -52,6 +53,9 @@ object HttpArchiveStartupApplicationSpec {
   /** Test password. */
   private val Password = "tiger"
 
+  /** An index added to actor names. */
+  private val ArcIndex = 11
+
   /**
     * Generates an actor name for a test archive.
     *
@@ -60,7 +64,7 @@ object HttpArchiveStartupApplicationSpec {
     * @return the resulting actor name
     */
   private def actorName(archiveIdx: Int, suffix: String): String =
-    StartupConfigTestHelper.shortName(archiveIdx) + '_' + suffix
+    StartupConfigTestHelper.shortName(archiveIdx) + ArcIndex + '_' + suffix
 
   /**
     * Generates a credentials object for the realm with the given index.
@@ -97,6 +101,16 @@ object HttpArchiveStartupApplicationSpec {
         2),
       1)
   }
+
+  /**
+    * Returns a map with actor names derived from the given index.
+    *
+    * @param actors the map with actors
+    * @param index  the archive index
+    * @return the map with adapted keys
+    */
+  private def adaptActorNames(actors: Map[String, ActorRef], index: Int): Map[String, ActorRef] =
+    actors.map(e => (e._1.replace(ArcIndex + "_", index + "_"), e._2))
 }
 
 /**
@@ -313,6 +327,10 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateNotLoggedIn))
       .processUIFuture()
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
+
+    val indices = helper.fetchIndexPassedToStarter()
+    indices.size should be > 1
+    indices.toSet should have size indices.size
   }
 
   it should "check preconditions again after facade actors have been fetched" in {
@@ -535,7 +553,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     private val mockFacade = mock[MediaFacade]
 
     /** Mock for the archive starter. */
-    private val archiveStarter = mock[HttpArchiveStarter]
+    private val archiveStarter = {
+      mock[HttpArchiveStarter]
+    }
 
     /** The client application context. */
     private val clientApplicationContext = createTestClientApplicationContext()
@@ -650,7 +670,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
         .thenAnswer(new Answer[Map[String, ActorRef]] {
           override def answer(invocation: InvocationOnMock): Map[String, ActorRef] = {
             archiveStartupCount.incrementAndGet()
-            actors
+            adaptActorNames(actors, invocation.getArguments()(5).asInstanceOf[Int])
           }
         })
       this
@@ -697,6 +717,21 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
+      * Returns the numeric indices that have been passed to the starter
+      * object.
+      *
+      * @return the numeric indices
+      */
+    def fetchIndexPassedToStarter(): Seq[Int] = {
+      import collection.JavaConverters._
+      val captor = ArgumentCaptor.forClass(classOf[Int])
+      verify(archiveStarter, times(2)).startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
+        probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
+        any(classOf[UserCredentials]), argEq(actorFactory), captor.capture())
+      captor.getAllValues.asScala
+    }
+
+    /**
       * @inheritdoc This implementation returns the test client application
       *             context that has already been created initially by this
       *             test helper.
@@ -734,9 +769,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val archiveData = archiveConfigManager.archives(
         StartupConfigTestHelper.archiveName(archiveIdx))
       val creds = credentials(realmIdx)
-      //TODO set correct numeric index
-      when(archiveStarter.startup(MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaManager.ref), archiveData, archiveConfig, creds, actorFactory, 0))
+      when(archiveStarter.startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
+        probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig),
+        argEq(creds), argEq(actorFactory), anyInt()))
     }
   }
 

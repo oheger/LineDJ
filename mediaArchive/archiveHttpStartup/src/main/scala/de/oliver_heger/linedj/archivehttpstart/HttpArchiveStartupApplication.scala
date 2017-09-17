@@ -75,11 +75,26 @@ object HttpArchiveStartupApplication {
     * An internally used data class that stores state information about a
     * single managed HTTP archive.
     *
-    * @param state  the current state of this archive
-    * @param actors a map with the actors created for this archive
+    * @param state        the current state of this archive
+    * @param actors       a map with the actors created for this archive
+    * @param archiveIndex the index used for the archive when it was started
     */
   private case class ArchiveStateData(state: HttpArchiveStateChanged,
-                                      actors: Map[String, ActorRef])
+                                      actors: Map[String, ActorRef],
+                                      archiveIndex: Int) {
+    /**
+      * Tries to resolve the current management actor for the represented
+      * archive. If the archive has not yet been created, result is ''None''.
+      *
+      * @param shortName the short name of the archive in question
+      * @return an ''Option'' with the resolved management actor
+      */
+    def managerActor(shortName: String): Option[ActorRef] = {
+      val mgrName = HttpArchiveStarter.archiveActorName(shortName,
+        HttpArchiveStarter.ManagementActorName, archiveIndex)
+      actors get mgrName
+    }
+  }
 
   /**
     * Maps an archive state returned by the management actor of an archive to
@@ -157,6 +172,9 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   /** The object managing configuration data about HTTP archives. */
   private var configManager: HttpArchiveConfigManager = _
 
+  /** A counter for generating unique indices when creating archive actors. */
+  private var archiveIndexCounter = 0
+
   /**
     * @inheritdoc This implementation adds some registrations for the message
     *             bus and archive extensions.
@@ -197,7 +215,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     configManager.archives.keySet.foldLeft(
       Map.empty[String, ArchiveStateData]) { (m, n) =>
       val state = HttpArchiveStateChanged(n, HttpArchiveStateNoUnionArchive)
-      m + (n -> ArchiveStateData(state, Map.empty))
+      m + (n -> ArchiveStateData(state, Map.empty, 0))
     }
 
   /**
@@ -246,11 +264,8 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * @param stateChange the state change notification
     */
   private def queryAndPublishArchiveState(stateChange: HttpArchiveStateChanged): Unit = {
-    // TODO set correct index
-    val mgrName = HttpArchiveStarter.archiveActorName(
-      configManager.archives(stateChange.archiveName).shortName,
-      HttpArchiveStarter.ManagementActorName, 0)
-    val optMgrActor = archiveStates(stateChange.archiveName).actors get mgrName
+    val archiveName = configManager.archives(stateChange.archiveName).shortName
+    val optMgrActor = archiveStates(stateChange.archiveName).managerActor(archiveName)
     optMgrActor foreach { mgrActor =>
       val timeoutSecs = clientApplicationContext.managementConfiguration.getInt(
         PropArchiveStateRequestTimeout, DefaultStateRequestTimeout)
@@ -325,7 +340,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       realms.contains(e._2.realm)
     } foreach { e =>
       val stateData = ArchiveStateData(HttpArchiveStateChanged(e._1,
-        HttpArchiveStateNotLoggedIn), Map.empty)
+        HttpArchiveStateNotLoggedIn), Map.empty, 0)
       archiveStates += (e._1 -> stateData)
       publish(stateData.state)
     }
@@ -371,13 +386,14 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit = {
     if (canStartHttpArchives) {
       archivesToBeStarted foreach { e =>
-        //TODO set correct numeric index
+        archiveIndexCounter += 1
         val actors = archiveStarter.startup(mediaActors, e._2,
           clientApplicationContext.managementConfiguration, realms(e._2.realm),
-          clientApplicationContext.actorFactory, 0)
+          clientApplicationContext.actorFactory, archiveIndexCounter)
         actors foreach (e => registerActor(e._1, e._2))
         val arcState = ArchiveStateData(actors = actors,
-          state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing))
+          state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing),
+          archiveIndex = archiveIndexCounter)
         publish(arcState.state)
         archiveStates += e._1 -> arcState
       }
@@ -427,7 +443,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     configManager.archivesForRealm(realm) foreach { arc =>
       val name = arc.config.archiveName
       archiveStates(name).actors.keys foreach unregisterAndStopActor
-      val newState = ArchiveStateData(actors = Map.empty,
+      val newState = ArchiveStateData(actors = Map.empty, archiveIndex = 0,
         state = HttpArchiveStateChanged(name, HttpArchiveStateNotLoggedIn))
       if (archiveStates(name) != newState) {
         archiveStates += name -> newState
