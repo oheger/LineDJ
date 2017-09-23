@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
+import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.MessageBusTestImpl.DirectCallGUISynchronizer
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
@@ -67,6 +68,9 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false, timeout: Int = 3
   /** A queue for recording messages. */
   private val messageQueue = new LinkedBlockingQueue[Any]
 
+  /** Stores the listeners registered so that they can be queried. */
+  private var registeredListeners = Map.empty[Int, Receive]
+
   /**
     * @inheritdoc This implementation takes the ''directProcessing'' flag into
     *             account.
@@ -85,6 +89,53 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false, timeout: Int = 3
   def publishDirectly(msg: Any): Unit = {
     super.publish(msg)
   }
+
+  /**
+    * @inheritdoc This implementation records this invocation.
+    */
+  override def registerListener(r: Receive): Int = {
+    val regId = super.registerListener(r)
+    registeredListeners += regId -> r
+    regId
+  }
+
+  /**
+    * @inheritdoc This implementation records this invocation.
+    */
+  override def removeListener(listenerID: Int): Unit = {
+    registeredListeners -= listenerID
+    super.removeListener(listenerID)
+  }
+
+  /**
+    * Returns a map with all listeners currently registered at the bus. The
+    * map has listener IDs as keys and the listeners as values.
+    *
+    * @return a map with all listeners currently registered
+    */
+  def currentListeners: Map[Int, Receive] = registeredListeners
+
+  /**
+    * Returns a collection of all message listener functions than can process
+    * the specified message. This is useful to select a specific handler if
+    * there are multiple message listener registrations.
+    *
+    * @param msg the message in question
+    * @return a collection with all listener functions supporting the message
+    */
+  def findListenersForMessage(msg: Any): Iterable[Receive] =
+    currentListeners.values.filter(_.isDefinedAt(msg))
+
+  /**
+    * Returns an ''Option'' with a message listener function registered at
+    * this bus that can handle the specified message. If there are multiple
+    * such functions, an arbitrary one is selected.
+    *
+    * @param msg the message in question
+    * @return an ''Option'' with the function supporting this message
+    */
+  def findListenerForMessage(msg: Any): Option[Receive] =
+    findListenersForMessage(msg).headOption
 
   /**
     * Expects that a message of the specified type has been published to the
