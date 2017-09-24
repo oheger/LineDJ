@@ -18,8 +18,9 @@ package de.oliver_heger.linedj.platform.app
 
 import java.io.File
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorSystem}
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
@@ -36,6 +37,7 @@ import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 object ClientManagementApplicationSpec {
@@ -221,11 +223,12 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     app initActorSystem actorSystem
     runApp(app)
 
-    val captor = ArgumentCaptor.forClass(classOf[Receive])
-    verify(app.messageBus).registerListener(captor.capture())
     val exitHandler = mock[Runnable]
     app setExitHandler exitHandler
-    captor.getValue.apply(ClientManagementApplication.Shutdown(app))
+    val shutdownMsg = ClientManagementApplication.Shutdown(app)
+    app.mockBus.findListenerForMessage(shutdownMsg) foreach { r =>
+      r(shutdownMsg)
+    }
     verify(exitHandler).run()
   }
 
@@ -235,11 +238,11 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     app initActorSystem actorSystem
     runApp(app)
 
-    val captor = ArgumentCaptor.forClass(classOf[Receive])
-    verify(app.messageBus).registerListener(captor.capture())
+    val shutdownMsg = ClientManagementApplication.Shutdown(null)
+    val listener = app.mockBus.findListenerForMessage(shutdownMsg).get
     val exitHandler = mock[Runnable]
     app setExitHandler exitHandler
-    captor.getValue.apply(ClientManagementApplication.Shutdown(null))
+    listener.apply(shutdownMsg)
     verify(exitHandler, never()).run()
   }
 
@@ -396,28 +399,30 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val app = new ClientManagementAppWithMsgBus
 
     app setMediaIfcConfig confData
-    verify(app.mockBus)
-      .publish(ClientManagementApplication.MediaIfcConfigUpdated(Some(confData)))
+    val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
+    msg.currentConfigData should be(Some(confData))
   }
 
   it should "send a notification for a removed media interface config" in {
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
+    app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
 
     app unsetMediaIfcConfig confData
-    verify(app.mockBus).publish(ClientManagementApplication.MediaIfcConfigUpdated(None))
+    val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
+    msg.currentConfigData should be(None)
   }
 
   it should "ignore an unrelated remove notification" in {
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
+    app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
 
     app unsetMediaIfcConfig mock[MediaIfcConfigData]
     app.mediaIfcConfig should be(Some(confData))
-    verify(app.mockBus, never())
-      .publish(ClientManagementApplication.MediaIfcConfigUpdated(None))
+    app.mockBus.expectNoMessage(100.millis)
   }
 
   it should "provide access to the management configuration" in {
@@ -427,6 +432,41 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val config = app.managementConfiguration.asInstanceOf[XMLConfiguration]
     config.getFile.getName should be(UserConfigFile)
     config.getFile.delete()
+  }
+
+  it should "create a correct ServiceDependenciesManager" in {
+    val componentContext = createComponentContext()
+    val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
+
+    val depManager = app.createServiceDependenciesManager()
+    depManager.bundleContext should be(componentContext.getBundleContext)
+  }
+
+  it should "register the ServiceDependenciesManager at the message bus" in {
+    val app = new ClientManagementAppWithMsgBus
+    runApp(app)
+
+    val optRec = app.mockBus.findListenerForMessage(RegisterService(ServiceDependency("foo")))
+    optRec shouldBe 'defined
+  }
+
+  it should "create a correct MediaFacadeActorsServiceWrapper" in {
+    val componentContext = createComponentContext()
+    val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
+
+    val facadeWrapper = app.createFacadeServiceWrapper()
+    facadeWrapper.clientAppContext should be(app)
+    facadeWrapper.bundleContext should be(componentContext.getBundleContext)
+  }
+
+  it should "activate the MediaFacadeActorsServiceWrapper" in {
+    val wrapper = mock[MediaFacadeActorsServiceWrapper]
+    val app = new ClientManagementAppWithMsgBus {
+      override private[app] def createFacadeServiceWrapper() = wrapper
+    }
+    runApp(app)
+
+    verify(wrapper).activate()
   }
 
   /**
@@ -439,9 +479,12 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     *                             interface should be mocked
     * @param mockShutdownHandling a flag whether registration of a shutdown
     *                             listener should be mocked
+    * @param mockOsgiSupport      a flag whether listener registrations for
+    *                             OSGi support should be mocked
     */
   private class ClientManagementApplicationTestImpl(mockExtensions: Boolean = true,
-                                                    mockShutdownHandling: Boolean = true)
+                                                    mockShutdownHandling: Boolean = true,
+                                                    mockOsgiSupport: Boolean = true)
     extends ClientManagementApplication {
     /** A mock stage factory used per default by this object. */
     val mockStageFactory: StageFactory = mock[StageFactory]
@@ -463,9 +506,18 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     /**
       * @inheritdoc Calls the super method if mocking is disabled.
       */
-    override private[app] def initShutdownHandling(bus: MessageBus) = {
+    override private[app] def initShutdownHandling(bus: MessageBus): Unit = {
       if (!mockShutdownHandling) {
         super.initShutdownHandling(bus)
+      }
+    }
+
+    /**
+      * @inheritdoc Calls the super method if mocking is disabled.
+      */
+    override private[app] def installOsgiServiceSupport(): Unit = {
+      if (!mockOsgiSupport) {
+        super.installOsgiServiceSupport()
       }
     }
 
@@ -487,9 +539,10 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     * bus.
     */
   private class ClientManagementAppWithMsgBus
-    extends ClientManagementApplicationTestImpl(mockShutdownHandling = false) {
+    extends ClientManagementApplicationTestImpl(mockShutdownHandling = false,
+      mockOsgiSupport = false) {
     /** The mock message bus. */
-    val mockBus: MessageBus = mock[MessageBus]
+    val mockBus: MessageBusTestImpl = new MessageBusTestImpl
 
     override def messageBus: MessageBus = mockBus
   }

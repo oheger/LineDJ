@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.Configuration
+import org.osgi.framework.BundleContext
 import org.osgi.service.component.ComponentContext
 
 object ClientManagementApplication {
@@ -98,21 +99,14 @@ object ClientManagementApplication {
   * number of sub applications.
   *
   * To achieve its tasks, this class is a ''declarative services'' component.
-  * The reference to the central actor system is injected by the runtime; also
-  * notifications about registered applications are received. On the other
-  * hand, an instance exposes itself as ''ClientApplicationContext'' which is
-  * a prerequisite for other applications to start up.
+  * The reference to the central actor system is injected by the runtime. On
+  * the other hand, an instance exposes itself as ''ClientApplicationContext''
+  * which is a prerequisite for other applications to start up.
   *
-  * When a new sub application starts it is passed to this object by the SCR
-  * (service component runtime). Then a shutdown listener can be registered,
-  * so that the application takes part in shutdown management: Closing one of
-  * the sub application windows causing the whole client platform to shutdown.
-  * This is also controlled by this management application. To achieve this,
-  * it registers itself as shutdown listener at all managed sub applications.
-  * When the first application shuts down all other sub applications are sent
-  * a shutdown message, and the container is terminated. Note: This requires
-  * that all sub applications have dummy exit handlers which do not actually
-  * exit the virtual machine.
+  * This application is also responsible for shutting down the whole platform.
+  * It closely collaborates with the platform's [[ApplicationManager]] to do
+  * this. It installs a message bus listener for the shutdown command, so that
+  * a shutdown can be triggered externally.
   *
   * Another task of this application is to establish a connection to the media
   * archive. This is done by declaring a dependency to a
@@ -127,6 +121,15 @@ object ClientManagementApplication {
   *
   * Via the OSGi runtime the communication between all involved application
   * objects takes part in a loosely coupled way without direct interaction.
+  * To further support this programming model, some functionality is provided
+  * to represent message bus listener services as OSGi services. This is useful
+  * if modules depend on other modules that add such listener services. In this
+  * case, the bundles can use standard OSGi mechanisms to obtain service
+  * instances and receive notifications when they are available. For the same
+  * purpose, a
+  * [[de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors]]
+  * service is registered when the actors implementing the media facade
+  * interface have been retrieved.
   */
 class ClientManagementApplication extends Application with
 ClientApplicationContext with ApplicationSyncStartup {
@@ -154,8 +157,12 @@ ClientApplicationContext with ApplicationSyncStartup {
   /** The central stage factory. */
   private var beanStageFactory: StageFactory = _
 
-  /** A list with the currently registered client applications. */
-  private val registeredClients = new AtomicReference(List.empty[Application])
+  /**
+    * Holds the bundle context. Note: There is no need to synchronize this
+    * field. It is set in the OSGi management thread at startup; from there
+    * the thread to create the application is started.
+    */
+  private var bundleContext: BundleContext = _
 
   override def actorSystem: ActorSystem = system
 
@@ -226,6 +233,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     */
   def activate(compContext: ComponentContext): Unit = {
     log.info("Activating ClientManagementApplication.")
+    bundleContext = compContext.getBundleContext
     setExitHandler(createExitHandler(compContext))
     startApplication(this, "management")
   }
@@ -238,6 +246,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     val appCtx = super.createApplicationContext()
     beanStageFactory = extractStageFactory(appCtx)
     mediaFacadeField = createMediaFacade(appCtx)
+    installOsgiServiceSupport()
     initShutdownHandling(messageBus)
     appCtx
   }
@@ -288,6 +297,33 @@ ClientApplicationContext with ApplicationSyncStartup {
       .asInstanceOf[JavaFxWindowManager]
     windowManager.stageFactory
   }
+
+  /**
+    * Installs some special message bus listeners that implement the OSGi
+    * service registration support for LineDJ services.
+    */
+  private[app] def installOsgiServiceSupport(): Unit = {
+    messageBus registerListener createServiceDependenciesManager().receive
+    createFacadeServiceWrapper().activate()
+  }
+
+  /**
+    * Creates the helper object for doing OSGi service registrations for LineDJ
+    * services.
+    *
+    * @return the ''ServiceDependenciesManager''
+    */
+  private[app] def createServiceDependenciesManager(): ServiceDependenciesManager =
+    new ServiceDependenciesManager(bundleContext)
+
+  /**
+    * Creates the helper object for registering the facade actors as OSGi
+    * service.
+    *
+    * @return the ''MediaFacadeActorsServiceWrapper''
+    */
+  private[app] def createFacadeServiceWrapper(): MediaFacadeActorsServiceWrapper =
+    new MediaFacadeActorsServiceWrapper(this, bundleContext)
 
   /**
     * Installs a message bus listener that reacts on a ''Shutdown'' command.
