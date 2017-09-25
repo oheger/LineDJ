@@ -17,23 +17,17 @@
 package de.oliver_heger.linedj.archivelocalstart
 
 import akka.actor.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
-import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport, PlatformComponent}
-import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
-
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 object LocalArchiveStartup {
   /** Name for the persistence manager actor. */
@@ -44,55 +38,39 @@ object LocalArchiveStartup {
 
   /** Name for the local media manager actor. */
   val NameMediaManager = "localMediaManager"
-
-  /** Property for the initialization timeout of the local archive. */
-  val PropArchiveInitTimeout = "media.initTimeout"
-
-  /** The default initialization timeout (in seconds). */
-  private val DefaultInitTimeout = 10
-
-  /**
-    * Determines the initialization timeout for the local media archive. This
-    * value can be read from the configuration; if unspecified, a default value
-    * is used.
-    *
-    * @param ctx the ''ClientApplicationContext''
-    * @return the initialization timeout
-    */
-  private def fetchInitTimeout(ctx: ClientApplicationContext): Timeout =
-    Timeout(ctx.managementConfiguration.getInt(PropArchiveInitTimeout,
-      DefaultInitTimeout).seconds)
 }
 
 /**
   * A class that starts a local media archive in an OSGi environment.
   *
-  * This class is started as a ''PlatformComponent''. It registers itself at
-  * the media archive available extension and monitors the state of the
-  * (global) archive. When it becomes available actors for a local media
-  * archive are created, and a scan operation is triggered. This causes the
-  * meta data fetched locally to be distributed to the global media archive.
-  *
-  * The communication with the media archive is done through the facade
-  * interface. From there references to the union manager actors are queried.
-  * Only if this is successful and valid actor references can be obtained,
-  * the local archive is created and initialized. Information about the paths
+  * This class is a declarative services component. Like other
+  * [[PlatformComponent]] implementations, it depends on the ''client
+  * application context''. In addition, it gets an object injected with the
+  * actors that implement the media facade interface. With these actors the
+  * local archive can be started directly. Information about the paths
   * to be scanned must be provided in the configuration of the management
   * application.
   */
 class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagement with ActorClientSupport with Identifiable {
+  with ActorManagement {
 
   import LocalArchiveStartup._
 
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** A flag to keep track of the availability of the union archive. */
-  private var unionArchiveAvailable = false
+  /** The object holding the actors of the media facade. */
+  private var facadeActors: MediaFacadeActors = _
 
-  /** A flag whether the local archive has been started. */
-  private var archiveStarted = false
+  /**
+    * Initializes the actors for the media facade interface. This method is
+    * called by the declarative services runtime.
+    *
+    * @param mfa the media facade actors
+    */
+  def initMediaFacadeActors(mfa: MediaFacadeActors): Unit = {
+    facadeActors = mfa
+  }
 
   /**
     * @inheritdoc This implementation creates the registration for the
@@ -101,63 +79,7 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
     log.info("Activating LocalArchiveStartup.")
-    clientApplicationContext.messageBus publish ArchiveAvailabilityRegistration(componentID,
-      archiveAvailabilityChanged)
-  }
-
-  /**
-    * @inheritdoc This implementation performs cleanup.
-    */
-  override def deactivate(componentContext: ComponentContext): Unit = {
-    clientApplicationContext.messageBus publish ArchiveAvailabilityUnregistration(componentID)
-    super.deactivate(componentContext)
-    log.info("Deactivated LocalArchiveStartup.")
-  }
-
-  /**
-    * The consumer function for the archive availability extension. Here
-    * messages about the availability of the union media archive are processed.
-    *
-    * @param event the event
-    */
-  private def archiveAvailabilityChanged(event: MediaFacade.MediaArchiveAvailabilityEvent): Unit =
-    event match {
-      case MediaFacade.MediaArchiveAvailable =>
-        handleArchiveAvailable()
-      case MediaFacade.MediaArchiveUnavailable =>
-        handleArchiveUnavailable()
-    }
-
-  /**
-    * Handles the notification that the union archive is available. If not
-    * yet done, the local archive is now started.
-    */
-  private def handleArchiveAvailable(): Unit = {
-    unionArchiveAvailable = true
-    if (!archiveStarted) {
-      implicit val executionContext = clientApplicationContext.actorSystem.dispatcher
-      implicit val timeout = fetchInitTimeout(clientApplicationContext)
-
-      log.info("Archive available. Starting up local archive.")
-      val futMedia = clientApplicationContext.mediaFacade.requestFacadeActors()
-      futMedia.onCompleteUIThread {
-        case Success(actors) =>
-          startLocalArchive(actors.mediaManager, actors.metaDataManager)
-        case Failure(exception) =>
-          log.error("Could not obtain archive actors!", exception)
-      }
-    }
-  }
-
-  /**
-    * Handles the notification that the union archive is no longer available.
-    * This also causes the local archive to be stopped.
-    */
-  private def handleArchiveUnavailable(): Unit = {
-    unionArchiveAvailable = false
-    log.info("Archive unavailable. Stopping local archive.")
-    stopActors()
-    archiveStarted = false
+    startLocalArchive(facadeActors.mediaManager, facadeActors.metaDataManager)
   }
 
   /**
@@ -168,19 +90,15 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     * @param metaDataUnionActor the union meta data actor
     */
   private def startLocalArchive(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef): Unit = {
-    if (unionArchiveAvailable) {
-      // need to check condition again because it might have changed
-      val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration
-        .asInstanceOf[HierarchicalConfiguration])
-      val persistentMetaDataManager = createAndRegisterActor(
-        PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor), NamePersistenceManager)
-      val metaDataManager = createAndRegisterActor(MetaDataManagerActor(archiveConfig,
-        persistentMetaDataManager, metaDataUnionActor), NameMetaDataManager)
-      val mediaManager = createAndRegisterActor(MediaManagerActor(archiveConfig,
-        metaDataManager, mediaUnionActor), NameMediaManager)
-      mediaManager ! ScanAllMedia
-      archiveStarted = true
-      log.info("Local archive started.")
-    }
+    val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration
+      .asInstanceOf[HierarchicalConfiguration])
+    val persistentMetaDataManager = createAndRegisterActor(
+      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor), NamePersistenceManager)
+    val metaDataManager = createAndRegisterActor(MetaDataManagerActor(archiveConfig,
+      persistentMetaDataManager, metaDataUnionActor), NameMetaDataManager)
+    val mediaManager = createAndRegisterActor(MediaManagerActor(archiveConfig,
+      metaDataManager, mediaUnionActor), NameMediaManager)
+    mediaManager ! ScanAllMedia
+    log.info("Local archive started.")
   }
 }
