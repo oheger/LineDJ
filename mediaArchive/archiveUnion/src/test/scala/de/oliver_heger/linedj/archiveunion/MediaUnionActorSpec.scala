@@ -208,7 +208,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.addMedia(mediaMap2, 2)
 
     stopActor(ctrl.ref)
-    helper.queryMedia().media should be(mediaMap2)
+    awaitCond(helper.queryMedia().media == mediaMap2)
   }
 
   it should "remove the media of a controller on request" in {
