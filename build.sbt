@@ -460,7 +460,7 @@ lazy val playerEngine = (project in file("playerEngine"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "player-engine",
+    name := "linedj-player-engine",
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.player.engine.impl",
@@ -479,7 +479,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .settings(osgiSettings: _*)
   .settings(spiFlySettings: _*)
   .settings(
-    name := "mp3-playback-context-factory",
+    name := "linedj-mp3-playback-context-factory",
     libraryDependencies ++= Seq(
       "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2",
       "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3",
@@ -503,7 +503,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "radio-player",
+    name := "linedj-radio-player",
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -523,7 +523,7 @@ lazy val mediaIfcActors = (project in file("mediaIfcActors"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "actors-MediaIfc",
+    name := "linedj-actors-MediaIfc",
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.platform.mediaifc.actors.impl.*",
       "de.oliver_heger.linedj.platform.mediaifc.actors.*"
@@ -542,7 +542,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfcRemote"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "remote-MediaIfc",
+    name := "linedj-remote-MediaIfc",
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.remote.*"
@@ -560,7 +560,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfcEmbedded"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "embedded-MediaIfc",
+    name := "linedj-embedded-MediaIfc",
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.embedded.*"
@@ -579,7 +579,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfcDisabled"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "disabled-MediaIfc",
+    name := "linedj-disabled-MediaIfc",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -599,7 +599,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "appMgr-shutdownOneForAll",
+    name := "linedj-appMgr-shutdownOneForAll",
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.oneforall.*"
@@ -620,7 +620,7 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "appMgr-windowHiding",
+    name := "linedj-appMgr-windowHiding",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
@@ -639,7 +639,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
   .settings(
-    name := "trayWindowList",
+    name := "linedj-trayWindowList",
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.tray.wndlist.*"
