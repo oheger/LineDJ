@@ -518,7 +518,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   * Project for the remote media interface. This project establishes a
   * connection to a media archive running on a remote host.
   */
-lazy val mediaIfcActors = (project in file("mediaIfcActors"))
+lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -537,7 +537,7 @@ lazy val mediaIfcActors = (project in file("mediaIfcActors"))
   * Project for the remote media interface. This project establishes a
   * connection to a media archive running on a remote host.
   */
-lazy val mediaIfcRemote = (project in file("mediaIfcRemote"))
+lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -555,7 +555,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfcRemote"))
   * Project for the embedded media interface. This project accesses the
   * media archive running on the same virtual machine.
   */
-lazy val mediaIfcEmbedded = (project in file("mediaIfcEmbedded"))
+lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
@@ -574,7 +574,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfcEmbedded"))
   * dummy implementation for the interface to the media archive. It can be
   * used for applications that do not require a media archive.
   */
-lazy val mediaIfcDisabled = (project in file("mediaIfcDisabled"))
+lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
   .settings(osgiSettings: _*)
