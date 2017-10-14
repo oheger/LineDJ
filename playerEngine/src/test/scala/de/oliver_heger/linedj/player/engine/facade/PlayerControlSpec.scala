@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
@@ -26,12 +26,12 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
-import de.oliver_heger.linedj.player.engine.{DelayActor, PlaybackContextFactory, PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
 /**
   * Test class for ''PlayerControl''.
@@ -50,7 +50,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player addPlaybackContextFactory factory
-    helper.probePlaybackActor.expectMsg(PlaybackActor.AddPlaybackContextFactory(factory))
+    helper.expectPlaybackInvocation(PlaybackActor.AddPlaybackContextFactory(factory))
   }
 
   it should "allow removing a playback context factory" in {
@@ -59,7 +59,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player removePlaybackContextFactory factory
-    helper.probePlaybackActor.expectMsg(PlaybackActor.RemovePlaybackContextFactory(factory))
+    helper.expectPlaybackInvocation(PlaybackActor.RemovePlaybackContextFactory(factory))
   }
 
   it should "allow starting playback" in {
@@ -67,8 +67,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player.startPlayback()
-    helper.expectDelayedMessage(PlaybackActor.StartPlayback, helper.probePlaybackActor.ref,
-      DelayActor.NoDelay)
+    helper.expectPlaybackInvocation(PlaybackActor.StartPlayback)
   }
 
   it should "allow starting playback with a delay" in {
@@ -77,8 +76,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val Delay = 1.minute
 
     player.startPlayback(Delay)
-    helper.expectDelayedMessage(PlaybackActor.StartPlayback, helper.probePlaybackActor.ref,
-      Delay)
+    helper.expectPlaybackInvocation(PlaybackActor.StartPlayback, Delay)
   }
 
   it should "allow stopping playback" in {
@@ -86,8 +84,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player.stopPlayback()
-    helper.expectDelayedMessage(PlaybackActor.StopPlayback, helper.probePlaybackActor.ref,
-      DelayActor.NoDelay)
+    helper.expectPlaybackInvocation(PlaybackActor.StopPlayback)
   }
 
   it should "allow stopping playback with a delay" in {
@@ -96,8 +93,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val Delay = 30.seconds
 
     player.stopPlayback(Delay)
-    helper.expectDelayedMessage(PlaybackActor.StopPlayback, helper.probePlaybackActor.ref,
-      Delay)
+    helper.expectPlaybackInvocation(PlaybackActor.StopPlayback, Delay)
   }
 
   it should "allow skipping the current source" in {
@@ -105,11 +101,11 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player.skipCurrentSource()
-    helper.probePlaybackActor.expectMsg(PlaybackActor.SkipSource)
+    helper.expectPlaybackInvocation(PlaybackActor.SkipSource)
   }
 
   it should "create Props for the line writer when no blocking dispatcher is defined" in {
-    val config = PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null)
+    val config = PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null)
 
     PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor])
   }
@@ -148,7 +144,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * @return the list with test actors
     */
   private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[ActorRef] =
-    (1 to count) map(i => system.actorOf(Props(new Actor {
+    (1 to count) map(_ => system.actorOf(Props(new Actor {
       override def receive: Receive = {
         case CloseRequest =>
           sender ! CloseAck(self)
@@ -162,8 +158,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val counter = new AtomicInteger
 
     val probes = createCloseTestActors(3, counter)
-    implicit val ec = system.dispatcher
-    implicit val timeout = Timeout(1.second)
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    implicit val timeout: Timeout = Timeout(1.second)
     val handle = player.closeActors(probes)
     val result = Await.result(handle, 1.second)
     counter.get() should be(probes.size)
@@ -177,8 +173,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
     val probes = createCloseTestActors(2, new AtomicInteger).toList
     val timeoutProbe = TestProbe()
-    implicit val ec = system.dispatcher
-    implicit val timeout = Timeout(200.milliseconds)
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    implicit val timeout: Timeout = Timeout(200.milliseconds)
     player.closeActors(timeoutProbe.ref :: probes).onFailure {
       case _: AskTimeoutException => latch.countDown()
     }
@@ -190,50 +186,65 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * provides a concrete implementation of the trait under test.
     */
   private class PlayerControlTestHelper {
-    /** The test playback actor. */
-    val probePlaybackActor = TestProbe()
-
     /** The test event manager actor. */
     val probeEventManagerActor = TestProbe()
 
-    /** The test delay actor. */
-    val probeDelayActor = TestProbe()
+    /** Records playback invocations. */
+    private val queuePlaybackInvocations = new LinkedBlockingQueue[PlaybackInvocation]
 
     /**
       * Creates a test instance of ''PlayerControl''.
       *
       * @return the test instance
       */
-    def createPlayerControl(): PlayerControlImpl = new PlayerControlImpl(probePlaybackActor.ref,
-      probeEventManagerActor.ref, probeDelayActor.ref)
+    def createPlayerControl(): PlayerControlImpl =
+      new PlayerControlImpl(probeEventManagerActor.ref, queuePlaybackInvocations)
 
     /**
-      * Expects a delayed invocation using the delay actor.
+      * Expects an invocation of the playback actor.
       *
       * @param msg    the message
-      * @param target the target actor
       * @param delay  the delay
+      * @return this test helper
       */
-    def expectDelayedMessage(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
-      probeDelayActor.expectMsg(DelayActor.Propagate(msg, target, delay))
+    def expectPlaybackInvocation(msg: Any, delay: FiniteDuration = PlayerControl.NoDelay):
+    PlayerControlTestHelper = {
+      val invocation = queuePlaybackInvocations.poll(3, TimeUnit.SECONDS)
+      invocation should be(PlaybackInvocation(msg, delay))
+      this
     }
   }
 }
 
 /**
+  * A class representing an invocation of the playback actor.
+  *
+  * @param msg   the message to be sent to the actor
+  * @param delay the delay value
+  */
+private case class PlaybackInvocation(msg: Any, delay: FiniteDuration)
+
+/**
   * A test implementation of the trait which wraps the specified actor.
   *
-  * @param playbackActor the playback actor
   * @param eventManagerActor the event manager actor
+  * @param invocationQueue queue for recording playback invocations
   */
-private class PlayerControlImpl(override val playbackActor: ActorRef,
-                                override val eventManagerActor: ActorRef,
-                                override val delayActor: ActorRef) extends PlayerControl {
+private class PlayerControlImpl(override val eventManagerActor: ActorRef,
+                                invocationQueue: LinkedBlockingQueue[PlaybackInvocation])
+  extends PlayerControl {
   override def closeActors(actors: Seq[ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala
   .Seq[CloseAck]] = {
     throw new UnsupportedOperationException("Unexpected invocation!")
+  }
+
+  /**
+    * @inheritdoc Records this invocation in the playback queue.
+    */
+  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
+    invocationQueue offer PlaybackInvocation(msg, delay)
   }
 }

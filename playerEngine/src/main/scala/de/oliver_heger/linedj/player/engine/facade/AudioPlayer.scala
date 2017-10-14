@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistI
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object AudioPlayer {
@@ -62,10 +63,10 @@ object AudioPlayer {
   * @param delayActor the actor for delayed execution
   * @param otherActors a list with other actors to be managed by this player
   */
-class AudioPlayer private(protected override val playbackActor: ActorRef,
+class AudioPlayer private(playbackActor: ActorRef,
                           downloadActor: ActorRef,
                           protected override val eventManagerActor: ActorRef,
-                          protected override val delayActor: ActorRef,
+                          delayActor: ActorRef,
                           otherActors: List[ActorRef])
   extends PlayerControl {
   /**
@@ -104,4 +105,7 @@ class AudioPlayer private(protected override val playbackActor: ActorRef,
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(playbackActor :: downloadActor :: delayActor :: otherActors)
+
+  //TODO implementation
+  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = ???
 }

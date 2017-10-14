@@ -69,10 +69,10 @@ object RadioPlayer {
   * @param delayActor        reference to the delay actor
   */
 class RadioPlayer private(val config: PlayerConfig,
-                          override protected val playbackActor: ActorRef,
+                          playbackActor: ActorRef,
                           sourceActor: ActorRef, schedulerActor: ActorRef,
                           override protected val eventManagerActor: ActorRef,
-                          override protected val delayActor: ActorRef)
+                          delayActor: ActorRef)
   extends PlayerControl {
   /**
     * Switches to the specified radio source. Playback of the current radio
@@ -83,7 +83,8 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param delay an optional delay for this operation
     */
   def switchToSource(source: RadioSource, delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokeDelayed(source, schedulerActor, delay)
+    //TODO implement delayed invocation
+    //invokeDelayed(source, schedulerActor, delay)
   }
 
   /**
@@ -113,7 +114,8 @@ class RadioPlayer private(val config: PlayerConfig,
     */
   def checkCurrentSource(exclusions: Set[RadioSource],
                          delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
+    //TODO implement delayed invocation
+    //invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
   }
 
   /**
@@ -134,4 +136,7 @@ class RadioPlayer private(val config: PlayerConfig,
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(List(playbackActor, sourceActor, schedulerActor, delayActor))
+
+  //TODO implementation
+  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = ???
 }

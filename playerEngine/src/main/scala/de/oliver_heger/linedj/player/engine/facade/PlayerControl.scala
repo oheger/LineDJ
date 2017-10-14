@@ -26,10 +26,17 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.{DelayActor, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object PlayerControl {
+  /**
+    * Constant for a delay value that means "no delay". This value can be
+    * passed to methods supporting a delayed invocation. It then means that an
+    * immediate invocation should take place.
+    */
+  val NoDelay: FiniteDuration = 0.seconds
+
   /** The default name of the line writer actor. */
   val LineWriterActorName = "lineWriterActor"
 
@@ -76,14 +83,10 @@ object PlayerControl {
   * creating the required actors is left to concrete implementations.
   */
 trait PlayerControl {
-  /** The actor responsible for playback. */
-  protected val playbackActor: ActorRef
+  import PlayerControl._
 
   /** The actor for generating events. */
   protected val eventManagerActor: ActorRef
-
-  /** The actor for delayed invocations. */
-  protected val delayActor: ActorRef
 
   /** A counter for generating unique sink registration IDs. */
   private val regIdCounter = new AtomicInteger
@@ -96,7 +99,7 @@ trait PlayerControl {
     * @param factory the ''PlaybackContextFactory'' to be added
     */
   def addPlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playbackActor ! PlaybackActor.AddPlaybackContextFactory(factory)
+    invokePlaybackActor(PlaybackActor.AddPlaybackContextFactory(factory), NoDelay)
   }
 
   /**
@@ -106,7 +109,7 @@ trait PlayerControl {
     * @param factory the ''PlaybackContextFactory'' to be removed
     */
   def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playbackActor ! PlaybackActor.RemovePlaybackContextFactory(factory)
+    invokePlaybackActor(PlaybackActor.RemovePlaybackContextFactory(factory), NoDelay)
   }
 
   /**
@@ -117,7 +120,7 @@ trait PlayerControl {
     * @param delay a delay for starting playback
     */
   def startPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokeDelayed(PlaybackActor.StartPlayback, playbackActor, delay)
+    invokePlaybackActor(PlaybackActor.StartPlayback, delay)
   }
 
   /**
@@ -128,7 +131,7 @@ trait PlayerControl {
     * @param delay a delay for stopping playback
     */
   def stopPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokeDelayed(PlaybackActor.StopPlayback, playbackActor, delay)
+    invokePlaybackActor(PlaybackActor.StopPlayback, delay)
   }
 
   /**
@@ -136,7 +139,7 @@ trait PlayerControl {
     * next source in the playlist (if any).
     */
   def skipCurrentSource(): Unit = {
-    playbackActor ! PlaybackActor.SkipSource
+    invokePlaybackActor(PlaybackActor.SkipSource, NoDelay)
   }
 
   /**
@@ -170,6 +173,11 @@ trait PlayerControl {
     * returned future can be used by the caller to find out when the close
     * operation is completed.
     *
+    * Note that it lies in the responsibility of the caller to stop the
+    * actors used by this ''PlayerControl''. (The actors have been created via
+    * a factory provided by the client; thus they should be destroyed by the
+    * client as well.)
+    *
     * @param ec      the execution context for the future
     * @param timeout the timeout when waiting for answers
     * @return a ''Future'' for the ''CloseAck'' messages from child actors
@@ -177,16 +185,14 @@ trait PlayerControl {
   def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]]
 
   /**
-    * Invokes an actor with a delay. This method sends a corresponding message
-    * to the ''DelayActor''.
+    * Invokes the playback actor with the specified message and delay. This
+    * method is used to handle some basic functionality related to playback
+    * control.
     *
-    * @param msg    the message
-    * @param target the target actor
-    * @param delay  the delay
+    * @param msg   the message to be sent to the playback actor
+    * @param delay a delay for this request
     */
-  protected def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
-    delayActor ! DelayActor.Propagate(msg, target, delay)
-  }
+  protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit
 
   /**
     * Closes the provided actors by sending them a ''CloseRequest'' message and
