@@ -83,8 +83,7 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param delay an optional delay for this operation
     */
   def switchToSource(source: RadioSource, delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    //TODO implement delayed invocation
-    //invokeDelayed(source, schedulerActor, delay)
+    invokeDelayed(source, schedulerActor, delay)
   }
 
   /**
@@ -114,8 +113,7 @@ class RadioPlayer private(val config: PlayerConfig,
     */
   def checkCurrentSource(exclusions: Set[RadioSource],
                          delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    //TODO implement delayed invocation
-    //invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
+    invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
   }
 
   /**
@@ -137,6 +135,19 @@ class RadioPlayer private(val config: PlayerConfig,
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(List(playbackActor, sourceActor, schedulerActor, delayActor))
 
-  //TODO implementation
-  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = ???
+  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
+    invokeDelayed(msg, playbackActor, delay)
+  }
+
+  /**
+    * Invokes an actor with a delay. This method sends a corresponding message
+    * to the ''DelayActor''.
+    *
+    * @param msg    the message
+    * @param target the target actor
+    * @param delay  the delay
+    */
+  private def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
+    delayActor ! DelayActor.Propagate(msg, target, delay)
+  }
 }

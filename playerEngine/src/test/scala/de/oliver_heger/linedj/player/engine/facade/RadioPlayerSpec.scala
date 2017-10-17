@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 object RadioPlayerSpec {
   /** The name of the dispatcher for blocking actors. */
@@ -55,7 +55,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player switchToSource source
-    helper.expectDelayed(source, helper.probeSchedulerActor, DelayActor.NoDelay)
+    helper.expectDelayed(source, helper.probeSchedulerActor, PlayerControl.NoDelay)
   }
 
   it should "support switching the radio source with a delay" in {
@@ -72,7 +72,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     helper.player.startPlayback()
     helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
-      DelayActor.NoDelay)
+      PlayerControl.NoDelay)
     helper.probeSourceActor.expectMsg(RadioDataSourceActor.ClearSourceBuffer)
   }
 
@@ -94,8 +94,8 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "correctly implement the close() method" in {
     val helper = new RadioPlayerTestHelper
-    implicit val ec = system.dispatcher
-    implicit val timeout = Timeout(100.milliseconds)
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    implicit val timeout: Timeout = Timeout(100.milliseconds)
 
     intercept[AskTimeoutException] {
       Await.result(helper.player.close(), 1.second)
@@ -140,7 +140,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     helper.player checkCurrentSource Exclusions
     helper.expectDelayed(RadioSchedulerActor.CheckCurrentSource(Exclusions), helper
-      .probeSchedulerActor, DelayActor.NoDelay)
+      .probeSchedulerActor, PlayerControl.NoDelay)
   }
 
   /**
