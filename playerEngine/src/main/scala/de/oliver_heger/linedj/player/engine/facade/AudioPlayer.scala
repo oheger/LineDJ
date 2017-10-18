@@ -19,8 +19,10 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, DelayActor, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{TargetDownloadActor,
+  TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.duration.FiniteDuration
@@ -35,19 +37,11 @@ object AudioPlayer {
     * @return the newly created ''AudioPlayer''
     */
   def apply(config: PlayerConfig): AudioPlayer = {
-    val bufMan = BufferFileManager(config)
-    val bufferActor = config.actorCreator(LocalBufferActor(config, bufMan), "localBufferActor")
-    val readerActor = config.actorCreator(Props(classOf[SourceReaderActor], bufferActor),
-      "sourceReaderActor")
-    val downloadActor = config.actorCreator(SourceDownloadActor(config, bufferActor, readerActor)
-      , "sourceDownloadActor")
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val eventActor = config.actorCreator(Props[EventManagerActor], "eventManagerActor")
-    val delayActor = config.actorCreator(DelayActor(), "delayActor")
-    val playbackActor = config.actorCreator(PlaybackActor(config, readerActor, lineWriterActor,
-      eventActor), "playbackActor")
-    new AudioPlayer(playbackActor, downloadActor, eventActor, delayActor,
-      List(bufferActor, readerActor))
+    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor),
+      "playerFacadeActor")
+    new AudioPlayer(facadeActor, eventActor)
   }
 }
 
@@ -57,17 +51,11 @@ object AudioPlayer {
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
   *
-  * @param playbackActor the playback actor
-  * @param downloadActor the actor handling downloads
+  * @param facadeActor       the player facade actor
   * @param eventManagerActor the actor for managing event listeners
-  * @param delayActor the actor for delayed execution
-  * @param otherActors a list with other actors to be managed by this player
   */
-class AudioPlayer private(playbackActor: ActorRef,
-                          downloadActor: ActorRef,
-                          protected override val eventManagerActor: ActorRef,
-                          delayActor: ActorRef,
-                          otherActors: List[ActorRef])
+class AudioPlayer private(facadeActor: ActorRef,
+                          protected override val eventManagerActor: ActorRef)
   extends PlayerControl {
   /**
     * Adds the specified ''AudioSourcePlaylistInfo'' object to the playlist
@@ -76,7 +64,7 @@ class AudioPlayer private(playbackActor: ActorRef,
     * @param info the info object to be added to the playlist
     */
   def addToPlaylist(info: AudioSourcePlaylistInfo): Unit = {
-    downloadActor ! info
+    invokeFacadeActor(info, TargetDownloadActor)
   }
 
   /**
@@ -90,7 +78,8 @@ class AudioPlayer private(playbackActor: ActorRef,
     * @param skipTime the optional skip time
     */
   def addToPlaylist(mid: MediumID, uri: String, skip: Long = 0, skipTime: Long = 0): Unit = {
-    downloadActor ! AudioSourcePlaylistInfo(AudioSourceID(mid, uri), skip, skipTime)
+    invokeFacadeActor(AudioSourcePlaylistInfo(AudioSourceID(mid, uri), skip, skipTime),
+      TargetDownloadActor)
   }
 
   /**
@@ -100,12 +89,38 @@ class AudioPlayer private(playbackActor: ActorRef,
     * sources can be added.
     */
   def closePlaylist(): Unit = {
-    downloadActor ! SourceDownloadActor.PlaylistEnd
+    invokeFacadeActor(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
+  }
+
+  /**
+    * Resets the player engine. This stops playback and clears the current
+    * playlist. Afterwards, new audio files to be played can be added again
+    * to the playlist.
+    */
+  def reset(): Unit = {
+    facadeActor ! PlayerFacadeActor.ResetEngine
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(playbackActor :: downloadActor :: delayActor :: otherActors)
+    closeActors(List(facadeActor))
 
-  //TODO implementation
-  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = ???
+  /**
+    * @inheritdoc This implementation propagates the message via the facade
+    *             actor.
+    */
+  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
+    invokeFacadeActor(msg, TargetPlaybackActor, delay)
+  }
+
+  /**
+    * Helper method to send a message to the facade actor.
+    *
+    * @param msg    the message to be sent
+    * @param target the receiver of the message
+    * @param delay  a delay
+    */
+  private def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
+                                delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
+    facadeActor ! PlayerFacadeActor.Dispatch(msg, target, delay)
+  }
 }

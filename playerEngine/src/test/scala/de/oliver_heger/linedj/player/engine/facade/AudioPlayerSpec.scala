@@ -22,24 +22,20 @@ import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.io.CloseRequest
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, DelayActor, PlayerConfig}
+import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor,
+  TargetDownloadActor, TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
+import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 object AudioPlayerSpec {
-  /** Prefix for buffer files. */
-  private val BufferFilePrefix = "TestBufferFilePrefix"
-
-  /** Extension for buffer files. */
-  private val BufferFileExt = ".buf"
-
   /** The name of the dispatcher for blocking actors. */
   private val BlockingDispatcherName = "TheBlockingDispatcher"
 }
@@ -64,7 +60,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player addToPlaylist info
-    helper.sourceDownloadActor.expectMsg(info)
+    helper.expectFacadeMessage(info, TargetDownloadActor)
   }
 
   it should "support an overloaded method of adding songs to the playlist" in {
@@ -73,7 +69,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri, info.skip, info.skipTime)
-    helper.sourceDownloadActor.expectMsg(info)
+    helper.expectFacadeMessage(info, TargetDownloadActor)
   }
 
   it should "set default values for skip properties in addToPlaylist()" in {
@@ -81,55 +77,45 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)
-    helper.sourceDownloadActor.expectMsg(info)
+    helper.expectFacadeMessage(info, TargetDownloadActor)
   }
 
   it should "support closing the playlist" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.closePlaylist()
-    helper.sourceDownloadActor.expectMsg(SourceDownloadActor.PlaylistEnd)
+    helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
   }
 
   it should "support starting playback" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.startPlayback()
-    helper.delayActor.expectMsg(DelayActor.Propagate(PlaybackActor.StartPlayback,
-      helper.playbackActor.ref, DelayActor.NoDelay))
+    helper.expectFacadeMessage(PlaybackActor.StartPlayback, TargetPlaybackActor)
   }
 
   it should "support stopping playback" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.stopPlayback()
-    helper.delayActor.expectMsg(DelayActor.Propagate(PlaybackActor.StopPlayback,
-      helper.playbackActor.ref, DelayActor.NoDelay))
+    helper.expectFacadeMessage(PlaybackActor.StopPlayback, TargetPlaybackActor)
   }
 
   it should "allow skipping the current source" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.skipCurrentSource()
-    helper.playbackActor.expectMsg(PlaybackActor.SkipSource)
+    helper.expectFacadeMessage(PlaybackActor.SkipSource, TargetPlaybackActor)
   }
 
   it should "correctly implement the close() method" in {
     val helper = new AudioPlayerTestHelper
-    def expectCloseRequest(p: TestProbe): Unit = {
-      p.expectMsg(CloseRequest)
-    }
-
-    implicit val ec = system.dispatcher
-    implicit val timeout = Timeout(100.milliseconds)
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    implicit val timeout: Timeout = Timeout(100.milliseconds)
     intercept[AskTimeoutException] {
       Await.result(helper.player.close(), 1.second)
     }
-    expectCloseRequest(helper.sourceDownloadActor)
-    expectCloseRequest(helper.sourceReaderActor)
-    expectCloseRequest(helper.bufferActor)
-    expectCloseRequest(helper.playbackActor)
-    expectCloseRequest(helper.delayActor)
+    helper.expectActorsClosed()
   }
 
   it should "pass the event actor to the super class" in {
@@ -140,36 +126,65 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.eventActor.expectMsgType[EventManagerActor.RegisterSink]
   }
 
+  it should "allow resetting the engine" in {
+    val helper = new AudioPlayerTestHelper
+
+    helper.player.reset()
+    helper.expectReset()
+  }
+
   /**
     * A test helper class collecting all required dependencies.
     */
   private class AudioPlayerTestHelper {
-    /** Test probe for the playback actor. */
-    val playbackActor = TestProbe()
-
-    /** Test probe for the local buffer actor. */
-    val bufferActor = TestProbe()
-
     /** Test probe for the line writer actor. */
-    val lineWriterActor = TestProbe()
+    private val lineWriterActor = TestProbe()
 
-    /** Test probe for the source reader actor. */
-    val sourceReaderActor = TestProbe()
-
-    /** Test probe for the source download actor. */
-    val sourceDownloadActor = TestProbe()
+    /** Test probe for the facade actor. */
+    private val facadeActor = TestProbe()
 
     /** Test probe for the event actor. */
     val eventActor = TestProbe()
-
-    /** Test probe for the delay actor. */
-    val delayActor = TestProbe()
 
     /** The test player configuration. */
     val config = createPlayerConfig()
 
     /** The test player instance. */
     val player = AudioPlayer(config)
+
+    /**
+      * Checks that a message was sent to the facade actor.
+      *
+      * @param msg         the message
+      * @param targetActor the target of the message
+      * @param delay       the delay
+      * @return this test helper
+      */
+    def expectFacadeMessage(msg: Any, targetActor: TargetActor,
+                            delay: FiniteDuration = NoDelay): AudioPlayerTestHelper = {
+      facadeActor.expectMsg(PlayerFacadeActor.Dispatch(msg, targetActor, delay))
+      this
+    }
+
+    /**
+      * Expects a reset message sent to the facade actor.
+      *
+      * @return this test helper
+      */
+    def expectReset(): AudioPlayerTestHelper = {
+      facadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
+      this
+    }
+
+    /**
+      * Expects that close requests have been sent to the affected actors.
+      *
+      * @return this test helper
+      */
+    def expectActorsClosed(): AudioPlayerTestHelper = {
+      facadeActor.expectMsg(CloseRequest)
+      this
+    }
 
     /**
       * An actor creator function. This implementation checks the parameters
@@ -181,52 +196,23 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def actorCreatorFunc(props: Props, name: String): ActorRef = {
       name match {
-        case "localBufferActor" =>
-          classOf[LocalBufferActor] isAssignableFrom props.actorClass() shouldBe true
-          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-          props.args should have size 2
-          props.args.head should be(config)
-          val bufMan = props.args(1).asInstanceOf[BufferFileManager]
-          bufMan.prefix should be(BufferFilePrefix)
-          bufMan.extension should be(BufferFileExt)
-          bufMan.directory should be(config.bufferTempPath.get)
-          bufferActor.ref
-
-        case "sourceReaderActor" =>
-          classOf[SourceReaderActor] isAssignableFrom props.actorClass() shouldBe true
-          props.args should have size 1
-          props.args.head should be(bufferActor.ref)
-          sourceReaderActor.ref
-
         case "lineWriterActor" =>
           classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
           props.dispatcher should be(BlockingDispatcherName)
           props.args should have size 0
           lineWriterActor.ref
 
-        case "sourceDownloadActor" =>
-          classOf[SourceDownloadActor] isAssignableFrom props.actorClass() shouldBe true
-          classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
-          props.args should contain theSameElementsAs List(config, bufferActor.ref,
-            sourceReaderActor.ref)
-          sourceDownloadActor.ref
-
         case "eventManagerActor" =>
           props.actorClass() should be(classOf[EventManagerActor])
           props.args should have size 0
           eventActor.ref
 
-        case "delayActor" =>
-          classOf[DelayActor] isAssignableFrom props.actorClass() shouldBe true
-          classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
-          props.args shouldBe 'empty
-          delayActor.ref
-
-        case "playbackActor" =>
-          classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true
-          props.args should contain theSameElementsAs List(config, sourceReaderActor.ref,
-            lineWriterActor.ref, eventActor.ref)
-          playbackActor.ref
+        case "playerFacadeActor" =>
+          classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
+          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+          classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
+          props.args should be(List(config, eventActor.ref, lineWriterActor.ref))
+          facadeActor.ref
       }
     }
 
@@ -237,8 +223,6 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def createPlayerConfig(): PlayerConfig =
       PlayerConfig(mediaManagerActor = null, actorCreator = actorCreatorFunc,
-        bufferTempPath = Some(createPathInDirectory("tempBufferDir")),
-        bufferFilePrefix = BufferFilePrefix, bufferFileExtension = BufferFileExt,
         blockingDispatcherName = Some(BlockingDispatcherName))
   }
 
