@@ -18,10 +18,12 @@ package de.oliver_heger.linedj.radio
 
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
+import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -44,7 +46,7 @@ import scala.concurrent.duration._
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer") with ApplicationAsyncStartup {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement {
   def this() = this(new RadioPlayerFactory)
 
   /** The radio player managed by this application. */
@@ -95,7 +97,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     */
   override def createApplicationContext(): ApplicationContext = {
     val context = super.createApplicationContext()
-    val playerBean = playerFactory.createRadioPlayer(clientApplicationContext)
+    val playerBean = playerFactory.createRadioPlayer(this)
     playerBean registerEventSink createPlayerListenerSink(playerBean)
     initPlayer(playerBean)
     addBeanDuringApplicationStartup("radioApp_player", playerBean)
@@ -114,9 +116,9 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   /**
     * @inheritdoc This implementation closes the player.
     */
-  override protected def onShutdown(): Unit = {
+  override def deactivate(componentContext: ComponentContext): Unit = {
     closePlayer()
-    super.onShutdown()
+    super.deactivate(componentContext)
   }
 
   /**

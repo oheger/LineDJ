@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.app.ClientApplication
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 
@@ -28,27 +29,27 @@ import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
   */
 private class RadioPlayerFactory {
   /**
-    * Creates a ''RadioPlayer'' instance based on the data in the provided
-    * ''ClientApplicationContext''.
+    * Creates a ''RadioPlayer'' instance using the provided ''ActorManagement''
+    * object as actor factory.
     *
-    * @param clientApplicationContext the ''ClientApplicationContext''
+    * @param actorManagement the ''ActorManagement''
     * @return the newly created ''RadioPlayer''
     */
-  def createRadioPlayer(clientApplicationContext: ClientApplicationContext): RadioPlayer =
-    RadioPlayer(createPlayerConfig(clientApplicationContext))
+  def createRadioPlayer(actorManagement: ActorManagement): RadioPlayer =
+    RadioPlayer(createPlayerConfig(actorManagement))
 
   /**
     * Creates the configuration for the new player instance. This
     * implementation uses some hard-coded values which are appropriate for
     * playback of internet radio.
     *
-    * @param clientApplicationContext the ''ClientApplicationContext''
+    * @param actorManagement the ''ActorManagement''
     * @return the player configuration
     */
-  private def createPlayerConfig(clientApplicationContext: ClientApplicationContext):
+  private def createPlayerConfig(actorManagement: ActorManagement):
   PlayerConfig =
     PlayerConfig(inMemoryBufferSize = 64 * 1024, playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
-      mediaManagerActor = null, actorCreator = clientApplicationContext.actorFactory.createActor)
+      mediaManagerActor = null, actorCreator = actorManagement.createAndRegisterActor)
 }

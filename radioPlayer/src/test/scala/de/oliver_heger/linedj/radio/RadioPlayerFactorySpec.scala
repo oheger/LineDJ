@@ -17,11 +17,11 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.io.FileReaderActor
-import org.mockito.Mockito._
+import de.oliver_heger.linedj.platform.app.ClientApplication
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.mock.MockitoSugar
@@ -31,22 +31,24 @@ import org.scalatest.{FlatSpec, Matchers}
   * Test class for ''RadioPlayerFactory''.
   */
 class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
-  private def createApplicationContext(): ClientApplicationContext = {
-    val context = mock[ClientApplicationContext]
-    val actorFactory = mock[ActorFactory]
-    when(context.actorFactory).thenReturn(actorFactory)
-    when(actorFactory.createActor(any(classOf[Props]), anyString())).thenAnswer(new
-        Answer[ActorRef] {
+  /**
+    * Creates a mock ActorManagement object.
+    * @return the mock
+    */
+  private def createActorManagement(): ActorManagement = {
+    val management = mock[ActorManagement]
+    when(management.createAndRegisterActor(any(classOf[Props]), anyString()))
+      .thenAnswer(new Answer[ActorRef] {
       override def answer(invocation: InvocationOnMock): ActorRef =
         mock[ActorRef]
     })
-    context
+    management
   }
 
   "A RadioPlayerFactory" should "use meaningful configuration settings" in {
     val factory = new RadioPlayerFactory
 
-    val player = factory createRadioPlayer createApplicationContext()
+    val player = factory createRadioPlayer createActorManagement()
     player.config.inMemoryBufferSize should be(65536)
     player.config.bufferChunkSize should be(4096)
     player.config.playbackContextLimit should be(8192)
@@ -55,15 +57,15 @@ class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
   }
 
   it should "specify a correct actor creation function" in {
-    val context = createApplicationContext()
+    val management = createActorManagement()
     val factory = new RadioPlayerFactory
 
-    val player = factory createRadioPlayer context
+    val player = factory createRadioPlayer management
     val mockActor = mock[ActorRef]
     val props = Props[FileReaderActor]()
     val name = "someActor"
-    when(context.actorFactory.createActor(props, name)).thenReturn(mockActor)
+    when(management.createAndRegisterActor(props, name)).thenReturn(mockActor)
     player.config.actorCreator(props, name) should be(mockActor)
-    verify(context.actorFactory).createActor(props, name)
+    verify(management).createAndRegisterActor(props, name)
   }
 }

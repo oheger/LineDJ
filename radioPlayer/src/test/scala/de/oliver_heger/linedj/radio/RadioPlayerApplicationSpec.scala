@@ -29,6 +29,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.io.CloseAck
+import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -38,6 +39,7 @@ import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -200,7 +202,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val captor = ArgumentCaptor.forClass(classOf[Sink[Any, NotUsed]])
     verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_,_]])
 
-    implicit val materializer = ActorMaterializer()
+    implicit val materializer: ActorMaterializer = ActorMaterializer()
     val eventQueue = new LinkedBlockingQueue[RadioPlayerEvent]
     when(helper.app.clientApplicationContext.messageBus.publish(any(classOf[RadioPlayerEvent])))
       .thenAnswer(new Answer[Object] {
@@ -274,7 +276,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return a sequence with the mock factories that have been created
       */
     def addPlaybackContextFactories(count: Int): Seq[PlaybackContextFactory] = {
-      val factories = (1 to count).map(i => mock[PlaybackContextFactory])
+      val factories = (1 to count).map(_ => mock[PlaybackContextFactory])
       factories foreach app.addPlaylistContextFactory
       factories
     }
@@ -299,7 +301,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       val ec = mock[ExecutionContextExecutor]
       when(app.clientApplicationContext.actorSystem.dispatcher).thenReturn(ec)
       when(player.close()(ec, Timeout(3.seconds))).thenReturn(p.future)
-      app.shutdown()
+      app.deactivate(mock[ComponentContext])
     }
 
     /**
@@ -337,11 +339,10 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createPlayerFactory(playerMock: RadioPlayer): RadioPlayerFactory = {
       val factory = mock[RadioPlayerFactory]
-      when(factory.createRadioPlayer(any(classOf[ClientApplicationContext]))).thenAnswer(new
-          Answer[RadioPlayer] {
+      when(factory.createRadioPlayer(any(classOf[ActorManagement])))
+        .thenAnswer(new Answer[RadioPlayer] {
         override def answer(invocation: InvocationOnMock): RadioPlayer = {
-          invocation.getArguments.head should be(app.clientApplicationContext)
-          app.clientApplicationContext should not be null
+          invocation.getArguments.head should be(app)
           playerMock
         }
       })
