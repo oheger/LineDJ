@@ -68,7 +68,7 @@ lazy val LineDJ = (project in file("."))
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup, metaDataExtract, id3Extract)
+  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -647,3 +647,25 @@ lazy val trayWindowList = (project in file("trayWindowList"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn (platform % "compile->compile;test->test", appWindowHiding)
+
+/**
+  * Project for the audio platform. This project provides basic services for
+  * playing audio files.
+  */
+lazy val audioPlatform = (project in file("audioPlatform"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-audio-platform",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.exportPackage := Seq(
+      "!de.oliver_heger.linedj.platform.audio.impl.*",
+      "de.oliver_heger.linedj.platform.audio.*"
+    ),
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.platform.audio.impl.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(platform % "compile->compile;test->test", playerEngine)
