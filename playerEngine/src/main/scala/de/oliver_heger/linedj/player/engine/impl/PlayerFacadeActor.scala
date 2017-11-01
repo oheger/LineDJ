@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.impl
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.{DelayActor, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration._

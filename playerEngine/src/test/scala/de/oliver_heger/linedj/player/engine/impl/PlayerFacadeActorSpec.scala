@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{DelayActor, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

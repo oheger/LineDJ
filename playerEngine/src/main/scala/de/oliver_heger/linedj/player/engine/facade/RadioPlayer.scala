@@ -19,10 +19,10 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, PlaybackActor, RadioDataSourceActor}
+import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, PlaybackActor, RadioDataSourceActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.{DelayActor, PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -112,7 +112,7 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param delay      an optional delay for this operation
     */
   def checkCurrentSource(exclusions: Set[RadioSource],
-                         delay: FiniteDuration = DelayActor.NoDelay): Unit = {
+                         delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
     invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
   }
 
@@ -125,8 +125,8 @@ class RadioPlayer private(val config: PlayerConfig,
     *             invoked with a delay; this causes the start of audio
     *             streaming at the desired time.
     */
-  override def startPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    if (delay <= DelayActor.NoDelay) {
+  override def startPlayback(delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
+    if (delay <= PlayerControl.NoDelay) {
       sourceActor ! RadioDataSourceActor.ClearSourceBuffer
     }
     super.startPlayback(delay)

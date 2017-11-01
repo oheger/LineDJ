@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine
+package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -24,7 +24,7 @@ import scala.concurrent.duration._
 
 object DelayActor {
   /** A delay value that means ''no delay''. */
-  val NoDelay = 0.seconds
+  val NoDelay: FiniteDuration = 0.seconds
 
   /**
     * A message processed by [[DelayActor]] that causes the specified message

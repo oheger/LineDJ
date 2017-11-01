@@ -23,8 +23,8 @@ import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{DelayActor, PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,7 +35,7 @@ object PlayerControl {
     * passed to methods supporting a delayed invocation. It then means that an
     * immediate invocation should take place.
     */
-  val NoDelay: FiniteDuration = 0.seconds
+  val NoDelay: FiniteDuration = DelayActor.NoDelay
 
   /** The default name of the line writer actor. */
   val LineWriterActorName = "lineWriterActor"

@@ -22,7 +22,6 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.DelayActor
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
