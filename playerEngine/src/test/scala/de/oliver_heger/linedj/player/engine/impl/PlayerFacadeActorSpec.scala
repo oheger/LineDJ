@@ -107,6 +107,18 @@ object PlayerFacadeActorSpec {
     * @return the test message
     */
   private def testMsg(): Any = new Object
+
+  /**
+    * Generates a propagate message to the delay actor.
+    *
+    * @param msg    the message to be propagated
+    * @param target the target actor
+    * @param delay  the delay
+    * @return the ''Propagate'' message
+    */
+  private def delayedMsg(msg: Any, target: TestProbe, delay: FiniteDuration =
+  PlayerFacadeActor.NoDelay): DelayActor.Propagate =
+    DelayActor.Propagate(msg, target.ref, delay)
 }
 
 /**
@@ -164,18 +176,20 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
+    val expMsg = delayedMsg(msg, findProbeFor[SourceDownloadActor](creations))
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetDownloadActor))
-    findProbeFor[SourceDownloadActor](creations).expectMsg(msg)
+    findProbeFor[DelayActor](creations).expectMsg(expMsg)
   }
 
   it should "dispatch a message to the playback actor" in {
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
+    val expMsg = delayedMsg(msg, findProbeFor[PlaybackActor](creations))
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetPlaybackActor))
-    findProbeFor[PlaybackActor](creations).expectMsg(msg)
+    findProbeFor[DelayActor](creations).expectMsg(expMsg)
   }
 
   it should "dispatch a delayed message to the download actor" in {
@@ -183,8 +197,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
     val delay = 10.seconds
-    val dispMsg = DelayActor.Propagate(msg, findProbeFor[SourceDownloadActor](creations).ref,
-      delay)
+    val dispMsg = delayedMsg(msg, findProbeFor[SourceDownloadActor](creations), delay)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetDownloadActor, delay))
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
@@ -195,8 +208,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
     val delay = 5.seconds
-    val dispMsg = DelayActor.Propagate(msg, findProbeFor[PlaybackActor](creations).ref,
-      delay)
+    val dispMsg = delayedMsg(msg, findProbeFor[PlaybackActor](creations), delay)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetPlaybackActor, delay))
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
@@ -234,19 +246,23 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "correctly dispatch messages again after an engine reset" in {
     val helper = new PlayerFacadeTestHelper
-    helper.resetEngine().awaitChildrenCloseRequest()
+    val allCreations = helper.expectActorCreations(TotalChildrenCount)
+    val probeDelay = findProbeFor[DelayActor](allCreations)
+    helper.resetEngine().awaitChildrenCloseRequest(Some(allCreations))
       .sendCloseCompleted().awaitCloseComplete()
     val creations = helper.expectActorCreations(DynamicChildrenCount)
-    val probePlayback = findProbeFor[PlaybackActor](creations)
     val msg = testMsg()
+    val expMsg = delayedMsg(msg, findProbeFor[PlaybackActor](creations))
 
     helper.post(PlayerFacadeActor.Dispatch(msg, TargetPlaybackActor))
-    probePlayback.expectMsg(msg)
+    probeDelay.expectMsg(expMsg)
   }
 
   it should "buffer incoming messages during a reset of the engine" in {
     val helper = new PlayerFacadeTestHelper
-    helper.resetEngine().awaitChildrenCloseRequest()
+    val allCreations = helper.expectActorCreations(TotalChildrenCount)
+    val probeDelay = findProbeFor[DelayActor](allCreations)
+    helper.resetEngine().awaitChildrenCloseRequest(Some(allCreations))
     val msg1 = testMsg()
     val msg2 = testMsg()
 
@@ -254,23 +270,24 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.post(PlayerFacadeActor.Dispatch(msg2, TargetPlaybackActor))
     val creations = helper.sendCloseCompleted().expectActorCreations(DynamicChildrenCount)
     val probePlayback = findProbeFor[PlaybackActor](creations)
-    probePlayback.expectMsg(msg1)
-    probePlayback.expectMsg(msg2)
+    probeDelay.expectMsg(delayedMsg(msg1, probePlayback))
+    probeDelay.expectMsg(delayedMsg(msg2, probePlayback))
   }
 
   it should "handle another reset request while one is in progress" in {
     val helper = new PlayerFacadeTestHelper
+    val allCreations = helper.expectActorCreations(TotalChildrenCount)
+    val probeDelay = findProbeFor[DelayActor](allCreations)
     val msgDropped = testMsg()
     val msgExp = testMsg()
-    helper.resetEngine().awaitChildrenCloseRequest()
+    helper.resetEngine().awaitChildrenCloseRequest(Some(allCreations))
       .post(PlayerFacadeActor.Dispatch(msgDropped, TargetPlaybackActor))
 
     helper.resetEngine()
       .post(PlayerFacadeActor.Dispatch(msgExp, TargetPlaybackActor))
       .sendCloseCompleted()
     val creations = helper.expectActorCreations(DynamicChildrenCount)
-    val probePlayback = findProbeFor[PlaybackActor](creations)
-    probePlayback.expectMsg(msgExp)
+    probeDelay.expectMsg(delayedMsg(msgExp, findProbeFor[PlaybackActor](creations)))
     helper.numberOfCloseRequests should be(1)
   }
 

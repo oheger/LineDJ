@@ -178,13 +178,7 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
     * @param d the message to be handled
     */
   private def dispatchMessage(d: Dispatch): Unit = {
-    d match {
-      case Dispatch(msg, target, delay) if NoDelay == delay =>
-        fetchTargetActor(target) ! msg
-
-      case Dispatch(msg, target, delay) if NoDelay != delay =>
-        delayActor ! DelayActor.Propagate(msg, fetchTargetActor(target), delay)
-    }
+    delayActor ! DelayActor.Propagate(d.msg, fetchTargetActor(d.targetActor), d.delay)
   }
 
   /**
