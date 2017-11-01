@@ -16,16 +16,145 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.Actor
-import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.comm.MessageBusListener
+import java.time.LocalDateTime
+
+import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
+import de.oliver_heger.linedj.player.engine.{AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 
-private class AudioPlayerController(val player: AudioPlayer) extends MessageBusListener {
+/**
+  * Controller class that updates an audio player object based on messages
+  * received on the central message bus.
+  *
+  * This class exposes the functionality of an ''AudioPlayer'' object via the
+  * system message bus. It handles specific command messages and updates the
+  * player accordingly. In addition, a state for the audio player is
+  * maintained. Components can register themselves as consumers for state
+  * change events and are then notified whenever the player's state changes.
+  *
+  * @param player the player object to be managed
+  */
+private class AudioPlayerController(val player: AudioPlayer)
+  extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
+  /** Stores the last state change event. */
+  private var lastEvent =
+    AudioPlayerStateChangedEvent(AudioPlayerState(Nil, Nil, playbackActive = false,
+      playlistClosed = false))
+
   /**
-    * Returns the function for handling messages published on the message bus.
-    *
-    * @return the message handling function
+    * The time when the last reset of the player engine took place. This is
+    * recorded to detect events from the player engine that happened before
+    * this reset. Such events have to be ignored.
     */
-  override def receive: Receive = Actor.emptyBehavior
+  private var lastResetTime = LocalDateTime.now()
+
+  /**
+    * Returns the message handling function for this object.
+    *
+    * @return a message handling function for specific events
+    */
+  override protected def receiveSpecific = {
+    case reg: AudioPlayerStateChangeRegistration =>
+      addConsumer(reg)
+      reg.callback(lastEvent)
+
+    case SetPlaylist(pendingSongs, playedSongs, closePlaylist) =>
+      if (hasCurrentPlaylist) {
+        player.reset()
+      }
+      lastResetTime = LocalDateTime.now()
+      appendSongsToPlaylist(pendingSongs, closePlaylist)
+      updateState(s => s.copy(pendingSongs = pendingSongs,
+        playedSongs = playedSongs, playlistClosed = closePlaylist))
+
+    case AppendPlaylist(songs, closePlaylist) =>
+      if (!currentState.playlistClosed) {
+        appendSongsToPlaylist(songs, closePlaylist)
+        updateState(s => s.copy(pendingSongs = s.pendingSongs ++ songs))
+      }
+
+    case StartAudioPlayback(delay) =>
+      if (!currentState.playbackActive) {
+        player startPlayback delay
+        updateState(_.copy(playbackActive = true))
+      }
+
+    case StopAudioPlayback(delay) =>
+      if (currentState.playbackActive) {
+        player stopPlayback delay
+        updateState(_.copy(playbackActive = false))
+      }
+
+    case SkipCurrentSource =>
+      if (currentState.playbackActive) {
+        player.skipCurrentSource()
+      }
+
+    case AudioSourceFinishedEvent(source, time) =>
+      if (currentState.currentSong.exists(_.sourceID.uri == source.uri) &&
+        isCurrentPlayerEvent(time)) {
+        updateState { s =>
+          val nextState = s.moveToNext
+          if (nextState.currentSong.isEmpty && s.playlistClosed && s.playbackActive)
+            nextState.copy(playbackActive = false)
+          else nextState
+        }
+      }
+  }
+
+  /**
+    * Adds the specified songs to the audio player's playlist. Optionally, the
+    * playlist can then be closed.
+    *
+    * @param songs         the songs to be appended
+    * @param closePlaylist flag whether the playlist should be closed
+    */
+  private def appendSongsToPlaylist(songs: List[AudioSourcePlaylistInfo],
+                                    closePlaylist: Boolean): Unit = {
+    songs foreach (s => player addToPlaylist s)
+    if (closePlaylist) {
+      player.closePlaylist()
+    }
+  }
+
+  /**
+    * Updates the current state and sends a corresponding state change event to
+    * all registered consumers.
+    *
+    * @param trans a function that updates the current state
+    */
+  private def updateState(trans: AudioPlayerState => AudioPlayerState): Unit = {
+    val nextState = trans(currentState)
+    lastEvent = AudioPlayerStateChangedEvent(nextState)
+    invokeConsumers(lastEvent)
+  }
+
+  /**
+    * Returns the current ''AudioPlayerState''.
+    *
+    * @return the current ''AudioPlayerState''
+    */
+  private def currentState: AudioPlayerState = lastEvent.state
+
+  /**
+    * Checks whether a current playlist exists.
+    *
+    * @return a flag if a current playlist exists
+    */
+  private def hasCurrentPlaylist: Boolean =
+    currentState.pendingSongs.nonEmpty || currentState.playedSongs.nonEmpty
+
+  /**
+    * Checks whether the given event time indicates a current audio player
+    * event. Events triggered before the last reset of the player engine must
+    * be ignored. This function checks the event time against the time of the
+    * last reset.
+    *
+    * @param time the time of the event
+    * @return a flag whether this is a current event (which needs to be
+    *         handled)
+    */
+  private def isCurrentPlayerEvent(time: LocalDateTime): Boolean =
+    time.isAfter(lastResetTime) || time == lastResetTime
 }
