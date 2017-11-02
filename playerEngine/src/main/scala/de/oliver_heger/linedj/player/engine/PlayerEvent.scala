@@ -89,9 +89,11 @@ case class PlaybackErrorEvent(source: AudioSource,
   *
   * @param bytesProcessed the number of bytes processed for the current source
   * @param playbackTime   the accumulated playback duration (in seconds)
+  * @param currentSource  the ''AudioSource'' that is currently played
   * @param time           the time when this event was generated
   */
 case class PlaybackProgressEvent(bytesProcessed: Long, playbackTime: Long,
+                                 currentSource: AudioSource,
                                  override val time: LocalDateTime = LocalDateTime.now())
   extends PlayerEvent
 

@@ -83,7 +83,7 @@ object PlaybackActorSpec {
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(inMemoryBufferSize = AudioBufferSize, playbackContextLimit = PlaybackContextLimit,
-      actorCreator = (props, name) => null, mediaManagerActor = null)
+      actorCreator = (_, _) => null, mediaManagerActor = null)
 }
 
 /**
@@ -521,10 +521,11 @@ with EventTestSupport {
     val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
       testActor, lineWriter.ref, eventMan.ref))
     val line = installMockPlaybackContextFactory(actor)
+    val source = createSource(1)
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
-    actor ! createSource(1)
+    actor ! source
     val audioData = (1 to Chunks) map (i => arraySource(i.toByte, LineChunkSize))
     sendAudioData(actor, audioData: _*)
     expectEvent[AudioSourceStartedEvent](eventMan)
@@ -533,6 +534,7 @@ with EventTestSupport {
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be((Chunks - 1) * LineChunkSize)
     event.playbackTime should be(1)
+    event.currentSource should be(source)
 
     sendAudioData(actor, arraySource(8, LineChunkSize))
     gatherPlaybackData(actor, lineWriter, line, LineChunkSize,
@@ -540,6 +542,7 @@ with EventTestSupport {
     val event2 = expectEvent[PlaybackProgressEvent](eventMan)
     event2.bytesProcessed should be((Chunks + 1) * LineChunkSize)
     event2.playbackTime should be(3)
+    event2.currentSource should be(source)
     expectMsgType[GetAudioData]
   }
 
@@ -551,8 +554,9 @@ with EventTestSupport {
     expectEvent[AudioSourceStartedEvent](eventMan)
     expectEvent[PlaybackProgressEvent](eventMan)
     expectEvent[AudioSourceFinishedEvent](eventMan)
+    val source = createSource(2)
 
-    actor ! createSource(2)
+    actor ! source
     sendAudioData(actor, arraySource(12, LineChunkSize), EndOfFile(null))
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
     actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, TimeUnit.SECONDS.toNanos(1)),
@@ -561,6 +565,7 @@ with EventTestSupport {
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be(LineChunkSize)
     event.playbackTime should be(1)
+    event.currentSource should be(source)
   }
 
   it should "report a protocol error when receiving an unexpected EoF message" in {

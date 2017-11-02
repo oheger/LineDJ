@@ -268,7 +268,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
  *
    * @return a flag whether playback is enabled
    */
-  def isPlaying = playbackEnabled
+  def isPlaying: Boolean = playbackEnabled
 
   /**
    * An alternative ''Receive'' function which is installed when the actor is
@@ -333,7 +333,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     if (playbackNanos >= NanosPerSecond) {
       playbackSeconds += playbackNanos / NanosPerSecond
       playbackNanos = playbackNanos % NanosPerSecond
-      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds)
+      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds,
+        currentSource.get)
     }
   }
 
