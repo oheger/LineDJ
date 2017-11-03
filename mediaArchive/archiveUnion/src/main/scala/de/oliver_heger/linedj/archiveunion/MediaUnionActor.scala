@@ -98,7 +98,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       log.info(s"Received AddMedia message from component $compID.")
 
     case fileReq: MediumFileRequest =>
-      forwardToController(fileReq.mediumID, fileReq)(undefinedMediumFileResponse)
+      forwardToController(fileReq.fileID.mediumID, fileReq)(undefinedMediumFileResponse)
 
     case ral: DownloadActorAlive =>
       controllerMap.get(ral.mediumID.archiveComponentID) foreach (_ forward ral)

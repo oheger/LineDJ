@@ -144,7 +144,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   it should "handle a request for a medium file" in {
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
-    val request = MediumFileRequest(mid, "someFile", withMetaData = false)
+    val request = MediumFileRequest(MediaFileID(mid, "someFile"), withMetaData = false)
     val controller = ForwardTestActor()
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(mediaMap, 1, controller)
@@ -154,7 +154,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "handle a medium file request for a non-existing controller actor" in {
-    val request = MediumFileRequest(mediumID(1, 1), "someFile", withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
 
     helper.manager ! request
@@ -164,7 +164,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "return an undefined reader actor for an invalid file request" in {
-    val request = MediumFileRequest(mediumID(1, 1), "someFile", withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
 
     helper.manager ! request
@@ -228,7 +228,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val ctrl = helper.addMedia(mediaMap, 1)
 
     stopActor(ctrl.ref)
-    helper.manager ! MediumFileRequest(mediumID(1, 1), "someUri", withMetaData = true)
+    helper.manager ! MediumFileRequest(MediaFileID(mediumID(1, 1), "someUri"), withMetaData = true)
     expectMsgType[MediumFileResponse].contentReader shouldBe 'empty
   }
 

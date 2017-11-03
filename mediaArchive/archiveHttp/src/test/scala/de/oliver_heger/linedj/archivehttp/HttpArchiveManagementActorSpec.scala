@@ -36,7 +36,7 @@ import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementA
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -465,7 +465,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "forward a file download request to the download manager" in {
-    val request = MediumFileRequest(MediumID("aMedium", None), "fileUri", withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(MediumID("aMedium", None), "fileUri"),
+      withMetaData = true)
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(request)

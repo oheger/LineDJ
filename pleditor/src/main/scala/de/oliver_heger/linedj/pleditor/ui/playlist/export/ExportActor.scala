@@ -22,11 +22,11 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.pipe
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.{RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.platform.app.ClientApplication
-import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
+import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer
@@ -48,13 +48,13 @@ object ExportActor {
      * Type for a remove operation. This means that a specific file is removed
      * from the target medium.
      */
-    val Remove = Value
+    val Remove: OperationType.Value = Value
 
     /**
      * Type for a copy operation. This means that a specific file is downloaded
      * from the server and copied into the target medium.
      */
-    val Copy = Value
+    val Copy: OperationType.Value = Value
   }
 
   /**
@@ -146,7 +146,7 @@ object ExportActor {
   val ResultSuccess = ExportResult(error = None)
 
   /** Timeout to be used when fetching the media manager actor. */
-  private [export] implicit val FetchActorTimeout = Timeout(10.seconds)
+  private [export] implicit val FetchActorTimeout: Timeout = Timeout(10.seconds)
 
   /**
    * Returns a ''Props'' object for creating an instance of this actor class.
@@ -561,8 +561,8 @@ ExportOperation {
   override val operationType = ExportActor.OperationType.Copy
 
   override def getCopyMessage: Option[Any] =
-    Some(CopyFileActor.CopyMediumFile(MediumFileRequest(affectedSong.mediumID, affectedSong.uri,
-      withMetaData = true), affectedPath))
+    Some(CopyFileActor.CopyMediumFile(MediumFileRequest(MediaFileID(affectedSong.mediumID,
+      affectedSong.uri), withMetaData = true), affectedPath))
 
   /**
    * @inheritdoc This implementation returns the size of the affected file.

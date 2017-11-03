@@ -92,12 +92,11 @@ case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
  * set to '''false''', a special reader actor is returned which filters out
  * such information. Otherwise, the media file is read directly.
  *
- * @param mediumID the ID of the medium the desired source belongs to
- * @param uri the URI of the desired source relative to the medium
+ * @param fileID the ID of the file in question
  * @param withMetaData flag whether media meta data contained in the file
  *                     should be read or skipped
  */
-case class MediumFileRequest(mediumID: MediumID, uri: String, withMetaData: Boolean)
+case class MediumFileRequest(fileID: MediaFileID, withMetaData: Boolean)
 
 /**
  * A message sent by ''MediaManagerActor'' as a response of a

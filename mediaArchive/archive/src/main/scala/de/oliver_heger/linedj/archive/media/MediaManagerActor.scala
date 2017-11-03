@@ -472,7 +472,7 @@ Actor with ActorLogging {
    * @return an option with the ''FileData''
    */
   private def fetchFileData(request: MediumFileRequest): Option[FileData] = {
-    MediaFileUriHandler.resolveUri(request.mediumID, request.uri, mediaFiles)
+    MediaFileUriHandler.resolveUri(request.fileID.mediumID, request.fileID.uri, mediaFiles)
   }
 
   /**

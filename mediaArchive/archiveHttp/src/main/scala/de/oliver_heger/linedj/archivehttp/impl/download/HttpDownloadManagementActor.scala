@@ -154,7 +154,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @param req the request for the file to be downloaded
     */
   private def triggerFileDownload(req: MediumFileRequest): Unit = {
-    log.info("Sending request for file {}.", req.uri)
+    log.info("Sending request for file {}.", req.fileID.uri)
     val downloadOp = DownloadOperationRequest(req, sender())
     val flow = fetchHttpFlow()
 
@@ -164,7 +164,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
       case Success(t) =>
         self ! ProcessDownloadRequest(request = t._2, response = t._1)
       case Failure(exception) =>
-        log.error(exception, "Download request for {} failed!", req.uri)
+        log.error(exception, "Download request for {} failed!", req.fileID.uri)
         downloadOp.client ! MediumFileResponse(req, None, -1)
     }
   }
@@ -176,7 +176,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @return the HTTP request to start the download operation
     */
   private def createDownloadRequest(req: MediumFileRequest): HttpRequest =
-    HttpRequest(uri = Uri(req.uri),
+    HttpRequest(uri = Uri(req.fileID.uri),
       headers = List(Authorization(BasicHttpCredentials(config.credentials.userName,
         config.credentials.password))))
 
@@ -193,7 +193,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     log.debug("Starting download operation {} after receiving successful response.",
       downloadIndex)
     val fileDownloadActor = createChildActor(HttpFileDownloadActor(response,
-      Uri(request.request.uri), downloadTransformationFunc(request.request)))
+      Uri(request.request.fileID.uri), downloadTransformationFunc(request.request)))
     val timeoutActor = createChildActor(TimeoutAwareHttpDownloadActor(config, monitoringActor,
       fileDownloadActor, pathGenerator, removeActor, downloadIndex))
     monitoringActor ! DownloadOperationStarted(downloadActor = timeoutActor,

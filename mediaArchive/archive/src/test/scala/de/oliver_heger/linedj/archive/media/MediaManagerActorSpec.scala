@@ -310,14 +310,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "return a file response for an unknown medium ID" in {
-    checkUnknownFileRequest(MediumFileRequest(MediumID("unknown medium", None), "unknown URI",
-      withMetaData = false))
+    checkUnknownFileRequest(MediumFileRequest(MediaFileID(MediumID("unknown medium", None),
+      "unknown URI"), withMetaData = false))
   }
 
   it should "return a file response for a request with an unknown URI" in {
     val helper = new MediaManagerTestHelper
-    checkUnknownFileRequest(MediumFileRequest(helper.Medium1IDData.mediumID, "unknown URI",
-      withMetaData = false))
+    checkUnknownFileRequest(MediumFileRequest(MediaFileID(helper.Medium1IDData.mediumID,
+      "unknown URI"), withMetaData = false))
   }
 
   /**
@@ -330,14 +330,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   private def createRequestForExistingFile(helper: MediaManagerTestHelper,
                                             withMetaData: Boolean = true): MediumFileRequest = {
     val fileURI = helper.Medium1IDData.fileURIMapping.keys.head
-    MediumFileRequest(helper.Medium1IDData.mediumID, fileURI, withMetaData)
+    MediumFileRequest(MediaFileID(helper.Medium1IDData.mediumID, fileURI), withMetaData)
   }
 
   it should "return a correct download result" in {
     val helper = prepareHelperForScannedMedia()
 
     val request = createRequestForExistingFile(helper)
-    val file = helper.Medium1IDData.fileURIMapping(request.uri)
+    val file = helper.Medium1IDData.fileURIMapping(request.fileID.uri)
     helper.testManagerActor ! request
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
@@ -428,7 +428,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val targetFile = helper.Medium1IDData.fileURIMapping(targetFileUri)
     val fileURI = "ref://" + helper.Medium1IDData.mediumID.mediumURI + ":" +
       helper.Medium1IDData.mediumID.archiveComponentID + ":" +  targetFileUri
-    helper.testManagerActor ! MediumFileRequest(MediumID.UndefinedMediumID, fileURI,
+    helper.testManagerActor ! MediumFileRequest(MediaFileID(MediumID.UndefinedMediumID, fileURI),
       withMetaData = false)
 
     val response = expectMsgType[MediumFileResponse]

@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
@@ -356,8 +356,8 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   it should "ignore unexpected copy progress messages" in {
     def createCopyProgress(index: Int): CopyProgress = {
-      CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(MediumFileRequest(medium(index),
-        songUri(index), withMetaData = true), targetPath(index)), 111)
+      CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(MediumFileRequest(
+        MediaFileID(medium(index), songUri(index)), withMetaData = true), targetPath(index)), 111)
     }
 
     val data = ExportActor.ExportData(songs(1), TestScanResultWithSingleRemoveFile, ExportPath,
@@ -600,8 +600,8 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     def expectCopyOperation(index: Int): CopyFileActor.CopyMediumFile = {
       ensureNoMessage(removeFileActor)
       val path = targetPath(index)
-      copyFileActor.expectMsg(CopyFileActor.CopyMediumFile(MediumFileRequest(medium(index),
-        songUri(index), withMetaData = true), path))
+      copyFileActor.expectMsg(CopyFileActor.CopyMediumFile(MediumFileRequest(
+        MediaFileID(medium(index), songUri(index)), withMetaData = true), path))
     }
 
     /**

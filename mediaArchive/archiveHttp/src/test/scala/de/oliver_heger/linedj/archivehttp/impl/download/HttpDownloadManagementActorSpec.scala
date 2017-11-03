@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredent
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor.DownloadOperationRequest
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -95,7 +95,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "execute a download request successfully" in {
-    val request = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val response = HttpResponse()
     val helper = new DownloadManagementTestHelper
 
@@ -126,21 +126,21 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "use an identity transformation if meta data should be downloaded" in {
-    val request = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
 
     val transformFunc = sendRequestAndFetchTransformFunc(request)
     transformFunc should be(MediaFileDownloadActor.IdentityTransform)
   }
 
   it should "use a correct transformation function if meta data is to be stripped" in {
-    val request = MediumFileRequest(TestMedium, DownloadUri, withMetaData = false)
+    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
 
     val transformFunc = sendRequestAndFetchTransformFunc(request)
     transformFunc("Mp3") shouldBe a[ID3v2ProcessingStage]
   }
 
   it should "register the download actor at the monitoring actor" in {
-    val request = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest(request, HttpResponse())
@@ -150,8 +150,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "increment the download index per operation" in {
-    val request1 = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
-    val request2 = MediumFileRequest(TestMedium, DownloadUri, withMetaData = false)
+    val request1 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
+    val request2 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
     val response = HttpResponse()
     val helper = new DownloadManagementTestHelper
 
@@ -173,8 +173,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "create only a single HTTP flow" in {
-    val request1 = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
-    val request2 = MediumFileRequest(TestMedium, DownloadUri, withMetaData = false)
+    val request1 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
+    val request2 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
     val response = HttpResponse()
     val helper = new DownloadManagementTestHelper
 
@@ -186,7 +186,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "handle a failed response from the HTTP archive" in {
-    val request = MediumFileRequest(TestMedium, DownloadUri, withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val helper = new DownloadManagementTestHelper
 
     helper.executeFailedRequest(request)
@@ -194,7 +194,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "send a failure response for an invalid URI" in {
-    val request = MediumFileRequest(TestMedium, "test://an invalid URI?!", withMetaData = true)
+    val request = MediumFileRequest(MediaFileID(TestMedium, "test://an invalid URI?!"),
+      withMetaData = true)
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest(request, HttpResponse())
@@ -411,7 +412,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
             Credentials.password)))
           data.request should be(expectedRequest)
           data.client should be(testActor)
-          request.uri should be(Uri(data.request.uri))
+          request.uri should be(Uri(data.request.fileID.uri))
           optArchiveResponse match {
             case Some(response) =>
               Future((response, data))

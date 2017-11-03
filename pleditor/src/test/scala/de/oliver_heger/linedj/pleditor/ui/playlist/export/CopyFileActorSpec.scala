@@ -38,8 +38,8 @@ object CopyFileActorSpec {
   val ChunkSize = 4444
 
   /** Constant for a test medium file request. */
-  private val FileRequest = MediumFileRequest(MediumID("someMedium", Some("somePath")),
-    "someFile", withMetaData = true)
+  private val FileRequest = MediumFileRequest(MediaFileID(MediumID("someMedium", Some("somePath")),
+    "someFile"), withMetaData = true)
 
   /** Constant for a test target file name. */
   private val TargetFile = "002 - TestSong.mp3"
@@ -177,7 +177,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val Data2 = "This is alternative test data"
     prepareCopyOperation(actor, downloadActor, target1)
     expectMsg(DownloadData(ChunkSize))
-    actor ! MediumFileResponse(FileRequest.copy(uri = "toBeIgnored"), Some(TestProbe().ref), 111)
+    actor ! MediumFileResponse(FileRequest.copy(fileID = FileRequest.fileID.copy(
+      uri = "toBeIgnored")), Some(TestProbe().ref), 111)
     downloadActor ! DownloadDataResult(ByteString(Data2))
     expectMsg(DownloadData(ChunkSize))
     downloadActor ! DownloadComplete
@@ -196,8 +197,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   it should "ignore a MediumFileResponse if there is no current copy request" in {
     val actor = TestActorRef[CopyFileActor](actorProps())
 
-    actor receive MediumFileResponse(FileRequest.copy(uri = "toBeIgnored"),
-      Some(TestProbe().ref), 111)
+    actor receive MediumFileResponse(FileRequest.copy(fileID = FileRequest.fileID.copy(
+      uri = "toBeIgnored")), Some(TestProbe().ref), 111)
   }
 
   it should "ignore another copy request while one is processed" in {
@@ -206,7 +207,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val target = createPathInDirectory(TargetFile)
     actor receive CopyFileActor.CopyMediumFile(FileRequest, target)
 
-    actor receive CopyFileActor.CopyMediumFile(FileRequest.copy(uri = "toBeIgnored"), target)
+    actor receive CopyFileActor.CopyMediumFile(FileRequest.copy(fileID = FileRequest.fileID.copy(
+      uri = "toBeIgnored")), target)
     mediaManagerProbe.expectMsg(FileRequest)
     expectNoMoreMessages(mediaManagerProbe)
   }
@@ -314,7 +316,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   * A test download actor which always sends a sequence of chunks.
   */
 class DownloadActorTestImpl extends Actor {
-  var chunks = CopyFileActorSpec.DownloadChunks
+  var chunks: List[ByteString] = CopyFileActorSpec.DownloadChunks
 
   override def receive: Receive = {
     case DownloadData(size) if size == CopyFileActorSpec.ChunkSize =>

@@ -72,7 +72,7 @@ object SourceDownloadActor {
     * @return the ''MediumFileRequest''
     */
   private def downloadRequest(sourceID: MediaFileID): MediumFileRequest =
-    MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
+    MediumFileRequest(MediaFileID(sourceID.mediumID, sourceID.uri), withMetaData = false)
 
   private class SourceDownloadActorImpl(config: PlayerConfig, bufferActor: ActorRef,
                                         readerActor: ActorRef)
@@ -209,7 +209,8 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
         readerActor <- currentReadActor
         downloadRequest <- downloadInProgress
       } {
-        config.mediaManagerActor ! DownloadActorAlive(readerActor, downloadRequest.mediumID)
+        config.mediaManagerActor ! DownloadActorAlive(readerActor,
+          downloadRequest.fileID.mediumID)
       }
   }
 
