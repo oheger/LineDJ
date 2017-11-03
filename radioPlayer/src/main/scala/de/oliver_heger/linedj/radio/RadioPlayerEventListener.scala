@@ -38,7 +38,7 @@ class RadioPlayerEventListener(controller: RadioController, player: RadioPlayer)
       event match {
         case RadioSourceChangedEvent(source, _) =>
           controller radioSourcePlaybackStarted source
-        case PlaybackProgressEvent(_, time, _) =>
+        case PlaybackProgressEvent(_, time, _, _) =>
           controller playbackTimeProgress time
         case ev: RadioSourceErrorEvent =>
           controller playbackError ev

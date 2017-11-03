@@ -39,7 +39,7 @@ class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSu
     val PlaybackTime = 20160709223424L
     val helper = new RadioPlayerEventListenerTestHelper
 
-    helper sendEvent PlaybackProgressEvent(100, PlaybackTime)
+    helper sendEvent PlaybackProgressEvent(100, PlaybackTime, null)
     verify(helper.controller).playbackTimeProgress(PlaybackTime)
   }
 
