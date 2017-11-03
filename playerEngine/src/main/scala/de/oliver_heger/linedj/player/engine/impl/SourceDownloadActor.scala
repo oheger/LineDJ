@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.player.engine.impl
 import akka.actor.{Actor, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, DownloadActorAlive}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
 
 import scala.collection.mutable
@@ -44,7 +44,7 @@ object SourceDownloadActor {
     * this source has been received, no further audio sources can be added to
     * the playlist.
     */
-  val PlaylistEnd = AudioSourcePlaylistInfo(AudioSourceID(MediumID.UndefinedMediumID, null), -1, -1)
+  val PlaylistEnd = AudioSourcePlaylistInfo(MediaFileID(MediumID.UndefinedMediumID, null), -1, -1)
 
   /**
    * Constant for an error message caused by an unexpected download response
@@ -71,7 +71,7 @@ object SourceDownloadActor {
     * @param sourceID the source ID
     * @return the ''MediumFileRequest''
     */
-  private def downloadRequest(sourceID: AudioSourceID): MediumFileRequest =
+  private def downloadRequest(sourceID: MediaFileID): MediumFileRequest =
     MediumFileRequest(sourceID.mediumID, sourceID.uri, withMetaData = false)
 
   private class SourceDownloadActorImpl(config: PlayerConfig, bufferActor: ActorRef,

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.platform.audio
 
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.scalatest.{FlatSpec, Matchers}
 
 object AudioPlayerStateSpec {
@@ -31,7 +31,7 @@ object AudioPlayerStateSpec {
     * @return the test instance derived from this index
     */
   private def createSource(index: Int): AudioSourcePlaylistInfo =
-    AudioSourcePlaylistInfo(AudioSourceID(TestMedium, "song://Test" + index),
+    AudioSourcePlaylistInfo(MediaFileID(TestMedium, "song://Test" + index),
       index, index)
 
   /**

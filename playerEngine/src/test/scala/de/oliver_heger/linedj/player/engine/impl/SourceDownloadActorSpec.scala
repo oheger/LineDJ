@@ -23,8 +23,8 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, MediumID, DownloadActorAlive}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -58,7 +58,7 @@ object SourceDownloadActorSpec {
     * @param index the index of the audio source
    * @return the ID of this test audio source
    */
-  private def sourceID(index: Int): AudioSourceID = AudioSourceID(TestMediumID, sourceURI(index))
+  private def sourceID(index: Int): MediaFileID = MediaFileID(TestMediumID, sourceURI(index))
 
   /**
    * Creates an audio source in a playlist which can be used for testing.

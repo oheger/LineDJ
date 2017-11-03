@@ -23,11 +23,10 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor,
-  TargetDownloadActor, TargetPlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor, TargetDownloadActor, TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -56,7 +55,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   "An AudioPlayer" should "support adding playlist info objects to the playlist" in {
-    val info = AudioSourcePlaylistInfo(AudioSourceID(MediumID("someMedium", None), "someURI"), 0, 0)
+    val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
     val helper = new AudioPlayerTestHelper
 
     helper.player addToPlaylist info
@@ -64,7 +63,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   it should "support an overloaded method of adding songs to the playlist" in {
-    val info = AudioSourcePlaylistInfo(AudioSourceID(MediumID("someMedium", None), "someURI"),
+    val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"),
       20160413222120L, 20160413222133L)
     val helper = new AudioPlayerTestHelper
 
@@ -73,7 +72,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   it should "set default values for skip properties in addToPlaylist()" in {
-    val info = AudioSourcePlaylistInfo(AudioSourceID(MediumID("someMedium", None), "someURI"), 0, 0)
+    val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)

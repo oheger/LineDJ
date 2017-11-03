@@ -19,11 +19,10 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{TargetDownloadActor,
-  TargetPlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{TargetDownloadActor, TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -78,7 +77,7 @@ class AudioPlayer private(facadeActor: ActorRef,
     * @param skipTime the optional skip time
     */
   def addToPlaylist(mid: MediumID, uri: String, skip: Long = 0, skipTime: Long = 0): Unit = {
-    invokeFacadeActor(AudioSourcePlaylistInfo(AudioSourceID(mid, uri), skip, skipTime),
+    invokeFacadeActor(AudioSourcePlaylistInfo(MediaFileID(mid, uri), skip, skipTime),
       TargetDownloadActor)
   }
 

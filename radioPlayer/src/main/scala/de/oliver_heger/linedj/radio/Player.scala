@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.{AudioSourceID, AudioSourcePlaylistInfo, PlayerConfig}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -44,7 +44,7 @@ object Player {
     val mediumID = MediumID(args(0), Some(args(1)))
 
     def playlistInfo(uri: String): AudioSourcePlaylistInfo = {
-      val source = AudioSourceID(mediumID, uri)
+      val source = MediaFileID(mediumID, uri)
       AudioSourcePlaylistInfo(source, 0, 0)
     }
 

@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 object AudioSource {
   /**
     * Constant for a length indicating an infinite source. This is used for
     * instance for internet radio streams.
     */
-  val InfiniteLength = Long.MaxValue
+  val InfiniteLength: Long = Long.MaxValue
 
   /**
     * Constant representing an error source. This value is used if an error
@@ -62,19 +62,6 @@ case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long) {
 }
 
 /**
- * A data class which uniquely identifies an audio source.
- *
- * This message class is used to obtain information about a specific audio
- * source file (its content plus additional media data) from the actor managing
- * the currently available sources. A source is uniquely identified using the
- * medium ID and the (relative) URI within this medium.
- *
- * @param mediumID the ID of the medium the desired source belongs to
- * @param uri the URI of the desired source relative to the medium
- */
-case class AudioSourceID(mediumID: MediumID, uri: String)
-
-/**
  * A data class representing an entry in a playlist.
  *
  * An audio player client maintains a list with objects of this class defining
@@ -85,4 +72,4 @@ case class AudioSourceID(mediumID: MediumID, uri: String)
  * @param skip the skip position
  * @param skipTime the skip time
  */
-case class AudioSourcePlaylistInfo(sourceID: AudioSourceID, skip: Long, skipTime: Long)
+case class AudioSourcePlaylistInfo(sourceID: MediaFileID, skip: Long, skipTime: Long)

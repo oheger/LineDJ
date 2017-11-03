@@ -22,10 +22,9 @@ import java.util.concurrent.atomic.AtomicReference
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent,
-  AudioSourceID, AudioSourcePlaylistInfo}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
@@ -52,7 +51,7 @@ object AudioPlayerControllerSpec {
     * @return the ''AudioSourcePlaylistInfo'' for this index
     */
   private def createPlaylistInfo(idx: Int): AudioSourcePlaylistInfo =
-    AudioSourcePlaylistInfo(AudioSourceID(TestMedium, songUri(idx)), idx, idx)
+    AudioSourcePlaylistInfo(MediaFileID(TestMedium, songUri(idx)), idx, idx)
 
   /**
     * Creates a test audio source object based on the given index.
