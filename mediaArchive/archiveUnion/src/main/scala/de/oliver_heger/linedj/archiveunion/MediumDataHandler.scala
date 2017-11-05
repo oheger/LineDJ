@@ -120,6 +120,18 @@ private class MediumDataHandler(mediumID: MediumID) {
   }
 
   /**
+    * Returns the meta data for the specified URI if available.
+    *
+    * @param uri the URI of the file in question
+    * @return an ''Option'' with the meta data for this file
+    */
+  def metaDataFor(uri: String): Option[MediaMetaData] = {
+    nextChunkData.get(uri) orElse {
+      currentData.find(_.data.contains(uri)) map (_.data(uri))
+    }
+  }
+
+  /**
     * Extracts the URI to be used when storing the specified result. The URI is
     * different for the global undefined list.
     *

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.shared.archive.metadata
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 
 /**
   * A message supported by ''MetaDataManagerActor'' that queries for the meta
@@ -192,3 +192,31 @@ case class RemovePersistentMetaData(checksumSet: Set[String])
   */
 case class RemovePersistentMetaDataResult(request: RemovePersistentMetaData,
                                           successfulRemoved: Set[String])
+
+/**
+  * A message processed by the meta data manager actor that requests meta data
+  * for a set of media files.
+  *
+  * This message has a similar purpose as [[GetMetaData]]. However, it does not
+  * query meta data for a specific medium, but an arbitrary set of media files.
+  * This is useful for clients that have to deal with audio files from
+  * different media.
+  *
+  * @param files the files for which meta data is to be retrieved
+  * @param seqNo a sequence number to detect outdated responses
+  */
+case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0)
+
+/**
+  * A message sent as response for a [[GetFilesMetaData]] request.
+  *
+  * This message contains the meta data for the files that have been requested.
+  * If files could not be resolved, they are not contained in the map with
+  * meta data. By comparing the files in the request with the keys in the map,
+  * it can be determined which files could not be resolved.
+  *
+  * @param request a reference to the request which caused this response
+  * @param data    a map with meta data for the requested files
+  */
+case class FilesMetaDataResponse(request: GetFilesMetaData,
+                                 data: Map[MediaFileID, MediaMetaData])

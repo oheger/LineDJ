@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
@@ -910,6 +910,29 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val receivedUris = findCompletedMessage(Nil)
     val expUris = successFiles map(fd => uriFor(path(fd.path)))
     receivedUris should contain theSameElementsAs expUris
+  }
+
+  it should "handle a request for file meta data" in {
+    val mid = MediaIDs(1)
+    val files = Contribution.files(mid)
+    val unkMediumFile = MediaFileID(MediumID("unknownMedium", Some("unknown")), "unknown")
+    val unkUriFile = MediaFileID(mid, "nonExistingUri")
+    val exFiles = files map (f => MediaFileID(mid, uriFor(Paths get f.path)))
+    val request = GetFilesMetaData(exFiles.toSet + unkMediumFile + unkUriFile, seqNo = 42)
+    val helper = new MetaDataUnionActorTestHelper
+    helper.sendContribution()
+      .sendProcessingResults(mid, files drop 1)
+
+    helper.actor ! request
+    val resp = expectMsgType[FilesMetaDataResponse]
+    resp.request should be(request)
+    val expKeys = exFiles.drop(1).toSeq
+    resp.data.keys should contain only (expKeys: _*)
+    files.drop(1) foreach { f =>
+      val p = path(f.path)
+      val id = MediaFileID(mid, uriFor(p))
+      resp.data(id) should be(metaDataFor(p))
+    }
   }
 
   /**

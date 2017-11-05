@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archiveunion
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 
@@ -194,6 +194,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         context unwatch listener
         log.info("Removed state listener.")
       }
+
+    case req: GetFilesMetaData =>
+      sender ! FilesMetaDataResponse(req, resolveFilesMetaData(req))
 
     case ArchiveComponentRemoved(archiveCompID) =>
       handleRemovedArchiveComponent(archiveCompID)
@@ -473,4 +476,16 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     stateListeners = stateListeners filterNot (_ == actor)
     oldListeners != stateListeners
   }
+
+  /**
+    * Handles a request for meta data for files by returning a map with all
+    * meta data that could be resolved.
+    *
+    * @param req the request
+    * @return a map with all meta data that could be resolved
+    */
+  private def resolveFilesMetaData(req: GetFilesMetaData): Map[MediaFileID, MediaMetaData] =
+    req.files.flatMap { f =>
+      mediaMap.get(f.mediumID).flatMap(_.metaDataFor(f.uri)).map((f, _))
+    }.toMap
 }
