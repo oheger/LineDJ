@@ -22,9 +22,8 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, Co
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataChunk, MetaDataResponse}
+import de.oliver_heger.linedj.utils.LRUCache
 import org.slf4j.LoggerFactory
-
-import scala.annotation.tailrec
 
 object MetaDataCache {
   /**
@@ -61,37 +60,13 @@ object MetaDataCache {
   private val UndefinedChunk = MetaDataChunk(null, Map.empty, complete = false)
 
   /**
-    * Internally used class to construct a double-linked list of meta data
-    * chunks. This is needed to implement LRU functionality for the cache.
-    */
-  private class ChunkItem {
-    /** The chunk this item refers to. */
-    var chunk: MetaDataChunk = _
-
-    /** Reference to the previous item in the list. */
-    var previous: ChunkItem = _
-
-    /** Reference to the next item in the list. */
-    var next: ChunkItem = _
-
-    /**
-      * Returns the size of the chunk this item refers to.
-      *
-      * @return the size of the referenced chunk
-      */
-    def size: Int = chunk.data.size
-  }
-
-  /**
-    * Creates a ''ChunkItem'' that points to the undefined chunk.
+    * The function that determines the size of items in the meta data LRU
+    * cache.
     *
-    * @return the undefined chunk item
+    * @param chunk the chunk in question
+    * @return the size of this item in the cache
     */
-  private def undefinedChunkItem(): ChunkItem = {
-    val item = new ChunkItem
-    item.chunk = UndefinedChunk
-    item
-  }
+  private def cacheSizeFunc(chunk: MetaDataChunk): Int = chunk.data.size
 }
 
 /**
@@ -155,26 +130,11 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   /** Logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** A map with the already received meta data chunks per medium. */
-  private var receivedChunks = Map.empty[MediumID, ChunkItem]
+  /** The cache with the already received meta data chunks per medium. */
+  private var receivedChunks = createMetaDataCache()
 
   /** A map storing registration IDs for the requested media. */
   private var registrationIDs = Map.empty[MediumID, Int]
-
-  /**
-    * Start of the list with meta data chunks. Chunks at the beginning have
-    * been accessed recently.
-    */
-  private var first: ChunkItem = _
-
-  /**
-    * End of the list with meta data chunks. Chunks at the end have not been
-    * accessed for a while; they are removed when the cache runs out of space.
-    */
-  private var last: ChunkItem = _
-
-  /** Keeps track about the current number of items in the cache. */
-  private var currentCacheSize = 0
 
   /**
     * A default key for this extension. This is typically not used.
@@ -188,7 +148,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *
     * @return the current number of entries in the cache
     */
-  def numberOfEntries: Int = currentCacheSize
+  def numberOfEntries: Int = receivedChunks.size
 
   override protected def receiveSpecific: Receive = {
     case registration: MetaDataRegistration =>
@@ -213,19 +173,14 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @param registration the registration to be handled
     */
   private def handleRegistration(registration: MetaDataRegistration): Unit = {
-    val chunkItem = receivedChunks.getOrElse(registration.mediumID,
-      undefinedChunkItem())
-    val currentChunk = chunkItem.chunk
+    val currentChunk = receivedChunks.getOrElse(registration.mediumID,
+      UndefinedChunk)
     if (!currentChunk.complete) {
       addConsumer(registration, registration.mediumID)
       if (currentChunk eq UndefinedChunk) {
         val regID = mediaFacade.queryMetaDataAndRegisterListener(registration.mediumID)
         registrationIDs += registration.mediumID -> regID
-      } else {
-        moveToFront(chunkItem)
       }
-    } else {
-      moveToFront(chunkItem)
     }
     if (currentChunk.data.nonEmpty) {
       registration.callback(currentChunk)
@@ -234,7 +189,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
 
   /**
     * Handles a request to remove a meta data listener for a medium. If there
-    * are no more remaining listeners for this medium, the face can be notified
+    * are no more remaining listeners for this medium, the facade can be notified
     * to stop tracking it for this client. If the medium ID or the listener ID
     * cannot be resolved, this operation has no effect.
     *
@@ -247,7 +202,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     if (consumerList(mediumID).isEmpty && oldConsumers.nonEmpty) {
       mediaFacade.removeMetaDataListener(mediumID)
       registrationIDs -= mediumID
-      receivedChunks.get(mediumID) foreach removeChunk
+      receivedChunks removeItem mediumID
     }
   }
 
@@ -262,20 +217,14 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     */
   private def metaDataReceived(chunk: MetaDataChunk, regID: Int): Unit = {
     if (regID == registrationID(chunk.mediumID)) {
-      receivedChunks.get(chunk.mediumID) match {
-        case None =>
-          val item = addChunk(chunk)
-          receivedChunks = receivedChunks + (chunk.mediumID -> item)
+      if(receivedChunks contains chunk.mediumID) {
+        receivedChunks.updateItem(chunk.mediumID)(combine(_, chunk))
+      } else {
+        receivedChunks.addItem(chunk.mediumID, chunk)
           log.info("Added medium {} to cache.", chunk.mediumID)
-
-        case Some(item) =>
-          val oldChunkSize = item.size
-          item.chunk = combine(item.chunk, chunk)
-          currentCacheSize += item.size - oldChunkSize
       }
-      handleCacheOverflow()
-      invokeConsumers(chunk, chunk.mediumID)
 
+      invokeConsumers(chunk, chunk.mediumID)
       if (chunk.complete) {
         removeConsumers(chunk.mediumID)
         registrationIDs -= chunk.mediumID
@@ -288,7 +237,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *             stale data.
     */
   override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
-    receivedChunks = Map.empty
+    receivedChunks = createMetaDataCache()
   }
 
   /**
@@ -312,85 +261,27 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   registrationIDs.getOrElse(mediumID, MediaFacade.InvalidListenerRegistrationID)
 
   /**
-    * Adds the given meta data chunk to the beginning of the chunk list.
+    * A function that determines whether an item from the meta data cache can
+    * be removed. Only items can be removed, for which no consumers are
+    * registered, i.e. which have been completely downloaded.
     *
-    * @param chunk the affected chunk
-    * @return the new chunk item
+    * @param chunk the chunk in question
+    * @return a flag whether this item can be removed from the cache
     */
-  private def addChunk(chunk: MetaDataChunk): ChunkItem = {
-    val item = new ChunkItem
-    item.chunk = chunk
-    item.next = first
-    if (first != null) {
-      first.previous = item
+  private def cacheRemovableFunc(chunk: MetaDataChunk): Boolean = {
+    val canRemove = consumerList(chunk.mediumID).isEmpty
+    if (canRemove) {
+      log.info("Removing medium {} from meta data cache.", chunk.mediumID)
     }
-    first = item
-    if (last == null) last = item
-    currentCacheSize += chunk.data.size
-    item
+    canRemove
   }
 
   /**
-    * Moves the specified chunk item to the beginning of the LRU list.
+    * Creates the meta data cache.
     *
-    * @param chunkItem the chunk item
+    * @return the new cache
     */
-  private def moveToFront(chunkItem: ChunkItem): Unit = {
-    if (chunkItem.previous != null) {
-      removeFromList(chunkItem)
-      chunkItem.next = first
-      first.previous = chunkItem
-      chunkItem.previous = null
-      first = chunkItem
-    }
-  }
-
-  /**
-    * Removes the specified chunk from the LRU list and the cache.
-    *
-    * @param chunkItem the chunk item
-    */
-  private def removeChunk(chunkItem: ChunkItem): Unit = {
-    removeFromList(chunkItem)
-    receivedChunks -= chunkItem.chunk.mediumID
-    currentCacheSize -= chunkItem.size
-  }
-
-  /**
-    * Removes the specified chunk item from the LRU list.
-    *
-    * @param chunkItem the chunk item
-    */
-  private def removeFromList(chunkItem: ChunkItem): Unit = {
-    if (last == chunkItem) {
-      last = chunkItem.previous
-    } else {
-      chunkItem.next.previous = chunkItem.previous
-    }
-
-    if (first == chunkItem) {
-      first = chunkItem.next
-    } else {
-      chunkItem.previous.next = chunkItem.next
-    }
-  }
-
-  /**
-    * Checks whether the cache has exceeded its limit. If so, media that were
-    * not accessed recently are removed.
-    */
-  private def handleCacheOverflow(): Unit = {
-    @tailrec def removeChunks(pos: ChunkItem): Unit = {
-      log.debug("Current cache size: {}.", currentCacheSize)
-      if (currentCacheSize > cacheSize && (pos ne first)) {
-        if (consumerList(pos.chunk.mediumID).isEmpty) {
-          log.info("Removed medium {} from cache.", last.chunk.mediumID)
-          removeChunk(pos)
-        }
-        removeChunks(pos.previous)
-      }
-    }
-
-    removeChunks(last)
-  }
+  private def createMetaDataCache(): LRUCache[MediumID, MetaDataChunk] =
+    new LRUCache[MediumID, MetaDataChunk](cacheSize)(sizeFunc =
+      cacheSizeFunc, removableFunc = cacheRemovableFunc)
 }
