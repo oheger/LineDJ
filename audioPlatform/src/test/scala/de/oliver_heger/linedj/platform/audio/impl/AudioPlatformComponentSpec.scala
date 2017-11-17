@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.audio.impl
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
@@ -26,11 +26,13 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, PlaylistMetaDataRegistration}
+import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
@@ -38,8 +40,22 @@ import org.osgi.service.component.ComponentContext
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{Future, Promise}
+
+object AudioPlatformComponentSpec {
+  /** Query chunk size for the meta data resolver.*/
+  private val QueryChunkSize = 42
+
+  /** Size of the meta data cache.*/
+  private val MetaDataCacheSize = 1200
+
+  /** Timeout for meta data requests.*/
+  private val MetaDataRequestTimeout = 1.minute
+
+  /** The number of OSGi services registered by the platform. */
+  private val ServiceCount = 2
+}
 
 /**
   * Test class for ''AudioPlatformComponent''.
@@ -47,6 +63,8 @@ import scala.concurrent.duration._
 class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("AudioPlatformComponentSpec"))
+
+  import AudioPlatformComponentSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -64,19 +82,19 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.activate().verifyAudioControllerCreation()
   }
 
-  it should "register the audio player controller as message bus listener" in {
+  it should "register the managed message bus listeners" in {
     val helper = new ComponentTestHelper
 
     helper.activate().verifyMessageBusRegistration()
   }
 
-  it should "add a service registration for the player controller" in {
+  it should "add a service registrations for managed objects" in {
     val helper = new ComponentTestHelper
 
-    helper.activate().verifyPlayerControllerServiceRegistration()
+    helper.activate().verifyOsgiServiceRegistrations()
   }
 
-  it should "remove the audio player controller registration from the bus" in {
+  it should "remove all registrations from the bus on deactivate" in {
     val helper = new ComponentTestHelper
 
     helper.activate()
@@ -84,12 +102,12 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyMessageBusRegistrationRemoved()
   }
 
-  it should "remove the service registration for the player controller" in {
+  it should "remove all service registrations on deactivate" in {
     val helper = new ComponentTestHelper
 
-    helper.activate().skipMessage()
+    helper.activate().skipOsgiServiceRegistrations()
       .deactivate()
-      .verifyPlayerControllerServiceDeRegistration()
+      .verifyOsgiServiceDeRegistrations()
   }
 
   it should "pass a new playback context factory to the player" in {
@@ -152,10 +170,11 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "wait for actors involved to be closed" in {
     val helper = new ComponentTestHelper
     val latch = new CountDownLatch(1)
-    val thread = new DeactivateThread(helper.activate(), 1.minute, latch)
+    val thread = new DeactivateThread(helper.activate(), 1.second, latch)
     thread.start()
 
-    latch.await(500, TimeUnit.MILLISECONDS) shouldBe false
+    latch.await(400, TimeUnit.MILLISECONDS) shouldBe false
+    thread.join(1000)
   }
 
   it should "not wait longer than the timeout when closing the actors involved" in {
@@ -174,7 +193,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     implicit val mat: ActorMaterializer = ActorMaterializer()
     val Message = new Object
     Source.single(Message).runWith(sink)
-    helper.skipMessage().nextMessage() should be(Message)
+    helper.skipOsgiServiceRegistrations().nextMessage() should be(Message)
   }
 
   it should "remove the event sink from the audio player on deactivation" in {
@@ -183,6 +202,29 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.activate()
       .deactivate()
       .verifyEventSinkRemoved()
+  }
+
+  it should "create a meta resolver with a specific configuration" in {
+    val helper = new ComponentTestHelper
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataQueryChunkSize,
+      QueryChunkSize)
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataCacheSize,
+      MetaDataCacheSize)
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataRequestTimeout,
+      MetaDataRequestTimeout.toMillis)
+
+    helper.activate()
+      .verifyMetaDataResolverCreation()
+  }
+
+  it should "create a meta resolver with the default configuration" in {
+    val helper = new ComponentTestHelper
+
+    helper.activate()
+      .verifyMetaDataResolverCreation(chunkSize =
+        AudioPlatformComponent.DefaultMetaDataQueryChunkSize,
+        cacheSize = AudioPlatformComponent.DefaultMetaDataCacheSize,
+        requestTimeout = AudioPlatformComponent.DefaultMetaDataRequestTimeout)
   }
 
   /**
@@ -194,6 +236,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     /** The media manager actor. */
     private val mediaManager = TestProbe().ref
+
+    /** The meta data manager actor. */
+    private val metaDataManager = TestProbe().ref
 
     /** Mock for the audio player. */
     private val audioPlayer = createPlayerMock()
@@ -209,6 +254,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     /** The controller instance created by the test component. */
     private var audioController: AudioPlayerController = _
+
+    /** The meta data resolver instance created by the test component. */
+    private var metaDataResolver: PlaylistMetaDataResolver = _
 
     /**
       * Activates the test component.
@@ -241,6 +289,13 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
+      * Returns the configuration used by the test component.
+      *
+      * @return the component configuration
+      */
+    def configuration: Configuration = appConfig
+
+    /**
       * Checks that a correct audio controller instance has been created.
       *
       * @return this test helper
@@ -248,6 +303,29 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     def verifyAudioControllerCreation(): ComponentTestHelper = {
       audioController should not be null
       audioController.player should be(audioPlayer)
+      this
+    }
+
+    /**
+      * Checks whether the ''PlaylistMetaDataResolver'' has been created
+      * correctly.
+      *
+      * @param chunkSize      the expected query chunk size
+      * @param cacheSize      the expected cache size
+      * @param requestTimeout the expected request timeout
+      * @return this test helper
+      */
+    def verifyMetaDataResolverCreation(chunkSize: Int = QueryChunkSize,
+                                       cacheSize: Int = MetaDataCacheSize,
+                                       requestTimeout: Timeout = MetaDataRequestTimeout):
+    ComponentTestHelper = {
+      metaDataResolver should not be null
+      metaDataResolver.metaDataActor should be(metaDataManager)
+      metaDataResolver.bus should be(messageBus)
+      metaDataResolver.ec should be(system.dispatcher)
+      metaDataResolver.queryChunkSize should be(chunkSize)
+      metaDataResolver.cacheSize should be(cacheSize)
+      metaDataResolver.requestTimeout should be(requestTimeout)
       this
     }
 
@@ -260,7 +338,12 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     def verifyMessageBusRegistration(): ComponentTestHelper = {
       // unfortunately, the registered function cannot be checked because
       // AudioPlayerController.receive is final
-      messageBus.currentListeners should have size 1
+      messageBus.currentListeners should have size 2
+
+      val regMsg1 = AudioPlayerStateChangeRegistration(ComponentID(), null)
+      val regMsg2 = PlaylistMetaDataRegistration(ComponentID(), null)
+      findReceiverFor(regMsg1) should not be None
+      findReceiverFor(regMsg2) should not be None
       this
     }
 
@@ -276,26 +359,30 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
-      * Checks that a service registration is created for the audio player
-      * controller.
+      * Checks that service registrations are created for the platform
+      * services.
       *
       * @return this test helper
       */
-    def verifyPlayerControllerServiceRegistration(): ComponentTestHelper = {
-      val reg = messageBus.expectMessageType[RegisterService]
-      reg.service.serviceName should be(AudioPlatformComponent.PlayerControllerServiceName)
+    def verifyOsgiServiceRegistrations(): ComponentTestHelper = {
+      val dependencies = (1 to ServiceCount)
+        .map(_ => messageBus.expectMessageType[RegisterService].service).toSet
+      dependencies should contain only(AudioPlatformComponent.PlayerControllerDependency,
+        AudioPlatformComponent.PlaylistMetaDataResolverDependency)
       this
     }
 
     /**
-      * Checks that the service registration corresponding to the audio
-      * player controller has been removed.
+      * Checks that the service registrations for the managed objects have
+      * been removed.
       *
       * @return this test helper
       */
-    def verifyPlayerControllerServiceDeRegistration(): ComponentTestHelper = {
-      val unReg = messageBus.expectMessageType[UnregisterService]
-      unReg.service.serviceName should be(AudioPlatformComponent.PlayerControllerServiceName)
+    def verifyOsgiServiceDeRegistrations(): ComponentTestHelper = {
+      val dependencies = (1 to ServiceCount)
+        .map(_ => messageBus.expectMessageType[UnregisterService].service).toSet
+      dependencies should contain only(AudioPlatformComponent.PlayerControllerDependency,
+        AudioPlatformComponent.PlaylistMetaDataResolverDependency)
       this
     }
 
@@ -314,6 +401,16 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     def skipMessage(): ComponentTestHelper = {
       nextMessage()
+      this
+    }
+
+    /**
+      * Skips the registration messages for OSGi services.
+      *
+      * @return this test helper
+      */
+    def skipOsgiServiceRegistrations(): ComponentTestHelper = {
+      (1 to ServiceCount) foreach (_ => skipMessage())
       this
     }
 
@@ -414,6 +511,16 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
+      * Searches for a message bus listener that can handle the specified
+      * message.
+      *
+      * @param msg the message in question
+      * @return an option with the search result
+      */
+    private def findReceiverFor(msg: Any): Option[Actor.Receive] =
+      messageBus.busListeners.find(_.isDefinedAt(msg))
+
+    /**
       * Creates the component to be tested.
       *
       * @return the test component
@@ -426,11 +533,17 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
           audioController = ctrl
           ctrl
         }
+
+        override private[impl] def createPlaylistMetaDataResolver(): PlaylistMetaDataResolver = {
+          val resolver = super.createPlaylistMetaDataResolver()
+          metaDataResolver = resolver
+          resolver
+        }
       }
       when(playerFactory.createAudioPlayer(appConfig, AudioPlatformComponent.PlayerConfigPrefix,
         mediaManager, component)).thenReturn(audioPlayer)
       component initClientContext createClientContext()
-      component initFacadeActors MediaFacadeActors(mediaManager, null)
+      component initFacadeActors MediaFacadeActors(mediaManager, metaDataManager)
       component
     }
 
