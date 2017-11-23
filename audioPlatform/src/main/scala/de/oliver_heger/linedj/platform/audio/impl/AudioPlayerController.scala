@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.platform.audio.impl
 import java.time.LocalDateTime
 
 import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
 import de.oliver_heger.linedj.player.engine.{AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
@@ -39,8 +41,8 @@ private class AudioPlayerController(val player: AudioPlayer)
   extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
   /** Stores the last state change event. */
   private var lastEvent =
-    AudioPlayerStateChangedEvent(AudioPlayerState(Nil, Nil, playbackActive = false,
-      playlistClosed = false))
+    AudioPlayerStateChangedEvent(AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
+      playlistClosed = false, playlistSeqNo = PlaylistService.SeqNoInitial))
 
   /**
     * The time when the last reset of the player engine took place. This is
@@ -65,13 +67,14 @@ private class AudioPlayerController(val player: AudioPlayer)
       }
       lastResetTime = LocalDateTime.now()
       appendSongsToPlaylist(pendingSongs, closePlaylist)
-      updateState(s => s.copy(pendingSongs = pendingSongs,
-        playedSongs = playedSongs, playlistClosed = closePlaylist))
+      updateState(s => s.copy(playlist Playlist(pendingSongs = pendingSongs,
+        playedSongs = playedSongs), playlistClosed = closePlaylist))
 
     case AppendPlaylist(songs, closePlaylist) =>
       if (!currentState.playlistClosed) {
         appendSongsToPlaylist(songs, closePlaylist)
-        updateState(s => s.copy(pendingSongs = s.pendingSongs ++ songs))
+        updateState(s =>
+          s.copy(playlist = s.playlist.copy(pendingSongs = s.playlist.pendingSongs ++ songs)))
       }
 
     case StartAudioPlayback(delay) =>
@@ -143,7 +146,7 @@ private class AudioPlayerController(val player: AudioPlayer)
     * @return a flag if a current playlist exists
     */
   private def hasCurrentPlaylist: Boolean =
-    currentState.pendingSongs.nonEmpty || currentState.playedSongs.nonEmpty
+    currentState.playlist.pendingSongs.nonEmpty || currentState.playlist.playedSongs.nonEmpty
 
   /**
     * Checks whether the given event time indicates a current audio player

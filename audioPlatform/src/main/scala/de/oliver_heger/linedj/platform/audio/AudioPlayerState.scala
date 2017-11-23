@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio
 
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 
 /**
@@ -23,18 +24,16 @@ import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
   * managed by the audio platform.
   *
   * An instance can be used to find out whether the audio player is currently
-  * playing audio and contains information about the future and past playlist.
-  * Note that the songs in the list with already played songs are in reverse
-  * order; i.e. the song that has been played most recently is the head of this
-  * list.
+  * playing audio and contains information about the songs that have already
+  * been played or are about to be played in form of a [[Playlist]].
   *
-  * @param pendingSongs   list of songs pending in the playlist
-  * @param playedSongs    list of songs that have already been played
+  * @param playlist   the current ''Playlist''
+  * @param playlistSeqNo the sequence number of the
   * @param playbackActive flag whether playback is currently active
   * @param playlistClosed flag whether the playlist has already been closed
   */
-case class AudioPlayerState(pendingSongs: List[AudioSourcePlaylistInfo],
-                            playedSongs: List[AudioSourcePlaylistInfo],
+case class AudioPlayerState(playlist: Playlist,
+                            playlistSeqNo: Int,
                             playbackActive: Boolean,
                             playlistClosed: Boolean) {
   /**
@@ -44,7 +43,7 @@ case class AudioPlayerState(pendingSongs: List[AudioSourcePlaylistInfo],
     *
     * @return an option for the current song
     */
-  def currentSong: Option[AudioSourcePlaylistInfo] = pendingSongs.headOption
+  def currentSong: Option[AudioSourcePlaylistInfo] = playlist.pendingSongs.headOption
 
   /**
     * Returns an instance that points to the next song in the playlist. The
@@ -55,9 +54,9 @@ case class AudioPlayerState(pendingSongs: List[AudioSourcePlaylistInfo],
     * @return an instance with the playlist moved forwards
     */
   def moveToNext: AudioPlayerState =
-    pendingSongs match {
+    playlist.pendingSongs match {
       case h :: t =>
-        copy(pendingSongs = t, playedSongs = h :: playedSongs)
+        copy(playlist = Playlist(pendingSongs = t, playedSongs = h :: playlist.playedSongs))
       case _ => this
     }
 
@@ -69,9 +68,9 @@ case class AudioPlayerState(pendingSongs: List[AudioSourcePlaylistInfo],
     * @return an instance with the playlist moved backwards
     */
   def moveToPrev: AudioPlayerState =
-    playedSongs match {
+    playlist.playedSongs match {
       case h :: t =>
-        copy(playedSongs = t, pendingSongs = h :: pendingSongs)
+        copy(playlist = Playlist(playedSongs = t, pendingSongs = h :: playlist.pendingSongs))
       case _ => this
     }
 }

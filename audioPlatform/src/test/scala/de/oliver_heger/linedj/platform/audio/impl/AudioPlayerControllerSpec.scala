@@ -20,6 +20,8 @@ import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.atomic.AtomicReference
 
 import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
@@ -90,8 +92,9 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = helper.lastState
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe false
-    state.playedSongs shouldBe 'empty
-    state.pendingSongs shouldBe 'empty
+    state.playlist.playedSongs shouldBe 'empty
+    state.playlist.pendingSongs shouldBe 'empty
+    state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
   }
 
   it should "process a SetPlaylist message with the close flag set to true" in {
@@ -103,8 +106,8 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe true
-    state.playedSongs should be(playedSongs)
-    state.pendingSongs should be(pendingSongs)
+    state.playlist.playedSongs should be(playedSongs)
+    state.playlist.pendingSongs should be(pendingSongs)
 
     val io = Mockito.inOrder(helper.audioPlayer)
     pendingSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
@@ -122,8 +125,8 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe false
-    state.playedSongs should be(playedSongs)
-    state.pendingSongs should be(pendingSongs)
+    state.playlist.playedSongs should be(playedSongs)
+    state.playlist.pendingSongs should be(pendingSongs)
 
     pendingSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
     verifyNoMoreInteractions(helper.audioPlayer)
@@ -160,8 +163,9 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
     helper send StartAudioPlayback(delay)
     verify(helper.audioPlayer).startPlayback(delay)
-    helper.lastState should be(AudioPlayerState(pendingSongs = Nil, playedSongs = Nil,
-      playbackActive = true, playlistClosed = false))
+    helper.lastState should be(AudioPlayerState(playlist = Playlist(Nil, Nil),
+      playbackActive = true, playlistClosed = false,
+      playlistSeqNo = PlaylistService.SeqNoInitial))
   }
 
   it should "start playback only if it is not yet active" in {
@@ -223,7 +227,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
       pendingSongs = List(firstSong), closePlaylist = false))
       .send(AppendPlaylist(appendSongs))
     val state = checkEventTime(helper.lastStateEvent).state
-    state.pendingSongs should be(allSongs)
+    state.playlist.pendingSongs should be(allSongs)
     val io = Mockito.inOrder(helper.audioPlayer)
     allSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     verifyNoMoreInteractions(helper.audioPlayer)
@@ -234,7 +238,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val helper = new ControllerTestHelper
 
     helper send AppendPlaylist(appendSongs, closePlaylist = true)
-    helper.lastState.pendingSongs should be(appendSongs)
+    helper.lastState.playlist.pendingSongs should be(appendSongs)
     val io = Mockito.inOrder(helper.audioPlayer)
     appendSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     io.verify(helper.audioPlayer).closePlaylist()
@@ -261,8 +265,8 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
       .send(AudioSourceFinishedEvent(createAudioSource(2)))
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe true
-    state.playedSongs should be(List(pending.head, playedSong))
-    state.pendingSongs should be(pending.tail)
+    state.playlist.playedSongs should be(List(pending.head, playedSong))
+    state.playlist.pendingSongs should be(pending.tail)
   }
 
   it should "ignore a source finished event for an unexpected source" in {

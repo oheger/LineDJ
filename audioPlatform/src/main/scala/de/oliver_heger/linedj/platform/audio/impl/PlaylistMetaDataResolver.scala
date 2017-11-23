@@ -21,13 +21,13 @@ import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
 import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.shared.archive.metadata.{FilesMetaDataResponse, GetFilesMetaData,
-  MediaMetaData}
+import de.oliver_heger.linedj.shared.archive.metadata.{FilesMetaDataResponse, GetFilesMetaData, MediaMetaData}
 import de.oliver_heger.linedj.utils.LRUCache
 import org.slf4j.LoggerFactory
 
@@ -138,8 +138,8 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
   private var currentPlaylist = List.empty[AudioSourcePlaylistInfo]
 
   /** Stores the current state of the audio player. */
-  private var currentPlayerState = AudioPlayerState(Nil, Nil, playbackActive = false,
-    playlistClosed = false)
+  private var currentPlayerState = AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
+    playlistClosed = false, playlistSeqNo = 0)
 
   /** A sequence number to be increased when a playlist update comes in. */
   private var seqNo = -1
@@ -191,7 +191,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     * @param event the state change event
     */
   private def handleAudioPlayerEvent(event: AudioPlayerStateChangedEvent): Unit = {
-    val playlist = event.state.playedSongs.reverse ++ event.state.pendingSongs
+    val playlist = event.state.playlist.playedSongs.reverse ++ event.state.playlist.pendingSongs
     if (playlist != currentPlaylist) {
       log.info("Playlist has changed. Start resolving.")
       currentPlaylist = playlist
@@ -264,7 +264,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     */
   private def groupFilesInPlaylist(state: AudioPlayerState):
   (List[MediaFileID], List[MediaFileID]) = {
-    val newPlaylist = (state.pendingSongs ++ state.playedSongs) map (_.sourceID)
+    val newPlaylist = (state.playlist.pendingSongs ++ state.playlist.playedSongs) map (_.sourceID)
     newPlaylist partition cache.contains
   }
 

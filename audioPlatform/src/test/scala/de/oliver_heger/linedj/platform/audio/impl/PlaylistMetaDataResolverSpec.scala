@@ -23,6 +23,7 @@ import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
@@ -146,8 +147,10 @@ object PlaylistMetaDataResolverSpec {
   private def playlistChangeEvent(pendingIDs: List[MediaFileID],
                                   playedIDs: List[MediaFileID]):
   AudioPlayerStateChangedEvent = {
-    val state = AudioPlayerState(pendingSongs = pendingIDs map playlistInfo,
-      playedSongs = playedIDs map playlistInfo, playbackActive = false, playlistClosed = false)
+    val playlist = Playlist(pendingSongs = pendingIDs map playlistInfo,
+      playedSongs = playedIDs map playlistInfo)
+    val state = AudioPlayerState(playlist = playlist, playbackActive = false,
+      playlistClosed = false, playlistSeqNo = 0)
     AudioPlayerStateChangedEvent(state)
   }
 
