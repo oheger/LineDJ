@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.platform.audio
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 
 /**
   * A class representing the current playback state of the audio player
@@ -35,42 +34,4 @@ import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 case class AudioPlayerState(playlist: Playlist,
                             playlistSeqNo: Int,
                             playbackActive: Boolean,
-                            playlistClosed: Boolean) {
-  /**
-    * Returns the current song in the playlist. This is either the song
-    * currently played or - if there is none - the next one in the play list.
-    * If the playlist is empty, result is ''None''.
-    *
-    * @return an option for the current song
-    */
-  def currentSong: Option[AudioSourcePlaylistInfo] = playlist.pendingSongs.headOption
-
-  /**
-    * Returns an instance that points to the next song in the playlist. The
-    * current song is moved to the first position of the played list. The
-    * pending list becomes its tail. If the state already points to the end of
-    * the playlist, the same instance is returned.
-    *
-    * @return an instance with the playlist moved forwards
-    */
-  def moveToNext: AudioPlayerState =
-    playlist.pendingSongs match {
-      case h :: t =>
-        copy(playlist = Playlist(pendingSongs = t, playedSongs = h :: playlist.playedSongs))
-      case _ => this
-    }
-
-  /**
-    * Returns an instance that points to the previous song in the playlist.
-    * The head of the list with played songs becomes the current song. If
-    * there is no previous song, the same instance is returned.
-    *
-    * @return an instance with the playlist moved backwards
-    */
-  def moveToPrev: AudioPlayerState =
-    playlist.playedSongs match {
-      case h :: t =>
-        copy(playlist = Playlist(playedSongs = t, pendingSongs = h :: playlist.pendingSongs))
-      case _ => this
-    }
-}
+                            playlistClosed: Boolean)

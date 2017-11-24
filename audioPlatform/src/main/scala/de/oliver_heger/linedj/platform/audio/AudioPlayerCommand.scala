@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio
 
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 
@@ -34,18 +35,15 @@ sealed trait AudioPlayerCommand
 /**
   * A command which sets the playlist of the audio player.
   *
-  * A currently existing playlist is replaced by the lists defined in this
+  * A currently existing playlist is replaced by the object defined in this
   * message. If necessary (if a current playlist exists), a reset of the audio
   * player is triggered. Then the pending songs are passed to the audio player.
   * Optionally, the playlist is closed.
   *
-  * @param pendingSongs  the pending songs in the playlist
-  * @param playedSongs   a list with songs that have already been played (in
-  *                      reverse order)
+  * @param playlist      the new ''Playlist''
   * @param closePlaylist flag whether the playlist is to be closed
   */
-case class SetPlaylist(pendingSongs: List[AudioSourcePlaylistInfo],
-                       playedSongs: List[AudioSourcePlaylistInfo],
+case class SetPlaylist(playlist: Playlist,
                        closePlaylist: Boolean = true) extends AudioPlayerCommand
 
 /**
