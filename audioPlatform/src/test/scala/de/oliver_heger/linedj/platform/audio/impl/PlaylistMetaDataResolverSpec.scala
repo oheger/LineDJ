@@ -23,7 +23,7 @@ import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}

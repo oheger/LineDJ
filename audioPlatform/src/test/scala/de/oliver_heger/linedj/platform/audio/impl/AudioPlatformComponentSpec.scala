@@ -26,7 +26,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, PlaylistMetaDataRegistration}
+import de.oliver_heger.linedj.platform.audio.AudioPlayerStateChangeRegistration
+import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
