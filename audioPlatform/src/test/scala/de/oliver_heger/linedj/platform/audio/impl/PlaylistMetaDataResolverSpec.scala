@@ -142,15 +142,17 @@ object PlaylistMetaDataResolverSpec {
     *
     * @param pendingIDs the files in the pending list
     * @param playedIDs  the files in the played list
+    * @param seqNo      the sequence number for the playlist
     * @return the resulting event
     */
   private def playlistChangeEvent(pendingIDs: List[MediaFileID],
-                                  playedIDs: List[MediaFileID]):
+                                  playedIDs: List[MediaFileID],
+                                  seqNo: Int = 1):
   AudioPlayerStateChangedEvent = {
     val playlist = Playlist(pendingSongs = pendingIDs map playlistInfo,
       playedSongs = playedIDs map playlistInfo)
     val state = AudioPlayerState(playlist = playlist, playbackActive = false,
-      playlistClosed = false, playlistSeqNo = 0)
+      playlistClosed = false, playlistSeqNo = seqNo)
     AudioPlayerStateChangedEvent(state)
   }
 
@@ -259,7 +261,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .prepareMetaDataRequest(req2, resp2)
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .processMessageOnBus()
-      .sendStateChangeEvent(playlistChangeEvent(fileIDs(range2._1, range2._2), Nil))
+      .sendStateChangeEvent(playlistChangeEvent(fileIDs(range2._1, range2._2), Nil, seqNo = 2))
       .expectMetaDataUpdate(metaDataMap((commonSize + 1, RequestChunkSize)))
       .expectMetaDataUpdate(data)
   }
@@ -276,7 +278,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .prepareMetaDataRequest(req2, resp2)
       .sendStateChangeEvent(event)
       .processMessageOnBus()
-      .sendStateChangeEvent(playlistChangeEvent(fileIDs(range2._1, range2._2), Nil))
+      .sendStateChangeEvent(playlistChangeEvent(fileIDs(range2._1, range2._2), Nil, seqNo = 2))
       .processMessageOnBus()
     val metaData = helper.sendStateChangeEvent(event).nextMetaDataUpdate
     metaData.data should have size (CacheSize - RequestChunkSize)
@@ -304,7 +306,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     helper
       .sendStateChangeEvent(playlistChangeEvent(List(fileID(1), fileID(2),
         fileID(index)), Nil))
-      .sendStateChangeEvent(playlistChangeEvent(fileIDs(2, 2 * RequestChunkSize), Nil))
+      .sendStateChangeEvent(playlistChangeEvent(fileIDs(2, 2 * RequestChunkSize), Nil, seqNo = 2))
       .prepareMetaDataRequest(req1, resp1)
       .prepareMetaDataRequest(req2, resp2)
       .prepareMetaDataRequest(req3, resp3)
@@ -319,7 +321,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     val helper = new ResolverTestHelper
 
     helper.sendStateChangeEvent(playlistChangeEvent(fileIDs(1, 2), Nil))
-      .sendStateChangeEvent(playlistChangeEvent(fileIDs(3, 4), Nil))
+      .sendStateChangeEvent(playlistChangeEvent(fileIDs(3, 4), Nil, seqNo = 2))
       .prepareMetaDataRequest(req1, resp1)
       .prepareMetaDataRequest(req2, resp2)
       .processMessageOnBus()
@@ -333,7 +335,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     val helper = new ResolverTestHelper
 
     helper.sendStateChangeEvent(playlistChangeEvent(fileIDs(1, 2), Nil))
-      .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, 1), Nil))
+      .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, 1), Nil, seqNo = 2))
       .prepareMetaDataRequest(req1, resp1)
       .expectMetaDataUpdate(metaDataMap((1, 1)))
       .prepareMetaDataRequest(req2, resp2)

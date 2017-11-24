@@ -22,10 +22,10 @@ import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import de.oliver_heger.linedj.shared.archive.metadata.{FilesMetaDataResponse, GetFilesMetaData, MediaMetaData}
 import de.oliver_heger.linedj.utils.LRUCache
@@ -134,12 +134,9 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
   /** A list with the files which are currently queried. */
   private var requestedFiles = List.empty[MediaFileID]
 
-  /** Stores the current playlist processed by this object. */
-  private var currentPlaylist = List.empty[AudioSourcePlaylistInfo]
-
   /** Stores the current state of the audio player. */
   private var currentPlayerState = AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
-    playlistClosed = false, playlistSeqNo = 0)
+    playlistClosed = false, playlistSeqNo = PlaylistService.SeqNoInitial)
 
   /** A sequence number to be increased when a playlist update comes in. */
   private var seqNo = -1
@@ -191,10 +188,8 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     * @param event the state change event
     */
   private def handleAudioPlayerEvent(event: AudioPlayerStateChangedEvent): Unit = {
-    val playlist = event.state.playlist.playedSongs.reverse ++ event.state.playlist.pendingSongs
-    if (playlist != currentPlaylist) {
+    if (event.state.playlistSeqNo != currentPlayerState.playlistSeqNo) {
       log.info("Playlist has changed. Start resolving.")
-      currentPlaylist = playlist
       currentPlayerState = event.state
       processNewPlaylist(event.state)
     }
