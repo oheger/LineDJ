@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio.playlist
 
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
@@ -66,3 +67,51 @@ case class PlaylistMetaDataRegistration(override val id: ComponentID,
   * @param id the ID of the consumer component
   */
 case class PlaylistMetaDataUnregistration(id: ComponentID)
+
+/**
+  * A class representing the current state of a resolve operation for the meta
+  * data of a playlist.
+  *
+  * This class is used by the playlist meta data service to keep track on an
+  * ongoing resolve operation. Clients of the service have to provide an
+  * instance. However, they should not make any assumptions about the content
+  * of an instance, as its interpretation is an implementation detail of the
+  * service.
+  *
+  * @param seqNo           the sequence number of the current playlist
+  * @param unresolvedSongs a list with information about songs for which no
+  *                        meta data is available yet
+  * @param metaData        a map with meta data which is currently known
+  */
+case class MetaDataResolveState(seqNo: Int, unresolvedSongs: List[(MediaFileID, Int)],
+                                metaData: Map[MediaFileID, MediaMetaData])
+
+/**
+  * A class describing the changes caused by a step in a meta data resolve
+  * operation.
+  *
+  * Whenever new meta data is obtained from the media archive, songs in the
+  * playlist may change to the resolved state. This typically triggers some
+  * actions of a client, e.g. the UI has to be updated accordingly. The
+  * information stored in an instance is sufficient to define such actions. It
+  * is based on the assumption that the playlist is displayed in a tabular
+  * form. Therefore, updated songs are associated with their (zero-based)
+  * indices in the playlist.
+  *
+  * For UI clients it is often relevant which areas of a list structure are
+  * affected by an update. They can then invalidate the corresponding indices
+  * in UI controls and thus handle updates efficiently. To support this, an
+  * instance holds a sequence of ranges that need to be updated. These are
+  * pairs of a from index and a to index (both are including).
+  *
+  * An operation may also cause a complete update of the UI, e.g. if the
+  * playlist has changed completely, and a new resolving process starts. This
+  * is indicated by another flag.
+  *
+  * @param resolvedSongs list of songs with updated meta data and their indices
+  * @param updatedRanges list of ranges affected by this change
+  * @param fullUpdate    flag whether this delta represents a full change
+  */
+case class MetaDataResolveDelta(resolvedSongs: Iterable[(SongData, Int)],
+                                updatedRanges: Iterable[(Int, Int)],
+                                fullUpdate: Boolean)
