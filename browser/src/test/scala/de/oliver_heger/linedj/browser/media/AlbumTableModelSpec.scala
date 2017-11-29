@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -38,8 +38,9 @@ object AlbumTableModelSpec {
    * @return the song data object
    */
   private def song(name: String, track: Int): SongData =
-    SongData(Medium, "song://" + name, MediaMetaData(title = Some(name), trackNumber = Some
-      (track)), null)
+    SongData(MediaFileID(Medium, "song://" + name),
+      MediaMetaData(title = Some(name), trackNumber = Some(track)),
+      name, "someArtist", "someAlbum")
 
   /**
    * Adds the given songs to a model.

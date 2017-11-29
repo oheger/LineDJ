@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import java.util
 
-import de.oliver_heger.linedj.platform.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.platform.audio.model.AppendSongs
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.browser.media.AlbumTableModel.AlbumData
-import de.oliver_heger.linedj.platform.model.{SongTrackNoOrdering, SongData}
+import de.oliver_heger.linedj.platform.audio.model.{SongData, SongTrackNoOrdering}
 
 private object AlbumTableModel {
   /**
@@ -103,11 +103,11 @@ private class AlbumTableModel(data: Map[AlbumKey, AlbumData], songUris: Set[Stri
    * @return the new album instance
    */
   def add(key: AlbumKey, song: SongData): AlbumTableModel = {
-    if (songUris contains song.uri) this
+    if (songUris contains song.id.uri) this
     else {
       val albumData = data.get(key).map(_.add(song)).getOrElse(AlbumData(List(song), ordered =
         true))
-      new AlbumTableModel(data + (key -> albumData), songUris + song.uri)
+      new AlbumTableModel(data + (key -> albumData), songUris + song.id.uri)
     }
   }
 }

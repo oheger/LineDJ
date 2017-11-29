@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.model
+package de.oliver_heger.linedj.platform.audio.model
 
 /**
  * A message class that is used to add new songs to the generated playlist.

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.platform.model.EmptyListModel
+import de.oliver_heger.linedj.platform.audio.model.EmptyListModel
 import de.oliver_heger.linedj.player.engine.RadioSource
 
 /**

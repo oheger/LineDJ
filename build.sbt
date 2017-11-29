@@ -313,7 +313,8 @@ lazy val mediaBrowser = (project in file("browser"))
       "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test",
+      audioPlatform)
 
 /**
   * Project for the playlist editor client application. This application
@@ -338,7 +339,8 @@ lazy val playlistEditor = (project in file("pleditor"))
       "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test",
+      audioPlatform)
 
 /**
   * Project for the playlist medium reorder component. This is an

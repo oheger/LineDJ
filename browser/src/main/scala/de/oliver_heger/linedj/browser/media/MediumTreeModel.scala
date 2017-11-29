@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.apache.commons.configuration.HierarchicalConfiguration
 
@@ -31,7 +31,7 @@ private object MediumTreeModel {
    * will not be called actually, but it ensures that no other updaters are
    * created (because ResortUpdaters do not support concatenation).
    */
-  private val DummyUpdater = new ResortUpdater(Nil)
+  private val DummyUpdater = ResortUpdater(Nil)
 
   /** An empty model object. */
   val empty = new MediumTreeModel(SortedMap.empty, Set.empty)
@@ -142,7 +142,7 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
    * configuration with the data stored in this model.
    * @return the updater
    */
-  def fullUpdater(): ConfigurationUpdater = new ResortUpdater(data.keys)
+  def fullUpdater(): ConfigurationUpdater = ResortUpdater(data.keys)
 
   /**
    * Creates a configuration updater for the current add operation. If the
@@ -155,8 +155,8 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
    */
   private def createNextUpdater(albumWithYear: AlbumKeyWithYear, newAlbums:
   SortedSet[AlbumKeyWithYear], currentUpdater: ConfigurationUpdater): ConfigurationUpdater = {
-    if (newAlbums.last == albumWithYear) new KeyUpdater(albumWithYear, currentUpdater)
-    else new ResortUpdater(List(albumWithYear.key.artist))
+    if (newAlbums.last == albumWithYear) KeyUpdater(albumWithYear, currentUpdater)
+    else ResortUpdater(List(albumWithYear.key.artist))
   }
 }
 

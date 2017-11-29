@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.reorder.randomartist
 
-import de.oliver_heger.linedj.platform.model.{SongArtistOrdering, SongData}
+import de.oliver_heger.linedj.platform.audio.model.SongArtistOrdering
+import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}

@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import de.oliver_heger.linedj.platform.audio.model.DurationTransformer
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
-import de.oliver_heger.linedj.platform.model.DurationTransformer
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataState, MetaDataStateEvent, MetaDataStateUpdated}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData

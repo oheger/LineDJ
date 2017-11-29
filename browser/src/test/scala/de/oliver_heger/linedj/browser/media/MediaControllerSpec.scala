@@ -21,13 +21,13 @@ import java.util
 import java.util.Locale
 
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
+import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.platform.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -167,9 +167,9 @@ object MediaControllerSpec {
    */
   private def createSongData(artist: String, album: String, songs: Seq[String],
                               mediumID: MediumID = TestMediumID): Seq[SongData] = {
-    songs.zipWithIndex.map(e => SongData(mediumID, "song://" + album + "/" + e._1, MediaMetaData(title =
-      Some(e._1),
-      artist = Some(artist), album = Some(album), trackNumber = Some(e._2)), null))
+    songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1),
+      MediaMetaData(title = Some(e._1), artist = Some(artist), album = Some(album),
+        trackNumber = Some(e._2)), e._1, artist, album))
   }
 
   /**
@@ -181,7 +181,7 @@ object MediaControllerSpec {
    */
   private def createChunk(mediumID: MediumID = TestMediumID, complete: Boolean = false,
                           songs: Seq[SongData]): MetaDataChunk = {
-    val mappings = songs map (s => (s.uri, s.metaData))
+    val mappings = songs map (s => (s.id.uri, s.metaData))
     MetaDataChunk(mediumID = mediumID, complete = complete, data = Map(mappings: _*))
   }
 
@@ -655,9 +655,9 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   private class MediaControllerTestHelper {
     import ConsumerRegistrationProviderTestHelper._
 
-    val songFactory = new SongDataFactory(null) {
-      override def createSongData(mediumID: MediumID, uri: String, metaData: MediaMetaData): SongData =
-        SongData(mediumID, uri, metaData, null)
+    val songFactory = new SongDataFactory {
+      override def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData =
+        SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
     }
 
     /** A mock for the message bus. */

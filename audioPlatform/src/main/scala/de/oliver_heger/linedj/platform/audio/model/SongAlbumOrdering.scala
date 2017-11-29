@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.model
+package de.oliver_heger.linedj.platform.audio.model
 
 /**
   * An ''Ordering'' implementation for [[SongData]] which orders songs based on

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.model
 
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''EmptyListModel''.

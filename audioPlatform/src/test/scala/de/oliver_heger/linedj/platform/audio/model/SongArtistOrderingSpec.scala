@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.model
+package de.oliver_heger.linedj.platform.audio.model
 
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -33,8 +33,9 @@ object SongArtistOrderingSpec {
     * @return the song data
     */
   private def createSong(artist: String, album: String, title: String): SongData =
-    SongData(Medium, "song://" + title, MediaMetaData(title = Some(title), album = Some(album),
-      artist = Some(artist)), null)
+    SongData(MediaFileID(Medium, "song://" + title),
+      MediaMetaData(title = Some(title), album = Some(album), artist = Some(artist)),
+      title, "some artist", album)
 }
 
 /**
