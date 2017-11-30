@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.randomartist
 
-import de.oliver_heger.linedj.platform.audio.model.SongArtistOrdering
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.{SongArtistOrdering, SongData}
 import de.oliver_heger.linedj.pleditor.spi.RandomGroupingPlaylistReorderer
 
 /**
@@ -32,7 +31,7 @@ import de.oliver_heger.linedj.pleditor.spi.RandomGroupingPlaylistReorderer
 class PlaylistReordererRandomArtist extends RandomGroupingPlaylistReorderer[String] {
   override val resourceBundleBaseName = "ReorderRandomArtistResources"
 
-  override val groupOrdering = SongArtistOrdering
+  override val groupOrdering: SongArtistOrdering.type = SongArtistOrdering
 
   override def groupSong(song: SongData): String = song.getArtist
 }

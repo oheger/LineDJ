@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.artist
 
-import de.oliver_heger.linedj.platform.audio.model.SongArtistOrdering
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.{SongArtistOrdering, SongData}
 import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
 
 /**

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.random
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
 
 /**

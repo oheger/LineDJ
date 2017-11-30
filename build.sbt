@@ -289,7 +289,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", archive)
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, archive)
 
 /**
   * Project for the media browser client application. This application allows

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.reorder.artist
 
-import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -29,7 +29,8 @@ object PlaylistReordererArtistSpec {
     * @return the created ''SongData''
     */
   private def createSong(data: MediaMetaData): SongData =
-    SongData(MediumID.UndefinedMediumID, "song://" + data.title.getOrElse("testSong"), data, null)
+    SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + data.title.getOrElse("testSong")),
+      data, data.title getOrElse "", data.artist getOrElse "", data.album getOrElse "")
 }
 
 /**

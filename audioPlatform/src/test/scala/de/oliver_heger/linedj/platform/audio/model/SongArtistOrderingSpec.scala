@@ -35,7 +35,7 @@ object SongArtistOrderingSpec {
   private def createSong(artist: String, album: String, title: String): SongData =
     SongData(MediaFileID(Medium, "song://" + title),
       MediaMetaData(title = Some(title), album = Some(album), artist = Some(artist)),
-      title, "some artist", album)
+      title, artist, album)
 }
 
 /**
