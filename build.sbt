@@ -514,7 +514,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.platform.bus", "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", playerEngine)
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the remote media interface. This project establishes a
