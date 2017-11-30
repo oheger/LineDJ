@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator

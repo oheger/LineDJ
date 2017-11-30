@@ -20,12 +20,12 @@ import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
 
 object ReorderManagerComponent {
@@ -112,8 +112,8 @@ class ReorderManagerComponent extends ReorderService {
     * @inheritdoc This implementation asks the management actor.
     */
   override def loadAvailableReorderServices(): Future[Seq[(PlaylistReorderer, String)]] = {
-    implicit val timeout = Timeout(10.seconds)
-    implicit val ec = clientApplicationContext.actorSystem.dispatcher
+    implicit val timeout: Timeout = Timeout(10.seconds)
+    implicit val ec: ExecutionContextExecutor = clientApplicationContext.actorSystem.dispatcher
     val future = reorderManagerActor ? ReorderManagerActor.GetAvailableReorderServices
     future.mapTo[ReorderManagerActor.AvailableReorderServices].map(_.services)
   }

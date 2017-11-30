@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.pleditor.spi
 
-import de.oliver_heger.linedj.platform.model.SongData
-import org.scalatest.{Matchers, FlatSpec}
+import de.oliver_heger.linedj.platform.audio.model.SongData
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''LocalizedPlaylistReorderer''.

@@ -22,10 +22,10 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.io.ScanResult
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -69,8 +69,8 @@ object ExportControllerSpec {
    */
   private def createTestSongs(): Seq[SongData] = {
     val medium = MediumID("TestMedium", None)
-    1 to SongCount map (i => SongData(medium, "song://" + i, MediaMetaData(title = Some("Song" +
-      i)), null))
+    1 to SongCount map (i => SongData(MediaFileID(medium, "song://" + i),
+      MediaMetaData(title = Some("Song" + i)), "Song" + i, null, null))
   }
 }
 

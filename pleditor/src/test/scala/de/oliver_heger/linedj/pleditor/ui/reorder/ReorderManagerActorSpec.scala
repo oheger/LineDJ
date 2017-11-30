@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.SupervisionTestActor
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._

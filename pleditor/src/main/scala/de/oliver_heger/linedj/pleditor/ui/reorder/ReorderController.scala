@@ -16,22 +16,19 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
-import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener, FormActionEvent,
-FormActionListener}
+import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener, FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
-import net.sf.jguiraffe.gui.builder.window.{Window, WindowUtils, WindowEvent, WindowListener}
+import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object ReorderController {
   /** The command key for the OK button. */
   private val CommandOK = "OK"
-
-  /** The command key for the Cancel button. */
-  private val CommandCancel = "CANCEL"
 }
 
 /**

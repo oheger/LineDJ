@@ -24,9 +24,9 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.io.{FileData, RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.platform.app.ClientApplication
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
@@ -126,8 +126,9 @@ object ExportActorSpec {
    * @return the test ''SongData'' object
    */
   private def createSongData(index: Int, size: Option[Long] = None): SongData =
-    SongData(medium(index), songUri(index), MediaMetaData(title = Some(songTitle(index)), size =
-      size getOrElse songSize(index)), null)
+    SongData(MediaFileID(medium(index), songUri(index)),
+      MediaMetaData(title = Some(songTitle(index)), size = size getOrElse songSize(index)),
+      songTitle(index), null, null)
 
   /**
    * Generates a list of test files.
@@ -223,9 +224,10 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   }
 
   it should "use the correct file extension when generating operations" in {
-    val songList = List(SongData(medium(1), "song://Test1.mp2", MediaMetaData(title = Some
-    (songTitle(1))), null),
-      SongData(medium(2), "song://Test2", MediaMetaData(title = Some(songTitle(2))), null))
+    val songList = List(SongData(MediaFileID(medium(1), "song://Test1.mp2"),
+      MediaMetaData(title = Some(songTitle(1))), songTitle(1), null, null),
+      SongData(MediaFileID(medium(2), "song://Test2"), MediaMetaData(title = Some(songTitle(2))),
+        songTitle(2), null, null))
     val data = ExportActor.ExportData(songList, TestScanResult, ExportPath, clearTarget = false,
       overrideFiles = false)
 
@@ -247,7 +249,8 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   it should "replace invalid characters in file names" in {
     val title = "Song:\t My *, \"<Love>|Pet/Heart Come\\ - yes?"
     val replacedTitle = "Song__ My _, __Love__Pet_Heart Come_ - yes_"
-    val songList = List(SongData(medium(1), songUri(1), MediaMetaData(title = Some(title)), null))
+    val songList = List(SongData(MediaFileID(medium(1), songUri(1)),
+      MediaMetaData(title = Some(title)), title, null, null))
     val data = ExportActor.ExportData(songList, TestScanResult, ExportPath, clearTarget = false,
       overrideFiles = false)
 

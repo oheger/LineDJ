@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
-import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormActionEvent}
+import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormChangeEvent}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler

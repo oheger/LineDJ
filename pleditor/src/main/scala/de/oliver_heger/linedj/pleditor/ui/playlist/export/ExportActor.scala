@@ -24,9 +24,9 @@ import akka.pattern.pipe
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.platform.app.ClientApplication
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest}
+import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.mutable.ListBuffer
@@ -250,7 +250,7 @@ object ExportActor {
    * @return the song name
    */
   private def generateTargetFileName(s: (SongData, Int), digits: Int): String =
-    s"${formatIndex(s._2, digits)} - ${validTitle(s._1.getTitle)}${extractExtension(s._1.uri)}"
+    s"${formatIndex(s._2, digits)} - ${validTitle(s._1.getTitle)}${extractExtension(s._1.id.uri)}"
 
   /**
    * Generates a song title that contains only valid characters to be used in
@@ -561,8 +561,8 @@ ExportOperation {
   override val operationType = ExportActor.OperationType.Copy
 
   override def getCopyMessage: Option[Any] =
-    Some(CopyFileActor.CopyMediumFile(MediumFileRequest(MediaFileID(affectedSong.mediumID,
-      affectedSong.uri), withMetaData = true), affectedPath))
+    Some(CopyFileActor.CopyMediumFile(MediumFileRequest(affectedSong.id,
+      withMetaData = true), affectedPath))
 
   /**
    * @inheritdoc This implementation returns the size of the affected file.

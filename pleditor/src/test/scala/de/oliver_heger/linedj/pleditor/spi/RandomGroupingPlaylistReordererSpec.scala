@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.pleditor.spi
 
-import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -35,7 +35,8 @@ object RandomGroupingPlaylistReordererSpec {
   private def createSongs(): Seq[SongData] =
     List("Another Brick in the Wall", "Pop Goes the World", "Almost a Dance", "Perfect Ten",
       "Roam If You Want To", "After Midnight", "Rock me", "Reality", "Push It") map { t =>
-      SongData(MediumID.UndefinedMediumID, "s://" + t, MediaMetaData(title = Some(t)), null)
+      SongData(MediaFileID(MediumID.UndefinedMediumID, "s://" + t),
+        MediaMetaData(title = Some(t)), t, null, null)
     }
 
   /**

@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
 import java.util
 
-import de.oliver_heger.linedj.platform.model.SongData
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
@@ -42,9 +42,11 @@ object OpenExportSettingsDlgCommandSpec {
    * @param index the index to derive properties from
    * @return the test song data object
    */
-  private def createSongData(index: Int): SongData =
-    SongData(MediumID("Medium" + index, None), "song://TestSong" + index, MediaMetaData(title =
-      Some("Song " + index)), null)
+  private def createSongData(index: Int): SongData = {
+    val title = "Song " + index
+    SongData(MediaFileID(MediumID("Medium" + index, None), "song://TestSong" + index),
+      MediaMetaData(title = Some(title)), title, null, null)
+  }
 }
 
 /**

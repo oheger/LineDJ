@@ -18,9 +18,8 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import java.util
 
-import de.oliver_heger.linedj.platform.audio.model.AppendSongs
-import de.oliver_heger.linedj.platform.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
@@ -55,8 +54,9 @@ object PlaylistControllerSpec {
    * @return the ''SongData''
    */
   private def song(title: String, duration: Int, size: Int): SongData =
-    SongData(Medium, "song://" + title, MediaMetaData(title = Some(title), duration = Some(duration),
-      size = size), null)
+    SongData(MediaFileID(Medium, "song://" + title),
+      MediaMetaData(title = Some(title), duration = Some(duration),
+      size = size), title, null, null)
 }
 
 /**
@@ -100,7 +100,8 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "output an indication in the status line if there are songs with unknown duration" in {
     val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = SongData(Medium, "song://B", MediaMetaData(title = Some("B"), size = 1024 * 1024), null)
+    val song2 = SongData(MediaFileID(Medium, "song://B"),
+      MediaMetaData(title = Some("B"), size = 1024 * 1024), "B", null, null)
     val helper = new PlaylistControllerTestHelper
 
     helper.appendSongs(song1, song2)
