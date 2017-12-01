@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivecommon.parser
+package de.oliver_heger.linedj.io.parser
 
-import de.oliver_heger.linedj.archivecommon.parser.ParserImpl.ManyPartialData
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Success}
+import de.oliver_heger.linedj.io.parser.ParserImpl.ManyPartialData
+import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Success}
 
 /**
   * An abstract base class for JSON-based parsers that convert the passed in

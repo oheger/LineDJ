@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivecommon.parser
+package de.oliver_heger.linedj.io.parser
 
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes._
+import de.oliver_heger.linedj.io.parser.ParserTypes._
 
 import scala.reflect.ClassTag
 import scala.util.matching.Regex

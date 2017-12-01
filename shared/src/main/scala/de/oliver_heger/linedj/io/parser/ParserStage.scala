@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivecommon.parser
+package de.oliver_heger.linedj.io.parser
 
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.parser.ParserStage.ChunkSequenceParser
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.io.parser.ParserStage.ChunkSequenceParser
+import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 
 object ParserStage {
   /**

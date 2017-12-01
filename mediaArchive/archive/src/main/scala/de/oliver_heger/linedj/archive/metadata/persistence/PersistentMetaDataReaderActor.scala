@@ -22,7 +22,8 @@ import akka.actor._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Keep, Sink}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataParserStage, ParserStage}
+import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataParserStage}
+import de.oliver_heger.linedj.io.parser.ParserStage
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory

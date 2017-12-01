@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, ParserImpl}
+import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
 import org.scalatest.{FlatSpec, Matchers}
 
 object HttpMediumDescParserSpec {

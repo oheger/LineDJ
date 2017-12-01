@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.archivecommon.parser.JSONParser.JSONData
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.{Failure, Result}
+import de.oliver_heger.linedj.io.parser._
+import de.oliver_heger.linedj.io.parser.JSONParser.JSONData
+import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Result}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._

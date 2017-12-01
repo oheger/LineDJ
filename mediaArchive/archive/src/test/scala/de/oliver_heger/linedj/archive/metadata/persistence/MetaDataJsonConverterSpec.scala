@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.{Path, Paths}
 
-import de.oliver_heger.linedj.archivecommon.parser.{JSONParser, MetaDataParser, ParserImpl}
+import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
+import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess

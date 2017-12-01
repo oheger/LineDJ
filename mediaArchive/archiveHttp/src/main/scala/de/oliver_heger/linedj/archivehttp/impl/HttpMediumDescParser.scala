@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.archivecommon.parser.{AbstractModelParser, ChunkParser, JSONParser,
-ParserTypes}
-import de.oliver_heger.linedj.archivecommon.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, ParserTypes}
+import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 
 object HttpMediumDescParser {
   /** Property for the path to a medium description file. */
