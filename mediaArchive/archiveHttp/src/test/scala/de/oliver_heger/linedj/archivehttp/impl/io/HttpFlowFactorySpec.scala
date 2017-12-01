@@ -26,7 +26,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.stream.StreamSizeRestrictionStage
+import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import org.eclipse.jetty.server.{AbstractNetworkConnector, Server}
 import org.eclipse.jetty.servlet.ServletHandler
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
