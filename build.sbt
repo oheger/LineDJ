@@ -68,7 +68,7 @@ lazy val LineDJ = (project in file("."))
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform)
+  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -671,3 +671,22 @@ lazy val audioPlatform = (project in file("audioPlatform"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", playerEngine)
+
+/**
+  * Project for the persistent playlist handler. This module keeps track on
+  * the current playlist by storing it in a file on disk. From there it can be
+  * loaded and set again when the application is restarted.
+  */
+lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-persistent-playlist-handler",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.playlist.persistence.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
