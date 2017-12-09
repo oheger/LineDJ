@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+
 /**
   * A class representing the current position in a playlist.
   *
@@ -27,3 +29,11 @@ package de.oliver_heger.linedj.playlist.persistence
   * @param timeOffset     the time (in millis) within the current song
   */
 case class CurrentPlaylistPosition(index: Int, positionOffset: Long, timeOffset: Long)
+
+/**
+  * A class representing a playlist that has been loaded from
+  * [[LoadPlaylistActor]].
+  *
+  * @param playlist the playlist
+  */
+case class LoadedPlaylist(playlist: Playlist)
