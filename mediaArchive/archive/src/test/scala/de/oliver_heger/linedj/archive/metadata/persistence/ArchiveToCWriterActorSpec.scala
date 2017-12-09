@@ -27,6 +27,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
+import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -182,7 +183,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val actor = system.actorOf(Props(new ArchiveToCWriterActor {
       override protected def propagateResult(client: ActorRef, result: Any): Unit = {
         fileWrittenCount.incrementAndGet()
-        handleFailure(client, new Exception("Test exception"))
+        handleFailure(client, StreamFailure(new Exception("Test exception"), null))
       }
     }))
     val config1 = ToCConfig.copy(contentFile = Some(createFileReference()))

@@ -29,11 +29,12 @@ import scala.util.{Failure, Success, Try}
 object AbstractFileWriterActor {
 
   /**
-    * Internal class representing a stream processing error.
+    * Class representing a stream processing error.
     *
-    * @param ex the exception
+    * @param ex   the exception
+    * @param path the path that has been written
     */
-  private case class StreamFailure(ex: Throwable)
+  case class StreamFailure(ex: Throwable, path: Path)
 
 }
 
@@ -67,9 +68,9 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     */
   override protected def propagateResult(client: ActorRef, result: Any): Unit = {
     result match {
-      case StreamFailure(ex) =>
-        log.error(ex, "Could not write file! Stopping actor.")
-        handleFailure(client, ex)
+      case f@StreamFailure(ex, p) =>
+        log.error(ex, s"Could not write file $p!")
+        handleFailure(client, f)
 
       case r =>
         super.propagateResult(client, r)
@@ -90,7 +91,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     createTargetDirectoryIfNecessary(target) match {
       case Failure(e) =>
         log.error(e, "Could not create target directory for " + target)
-        handleFailure(client, e)
+        handleFailure(client, StreamFailure(e, target))
 
       case Success(_) =>
         val sink = FileIO toPath target
@@ -101,7 +102,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
           r.status.get // throws in case of a failed operation
           resultMsg
         }
-        processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception))
+        processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception, target))
     }
   }
 
@@ -111,9 +112,9 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * error handling strategy.
     *
     * @param client the current client actor
-    * @param e      the exception that occurred
+    * @param failure an object with information about the failure
     */
-  protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
+  protected def handleFailure(client: ActorRef, failure: StreamFailure): Unit = {
     context stop self
   }
 

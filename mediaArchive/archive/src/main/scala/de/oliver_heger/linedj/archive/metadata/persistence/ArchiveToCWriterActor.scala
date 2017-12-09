@@ -22,6 +22,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
 import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveToCWriterActor.WriteToC
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
+import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.io.stream.{AbstractFileWriterActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
@@ -74,7 +75,7 @@ class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStrea
   /**
     * @inheritdoc This implementation does nothing. Errors are just ignored.
     */
-  override protected def handleFailure(client: ActorRef, e: Throwable): Unit = {}
+  override protected def handleFailure(client: ActorRef, f: StreamFailure): Unit = {}
 
   /**
     * Returns a ''Source'' to generate the ToC for an archive.

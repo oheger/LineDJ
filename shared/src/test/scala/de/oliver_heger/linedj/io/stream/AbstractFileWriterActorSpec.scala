@@ -26,6 +26,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -131,8 +132,9 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
       // override to not create the directory
       override private[stream] def createTargetDirectory(dir: Path): Path = dir
 
-      override protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
-        client ! e
+      override protected def handleFailure(client: ActorRef, f: StreamFailure): Unit = {
+        f.path should be(target)
+        client ! f.ex
       }
     }))
 
@@ -141,19 +143,21 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
   }
 
   it should "allow overriding the error handling function for create dir errors" in {
+    val targetPath = Paths.get("invalid", "path")
     val exception = new IOException("Cannot create directory!")
     val actor = system.actorOf(Props(new FileWriterActorTestImpl {
       override private[stream] def createTargetDirectory(dir: Path): Path = {
         throw exception
       }
 
-      override protected def handleFailure(client: ActorRef, e: Throwable): Unit = {
-        client ! e
+      override protected def handleFailure(client: ActorRef, f: StreamFailure): Unit = {
+        f.path should be(targetPath)
+        client ! f.ex
       }
     }))
 
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())),
-      Paths.get("invalid", "path"))
+      targetPath)
     expectMsg(exception)
   }
 }
