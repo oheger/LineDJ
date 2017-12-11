@@ -23,47 +23,13 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
 
-object LoadPlaylistActorSpec {
-  /** A vector with test medium IDs. */
-  private val MediaIDs = Vector(MediumID("medium1", Some("medium1.settings"), "component1"),
-    MediumID("medium2", None, "component2"),
-    MediumID("medium3", None),
-    MediumID("medium4", Some("medium34.settings")))
-
+object LoadPlaylistActorSpec extends PlaylistTestHelper {
   /** The maximum file size loaded by the test actor. */
   private val MaxFileSize = 8192
-
-  /**
-    * Generates the URI of a test song based on the given index.
-    *
-    * @param idx the index
-    * @return the URI of this test song
-    */
-  private def songUri(idx: Int): String =
-    s"song://TestSong_$idx.mp3"
-
-  /**
-    * Returns the medium ID for the test song with the specified index.
-    *
-    * @param idx the index
-    * @return the medium ID for this test song
-    */
-  private def mediumFor(idx: Int): MediumID = MediaIDs(idx % MediaIDs.size)
-
-  /**
-    * Generates a file ID for a test file.
-    *
-    * @param idx the index
-    * @return the file ID for this test file
-    */
-  private def fileId(idx: Int): MediaFileID = MediaFileID(mediumFor(idx), songUri(idx))
 
   /**
     * Generates the JSON representation for a song in the persistent playlist.
@@ -106,31 +72,6 @@ object LoadPlaylistActorSpec {
        |"time": ${position.timeOffset}
        |}
   """.stripMargin
-
-  /**
-    * Generates a test playlist consisting of the given number of test songs.
-    *
-    * @param length         the length of the playlist
-    * @param currentIdx     the index of the current song (0-based)
-    * @param positionOffset position offset in the current song
-    * @param timeOffset     time offset in the current song
-    * @return the resulting playlist
-    */
-  private def generatePlaylist(length: Int, currentIdx: Int, positionOffset: Long = 0,
-                               timeOffset: Long = 0): Playlist = {
-    @tailrec def moveToCurrent(pl: Playlist): Playlist =
-      if (pl.playedSongs.lengthCompare(currentIdx) < 0)
-        moveToCurrent(PlaylistService.moveForwards(pl).get)
-      else pl
-
-    val songs = (0 until length).foldRight(List.empty[AudioSourcePlaylistInfo]) { (i, lst) =>
-      val pos = if (i == currentIdx) positionOffset else 0
-      val time = if (i == currentIdx) timeOffset else 0
-      val item = AudioSourcePlaylistInfo(fileId(i), pos, time)
-      item :: lst
-    }
-    moveToCurrent(Playlist(songs, Nil))
-  }
 }
 
 /**
