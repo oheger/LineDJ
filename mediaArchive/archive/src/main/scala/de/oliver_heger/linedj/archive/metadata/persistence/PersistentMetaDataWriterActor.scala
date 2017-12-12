@@ -22,9 +22,9 @@ import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef}
 import akka.event.LoggingAdapter
 import akka.stream.scaladsl.{FileIO, Source}
 import akka.stream.{ActorMaterializer, IOResult}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
 import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataResponse}
 
@@ -109,7 +109,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
   def this(blockSize: Int) = this(blockSize, new FutureIOResultHandler)
 
   /** The object for materializing streams. */
-  private implicit val materializer = ActorMaterializer()
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   /** The JSON converter for meta data. */
   private val metaDataConverter = new MetaDataJsonConverter
@@ -181,39 +181,27 @@ class PersistentMetaDataWriterActor(blockSize: Int,
   private def triggerWriteMetaDataFile(mediumData: MediumData): Future[IOResult] = {
     log.info("Writing meta data file {}.", mediumData.process.target)
     val source = Source(mediumData.elements)
-    val sourceCount = Source(0 until mediumData.elements.size)
-    val result = source.zip(sourceCount)
-      .map(e => ByteString(processElement(e._1._1, mediumData.process.uriPathMapping(e._1._1), e
-        ._1._2, e._2)))
-      .concat(Source.single(ByteString("\n]\n", "UTF-8")))
+    val listStage =
+      new ListSeparatorStage[(String, MediaMetaData)]("[\n", ",\n", "\n]\n")((e, _) =>
+      processElement(e._1, mediumData.process.uriPathMapping(e._1), e._2))
+    source.via(listStage)
       .runWith(FileIO.toPath(mediumData.process.target,
-        Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)))
-    result
+        Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+          StandardOpenOption.TRUNCATE_EXISTING)))
   }
 
   /**
     * Processes a single media file in the stream for writing media files.
     * The element is an entry of the map from a meta data chunk. It is
-    * converted to a JSON representation in binary form. This method also
-    * ensures that separators between elements are set correctly.
+    * converted to a JSON representation in binary form.
     *
     * @param uri   the URI of the song
     * @param file  the ''FileData'' for the song
     * @param data  the meta data for song
-    * @param index the index in the stream of elements
     * @return a JSON representation for this song
     */
-  private def processElement(uri: String, file: FileData, data: MediaMetaData, index: Int):
-  String = {
-    val buf = new StringBuilder
-    if (index == 0) {
-      buf ++= "[\n"
-    } else {
-      buf ++= ",\n"
-    }
-    buf ++= metaDataConverter.convert(uri, file.path, data)
-    buf.toString()
-  }
+  private def processElement(uri: String, file: FileData, data: MediaMetaData): String =
+    metaDataConverter.convert(uri, file.path, data)
 }
 
 /**
