@@ -33,19 +33,19 @@ import scala.util.{Success, Try}
 
 object PersistentPlaylistParser {
   /** Property for the playlist index. */
-  private val PropIndex = "index"
+  val PropIndex = "index"
 
   /** Property for the URI of the medium. */
-  private val PropMediumURI = "mediumURI"
+  val PropMediumURI = "mediumURI"
 
   /** Property for the description path of the medium. */
-  private val PropMediumDescPath = "mediumDescriptionPath"
+  val PropMediumDescPath = "mediumDescriptionPath"
 
   /** Property for the component ID of the managing archive. */
-  private val PropArchiveCompID = "archiveComponentID"
+  val PropArchiveCompID = "archiveComponentID"
 
   /** Property for the song URI. */
-  private val PropURI = "uri"
+  val PropURI = "uri"
 
   /**
     * The type of playlist items produced by this parser implementation.

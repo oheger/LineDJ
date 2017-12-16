@@ -42,14 +42,23 @@ import scala.util.matching.Regex
   * and time offset).
   */
 private object CurrentPositionParser {
+  /** Name of the index property. */
+  val PropIndex = "index"
+
+  /** Name of the position property. */
+  val PropPosition = "position"
+
+  /** Name of the time property. */
+  val PropTime = "time"
+
   /** Expression to parse the playlist index. */
-  private val regIndex = regexForProperty("index")
+  private val regIndex = regexForProperty(PropIndex)
 
   /** Expression to parse the position offset. */
-  private val regPosition = regexForProperty("position")
+  private val regPosition = regexForProperty(PropPosition)
 
   /** Expression to parse the time offset. */
-  private val regTime = regexForProperty("time")
+  private val regTime = regexForProperty(PropTime)
 
   /**
     * Parses a string with information about the current position in the
