@@ -25,7 +25,7 @@
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
-  <reference interface="de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors"
+  <reference interface="de.oliver_heger.linedj.platform.mediaifc.MediaFacade$MediaFacadeActors"
              name="mediaFacadeActors" bind="initFacadeActors"/>
 
   <reference interface="de.oliver_heger.linedj.player.engine.PlaybackContextFactory"
