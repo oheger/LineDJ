@@ -16,12 +16,11 @@
 package de.oliver_heger.linedj.archive.config
 
 import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import akka.util.Timeout
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -80,6 +79,16 @@ object MediaArchiveConfigSpec {
   /** Test prefix for meta data files. */
   private val TocMetaDataPrefix = "/metadata"
 
+  /** The archive name as returned by the name resolver function. */
+  private val ArchiveName = "MyTestArchive"
+
+  /**
+    * The default name resolver function passed to the archive.
+    *
+    * @return the static archive name
+    */
+  private def staticArchiveName: String = ArchiveName
+
   /**
     * Creates a test (commons) configuration with the settings used by this
     * test class.
@@ -124,91 +133,85 @@ object MediaArchiveConfigSpec {
     *
     * @return the config object
     */
-  private def createCConfig(): MediaArchiveConfig = MediaArchiveConfig(createHierarchicalConfig())
+  private def createArchiveConfig(): MediaArchiveConfig =
+    MediaArchiveConfig(createHierarchicalConfig(), staticArchiveName)
 }
 
 /**
  * Test class for ''MediaArchiveConfig''.
  */
-class MediaArchiveConfigSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
-with Matchers with BeforeAndAfterAll {
+class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
   import MediaArchiveConfigSpec._
 
-  def this() = this(ActorSystem("MediaArchiveConfigSpec"))
-
-  override protected def afterAll(): Unit = {
-    TestKit shutdownActorSystem system
-  }
-
   "A MediaArchiveConfig" should "return the timeout for reader actors" in {
-    createCConfig().downloadConfig.downloadTimeout should be(60.seconds)
+    createArchiveConfig().downloadConfig.downloadTimeout should be(60.seconds)
   }
 
   it should "return the reader check interval" in {
-    createCConfig().downloadConfig.downloadCheckInterval should be(ReaderCheckInterval)
+    createArchiveConfig().downloadConfig.downloadCheckInterval should be(ReaderCheckInterval)
   }
 
   it should "return the download chunk size" in {
-    createCConfig().downloadConfig.downloadChunkSize should be(DownloadChunkSize)
+    createArchiveConfig().downloadConfig.downloadChunkSize should be(DownloadChunkSize)
   }
 
   it should "return the read chunk size" in {
-    createCConfig().metaDataReadChunkSize should be(ReadChunkSize)
+    createArchiveConfig().metaDataReadChunkSize should be(ReadChunkSize)
   }
 
   it should "return the info size limit" in {
-    createCConfig().infoSizeLimit should be(InfoSizeLimit)
+    createArchiveConfig().infoSizeLimit should be(InfoSizeLimit)
   }
 
   it should "return the tag size limit" in {
-    createCConfig().tagSizeLimit should be(TagSizeLimit)
+    createArchiveConfig().tagSizeLimit should be(TagSizeLimit)
   }
 
   it should "return the processing timeout" in {
-    createCConfig().processingTimeout should be(ProcessingTimeout)
+    createArchiveConfig().processingTimeout should be(ProcessingTimeout)
   }
 
   it should "return the meta data chunk size" in {
-    createCConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+    createArchiveConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
   }
 
   it should "return the maximum meta data message size" in {
-    createCConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+    createArchiveConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
   }
 
   it should "return the path for meta data persistence" in {
-    createCConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
+    createArchiveConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
   }
 
   it should "return the meta data persistence chunk size" in {
-    createCConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
+    createArchiveConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
   }
 
   it should "return the meta data persistence parallel count" in {
-    createCConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
+    createArchiveConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
   }
 
   it should "return the meta data persistence write block size" in {
-    createCConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
+    createArchiveConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
   }
 
   it should "return the file extensions to be excluded" in {
-    createCConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
+    createArchiveConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
   }
 
   it should "return a collection of paths with media files" in {
-    val paths = createCConfig().mediaRoots
+    val paths = createArchiveConfig().mediaRoots
     paths should contain only(MusicRoot, CDRomRoot)
   }
 
   it should "return a sequence of root paths" in {
-    val paths = createCConfig().mediaRootPaths
+    val paths = createArchiveConfig().mediaRootPaths
     paths should contain only(MusicRoot.rootPath.toString, CDRomRoot.rootPath.toString)
   }
 
   it should "contain a config for the archive's ToC" in {
-    val tocConfig = createCConfig().contentTableConfig
+    val tocConfig = createArchiveConfig().contentTableConfig
 
     tocConfig.contentFile should be(Some(Paths.get(TocFile)))
     tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix)
@@ -226,7 +229,7 @@ with Matchers with BeforeAndAfterAll {
     config.clearProperty("media.toc.descUrlEncoding")
     config.clearProperty("media.toc.rootPrefix")
     config.clearProperty("media.toc.metaDataPrefix")
-    val tocConfig = MediaArchiveConfig(config).contentTableConfig
+    val tocConfig = MediaArchiveConfig(config, staticArchiveName).contentTableConfig
 
     tocConfig.contentFile shouldBe 'empty
     tocConfig.descriptionRemovePrefix should be(null)
@@ -234,5 +237,28 @@ with Matchers with BeforeAndAfterAll {
     tocConfig.rootPrefix shouldBe 'empty
     tocConfig.metaDataPrefix shouldBe 'empty
     tocConfig.descriptionUrlEncoding shouldBe false
+  }
+
+  it should "generate a default archive name using the resolver function" in {
+    val config = createArchiveConfig()
+
+    config.archiveName should be(ArchiveName + MediaArchiveConfig.DefaultNameSuffix)
+  }
+
+  it should "support a static name pattern without calling the resolver function" in {
+    val count = new AtomicInteger
+    val appConfig = createHierarchicalConfig()
+    appConfig.addProperty(MediaArchiveConfig.PropArchiveName, ArchiveName)
+    val config = MediaArchiveConfig(appConfig, "test" + count.incrementAndGet())
+
+    config.archiveName should be(ArchiveName)
+    count.get() should be(0)
+  }
+
+  it should "handle exceptions thrown by the name resolver" in {
+    def nameCrashed: String = throw new IllegalStateException("No name")
+
+    val config = MediaArchiveConfig(createHierarchicalConfig(), nameCrashed)
+    config.archiveName should be(MediaArchiveConfig.DefaultNamePattern)
   }
 }

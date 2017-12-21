@@ -25,109 +25,144 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 object MediaArchiveConfig {
   /** Constant for the prefix for Commons Configuration options. */
-  private val CConfigPrefix = "media."
+  val CConfigPrefix = "media."
 
   /** The configuration property for the info size restriction. */
-  private val PropInfoSizeLimit = CConfigPrefix + "infoSizeLimit"
+  val PropInfoSizeLimit: String = CConfigPrefix + "infoSizeLimit"
 
   /** The configuration property for the excluded file extensions. */
-  private val PropExcludedExtensions = CConfigPrefix + "excludedExtensions"
+  val PropExcludedExtensions: String = CConfigPrefix + "excludedExtensions"
 
   /** Constant for the prefix for the meta data extraction configuration. */
-  private val MetaExtractionPrefix = CConfigPrefix + "metaDataExtraction."
+  val MetaExtractionPrefix: String = CConfigPrefix + "metaDataExtraction."
 
   /** The configuration property for meta data extraction chunk size. */
-  private val PropMetaDataReadChunkSize = MetaExtractionPrefix + "readChunkSize"
+  val PropMetaDataReadChunkSize: String = MetaExtractionPrefix + "readChunkSize"
 
   /** The configuration property for the size restriction for ID3 tags. */
-  private val PropTagSizeLimit = MetaExtractionPrefix + "tagSizeLimit"
+  val PropTagSizeLimit: String = MetaExtractionPrefix + "tagSizeLimit"
 
   /** The configuration property for the processing timeout. */
-  private val PropProcessingTimeout = MetaExtractionPrefix + "processingTimeout"
+  val PropProcessingTimeout: String = MetaExtractionPrefix + "processingTimeout"
 
   /** The configuration property for the size of meta data update chunks. */
-  private val PropMetaDataUpdateChunkSize = MetaExtractionPrefix + "metaDataUpdateChunkSize"
+  val PropMetaDataUpdateChunkSize: String = MetaExtractionPrefix + "metaDataUpdateChunkSize"
 
   /** The configuration property for the maximum meta data message size. */
-  private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
+  val PropMetaDataMaxMessageSize: String = MetaExtractionPrefix + "metaDataMaxMessageSize"
 
   /** Constant for the prefix for the meta data persistence configuration. */
-  private val MetaPersistencePrefix = CConfigPrefix + "metaDataPersistence."
+  val MetaPersistencePrefix: String = CConfigPrefix + "metaDataPersistence."
 
   /** The configuration property for the meta data persistence path. */
-  private val PropMetaDataPersistencePath = MetaPersistencePrefix + "path"
+  val PropMetaDataPersistencePath: String = MetaPersistencePrefix + "path"
 
   /** The configuration property for the meta data persistence chunk size. */
-  private val PropMetaDataPersistenceChunkSize = MetaPersistencePrefix + "chunkSize"
+  val PropMetaDataPersistenceChunkSize: String = MetaPersistencePrefix + "chunkSize"
 
   /** The configuration property for the meta data persistence parallel count. */
-  private val PropMetaDataPersistenceParallelCount = MetaPersistencePrefix + "parallelCount"
+  val PropMetaDataPersistenceParallelCount: String = MetaPersistencePrefix + "parallelCount"
 
   /** The configuration property for the meta data persistence write block size. */
-  private val PropMetaDataPersistenceWriteBlockSize = MetaPersistencePrefix + "writeBlockSize"
+  val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
 
   /** Constant for the path property of a media root object. */
-  private val RootPropPath = "path"
+  val RootPropPath = "path"
 
   /** Constant for the processorCount property of a media root object. */
-  private val RootPropProcessorCount = "processorCount"
+  val RootPropProcessorCount = "processorCount"
 
   /** Constant for the accessRestriction property of a media root object. */
-  private val RootPropAccessRestriction = "accessRestriction"
+  val RootPropAccessRestriction = "accessRestriction"
+
+  /**
+    * The configuration property to define the archive's name. This can be a
+    * string that may contain the placeholder ''${host}''. This placeholder is
+    * replaced by the locale network name of the current machine. If it is
+    * missing, a static name can be specified for the archive. The property is
+    * optional; if it is undefined, its value is assumed to be the
+    * ''${host}-media-archive''.
+    */
+  val PropArchiveName: String = CConfigPrefix + "archiveName"
 
   /** Prefix for properties for the ToC of an archive. */
-  private val ToCPrefix = CConfigPrefix + "toc."
+  val ToCPrefix: String = CConfigPrefix + "toc."
 
   /** The configuration property for the file where to store the archive ToC. */
-  private val PropTocFile = ToCPrefix + "file"
+  val PropTocFile: String = ToCPrefix + "file"
 
   /**
     * The configuration property for prefix to be removed from a medium
     * description path when writing the archive's ToC.
     */
-  private val PropTocDescRemovePrefix = ToCPrefix + "descRemovePrefix"
+  val PropTocDescRemovePrefix: String = ToCPrefix + "descRemovePrefix"
 
   /**
     * The configuration property for the path separator in medium description
     * files. This has to be treated in a special way if URI encoding is
     * enabled.
     */
-  private val PropTocDescPatSeparator = ToCPrefix + "descPathSeparator"
+  val PropTocDescPatSeparator: String = ToCPrefix + "descPathSeparator"
 
   /**
     * The configuration property for the flag whether URL encoding has to be
     * applied to the paths to medium description files when generating their
     * URIs in the archive ToC.
     */
-  private val PropTocDescUrlEncoding = ToCPrefix + "descUrlEncoding"
+  val PropTocDescUrlEncoding: String = ToCPrefix + "descUrlEncoding"
 
   /**
     * The configuration property for the prefix for medium description files.
     * When writing the ToC this prefix is added to the paths to medium
     * description files.
     */
-  private val PropTocRootPrefix = ToCPrefix + "rootPrefix"
+  val PropTocRootPrefix: String = ToCPrefix + "rootPrefix"
 
   /**
     * The configuration property for the prefix for meta data files. When
     * writing the ToC it is assumed that all meta data files are located in a
     * directory defined by this setting.
     */
-  private val PropTocMetaDataPrefix = ToCPrefix + "metaDataPrefix"
+  val PropTocMetaDataPrefix: String = ToCPrefix + "metaDataPrefix"
+
+  /**
+    * Placeholder for the host name which can occur in the configured archive
+    * name.
+    */
+  val PlaceholderHost = "${host}"
+
+  /**
+    * Suffix for generating a default archive name. Per default, this suffix is
+    * appended to the local host name to generate the archive name.
+    */
+  val DefaultNameSuffix = "-media-archive"
+
+  /**
+    * The default name pattern for generating the archive name. If the property
+    * for the archive name is not defined, this value is used.
+    */
+  val DefaultNamePattern: String = PlaceholderHost + DefaultNameSuffix
+
+  /** The logger. */
+  private val Log = LoggerFactory.getLogger(classOf[MediaArchiveConfig])
 
   /**
     * Creates a new instance of ''ServerConfig'' based on the passed in
     * ''HierarchicalConfiguration'' object.
     *
     * @param config the ''HierarchicalConfiguration'' to be processed
+    * @param nameResolver a function for resolving the archive name
     * @return the new ''ServerConfig'' instance
     */
-  def apply(config: HierarchicalConfiguration): MediaArchiveConfig =
+  def apply(config: HierarchicalConfiguration,
+            nameResolver: => String = LocalNameResolver.localHostName): MediaArchiveConfig =
   new MediaArchiveConfig(metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
     infoSizeLimit = config getInt PropInfoSizeLimit,
     tagSizeLimit = config getInt PropTagSizeLimit,
@@ -141,7 +176,28 @@ object MediaArchiveConfig {
     excludedFileExtensions = obtainExcludedExtensions(config),
     rootMap = createMediaData(config),
     downloadConfig = DownloadConfig(config),
-    contentTableConfig = createTocConfig(config))
+    contentTableConfig = createTocConfig(config),
+    archiveName = resolveArchiveName(config, nameResolver))
+
+  /**
+    * Resolves the archive name using the resolver function. Also handles
+    * exceptions; in this case, the name pattern is returned as is.
+    *
+    * @param config       the application configuration
+    * @param nameResolver the resolver function
+    * @return the archive name
+    */
+  private def resolveArchiveName(config: Configuration, nameResolver: => String): String = {
+    val pattern = config.getString(PropArchiveName, DefaultNamePattern)
+    if (pattern contains PlaceholderHost)
+      Try(pattern.replace(PlaceholderHost, nameResolver)) match {
+        case Success(name) => name
+        case Failure(ex) =>
+          Log.error("Could not resolve media archive name!", ex)
+          pattern
+      }
+    else pattern
+  }
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -308,6 +364,7 @@ object MediaArchiveConfig {
  *                               to be excluded when scanning media files
  * @param rootMap a map with information about media roots
  * @param contentTableConfig the config for the archives's table of content
+ * @param archiveName a name for this archive
  */
 case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataReadChunkSize: Int,
@@ -322,7 +379,8 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataPersistenceWriteBlockSize: Int,
                                               excludedFileExtensions: Set[String],
                                               rootMap: Map[Path, MediaRootData],
-                                              contentTableConfig: ArchiveContentTableConfig) {
+                                              contentTableConfig: ArchiveContentTableConfig,
+                                              archiveName: String) {
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
