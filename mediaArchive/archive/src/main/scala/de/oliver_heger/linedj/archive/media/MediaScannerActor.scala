@@ -60,14 +60,16 @@ object MediaScannerActor {
     * Creates a ''MediaScanResult'' object from the sequence of
     * ''FileData'' objects obtained during the scan operation.
     *
-    * @param root     the root path
-    * @param fileData the files detected during the scan operation
+    * @param root        the root path
+    * @param fileData    the files detected during the scan operation
+    * @param archiveName the name of the archive component
     * @return the ''MediaScanResult''
     */
-  private def createScanResult(root: Path, fileData: Seq[FileData]): MediaScanResult = {
+  private def createScanResult(root: Path, fileData: Seq[FileData], archiveName: String):
+  MediaScanResult = {
     val (descriptions, files) = fileData partition isSettingsFile
     MediaScanResult(root, createResultMap(descriptions.map(p => Paths get p.path).toList,
-      files.toList, root.toString))
+      files.toList, root.toString, archiveName))
   }
 
   /**
@@ -79,22 +81,24 @@ object MediaScannerActor {
     * @param mediumDescriptions the list with the medium description files
     * @param mediaFiles         the list with all files
     * @param mediumURI          the URI for the medium
+    * @param archiveName the name of the media archive
     * @return the result map
     */
   private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[FileData],
-                              mediumURI: String): Map[MediumID, List[FileData]] = {
+                              mediumURI: String, archiveName: String):
+  Map[MediumID, List[FileData]] = {
     val sortedDescriptions = mediumDescriptions sortWith (descriptionPrefix(_) >
       descriptionPrefix(_))
     val start = (mediaFiles, Map.empty[MediumID, List[FileData]])
     val end = sortedDescriptions.foldLeft(start) { (state, path) =>
       val partition = findFilesForDescription(path, state._1)
       (partition._2, state._2 +
-        (MediumID.fromDescriptionPath(path, ArchiveComponentID) -> partition._1))
+        (MediumID.fromDescriptionPath(path, archiveName) -> partition._1))
     }
 
     if (end._1.isEmpty) end._2
     else {
-      end._2 + (MediumID(mediumURI, None, ArchiveComponentID) -> end._1)
+      end._2 + (MediumID(mediumURI, None, archiveName) -> end._1)
     }
   }
 
@@ -165,10 +169,11 @@ object MediaScannerActor {
   * message, but for all ongoing scan operations result messages are generated
   * (with the files encountered until the operation was canceled).
   *
+  * @param archiveName the name of the media archive
   * @param exclusions the set of file extensions to exclude
   */
-class MediaScannerActor(exclusions: Set[String]) extends AbstractStreamProcessingActor
-  with ActorLogging with CancelableStreamSupport {
+class MediaScannerActor(archiveName: String, exclusions: Set[String])
+  extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport {
 
   import MediaScannerActor._
 
@@ -186,7 +191,7 @@ class MediaScannerActor(exclusions: Set[String]) extends AbstractStreamProcessin
     val source = createSource(req.path)
     val (ks, futStream) = runStream(source)
     processStreamResult(futStream map { s =>
-      ScanPathResult(req, createScanResult(req.path, s))
+      ScanPathResult(req, createScanResult(req.path, s, archiveName))
     }, ks) { f =>
       log.error(f.exception, "Ignoring media path " + req.path)
       ScanPathResult(req, MediaScanResult(req.path, Map.empty))

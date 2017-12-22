@@ -23,6 +23,9 @@ object MediaScannerActorSpec {
   /** The root directory of the test folder structure. */
   private val RootPath = Paths get "musicArchive"
 
+  /** The name of the test archive. */
+  private val ArchiveName = "MyCoolMusicArchive"
+
   /** A test sequence number. */
   private val SeqNo = 128
 
@@ -31,7 +34,7 @@ object MediaScannerActorSpec {
     * the directory scanner.
     */
   private val UndefinedMediumID =
-    MediumID(RootPath.toString, None, ArchiveComponentID)
+    MediumID(RootPath.toString, None, ArchiveName)
 
   /**
     * Helper method for checking whether all elements in a sub set are contained
@@ -177,7 +180,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the test actor reference
     */
   private def createActorForSource(source: Source[FileData, Any]): ActorRef = {
-    val props = Props(new MediaScannerActor(Set.empty) {
+    val props = Props(new MediaScannerActor(ArchiveName, Set.empty) {
       override private[media] def createSource(path: Path): Source[FileData, Any] = source
     })
     system.actorOf(props)
@@ -249,7 +252,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val scanActor = createActorForFiles(testMediaFiles())
     val result = scan(scanActor)
 
-    result.mediaFiles.keys forall (_.archiveComponentID == ArchiveComponentID) shouldBe true
+    result.mediaFiles.keys forall (_.archiveComponentID == ArchiveName) shouldBe true
   }
 
   it should "filter out directories from the source" in {
@@ -275,7 +278,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val file2 = writeMediaFile("moreMusic.mp3")
     writeMediaFile("noExtension")
     val Exclusions = Set("TXT", "")
-    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], Exclusions))
+    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], ArchiveName, Exclusions))
 
     val result = scan(scanActor, testDirectory)
     result.mediaFiles should have size 1
@@ -285,7 +288,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "correctly handle an exception during a scan operation" in {
-    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], Set.empty))
+    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], ArchiveName, Set.empty))
 
     val result = scan(scanActor)
     result.root should be(RootPath)
@@ -307,7 +310,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "unregister kill switches after stream processing" in {
     val refKillSwitch = new AtomicReference[KillSwitch]
-    val scanActor = system.actorOf(Props(new MediaScannerActor(Set.empty) {
+    val scanActor = system.actorOf(Props(new MediaScannerActor(ArchiveName, Set.empty) {
       override private[media] def createSource(path: Path): Source[FileData, Any] =
         Source(testMediaFiles())
 
