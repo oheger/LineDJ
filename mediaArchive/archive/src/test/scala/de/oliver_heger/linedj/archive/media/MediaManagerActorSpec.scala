@@ -51,6 +51,9 @@ object MediaManagerActorSpec {
   /** The set with excluded file extensions. */
   private val ExcludedExtensions = Set("TXT", "JPG")
 
+  /** A name for the archive. */
+  private val ArchiveName = "MyTestArchive"
+
   /** The maximum size of medium description files. */
   private val InfoSizeLimit = 9876
 
@@ -779,7 +782,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val Drive1 = MediaScanResult(Drive1Root, Map(
       MediumID.fromDescriptionPath(Medium1Desc) -> Medium1Content,
       MediumID.fromDescriptionPath(Medium2Desc) -> Medium2Content,
-      MediumID(Drive1Root.toString, None, ArchiveComponentID) -> Drive1OtherFiles))
+      MediumID(Drive1Root.toString, None, ArchiveName) -> Drive1OtherFiles))
 
     /** Scan result for drive 2. */
     val Drive2 = MediaScanResult(Drive2Root, Map(MediumID.fromDescriptionPath(Medium3Desc) ->
@@ -787,7 +790,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     /** Scan result for drive 3. */
     val Drive3 = MediaScanResult(Drive3Root,
-      Map(MediumID(Drive3Root.toString, None, ArchiveComponentID) -> Drive3OtherFiles))
+      Map(MediumID(Drive3Root.toString, None, ArchiveName) -> Drive3OtherFiles))
 
     /** ID data for medium 1. */
     val Medium1IDData: MediumIDData = idData(1, Medium1Path, Medium1Content, Drive1)
@@ -822,9 +825,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         Medium2Content, Medium2IDData),
       idRequestMapping(Medium3Path, definedMediumID(3, Medium3Path), Drive2,
         Medium3Content, Medium3IDData),
-      idRequestMapping(Drive1Root, MediumID(Drive1Root.toString, None, ArchiveComponentID),
+      idRequestMapping(Drive1Root, MediumID(Drive1Root.toString, None, ArchiveName),
         Drive1, Drive1OtherFiles, Drive1OtherIDData),
-      idRequestMapping(Drive3Root, MediumID(Drive3Root.toString, None, ArchiveComponentID),
+      idRequestMapping(Drive3Root, MediumID(Drive3Root.toString, None, ArchiveName),
         Drive3, Drive3OtherFiles, Drive3OtherIDData),
       mediumInfoRequestMapping(Medium1Desc, Medium1SettingsData.mediumID,
         Medium1SettingsData.copy(checksum = "")),
@@ -905,7 +908,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     def expectMediaAdded(): Map[MediumID, MediumInfo] = {
       val addMedia = mediaUnionActor.expectMsgType[AddMedia]
-      addMedia.archiveCompID should be(ArchiveComponentID)
+      addMedia.archiveCompID should be(ArchiveName)
       addMedia.optCtrlActor shouldBe 'empty
       addMedia.media
     }
@@ -927,7 +930,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return this test helper
       */
     def expectRemoveComponentMessage(): MediaManagerTestHelper = {
-      mediaUnionActor.expectMsg(ArchiveComponentRemoved(ArchiveComponentID))
+      mediaUnionActor.expectMsg(ArchiveComponentRemoved(ArchiveName))
       this
     }
 
@@ -938,7 +941,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @param compID the archive component ID to be passed
       * @return this test helper
       */
-    def answerRemoveComponentMessage(compID: String = ArchiveComponentID):
+    def answerRemoveComponentMessage(compID: String = ArchiveName):
     MediaManagerTestHelper = {
       testManagerActor receive RemovedArchiveComponentProcessed(compID)
       this
@@ -1113,7 +1116,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     private def expectedArgForActorClass(props: Props): Option[Iterable[Any]] =
       props.actorClass() match {
         case ClsDirScanner =>
-          Some(List(ExcludedExtensions))
+          Some(List(ArchiveName, ExcludedExtensions))
 
         case ClsIDCalculator =>
           Some(List(testManagerActor.underlyingActor.idCalculator))
@@ -1260,6 +1263,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       val config = createConfiguration()
       val roots = RootPaths.toSet
       when(config.mediaRootPaths).thenReturn(roots)
+      when(config.archiveName).thenReturn(ArchiveName)
       config
     }
 

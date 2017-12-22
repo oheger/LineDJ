@@ -238,7 +238,7 @@ Actor with ActorLogging {
     mediumInfoParserActor = createChildActor(Props(classOf[MediumInfoParserActor],
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(Props(classOf[MediaScannerActor],
-      config.excludedFileExtensions))
+      config.archiveName, config.excludedFileExtensions))
     downloadManagerActor = createChildActor(DownloadMonitoringActor(config.downloadConfig))
   }
 
@@ -279,7 +279,7 @@ Actor with ActorLogging {
       onCloseComplete()
 
     case RemovedArchiveComponentProcessed(compID)
-      if ArchiveComponentID == compID =>
+      if config.archiveName == compID =>
       removeConfirmed = true
       pendingMessages.reverse foreach(t => t._1 ! t._2)
       pendingMessages = Nil
@@ -385,7 +385,7 @@ Actor with ActorLogging {
     if (firstScan) {
       firstScan = false
     } else {
-      mediaUnionActor ! ArchiveComponentRemoved(ArchiveComponentID)
+      mediaUnionActor ! ArchiveComponentRemoved(config.archiveName)
     }
     sendOrCacheMessage(metaDataManager, MediaScanStarts)
   }
@@ -429,7 +429,7 @@ Actor with ActorLogging {
 
         case _ =>
           triggerIDCalculation(scanResult.root,
-            MediumID(pathToURI(scanResult.root), None, ArchiveComponentID), e._2)
+            MediumID(pathToURI(scanResult.root), None, config.archiveName), e._2)
       }
     }
 
@@ -502,7 +502,7 @@ Actor with ActorLogging {
     if (mediaInformationComplete) {
       sendOrCacheMessage(metaDataManager, AvailableMedia(mediaMap))
       sendOrCacheMessage(mediaUnionActor,
-        AddMedia(mediaMap, ArchiveComponentID, None))
+        AddMedia(mediaMap, config.archiveName, None))
       completeScanOperation()
       true
     } else false
