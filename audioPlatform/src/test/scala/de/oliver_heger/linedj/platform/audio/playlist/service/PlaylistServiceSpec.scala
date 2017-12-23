@@ -119,6 +119,19 @@ class PlaylistServiceSpec extends FlatSpec with Matchers {
     PlaylistService.currentSong(play) should be(None)
   }
 
+  it should "return the index of the current song from a playlist if it is the first" in {
+    val Pos = 4
+    val play = createPlaylist(Pos)
+
+    PlaylistService.currentIndex(play).get should be(Pos)
+  }
+
+  it should "return None for the current index if there is no current song" in {
+    val play = createPlaylist(SongCount)
+
+    PlaylistService.currentIndex(play) should be(None)
+  }
+
   it should "move a playlist to the next song if possible" in {
     val play = createPlaylist(0)
 

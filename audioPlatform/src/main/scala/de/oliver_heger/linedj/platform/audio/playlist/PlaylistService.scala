@@ -50,6 +50,15 @@ trait PlaylistService {
   def currentSong(playlist: Playlist): Option[AudioSourcePlaylistInfo]
 
   /**
+    * Returns the (0-based) index of the current song in the specified
+    * playlist. If the playlist has no current song, result is ''None''.
+    *
+    * @param playlist the ''Playlist''
+    * @return an ''Option'' with the index of the current song
+    */
+  def currentIndex(playlist: Playlist): Option[Int]
+
+  /**
     * Returns a new ''Playlist'' instance whose current position is moved to
     * the next song. This method can be used for instance when playback of the
     * current song has finished, to switch to the next song which is pending.

@@ -32,6 +32,9 @@ object PlaylistService extends de.oliver_heger.linedj.platform.audio.playlist.Pl
   override def currentSong(playlist: Playlist): Option[AudioSourcePlaylistInfo] =
     playlist.pendingSongs.headOption
 
+  override def currentIndex(playlist: Playlist): Option[Int] =
+    currentSong(playlist) map (_ => playlist.playedSongs.size)
+
   override def moveForwards(playlist: Playlist): Option[Playlist] =
     playlist.pendingSongs match {
       case h :: t =>

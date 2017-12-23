@@ -244,10 +244,15 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
     * @param playlist the ''Playlist''
     * @return an object with the current position
     */
-  private def extractPosition(playlist: Playlist): CurrentPlaylistPosition =
-    plService.currentSong(playlist) map { current =>
-      CurrentPlaylistPosition(playlist.playedSongs.size, current.skip, current.skipTime)
+  private def extractPosition(playlist: Playlist): CurrentPlaylistPosition = {
+    val currentInfo = for {
+      song <- plService.currentSong(playlist)
+      idx <- plService.currentIndex(playlist)
+    } yield (song, idx)
+    currentInfo map { current =>
+      CurrentPlaylistPosition(current._2, current._1.skip, current._1.skipTime)
     } getOrElse CurrentPlaylistPosition(plService.size(playlist), 0, 0)
+  }
 
   /**
     * Checks whether a relevant change in the playlist position took place. If
