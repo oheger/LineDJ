@@ -68,7 +68,8 @@ lazy val LineDJ = (project in file("."))
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler)
+  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
+  audioPlayerUI)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -686,6 +687,25 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.playlist.persistence.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+
+/**
+  * Project for the audio player UI. This project implements a UI for an
+  * audio player.
+  */
+lazy val audioPlayerUI = (project in file("audioPlayerUI"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(osgiSettings: _*)
+  .settings(
+    name := "linedj-audio-player-ui",
+    libraryDependencies ++= jguiraffeDependencies,
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.player.ui.*"
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
