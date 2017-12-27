@@ -1,0 +1,309 @@
+/*
+ * Copyright 2015-2017 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.player.ui
+
+import de.oliver_heger.linedj.platform.audio.model.{DurationTransformer, SongData}
+import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
+import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler,
+  TableHandler}
+import org.apache.commons.configuration.Configuration
+
+import scala.concurrent.duration._
+
+object CurrentSongController {
+  /** Common prefix for all configuration keys. */
+  val ConfigPrefix = "audio.ui."
+
+  /**
+    * Configuration property for the maximum size of fields in the UI. If a
+    * text to be displayed exceeds this value, it is "rotated"; i.e. it is
+    * scrolled through the field, so that the full content can be seen.
+    */
+  val PropMaxFieldSize: String = ConfigPrefix + "maxFieldSize"
+
+  /**
+    * Configuration property defining the speed for scrolling in UI fields. The
+    * property value is an integer interpreted as divisor for the playback
+    * time. A value of 1 means that for each second 1 letter is scrolled; 2
+    * means that every 2 seconds one letter is scrolled, etc.
+    */
+  val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
+
+  /** Constant for an empty/undefined field. */
+  private val Empty = ""
+
+  /** Constant for an unknown duration. */
+  private val UnknownDuration = "?"
+
+  /**
+    * A function to calculate a single value to be assigned to a field in the
+    * details pane when the current song in the playlist changes.
+    */
+  private type PlaylistUpdateFunc = CurrentSongData => String
+
+  /**
+    * A function to calculate the value of a field if there is a change in the
+    * playback time.
+    */
+  private type TimeUpdateFunc = Long => String
+
+  /**
+    * Generates the text to be displayed for the album. Here also the track
+    * number is embedded if it is defined.
+    *
+    * @param data the current song data
+    * @return the text for the album field
+    */
+  private def generateAlbumValue(data: CurrentSongData): String = {
+    val track = data.song.metaData.trackNumber.map(t => s" ($t)").getOrElse(Empty)
+    s"${data.song.album}$track"
+  }
+
+  /**
+    * Returns the function to update the time field if there is a change in
+    * the playback time. The update is based on the data of the current song.
+    *
+    * @param data the current song
+    * @return the function to update the time field
+    */
+  private def updateTimeFieldFunc(data: CurrentSongData): TimeUpdateFunc =
+    time => s"${DurationTransformer.formatDuration(time.seconds.toMillis)} / ${data.sDuration}"
+
+  /**
+    * Returns a function to rotate a UI field based on the playback time.
+    *
+    * @param text   the text to be rotated
+    * @param maxLen the maximum field length
+    * @param speed  the rotation speed
+    * @return the rotation function
+    */
+  private def rotateFunc(text: String, maxLen: Int, speed: Int): TimeUpdateFunc = {
+    val rotateText = text + text
+    time => {
+      val ofs = (time.toInt / speed) % text.length
+      rotateText.substring(ofs, ofs + maxLen)
+    }
+  }
+
+  /**
+    * Generates a map with the texts to be written into the details fields.
+    *
+    * @param funcs the map with the update functions
+    * @param data  data about the current song
+    * @return a map with handlers and the text to be assigned to them
+    */
+  private def fieldValues(funcs: Map[StaticTextHandler, PlaylistUpdateFunc],
+                          data: CurrentSongData): Map[StaticTextHandler, String] =
+    funcs map (e => (e._1, e._2(data)))
+
+  /**
+    * Internally used data class with all information about the current song in
+    * the playlist.
+    *
+    * @param index        the index in the playlist
+    * @param playlistSize the size of the playlist
+    * @param song         the current song
+    * @param sDuration    the formatted duration
+    */
+  private case class CurrentSongData(index: Int, playlistSize: Int, song: SongData,
+                                     sDuration: String)
+
+}
+
+/**
+  * A class responsible for managing UI controls that display detail
+  * information about the currently played song.
+  *
+  * The UI of the audio player application mainly consists of a table with the
+  * songs in the playlist and a panel showing detail information about the
+  * current song. This controller is responsible for the latter. Whenever there
+  * is a change in the current song (or its data), the text elements in the
+  * details panel have to be updated accordingly. To keep track on the playback
+  * time, an instance is also informed about playback progress events.
+  *
+  * Sometimes the titles of songs or albums are pretty long and cannot be
+  * displayed fully in the UI. To handle this, a ''rotation mode'' is
+  * supported. If the length of a property exceeds a configurable length, it is
+  * rotated, i.e. it scrolls through its value. Scrolling depends on incoming
+  * playback events and some configuration settings. Basically, the playback
+  * time is divided by a configurable scroll speed. The result is then used as
+  * offset of the first character of the property to be displayed.
+  *
+  * @param tableHandler    the handler for the playlist table
+  * @param config          the application's configuration
+  * @param txtTitle        text control for the tile
+  * @param txtArtist       text control for the artist
+  * @param txtAlbum        text control for the album
+  * @param txtTime         text control for the playback time
+  * @param txtIndex        text control for the index in the playlist
+  * @param txtYear         text control for the year
+  * @param progressHandler the playback progress bar
+  */
+class CurrentSongController(tableHandler: TableHandler, config: Configuration,
+                            txtTitle: StaticTextHandler, txtArtist: StaticTextHandler,
+                            txtAlbum: StaticTextHandler, txtTime: StaticTextHandler,
+                            txtIndex: StaticTextHandler, txtYear: StaticTextHandler,
+                            progressHandler: ProgressBarHandler) {
+
+  import CurrentSongController._
+
+  /**
+    * The functions to be executed when there is a change in the current song.
+    */
+  private val playlistUpdateFunctions = createPlaylistUpdateFunctions()
+
+  /**
+    * The functions to be executed when a playback progress event arrives
+    * indicating a change in the playback time.
+    */
+  private var timeUpdateFunctions = Map.empty[StaticTextHandler, TimeUpdateFunc]
+
+  /**
+    * Stores the latest current song. This is used to find out whether there is
+    * a change that needs to be reflected in the UI.
+    */
+  private var currentSong: Option[CurrentSongData] = None
+
+  /**
+    * Notifies this controller that there was a change in the state of the
+    * playlist. If necessary, the UI controls in the details panel are
+    * updated.
+    */
+  def playlistStateChanged(): Unit = {
+    val optData = fetchCurrentSong()
+    if (optData != currentSong) {
+      optData match {
+        case Some(data) =>
+          updateDataForCurrentSong(data)
+        case None =>
+          clearAllFields()
+      }
+      currentSong = optData
+    }
+  }
+
+  /**
+    * Notifies this controller about a progress in the playback of the current
+    * song. Some of the fields managed by this controller depend on the current
+    * playback position and time. These have to be updated.
+    *
+    * @param event the playback progress event
+    */
+  def playlistProgress(event: PlaybackProgressEvent): Unit = {
+    timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime))
+    if (event.currentSource.length > 0) {
+      updateProgress(scala.math.round(100 * event.bytesProcessed.toFloat / event
+        .currentSource.length))
+    }
+  }
+
+  /**
+    * Updates the UI and some internal fields after a change of the current
+    * song in the playlist.
+    *
+    * @param data data about the new current song
+    */
+  private def updateDataForCurrentSong(data: CurrentSongData): Unit = {
+    val values = fieldValues(playlistUpdateFunctions, data)
+    values foreach (e => e._1 setText e._2)
+    updateProgress(0)
+    timeUpdateFunctions = createTimeUpdateFunctions(data,
+      config.getInt(PropMaxFieldSize, Integer.MAX_VALUE),
+      config.getInt(PropRotationSpeed, 1), values)
+  }
+
+  /**
+    * Generates a map with update functions for fields based on the playback
+    * time. The map always contains the field for the playback time itself;
+    * in addition, rotation functions for longer fields are added.
+    *
+    * @param data   data about the current song
+    * @param maxLen the maximum field length
+    * @param speed  the rotation speed
+    * @param texts  the map with current texts
+    * @return the map with time update functions
+    */
+  private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Int,
+                                        texts: Map[StaticTextHandler, String]):
+  Map[StaticTextHandler, TimeUpdateFunc] = {
+    val rotates = texts.filter(e => e._2.length >= maxLen)
+      .foldLeft(Map.empty[StaticTextHandler, TimeUpdateFunc]) { (m, e) =>
+        m + (e._1 -> rotateFunc(e._2, maxLen, speed))
+      }
+    rotates + (txtTime -> updateTimeFieldFunc(data))
+  }
+
+  /**
+    * Clears all fields in the details pane. This method is called if there is
+    * no current song in the playlist for which details could be displayed.
+    */
+  private def clearAllFields(): Unit = {
+    playlistUpdateFunctions.keys foreach (_.setText(Empty))
+    timeUpdateFunctions = Map.empty
+  }
+
+  /**
+    * Updates the progress bar control.
+    *
+    * @param v the value to be set
+    */
+  private def updateProgress(v: Int): Unit = {
+    progressHandler setValue v
+  }
+
+  /**
+    * Returns an ''Option'' with information about the current song. The
+    * information is obtained from the table handler, based on its current
+    * selection. If there is no selection, result is ''None''.
+    *
+    * @return an ''Option'' with data about the current song
+    */
+  private def fetchCurrentSong(): Option[CurrentSongData] = {
+    val index = tableHandler.getSelectedIndex
+    if (index < 0) None
+    else {
+      val songData = tableHandler.getModel.get(index).asInstanceOf[SongData]
+      Some(CurrentSongData(index + 1, tableHandler.getModel.size(),
+        songData, extractDuration(songData)))
+    }
+  }
+
+  /**
+    * Extracts the (formatted) duration of the specified song. If the duration
+    * is undefined, a default string is returned.
+    *
+    * @param songData the current song
+    * @return the formatted duration
+    */
+  private def extractDuration(songData: SongData): String =
+    songData.metaData.duration.map(d => DurationTransformer.formatDuration(d))
+      .getOrElse(UnknownDuration)
+
+  /**
+    * Generates the map with functions to be invoked when there is a change
+    * in the current song of the playlist.
+    *
+    * @return the map with playlist update functions
+    */
+  private def createPlaylistUpdateFunctions(): Map[StaticTextHandler, PlaylistUpdateFunc] =
+    Map(txtTitle -> (_.song.title),
+      txtArtist -> (_.song.artist),
+      txtAlbum -> generateAlbumValue,
+      txtIndex -> (data => s"${data.index} / ${data.playlistSize}"),
+      txtYear -> (_.song.metaData.inceptionYear.map(_.toString) getOrElse Empty),
+      txtTime -> (DurationTransformer.formatDuration(0) + " / " + _.sDuration))
+}
