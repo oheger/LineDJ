@@ -23,6 +23,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archiveadmin.MetaDataFilesController.MetaDataFileData
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper._
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
@@ -35,7 +36,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{Stat
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
+import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
@@ -155,7 +156,7 @@ object MetaDataFilesControllerSpec {
   * Test class for ''MetaDataFilesController''.
   */
 class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  FlatSpecLike with BeforeAndAfterAll with Matchers {
 
   import MetaDataFilesControllerSpec._
 
@@ -525,7 +526,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   /**
     * A test helper class managing the dependencies of a test instance.
     */
-  private class MetaDataFilesControllerTestHelper {
+  private class MetaDataFilesControllerTestHelper extends ActionTestHelper with MockitoSugar {
     /** A mock for the message bus. */
     val messageBus: MessageBus = createMessageBus()
 
@@ -547,12 +548,6 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     /** A mock for the window associated with the controller. */
     val window: Window = mock[Window]
 
-    /** A map with mock actions to be managed by the controller. */
-    val actions: Map[String, FormAction] = createActions()
-
-    /** A map with the current action enabled states. */
-    private var actionStates = Map.empty[String, Boolean]
-
     /** The current text for the status line. */
     private var textStatus: String = _
 
@@ -561,7 +556,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
 
     /** The test controller instance. */
     val controller = new MetaDataFilesController(actorSupport, appContext,
-      createActionStore(actions), tableHandler, statusHandler, progressIndicator)
+      initActionStore(), tableHandler, statusHandler, progressIndicator)
 
     /** A mock for the meta data manager actor. */
     private val metaDataManager = TestProbe().ref
@@ -607,7 +602,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     def resetMocks(): MetaDataFilesControllerTestHelper = {
       reset(progressIndicator, actorSupport)
-      actionStates = actionStates map(t => (t._1, false))
+      resetActionStates()
       this
     }
 
@@ -787,7 +782,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def verifyAction(name: String, enabled: Boolean): MetaDataFilesControllerTestHelper = {
-      actionStates(name) should be(enabled)
+      isActionEnabled(name) should be(enabled)
       this
     }
 
@@ -952,32 +947,6 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     }
 
     /**
-      * Generates a map with mock actions.
-      *
-      * @return the map with mock actions
-      */
-    private def createActions(): Map[String, FormAction] =
-    List("refreshAction", "removeFilesAction").map(n => (n, createAction(n))).toMap
-
-    /**
-      * Creates a mock action that is able to record its enabled state.
-      *
-      * @param name the name of the action
-      * @return the mock action
-      */
-    private def createAction(name: String): FormAction = {
-      val action = mock[FormAction]
-      doAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          val enabled = invocation.getArguments.head.asInstanceOf[Boolean]
-          actionStates += (name -> enabled)
-          null
-        }
-      }).when(action).setEnabled(anyBoolean())
-      action
-    }
-
-    /**
       * Creates a mock for the status line text handler which records the
       * current status text.
       *
@@ -995,18 +964,14 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     }
 
     /**
-      * Creates a mock action store object that supports the specified actions.
+      * Initializes the mock actions used by this test class and creates a mock
+      * action store object that supports them.
       *
-      * @param actions a map with mock actions
       * @return the mock action store
       */
-    private def createActionStore(actions: Map[String, FormAction]): ActionStore = {
-      val store = mock[ActionStore]
-      when(store.getAction(anyString())).thenAnswer(new Answer[FormAction] {
-        override def answer(invocation: InvocationOnMock): FormAction =
-          actions(invocation.getArguments.head.asInstanceOf[String])
-      })
-      store
+    private def initActionStore(): ActionStore = {
+      createActions("refreshAction", "removeFilesAction")
+      createActionStore()
     }
 
     /**
