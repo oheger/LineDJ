@@ -16,6 +16,9 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
+import java.util
+import java.util.Collections
+
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
@@ -56,5 +59,26 @@ class ConsumerRegistrationProcessorSpec extends FlatSpec with Matchers with Mock
     inOrder.verify(bus).publish(reg2)
     inOrder.verify(bus).publish(reg3)
     inOrder.verify(bus).publish(reg4)
+  }
+
+  it should "handle the removal of registrations" in {
+    val bus = mock[MessageBus]
+    val reg1, reg2 = mock[ConsumerRegistration[String]]
+    val unReg1, unReg2 = new Object
+    doReturn(unReg1).when(reg1).unRegistration
+    doReturn(unReg2).when(reg2).unRegistration
+    val providers = Collections.singletonList(createProvider(reg1, reg2))
+    val processor = new ConsumerRegistrationProcessor(providers)
+    processor setMessageBus bus
+
+    processor.removeRegistrations()
+    verify(bus).publish(unReg1)
+    verify(bus).publish(unReg2)
+  }
+
+  it should "handle the removal of registrations if it has not been initialized before" in {
+    val processor = new ConsumerRegistrationProcessor(new util.ArrayList)
+
+    processor.removeRegistrations() // should not crash
   }
 }
