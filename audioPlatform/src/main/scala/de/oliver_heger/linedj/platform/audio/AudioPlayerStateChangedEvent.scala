@@ -51,7 +51,9 @@ case class AudioPlayerStateChangedEvent(state: AudioPlayerState,
 case class AudioPlayerStateChangeRegistration(override val id: ComponentID,
                                               override val callback:
                                               ConsumerFunction[AudioPlayerStateChangedEvent])
-  extends ConsumerRegistration[AudioPlayerStateChangedEvent]
+  extends ConsumerRegistration[AudioPlayerStateChangedEvent] {
+  override def unRegistration: AnyRef = AudioPlayerStateChangeUnregistration(id)
+}
 
 /**
   * A message class representing the removal of a registration for audio player

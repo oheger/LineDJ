@@ -45,7 +45,9 @@ case class ApplicationWindowState(appsWithTitle: Iterable[(ClientApplication, St
 case class WindowStateConsumerRegistration(override val id: ComponentID,
                                            override val callback:
                                            ConsumerFunction[ApplicationWindowState])
-  extends ConsumerRegistration[ApplicationWindowState]
+  extends ConsumerRegistration[ApplicationWindowState] {
+  override def unRegistration: AnyRef = WindowStateConsumerUnregistration(id)
+}
 
 /**
   * A message class to remove a consumer registration for the

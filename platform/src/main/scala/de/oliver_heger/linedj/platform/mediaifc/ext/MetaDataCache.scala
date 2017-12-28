@@ -41,7 +41,9 @@ object MetaDataCache {
     */
   case class MetaDataRegistration(mediumID: MediumID, override val id: ComponentID,
                                   override val callback: ConsumerFunction[MetaDataChunk])
-    extends ConsumerRegistration[MetaDataChunk]
+    extends ConsumerRegistration[MetaDataChunk] {
+    override def unRegistration: AnyRef = RemoveMetaDataRegistration(mediumID, id)
+  }
 
   /**
     * A message class processed by [[MetaDataCache]] to remove the registration

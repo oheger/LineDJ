@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
-import de.oliver_heger.linedj.platform.bus.Identifiable
+import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
@@ -322,6 +322,14 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     helper send AudioSourceFinishedEvent(createAudioSource(3),
       time = LocalDateTime.now().minusMinutes(1))
     helper.lastStateEvent should be(event)
+  }
+
+  it should "create a correct un-registration object for a registration" in {
+    val id = ComponentID()
+    val reg = AudioPlayerStateChangeRegistration(id, null)
+
+    val unReg = reg.unRegistration
+    unReg should be(AudioPlayerStateChangeUnregistration(id))
   }
 
   /**

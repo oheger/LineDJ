@@ -388,6 +388,14 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .numberOfUpdates should be(0)
   }
 
+  it should "create a correct un-registration object for a registration" in {
+    val id = ComponentID()
+    val reg = PlaylistMetaDataRegistration(id, null)
+
+    val unReg = reg.unRegistration
+    unReg should be(PlaylistMetaDataUnregistration(id))
+  }
+
   /**
     * Test helper class managing a test instance and all of its dependencies.
     *

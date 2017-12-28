@@ -353,6 +353,13 @@ class WindowHidingApplicationManagerSpec extends FlatSpec with Matchers with Moc
     manager deactivate null
     manager.tearDownCount should be(1)
   }
+
+  it should "create a correct un-registration object for a registration" in {
+    val reg = createRegistration()
+
+    val unReg = reg.unRegistration
+    unReg should be(WindowStateConsumerUnregistration(reg.id))
+  }
 }
 
 /**

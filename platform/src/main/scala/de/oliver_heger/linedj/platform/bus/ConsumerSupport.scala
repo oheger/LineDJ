@@ -51,6 +51,15 @@ object ConsumerSupport {
       * @return this consumer's callback function
       */
     def callback: ConsumerFunction[C]
+
+    /**
+      * Returns an object to be published on the event bus in order to remove
+      * this consumer registration. This method can be used by an automatic
+      * mechanism to remove consumer registrations when a component shuts down.
+      *
+      * @return an object to remove this consumer registration
+      */
+    def unRegistration: AnyRef
   }
 }
 

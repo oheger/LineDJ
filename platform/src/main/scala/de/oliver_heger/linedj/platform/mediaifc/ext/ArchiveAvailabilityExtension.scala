@@ -34,7 +34,9 @@ object ArchiveAvailabilityExtension {
     */
   case class ArchiveAvailabilityRegistration(override val id: ComponentID, override val callback:
   ConsumerFunction[MediaArchiveAvailabilityEvent]) extends
-    ConsumerRegistration[MediaArchiveAvailabilityEvent]
+    ConsumerRegistration[MediaArchiveAvailabilityEvent] {
+    override def unRegistration: AnyRef = ArchiveAvailabilityUnregistration(id)
+  }
 
   /**
     * A message class for removing consumers for archive availability events.

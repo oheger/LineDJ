@@ -35,7 +35,9 @@ object StateListenerExtension {
     */
   case class StateListenerRegistration(override val id: ComponentID,
                                        override val callback: ConsumerFunction[MetaDataStateEvent])
-    extends ConsumerRegistration[MetaDataStateEvent]
+    extends ConsumerRegistration[MetaDataStateEvent] {
+    override def unRegistration: AnyRef = StateListenerUnregistration(id)
+  }
 
   /**
     * A message class used to remove a state listener removed. When

@@ -504,4 +504,11 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     verifyMetaDataRequest(facade, expTimes = 2)
     cache.numberOfEntries should be(0)
   }
+
+  it should "create a correct un-registration object from a registration" in {
+    val reg = MetaDataRegistration(Medium, TestComponentID, null)
+
+    val unReg = reg.unRegistration
+    unReg should be(RemoveMetaDataRegistration(Medium, TestComponentID))
+  }
 }

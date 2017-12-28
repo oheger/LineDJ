@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -70,5 +70,12 @@ class ArchiveAvailabilityExtensionSpec extends FlatSpec with Matchers with Mocki
     ext receive MediaFacade.MediaArchiveAvailable
     ext receive reg
     verify(reg.callback).apply(MediaFacade.MediaArchiveAvailable)
+  }
+
+  it should "generate a correct un-registration object" in {
+    val reg = createRegistration()
+
+    val unReg = reg.unRegistration
+    unReg should be(ArchiveAvailabilityUnregistration(reg.id))
   }
 }

@@ -217,4 +217,11 @@ class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSug
     ext receive MetaDataScanStarted
     verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
   }
+
+  it should "create an un-registration object from a registration" in {
+    val reg = createRegistration()
+
+    val unReg = reg.unRegistration
+    unReg should be(AvailableMediaUnregistration(reg.id))
+  }
 }

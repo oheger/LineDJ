@@ -37,7 +37,9 @@ object AvailableMediaExtension {
     */
   case class AvailableMediaRegistration(override val id: ComponentID,
                                         override val callback: ConsumerFunction[AvailableMedia])
-    extends ConsumerRegistration[AvailableMedia]
+    extends ConsumerRegistration[AvailableMedia] {
+    override def unRegistration: AnyRef = AvailableMediaUnregistration(id)
+  }
 
   /**
     * A message class used to remove a consumer for [[AvailableMedia]] objects.

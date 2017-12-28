@@ -125,4 +125,11 @@ class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSuga
     ext receive reg
     verify(reg.callback, never()).apply(State)
   }
+
+  it should "create an un-registration object from a registration" in {
+    val reg = createRegistration()
+
+    val unReg = reg.unRegistration
+    unReg should be(StateListenerUnregistration(reg.id))
+  }
 }
