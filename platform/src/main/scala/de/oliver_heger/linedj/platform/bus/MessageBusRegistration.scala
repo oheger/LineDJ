@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
  *
  * @param listeners a collection with the listeners to be registered
  */
-class MessageBusRegistration(listeners: java.util.Collection[MessageBusListener]) {
+class MessageBusRegistration(val listeners: java.util.Collection[MessageBusListener]) {
   /** The message bus. */
   private var messageBus: MessageBus = _
 
