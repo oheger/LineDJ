@@ -26,7 +26,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.audio.AudioPlayerStateChangeRegistration
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
@@ -89,7 +89,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.activate().verifyMessageBusRegistration()
   }
 
-  it should "add a service registrations for managed objects" in {
+  it should "add service registrations for managed objects" in {
     val helper = new ComponentTestHelper
 
     helper.activate().verifyOsgiServiceRegistrations()
@@ -370,6 +370,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
         .map(_ => messageBus.expectMessageType[RegisterService].service).toSet
       dependencies should contain only(AudioPlatformComponent.PlayerControllerDependency,
         AudioPlatformComponent.PlaylistMetaDataResolverDependency)
+      val consumerReg = messageBus.expectMessageType[AudioPlayerStateChangeRegistration]
+      consumerReg should be(metaDataResolver.playerStateChangeRegistration)
       this
     }
 
@@ -380,6 +382,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyOsgiServiceDeRegistrations(): ComponentTestHelper = {
+      val consumerDeReg = messageBus.expectMessageType[AudioPlayerStateChangeUnregistration]
+      consumerDeReg.id should be(metaDataResolver.componentID)
       val dependencies = (1 to ServiceCount)
         .map(_ => messageBus.expectMessageType[UnregisterService].service).toSet
       dependencies should contain only(AudioPlatformComponent.PlayerControllerDependency,
@@ -411,7 +415,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def skipOsgiServiceRegistrations(): ComponentTestHelper = {
-      (1 to ServiceCount) foreach (_ => skipMessage())
+      (1 to ServiceCount + 1) foreach (_ => skipMessage())
       this
     }
 

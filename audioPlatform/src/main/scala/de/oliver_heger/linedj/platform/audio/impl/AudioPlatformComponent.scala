@@ -158,6 +158,9 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     */
   private var playbackContextFactories = List.empty[PlaybackContextFactory]
 
+  /** The meta data resolver object. */
+  private var playlistMetaDataResolver: Option[PlaylistMetaDataResolver] = None
+
   /** The message bus listener registration ID for the player controller. */
   private var playerControllerRegistrationID = 0
 
@@ -236,12 +239,17 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     playerControllerRegistrationID = registerService(controller, PlayerControllerDependency)
     metaDataResolverRegistrationID =
       registerService(metaDataResolver, PlaylistMetaDataResolverDependency)
+    clientApplicationContext.messageBus publish metaDataResolver.playerStateChangeRegistration
+    playlistMetaDataResolver = Some(metaDataResolver)
   }
 
   /**
     * @inheritdoc This implementation cleans up all registrations done before.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
+    playlistMetaDataResolver foreach { r =>
+      clientApplicationContext.messageBus publish r.playerStateChangeRegistration.unRegistration
+    }
     unregisterService(PlayerControllerDependency, playerControllerRegistrationID)
     unregisterService(PlaylistMetaDataResolverDependency, metaDataResolverRegistrationID)
     closeAudioPlayer()
