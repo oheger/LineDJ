@@ -707,6 +707,11 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.player.ui.*"
     ),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      "de.oliver_heger.linedj.platform.mediaifc.ext",
+      "de.oliver_heger.linedj.platform.audio.playlist.service",
+      "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
