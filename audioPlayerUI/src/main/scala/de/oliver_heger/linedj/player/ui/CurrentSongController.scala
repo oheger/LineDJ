@@ -18,9 +18,7 @@ package de.oliver_heger.linedj.player.ui
 
 import de.oliver_heger.linedj.platform.audio.model.{DurationTransformer, SongData}
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
-import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler,
-  TableHandler}
-import org.apache.commons.configuration.Configuration
+import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
 import scala.concurrent.duration._
 
@@ -153,7 +151,7 @@ object CurrentSongController {
   * @param txtYear         text control for the year
   * @param progressHandler the playback progress bar
   */
-class CurrentSongController(tableHandler: TableHandler, config: Configuration,
+class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfig,
                             txtTitle: StaticTextHandler, txtArtist: StaticTextHandler,
                             txtAlbum: StaticTextHandler, txtTime: StaticTextHandler,
                             txtIndex: StaticTextHandler, txtYear: StaticTextHandler,
@@ -243,8 +241,7 @@ class CurrentSongController(tableHandler: TableHandler, config: Configuration,
     values foreach (e => e._1 setText e._2)
     updateProgress(0)
     timeUpdateFunctions = createTimeUpdateFunctions(data,
-      config.getInt(PropMaxFieldSize, Integer.MAX_VALUE),
-      config.getInt(PropRotationSpeed, 1), values)
+      config.maxUIFieldSize, config.rotationSpeed, values)
   }
 
   /**

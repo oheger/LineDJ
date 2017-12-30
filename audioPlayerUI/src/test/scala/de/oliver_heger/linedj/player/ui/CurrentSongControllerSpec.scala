@@ -23,9 +23,8 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler,
-  TableHandler}
-import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
+import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -82,11 +81,11 @@ object CurrentSongControllerSpec {
     * @return the application configuration
     */
   private def createUIConfig(fieldSize: Option[Int] = None, speed: Option[Int] = None):
-  Configuration = {
+  AudioPlayerConfig = {
     val config = new PropertiesConfiguration
-    fieldSize.foreach(s => config.addProperty(CurrentSongController.PropMaxFieldSize, s))
-    speed.foreach(s => config.addProperty(CurrentSongController.PropRotationSpeed, s))
-    config
+    fieldSize.foreach(s => config.addProperty(AudioPlayerConfig.PropMaxFieldSize, s))
+    speed.foreach(s => config.addProperty(AudioPlayerConfig.PropRotationSpeed, s))
+    AudioPlayerConfig(config)
   }
 
   /**
@@ -298,7 +297,7 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
     *
     * @param config the configuration for the UI application
     */
-  private class ControllerTestHelper(config: Configuration = createUIConfig()) {
+  private class ControllerTestHelper(config: AudioPlayerConfig = createUIConfig()) {
     /** The collection serving as table model. */
     private val tableModel = createTableModel()
 
