@@ -184,16 +184,19 @@ class CurrentSongController(tableHandler: TableHandler, config: Configuration,
     * updated.
     */
   def playlistStateChanged(): Unit = {
-    val optData = fetchCurrentSong()
-    if (optData != currentSong) {
-      optData match {
-        case Some(data) =>
-          updateDataForCurrentSong(data)
-        case None =>
-          clearAllFields()
-      }
-      currentSong = optData
-    }
+    handlePlaylistChange(fetchCurrentSong())
+  }
+
+  /**
+    * Notifies this controller that there was a change in the data of the
+    * playlist. (Probably new meta data arrived.) If the current song is
+    * affected, the UI has to be updated.
+    *
+    * @param current an ''Option'' with the index of the current song in the
+    *                playlist
+    */
+  def playlistDataChanged(current: Option[Int]): Unit = {
+    handlePlaylistChange(current map (c => createCurrentSongData(c)))
   }
 
   /**
@@ -208,6 +211,24 @@ class CurrentSongController(tableHandler: TableHandler, config: Configuration,
     if (event.currentSource.length > 0) {
       updateProgress(scala.math.round(100 * event.bytesProcessed.toFloat / event
         .currentSource.length))
+    }
+  }
+
+  /**
+    * Handles a change of the playlist. If the change affects the current song,
+    * the UI is updated accordingly.
+    *
+    * @param optData an ''Option'' with information about the current song
+    */
+  private def handlePlaylistChange(optData: Option[CurrentSongData]): Unit = {
+    if (optData != currentSong) {
+      optData match {
+        case Some(data) =>
+          updateDataForCurrentSong(data)
+        case None =>
+          clearAllFields()
+      }
+      currentSong = optData
     }
   }
 
@@ -275,11 +296,19 @@ class CurrentSongController(tableHandler: TableHandler, config: Configuration,
   private def fetchCurrentSong(): Option[CurrentSongData] = {
     val index = tableHandler.getSelectedIndex
     if (index < 0) None
-    else {
-      val songData = tableHandler.getModel.get(index).asInstanceOf[SongData]
-      Some(CurrentSongData(index + 1, tableHandler.getModel.size(),
-        songData, extractDuration(songData)))
-    }
+    else Some(createCurrentSongData(index))
+  }
+
+  /**
+    * Creates a ''CurrentSongData'' object from the given input.
+    *
+    * @param index the index in the playlist
+    * @return the ''CurrentSongData''
+    */
+  private def createCurrentSongData(index: Int): CurrentSongData = {
+    val songData = tableHandler.getModel.get(index).asInstanceOf[SongData]
+    CurrentSongData(index + 1, tableHandler.getModel.size(),
+      songData, extractDuration(songData))
   }
 
   /**

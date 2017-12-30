@@ -191,6 +191,30 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
       .verifyDuration("").verifyYear("").verifyIndex("")
   }
 
+  it should "update the current song on a playlist data change" in {
+    val helper = new ControllerTestHelper
+
+    helper.triggerPlaylistDataChanged(Some(Index))
+      .verifyTitle()
+      .verifyIndex(s"${Index + 1} / $PlaylistSize")
+  }
+
+  it should "update the current song on a playlist data change only if needed" in {
+    val helper = new ControllerTestHelper
+
+    helper.triggerPlaylistDataChanged(Some(Index))
+        .triggerPlaylistDataChanged(Some(Index))
+      .verifyTitle()
+  }
+
+  it should "clear all fields if the current song on a data change is None" in {
+    val helper = new ControllerTestHelper
+
+    helper.triggerPlaylistChanged()
+      .triggerPlaylistDataChanged(None)
+      .verifyTitle("")
+  }
+
   it should "update the playback time on a progress event" in {
     val helper = new ControllerTestHelper
 
@@ -312,6 +336,18 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
       */
     def triggerPlaylistChanged(): ControllerTestHelper = {
       controller.playlistStateChanged()
+      this
+    }
+
+    /**
+      * Notifies the test controller about a change in the data of the
+      * playlist.
+      *
+      * @param current the index of the current song
+      * @return this test helper
+      */
+    def triggerPlaylistDataChanged(current: Option[Int]): ControllerTestHelper = {
+      controller.playlistDataChanged(current)
       this
     }
 

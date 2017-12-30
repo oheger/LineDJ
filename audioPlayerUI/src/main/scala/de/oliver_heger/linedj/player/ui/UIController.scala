@@ -157,7 +157,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     */
   private def consumePlaylistMetaDataChanged(meta: PlaylistMetaData): Unit = {
     playlistTableController handleMetaDataUpdate meta
-    currentSongController.playlistStateChanged()
+    currentSongController.playlistDataChanged(plService currentIndex currentState.playlist)
   }
 
   /**

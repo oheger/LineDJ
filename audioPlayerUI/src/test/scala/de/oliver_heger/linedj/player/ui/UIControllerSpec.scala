@@ -17,14 +17,11 @@
 package de.oliver_heger.linedj.player.ui
 
 import de.oliver_heger.linedj.platform.ActionTestHelper
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerState,
-  AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData,
-  PlaylistMetaDataRegistration, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo,
-  PlaybackProgressEvent}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.Matchers.any
 import org.mockito.Mockito
@@ -88,10 +85,14 @@ class UIControllerSpec extends FlatSpec with Matchers {
 
   it should "pass playlist meta data to the playlist table controller" in {
     val meta = PlaylistMetaData(Map.empty)
+    val state = createState(playing = false)
+    val optIndex = Some(42)
     val helper = new ControllerTestHelper
 
-    helper.metaDataChanged(meta)
-      .verifyMetaDataPassedToSubController(meta)
+    helper.playerStateChanged(state)
+      .expectCurrentSongIndex(state, optIndex)
+      .metaDataChanged(meta)
+      .verifyMetaDataPassedToSubController(meta, optIndex)
   }
 
   it should "pass a playlist progress event to the current song controller" in {
@@ -248,13 +249,15 @@ class UIControllerSpec extends FlatSpec with Matchers {
       * Verifies that the specified meta data has been passed to the correct
       * sub controllers.
       *
-      * @param meta the expected meta data
+      * @param meta   the expected meta data
+      * @param optIdx the optional index in the playlist
       * @return this test helper
       */
-    def verifyMetaDataPassedToSubController(meta: PlaylistMetaData): ControllerTestHelper = {
+    def verifyMetaDataPassedToSubController(meta: PlaylistMetaData, optIdx: Option[Int]):
+    ControllerTestHelper = {
       val io = Mockito.inOrder(tableController, currentSongController)
       io.verify(tableController).handleMetaDataUpdate(meta)
-      io.verify(currentSongController).playlistStateChanged()
+      io.verify(currentSongController).playlistDataChanged(optIdx)
       this
     }
 
@@ -336,6 +339,20 @@ class UIControllerSpec extends FlatSpec with Matchers {
       */
     def prepareEmptyPlaylist(state: AudioPlayerState): ControllerTestHelper = {
       when(plService.currentSong(state.playlist)).thenReturn(None)
+      this
+    }
+
+    /**
+      * Prepares the mock for the playlist service to report the specified
+      * current song index.
+      *
+      * @param state   the expected state
+      * @param current the option for the current song
+      * @return this test helper
+      */
+    def expectCurrentSongIndex(state: AudioPlayerState, current: Option[Int]):
+    ControllerTestHelper = {
+      when(plService.currentIndex(state.playlist)).thenReturn(current)
       this
     }
 
