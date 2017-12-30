@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup,
-  ApplicationTestSupport, ClientApplication}
+import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -25,10 +24,28 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.scalatest.{FlatSpec, Matchers}
 
+object AudioPlayerAppSpec {
+  /** Test value for the rotation speed configuration property. */
+  private val RotationSpeed = 11
+}
+
 /**
   * Test class for ''AudioPlayerApp''.
   */
 class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupport {
+  import AudioPlayerAppSpec._
+
+  /**
+    * @inheritdoc This implementation adds properties to the configuration to
+    *             test whether the player configuration is constructed
+    *             correctly.
+    */
+  override def createClientApplicationContext(): ClientApplicationContext = {
+    val ctx = super.createClientApplicationContext()
+    ctx.managementConfiguration.addProperty(AudioPlayerConfig.PropRotationSpeed, RotationSpeed)
+    ctx
+  }
+
   /**
     * Obtains the bean for the UI controller from the current application
     * context.
@@ -74,6 +91,13 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
       actionStore.getActionNamesForGroup(UIController.PlayerActionGroup)).asScala
     playerActions.size should be > 0
     playerActions.forall(!_.isEnabled) shouldBe true
+  }
+
+  it should "create a bean for the configuration in the application context" in {
+    val application = activateApp(new AudioPlayerAppTestImpl(mockInitUI = true))
+
+    val config = queryBean[AudioPlayerConfig](application, AudioPlayerApp.BeanPlayerConfig)
+    config.rotationSpeed should be(RotationSpeed)
   }
 
   /**

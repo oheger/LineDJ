@@ -233,7 +233,7 @@
              beanClassName="de.oliver_heger.linedj.player.ui.CurrentSongController">
       <di:constructor>
         <di:param refName="comp:playlistTable"/>
-        <di:param refName="jguiraffe.configuration"/>
+        <di:param refName="audioPlayer.config"/>
         <di:param refName="comp:title"/>
         <di:param refName="comp:artist"/>
         <di:param refName="comp:albumAndTrack"/>
