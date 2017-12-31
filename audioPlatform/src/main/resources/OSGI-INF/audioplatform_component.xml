@@ -29,7 +29,7 @@
              name="mediaFacadeActors" bind="initFacadeActors"/>
 
   <reference interface="de.oliver_heger.linedj.player.engine.PlaybackContextFactory"
-             name="playbackContextFactory" bind="addPlaylistContextFactory"
-             unbind="removePlaylistContextFactory" cardinality="1..n"
+             name="playbackContextFactory" bind="addPlaybackContextFactory"
+             unbind="removePlaybackContextFactory" cardinality="1..n"
              policy="dynamic"/>
 </component>
