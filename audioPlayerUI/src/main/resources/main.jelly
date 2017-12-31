@@ -267,17 +267,26 @@
 
   <!-- Task for start playback action -->
   <di:bean name="startPlaybackTask"
-    beanClassName="java.lang.Thread">
+    beanClassName="de.oliver_heger.linedj.player.ui.StartPlaybackTask">
+    <di:constructor>
+      <di:param refName="uiController"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Task for stop playback action -->
   <di:bean name="stopPlaybackTask"
-    beanClassName="java.lang.Thread">
+    beanClassName="de.oliver_heger.linedj.player.ui.StopPlaybackTask">
+    <di:constructor>
+      <di:param refName="uiController"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Task for next song action -->
   <di:bean name="nextSongTask"
-    beanClassName="java.lang.Thread">
+    beanClassName="de.oliver_heger.linedj.player.ui.NextSongTask">
+    <di:constructor>
+      <di:param refName="uiController"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Task for previous song action -->
