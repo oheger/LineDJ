@@ -271,8 +271,8 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
-      .sendProgress(posOfs = 600, timeOfs = 0)
-      .verifyProgress(60)
+      .sendProgress(posOfs = 0, timeOfs = 88)
+      .verifyProgress(42)
   }
 
   it should "reset the position when the current song changes" in {
@@ -282,12 +282,12 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
       .verifyProgress(0)
   }
 
-  it should "handle a source with an invalid length when calculating progress" in {
-    val source = TestSource.copy(length = 0)
+  it should "handle a song with no duration when calculating progress" in {
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
-      .sendProgress(posOfs = 100, timeOfs = 1, source = source)
+    helper.updateCurrentMetaData(_.copy(duration = None))
+      .triggerPlaylistChanged()
+      .sendProgress(posOfs = 100, timeOfs = 1)
       .verifyProgress(0)
       .verifyNoMoreProgressUpdates()
   }

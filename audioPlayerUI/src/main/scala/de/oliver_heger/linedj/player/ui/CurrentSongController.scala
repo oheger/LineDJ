@@ -206,10 +206,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     */
   def playlistProgress(event: PlaybackProgressEvent): Unit = {
     timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime))
-    if (event.currentSource.length > 0) {
-      updateProgress(scala.math.round(100 * event.bytesProcessed.toFloat / event
-        .currentSource.length))
-    }
+    calcPlaybackProgress(event) foreach updateProgress
   }
 
   /**
@@ -273,6 +270,18 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     playlistUpdateFunctions.keys foreach (_.setText(Empty))
     timeUpdateFunctions = Map.empty
   }
+
+  /**
+    * Calculates the playback progress for the current song based on the
+    * passed in progress event.
+    *
+    * @param event the event
+    * @return an ''Option'' with the playback progress
+    */
+  private def calcPlaybackProgress(event: PlaybackProgressEvent): Option[Int] = for {
+    s <- currentSong
+    d <- s.song.metaData.duration
+  } yield scala.math.round(100 * event.playbackTime.seconds.toMillis.toFloat / d)
 
   /**
     * Updates the progress bar control.
