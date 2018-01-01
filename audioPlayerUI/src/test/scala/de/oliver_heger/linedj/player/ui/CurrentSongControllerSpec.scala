@@ -96,7 +96,7 @@ object CurrentSongControllerSpec {
     * @return the rotated text
     */
   private def rotate(s: String, by: Int): String =
-    (s + s).substring(by, MaxFieldSize + by)
+    (s + CurrentSongController.RotationSeparator + s).substring(by, MaxFieldSize + by)
 }
 
 /**
@@ -250,7 +250,7 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
   it should "handle larger offsets when rotating" in {
     val Offset = 12
-    val Time = Title.length * 5 + Offset
+    val Time = (Title.length + CurrentSongController.RotationSeparator.length) * 5 + Offset
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
 
     helper.triggerPlaylistChanged()

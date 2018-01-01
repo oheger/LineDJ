@@ -41,6 +41,12 @@ object CurrentSongController {
     */
   val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
 
+  /**
+    * A separator string used in rotated texts. The separator is inserted
+    * between one value and the start of the next one.
+    */
+  val RotationSeparator = " * "
+
   /** Constant for an empty/undefined field. */
   private val Empty = ""
 
@@ -90,9 +96,10 @@ object CurrentSongController {
     * @return the rotation function
     */
   private def rotateFunc(text: String, maxLen: Int, speed: Int): TimeUpdateFunc = {
-    val rotateText = text + text
+    val rotateText = text + RotationSeparator + text
+    val textLength = text.length + RotationSeparator.length
     time => {
-      val ofs = (time.toInt / speed) % text.length
+      val ofs = (time.toInt / speed) % textLength
       rotateText.substring(ofs, ofs + maxLen)
     }
   }
