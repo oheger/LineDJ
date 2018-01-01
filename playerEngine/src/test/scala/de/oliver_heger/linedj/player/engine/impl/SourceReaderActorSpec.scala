@@ -395,4 +395,30 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! PlaybackActor.GetAudioSource
     expectMsgType[AudioSource] should be theSameInstanceAs source
   }
+
+  it should "handle size updates for multiple sources" in {
+    val SourceLength1 = 100
+    val SourceLength2 = 80
+    val SourceLength3 = 70
+    val ChunkSize = 64
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    reader ! audioSource(1)
+    reader ! audioSource(2)
+    reader ! audioSource(3)
+    reader ! GetAudioSource
+    expectMsg(audioSource(1))
+    val fileReader = installFileReaderActor(reader)
+
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength1)
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength2)
+    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength3)
+    processSource(reader, fileReader, SourceLength1, ChunkSize)
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
+    processSource(reader, fileReader, SourceLength2, ChunkSize)
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
+    processSource(reader, fileReader, SourceLength3, ChunkSize)
+  }
 }

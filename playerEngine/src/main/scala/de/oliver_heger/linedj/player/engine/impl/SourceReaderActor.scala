@@ -65,15 +65,15 @@ object SourceReaderActor {
    * received. Only a single request for audio data can be handled at a given
    * time.
    */
-  val ErrorUnexpectedGetAudioData = "Unexpected GetAudioData message! A request for audio " +
-    "data is still in progress."
+  val ErrorUnexpectedGetAudioData: String = "Unexpected GetAudioData message! " +
+    "A request for audio data is still in progress."
 
   /**
    * An error message indicating an unexpected ''EndOfFile'' message. Such
    * messages should only occur when audio data is read.
    */
-  val ErrorUnexpectedEndOfFile = "Unexpected EndOfFile message! There is no current request " +
-    "for audio data."
+  val ErrorUnexpectedEndOfFile: String = "Unexpected EndOfFile message! " +
+    "There is no current request for audio data."
 
   /**
    * An error message indicating an unexpected ''AudioSourceDownloadCompleted''
@@ -118,6 +118,9 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   /** A queue for storing the audio sources in the current playlist. */
   private val sourceQueue = mutable.Queue.empty[AudioSource]
 
+  /** A queue for storing messages about completed audio sources. */
+  private val completedQueue = mutable.Queue.empty[AudioSourceDownloadCompleted]
+
   /**
    * Stores the reference to an actor which requested a new audio source. This
    * field is set when currently no audio source is available. As soon as one
@@ -141,6 +144,9 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
 
   /** The number of bytes read in the current source. */
   private var bytesReadInCurrentSource = 0L
+
+  /** A flag whether a completed message for the current source arrived. */
+  private var currentSourceCompleted = false
 
   /**
    * @inheritdoc This implementation directly requests a reader actor from the
@@ -229,8 +235,17 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   private def initCurrentAudioSource(client: ActorRef): AudioSource = {
     assert(sourceQueue.nonEmpty, "No sources available")
     val src = sourceQueue.dequeue()
-    client ! src
-    currentSource = Some(src)
+    val adaptedSrc = if (completedQueue.nonEmpty) {
+      val compl = completedQueue.dequeue()
+      currentSourceCompleted = true
+      if (src.length != compl.finalLength) src.copy(length = compl.finalLength)
+      else src
+    } else {
+      currentSourceCompleted = false
+      src
+    }
+    client ! adaptedSrc
+    currentSource = Some(adaptedSrc)
     bytesReadInCurrentSource = 0
     audioSourceRequest = None
     src
@@ -352,35 +367,38 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   }
 
   /**
-   * Handles a message about a completed download of an audio source.
-   * @param compl the completion message
-   */
+    * Handles a message about a completed download of an audio source.
+    *
+    * @param compl the completion message
+    */
   private def handleSourceDownloadCompleted(compl: AudioSourceDownloadCompleted): Unit = {
-    if (!adaptSourceLengthInQueue(compl)) {
-      if (currentSource.isDefined) {
-        currentSource = currentSource map (_.copy(length = compl.finalLength))
-      } else {
-        protocolError(compl, ErrorUnexpectedDownloadCompleted)
+    if (currentSourceCompleted) {
+      enqueueCompleted(compl)
+    } else {
+      currentSource match {
+        case Some(src) =>
+          if (src.length != compl.finalLength) {
+            currentSource = Some(src.copy(length = compl.finalLength))
+          }
+          currentSourceCompleted = true
+        case None =>
+          enqueueCompleted(compl)
       }
     }
   }
 
   /**
-   * Adapts the length of an audio source (whose download was completed) in the
-   * queue of sources if necessary.
-   * @param compl the download completed message
-   * @return a flag whether the affected audio source was part of the queue
-   */
-  private def adaptSourceLengthInQueue(compl: AudioSourceDownloadCompleted): Boolean = {
-    if (sourceQueue.nonEmpty) {
-      val lastSource = sourceQueue.last
-      if (lastSource.length != compl.finalLength) {
-        sourceQueue dequeueFirst (_ == lastSource)
-        sourceQueue += lastSource.copy(length = compl.finalLength)
-      }
-      true
+    * Adds a completed message for an audio source to the queue.
+    *
+    * @param compl the completed message
+    */
+  private def enqueueCompleted(compl: AudioSourceDownloadCompleted): Unit = {
+    val srcCount = sourceQueue.size + (if (currentSource.isDefined) 1 else 0)
+    if (completedQueue.size + 1 > srcCount) {
+      protocolError(compl, ErrorUnexpectedDownloadCompleted)
+    } else {
+      completedQueue += compl
     }
-    else false
   }
 }
 
