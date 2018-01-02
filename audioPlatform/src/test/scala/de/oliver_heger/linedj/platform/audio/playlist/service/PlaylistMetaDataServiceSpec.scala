@@ -17,9 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.playlist.service
 
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.platform.audio.playlist.{MetaDataResolveState, Playlist,
-  PlaylistMetaData}
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
+import de.oliver_heger.linedj.platform.audio.playlist.{MetaDataResolveState, Playlist, PlaylistMetaData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
@@ -108,7 +106,7 @@ object PlaylistMetaDataServiceSpec {
     * @return the playlist
     */
   private def createPlaylist(from: Int, to: Int): Playlist = {
-    val files = (from to to).map(i => AudioSourcePlaylistInfo(fileID(i), 0, 0)).toList
+    val files = (from to to).map(i => fileID(i)).toList
     Playlist(pendingSongs = files, playedSongs = Nil)
   }
 

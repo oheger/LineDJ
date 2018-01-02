@@ -72,8 +72,7 @@ object PlaylistMetaDataService
                                  factory: SongDataFactory):
   (MetaDataResolveDelta, MetaDataResolveState) = {
     val songs = PlaylistService.toSongList(playlist)
-      .map(s => factory.createSongData(s.sourceID,
-        state.metaData.getOrElse(s.sourceID, EmptyMetaData)))
+      .map(s => factory.createSongData(s, state.metaData.getOrElse(s, EmptyMetaData)))
       .zipWithIndex
     val unresolved = songs.map(e => (e._1.id, e._2))
     (MetaDataResolveDelta(resolvedSongs = songs, updatedRanges = List((0, songs.size - 1)),
