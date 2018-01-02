@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.playlist
 
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist.SongList
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
-
 /**
   * Interface for a service that allows basic operations on [[Playlist]]
   * objects.
@@ -26,10 +23,21 @@ import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
   * With the functions offered by this service the most basic properties of a
   * playlist can be queried. It is also possible to do some operations on
   * such objects.
+  *
+  * @tparam Playlist the type for the playlist
+  * @tparam Song     the type for the songs in the playlist
   */
-trait PlaylistService {
+trait PlaylistService[Playlist, Song] {
   /** Constant for a sequence number indicating an initial playlist. */
   final val SeqNoInitial = 0
+
+  /**
+    * Type definition for a list of songs. A ''Playlist'' may consist of one or
+    * multiple lists of this type. The difference between a ''SongList'' and a
+    * ''Playlist'' is that the former is only a sequence of songs while the
+    * latter also defines a position, i.e. the current song to be played.
+    */
+  type SongList = List[Song]
 
   /**
     * Returns the size of the specified ''Playlist''. This is the number of
@@ -47,7 +55,7 @@ trait PlaylistService {
     * @param playlist the ''Playlist''
     * @return an ''Option'' for the current song in the playlist
     */
-  def currentSong(playlist: Playlist): Option[AudioSourcePlaylistInfo]
+  def currentSong(playlist: Playlist): Option[Song]
 
   /**
     * Returns the (0-based) index of the current song in the specified

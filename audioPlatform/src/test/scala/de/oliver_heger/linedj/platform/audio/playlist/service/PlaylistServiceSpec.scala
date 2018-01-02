@@ -17,8 +17,6 @@
 package de.oliver_heger.linedj.platform.audio.playlist.service
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist.SongList
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -46,10 +44,8 @@ object PlaylistServiceSpec {
     * @param idx the index
     * @return the playlist item with this index
     */
-  private def item(idx: Int): AudioSourcePlaylistInfo = {
-    val fileId = MediaFileID(TestMedium, s"song://Song$idx.mp3")
-    AudioSourcePlaylistInfo(fileId, 0, 0)
-  }
+  private def item(idx: Int): MediaFileID =
+    MediaFileID(TestMedium, s"song://Song$idx.mp3")
 
   /**
     * Creates a sequence of test songs. Based on this sequence, test
@@ -58,7 +54,7 @@ object PlaylistServiceSpec {
     * @param count the number of songs in the list
     * @return the sequence of test songs
     */
-  private def createListOfSongs(count: Int = SongCount): SongList =
+  private def createListOfSongs(count: Int = SongCount): PlaylistService.SongList =
     (1 to count).map(item).toList
 
   /**
@@ -81,7 +77,7 @@ object PlaylistServiceSpec {
     * @param pos   the index of the item to be replaced
     * @return the manipulated list of songs
     */
-  private def differenceAt(songs: SongList, pos: Int): SongList = {
+  private def differenceAt(songs: PlaylistService.SongList, pos: Int): PlaylistService.SongList = {
     val itemToReplace = item(pos + 1)
     songs map { s =>
       if (s == itemToReplace) OtherItem else s

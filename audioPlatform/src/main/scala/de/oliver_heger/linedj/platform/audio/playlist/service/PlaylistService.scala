@@ -17,19 +17,19 @@
 package de.oliver_heger.linedj.platform.audio.playlist.service
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist.SongList
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 import scala.annotation.tailrec
 
 /**
   * Service implementation for the ''PlaylistService'' service.
   */
-object PlaylistService extends de.oliver_heger.linedj.platform.audio.playlist.PlaylistService {
+object PlaylistService extends
+  de.oliver_heger.linedj.platform.audio.playlist.PlaylistService[Playlist, MediaFileID] {
   override def size(playlist: Playlist): Int =
     playlist.pendingSongs.size + playlist.playedSongs.size
 
-  override def currentSong(playlist: Playlist): Option[AudioSourcePlaylistInfo] =
+  override def currentSong(playlist: Playlist): Option[MediaFileID] =
     playlist.pendingSongs.headOption
 
   override def currentIndex(playlist: Playlist): Option[Int] =

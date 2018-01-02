@@ -16,16 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio.playlist
 
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist.SongList
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
-
-object Playlist {
-  /**
-    * Type definition for a list of songs. Lists of this kind are used by
-    * ''Playlist'' instances.
-    */
-  type SongList = List[AudioSourcePlaylistInfo]
-}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 /**
   * A class representing a playlist.
@@ -43,4 +34,4 @@ object Playlist {
   * @param pendingSongs the list of songs that are to be played
   * @param playedSongs  the list of songs that have been played
   */
-case class Playlist(pendingSongs: SongList, playedSongs: SongList)
+case class Playlist(pendingSongs: List[MediaFileID], playedSongs: List[MediaFileID])
