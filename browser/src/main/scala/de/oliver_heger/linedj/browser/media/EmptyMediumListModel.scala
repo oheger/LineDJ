@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.platform.model.EmptyListModel
+import de.oliver_heger.linedj.platform.ui.EmptyListModel
 
 /**
  * A class representing the initial empty list model passed to the combo box

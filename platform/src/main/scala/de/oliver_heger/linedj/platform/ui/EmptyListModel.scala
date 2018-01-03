@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.model
+package de.oliver_heger.linedj.platform.ui
 
 import net.sf.jguiraffe.gui.builder.components.model.ListModel
 
