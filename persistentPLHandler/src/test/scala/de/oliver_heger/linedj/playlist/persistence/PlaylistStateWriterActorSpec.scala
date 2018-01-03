@@ -26,7 +26,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio.AudioPlayerState
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -56,14 +56,12 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     *
     * @param songCount    the number of songs in the playlist
     * @param currentIndex the index of the current song
-    * @param posOffset    the position offset of the current song
-    * @param timeOffset   the time offset of the current song
     * @param seqNo        the sequence number of the playlist
     * @return the player state object
     */
-  def createPlayerState(songCount: Int, currentIndex: Int = 0, posOffset: Long = 0,
-                        timeOffset: Long = 0, seqNo: Int = 1): AudioPlayerState = {
-    val playlist = generatePlaylist(songCount, currentIndex, posOffset, timeOffset)
+  def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1):
+  AudioPlayerState = {
+    val playlist = generatePlaylist(songCount, currentIndex)
     AudioPlayerState(playlist = playlist, playbackActive = true, playlistClosed = false,
       playlistSeqNo = seqNo)
   }
@@ -128,70 +126,26 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .expectNoWriteOperation()
   }
 
-  it should "not store position data if the time delta is in the limit" in {
-    val helper = new WriterActorTestHelper
-    helper.sendInitState().send(createPlayerState(4))
-      .expectWriteOperation()
-
-    helper.send(createPlayerState(4, timeOffset = AutoSaveInterval.toSeconds - 1))
-      .expectNoWriteOperation()
-  }
-
-  it should "take the time delta into account when handling playlist updates" in {
-    val state = createPlayerState(4, timeOffset = AutoSaveInterval.toSeconds)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitState()
-      .send(createPlayerState(4))
-      .expectAndHandleWriteOperation()
-      .send(state)
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(state.playlist)
-  }
-
-  it should "store an updated current position" in {
-    val helper = new WriterActorTestHelper
-    helper.sendInitState().send(createPlayerState(8, currentIndex = 1))
-      .skipWriteOperation().skipWriteOperation()
-      .sendWriteConfirmationForPosition().sendWriteConfirmationForPlaylist()
-    helper.send(createPlayerState(8, currentIndex = 1, timeOffset = AutoSaveInterval.toSeconds))
-      .skipWriteOperation().sendWriteConfirmationForPosition()
-
-    helper.send(createPlayerState(8, currentIndex = 1,
-      timeOffset = AutoSaveInterval.toSeconds + 1))
-      .expectNoWriteOperation()
-  }
-
-  it should "store the initial playlist position" in {
-    val helper = new WriterActorTestHelper
-
-    helper
-      .send(createPlayerState(4, currentIndex = 1, timeOffset = 1))
-      .send(createPlayerState(4, currentIndex = 1, timeOffset = AutoSaveInterval.toSeconds))
-      .expectNoWriteOperation()
-  }
-
   it should "write the playlist position on receiving a relevant progress event" in {
     val SongCount = 8
     val Index = 2
-    val InitTimeOffset = 10
     val PosOffset = 5000
     val helper = new WriterActorTestHelper
 
     helper.sendInitState()
-      .send(createPlayerState(8, currentIndex = 2, timeOffset = InitTimeOffset))
+      .send(createPlayerState(8, currentIndex = 2))
       .expectAndHandleWriteOperation().expectAndHandleWriteOperation()
-      .send(createProgressEvent(PosOffset, AutoSaveInterval.toSeconds + InitTimeOffset))
+      .send(createProgressEvent(PosOffset, AutoSaveInterval.toSeconds))
       .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generatePlaylist(SongCount, Index, PosOffset,
-        InitTimeOffset + AutoSaveInterval.toSeconds))
+      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, PosOffset,
+        AutoSaveInterval.toSeconds))
   }
 
   it should "only write the playlist on receiving a progress event if there is a change" in {
     val helper = new WriterActorTestHelper
 
-    helper.send(createPlayerState(4, currentIndex = 2, timeOffset = 1))
-      .send(createProgressEvent(11111, AutoSaveInterval.toSeconds))
+    helper.send(createPlayerState(4, currentIndex = 2))
+      .send(createProgressEvent(11111, AutoSaveInterval.toSeconds - 1))
       .expectNoWriteOperation()
   }
 
@@ -209,18 +163,16 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     val helper = new WriterActorTestHelper
 
     helper.sendInitState()
-      .send(createPlayerState(SongCount / 2, currentIndex = 1, posOffset = 1,
-        timeOffset = AutoSaveInterval.toSeconds))
+      .send(createPlayerState(SongCount / 2, currentIndex = 1))
       .skipWriteOperation().skipWriteOperation()
-      .send(createPlayerState(SongCount, currentIndex = Index, posOffset = 128,
-        timeOffset = 1, seqNo = 2))
+      .send(createPlayerState(SongCount, currentIndex = Index, seqNo = 2))
       .expectNoWriteOperation()
       .sendWriteConfirmationForPlaylist()
       .expectAndHandleWriteOperation()
       .send(createProgressEvent(Offset, 2 * AutoSaveInterval.toSeconds))
       .sendWriteConfirmationForPosition()
       .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generatePlaylist(SongCount, Index, Offset,
+      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, Offset,
         2 * AutoSaveInterval.toSeconds))
   }
 
@@ -238,7 +190,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     val helper = new WriterActorTestHelper
 
     helper.sendInitState()
-      .send(createPlayerState(4, currentIndex = 1, timeOffset = 11))
+      .send(createPlayerState(4, currentIndex = 1))
       .sendCloseRequest()
       .expectNoCloseAck()
       .skipWriteOperation().skipWriteOperation()
@@ -261,11 +213,11 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .expectNoCloseAck()
       .expectAndHandleWriteOperation()
       .expectCloseAck()
-      .expectPersistedPlaylist(generatePlaylist(SongCount, Index, PosOffset, TimeOffset))
+      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, PosOffset, TimeOffset))
   }
 
   it should "not accept updates after a close request has been received" in {
-    val state = createPlayerState(4, currentIndex = 2, posOffset = 100, timeOffset = 301)
+    val state = createPlayerState(4, currentIndex = 2)
     val helper = new WriterActorTestHelper
 
     helper.sendInitState()
@@ -377,23 +329,34 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     /**
       * Loads the playlist persisted by the test actor using a loader actor.
       *
-      * @return the ''Playlist'' read by the loader actor
+      * @return the ''SetPlaylist'' command read by the loader actor
       */
-    def loadPlaylist(): Playlist = {
+    def loadPlaylist(): SetPlaylist = {
       loaderActor ! LoadPlaylistActor.LoadPlaylistData(pathPlaylist, pathPosition,
         Integer.MAX_VALUE, messageBus)
-      messageBus.expectMessageType[LoadedPlaylist].playlist
+      messageBus.expectMessageType[LoadedPlaylist].setPlaylist
     }
 
     /**
-      * Loads the playlist persisted by the test actor and compares it against
-      * the expected playlist.
+      * Loads the playlist persisted by the test actor and compares it
+      * against the specified object. Here it is expected that no position
+      * information has been written.
       *
-      * @param playlist the expected playlist
+      * @param playlist the ''Playlist''
       * @return this test helper
       */
-    def expectPersistedPlaylist(playlist: Playlist): WriterActorTestHelper = {
-      loadPlaylist() should be(playlist)
+    def expectPersistedPlaylist(playlist: Playlist): WriterActorTestHelper =
+      expectPersistedPlaylist(SetPlaylist(playlist))
+
+    /**
+      * Loads the playlist persisted by the test actor and compares it against
+      * the expected set playlist command.
+      *
+      * @param cmd the expected playlist command
+      * @return this test helper
+      */
+    def expectPersistedPlaylist(cmd: SetPlaylist): WriterActorTestHelper = {
+      loadPlaylist() should be(cmd)
       this
     }
 
@@ -442,7 +405,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @return this test helper
       */
     def expectNoCloseAck(): WriterActorTestHelper = {
-      expectNoMsg(500.millis)
+      expectNoMessage(500.millis)
       this
     }
 

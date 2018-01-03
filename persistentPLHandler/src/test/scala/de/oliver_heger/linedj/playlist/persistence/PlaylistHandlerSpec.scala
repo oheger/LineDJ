@@ -51,8 +51,8 @@ object PlaylistHandlerSpec extends PlaylistTestHelper {
   /** The maximum size of a playlist file. */
   private val MaxFileSize = 8 * 1024
 
-  /** A test playlist. */
-  private val TestPlaylist = generatePlaylist(16, 3, 1000, 60)
+  /** A test set playlist command. */
+  private val TestSetPlaylist = generateSetPlaylist(16, 3, 1000, 60)
 }
 
 /**
@@ -112,8 +112,8 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
 
     helper.activate()
-      .publishOnBus(LoadedPlaylist(TestPlaylist))
-    helper.expectMessageOnBus[SetPlaylist] should be(SetPlaylist(TestPlaylist))
+      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+    helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
     helper.expectMessageOnBus[AudioPlayerStateChangeRegistration]
       .id should be(helper.handlerComponentID)
   }
@@ -128,10 +128,11 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "forward a state update event to the state writer actor" in {
-    val state = AudioPlayerState(TestPlaylist, 42, playbackActive = true, playlistClosed = false)
+    val state = AudioPlayerState(TestSetPlaylist.playlist, 42, playbackActive = true,
+      playlistClosed = false)
     val helper = new HandlerTestHelper
     helper.activate()
-      .publishOnBus(LoadedPlaylist(TestPlaylist))
+      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
       .expectMessageOnBus[SetPlaylist]
     val reg = helper.expectMessageOnBus[AudioPlayerStateChangeRegistration]
 

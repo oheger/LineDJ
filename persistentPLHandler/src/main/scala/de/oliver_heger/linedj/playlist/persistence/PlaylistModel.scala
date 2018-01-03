@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 
 /**
   * A class representing the current position in a playlist.
@@ -34,6 +34,6 @@ case class CurrentPlaylistPosition(index: Int, positionOffset: Long, timeOffset:
   * A class representing a playlist that has been loaded from
   * [[LoadPlaylistActor]].
   *
-  * @param playlist the playlist
+  * @param setPlaylist the command for setting the playlist
   */
-case class LoadedPlaylist(playlist: Playlist)
+case class LoadedPlaylist(setPlaylist: SetPlaylist)

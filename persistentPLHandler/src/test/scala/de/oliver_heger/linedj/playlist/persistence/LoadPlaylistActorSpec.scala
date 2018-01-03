@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -173,7 +174,7 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new LoadActorTestHelper
 
     helper.triggerLoad(playlistPath, positionPath)
-      .expectPlaylistResult(generatePlaylist(SongCount, position.index, position.positionOffset,
+      .expectPlaylistResult(generateSetPlaylist(SongCount, position.index, position.positionOffset,
         position.timeOffset))
   }
 
@@ -269,20 +270,34 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * Expects that the test actor has published a playlist as result on the
       * message bus and returns it.
       *
-      * @return the playlist obtained from the test actor
+      * @return the ''SetPlaylist'' command obtained from the test actor
       */
-    def fetchPlaylistResult(): Playlist =
-      messageBus.expectMessageType[LoadedPlaylist].playlist
+    def fetchPlaylistResult(): SetPlaylist =
+      messageBus.expectMessageType[LoadedPlaylist].setPlaylist
 
     /**
       * Expects that the test actor has published the specified playlist as
       * result of a load operation on the message bus.
       *
       * @param playlist the expected playlist
+      * @param posOfs   the position offset
+      * @param timeOfs  the time offset
       * @return this test helper
       */
-    def expectPlaylistResult(playlist: Playlist): LoadActorTestHelper = {
-      fetchPlaylistResult() should be(playlist)
+    def expectPlaylistResult(playlist: Playlist, posOfs: Long = 0, timeOfs: Long = 0):
+    LoadActorTestHelper =
+      expectPlaylistResult(SetPlaylist(playlist = playlist, positionOffset = posOfs,
+        timeOffset = timeOfs))
+
+    /**
+      * Expects that the test actor has published the specified playlist
+      * command as result of a load operation on the message bus.
+      *
+      * @param cmd the command defining the new playlist
+      * @return this test helper
+      */
+    def expectPlaylistResult(cmd: SetPlaylist): LoadActorTestHelper = {
+      fetchPlaylistResult() should be(cmd)
       this
     }
 

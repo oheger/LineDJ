@@ -22,8 +22,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.platform.app.ClientContextSupport
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration,
-  AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent, SetPlaylist}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
@@ -124,8 +123,8 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
     * The function for handling messages published on the message bus.
     */
   override def receive: Receive = {
-    case LoadedPlaylist(playlist) =>
-      bus publish SetPlaylist(playlist)
+    case LoadedPlaylist(setPlaylist) =>
+      bus publish setPlaylist
       bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
 
     case ev: PlaybackProgressEvent =>

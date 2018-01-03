@@ -21,9 +21,9 @@ import java.nio.charset.StandardCharsets
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser._
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist.SongList
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItem
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.slf4j.LoggerFactory
@@ -52,7 +52,7 @@ object PersistentPlaylistParser {
     * Because an item in the persistent file may be incomplete or invalid an
     * optional type is used.
     */
-  type PlaylistItem = Try[(Int, AudioSourcePlaylistInfo)]
+  type PlaylistItem = Try[(Int, MediaFileID)]
 
   /** The instance of the item parser. */
   private val ItemParser =
@@ -79,7 +79,7 @@ object PersistentPlaylistParser {
     * @return the resulting ''Playlist''
     */
   def generateFinalPlaylist(items: List[PlaylistItem], position: CurrentPlaylistPosition):
-  Playlist = {
+  SetPlaylist = {
     if (Log.isInfoEnabled) {
       items.filter(_.isFailure) foreach (f => Log.info("Could not parse playlist item: " + f))
     }
@@ -97,37 +97,40 @@ object PersistentPlaylistParser {
     * @param position position information
     * @return the resulting ''Playlist''
     */
-  private def applyPosition(items: List[(Int, AudioSourcePlaylistInfo)],
-                            position: CurrentPlaylistPosition): Playlist = {
-    @tailrec def splitAndConvert(currentItems: List[(Int, AudioSourcePlaylistInfo)],
-                                 played: SongList): Playlist =
+  private def applyPosition(items: List[(Int, MediaFileID)],
+                            position: CurrentPlaylistPosition): SetPlaylist = {
+    @tailrec def splitAndConvert(currentItems: List[(Int, MediaFileID)],
+                                 played: PlaylistService.SongList): SetPlaylist =
       currentItems match {
         case h :: t =>
           if (h._1 >= position.index)
-            Playlist(playedSongs = played,
-              pendingSongs = applyOffsets(h, position) :: t.map(_._2))
+            applyOffsets(Playlist(playedSongs = played,
+              pendingSongs = h._2 :: (t map (_._2))), h._1, position)
           else splitAndConvert(t, h._2 :: played)
 
         case _ =>
-          Playlist(playedSongs = played, pendingSongs = Nil)
+          SetPlaylist(Playlist(playedSongs = played, pendingSongs = Nil))
       }
 
     splitAndConvert(items, Nil)
   }
 
   /**
-    * Creates an ''AudioSourcePlaylistInfo'' object for the passed in list
-    * element that uses the offsets defined by the position object.
+    * Transforms a ''Playlist'' to a ''SetPlaylist'' command by applying
+    * position information if applicable. Position and time offsets are set
+    * only if the song with the current index matches.
     *
-    * @param e        the list element
+    * @param pl the ''Playlist''
+    * @param curIdx the index of the current song in the playlist
     * @param position the ''CurrentPlaylistPosition''
-    * @return the updated ''AudioSourcePlaylistInfo''
+    * @return the command for setting the playlist
     */
-  private def applyOffsets(e: (Int, AudioSourcePlaylistInfo), position: CurrentPlaylistPosition):
-  AudioSourcePlaylistInfo =
-    if (e._1 == position.index)
-      e._2.copy(skip = position.positionOffset, skipTime = position.timeOffset)
-    else e._2
+  private def applyOffsets(pl: Playlist, curIdx: Int, position: CurrentPlaylistPosition):
+  SetPlaylist =
+    if (curIdx == position.index)
+      SetPlaylist(playlist = pl, positionOffset = position.positionOffset,
+        timeOffset = position.timeOffset)
+    else SetPlaylist(playlist = pl)
 
   /**
     * Converts a single item in the playlist to its model representation. If
@@ -143,7 +146,7 @@ object PersistentPlaylistParser {
     val compID = obj(PropArchiveCompID)
     val uri = obj(PropURI)
     val fileID = MediaFileID(MediumID(mediumURI, obj get PropMediumDescPath, compID), uri)
-    (idx, AudioSourcePlaylistInfo(fileID, 0, 0))
+    (idx, fileID)
   }
 
   /**

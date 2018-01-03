@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 
 import scala.annotation.tailrec
@@ -62,25 +62,33 @@ trait PlaylistTestHelper {
   /**
     * Generates a test playlist consisting of the given number of test songs.
     *
-    * @param length         the length of the playlist
-    * @param currentIdx     the index of the current song (0-based)
-    * @param positionOffset position offset in the current song
-    * @param timeOffset     time offset in the current song
+    * @param length     the length of the playlist
+    * @param currentIdx the index of the current song (0-based)
     * @return the resulting playlist
     */
-  def generatePlaylist(length: Int, currentIdx: Int, positionOffset: Long = 0,
-                               timeOffset: Long = 0): Playlist = {
+  def generatePlaylist(length: Int, currentIdx: Int): Playlist = {
     @tailrec def moveToCurrent(pl: Playlist): Playlist =
       if (pl.playedSongs.lengthCompare(currentIdx) < 0)
         moveToCurrent(PlaylistService.moveForwards(pl).get)
       else pl
 
-    val songs = (0 until length).foldRight(List.empty[AudioSourcePlaylistInfo]) { (i, lst) =>
-      val pos = if (i == currentIdx) positionOffset else 0
-      val time = if (i == currentIdx) timeOffset else 0
-      val item = AudioSourcePlaylistInfo(fileId(i), pos, time)
-      item :: lst
+    val songs = (0 until length).foldRight(List.empty[MediaFileID]) { (i, lst) =>
+      fileId(i) :: lst
     }
     moveToCurrent(Playlist(songs, Nil))
   }
+
+  /**
+    * Generates a ''SetPlaylist'' command based on the given parameters.
+    *
+    * @param length         the length of the playlist
+    * @param currentIdx     the index of the current song (0-based)
+    * @param positionOffset position offset in the current song
+    * @param timeOffset     time offset in the current song
+    * @return the resulting ''SetPlaylist'' command
+    */
+  def generateSetPlaylist(length: Int, currentIdx: Int, positionOffset: Long = 0,
+                          timeOffset: Long = 0): SetPlaylist =
+    SetPlaylist(playlist = generatePlaylist(length, currentIdx), positionOffset = positionOffset,
+      timeOffset = timeOffset)
 }

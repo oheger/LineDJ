@@ -21,14 +21,14 @@ import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.audio.AudioPlayerState
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlaybackProgressEvent}
+import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration.FiniteDuration
@@ -58,14 +58,14 @@ object PlaylistStateWriterActor {
     * @param idx  the index of this item
     * @return a string representation of this item
     */
-  private def convertItem(item: AudioSourcePlaylistInfo, idx: Int): String = {
-    val descPath = generateDescriptionPath(item.sourceID.mediumID)
+  private def convertItem(item: MediaFileID, idx: Int): String = {
+    val descPath = generateDescriptionPath(item.mediumID)
     s"""{
        |"${PersistentPlaylistParser.PropIndex}": $idx,
-       |"${PersistentPlaylistParser.PropMediumURI}": "${item.sourceID.mediumID.mediumURI}",$descPath
-       |"${PersistentPlaylistParser.PropArchiveCompID}": "${item.sourceID.mediumID
+       |"${PersistentPlaylistParser.PropMediumURI}": "${item.mediumID.mediumURI}",$descPath
+       |"${PersistentPlaylistParser.PropArchiveCompID}": "${item.mediumID
       .archiveComponentID}",
-       |"${PersistentPlaylistParser.PropURI}": "${item.sourceID.uri}"
+       |"${PersistentPlaylistParser.PropURI}": "${item.uri}"
        |}
     """.stripMargin
   }
@@ -202,7 +202,7 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
         if (seqNo != no) {
           val source = Source(plService.toSongList(playlist))
           val sepStage =
-            new ListSeparatorStage[AudioSourcePlaylistInfo]("[\n", ",\n", "\n]\n")(convertItem)
+            new ListSeparatorStage[MediaFileID]("[\n", ",\n", "\n]\n")(convertItem)
           triggerWrite(source.via(sepStage), pathPlaylist)
           playlistSeqNo = Some(no)
         }
@@ -244,15 +244,10 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
     * @param playlist the ''Playlist''
     * @return an object with the current position
     */
-  private def extractPosition(playlist: Playlist): CurrentPlaylistPosition = {
-    val currentInfo = for {
-      song <- plService.currentSong(playlist)
-      idx <- plService.currentIndex(playlist)
-    } yield (song, idx)
-    currentInfo map { current =>
-      CurrentPlaylistPosition(current._2, current._1.skip, current._1.skipTime)
+  private def extractPosition(playlist: Playlist): CurrentPlaylistPosition =
+    plService.currentIndex(playlist) map { current =>
+      CurrentPlaylistPosition(current, 0, 0)
     } getOrElse CurrentPlaylistPosition(plService.size(playlist), 0, 0)
-  }
 
   /**
     * Checks whether a relevant change in the playlist position took place. If
