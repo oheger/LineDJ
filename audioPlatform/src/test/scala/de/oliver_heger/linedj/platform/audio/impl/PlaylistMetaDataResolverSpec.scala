@@ -25,7 +25,6 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -128,15 +127,6 @@ object PlaylistMetaDataResolverSpec {
   }
 
   /**
-    * Generates a playlist info object for the specified file ID.
-    *
-    * @param fileID the file ID
-    * @return the info object
-    */
-  private def playlistInfo(fileID: MediaFileID): AudioSourcePlaylistInfo =
-    AudioSourcePlaylistInfo(fileID, 0, 0)
-
-  /**
     * Generates a change event for a player state that consists of the
     * specified playlist information.
     *
@@ -149,8 +139,7 @@ object PlaylistMetaDataResolverSpec {
                                   playedIDs: List[MediaFileID],
                                   seqNo: Int = 1):
   AudioPlayerStateChangedEvent = {
-    val playlist = Playlist(pendingSongs = pendingIDs map playlistInfo,
-      playedSongs = playedIDs map playlistInfo)
+    val playlist = Playlist(pendingSongs = pendingIDs, playedSongs = playedIDs)
     val state = AudioPlayerState(playlist = playlist, playbackActive = false,
       playlistClosed = false, playlistSeqNo = seqNo)
     AudioPlayerStateChangedEvent(state)

@@ -259,7 +259,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     */
   private def groupFilesInPlaylist(state: AudioPlayerState):
   (List[MediaFileID], List[MediaFileID]) = {
-    val newPlaylist = (state.playlist.pendingSongs ++ state.playlist.playedSongs) map (_.sourceID)
+    val newPlaylist = state.playlist.pendingSongs ++ state.playlist.playedSongs
     newPlaylist partition cache.contains
   }
 
