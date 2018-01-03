@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerState
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlaybackProgressEvent}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.Matchers.any
 import org.mockito.Mockito
@@ -383,9 +384,9 @@ class UIControllerSpec extends FlatSpec with Matchers {
       *
       * @return the mock playlist service
       */
-    private def createPlaylistService(): PlaylistService = {
-      val service = mock[PlaylistService]
-      when(service.currentSong(any())).thenReturn(Some(mock[AudioSourcePlaylistInfo]))
+    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] = {
+      val service = mock[PlaylistService[Playlist, MediaFileID]]
+      when(service.currentSong(any())).thenReturn(Some(mock[MediaFileID]))
       service
     }
 

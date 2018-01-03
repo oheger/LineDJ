@@ -17,14 +17,13 @@
 package de.oliver_heger.linedj.player.ui
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData,
-  PlaylistMetaDataRegistration, PlaylistService}
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerState,
-  AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 
 object UIController {
@@ -84,8 +83,8 @@ object UIController {
 class UIController(val messageBus: MessageBus, actionStore: ActionStore,
                    playlistTableController: PlaylistTableController,
                    currentSongController: CurrentSongController,
-                   plService: PlaylistService) extends MessageBusListener with
-  ConsumerRegistrationProvider with Identifiable {
+                   plService: PlaylistService[Playlist, MediaFileID]) extends MessageBusListener
+  with ConsumerRegistrationProvider with Identifiable {
 
   import UIController._
 

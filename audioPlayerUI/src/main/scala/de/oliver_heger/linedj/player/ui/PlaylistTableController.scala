@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.ui
 import de.oliver_heger.linedj.platform.audio.AudioPlayerState
 import de.oliver_heger.linedj.platform.audio.model.SongDataFactory
 import de.oliver_heger.linedj.platform.audio.playlist._
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
 /**
@@ -40,7 +41,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   */
 class PlaylistTableController(songDataFactory: SongDataFactory,
                               plMetaService: PlaylistMetaDataService,
-                              plService: PlaylistService,
+                              plService: PlaylistService[Playlist, MediaFileID],
                               tableHandler: TableHandler) {
   /** Stores the most recent state of the meta data resolver. */
   private var metaDataState = plMetaService.InitialState

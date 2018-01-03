@@ -453,8 +453,8 @@ class PlaylistTableControllerSpec extends FlatSpec with Matchers with MockitoSug
       *
       * @return the mock for the playlist service
       */
-    private def createPlaylistService(): PlaylistService = {
-      val svc = mock[PlaylistService]
+    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] = {
+      val svc = mock[PlaylistService[Playlist, MediaFileID]]
       when(svc.currentIndex(any())).thenReturn(None)
       svc
     }
