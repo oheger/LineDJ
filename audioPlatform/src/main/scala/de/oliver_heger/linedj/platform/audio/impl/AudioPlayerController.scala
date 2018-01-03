@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
 import de.oliver_heger.linedj.player.engine.{AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 /**
   * Controller class that updates an audio player object based on messages
@@ -39,7 +40,8 @@ import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
   * @param playlistService the service for dealing with playlist objects
   */
 private class AudioPlayerController(val player: AudioPlayer,
-                                    playlistService: PlaylistService = PlaylistService)
+                                    playlistService: PlaylistService[Playlist, MediaFileID]
+                                    = PlaylistService)
   extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
   /** Stores the last state change event. */
   private var lastEvent =
@@ -63,12 +65,18 @@ private class AudioPlayerController(val player: AudioPlayer,
       addConsumer(reg)
       reg.callback(lastEvent)
 
-    case SetPlaylist(playlist, closePlaylist) =>
+    case SetPlaylist(playlist, closePlaylist, posOfs, timeOfs) =>
       if (hasCurrentPlaylist) {
         player.reset()
       }
       lastResetTime = LocalDateTime.now()
-      appendSongsToPlaylist(playlist.pendingSongs, closePlaylist)
+      playlist.pendingSongs match {
+        case h :: t =>
+          player addToPlaylist toPlaylistInfo(h, posOfs, timeOfs)
+          appendSongsToPlaylist(t, closePlaylist)
+        case _ =>
+          // no action for empty list of pending songs
+      }
       updateState { s =>
         val seqNo = if(playlistService.playlistEquals(s.playlist, playlist)) s.playlistSeqNo
         else playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)
@@ -102,7 +110,7 @@ private class AudioPlayerController(val player: AudioPlayer,
 
     case AudioSourceFinishedEvent(source, time) =>
       if (playlistService.currentSong(currentState.playlist)
-        .exists(_.sourceID.uri == source.uri) && isCurrentPlayerEvent(time)) {
+        .exists(_.uri == source.uri) && isCurrentPlayerEvent(time)) {
         updateState { s =>
           val nextPlaylist = playlistService.moveForwards(s.playlist).get
           val nextState = s.copy(playlist = nextPlaylist)
@@ -121,13 +129,26 @@ private class AudioPlayerController(val player: AudioPlayer,
     * @param songs         the songs to be appended
     * @param closePlaylist flag whether the playlist should be closed
     */
-  private def appendSongsToPlaylist(songs: List[AudioSourcePlaylistInfo],
+  private def appendSongsToPlaylist(songs: List[MediaFileID],
                                     closePlaylist: Boolean): Unit = {
-    songs foreach (s => player addToPlaylist s)
+    songs map (toPlaylistInfo(_, 0, 0)) foreach (s => player addToPlaylist s)
     if (closePlaylist) {
       player.closePlaylist()
     }
   }
+
+  /**
+    * Creates an ''AudioSourcePlaylistInfo'' object from the provided
+    * parameters.
+    *
+    * @param id      the ID
+    * @param posOfs  the position offset
+    * @param timeOfs the time offset
+    * @return the ''AudioSourcePlaylistInfo''
+    */
+  private def toPlaylistInfo(id: MediaFileID, posOfs: Long, timeOfs: Long):
+  AudioSourcePlaylistInfo =
+    AudioSourcePlaylistInfo(id, skip = posOfs, skipTime = timeOfs)
 
   /**
     * Updates the current state and sends a corresponding state change event to

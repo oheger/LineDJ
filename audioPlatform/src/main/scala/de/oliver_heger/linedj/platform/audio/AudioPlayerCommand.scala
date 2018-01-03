@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import de.oliver_heger.linedj.player.engine.AudioSourcePlaylistInfo
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 
 import scala.concurrent.duration.FiniteDuration
@@ -40,11 +40,18 @@ sealed trait AudioPlayerCommand
   * player is triggered. Then the pending songs are passed to the audio player.
   * Optionally, the playlist is closed.
   *
-  * @param playlist      the new ''Playlist''
-  * @param closePlaylist flag whether the playlist is to be closed
+  * For the current song in the playlist offsets for the playback position and
+  * time can be specified. This is useful if playback has been aborted and
+  * should now be continued at the very same position.
+  *
+  * @param playlist       the new ''Playlist''
+  * @param closePlaylist  flag whether the playlist is to be closed
+  * @param positionOffset the offset in the audio stream where to start
+  *                       playback
+  * @param timeOffset     the time offset where to start playback
   */
-case class SetPlaylist(playlist: Playlist,
-                       closePlaylist: Boolean = true) extends AudioPlayerCommand
+case class SetPlaylist(playlist: Playlist, closePlaylist: Boolean = true,
+                       positionOffset: Long = 0, timeOffset: Long = 0) extends AudioPlayerCommand
 
 /**
   * A command which appends a list of songs to the current playlist.
@@ -56,7 +63,7 @@ case class SetPlaylist(playlist: Playlist,
   * @param songs         list of songs to be appended to the playlist
   * @param closePlaylist flag whether the playlist is to be closed
   */
-case class AppendPlaylist(songs: List[AudioSourcePlaylistInfo],
+case class AppendPlaylist(songs: PlaylistService.SongList,
                           closePlaylist: Boolean = false)
 
 /**

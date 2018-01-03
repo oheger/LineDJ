@@ -47,13 +47,24 @@ object AudioPlayerControllerSpec {
   private def songUri(idx: Int): String = s"song_$idx.mp3"
 
   /**
-    * Creates a playlist info object based on the given index.
+    * Creates an ID for an audio file based on the given index.
     *
     * @param idx the index
+    * @return the ''MediaFileID'' for this audio file
+    */
+  private def createFileID(idx: Int): MediaFileID =
+    MediaFileID(TestMedium, songUri(idx))
+
+  /**
+    * Creates a playlist info object based on the given index.
+    *
+    * @param idx     the index
+    * @param posOfs  optional position offset
+    * @param timeOfs optional time offset
     * @return the ''AudioSourcePlaylistInfo'' for this index
     */
-  private def createPlaylistInfo(idx: Int): AudioSourcePlaylistInfo =
-    AudioSourcePlaylistInfo(MediaFileID(TestMedium, songUri(idx)), idx, idx)
+  private def createPlaylistInfo(idx: Int, posOfs: Long = 0, timeOfs: Long = 0):
+  AudioSourcePlaylistInfo = AudioSourcePlaylistInfo(createFileID(idx), posOfs, timeOfs)
 
   /**
     * Creates a test audio source object based on the given index.
@@ -63,6 +74,16 @@ object AudioPlayerControllerSpec {
     */
   private def createAudioSource(idx: Int): AudioSource =
     AudioSource(songUri(idx), 4000 + idx * 100, idx, idx)
+
+  /**
+    * Converts the specified list of playlist info objects to a list of file
+    * IDs.
+    *
+    * @param sources the list of source objects
+    * @return the list with corresponding file IDs
+    */
+  private def extractIDs(sources: List[AudioSourcePlaylistInfo]): List[MediaFileID] =
+    sources map (_.sourceID)
 }
 
 /**
@@ -98,16 +119,20 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   }
 
   it should "process a SetPlaylist message with the close flag set to true" in {
+    val PosOfs = 20180102
+    val TimeOffset = 321456
     val playedSongs = List(createPlaylistInfo(2), createPlaylistInfo(1))
-    val pendingSongs = List(createPlaylistInfo(3), createPlaylistInfo(4))
+    val pendingSongs = List(createPlaylistInfo(3, PosOfs, TimeOffset), createPlaylistInfo(4))
     val helper = new ControllerTestHelper
 
-    helper send SetPlaylist(Playlist(playedSongs = playedSongs, pendingSongs = pendingSongs))
+    helper send SetPlaylist(Playlist(playedSongs = List(createFileID(2), createFileID(1)),
+      pendingSongs = List(createFileID(3), createFileID(4))), positionOffset = PosOfs,
+      timeOffset = TimeOffset)
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe true
-    state.playlist.playedSongs should be(playedSongs)
-    state.playlist.pendingSongs should be(pendingSongs)
+    state.playlist.playedSongs should be(extractIDs(playedSongs))
+    state.playlist.pendingSongs should be(extractIDs(pendingSongs))
     state.playlistSeqNo should not be PlaylistService.SeqNoInitial
 
     val io = Mockito.inOrder(helper.audioPlayer)
@@ -121,13 +146,13 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val pendingSongs = List(createPlaylistInfo(3), createPlaylistInfo(4))
     val helper = new ControllerTestHelper
 
-    helper send SetPlaylist(Playlist(playedSongs = playedSongs, pendingSongs = pendingSongs),
-      closePlaylist = false)
+    helper send SetPlaylist(Playlist(playedSongs = List(createFileID(2), createFileID(1)),
+      pendingSongs = List(createFileID(3), createFileID(4))), closePlaylist = false)
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe false
-    state.playlist.playedSongs should be(playedSongs)
-    state.playlist.pendingSongs should be(pendingSongs)
+    state.playlist.playedSongs should be(extractIDs(playedSongs))
+    state.playlist.pendingSongs should be(extractIDs(pendingSongs))
     state.playlistSeqNo should not be PlaylistService.SeqNoInitial
 
     pendingSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
@@ -135,24 +160,26 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   }
 
   it should "not change the playlist seq number if the playlist content does not change" in {
-    val playlist1 = Playlist(pendingSongs = List(createPlaylistInfo(3), createPlaylistInfo(4)),
-      playedSongs = List(createPlaylistInfo(2), createPlaylistInfo(1)))
+    val playlist1 = Playlist(pendingSongs = List(createFileID(3), createFileID(4)),
+      playedSongs = List(createFileID(2), createFileID(1)))
     val playlist2 = PlaylistService.moveBackwards(playlist1).get
     val helper = new ControllerTestHelper
     val state1 = helper.send(SetPlaylist(playlist1)).lastState
 
-    val state2 = helper.send(SetPlaylist(playlist2)).lastState
+    val state2 = helper.send(SetPlaylist(playlist2, positionOffset = 100,
+      timeOffset = 11)).lastState
     state2.playlistSeqNo should be(state1.playlistSeqNo)
   }
 
   it should "reset the audio player when setting a new playlist, and songs are pending" in {
     val helper = new ControllerTestHelper
-    helper send SetPlaylist(Playlist(pendingSongs = List(createPlaylistInfo(1)),
+    helper send SetPlaylist(Playlist(pendingSongs = List(createFileID(1)),
       playedSongs = Nil))
     reset(helper.audioPlayer)
-    val nextSource = createPlaylistInfo(2)
+    val nextSource = createPlaylistInfo(2, 100, 200)
 
-    helper send SetPlaylist(Playlist(pendingSongs = List(nextSource), playedSongs = Nil))
+    helper send SetPlaylist(Playlist(pendingSongs = List(nextSource.sourceID), playedSongs = Nil),
+      positionOffset = nextSource.skip, timeOffset = nextSource.skipTime)
     val io = Mockito.inOrder(helper.audioPlayer)
     io.verify(helper.audioPlayer).reset()
     io.verify(helper.audioPlayer).addToPlaylist(nextSource)
@@ -160,12 +187,12 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
   it should "reset the audio player when setting a new playlist, and played songs exist" in {
     val helper = new ControllerTestHelper
-    helper send SetPlaylist(Playlist(playedSongs = List(createPlaylistInfo(1)),
+    helper send SetPlaylist(Playlist(playedSongs = List(createFileID(1)),
       pendingSongs = Nil), closePlaylist = false)
     reset(helper.audioPlayer)
     val nextSource = createPlaylistInfo(2)
 
-    helper send SetPlaylist(Playlist(pendingSongs = List(nextSource), playedSongs = Nil))
+    helper send SetPlaylist(Playlist(pendingSongs = List(nextSource.sourceID), playedSongs = Nil))
     val io = Mockito.inOrder(helper.audioPlayer)
     io.verify(helper.audioPlayer).reset()
     io.verify(helper.audioPlayer).addToPlaylist(nextSource)
@@ -215,8 +242,8 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   it should "process a skip current source command" in {
     val helper = new ControllerTestHelper
 
-    helper.send(SetPlaylist(Playlist(pendingSongs = List(createPlaylistInfo(1),
-      createPlaylistInfo(2)), playedSongs = Nil)))
+    helper.send(SetPlaylist(Playlist(pendingSongs = List(createFileID(1),
+      createFileID(2)), playedSongs = Nil)))
       .send(StartAudioPlayback())
       .send(SkipCurrentSource)
     verify(helper.audioPlayer).skipCurrentSource()
@@ -237,11 +264,11 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val allSongs = firstSong :: appendSongs
     val helper = new ControllerTestHelper
 
-    helper.send(SetPlaylist(Playlist(playedSongs = List(createPlaylistInfo(20)),
-      pendingSongs = List(firstSong)), closePlaylist = false))
-      .send(AppendPlaylist(appendSongs))
+    helper.send(SetPlaylist(Playlist(playedSongs = List(createFileID(20)),
+      pendingSongs = List(firstSong.sourceID)), closePlaylist = false))
+      .send(AppendPlaylist(extractIDs(appendSongs)))
     val state = checkEventTime(helper.lastStateEvent).state
-    state.playlist.pendingSongs should be(allSongs)
+    state.playlist.pendingSongs should be(extractIDs(allSongs))
     state.playlistSeqNo should be > 1
     val io = Mockito.inOrder(helper.audioPlayer)
     allSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
@@ -252,8 +279,8 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val appendSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))
     val helper = new ControllerTestHelper
 
-    helper send AppendPlaylist(appendSongs, closePlaylist = true)
-    helper.lastState.playlist.pendingSongs should be(appendSongs)
+    helper send AppendPlaylist(extractIDs(appendSongs), closePlaylist = true)
+    helper.lastState.playlist.pendingSongs should be(extractIDs(appendSongs))
     val io = Mockito.inOrder(helper.audioPlayer)
     appendSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     io.verify(helper.audioPlayer).closePlaylist()
@@ -262,17 +289,17 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   it should "not append songs to the playlist if it is already closed" in {
     val helper = new ControllerTestHelper
     helper send SetPlaylist(Playlist(playedSongs = Nil,
-      pendingSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))))
+      pendingSongs = List(createFileID(1), createFileID(2))))
     val event = helper.lastStateEvent
 
-    helper send AppendPlaylist(songs = List(createPlaylistInfo(3)))
+    helper send AppendPlaylist(songs = List(createFileID(3)))
     verify(helper.audioPlayer, never()).addToPlaylist(createPlaylistInfo(3))
     helper.lastStateEvent should be(event)
   }
 
   it should "move to the next song on receiving a source finished event" in {
-    val playedSong = createPlaylistInfo(1)
-    val pending = List(createPlaylistInfo(2), createPlaylistInfo(3), createPlaylistInfo(4))
+    val playedSong = createFileID(1)
+    val pending = List(createFileID(2), createFileID(3), createFileID(4))
     val helper = new ControllerTestHelper
 
     helper.send(SetPlaylist(Playlist(playedSongs = List(playedSong), pendingSongs = pending)))
@@ -287,7 +314,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   it should "ignore a source finished event for an unexpected source" in {
     val helper = new ControllerTestHelper
     helper.send(StartAudioPlayback())
-      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createPlaylistInfo(1)))))
+      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createFileID(1)))))
     val event = helper.lastStateEvent
 
     helper send AudioSourceFinishedEvent(createAudioSource(2))
@@ -298,7 +325,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val helper = new ControllerTestHelper
 
     helper.send(StartAudioPlayback())
-      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createPlaylistInfo(1)))))
+      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createFileID(1)))))
       .send(AudioSourceFinishedEvent(createAudioSource(1)))
     helper.lastState.playbackActive shouldBe false
   }
@@ -306,7 +333,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   it should "only reset the playback flag at the end of a closed playlist" in {
     val helper = new ControllerTestHelper
 
-    helper.send(AppendPlaylist(List(createPlaylistInfo(1))))
+    helper.send(AppendPlaylist(List(createFileID(1))))
       .send(StartAudioPlayback())
       .send(AudioSourceFinishedEvent(createAudioSource(1)))
     helper.lastState.playbackActive shouldBe true
@@ -314,9 +341,9 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
   it should "ignore a source finished event before the last reset" in {
     val helper = new ControllerTestHelper
-    helper.send(AppendPlaylist(List(createPlaylistInfo(1), createPlaylistInfo(2))))
+    helper.send(AppendPlaylist(List(createFileID(1), createFileID(2))))
       .send(StartAudioPlayback())
-      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createPlaylistInfo(3)))))
+      .send(SetPlaylist(Playlist(playedSongs = Nil, pendingSongs = List(createFileID(3)))))
     val event = helper.lastStateEvent
 
     helper send AudioSourceFinishedEvent(createAudioSource(3),
