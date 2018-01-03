@@ -75,7 +75,7 @@
 
   <!-- Transformer for times -->
   <di:bean name="durationTransformer"
-           beanClassName="de.oliver_heger.linedj.platform.audio.model.DurationTransformer"/>
+           beanClassName="de.oliver_heger.linedj.platform.ui.DurationTransformer"/>
 
   <!-- The special font for the UI -->
   <f:font var="uiFont" name="SansSerif" size="11"/>

@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, DurationTransformer, SongData}
+import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, SongData}
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
+import de.oliver_heger.linedj.platform.ui.DurationTransformer
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 

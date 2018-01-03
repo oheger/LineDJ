@@ -24,7 +24,7 @@
 
   <!-- A transformer for durations -->
   <di:bean name="durationTransformer"
-    beanClassName="de.oliver_heger.linedj.platform.audio.model.DurationTransformer">
+    beanClassName="de.oliver_heger.linedj.platform.ui.DurationTransformer">
   </di:bean>
 
   <!-- Definitions for actions and their tasks -->

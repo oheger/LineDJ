@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.audio.model
+package de.oliver_heger.linedj.platform.ui
 
 import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._

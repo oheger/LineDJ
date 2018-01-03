@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.audio.model.{DurationTransformer, SongData}
+import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.platform.ui.DurationTransformer
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
