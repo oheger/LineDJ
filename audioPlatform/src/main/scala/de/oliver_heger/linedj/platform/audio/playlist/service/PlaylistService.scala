@@ -89,4 +89,11 @@ object PlaylistService extends
 
   override def toSongList(playlist: Playlist): SongList =
     playlist.playedSongs.foldLeft(playlist.pendingSongs) { (l, s) => s :: l }
+
+  override def toPlaylist(songs: SongList, currentIndex: Int): Option[Playlist] =
+    if(currentIndex < 0 || currentIndex >= songs.size) None
+    else {
+      val (played, pending) = songs splitAt currentIndex
+      Some(Playlist(playedSongs = played.reverse, pendingSongs = pending))
+    }
 }

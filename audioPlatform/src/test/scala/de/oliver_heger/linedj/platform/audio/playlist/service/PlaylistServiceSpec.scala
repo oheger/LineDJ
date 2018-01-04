@@ -223,4 +223,27 @@ class PlaylistServiceSpec extends FlatSpec with Matchers {
 
     chekSongList(0)
   }
+
+  it should "create a Playlist from a sequence of songs" in {
+    val CurrentIndex = 10
+
+    val pl = PlaylistService.toPlaylist(createListOfSongs(), CurrentIndex)
+    pl should be(Some(createPlaylist(CurrentIndex)))
+  }
+
+  it should "handle a negative index when creating a Playlist from a sequence of songs" in {
+    PlaylistService.toPlaylist(createListOfSongs(), -1) should be(None)
+  }
+
+  it should "handle a too large index when creating a Playlist from a sequence of songs" in {
+    PlaylistService.toPlaylist(createListOfSongs(), SongCount) should be(None)
+  }
+
+  it should "set the current song of a Playlist" in {
+    val CurrentIndex = 8
+    val orgPl = createPlaylist(1)
+
+    val pl = PlaylistService.setCurrentSong(orgPl, CurrentIndex)
+    pl should be(Some(createPlaylist(CurrentIndex)))
+  }
 }

@@ -130,4 +130,31 @@ trait PlaylistService[Playlist, Song] {
     * @return an ordered list with all songs in this playlist
     */
   def toSongList(playlist: Playlist): SongList
+
+  /**
+    * Generates a ''Playlist'' from a sequence of songs and the index of the
+    * current song. If the index is invalid (less than zero or greater or equal
+    * than the size of the playlist), result is ''None''.
+    *
+    * @param songs        the sequence of songs
+    * @param currentIndex the index of the current song (0-based)
+    * @return an ''Option'' with the resulting ''Playlist''
+    */
+  def toPlaylist(songs: SongList, currentIndex: Int): Option[Playlist]
+
+  /**
+    * Returns a ''Playlist'' with an updated current song. This function
+    * creates a ''Playlist'' with the same songs as the original one, but the
+    * song with the specified index becomes the current song. If the index is
+    * invalid (less than zero or greater or equal than the size of the
+    * playlist), result is ''None''.
+    *
+    * @param playlist     the original ''Playlist''
+    * @param currentIndex the index of the new current song (0-based)
+    * @return an ''Option'' with the resulting ''Playlist''
+    */
+  def setCurrentSong(playlist: Playlist, currentIndex: Int): Option[Playlist] = {
+    val songs = toSongList(playlist)
+    toPlaylist(songs, currentIndex)
+  }
 }
