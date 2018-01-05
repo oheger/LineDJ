@@ -219,6 +219,25 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     helper.lastStateEvent should be(lastEvent)
   }
 
+  it should "start playback after a reset if it was active" in {
+    val helper = new ControllerTestHelper
+    helper.send(SetPlaylist(Playlist(pendingSongs = List(createFileID(1)),
+      playedSongs = Nil)))
+      .send(StartAudioPlayback())
+    reset(helper.audioPlayer)
+
+    helper send SetPlaylist(Playlist(pendingSongs = List(createFileID(2)), playedSongs = Nil))
+    verify(helper.audioPlayer).startPlayback()
+  }
+
+  it should "not start playback after a reset if it was inactive" in {
+    val helper = new ControllerTestHelper
+    helper send SetPlaylist(Playlist(pendingSongs = List(createFileID(1)), playedSongs = Nil))
+
+    helper send SetPlaylist(Playlist(pendingSongs = List(createFileID(2)), playedSongs = Nil))
+    verify(helper.audioPlayer, never()).startPlayback()
+  }
+
   it should "process a stop playback command" in {
     val delay = 1.second
     val helper = new ControllerTestHelper

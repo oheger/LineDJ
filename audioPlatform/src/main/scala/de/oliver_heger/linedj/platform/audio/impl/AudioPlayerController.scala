@@ -67,7 +67,7 @@ private class AudioPlayerController(val player: AudioPlayer,
 
     case SetPlaylist(playlist, closePlaylist, posOfs, timeOfs) =>
       if (hasCurrentPlaylist) {
-        player.reset()
+        resetPlayer()
       }
       lastResetTime = LocalDateTime.now()
       playlist.pendingSongs match {
@@ -120,6 +120,18 @@ private class AudioPlayerController(val player: AudioPlayer,
           else nextState
         }
       }
+  }
+
+  /**
+    * Resets the player engine. Makes sure that the playback state is restored
+    * after the reset.
+    */
+  private def resetPlayer(): Unit = {
+    val playbackActive = lastEvent.state.playbackActive
+    player.reset()
+    if (playbackActive) {
+      player.startPlayback()
+    }
   }
 
   /**
