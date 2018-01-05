@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaDat
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlaybackProgressEvent}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.Matchers.any
@@ -133,7 +133,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(createState(playing = false))
-      .verifyActionsEnabled(UIController.ActionStartPlayback)
+      .verifyActionsEnabled(UIController.ActionStartPlayback, UIController.ActionGotoSong)
   }
 
   it should "update action enabled states after each player state change" in {
@@ -141,7 +141,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
 
     helper.playerStateChanged(createState(playing = true))
       .playerStateChanged(createState(playing = false))
-      .verifyActionsEnabled(UIController.ActionStartPlayback)
+      .verifyActionsEnabled(UIController.ActionStartPlayback, UIController.ActionGotoSong)
   }
 
   it should "disable all actions after one has been triggered" in {
@@ -152,11 +152,21 @@ class UIControllerSpec extends FlatSpec with Matchers {
       .verifyActionsEnabled()
   }
 
-  it should "disable all actions if there is no current song" in {
+  it should "disable actions if there is no current song" in {
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
-    helper.prepareEmptyPlaylist(state)
+    helper.prepareNoCurrentSong(state)
+      .playerStateChanged(state)
+      .verifyActionsEnabled(UIController.ActionGotoSong)
+  }
+
+  it should "disable actions if the playlist is empty" in {
+    val state = createState(playing = false)
+    val helper = new ControllerTestHelper
+
+    helper.prepareNoCurrentSong(state)
+      .prepareEmptyPlaylist(state)
       .playerStateChanged(state)
       .verifyActionsEnabled()
   }
@@ -338,8 +348,20 @@ class UIControllerSpec extends FlatSpec with Matchers {
       * @param state the state
       * @return this test helper
       */
-    def prepareEmptyPlaylist(state: AudioPlayerState): ControllerTestHelper = {
+    def prepareNoCurrentSong(state: AudioPlayerState): ControllerTestHelper = {
       when(plService.currentSong(state.playlist)).thenReturn(None)
+      this
+    }
+
+    /**
+      * Prepares the mock for the playlist service to report an empty playlist
+      * for the provided state object.
+      *
+      * @param state the state
+      * @return this test helper
+      */
+    def prepareEmptyPlaylist(state: AudioPlayerState): ControllerTestHelper = {
+      when(plService.size(state.playlist)).thenReturn(0)
       this
     }
 
@@ -387,6 +409,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] = {
       val service = mock[PlaylistService[Playlist, MediaFileID]]
       when(service.currentSong(any())).thenReturn(Some(mock[MediaFileID]))
+      when(service.size(any())).thenReturn(42)
       service
     }
 

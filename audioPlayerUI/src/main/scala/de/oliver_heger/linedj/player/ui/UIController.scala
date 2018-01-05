@@ -171,7 +171,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     enableAction(ActionStopPlayback, isPlaying)
     enableAction(ActionPreviousSong, isPlaying)
     enableAction(ActionNextSong, isPlaying)
-    enableAction(ActionGotoSong, isPlaying)
+    enableAction(ActionGotoSong, plService.size(state.playlist) > 0)
     enableAction(ActionStartPlayback, hasCurrent && !state.playbackActive)
   }
 
