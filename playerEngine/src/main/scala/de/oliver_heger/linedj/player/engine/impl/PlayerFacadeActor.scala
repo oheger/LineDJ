@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration._
@@ -136,6 +137,12 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
   /** A buffer for messages that arrive during an engine reset. */
   private var messagesDuringReset = List.empty[Dispatch]
 
+  /**
+    * Stores the current set of playback context factories. They have to be
+    * passed to newly created playback actors.
+    */
+  private var playbackContextFactories = List.empty[AddPlaybackContextFactory]
+
   /** Flag whether this actor has been closed. */
   private var closed = false
 
@@ -150,6 +157,15 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
 
     case d: Dispatch if !isCloseRequestInProgress =>
       dispatchMessage(d)
+
+    case addMsg: AddPlaybackContextFactory =>
+      playbackActor ! addMsg
+      playbackContextFactories = addMsg :: playbackContextFactories
+
+    case removeMsg: RemovePlaybackContextFactory =>
+      playbackActor ! removeMsg
+      playbackContextFactories =
+        playbackContextFactories filterNot(_.factory == removeMsg.factory)
 
     case ResetEngine =>
       messagesDuringReset = List.empty
@@ -205,6 +221,7 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
       sourceReaderActor))
     playbackActor = createChildActor(PlaybackActor(config, sourceReaderActor, lineWriterActor,
       eventActor))
+    playbackContextFactories foreach(playbackActor ! _)
   }
 
   /**
