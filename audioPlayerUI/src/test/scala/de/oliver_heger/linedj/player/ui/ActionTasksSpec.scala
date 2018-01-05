@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
@@ -156,5 +156,101 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
       playlistClosed = false)
 
     checkTaskNoBusResult(state)(new GotoSongTask(_, tabHandler, plService))
+  }
+
+  /**
+    * Creates a progress event with the given time offset.
+    *
+    * @param time the time offset
+    * @return the progress event
+    */
+  private def createProgressEvent(time: Long): PlaybackProgressEvent =
+    PlaybackProgressEvent(playbackTime = time, bytesProcessed = 1,
+      currentSource = AudioSource("test", 20180105, 0, 0))
+
+  "A PreviousSongTask" should "move to the previous song if progress is under threshold" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val Index = 17
+    val playlist = mock[Playlist]
+    val newPlaylist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+    when(plService.currentIndex(playlist)).thenReturn(Some(Index))
+    when(plService.setCurrentSong(playlist, Index - 1)).thenReturn(Some(newPlaylist))
+
+    val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = true),
+      progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
+      Config, plService))
+    cmd should be(SetPlaylist(newPlaylist))
+  }
+
+  it should "reset the current song if progress is over the threshold" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val playlist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+
+    val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = true),
+      progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
+      Config, plService))
+    cmd should be(SetPlaylist(playlist))
+    verifyZeroInteractions(plService)
+  }
+
+  it should "respect the playlist closed flag" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val playlist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+
+    val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = false),
+      progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
+      Config, plService))
+    cmd should be(SetPlaylist(playlist, closePlaylist = false))
+  }
+
+  it should "reset the current song if it is the first in the playlist" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val playlist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+    when(plService.currentIndex(playlist)).thenReturn(Some(0))
+
+    val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = true),
+      progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
+      Config, plService))
+    cmd should be(SetPlaylist(playlist))
+  }
+
+  it should "handle a None result in setCurrentSong" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val Index = 17
+    val playlist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+    when(plService.currentIndex(playlist)).thenReturn(Some(Index))
+    when(plService.setCurrentSong(playlist, Index - 1)).thenReturn(None)
+
+    checkTaskNoBusResult(state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = true),
+      progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
+      Config, plService))
+  }
+
+  it should "handle a None result in currentIndex" in {
+    val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
+      rotationSpeed = 1, autoStartPlayback = false)
+    val playlist = mock[Playlist]
+    val plService = mock[PlaylistService[Playlist, MediaFileID]]
+    when(plService.currentIndex(playlist)).thenReturn(None)
+
+    checkTaskNoBusResult(state = AudioPlayerState(playlist, 1,
+      playbackActive = true, playlistClosed = true),
+      progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
+      Config, plService))
   }
 }

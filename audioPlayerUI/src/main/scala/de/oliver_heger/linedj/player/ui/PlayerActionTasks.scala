@@ -75,6 +75,44 @@ class NextSongTask(controller: UIController) extends PlayerActionTask(controller
 }
 
 /**
+  * Task implementation for moving backwards in the current playlist.
+  *
+  * The exact behavior of this task depends on the playback progress and the
+  * configured threshold for moving backwards: If the playback time in the
+  * current song is below the threshold and the current song is not the first
+  * one in the playlist, the current position is moved to the previous song.
+  * Otherwise, playback of the current song starts again.
+  *
+  * @param controller      the ''UIController''
+  * @param config          the configuration of the audio player
+  * @param playlistService the playlist service
+  */
+class PreviousSongTask(controller: UIController, config: AudioPlayerConfig,
+                       playlistService: PlaylistService[Playlist, MediaFileID])
+  extends PlayerActionTask(controller) {
+  override protected def playerCommand: Option[AnyRef] = {
+    nextPlaylist(controller.lastPlayerState.playlist) map { pl =>
+      SetPlaylist(pl, closePlaylist = controller.lastPlayerState.playlistClosed)
+    }
+  }
+
+  /**
+    * Determines the updated playlist based on the playback progress in the
+    * current song.
+    *
+    * @param currentPlaylist the current playlist
+    * @return an option for the updated playlist
+    */
+  private def nextPlaylist(currentPlaylist: Playlist): Option[Playlist] =
+    if (controller.lastProgressEvent.playbackTime < config.skipBackwardsThreshold) {
+      playlistService.currentIndex(currentPlaylist) flatMap { index =>
+        if (index > 0) playlistService.setCurrentSong(currentPlaylist, index - 1)
+        else Some(currentPlaylist)
+      }
+    } else Some(currentPlaylist)
+}
+
+/**
   * Task implementation for setting a specific song as current song in the
   * playlist.
   *

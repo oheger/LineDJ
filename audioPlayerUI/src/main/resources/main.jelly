@@ -291,7 +291,12 @@
 
   <!-- Task for previous song action -->
   <di:bean name="prevSongTask"
-    beanClassName="java.lang.Thread">
+    beanClassName="de.oliver_heger.linedj.player.ui.PreviousSongTask">
+    <di:constructor>
+      <di:param refName="uiController"/>
+      <di:param refName="audioPlayer.config"/>
+      <di:param refName="playlistService"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Task for move to specific song action -->
