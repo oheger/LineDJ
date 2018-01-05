@@ -296,6 +296,11 @@
 
   <!-- Task for move to specific song action -->
   <di:bean name="gotoSongTask"
-    beanClassName="java.lang.Thread">
+    beanClassName="de.oliver_heger.linedj.player.ui.GotoSongTask">
+    <di:constructor>
+      <di:param refName="uiController"/>
+      <di:param refName="comp:playlistTable"/>
+      <di:param refName="playlistService"/>
+    </di:constructor>
   </di:bean>
 </j:jelly>

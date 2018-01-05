@@ -16,8 +16,10 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.audio.{SkipCurrentSource, StartAudioPlayback,
-  StopAudioPlayback}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.{SetPlaylist, SkipCurrentSource, StartAudioPlayback, StopAudioPlayback}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
 /**
   * A base action task class that needs to interact with a
@@ -30,17 +32,19 @@ import de.oliver_heger.linedj.platform.audio.{SkipCurrentSource, StartAudioPlayb
   */
 abstract class PlayerActionTask(val controller: UIController) extends Runnable {
   override def run(): Unit = {
-    controller.playerActionTriggered()
-    controller.messageBus publish playerCommand
+    playerCommand foreach { cmd =>
+      controller.playerActionTriggered()
+      controller.messageBus publish cmd
+    }
   }
 
   /**
-    * Returns the command to be published on the message bus as an
-    * implementation of this task.
+    * Returns the command to be published on the message bus on behalf of this
+    * task. An implementation may decide that no command can be published.
     *
-    * @return the message bus command
+    * @return the optional message bus command
     */
-  protected def playerCommand: AnyRef
+  protected def playerCommand: Option[AnyRef]
 }
 
 /**
@@ -49,7 +53,7 @@ abstract class PlayerActionTask(val controller: UIController) extends Runnable {
   * @param controller the ''UIController''
   */
 class StartPlaybackTask(controller: UIController) extends PlayerActionTask(controller) {
-  override protected val playerCommand: AnyRef = StartAudioPlayback()
+  override protected val playerCommand: Option[AnyRef] = Some(StartAudioPlayback())
 }
 
 /**
@@ -58,7 +62,7 @@ class StartPlaybackTask(controller: UIController) extends PlayerActionTask(contr
   * @param controller the ''UIController''
   */
 class StopPlaybackTask(controller: UIController) extends PlayerActionTask(controller) {
-  override protected val playerCommand: AnyRef = StopAudioPlayback()
+  override protected val playerCommand: Option[AnyRef] = Some(StopAudioPlayback())
 }
 
 /**
@@ -67,5 +71,28 @@ class StopPlaybackTask(controller: UIController) extends PlayerActionTask(contro
   * @param controller the ''UIController''
   */
 class NextSongTask(controller: UIController) extends PlayerActionTask(controller) {
-  override protected val playerCommand: AnyRef = SkipCurrentSource
+  override protected val playerCommand: Option[AnyRef] = Some(SkipCurrentSource)
+}
+
+/**
+  * Task implementation for setting a specific song as current song in the
+  * playlist.
+  *
+  * This task obtains the current selection from the playlist table control.
+  * The selected song - if defined - becomes the new current song.
+  *
+  * @param controller      the ''UIController''
+  * @param tableHandler    the handler for the playlist table
+  * @param playlistService the playlist service
+  */
+class GotoSongTask(controller: UIController, tableHandler: TableHandler,
+                   playlistService: PlaylistService[Playlist, MediaFileID])
+  extends PlayerActionTask(controller) {
+  override protected def playerCommand: Option[AnyRef] = {
+    val index = tableHandler.getSelectedIndex
+    val state = controller.lastPlayerState
+    playlistService.setCurrentSong(state.playlist, index) map { pl =>
+      SetPlaylist(pl, closePlaylist = state.playlistClosed)
+    }
+  }
 }
