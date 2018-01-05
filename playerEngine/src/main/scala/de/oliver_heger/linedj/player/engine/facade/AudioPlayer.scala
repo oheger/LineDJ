@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{TargetDownloadActor, TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
@@ -120,6 +121,24 @@ class AudioPlayer private(facadeActor: ActorRef,
     */
   private def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
                                 delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    facadeActor ! PlayerFacadeActor.Dispatch(msg, target, delay)
+    facadeActor ! convertMessage(msg, target, delay)
   }
+
+  /**
+    * Converts an incoming message to a message to be sent to the facade actor.
+    * Normal messages have to be wrapped in a ''Dispatch'' message. Some
+    * messages, however, require a special treatment.
+    *
+    * @param msg    the message to be sent
+    * @param target the receiver of the message
+    * @param delay  a delay
+    * @return the message to the facade actor
+    */
+  private def convertMessage(msg: Any, target: PlayerFacadeActor.TargetActor,
+                             delay: FiniteDuration) =
+    msg match {
+      case addFactory: AddPlaybackContextFactory => addFactory
+      case remFactory: RemovePlaybackContextFactory => remFactory
+      case m => PlayerFacadeActor.Dispatch(m, target, delay)
+    }
 }

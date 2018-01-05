@@ -23,9 +23,10 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor, TargetDownloadActor, TargetPlaybackActor}
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mock.MockitoSugar
@@ -132,6 +133,22 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.expectReset()
   }
 
+  it should "send an AddPlaybackContextFactory message directly to the facade actor" in {
+    val factory = mock[PlaybackContextFactory]
+    val helper = new AudioPlayerTestHelper
+
+    helper.player.addPlaybackContextFactory(factory)
+    helper.expectMessageToFacadeActor(AddPlaybackContextFactory(factory))
+  }
+
+  it should "send a RemovePlaybackContextFactory message directly to the facade actor" in {
+    val factory = mock[PlaybackContextFactory]
+    val helper = new AudioPlayerTestHelper
+
+    helper.player.removePlaybackContextFactory(factory)
+    helper.expectMessageToFacadeActor(RemovePlaybackContextFactory(factory))
+  }
+
   /**
     * A test helper class collecting all required dependencies.
     */
@@ -152,6 +169,17 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val player = AudioPlayer(config)
 
     /**
+      * Expects that the specified message has been sent to the facade actor.
+      *
+      * @param msg the message
+      * @return this test helper
+      */
+    def expectMessageToFacadeActor(msg: Any): AudioPlayerTestHelper = {
+      facadeActor.expectMsg(msg)
+      this
+    }
+
+    /**
       * Checks that a message was sent to the facade actor.
       *
       * @param msg         the message
@@ -160,10 +188,8 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return this test helper
       */
     def expectFacadeMessage(msg: Any, targetActor: TargetActor,
-                            delay: FiniteDuration = NoDelay): AudioPlayerTestHelper = {
-      facadeActor.expectMsg(PlayerFacadeActor.Dispatch(msg, targetActor, delay))
-      this
-    }
+                            delay: FiniteDuration = NoDelay): AudioPlayerTestHelper =
+      expectMessageToFacadeActor(PlayerFacadeActor.Dispatch(msg, targetActor, delay))
 
     /**
       * Expects a reset message sent to the facade actor.
