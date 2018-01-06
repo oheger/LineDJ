@@ -161,8 +161,17 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /** An actor which triggered a close request. */
   private var closingActor: ActorRef = _
 
-  /** The skip position of the current source. */
+  /**
+    * The skip position of the current source. This is used to start playback
+    * at a specific position in the audio stream.
+    */
   private var skipPosition = 0L
+
+  /**
+    * The skip position for the current source stream. This is used to skip
+    * the current source without decoding audio data.
+    */
+  private var skipStreamPosition = 0L
 
   /** The number of bytes processed from the current audio source so far. */
   private var bytesProcessed = 0L
@@ -200,10 +209,11 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         currentSource = Some(src)
         audioDataPending = false
         skipPosition = src.skip
+        skipStreamPosition = 0
         bytesProcessed = 0
         bytesPlayed = 0
         playbackNanos = 0
-        playbackSeconds = 0
+        playbackSeconds = src.skipTime
         requestAudioDataIfPossible()
       } else {
         sender ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
@@ -219,7 +229,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
-        if (skipPosition > currentSource.get.length || currentSourceIsInfinite || bytesInAudioBuffer == 0) {
+        if (currentSourceIsInfinite || bytesInAudioBuffer == 0) {
           sourceCompleted()
         }
         playback()
@@ -288,7 +298,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * @return a flag whether the message is valid and can be handled
    */
   private def checkAudioDataResponse(msg: Any): Boolean = {
-    if(skipPosition < 0) {
+    if(skipStreamPosition < 0) {
       // outstanding data request after skip
       audioDataPending = false
       enterSkipMode(afterError = true)
@@ -309,11 +319,11 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * Handles new audio data which has been sent to this actor. The
    * data has to be appended to the audio buffer - if this is allowed by the
    * current skip position.
- *
+   *
    * @param data the data source to be added
    */
   private def handleNewAudioData(data: ArraySource): Unit = {
-    val skipSource = ArraySourceImpl(data, (skipPosition - bytesProcessed).toInt)
+    val skipSource = ArraySourceImpl(data, (skipStreamPosition - bytesProcessed).toInt)
     if (skipSource.length > 0) {
       audioDataStream append skipSource
     }
@@ -403,7 +413,13 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
             readFromAudioStream(ctx) match {
               case Success(len) =>
                 if (len > 0) {
-                  lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len))
+                  val offset = scala.math.max(skipPosition - bytesPlayed, 0).toInt
+                  val dataLen = len - offset
+                  if (dataLen > 0) {
+                    lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len), offset)
+                  } else {
+                    self ! LineWriterActor.AudioDataWritten(len, 0)
+                  }
                   audioPlaybackPending = true
                 } else {
                   if (!currentSourceIsInfinite) {
@@ -470,7 +486,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (afterError && s.isInfinite) {
         skipInfiniteSource()
       } else {
-        skipPosition = if(s.isInfinite) 0 else s.length + 1
+        skipStreamPosition = if(s.isInfinite) 0 else s.length + 1
         requestAudioDataIfPossible()
       }
     }
@@ -485,7 +501,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   private def skipInfiniteSource(): Unit = {
     playbackEnabled = false
     if (audioDataPending) {
-      skipPosition = -1
+      skipStreamPosition = -1
     } else {
       sourceCompleted()
     }

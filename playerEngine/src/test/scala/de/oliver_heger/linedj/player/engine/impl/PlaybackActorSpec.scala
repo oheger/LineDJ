@@ -42,14 +42,15 @@ object PlaybackActorSpec {
 
   /**
     * Creates a test audio source whose properties are derived from the given
-   * index value.
+    * index value.
     *
-    * @param idx the index
-   * @param skipBytes the number of bytes to be skipped at the beginning
-   * @return the test audio source
-   */
-  private def createSource(idx: Int, skipBytes: Int = 0): AudioSource =
-    AudioSource(s"audiSource$idx.mp3", 3 * AudioBufferSize + 20 * (idx + 1), skipBytes, 0)
+    * @param idx       the index
+    * @param skipBytes the number of bytes to be skipped at the beginning
+    * @param skipTime  the playback time offset
+    * @return the test audio source
+    */
+  private def createSource(idx: Int, skipBytes: Int = 0, skipTime: Int = 0): AudioSource =
+    AudioSource(s"audiSource$idx.mp3", 3 * AudioBufferSize + 20 * (idx + 1), skipBytes, skipTime)
 
   /**
    * Creates a data array with test content and the given length. The array
@@ -390,7 +391,7 @@ with EventTestSupport {
     sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, 16))
 
     lineWriter.expectMsgType[WriteAudioData]
-    lineWriter.expectNoMsg(1.seconds)
+    lineWriter.expectNoMessage(1.seconds)
   }
 
   /**
@@ -412,7 +413,8 @@ with EventTestSupport {
     while (currentLength < length) {
       val playMsg = lineWriter.expectMsgType[WriteAudioData]
       playMsg.line should be(expLine)
-      stream.write(playMsg.data.data, playMsg.data.offset, playMsg.data.length)
+      stream.write(playMsg.data.data, playMsg.data.offset + playMsg.offset,
+        playMsg.data.length - playMsg.offset)
       currentLength += playMsg.data.length
       playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length, chunkDuration),
         lineWriter.ref)
@@ -511,17 +513,18 @@ with EventTestSupport {
     sendAudioData(actor, arraySource(1, PlaybackContextLimit))
     gatherPlaybackData(actor, lineWriter, line, PlaybackContextLimit - LineChunkSize)
     expectMsgType[GetAudioData]
-    lineWriter.expectNoMsg(100.milliseconds)
+    lineWriter.expectNoMessage(100.milliseconds)
   }
 
   it should "generate playback progress events" in {
     val lineWriter = TestProbe()
     val eventMan = TestProbe()
     val Chunks = 5
+    val SkipTime = 22
     val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
       testActor, lineWriter.ref, eventMan.ref))
     val line = installMockPlaybackContextFactory(actor)
-    val source = createSource(1)
+    val source = createSource(1, skipTime = SkipTime)
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -533,7 +536,7 @@ with EventTestSupport {
       TimeUnit.MILLISECONDS.toNanos(250))
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be((Chunks - 1) * LineChunkSize)
-    event.playbackTime should be(1)
+    event.playbackTime should be(SkipTime + 1)
     event.currentSource should be(source)
 
     sendAudioData(actor, arraySource(8, LineChunkSize))
@@ -541,7 +544,7 @@ with EventTestSupport {
       TimeUnit.MILLISECONDS.toNanos(2250))
     val event2 = expectEvent[PlaybackProgressEvent](eventMan)
     event2.bytesProcessed should be((Chunks + 1) * LineChunkSize)
-    event2.playbackTime should be(3)
+    event2.playbackTime should be(SkipTime + 3)
     event2.currentSource should be(source)
     expectMsgType[GetAudioData]
   }
@@ -582,7 +585,7 @@ with EventTestSupport {
     val lineWriter = TestProbe()
     val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
     val line = installMockPlaybackContextFactory(actor)
-    val SkipSize = 16
+    val SkipSize = LineChunkSize
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -833,7 +836,7 @@ with EventTestSupport {
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
     actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     sendAudioData(actor, arraySource(2, LineChunkSize), EndOfFile(null))
-    lineWriter.expectNoMsg(100.millis)
+    lineWriter.expectNoMessage(100.millis)
     expectMsg(GetAudioSource)
     expectEvent[PlaybackErrorEvent](eventMan).source should be(source)
     expectEvent[AudioSourceFinishedEvent](eventMan)
@@ -920,7 +923,7 @@ with EventTestSupport {
     actor ! CloseRequest
     expectMsgType[CloseAck]
     actor ! StartPlayback
-    expectNoMsg(200.milliseconds)
+    expectNoMessage(200.milliseconds)
   }
 
   it should "handle a close request if a playback context is active" in {
