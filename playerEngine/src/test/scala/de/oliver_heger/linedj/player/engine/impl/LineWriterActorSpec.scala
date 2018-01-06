@@ -64,10 +64,22 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
     val data = createArraySource(dataArray)
     val actor = system.actorOf(Props[LineWriterActor])
 
-    actor ! WriteAudioData(line, data)
+    actor ! WriteAudioData(line, data, 0)
     val written = expectMsgType[AudioDataWritten]
     written.chunkLength should be(42)
     verify(line).write(dataArray, 4, 42)
+  }
+
+  it should "handle a WriteAudioData message with an offset" in {
+    val line = mock[SourceDataLine]
+    val dataArray = new Array[Byte](64)
+    val data = createArraySource(dataArray)
+    val actor = system.actorOf(Props[LineWriterActor])
+
+    actor ! WriteAudioData(line, data, 10)
+    val written = expectMsgType[AudioDataWritten]
+    written.chunkLength should be(42)
+    verify(line).write(dataArray, 14, 32)
   }
 
   it should "handle a DrainLine message" in {
@@ -92,11 +104,11 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
     })
 
     val startTime = System.nanoTime()
-    actor ! WriteAudioData(line, data)
+    actor ! WriteAudioData(line, data, 0)
     val written = expectMsgType[AudioDataWritten]
     val endTime = System.nanoTime()
     val duration = endTime - startTime
     written.duration should be <= duration
-    written.duration should be >= TimeUnit.MILLISECONDS.toNanos(50)
+    written.duration should be >= TimeUnit.MILLISECONDS.toNanos(45)
   }
 }

@@ -33,10 +33,11 @@ object LineWriterActor {
     * This message causes the ''LineWriterActor'' actor to write the
     * specified data into the given line.
     *
-    * @param line the line
-    * @param data the data to be written
+    * @param line   the line
+    * @param data   the data to be written
+    * @param offset offset into the data array
     */
-  case class WriteAudioData(line: SourceDataLine, data: ArraySource)
+  case class WriteAudioData(line: SourceDataLine, data: ArraySource, offset: Int)
 
   /**
     * A message that tells a [[LineWriterActor]] to invoke the ''drain()''
@@ -88,9 +89,9 @@ object LineWriterActor {
  */
 class LineWriterActor extends Actor {
   override def receive: Receive = {
-    case WriteAudioData(line, data) =>
+    case WriteAudioData(line, data, offset) =>
       val startTime = System.nanoTime()
-      line.write(data.data, data.offset, data.length)
+      line.write(data.data, data.offset + offset, data.length - offset)
       sender ! AudioDataWritten(data.length, System.nanoTime() - startTime)
 
     case DrainLine(line) =>
