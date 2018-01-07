@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.ui
 
 import de.oliver_heger.linedj.platform.ActionTestHelper
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
@@ -42,10 +43,11 @@ class UIControllerSpec extends FlatSpec with Matchers {
     * Generates a state object for the audio player.
     *
     * @param playing flag whether playback is active.
+    * @param seqNo   the sequence number for the playlist
     * @return the player state
     */
-  private def createState(playing: Boolean): AudioPlayerState =
-    AudioPlayerState(Playlist(Nil, Nil), 1, playing, playlistClosed = true)
+  private def createState(playing: Boolean, seqNo: Int = 1): AudioPlayerState =
+    AudioPlayerState(Playlist(Nil, Nil), seqNo, playing, playlistClosed = true)
 
   /**
     * Creates a test playback progress event.
@@ -82,6 +84,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     state.playbackActive shouldBe false
     state.playlist.playedSongs should have size 0
     state.playlist.pendingSongs should have size 0
+    state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
   }
 
   it should "pass playlist meta data to the playlist table controller" in {
@@ -171,6 +174,42 @@ class UIControllerSpec extends FlatSpec with Matchers {
       .verifyActionsEnabled()
   }
 
+  it should "start playback for a new playlist if configured" in {
+    val helper = new ControllerTestHelper
+    val state = createState(playing = false)
+
+    helper.enablePlaybackAutoStart(f = true)
+      .playerStateChanged(state)
+      .verifyPlaybackStarted()
+  }
+
+  it should "not start playback for a new playlist if not configured" in {
+    val helper = new ControllerTestHelper
+    val state = createState(playing = false)
+
+    helper.playerStateChanged(state)
+      .verifyPlaybackNotStarted()
+  }
+
+  it should "not start playback if the playlist sequence number does not change" in {
+    val helper = new ControllerTestHelper
+    val orgState = helper.lastPlayerState
+    val state = createState(playing = false, seqNo = orgState.playlistSeqNo)
+
+    helper.enablePlaybackAutoStart(f = true)
+      .playerStateChanged(state)
+      .verifyPlaybackNotStarted()
+  }
+
+  it should "not start playback for a new playlist if it is already active" in {
+    val state = createState(playing = true)
+    val helper = new ControllerTestHelper
+
+    helper.enablePlaybackAutoStart(f = true)
+      .playerStateChanged(state)
+      .verifyPlaybackNotStarted()
+  }
+
   /**
     * A test helper class managing a test instance and its dependencies.
     */
@@ -184,6 +223,9 @@ class UIControllerSpec extends FlatSpec with Matchers {
     /** Mock for the playlist service. */
     private val plService = createPlaylistService()
 
+    /** Mock for the configuration of the application. */
+    private val playerConfig = createAppConfig()
+
     /** A set with the names of all relevant actions. */
     private val actionNames = Set(UIController.ActionStartPlayback,
       UIController.ActionStopPlayback, UIController.ActionNextSong,
@@ -191,7 +233,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
 
     /** The controller to be tested. */
     private val controller = new UIController(mock[MessageBus], initActionMocks(), tableController,
-      currentSongController, plService)
+      currentSongController, plService, playerConfig)
 
     /** The consumer function for player state change events. */
     private lazy val stateConsumer = findRegistration[AudioPlayerStateChangeRegistration].callback
@@ -380,6 +422,38 @@ class UIControllerSpec extends FlatSpec with Matchers {
     }
 
     /**
+      * Prepares the mock for the player configuration to return the specified
+      * flag for the auto start option.
+      *
+      * @param f the flag value
+      * @return this test helper
+      */
+    def enablePlaybackAutoStart(f: Boolean): ControllerTestHelper = {
+      when(playerConfig.autoStartPlayback).thenReturn(f)
+      this
+    }
+
+    /**
+      * Verifies that the action to start playback has been triggered once.
+      *
+      * @return this test heper
+      */
+    def verifyPlaybackStarted(): ControllerTestHelper = {
+      verify(actions(UIController.ActionStartPlayback)).execute(null)
+      this
+    }
+
+    /**
+      * Verifies that the action to start playback has not been triggered.
+      *
+      * @return this test helper
+      */
+    def verifyPlaybackNotStarted(): ControllerTestHelper = {
+      verify(actions(UIController.ActionStartPlayback), never()).execute(any())
+      this
+    }
+
+    /**
       * Creates all mock actions required by the test class and an action store
       * that provides access to them.
       *
@@ -411,6 +485,17 @@ class UIControllerSpec extends FlatSpec with Matchers {
       when(service.currentSong(any())).thenReturn(Some(mock[MediaFileID]))
       when(service.size(any())).thenReturn(42)
       service
+    }
+
+    /**
+      * Creates a mock for the configuration of the player application.
+      *
+      * @return the mock for the configuration
+      */
+    private def createAppConfig(): AudioPlayerConfig = {
+      val config = mock[AudioPlayerConfig]
+      when(config.autoStartPlayback).thenReturn(false)
+      config
     }
 
     /**

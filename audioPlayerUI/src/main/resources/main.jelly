@@ -253,6 +253,7 @@
         <di:param refName="playlistController"/>
         <di:param refName="currentSongController"/>
         <di:param refName="playlistService"/>
+        <di:param refName="audioPlayer.config"/>
       </di:constructor>
     </di:bean>
 

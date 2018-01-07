@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.ui
 
 import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
@@ -50,7 +51,8 @@ object UIController {
     * value. It should be overridden immediately with a real state.
     */
   private val InitialPlayerState =
-    AudioPlayerState(Playlist(Nil, Nil), 0, playbackActive = false, playlistClosed = false)
+    AudioPlayerState(Playlist(Nil, Nil), PlaylistService.SeqNoInitial,
+      playbackActive = false, playlistClosed = false)
 
   /**
     * Initial value for the last progress event. Here some plausible values are
@@ -79,11 +81,13 @@ object UIController {
   * @param playlistTableController the table controller
   * @param currentSongController   the current song controller
   * @param plService               the playlist service
+  * @param config                  the configuration for the application
   */
 class UIController(val messageBus: MessageBus, actionStore: ActionStore,
                    playlistTableController: PlaylistTableController,
                    currentSongController: CurrentSongController,
-                   plService: PlaylistService[Playlist, MediaFileID]) extends MessageBusListener
+                   plService: PlaylistService[Playlist, MediaFileID],
+                   config: AudioPlayerConfig) extends MessageBusListener
   with ConsumerRegistrationProvider with Identifiable {
 
   import UIController._
@@ -146,6 +150,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     playlistTableController handlePlayerStateUpdate event.state
     currentSongController.playlistStateChanged()
     updateActionStates(event.state)
+    handlePlaybackAutoStart(currentState, event.state)
     currentState = event.state
   }
 
@@ -183,5 +188,20 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     */
   private def enableAction(name: String, state: Boolean): Unit = {
     actionStore.getAction(name) setEnabled state
+  }
+
+  /**
+    * Checks whether playback needs to be started when reacting on a playlist
+    * change event.
+    *
+    * @param oldState the old state of the audio player
+    * @param newState the new state of the audio player
+    */
+  private def handlePlaybackAutoStart(oldState: AudioPlayerState,
+                                      newState: AudioPlayerState): Unit = {
+    if (config.autoStartPlayback && !newState.playbackActive &&
+      oldState.playlistSeqNo != newState.playlistSeqNo) {
+      actionStore.getAction(ActionStartPlayback).execute(null)
+    }
   }
 }
