@@ -21,7 +21,7 @@ import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
-import de.oliver_heger.linedj.platform.app.ClientContextSupport
+import de.oliver_heger.linedj.platform.app.{ClientContextSupport, ShutdownHandler}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object PlaylistHandler {
@@ -106,16 +106,13 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
   }
 
   /**
-    * @inheritdoc This implementation does cleanup. It also makes sure that the
-    *             latest state of the current playlist is written to disk by
-    *             closing the writer actor.
+    * @inheritdoc This implementation does cleanup. Note that shutdown logic is
+    *             implemented as reaction on a ''Shutdown'' message.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
     bus removeListener busRegistrationID
     bus publish AudioPlayerStateChangeUnregistration(componentID)
-    stateWriterActor foreach { act =>
-      shutdownStateWriterActor(act)
-    }
+    stateWriterActor foreach clientApplicationContext.actorSystem.stop
     super.deactivate(componentContext)
   }
 
@@ -129,6 +126,10 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
+
+    case ShutdownHandler.Shutdown(_) =>
+      log.info("Received Shutdown message.")
+      stateWriterActor foreach shutdownStateWriterActor
   }
 
   /**
@@ -179,20 +180,25 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
   }
 
   /**
-    * Closes and stops the state writer actor. This makes sure that recent
-    * updates on the playlist state will be written to disk.
+    * Sends a close request to the state writer actor and handles its response.
+    * This makes sure that recent updates on the playlist state are written to
+    * disk. A shutdown confirmation is sent when this is done.
     *
     * @param act the state writer actor
     */
   private def shutdownStateWriterActor(act: ActorRef): Unit = {
+    implicit val ec: ExecutionContext = clientApplicationContext.actorSystem.dispatcher
     implicit val timeout: Timeout = Timeout(handlerConfig.shutdownTimeout)
     val futAck = act ? CloseRequest
-    try {
-      Await.result(futAck, timeout.duration)
-    } catch {
-      case e: Throwable => log.warn("Waiting for CloseAck of state writer actor failed!", e)
+    futAck onComplete { t =>
+      t match {
+        case Failure(e) =>
+          log.warn("Waiting for CloseAck of state writer actor failed!", e)
+        case _ =>
+          log.debug("State writer actor closed.")
+      }
+      bus publish ShutdownHandler.ShutdownDone(componentID)
     }
-    clientApplicationContext.actorSystem stop act
   }
 
   /**

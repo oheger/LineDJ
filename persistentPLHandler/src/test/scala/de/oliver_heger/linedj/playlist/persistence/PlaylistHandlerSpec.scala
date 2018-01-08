@@ -17,13 +17,12 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import java.nio.file.Paths
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ShutdownHandler}
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ActorFactory
@@ -157,38 +156,35 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .expectStateWriterMsg(event)
   }
 
-  it should "send a close message to the state writer actor on deactivation" in {
+  it should "send a close message to the state writer actor on shutdown" in {
     val helper = new HandlerTestHelper
 
     helper.activate()
-      .deactivate()
+      .sendShutdown()
       .expectStateWriterMsg(CloseRequest)
   }
 
   it should "take the configured shutdown timeout into account" in {
     val Timeout = 500.millis
-    val latch = new CountDownLatch(1)
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
-    helper.activate().disableCloseAckForStateWriter()
-    val thread = new DeactivateThread(helper, latch)
-    thread.start()
 
-    latch.await(Timeout.plus(100.millis).toMillis, TimeUnit.MILLISECONDS) shouldBe true
-    thread.join(1000)
+    val confirm = helper.activate()
+      .disableCloseAckForStateWriter()
+      .sendShutdown()
+      .expectMessageOnBus[ShutdownHandler.ShutdownDone]
+    confirm.observerID should be(helper.handlerComponentID)
   }
 
   it should "wait for the close Ack of the state writer actor on deactivation" in {
     val Timeout = 500.millis
-    val latch = new CountDownLatch(1)
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
-    helper.activate().disableCloseAckForStateWriter()
-    val thread = new DeactivateThread(helper, latch)
-    thread.start()
 
-    latch.await(Timeout.minus(100.millis).toMillis, TimeUnit.MILLISECONDS) shouldBe false
-    thread.join(1000)
+    helper.activate()
+      .disableCloseAckForStateWriter()
+      .sendShutdown()
+      .expectNoMessageOnBus(Timeout.minus(100.millis))
   }
 
   /**
@@ -309,6 +305,18 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       messageBus.expectMessageType[A]
 
     /**
+      * Tests that no message is published on the message bus for the
+      * specified time.
+      *
+      * @param time the time
+      * @return this test helper
+      */
+    def expectNoMessageOnBus(time: FiniteDuration): HandlerTestHelper = {
+      messageBus.expectNoMessage(time)
+      this
+    }
+
+    /**
       * Checks that the state writer actor has been stopped.
       *
       * @return this test helper
@@ -327,6 +335,16 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def disableCloseAckForStateWriter(): HandlerTestHelper = {
       stateWriterActor ! IgnoreCloseRequest
+      this
+    }
+
+    /**
+      * Sends a ''Shutdown'' message to the test handler.
+      *
+      * @return this test helper
+      */
+    def sendShutdown(): HandlerTestHelper = {
+      publishOnBus(ShutdownHandler.Shutdown(clientCtx))
       this
     }
 
@@ -396,21 +414,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       config
     }
   }
-
-  /**
-    * A thread class for testing deactivation with timeouts.
-    *
-    * @param helper the helper to be invoked
-    * @param latch  the latch to sync with the test method
-    */
-  private class DeactivateThread(helper: HandlerTestHelper, latch: CountDownLatch)
-    extends Thread {
-    override def run(): Unit = {
-      helper.deactivate()
-      latch.countDown()
-    }
-  }
-
 }
 
 /**
