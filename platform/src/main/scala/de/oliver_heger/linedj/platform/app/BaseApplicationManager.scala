@@ -356,7 +356,7 @@ trait BaseApplicationManager extends ApplicationManager {
       a removeShutdownListener ShutdownTracker
       a.shutdown()
     }
-    Some(ClientManagementApplication.Shutdown(applicationContext))
+    Some(ShutdownHandler.Shutdown(applicationContext))
   }
 
   /**

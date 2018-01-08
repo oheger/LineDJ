@@ -60,18 +60,6 @@ object ClientManagementApplication {
   case class MediaIfcConfigUpdated(currentConfigData: Option[MediaIfcConfigData])
 
   /**
-    * A message processed by [[ClientManagementApplication]] that causes the
-    * shutdown of the current system. This message is typically sent by a
-    * component responsible for shutdown handling. The current application
-    * context must be provided to ensure that this message was not sent from
-    * an external system (e.g. via a remote connection); the application
-    * context should only be known in the local application.
-    *
-    * @param applicationContext the ''ClientApplicationContext''
-    */
-  case class Shutdown(applicationContext: ClientApplicationContext)
-
-  /**
     * Creates an exit handler for shutting down this application in an OSGi
     * context.
     * @param compContext the ''ComponentContext''
@@ -332,12 +320,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     * @param bus the message bus
     */
   private[app] def initShutdownHandling(bus: MessageBus): Unit = {
-    bus registerListener {
-      case Shutdown(context) =>
-        log.info("Received Shutdown command.")
-        if (context == this) shutdown()
-        else log.warn("Ignoring invalid Shutdown command: " + context)
-    }
+    val shutdownHandler = new ShutdownHandler(this)
+    bus registerListener shutdownHandler.receive
   }
-
 }

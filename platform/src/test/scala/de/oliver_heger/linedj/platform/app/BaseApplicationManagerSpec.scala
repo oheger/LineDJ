@@ -258,7 +258,7 @@ class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSuga
       io.verify(a).removeShutdownListener(listener)
       io.verify(a).shutdown()
     }
-    optMsg.get should be(ClientManagementApplication.Shutdown(helper.appContext))
+    optMsg.get should be(ShutdownHandler.Shutdown(helper.appContext))
   }
 
   it should "enable message processing for derived classes" in {

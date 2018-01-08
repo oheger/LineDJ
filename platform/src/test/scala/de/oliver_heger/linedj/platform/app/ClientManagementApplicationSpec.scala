@@ -225,7 +225,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
 
     val exitHandler = mock[Runnable]
     app setExitHandler exitHandler
-    val shutdownMsg = ClientManagementApplication.Shutdown(app)
+    val shutdownMsg = ShutdownHandler.Shutdown(app)
     app.mockBus.findListenerForMessage(shutdownMsg) foreach { r =>
       r(shutdownMsg)
     }
@@ -238,7 +238,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     app initActorSystem actorSystem
     runApp(app)
 
-    val shutdownMsg = ClientManagementApplication.Shutdown(null)
+    val shutdownMsg = ShutdownHandler.Shutdown(null)
     val listener = app.mockBus.findListenerForMessage(shutdownMsg).get
     val exitHandler = mock[Runnable]
     app setExitHandler exitHandler
@@ -247,7 +247,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
   }
 
   /**
-    * Heper method for retrieving a specific extension registered by the
+    * Helper method for retrieving a specific extension registered by the
     * specified application.
     *
     * @param app    the application
