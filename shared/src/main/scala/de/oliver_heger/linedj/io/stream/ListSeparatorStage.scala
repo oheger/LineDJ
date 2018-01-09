@@ -60,7 +60,7 @@ class ListSeparatorStage[A](prefix: String, separator: => String, suffix: String
 
         override def onUpstreamFinish(): Unit = {
           val data = if (index > 0) suffix else prefix + suffix
-          push(out, ByteString(data))
+          emit(out, ByteString(data))
           completeStage()
         }
       })
