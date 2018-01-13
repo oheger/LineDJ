@@ -29,7 +29,7 @@ import scala.annotation.tailrec
   */
 trait PlaylistTestHelper {
   /** A vector with test medium IDs. */
-  private val MediaIDs = Vector(MediumID("medium1", Some("medium1.settings"), "component1"),
+  val MediaIDs = Vector(MediumID("medium1", Some("medium1.settings"), "component1"),
     MediumID("medium2", None, "component2"),
     MediumID("medium3", None),
     MediumID("medium4", Some("medium34.settings")))

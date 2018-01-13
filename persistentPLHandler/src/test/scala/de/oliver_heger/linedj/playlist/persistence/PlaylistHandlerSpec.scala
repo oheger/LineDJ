@@ -25,8 +25,11 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ShutdownHandler}
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.ActorFactory
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
@@ -93,7 +96,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
     helper.config.clearProperty(PlaylistHandlerConfig.PropPositionPath)
 
-    helper.activate()
+    helper.activate(expectRegistration = false)
       .expectBusListenerRegistrationCount(0)
       .expectNoLoadPlaylistOperation()
       .deactivate()
@@ -113,16 +116,18 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.activate()
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
     helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
-    helper.expectMessageOnBus[AudioPlayerStateChangeRegistration]
+    helper.expectMessageOnBus[AvailableMediaUnregistration]
       .id should be(helper.handlerComponentID)
+    helper.expectConsumerRegistration[AudioPlayerStateChangeRegistration]
   }
 
-  it should "remove the player state change registration on deactivate" in {
+  it should "remove the consumer registrations on deactivate" in {
     val helper = new HandlerTestHelper
+    helper.activate().deactivate()
 
-    helper.activate()
-      .deactivate()
-      .expectMessageOnBus[AudioPlayerStateChangeUnregistration]
+    helper.expectMessageOnBus[AudioPlayerStateChangeUnregistration]
+      .id should be(helper.handlerComponentID)
+    helper.expectMessageOnBus[AvailableMediaUnregistration]
       .id should be(helper.handlerComponentID)
   }
 
@@ -132,11 +137,12 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
     helper.activate()
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .expectMessageOnBus[SetPlaylist]
-    val reg = helper.expectMessageOnBus[AudioPlayerStateChangeRegistration]
+      .skipMessagesOnBus(2)
 
-    reg.callback(AudioPlayerStateChangedEvent(state))
-    helper.expectStateWriterMsg(state)
+    helper.expectConsumerRegistration[AudioPlayerStateChangeRegistration]
+      .invokeConsumerCallback[AudioPlayerStateChangeRegistration,
+      AudioPlayerStateChangedEvent](AudioPlayerStateChangedEvent(state))
+      .expectStateWriterMsg(state)
   }
 
   it should "stop the state writer actor on deactivation" in {
@@ -187,6 +193,33 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .expectNoMessageOnBus(Timeout.minus(100.millis))
   }
 
+  it should "not set the playlist if not all media are available" in {
+    val helper = new HandlerTestHelper
+
+    helper.activate(availableMedia = MediaIDs drop 1)
+      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .expectNoMessageOnBus()
+  }
+
+  it should "set the playlist when all media become available" in {
+    val helper = new HandlerTestHelper
+
+    helper.activate(availableMedia = Set.empty)
+      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .sendAvailableMedia(MediaIDs)
+    helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
+  }
+
+  it should "activate a playlist only once" in {
+    val helper = new HandlerTestHelper
+    helper.activate()
+      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .skipMessagesOnBus(3)
+
+    helper.sendAvailableMedia(MediaIDs)
+      .expectNoMessageOnBus()
+  }
+
   /**
     * Test helper class managing a test instance and its dependencies.
     */
@@ -210,17 +243,30 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     /** The client context passed to the test instance. */
     private val clientCtx = createClientContext()
 
+    /** A set with consumer registrations created by the test handler. */
+    private var consumerRegistrations = Set.empty[ConsumerRegistration[_]]
+
     /** The handler to be tested. */
     private val handler = new PlaylistHandler
 
     /**
-      * Activates the handler component under test.
+      * Activates the handler component under test. This method already expects
+      * the consumer registrations that need to be done on activation and can
+      * pass an object with available media.
       *
+      * @param expectRegistration flag whether consumer registrations should be
+      *                           handled
+      * @param availableMedia     defines the media available initially
       * @return this test helper
       */
-    def activate(): HandlerTestHelper = {
+    def activate(expectRegistration: Boolean = true,
+                 availableMedia: Iterable[MediumID] = MediaIDs): HandlerTestHelper = {
       handler initClientContext clientCtx
       handler.activate(mock[ComponentContext])
+      if (expectRegistration) {
+        expectConsumerRegistration[AvailableMediaRegistration]
+        sendAvailableMedia(availableMedia)
+      }
       this
     }
 
@@ -243,6 +289,41 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def expectBusListenerRegistrationCount(count: Int): HandlerTestHelper = {
       messageBus.currentListeners should have size count
+      this
+    }
+
+    /**
+      * Expects that a message for a consumer registration of the specified
+      * type is published on the message bus by the test handler. The
+      * registration is stored, so that it can be used later to invoke the
+      * callback.
+      *
+      * @param t the class tag for the registration class
+      * @tparam T the type of the registration
+      * @return this test helper
+      */
+    def expectConsumerRegistration[T <: ConsumerRegistration[_]](implicit t: ClassTag[T]):
+    HandlerTestHelper = {
+      val reg = expectMessageOnBus[T]
+      reg.id should be(handlerComponentID)
+      consumerRegistrations += reg
+      this
+    }
+
+    /**
+      * Invokes the callback of a consumer registration with the specified
+      * data.
+      *
+      * @param data the data to be passed
+      * @param t    the class tag for the registration class
+      * @tparam T the type of the consumer registration class
+      * @return this test helper
+      */
+    def invokeConsumerCallback[R <: ConsumerRegistration[T], T](data: T)
+                                                               (implicit t: ClassTag[R]):
+    HandlerTestHelper = {
+      val reg = consumerRegistrations.find(_.getClass == t.runtimeClass).get.asInstanceOf[R]
+      reg.callback(data)
       this
     }
 
@@ -311,9 +392,23 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param time the time
       * @return this test helper
       */
-    def expectNoMessageOnBus(time: FiniteDuration): HandlerTestHelper = {
+    def expectNoMessageOnBus(time: FiniteDuration = 10.millis): HandlerTestHelper = {
       messageBus.expectNoMessage(time)
       this
+    }
+
+    /**
+      * Ignores the given number of messages on the message bus.
+      *
+      * @param count the number of messages to be ignored
+      * @return this test helper
+      */
+    def skipMessagesOnBus(count: Int = 1): HandlerTestHelper = {
+      if (count < 1) this
+      else {
+        messageBus.expectMessageType[AnyRef]
+        skipMessagesOnBus(count - 1)
+      }
     }
 
     /**
@@ -345,6 +440,22 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def sendShutdown(): HandlerTestHelper = {
       publishOnBus(ShutdownHandler.Shutdown(clientCtx))
+      this
+    }
+
+    /**
+      * Passes an ''AvailableMedia'' object to the test handler that contains
+      * the specified media.
+      *
+      * @param media a collection with the media
+      * @return this test helper
+      */
+    def sendAvailableMedia(media: Iterable[MediumID]): HandlerTestHelper = {
+      val mediaData = media map { m =>
+        val info = MediumInfo(m.mediumURI, "desc", m, "", "", "")
+        m -> info
+      }
+      invokeConsumerCallback[AvailableMediaRegistration, AvailableMedia](AvailableMedia(mediaData.toMap))
       this
     }
 
