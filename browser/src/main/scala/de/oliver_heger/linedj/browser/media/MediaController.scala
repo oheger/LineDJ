@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.browser.media
 
 import java.util.Locale
 
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
@@ -46,6 +47,10 @@ object MediaController {
 
   /** Name of the action for adding the currently selected songs. */
   private val ActionAddSongs = "addSongsAction"
+
+  /** A list with the names of all actions related to adding songs. */
+  private val AddActions = List(ActionAddMedium, ActionAddArtist, ActionAddAlbum,
+    ActionAddSongs)
 
   /**
    * Creates an ''AlbumKey'' object for the specified song.
@@ -150,27 +155,29 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   /** Stores the available media. */
   private var availableMedia = Map.empty[MediumID, MediumInfo]
 
+  /** A flag whether the current playlist is closed. */
+  private var playlistClosed = true
+
   /** The registrations for consumers. */
   override val registrations: Iterable[ConsumerRegistration[_]] =
   List(ArchiveAvailabilityRegistration(ComponentID(), handleArchiveAvailabilityEvent),
-    AvailableMediaRegistration(ComponentID(), handleAvailableMedia))
+    AvailableMediaRegistration(ComponentID(), handleAvailableMedia),
+    AudioPlayerStateChangeRegistration(ComponentID(), handlePlayerStateChangeEvent))
 
   /**
     * Initializes this controller. This method sets initial state of some of
     * the managed objects.
     */
   def initialize(): Unit = {
-    enableAction(ActionAddMedium, enabled = false)
-    enableAction(ActionAddArtist, enabled = false)
-    enableAction(ActionAddAlbum, enabled = false)
-    enableAction(ActionAddSongs, enabled = false)
+    disableAddActions()
   }
 
   /**
    * Selects the specified medium. This method is called when the combo box
    * selection is changed. This causes the data of the new medium to be
    * requested and displayed.
-   * @param mediumID the URI of the newly selected medium
+    *
+    * @param mediumID the URI of the newly selected medium
    */
   def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumID foreach clearOldMediumSelection
@@ -443,7 +450,14 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     * @param enabled the new enabled state
     */
   private def enableAction(name: String, enabled: Boolean): Unit = {
-    actionStore.getAction(name) setEnabled enabled
+    actionStore.getAction(name) setEnabled enabled && !playlistClosed
+  }
+
+  /**
+    * Disables all actions related to adding songs to the playlist.
+    */
+  private def disableAddActions(): Unit = {
+    AddActions foreach (enableAction(_, enabled = false))
   }
 
   /**
@@ -477,6 +491,18 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       comboMedia setEnabled true
     }
     availableMedia = am.media
+  }
+
+  /**
+    * Consumer function for updates of the audio player state. This
+    * implementation enables actions to add songs to the playlist only if the
+    * playlist has not yet been closed.
+    *
+    * @param event the event describing the change of the player state
+    */
+  private def handlePlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit = {
+    playlistClosed = event.state.playlistClosed
+    if(playlistClosed) disableAddActions()
   }
 
   /**

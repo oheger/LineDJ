@@ -20,8 +20,10 @@ import java.nio.file.Paths
 import java.util
 import java.util.Locale
 
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
@@ -29,7 +31,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.Avai
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
-import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
+import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model._
 import org.apache.commons.configuration.HierarchicalConfiguration
@@ -205,12 +207,27 @@ object MediaControllerSpec {
     node setValue key
     createTreePath(node)
   }
+
+  /**
+    * Sends a change event about an updated audio player state to the
+    * specified controller.
+    *
+    * @param controller     the controller
+    * @param playlistClosed flag whether the playlist is closed
+    */
+  private def sendPlaylistState(controller: MediaController, playlistClosed: Boolean): Unit = {
+    val reg = ConsumerRegistrationProviderTestHelper
+      .findRegistration[AudioPlayerStateChangeRegistration](controller)
+    val event = AudioPlayerStateChangedEvent(AudioPlayerState(playlist = null, playlistSeqNo = 0,
+      playbackActive = true, playlistClosed = playlistClosed))
+    reg.callback(event)
+  }
 }
 
 /**
  * Test class for ''MediaController''.
  */
-class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class MediaControllerSpec extends FlatSpec with Matchers {
 
   import MediaControllerSpec._
 
@@ -363,6 +380,14 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.verifyAction("addMediumAction", enabled = true)
   }
 
+  it should "only enable the add medium action if the playlist is not closed" in {
+    val helper = new MediaControllerTestHelper
+
+    helper.closePlaylist()
+      .selectMedium()
+    helper.verifyAction("addMediumAction", enabled = false)
+  }
+
   it should "populate the tree model when meta data arrives" in {
     val helper = new MediaControllerTestHelper
     val chunk = createChunk(songs = createSongData(Artist1, Album1, Songs1))
@@ -460,7 +485,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper selectAlbums createTreePath(Artist1, Album1)
     helper.verifyAction("addArtistAction", enabled = true)
-    helper.verifyAction("addAlbumAction", enabled = true)
+      .verifyAction("addAlbumAction", enabled = true)
   }
 
   it should "disable append actions if there is no album and artist selection" in {
@@ -468,7 +493,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper.selectAlbums()
     helper.verifyAction("addArtistAction", enabled = false)
-    helper.verifyAction("addAlbumAction", enabled = false)
+      .verifyAction("addAlbumAction", enabled = false)
   }
 
   it should "enable append actions correctly if there is an artist, but no album selection" in {
@@ -477,7 +502,16 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper selectAlbums createTreePath(node)
     helper.verifyAction("addArtistAction", enabled = true)
-    helper.verifyAction("addAlbumAction", enabled = false)
+      .verifyAction("addAlbumAction", enabled = false)
+  }
+
+  it should "not enable append actions for artist and album if the playlist is not open" in {
+    val helper = prepareAlbumSelection()
+
+    helper.closePlaylist()
+      .selectAlbums(createTreePath(Artist1, Album1))
+    helper.verifyAction("addArtistAction", enabled = false)
+      .verifyAction("addAlbumAction", enabled = false)
   }
 
   it should "disable the append songs action if no songs are selected" in {
@@ -493,6 +527,38 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
 
     helper.controller.songSelectionChanged()
+    helper.verifyAction("addSongsAction", enabled = true)
+  }
+
+  it should "not enable the append songs action if the playlist is not open" in {
+    val helper = new MediaControllerTestHelper
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
+
+    helper.closePlaylist()
+    helper.controller.songSelectionChanged()
+    helper.verifyAction("addSongsAction", enabled = false)
+  }
+
+  it should "disable all actions when the playlist is closed" in {
+    val helper = prepareAlbumSelection()
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
+    helper.selectMedium()
+    helper.selectAlbums(createTreePath(Artist1, Album1))
+    helper.controller.songSelectionChanged()
+
+    helper.closePlaylist()
+      .verifyAction("addArtistAction", enabled = false)
+      .verifyAction("addAlbumAction", enabled = false)
+      .verifyAction("addMediumAction", enabled = false)
+      .verifyAction("addSongsAction", enabled = false)
+  }
+
+  it should "only disable add song actions if the playlist is actually closed" in {
+    val helper = new MediaControllerTestHelper
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
+
+    helper.controller.songSelectionChanged()
+    sendPlaylistState(helper.controller, playlistClosed = false)
     helper.verifyAction("addSongsAction", enabled = true)
   }
 
@@ -652,7 +718,7 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
    * A test helper class managing mock objects for the dependencies of a
    * controller.
    */
-  private class MediaControllerTestHelper {
+  private class MediaControllerTestHelper extends ActionTestHelper with MockitoSugar {
     import ConsumerRegistrationProviderTestHelper._
 
     val songFactory = new SongDataFactory {
@@ -684,17 +750,11 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** The in-progress widget. */
     val labelInProgress = mock[WidgetHandler]
 
-    /** A map with actions managed by the controller. */
-    val actionMap = createActionMap()
-
     /** The mock action store. */
-    val actionStore = createActionStore(actionMap)
+    val actionStore = initActions()
 
     /** The controller test instance. */
-    val controller = new MediaController(mediaFacade = mediaFacade, songFactory =
-      songFactory, comboMedia = comboHandler, treeHandler = treeHandler, tableHandler =
-      tableHandler, inProgressWidget = labelInProgress, undefinedMediumName =
-      UndefinedMediumName, actionStore = actionStore)
+    val controller = createController()
 
     /** Stores the messages published to the message bus. */
     private val publishedMessages = ListBuffer.empty[Any]
@@ -847,11 +907,24 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /**
       * Checks whether the enabled state of the action with the given name has
       * been set to the given value.
-      * @param name the name of the action
+      *
+      * @param name    the name of the action
       * @param enabled the expected enabled state
+      * @return this test helper
       */
-    def verifyAction(name: String, enabled: Boolean): Unit = {
-      verify(actionMap(name)).setEnabled(enabled)
+    def verifyAction(name: String, enabled: Boolean): MediaControllerTestHelper = {
+      isActionEnabled(name) shouldBe enabled
+      this
+    }
+
+    /**
+      * Closes the playlist.
+      *
+      * @return this test helper
+      */
+    def closePlaylist(): MediaControllerTestHelper = {
+      sendPlaylistState(controller, playlistClosed = true)
+      this
     }
 
     /**
@@ -916,27 +989,28 @@ class MediaControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
-      * Creates a map with mock actions for appending songs to the playlist.
-      * @return the map with actions
+      * Initializes mocks for the managed actions and creates a mock action
+      * store.
+      *
+      * @return the mock action store
       */
-    private def createActionMap(): Map[String, FormAction] = {
-      val mocks = AppendActions map (_ => mock[FormAction])
-      Map(AppendActions zip mocks: _*)
+    private def initActions(): ActionStore = {
+      createActions(AppendActions: _*)
+      createActionStore()
     }
 
     /**
-      * Creates a mock action store which allows querying the actions in the
-      * specified map.
-      * @param actions the map with supported actions
-      * @return the mock action store
+      * Creates an initialized test controller instance.
+      *
+      * @return the test controller
       */
-    private def createActionStore(actions: Map[String, FormAction]): ActionStore = {
-      val store = mock[ActionStore]
-      when(store.getAction(any(classOf[String]))).thenAnswer(new Answer[FormAction] {
-        override def answer(invocationOnMock: InvocationOnMock): FormAction =
-          actions(invocationOnMock.getArguments.head.asInstanceOf[String])
-      })
-      store
+    private def createController(): MediaController = {
+      val ctrl = new MediaController(mediaFacade = mediaFacade, songFactory =
+        songFactory, comboMedia = comboHandler, treeHandler = treeHandler, tableHandler =
+        tableHandler, inProgressWidget = labelInProgress, undefinedMediumName =
+        UndefinedMediumName, actionStore = actionStore)
+      sendPlaylistState(ctrl, playlistClosed = false)
+      ctrl
     }
   }
 
