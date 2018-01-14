@@ -18,8 +18,10 @@ package de.oliver_heger.linedj.browser.media
 
 import java.util
 
-import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.platform.audio.AppendPlaylist
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
@@ -29,6 +31,28 @@ import org.scalatest.mock.MockitoSugar
   * Test class for the action tasks that append songs to the playlist.
   */
 class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
+  /**
+    * Creates the ID of a test song based on the given index.
+    *
+    * @param idx the index of the song
+    * @return the ID of this test song
+    */
+  def songID(idx: Int): MediaFileID =
+    MediaFileID(MediumID("testMedium", None), "testSong" + idx)
+
+  /**
+    * Creates a mock ''SongData'' object for the test song with the given
+    * index.
+    *
+    * @param idx the index of the song
+    * @return the mock for this test song
+    */
+  def mockSong(idx: Int): SongData = {
+    val song = mock[SongData]
+    when(song.id).thenReturn(songID(idx))
+    song
+  }
+
   "An AppendPlaylistActionTask" should "append all songs of the medium" in {
     val helper = new AppendPlaylistTestHelper
     val task = new AppendMediumActionTask(helper.controller, helper.messageBus)
@@ -51,16 +75,18 @@ class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
   }
 
   it should "append the songs selected in the songs table" in {
+    val SongCount = 8
+    val selectedSongs = Array(1, 3, 4, 6)
     val tableHandler = mock[TableHandler]
     val helper = new AppendPlaylistTestHelper
-    val songs = List(mock[SongData], mock[SongData], mock[SongData], mock[SongData])
-    val tableModel = util.Arrays.asList(null, songs.head, null, songs(1), songs(2), null, songs(3))
+    val tableModel = new util.ArrayList[AnyRef](SongCount)
+    (0 until SongCount) foreach (i => tableModel add mockSong(i))
     doReturn(tableModel).when(tableHandler).getModel
-    when(tableHandler.getSelectedIndices).thenReturn(Array(1, 3, 4, 6))
+    when(tableHandler.getSelectedIndices).thenReturn(selectedSongs)
     val task = new AppendSongsActionTask(tableHandler, helper.messageBus)
 
     task.run()
-    helper.verifySongsAppended(songs)
+    helper.verifySongsAppended(selectedSongs.map(songID).toList)
   }
 
   /**
@@ -78,12 +104,13 @@ class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
       * Prepares the mock controller to expect a request for selected songs. The
       * songs in question are selected by the passed in function.
       * @param f the function querying the songs from the controller
-      * @return a list with test song data
+      * @return a list with IDs of selected test songs
       */
-    def expectSelectionRequest(f: MediaController => Seq[SongData]): Seq[SongData] = {
-      val songs = List(mock[SongData], mock[SongData], mock[SongData])
+    def expectSelectionRequest(f: MediaController => Seq[SongData]): List[MediaFileID] = {
+      val songIDs = List(1, 2, 5, 8, 19)
+      val songs = songIDs map mockSong
       when(f(controller)).thenReturn(songs)
-      songs
+      songIDs map songID
     }
 
     /**
@@ -91,8 +118,8 @@ class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
       * A corresponding message is searched for on the message bus.
       * @param songs the expected songs
       */
-    def verifySongsAppended(songs: Seq[SongData]): Unit = {
-      verify(messageBus).publish(AppendSongs(songs))
+    def verifySongsAppended(songs: List[MediaFileID]): Unit = {
+      verify(messageBus).publish(AppendPlaylist(songs))
     }
 
     /**

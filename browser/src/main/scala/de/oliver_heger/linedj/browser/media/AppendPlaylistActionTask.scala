@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.platform.audio.AppendPlaylist
+import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
@@ -34,7 +35,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   */
 abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable {
   override def run(): Unit = {
-    messageBus publish AppendSongs(fetchSongsToAppend())
+    messageBus publish createAppendMessage(fetchSongsToAppend())
   }
 
   /**
@@ -44,6 +45,16 @@ abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable
     * @return the sequence of songs to be appended to the playlist
     */
   protected def fetchSongsToAppend(): Seq[SongData]
+
+  /**
+    * Generates a message to append songs to the playlist based on the passed
+    * in sequence.
+    *
+    * @param songs a sequence of ''SongData'' objects
+    * @return the message to extend the playlist by these songs
+    */
+  private def createAppendMessage(songs: Seq[SongData]): AppendPlaylist =
+    AppendPlaylist(songs.map(_.id).toList)
 }
 
 /**
