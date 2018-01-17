@@ -18,14 +18,20 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import java.util
 
-import de.oliver_heger.linedj.platform.audio.model.{AppendSongs, SongData}
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
+import de.oliver_heger.linedj.platform.audio.model.{DefaultSongDataFactory, SongData, UnknownPropertyResolver}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
+import org.mockito.Matchers.anyInt
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.concurrent.duration._
 
 object PlaylistControllerSpec {
   /** A test medium ID. */
@@ -33,6 +39,19 @@ object PlaylistControllerSpec {
 
   /** The template for the status line. */
   private val StatusLineTemplate = "Count: %d, Duration: %s, Size: %.2f"
+
+  /** Constant for an unknown artist name. */
+  private val UnknownArtist = "Unknown artist"
+
+  /** Constant for an unknown album name. */
+  private val UnknownAlbum = "Unknown album"
+
+  /** A test song factory. */
+  private val SongFactory = new DefaultSongDataFactory(new UnknownPropertyResolver {
+    override def resolveAlbumName(songID: MediaFileID): String = UnknownAlbum
+
+    override def resolveArtistName(songID: MediaFileID): String = UnknownArtist
+  })
 
   /**
    * Generates text for the status line based on the specified parameters.
@@ -46,17 +65,74 @@ object PlaylistControllerSpec {
     StatusLineTemplate.format(count, duration, size)
 
   /**
-   * Creates a song data object for the specified test song.
+    * Generates the ID of a test media file based on the given index.
     *
-    * @param title the song title
-   * @param duration the duration (in milliseconds)
-   * @param size the size (in bytes)
-   * @return the ''SongData''
-   */
-  private def song(title: String, duration: Int, size: Int): SongData =
-    SongData(MediaFileID(Medium, "song://" + title),
-      MediaMetaData(title = Some(title), duration = Some(duration),
-      size = size), title, null, null)
+    * @param idx the index
+    * @return the ID of this test file
+    */
+  private def fileID(idx: Int): MediaFileID =
+    MediaFileID(Medium, "testSong" + idx)
+
+  /**
+    * Generates meta data for a test song based on the given index.
+    *
+    * @param idx the index
+    * @return meta data for this test song
+    */
+  private def metaData(idx: Int): MediaMetaData =
+    MediaMetaData(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
+      duration = Some((idx + 1).minutes.toMillis.toInt), size = (idx + 1) * 1024 * 512)
+
+  /**
+    * Creates a ''SongData'' object with the specified parameters.
+    *
+    * @param idx  the index of the test song
+    * @param meta the meta data for this song
+    * @return the ''SongData'' instance
+    */
+  private def songData(idx: Int, meta: MediaMetaData): SongData =
+    SongFactory.createSongData(fileID(idx), meta)
+
+  /**
+    * Creates a ''SongData'' object whose meta data has not yet been resolved.
+    *
+    * @param idx the index of the test song
+    * @return the ''SongData'' instance
+    */
+  private def unresolvedSongData(idx: Int): SongData =
+    songData(idx, PlaylistController.UndefinedMetaData)
+
+  /**
+    * Creates a ''SongData'' object with resolved meta data.
+    *
+    * @param idx the index of the test song
+    * @return the ''SongData'' instance
+    */
+  private def resolvedSongData(idx: Int): SongData =
+    songData(idx, metaData(idx))
+
+  /**
+    * Generates a list of file IDs in the specified range.
+    *
+    * @param from the start index
+    * @param to   the end index (including)
+    * @return the list with song IDs
+    */
+  private def fileIDs(from: Int, to: Int): List[MediaFileID] =
+    (from to to).map(fileID).toList
+
+  /**
+    * Generates a map with meta data for the songs of a playlist in the given
+    * range.
+    *
+    * @param from the start index
+    * @param to   the end index (including)
+    * @return the map with meta data
+    */
+  private def playlistMetaData(from: Int, to: Int): Map[MediaFileID, MediaMetaData] =
+    (from to to).foldLeft(Map.empty[MediaFileID, MediaMetaData]) { (m, i) =>
+      m + (fileID(i) -> metaData(i))
+    }
 }
 
 /**
@@ -67,68 +143,116 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   import PlaylistControllerSpec._
 
   "A PlaylistController" should "add new songs to a playlist" in {
-    val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = song("B", 120000, 3 * 1024 * 1024)
-    val song3 = song("C", 90000, 2 * 1024 * 1024)
+    val songs = fileIDs(0, 3)
     val helper = new PlaylistControllerTestHelper
 
-    helper.appendSongs(song1, song2, song3)
-    helper.playlistModel should be(util.Arrays.asList(song1, song2, song3))
-    verify(helper.tableHandler).rowsInserted(0, 2)
+    helper.addSongs(songs)
+      .expectUnresolvedSongs(0, 3)
+    verify(helper.tableHandler).rowsInserted(0, 3)
   }
 
   it should "append songs to an existing playlist" in {
-    val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = song("B", 120000, 3 * 1024 * 1024)
-    val song3 = song("C", 90000, 2 * 1024 * 1024)
     val helper = new PlaylistControllerTestHelper
-    helper.appendSongs(song1, song2)
+    helper.addSongs(fileIDs(0, 1))
 
-    helper.appendSongs(song3)
-    helper.playlistModel should be(util.Arrays.asList(song1, song2, song3))
+    helper.addSongs(fileIDs(0, 2))
+      .expectUnresolvedSongs(0, 2)
     verify(helper.tableHandler).rowsInserted(2, 2)
   }
 
-  it should "update the status line when new songs are added" in {
-    val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = song("B", 120000, 1572864)
+  it should "resolve newly added songs if possible" in {
     val helper = new PlaylistControllerTestHelper
 
-    helper.appendSongs(song1, song2)
-    verify(helper.statusLineHandler).setText(generateStatusLine(2, "3:00", 2.5))
+    helper.sendPlaylistMetaData(playlistMetaData(2, 4))
+      .addSongs(fileIDs(0, 7))
+      .expectUnresolvedSongs(0, 1)
+      .expectUnresolvedSongs(5, 7)
+      .expectResolvedSongs(2, 4)
+  }
+
+  it should "resolve songs when new meta data arrives" in {
+    val helper = new PlaylistControllerTestHelper
+
+    helper.addSongs(fileIDs(0, 7))
+      .sendPlaylistMetaData(playlistMetaData(2, 4))
+      .expectUnresolvedSongs(0, 1)
+      .expectUnresolvedSongs(5, 7)
+      .expectResolvedSongs(2, 4)
+    verify(helper.tableHandler).rowsUpdated(2, 4)
+  }
+
+  it should "ignore meta data updates if all songs have been resolved initially" in {
+    val helper = new PlaylistControllerTestHelper
+
+    helper.sendPlaylistMetaData(playlistMetaData(0, 3))
+      .addSongs(fileIDs(0, 3))
+      .resetToUnresolvedSongs()
+      .sendPlaylistMetaData(playlistMetaData(0, 4))
+      .expectUnresolvedSongs(0, 3)
+  }
+
+  it should "ignore meta data updates if all songs have been resolved later" in {
+    val helper = new PlaylistControllerTestHelper
+
+    helper.addSongs(fileIDs(0, 3))
+      .sendPlaylistMetaData(playlistMetaData(0, 3))
+      .resetToUnresolvedSongs()
+      .sendPlaylistMetaData(playlistMetaData(0, 4))
+      .expectUnresolvedSongs(0, 3)
+  }
+
+  it should "handle a meta data update if no new songs are resolved" in {
+    val helper = new PlaylistControllerTestHelper
+    helper.sendPlaylistMetaData(playlistMetaData(0, 3))
+      .addSongs(fileIDs(0, 7))
+      .sendPlaylistMetaData(playlistMetaData(8, 10))
+
+    verify(helper.tableHandler, never()).rowsUpdated(anyInt(), anyInt())
+  }
+
+  it should "update the status line when new songs are added" in {
+    val helper = new PlaylistControllerTestHelper
+    helper.sendPlaylistMetaData(playlistMetaData(0, 1)).addSongs(fileIDs(0, 1))
+
+    verify(helper.statusLineHandler).setText(generateStatusLine(2, "3:00", 1.5))
   }
 
   it should "output an indication in the status line if there are songs with unknown duration" in {
-    val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = SongData(MediaFileID(Medium, "song://B"),
-      MediaMetaData(title = Some("B"), size = 1024 * 1024), "B", null, null)
     val helper = new PlaylistControllerTestHelper
+    helper.sendPlaylistMetaData(playlistMetaData(0, 0))
+      .addSongs(fileIDs(0, 1))
 
-    helper.appendSongs(song1, song2)
-    verify(helper.statusLineHandler).setText(generateStatusLine(2, "> 1:00", 2.0))
+    verify(helper.statusLineHandler).setText(generateStatusLine(2, "> 1:00", 0.5))
+  }
+
+  it should "update the status line when new meta data arrives" in {
+    val helper = new PlaylistControllerTestHelper
+    helper.addSongs(fileIDs(0, 1))
+      .sendPlaylistMetaData(playlistMetaData(0, 1))
+
+    verify(helper.statusLineHandler).setText(generateStatusLine(2, "3:00", 1.5))
   }
 
   it should "select newly added songs" in {
     val helper = new PlaylistControllerTestHelper
-    helper appendSongs song("A", 60000, 100)
+    helper.addSongs(fileIDs(0, 0))
     verify(helper.tableHandler).setSelectedIndices(Array(0))
 
-    helper.appendSongs(song("B", 2, 2), song("C", 3, 3))
+    helper.addSongs(fileIDs(0, 2))
     verify(helper.tableHandler).setSelectedIndices(Array(1, 2))
   }
 
   it should "enable the export action if songs are added" in {
     val helper = new PlaylistControllerTestHelper
-    helper appendSongs song("Test", 1, 2)
+    helper addSongs fileIDs(0, 0)
 
     verify(helper.actionExport).setEnabled(true)
   }
 
   it should "execute a playlist manipulator" in {
-    val song1 = song("A", 60000, 1024 * 1024)
-    val song2 = song("B", 120000, 1572864)
     val helper = new PlaylistControllerTestHelper
-    helper.appendSongs(song1, song2)
+    helper.sendPlaylistMetaData(playlistMetaData(0, 0))
+      .addSongs(fileIDs(0, 1))
     val manipulator = new PlaylistManipulator {
       override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
         context.tableHandler.getModel.remove(1)
@@ -139,13 +263,13 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper.controller updatePlaylist manipulator
     helper.playlistModel should have size 1
-    helper.playlistModel should contain only song1
-    verify(helper.statusLineHandler).setText(generateStatusLine(1, "1:00", 1.0))
+    helper.expectResolvedSongs(0, 0)
+    verify(helper.statusLineHandler).setText(generateStatusLine(1, "1:00", 0.5))
   }
 
   it should "update actions after the playlist has been manipulated" in {
     val helper = new PlaylistControllerTestHelper
-    helper appendSongs song("Test", 1, 2)
+    helper addSongs fileIDs(0, 0)
     val manipulator = new PlaylistManipulator {
       override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
         context.tableHandler.getModel.clear()
@@ -156,6 +280,24 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     helper.controller updatePlaylist manipulator
     verify(helper.actionExport).setEnabled(false)
+  }
+
+  it should "update the unresolved song counter after a manipulation of the playlist" in {
+    val helper = new PlaylistControllerTestHelper
+    helper.sendPlaylistMetaData(playlistMetaData(0, 0))
+      .addSongs(fileIDs(0, 0))
+    val manipulator = new PlaylistManipulator {
+      override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+        context.tableHandler.getModel add resolvedSongData(1)
+      }
+
+      override def isEnabled(context: PlaylistSelectionContext): Boolean = true
+    }
+
+    helper.controller updatePlaylist manipulator
+    helper.resetToUnresolvedSongs()
+      .sendPlaylistMetaData(playlistMetaData(0, 1))
+      .expectResolvedSongs(0, 1)
   }
 
   /**
@@ -179,16 +321,90 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     /** The test controller instance. */
     val controller = new PlaylistController(tableHandler, statusLineHandler, actionStore,
-      StatusLineTemplate)
+      StatusLineTemplate, SongFactory)
 
     /**
-     * Adds the given songs to the playlist managed by the controller (in a
-     * single chunk).
+      * Passes a player state change notification to the test controller with
+      * a playlist containing the specified songs.
       *
-      * @param songs the songs to be added
-     */
-    def appendSongs(songs: SongData*): Unit = {
-      controller receive AppendSongs(songs)
+      * @param ids the IDs of the songs in the playlist
+      * @return this test helper
+      */
+    def addSongs(ids: List[MediaFileID]): PlaylistControllerTestHelper = {
+      val playlist = Playlist(pendingSongs = ids, playedSongs = Nil)
+      val stateEvent = AudioPlayerStateChangedEvent(AudioPlayerState(playlist = playlist,
+        playlistSeqNo = 1, playbackActive = false, playlistClosed = false))
+      ConsumerRegistrationProviderTestHelper
+        .findRegistration[AudioPlayerStateChangeRegistration](controller)
+        .callback(stateEvent)
+      this
+    }
+
+    /**
+      * Passes a map with meta data to the test controller.
+      *
+      * @param data the map with meta data
+      * @return this test helper
+      */
+    def sendPlaylistMetaData(data: Map[MediaFileID, MediaMetaData]):
+    PlaylistControllerTestHelper = {
+      ConsumerRegistrationProviderTestHelper
+        .findRegistration[PlaylistMetaDataRegistration](controller)
+        .callback(PlaylistMetaData(data))
+      this
+    }
+
+    /**
+      * Checks that the table model contains resolved songs in the specified
+      * range.
+      *
+      * @param from the start index
+      * @param to   the end index (including)
+      * @return this test helper
+      */
+    def expectResolvedSongs(from: Int, to: Int): PlaylistControllerTestHelper =
+      checkSongsInModel(from, to)(resolvedSongData)
+
+    /**
+      * Checks that the table model contains unresolved songs in the specified
+      * range.
+      *
+      * @param from the start index
+      * @param to   the end index (including)
+      * @return this test helper
+      */
+    def expectUnresolvedSongs(from: Int, to: Int): PlaylistControllerTestHelper =
+      checkSongsInModel(from, to)(unresolvedSongData)
+
+    /**
+      * Resets all SongData objects in the table model to unresolved ones.
+      *
+      * @return this test helper
+      */
+    def resetToUnresolvedSongs(): PlaylistControllerTestHelper = {
+      val count = playlistModel.size()
+      playlistModel.clear()
+      (0 until count) foreach (playlistModel add unresolvedSongData(_))
+      this
+    }
+
+    /**
+      * Checks that the table model contains specific songs in the specified
+      * range. For each index in the range the provided song function is
+      * called, and the resulting song is compared with the song in the table
+      * model.
+      *
+      * @param from the start index
+      * @param to   the end index (including)
+      * @param sf   the function to generate expected songs
+      * @return this test helper
+      */
+    private def checkSongsInModel(from: Int, to: Int)(sf: Int => SongData):
+    PlaylistControllerTestHelper = {
+      (from to to) foreach { i =>
+        playlistModel.get(i) should be(sf(i))
+      }
+      this
     }
 
     /**
