@@ -40,6 +40,15 @@ object PlaylistController {
   /** The name of the export action. */
   private val ActionExport = "plExportAction"
 
+  /** The name of the activate action. */
+  private val ActionActivate = "plActivateAction"
+
+  /**
+    * A list with actions whose enabled state has to be managed by the
+    * controller.
+    */
+  private val ManagedActions = List(ActionExport, ActionActivate)
+
   /** Constant for undefined meta data. */
   private[playlist] val UndefinedMetaData = MediaMetaData()
 
@@ -223,6 +232,9 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     * current playlist contains elements.
     */
   private def updateActions(): Unit = {
-    actionStore.getAction(ActionExport) setEnabled !tableHandler.getModel.isEmpty
+    val enabled = !tableHandler.getModel.isEmpty
+    ManagedActions foreach { act =>
+      actionStore.getAction(act) setEnabled enabled
+    }
   }
 }

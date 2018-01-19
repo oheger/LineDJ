@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import java.util
 
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.audio.model.{DefaultSongDataFactory, SongData, UnknownPropertyResolver}
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
+import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Matchers.anyInt
 import org.mockito.Mockito._
@@ -45,6 +46,9 @@ object PlaylistControllerSpec {
 
   /** Constant for an unknown album name. */
   private val UnknownAlbum = "Unknown album"
+
+  /** The names of actions related to the current playlist. */
+  private val PlaylistActions = List("plExportAction", "plActivateAction")
 
   /** A test song factory. */
   private val SongFactory = new DefaultSongDataFactory(new UnknownPropertyResolver {
@@ -138,7 +142,7 @@ object PlaylistControllerSpec {
 /**
  * Test class for ''PlaylistController''.
  */
-class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaylistControllerSpec extends FlatSpec with Matchers {
 
   import PlaylistControllerSpec._
 
@@ -242,11 +246,11 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     verify(helper.tableHandler).setSelectedIndices(Array(1, 2))
   }
 
-  it should "enable the export action if songs are added" in {
+  it should "enable the playlist actions if songs are added" in {
     val helper = new PlaylistControllerTestHelper
-    helper addSongs fileIDs(0, 0)
 
-    verify(helper.actionExport).setEnabled(true)
+    helper.addSongs(fileIDs(0, 0))
+      .verifyPlaylistActions(enabled = true)
   }
 
   it should "execute a playlist manipulator" in {
@@ -279,7 +283,7 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     helper.controller updatePlaylist manipulator
-    verify(helper.actionExport).setEnabled(false)
+    helper.verifyPlaylistActions(enabled = false)
   }
 
   it should "update the unresolved song counter after a manipulation of the playlist" in {
@@ -303,7 +307,7 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   /**
    * A test helper class managing dependent objects.
    */
-  private class PlaylistControllerTestHelper {
+  private class PlaylistControllerTestHelper extends ActionTestHelper with MockitoSugar {
     /** The table model. */
     val playlistModel = new util.ArrayList[SongData]
 
@@ -313,14 +317,8 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     /** A mock for the status line handler. */
     val statusLineHandler = mock[StaticTextHandler]
 
-    /** The action for exporting the playlist. */
-    val actionExport = mock[FormAction]
-
-    /** A mock for the action store. */
-    val actionStore = createActionStore()
-
     /** The test controller instance. */
-    val controller = new PlaylistController(tableHandler, statusLineHandler, actionStore,
+    val controller = new PlaylistController(tableHandler, statusLineHandler, initActions(),
       StatusLineTemplate, SongFactory)
 
     /**
@@ -389,6 +387,18 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     }
 
     /**
+      * Checks whether the actions depending on the presence of songs in the
+      * playlist have the expected enabled state.
+      *
+      * @param enabled the expected enabled state
+      * @return this test helper
+      */
+    def verifyPlaylistActions(enabled: Boolean): PlaylistControllerTestHelper = {
+      PlaylistActions foreach (isActionEnabled(_) shouldBe enabled)
+      this
+    }
+
+    /**
       * Checks that the table model contains specific songs in the specified
       * range. For each index in the range the provided song function is
       * called, and the resulting song is compared with the song in the table
@@ -424,10 +434,9 @@ class PlaylistControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       *
       * @return the mock action store
       */
-    private def createActionStore(): ActionStore = {
-      val store = mock[ActionStore]
-      when(store.getAction("plExportAction")).thenReturn(actionExport)
-      store
+    private def initActions(): ActionStore = {
+      createActions(PlaylistActions: _*)
+      createActionStore()
     }
   }
 
