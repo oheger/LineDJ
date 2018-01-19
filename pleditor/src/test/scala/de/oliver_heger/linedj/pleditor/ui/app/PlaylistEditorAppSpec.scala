@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.pleditor.ui.playlist.PlaylistActionEnabler
+import de.oliver_heger.linedj.pleditor.ui.playlist.{PlaylistActionEnabler, PlaylistController}
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
@@ -60,7 +60,7 @@ ApplicationTestSupport {
     val application = createApp(mockInitUI = false)
 
     val uiBus = queryBean[MessageBus](application, ClientApplication.BeanMessageBus)
-    verify(uiBus, Mockito.atLeast(2)).registerListener(any(classOf[Actor.Receive]))
+    verify(uiBus, Mockito.atLeast(1)).registerListener(any(classOf[Actor.Receive]))
   }
 
   it should "define a correct consumer registration bean" in {
@@ -70,7 +70,9 @@ ApplicationTestSupport {
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
     val remoteCtrl = queryBean[RemoteController](application.getMainWindowBeanContext,
       "remoteController")
-    consumerReg.providers should contain only remoteCtrl
+    val playlistCtrl = queryBean[PlaylistController](application.getMainWindowBeanContext,
+    "playlistController")
+    consumerReg.providers should contain only (remoteCtrl, playlistCtrl)
   }
 
   it should "construct an instance correctly" in {

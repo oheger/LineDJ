@@ -36,4 +36,22 @@
       <di:param refName="jguiraffe.application"/>
     </di:constructor>
   </di:bean>
+
+  <!-- The resolver for unknown meta data properties -->
+  <di:bean name="unknownPropertyResolver"
+           beanClassName="de.oliver_heger.linedj.platform.audio.model.UnknownPropertyResourceResolver">
+    <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
+      <di:param value="unknownArtist"/>
+      <di:param value="unknownAlbum"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The song data factory -->
+  <di:bean name="songDataFactory"
+           beanClassName="de.oliver_heger.linedj.platform.audio.model.DefaultSongDataFactory">
+    <di:constructor>
+      <di:param refName="unknownPropertyResolver"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>

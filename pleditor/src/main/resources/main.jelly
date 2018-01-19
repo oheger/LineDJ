@@ -34,6 +34,18 @@
     tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
     resgrp="application" taskBean="exitTask"/>
 
+  <!-- New playlist action -->
+  <a:action name="plNewAction" textres="act_plnew_text" tooltipres="act_plnew_tip"
+            mnemonicres="act_plnew_mnemo" taskBean="playlistNewTask">
+    <f:icon resource="new.png"/>
+  </a:action>
+
+  <!-- Activate playlist action -->
+  <a:action name="plActivateAction" textres="act_plactivate_text" tooltipres="act_plactivate_tip"
+            mnemonicres="act_plactivate_mnemo" taskBean="playlistActivateTask" enabled="false">
+    <f:icon resource="activate.png"/>
+  </a:action>
+
   <!-- Playlist export action -->
   <a:action name="plExportAction" textres="act_plexport_text" tooltipres="act_plexport_tip"
     mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask" enabled="false">
@@ -79,6 +91,8 @@
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="plNewAction" />
+      <a:separator/>
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
@@ -89,6 +103,7 @@
       <a:menuitem actionName="plReorderAction"/>
       <a:menuitem actionName="plRemoveAction"/>
       <a:separator/>
+      <a:menuitem actionName="plActivateAction"/>
       <a:menuitem actionName="plExportAction"/>
     </a:menu>
   </a:menubar>
@@ -102,7 +117,6 @@
     <di:constructor>
       <di:param>
         <di:list>
-          <di:element refName="playlistController"/>
           <di:element refName="reorderHandler"/>
         </di:list>
       </di:param>
@@ -119,6 +133,7 @@
     <di:constructor>
       <di:param>
         <di:list>
+          <di:element refName="playlistController"/>
           <di:element refName="remoteController"/>
         </di:list>
       </di:param>
@@ -129,6 +144,11 @@
     </di:shutdown>
   </di:bean>
 
+  <!-- The playlist service -->
+  <di:const var="playlistService"
+            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService$"
+            field="MODULE$"/>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
@@ -136,6 +156,8 @@
     <!-- A tool bar at the top of the window's content -->
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="plNewAction"/>
+      <a:separator/>
       <a:toolbutton actionName="plMoveTopAction"/>
       <a:toolbutton actionName="plMoveUpAction"/>
       <a:toolbutton actionName="plMoveDownAction"/>
@@ -143,6 +165,7 @@
       <a:toolbutton actionName="plReorderAction"/>
       <a:toolbutton actionName="plRemoveAction"/>
       <a:separator/>
+      <a:toolbutton actionName="plActivateAction"/>
       <a:toolbutton actionName="plExportAction"/>
     </a:toolbar>
 
@@ -167,7 +190,7 @@
       </f:table>
     </f:panel>
 
-    <!-- Statusline -->
+    <!-- Status line -->
     <f:panel>
       <f:borderconstr name="SOUTH"/>
       <f:borderlayout canShrink="false"/>
@@ -208,6 +231,7 @@
         <di:param>
           <f:localized resid="status_template"/>
         </di:param>
+        <di:param refName="songDataFactory"/>
       </di:constructor>
     </di:bean>
 
@@ -227,6 +251,25 @@
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
     beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Task for the new playlist action -->
+  <di:bean name="playlistNewTask"
+    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.NewPlaylistTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for the activate playlist action -->
+  <di:bean name="playlistActivateTask"
+    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.ActivatePlaylistTask">
+    <di:constructor>
+      <di:param refName="playlistService"/>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="playlistTableModel"/>
+    </di:constructor>
   </di:bean>
 
   <!-- Command and task for the playlist export dialog -->
