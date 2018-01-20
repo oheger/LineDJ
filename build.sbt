@@ -337,6 +337,7 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.importPackage := Seq(
       "de.oliver_heger.linedj.platform.bus",
       "de.oliver_heger.linedj.platform.mediaifc.ext",
+      "de.oliver_heger.linedj.platform.audio.playlist.service",
       "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
