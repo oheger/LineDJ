@@ -35,4 +35,9 @@
 
   <reference interface="de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService"
              name="reorderService" bind="initReorderService"/>
+
+  <reference interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
+             name="playerController" target="(serviceName=lineDJ.audioPlayerController)"/>
+  <reference interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
+             name="metaDataResolver" target="(serviceName=lineDJ.playlistMetaDataResolver)"/>
 </component>

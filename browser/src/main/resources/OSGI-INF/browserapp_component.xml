@@ -32,4 +32,7 @@
              name="clientContext" bind="initClientContext"/>
   <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
              name="applicationManager" bind="initApplicationManager"/>
+
+  <reference interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
+             name="playerController" target="(serviceName=lineDJ.audioPlayerController)"/>
 </component>
