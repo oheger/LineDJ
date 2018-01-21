@@ -175,7 +175,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
         case Some(info) =>
           if (isValidDownloadResponse(response)) {
             readerActor ! AudioSource(uri = info.sourceID.uri, length =
-                          response.length, skip = info.skip, skipTime = info.skipTime)
+                          AudioSource.UnknownLength, skip = info.skip, skipTime = info.skipTime)
             downloadToProcess = fillBufferIfPossible(response)
             downloadInProgress = Some(response.request)
           }
