@@ -18,7 +18,7 @@ object SourceReaderActorSpec {
    * @param length the optional length of the audio source
    * @return the test audio source
    */
-  private def audioSource(index: Int, length: Int = 10000): AudioSource =
+  private def audioSource(index: Int, length: Long = 10000): AudioSource =
     AudioSource(s"testSource$index.mp3", length, 0, 0)
 }
 
@@ -241,6 +241,19 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsgType[AudioSource]
 
     processSource(reader, fileReader, SourceLength, ChunkSize)
+  }
+
+  it should "read a full chunk of audio data if the source size is unknown" in {
+    val ChunkSize = 128
+    val buffer = TestProbe()
+    val reader = readerActor(optBufferActor = Some(buffer.ref))
+    val fileReader = installFileReaderActor(reader)
+    reader ! GetAudioSource
+    reader ! audioSource(1, AudioSource.UnknownLength)
+    expectMsgType[AudioSource]
+
+    reader ! GetAudioData(ChunkSize)
+    fileReader.expectMsg(FileReaderActor.ReadData(ChunkSize))
   }
 
   it should "reject a duplicated GetAudioData message" in {

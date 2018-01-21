@@ -26,6 +26,14 @@ object AudioSource {
   val InfiniteLength: Long = Long.MaxValue
 
   /**
+    * Constant for a length indicating that the exact length of the source is
+    * not (yet) known. When audio data is loaded over the network the final
+    * size is only determined at the end of the load operation. This can be
+    * expressed using this constant.
+    */
+  val UnknownLength = 0L
+
+  /**
     * Constant representing an error source. This value is used if an error
     * occurs when copying audio data.
     */
@@ -59,6 +67,13 @@ case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long) {
     * @return '''true''' if the length is infinite, '''false''' otherwise
     */
   def isInfinite: Boolean = length == AudioSource.InfiniteLength
+
+  /**
+    * Checks whether the length of this source is not yet known.
+    *
+    * @return '''true''' if the exact length is unknown; '''false''' otherwise
+    */
+  def isLengthUnknown: Boolean = length == AudioSource.UnknownLength
 }
 
 /**

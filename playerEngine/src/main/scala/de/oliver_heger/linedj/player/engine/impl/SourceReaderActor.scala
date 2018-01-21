@@ -90,6 +90,18 @@ object SourceReaderActor {
    * @param finalLength the final length of the last audio source
    */
   case class AudioSourceDownloadCompleted(finalLength: Long)
+
+  /**
+    * Determines the the number of bytes that can be currently read from an
+    * audio source. Handles the case that the source's length is unknown. In
+    * this case, there is no length restriction. (At least all bytes can be
+    * read that are available in the current reader actor.)
+    *
+    * @param src the audio source
+    * @return the number of bytes available from this source
+    */
+  private def bytesAvailable(src: AudioSource): Long =
+    if (src.isLengthUnknown) Long.MaxValue else src.length
 }
 
 /**
@@ -283,10 +295,10 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
       Some(source)
 
     } else {
-      val remainingSize = source.length - bytesReadInCurrentSource
+      val remainingSize = bytesAvailable(source) - bytesReadInCurrentSource
       if (remainingSize > 0) {
         pendingDataRequest = Some(AudioDataRequest(client, ReadData(math.min(msg.length,
-          remainingSize.toInt))))
+          remainingSize).toInt)))
         serveDataRequestIfPossible()
         Some(source)
       } else {
