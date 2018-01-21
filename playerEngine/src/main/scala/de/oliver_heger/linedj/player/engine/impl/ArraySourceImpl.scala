@@ -47,10 +47,10 @@ private object ArraySourceImpl {
    * @param offsetDelta the start offset of the data to be selected
    * @return the adjusted ''ArraySource''
    */
-  def apply(source: ArraySource, offsetDelta: Int): ArraySource =
+  def apply(source: ArraySource, offsetDelta: Long): ArraySource =
     if(offsetDelta <= 0) source
-    else new ArraySourceImpl(source.data, offset = source.offset + offsetDelta,
-      length = math.max(source.length - offsetDelta, 0))
+    else new ArraySourceImpl(source.data, offset = (source.offset + offsetDelta).toInt,
+      length = math.max(source.length - offsetDelta, 0).toInt)
 
   /**
     * Creates a new ''ArraySource'' from a ''ByteString''. The resulting

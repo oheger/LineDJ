@@ -323,7 +323,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * @param data the data source to be added
    */
   private def handleNewAudioData(data: ArraySource): Unit = {
-    val skipSource = ArraySourceImpl(data, (skipStreamPosition - bytesProcessed).toInt)
+    val skipSource = ArraySourceImpl(data, skipStreamPosition - bytesProcessed)
     if (skipSource.length > 0) {
       audioDataStream append skipSource
     }
@@ -486,7 +486,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       if (afterError && s.isInfinite) {
         skipInfiniteSource()
       } else {
-        skipStreamPosition = if(s.isInfinite) 0 else s.length + 1
+        skipStreamPosition = if(s.isInfinite) 0 else Long.MaxValue
         requestAudioDataIfPossible()
       }
     }
