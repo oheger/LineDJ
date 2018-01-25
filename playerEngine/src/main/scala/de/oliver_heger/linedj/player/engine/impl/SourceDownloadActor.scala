@@ -123,9 +123,6 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
   /** The playlist item which is currently downloaded. */
   private var currentDownload: Option[AudioSourcePlaylistInfo] = None
 
-  /** A download response which is about to be processed. */
-  private var downloadToProcess: Option[MediumFileResponse] = None
-
   /**
     * Stores information about the current file to be downloaded as long as the
     * download is in progress.
@@ -176,10 +173,11 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
           if (isValidDownloadResponse(response)) {
             readerActor ! AudioSource(uri = info.sourceID.uri, length =
                           AudioSource.UnknownLength, skip = info.skip, skipTime = info.skipTime)
-            downloadToProcess = fillBufferIfPossible(response)
+            currentReadActor = triggerFillBuffer(response)
             downloadInProgress = Some(response.request)
+          } else {
+            downloadIfPossible()
           }
-          downloadIfPossible()
 
         case None =>
           sender ! PlaybackProtocolViolation(response, ErrorUnexpectedDownloadResponse)
@@ -189,7 +187,8 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
       currentReadActor match {
         case Some(actor) =>
           readerActor ! SourceReaderActor.AudioSourceDownloadCompleted(filled.sourceLength)
-          resetDownloadToProcess() foreach fillBufferIfPossible
+          currentReadActor = None
+          downloadInProgress = None
           downloadIfPossible()
           context stop actor
           if (playlistClosed && nothingToProcess()) {
@@ -254,7 +253,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     * @return a flag whether a download could be started
     */
   private def downloadIfPossible(): Boolean = {
-    if (playlist.nonEmpty && downloadToProcess.isEmpty && currentDownload.isEmpty) {
+    if (playlist.nonEmpty && currentDownload.isEmpty && currentReadActor.isEmpty) {
       val info = playlist.dequeue()
       config.mediaManagerActor ! downloadRequest(info.sourceID)
       currentDownload = Some(info)
@@ -263,37 +262,15 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
   }
 
   /**
-   * Sets the download to be processed to ''None'' and returns the old value.
-    *
-    * @return the download to be processed before it was reset
-   */
-  private def resetDownloadToProcess(): Option[MediumFileResponse] = {
-    val result = downloadToProcess
-    downloadToProcess = None
-    currentReadActor = None
-    downloadInProgress = None
-    result
-  }
-
-  /**
-   * Triggers a new fill operation when a response for a download request is
-   * received. If possible, the new content is directly filled into the buffer;
-   * otherwise, it has to be parked until the buffer can accept further input.
+    * Triggers a new fill operation when a response for a download request is
+    * received. Returns the option with the new reader actor.
     *
     * @param response the response
-   * @return the new value for the response to be processed
-   */
-  private def fillBufferIfPossible(response: MediumFileResponse):
-  Option[MediumFileResponse] = {
+    * @return the new value for the current reader actor
+    */
+  private def triggerFillBuffer(response: MediumFileResponse): Option[ActorRef] = {
     assert(response.contentReader.isDefined)
-    currentReadActor match {
-      case Some(_) =>
-        Some(response)
-
-      case None =>
-        bufferActor ! FillBuffer(response.contentReader.get)
-        currentReadActor = response.contentReader
-        None
-    }
+    bufferActor ! FillBuffer(response.contentReader.get)
+    response.contentReader
   }
 }

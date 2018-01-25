@@ -20,9 +20,10 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.impl.SourceReaderActor.AudioSourceDownloadCompleted
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
@@ -90,6 +91,17 @@ object SourceDownloadActorSpec {
     */
   private def downloadResponse(index: Int, actor: ActorRef, length: Long): MediumFileResponse =
     MediumFileResponse(downloadRequest(index), Option(actor), length)
+
+  /**
+    * Checks that no message was sent to the specified test probe.
+    *
+    * @param probe the test probe
+    */
+  private def checkNoMessage(probe: TestProbe): Unit = {
+    val Ping = new Object
+    probe.ref ! Ping
+    probe.expectMsg(Ping)
+  }
 }
 
 /**
@@ -139,8 +151,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    */
   private def createDownloadActor(optSource: Option[ActorRef] = None, optBuffer: Option[ActorRef]
   = None, optReader: Option[ActorRef] = None, optQueue:
-  Option[BlockingQueue[SchedulerInvocation]] = None): ActorRef =
-    system.actorOf(propsForActor(optSource = optSource, optBuffer = optBuffer, optReader =
+  Option[BlockingQueue[SchedulerInvocation]] = None): TestActorRef[SourceDownloadActor] =
+    TestActorRef(propsForActor(optSource = optSource, optBuffer = optBuffer, optReader =
       optReader, optQueue = optQueue))
 
   /**
@@ -164,7 +176,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
    * @return the test download actor
    */
   private def createDownloadActorWithProbes(srcActor: TestProbe, bufActor: TestProbe, readActor:
-  TestProbe): ActorRef =
+  TestProbe): TestActorRef[SourceDownloadActor] =
     createDownloadActor(Some(srcActor.ref), Some(bufActor.ref), Some(readActor.ref))
 
   "A SourceDownloadActor" should "request a source when it becomes available" in {
@@ -230,14 +242,25 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! downloadResponse(1, contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor1.ref))
     readActor.expectMsg(AudioSource(sourceURI(1), AudioSource.UnknownLength, Skip, SkipTime))
-    srcActor.expectMsg(downloadRequest(2))
     actor ! createPlaylistInfo(3)
     actor ! SourceDownloadActor.PlaylistEnd
+    actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
+    readActor.expectMsgType[AudioSourceDownloadCompleted]
+    srcActor.expectMsg(downloadRequest(2))
     actor ! downloadResponse(2, contentActor2.ref, SourceLength + 1)
     readActor.expectMsg(AudioSource(sourceURI(2), AudioSource.UnknownLength, 0, 0))
-    actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
     bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
-    srcActor.expectMsg(downloadRequest(3))
+  }
+
+  it should "not request another download before the current one is complete" in {
+    val srcActor, bufActor, readActor = TestProbe()
+    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
+    actor ! createPlaylistInfo(1)
+    srcActor.expectMsgType[MediumFileRequest]
+    actor ! downloadResponse(1, TestProbe().ref, SourceLength)
+
+    actor receive createPlaylistInfo(2)
+    checkNoMessage(srcActor)
   }
 
   it should "not send a SequenceEnd message if a fill operation is in progress" in {
@@ -251,8 +274,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! SourceDownloadActor.PlaylistEnd
     actor ! createPlaylistInfo(2)
     expectMsgType[PlaybackProtocolViolation]
-    bufActor.ref ! "ping"  // ensure no message
-    bufActor.expectMsg("ping")
+    checkNoMessage(bufActor)
   }
 
   it should "send a SequenceEnd message at the end of the playlist" in {
@@ -346,7 +368,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     srcActor.expectNoMessage(1.second)
   }
 
-  it should "sent a download completion message after a buffer fill operation" in {
+  it should "send a download completion message after a buffer fill operation" in {
     val FilledSize = 20150410
     val srcActor, bufActor, readActor, contentActor = TestProbe()
     val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
