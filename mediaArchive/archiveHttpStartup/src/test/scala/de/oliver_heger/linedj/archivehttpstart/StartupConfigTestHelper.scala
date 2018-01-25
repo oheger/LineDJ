@@ -86,6 +86,7 @@ object StartupConfigTestHelper {
     c.addProperty(KeyPrefix + HttpArchiveConfig.PropArchiveUri, archiveUri(idx))
     c.addProperty(KeyPrefix + HttpArchiveConfig.PropDownloadBufferSize, 16384)
     c.addProperty(KeyPrefix + HttpArchiveConfig.PropDownloadMaxInactivity, 5 * 60)
+    c.addProperty(KeyPrefix + HttpArchiveConfig.PropTimeoutReadSize, 128 * 1024)
     c.addProperty(DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
     c.addProperty(KeyPrefix + "realm", realm.getOrElse(realmName(idx)))
     c

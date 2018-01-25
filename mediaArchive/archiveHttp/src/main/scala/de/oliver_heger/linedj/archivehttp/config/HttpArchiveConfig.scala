@@ -84,10 +84,15 @@ object HttpArchiveConfig {
   val PropDownloadReadChunkSize: String = "downloadReadChunkSize"
 
   /**
-    * The configuration property for the chunk size of a read operation
-    * triggered by the actor to prevent a timeout of the HTTP connection.
+    * The configuration property for the size of data to read when an
+    * inactivity timeout occurs. If there has been no download activity for a
+    * while, the download actor automatically starts reading a block of data
+    * with a configurable size to prevent that the connection gets closed from
+    * the remote host. With this property the size of this block can be
+    * specified. Note that this is a mandatory property; no default value is
+    * provided.
     */
-  val PropTimeoutReadChunkSize: String = "timeoutReadChunkSize"
+  val PropTimeoutReadSize: String = "timeoutReadSize"
 
   /**
     * The common prefix for all configuration properties related to the
@@ -206,7 +211,7 @@ object HttpArchiveConfig {
       c getInt Path + PropDownloadBufferSize,
       c.getInt(Path + PropDownloadMaxInactivity).seconds,
       c.getInt(Path + PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
-      c.getInt(Path + PropTimeoutReadChunkSize, DefaultDownloadReadChunkSize),
+      c.getInt(Path + PropTimeoutReadSize),
       downloadConfig,
       extractMappingConfig(c, Path))
   }
@@ -292,8 +297,8 @@ case class UriMappingConfig(removePrefix: String, uriTemplate: String,
   *                              requested from the HTTP archive
   * @param downloadReadChunkSize a chunk size when reading data from a temporary
   *                              file created during a download operation
-  * @param timeoutReadChunkSize  a chunk size for requests sent to avoid a
-  *                              timeout
+  * @param timeoutReadSize       the size of data to read from the source to avoid
+  *                              a timeout
   * @param downloadConfig        configuration for standard download properties
   * @param mappingConfig         configuration for URI mapping
   */
@@ -306,6 +311,6 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              downloadBufferSize: Int,
                              downloadMaxInactivity: FiniteDuration,
                              downloadReadChunkSize: Int,
-                             timeoutReadChunkSize: Int,
+                             timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
                              mappingConfig: UriMappingConfig)

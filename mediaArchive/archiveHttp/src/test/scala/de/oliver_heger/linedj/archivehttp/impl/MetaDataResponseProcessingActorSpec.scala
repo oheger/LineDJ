@@ -51,7 +51,7 @@ object MetaDataResponseProcessingActorSpec {
     "Test", UserCredentials("scott", "tiger"), processorCount = 3,
     processorTimeout = Timeout(2.seconds), maxContentSize = 256,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
-    downloadReadChunkSize = 500, timeoutReadChunkSize = 250, mappingConfig = MappingConfig)
+    downloadReadChunkSize = 500, timeoutReadSize = 250, mappingConfig = MappingConfig)
 
   /** The sequence number used for requests. */
   private val SeqNo = 42

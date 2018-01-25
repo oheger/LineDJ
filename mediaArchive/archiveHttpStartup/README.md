@@ -94,7 +94,7 @@ example configuration with all supported options:
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <downloadReadChunkSize>8192</downloadReadChunkSize>
-      <timeoutReadChunkSize>8192</timeoutReadChunkSize>
+      <timeoutReadSize>262144</timeoutReadSize>
       <uriMapping>
         <removePrefix>path://</removePrefix>
         <uriTemplate>${medium}/${uri}</uriTemplate>
@@ -154,7 +154,7 @@ instance that the media file is directly played. If the user pauses playback,
 the download operation can take very long and may lead to timeouts from the
 HTTP server. To avoid this, the download implementation behaves as follows:
 
-* If no data is requested for the file for a configurable time span, a chunk
+* If no data is requested for the file for a configurable time span, a block
   of data is requested by the archive itself.
 * For each download operation, an in-memory buffer is kept in which data
   requested from the server is stored.
@@ -166,9 +166,9 @@ The details of this algorithm can be configured using the following settings:
 | Setting | Description | Optional |
 | ------- | ----------- | -------- |
 | downloadBufferSize | The maximum size of the in-memory buffer for the download operation (in bytes). Ideally, a file fits into this buffer completely, so that no temporary files need to be created. However, a balance need to be found between memory consumption and usage of temporary disk space. | No |
-| downloadMaxInactivity | The inactivity interval (in seconds) until the download implementation requests a chunk of data from the server. | No |
+| downloadMaxInactivity | The inactivity interval (in seconds) until the download implementation requests a block of data from the server. | No |
 | downloadReadChunkSize | The default chunk size (in bytes) used for download operations. | Yes, defaults to 8 KBytes |
-| timeoutReadChunkSize | The chunk size (in bytes) to be used when requesting data from the server to avoid a timeout. | Yes, same default as for _downloadReadChunkSize_ |
+| timeoutReadSize | The size (in bytes) to be requested from the server to avoid a timeout. This should be large enough to prevent the remote host from closing the connection. If necessary, multiple requests of the configured download chunk size will be sent until this amount of data has been loaded (or the end of the source is reached). | No |
 | downloadTempDir | Defines the directory in which temporary files are created for download operations. Note that this is a global setting and not specific for a single HTTP archive. | Yes, defaults to the system temp directory. |
 
 ### URI mapping

@@ -61,8 +61,8 @@ object HttpArchiveConfigSpec {
   /** The read chunk size for download operations. */
   private val DownloadReadChunkSize = 8000
 
-  /** The read chunk to apply when a timeout occurs. */
-  private val TimeoutReadChunkSize = 6000
+  /** The amount of data to read when a timeout occurs. */
+  private val TimeoutReadSize = 256 * 1024
 
   /** The prefix to be removed during URI mapping. */
   private val RemovePrefix = "path://"
@@ -89,7 +89,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".downloadBufferSize", DownloadBufferSize)
     c.addProperty(at + ".downloadMaxInactivity", DownloadMaxInactivity.toSeconds)
     c.addProperty(at + ".downloadReadChunkSize", DownloadReadChunkSize)
-    c.addProperty(at + ".timeoutReadChunkSize", TimeoutReadChunkSize)
+    c.addProperty(at + ".timeoutReadSize", TimeoutReadSize)
     c.addProperty(at + ".uriMapping.removePrefix", RemovePrefix)
     c.addProperty(at + ".uriMapping.uriTemplate", UriTemplate)
     c.addProperty(at + ".uriMapping.pathSeparator", UriPathSeparator)
@@ -134,7 +134,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.downloadBufferSize should be(DownloadBufferSize)
         config.downloadReadChunkSize should be(DownloadReadChunkSize)
         config.downloadMaxInactivity should be(DownloadMaxInactivity)
-        config.timeoutReadChunkSize should be(TimeoutReadChunkSize)
+        config.timeoutReadSize should be(TimeoutReadSize)
         config.mappingConfig.removePrefix should be(RemovePrefix)
         config.mappingConfig.uriTemplate should be(UriTemplate)
         config.mappingConfig.pathSeparator should be(UriPathSeparator)
@@ -241,17 +241,6 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
         config.downloadReadChunkSize should be(HttpArchiveConfig.DefaultDownloadReadChunkSize)
-      case Failure(e) =>
-        fail("Unexpected exception: " + e)
-    }
-  }
-
-  it should "set a default timeout read chunk size if unspecified" in {
-    val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropTimeoutReadChunkSize)
-
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
-      case Success(config) =>
-        config.timeoutReadChunkSize should be(HttpArchiveConfig.DefaultDownloadReadChunkSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
