@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorRef, Cancellable, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -74,6 +74,16 @@ object TimeoutAwareHttpDownloadActor {
     */
   private case object InactivityTimeout
 
+  /**
+    * Checks whether a download result actually contains data. If this is not
+    * the case, that means that multiple data requests have been sent in
+    * parallel. (This can happen during timeout handling.) Then this result is
+    * to be ignored.
+    *
+    * @param res the ''DownloadDataResult''
+    * @return a flag whether data is contained in the result
+    */
+  private def dataDefined(res: DownloadDataResult): Boolean = res.data.nonEmpty
 }
 
 /**
@@ -103,7 +113,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
                                     downloadFileActor: ActorRef, pathGenerator: TempPathGenerator,
                                     removeFileActor: ActorRef, downloadIndex: Int,
                                     optTempManager: Option[TempFileActorManager])
-  extends Actor with ChildActorFactory {
+  extends Actor with ChildActorFactory with ActorLogging {
   this: SchedulerSupport =>
 
   import TimeoutAwareHttpDownloadActor._
@@ -127,7 +137,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
   private var writeFileActor: ActorRef = _
 
   /** Stores the object to cancel the inactivity timeout scheduler. */
-  private var cancellable: Cancellable = _
+  private var cancellable: Option[Cancellable] = None
 
   /** Stores information about an ongoing request. */
   private var currentRequest: Option[DownloadRequestData] = None
@@ -141,6 +151,12 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
   /** Timestamp when the last timeout message was received. */
   private var lastTimeoutMessage = 0L
 
+  /**
+    * A counter for the number of bytes that need to be read when an inactivity
+    * timeout was encountered.
+    */
+  private var bytesToReadDuringTimeout = 0
+
   /** The index of temporary files to be written. */
   private var tempFileIndex = 1
 
@@ -151,6 +167,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     downloadActorAliveMsg = DownloadActorAlive(self, MediumID.UndefinedMediumID)
     tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self,
       config.downloadReadChunkSize, this)
+    context watch downloadFileActor
     scheduleForInactivityTimeout()
   }
 
@@ -161,18 +178,8 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
       }
       downloadManagerActor ! downloadActorAliveMsg
 
-    case res: DownloadDataResult if sender() == downloadFileActor =>
-      downloadBuffer = downloadBuffer addChunk res.data
-      currentRequest foreach { cd =>
-        val (optData, buf) = downloadBuffer fetchData cd.request.size
-        assert(optData.isDefined)
-        cd.client ! DownloadDataResult(optData.get)
-        downloadBuffer = buf
-        currentRequest = None
-      }
-      if (downloadBuffer.size >= config.downloadBufferSize) {
-        writeTempFile()
-      }
+    case res: DownloadDataResult if sender() == downloadFileActor && dataDefined(res) =>
+      handleDataFromDownloadActor(res)
 
     case res: DownloadDataResult if sender() != downloadFileActor =>
       // response from a temp file reader actor
@@ -181,7 +188,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     case DownloadComplete if sender() == downloadFileActor =>
       downloadComplete = true
       currentRequest foreach (_.client ! DownloadComplete)
-      cancellable.cancel()
+      resetScheduler()
 
     case DownloadComplete if sender() != downloadFileActor =>
       // a temp file reader actor is done
@@ -189,16 +196,20 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
 
     case InactivityTimeout if !downloadComplete &&
       System.currentTimeMillis() - lastTimeoutMessage > MinimumTimeoutDelay =>
-      downloadFileActor ! DownloadData(config.downloadReadChunkSize)
-      scheduleForInactivityTimeout()
+      log.info("Inactivity timeout. Requesting {} bytes of data.", config.timeoutReadSize)
+      bytesToReadDuringTimeout = config.timeoutReadSize
+      readDuringTimeout()
       lastTimeoutMessage = System.currentTimeMillis()
+      cancellable = None
 
     case resp: WriteChunkActor.WriteResponse =>
       tempFileActorManager tempFileWritten resp
       tempFilesWritten = tempFilesWritten enqueue resp.request.target
 
     case Terminated(_) =>
-      // A write operation failed => stop this download actor
+      // A write operation or the wrapped actor failed => stop this download actor
+      log.warning("Child actor or download actor stopped! Canceling download operation {}.",
+        downloadIndex)
       context stop self
   }
 
@@ -212,6 +223,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     if (tempPaths.nonEmpty) {
       removeFileActor ! RemoveTempFilesActor.RemoveTempFiles(tempPaths)
     }
+    resetScheduler()
     context stop downloadFileActor
     super.postStop()
   }
@@ -225,6 +237,34 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     val child = super.createChildActor(p)
     context watch child
     child
+  }
+
+  /**
+    * Handles a chunk of data received from the wrapped download actor. The
+    * data is added to the buffer, and a pending request - if any - is served.
+    * This method also takes care about timeout handling. If a timeout
+    * occurred, it may be necessary to request another block of data.
+    * Otherwise, a new timeout message needs to be scheduled.
+    *
+    * @param res the download data result
+    */
+  private def handleDataFromDownloadActor(res: DownloadDataResult): Unit = {
+    downloadBuffer = downloadBuffer addChunk res.data
+    currentRequest foreach { cd =>
+      val (optData, buf) = downloadBuffer fetchData cd.request.size
+      assert(optData.isDefined)
+      cd.client ! DownloadDataResult(optData.get)
+      downloadBuffer = buf
+      currentRequest = None
+    }
+    if (downloadBuffer.size >= config.downloadBufferSize) {
+      writeTempFile()
+    }
+    bytesToReadDuringTimeout = math.max(0, bytesToReadDuringTimeout - res.data.size)
+    if (!readDuringTimeout()) {
+      resetScheduler()
+      scheduleForInactivityTimeout()
+    }
   }
 
   /**
@@ -245,8 +285,6 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
           client ! DownloadComplete
         } else {
           downloadFileActor ! req
-          cancellable.cancel()
-          scheduleForInactivityTimeout()
           currentRequest = Some(DownloadRequestData(req, client))
         }
     }
@@ -256,6 +294,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     * Writes a temporary file whose content is the current buffer.
     */
   private def writeTempFile(): Unit = {
+    log.info("Creating new temporary file for download {}.", downloadIndex)
     fetchWriteActor() ! createWriteFileRequest()
     tempFileActorManager.pendingWriteOperation(tempFileIndex)
     tempFileIndex += 1
@@ -290,12 +329,34 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
   }
 
   /**
+    * Triggers a read operation after an inactivity timeout has been
+    * encountered. Another block of data is requested from the wrapped actor.
+    *
+    * @return a flag whether there was still data to read
+    */
+  private def readDuringTimeout(): Boolean =
+    if (bytesToReadDuringTimeout > 0) {
+      val chunkSize = math.min(bytesToReadDuringTimeout, config.downloadReadChunkSize)
+      downloadFileActor ! DownloadData(chunkSize)
+      true
+    } else false
+
+  /**
     * Schedules a message to receive a notification when an inactivity timeout
     * occurs. In this case, the actor has to query another chunk from the
     * wrapped download actor.
     */
   private def scheduleForInactivityTimeout(): Unit = {
-    cancellable = scheduleMessageOnce(config.downloadMaxInactivity, self, InactivityTimeout)
+    cancellable = Some(scheduleMessageOnce(config.downloadMaxInactivity, self,
+      InactivityTimeout))
+  }
+
+  /**
+    * Resets a scheduled message if any.
+    */
+  private def resetScheduler(): Unit = {
+    cancellable foreach (_.cancel())
+    cancellable = None
   }
 
   /**
