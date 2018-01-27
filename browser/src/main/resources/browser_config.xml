@@ -20,8 +20,7 @@
   Configuration definition file for the LineDJ playlist generator application.
 -->
 <configuration>
-  <system config-name="system-config"/>
-  <xml config-name="userConfig" fileName="${user.home}/${browser_user_config}"
+  <xml config-name="userConfig" fileName="${sys:user.home}/${sys:browser_user_config}"
     config-optional="true" config-forceCreate="true"/>
   <additional>
     <xml fileName="framework-config.xml"/>

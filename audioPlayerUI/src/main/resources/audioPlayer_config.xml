@@ -20,8 +20,7 @@
   Configuration definition file for the LineDJ audio player application.
 -->
 <configuration>
-	<system config-name="system-config"/>
-	<xml config-name="userConfig" fileName="${user.home}/${audioPlayer_user_config}"
+	<xml config-name="userConfig" fileName="${sys:user.home}/${sys:audioPlayer_user_config}"
 			 config-optional="true" config-forceCreate="true"/>
 	<additional>
 		<xml fileName="framework-config.xml"/>
