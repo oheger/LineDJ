@@ -198,6 +198,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.activate(availableMedia = MediaIDs drop 1)
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
       .expectNoMessageOnBus()
   }
 
@@ -206,6 +207,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.activate(availableMedia = Set.empty)
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .skipMessagesOnBus()
       .sendAvailableMedia(MediaIDs)
     helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
   }

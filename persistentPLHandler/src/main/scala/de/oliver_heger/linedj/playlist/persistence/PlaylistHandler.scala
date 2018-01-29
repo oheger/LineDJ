@@ -146,6 +146,7 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
       referencedMediaIDs = Some(PlaylistService.toSongList(setPlaylist.playlist)
         .foldLeft(Set.empty[MediumID])(_ + _.mediumID))
       activatePlaylistIfPossible()
+      bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
@@ -215,7 +216,6 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
       log.info("Activating playlist.")
       bus publish loadedPlaylist
       removeAvailableMediaRegistration()
-      bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
       referencedMediaIDs = None
     }
   }
