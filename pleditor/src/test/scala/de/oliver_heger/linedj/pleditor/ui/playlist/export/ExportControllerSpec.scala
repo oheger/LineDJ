@@ -93,10 +93,11 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new ExportControllerTestHelper
 
     helper.controller.windowActivated(event)
-    helper.controller.windowClosed(event)
+    helper.controller.windowClosing(event)
     helper.controller.windowDeactivated(event)
     helper.controller.windowDeiconified(event)
     helper.controller.windowIconified(event)
+    verifyZeroInteractions(event)
   }
 
   it should "register itself as message bus listener" in {
@@ -105,11 +106,11 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     helper.openWindow().expectBusListenerRegistration()
   }
 
-  it should "remove the message bus listener registration when the window is closing" in {
+  it should "remove the message bus listener registration when the window is closed" in {
     val helper = new ExportControllerTestHelper
     helper.openWindow()
 
-    helper.controller.windowClosing(mock[WindowEvent])
+    helper.controller.windowClosed(mock[WindowEvent])
     verify(helper.mediaFacade.bus).removeListener(ListenerID)
   }
 
@@ -147,7 +148,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   it should "handle the successful end of the export" in {
     val helper = new ExportControllerTestHelper
 
-    helper.openWindow().sendMessage(ExportActor.ExportResult(None)).expectShutdown()
+    helper.openWindow().sendMessage(ExportActor.ExportResult(None)).expectWindowClosed()
   }
 
   it should "handle the end of an export that failed when removing a file" in {
@@ -155,7 +156,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.ExportResult(Some(error)))
-      .expectErrorMessage("exp_failure_remove").expectShutdown()
+      .expectErrorMessage("exp_failure_remove").expectWindowClosed()
   }
 
   it should "handle the end of an export that failed when copying a file" in {
@@ -163,14 +164,22 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.ExportResult(Some(error)))
-      .expectErrorMessage("exp_failure_copy").expectShutdown()
+      .expectErrorMessage("exp_failure_copy").expectWindowClosed()
   }
 
   it should "handle the end of an export whose initialization failed" in {
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.InitializationError)
-      .expectErrorMessage(new Message(null, "exp_failure_init")).expectShutdown()
+      .expectErrorMessage(new Message(null, "exp_failure_init")).expectWindowClosed()
+  }
+
+  it should "stop the export actor when the window is closed" in {
+    val helper = new ExportControllerTestHelper
+    helper.openWindow()
+
+    helper.controller.windowClosed(null)
+    helper.expectExportActorStopped()
   }
 
   it should "react on the cancel button" in {
@@ -257,11 +266,21 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     }
 
     /**
-     * Expects shutdown after an export operation is done.
-     * @return this test helper
-     */
-    def expectShutdown(): ExportControllerTestHelper = {
+      * Expects that the window is closed after an export operation is done.
+      *
+      * @return this test helper
+      */
+    def expectWindowClosed(): ExportControllerTestHelper = {
       verify(window).close(true)
+      this
+    }
+
+    /**
+      * Expects that the export actor has been stopped.
+      *
+      * @return this test helper
+      */
+    def expectExportActorStopped(): ExportControllerTestHelper = {
       val probe = TestProbe()
       probe watch exportActor.ref
       probe.expectMsgType[Terminated].actor should be(exportActor.ref)

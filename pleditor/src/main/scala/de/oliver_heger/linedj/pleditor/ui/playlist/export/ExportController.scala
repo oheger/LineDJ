@@ -93,16 +93,18 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
 
   override def windowDeiconified(windowEvent: WindowEvent): Unit = {}
 
+  override def windowClosing(windowEvent: WindowEvent): Unit = {}
+
   /**
-    * The window is closing. This implementation removes the listener
-    * registration from the message bus.
+    * The window was closed. This implementation performs cleanup and frees all
+    * resources.
+    *
     * @param windowEvent the window event
     */
-  override def windowClosing(windowEvent: WindowEvent): Unit = {
+  override def windowClosed(windowEvent: WindowEvent): Unit = {
+    actorFactory.actorSystem stop exportActor
     mediaFacade.bus removeListener listenerID
   }
-
-  override def windowClosed(windowEvent: WindowEvent): Unit = {}
 
   override def windowActivated(windowEvent: WindowEvent): Unit = {}
 
@@ -192,7 +194,6 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
    * and stops the export actor.
    */
   private def shutdown(): Unit = {
-    actorFactory.actorSystem stop exportActor
     window close true
   }
 }
