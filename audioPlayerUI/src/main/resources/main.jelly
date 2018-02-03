@@ -127,94 +127,92 @@
   <!-- The main window -->
   <w:frame name="mainFrame" titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
+    <f:borderlayout canShrink="false"/>
+    <!-- A tool bar at the top of the window's content -->
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="previousSongAction"/>
+      <a:toolbutton actionName="startPlaybackAction"/>
+      <a:toolbutton actionName="stopPlaybackAction"/>
+      <a:toolbutton actionName="nextSongAction"/>
+    </a:toolbar>
+
     <f:panel>
-      <f:borderlayout/>
-      <!-- A tool bar at the top of the window's content -->
-      <a:toolbar>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="4dlu"
+                      bottomMargin="4dlu" northGap="4dlu"/>
+      <f:panel>
         <f:borderconstr name="NORTH"/>
-        <a:toolbutton actionName="previousSongAction"/>
-        <a:toolbutton actionName="startPlaybackAction"/>
-        <a:toolbutton actionName="stopPlaybackAction"/>
-        <a:toolbutton actionName="nextSongAction"/>
-      </a:toolbar>
+        <f:percentlayout
+          columns="end/preferred 2dlu full/none(20dlu)/50 2dlu end/preferred 2dlu full/none(20dlu)/50"
+          rows="preferred 2dlu preferred 2dlu preferred"
+          canShrink="true">
+          <f:colgroup indices="0, 4"/>
+        </f:percentlayout>
+        <f:label textres="main_lab_artist" fontRef="uiFont">
+          <f:percentconstr col="0" row="0"/>
+        </f:label>
+        <f:statictext name="artist" noField="false" fontRef="uiFont">
+          <f:percentconstr col="2" row="0"/>
+        </f:statictext>
+        <f:label textres="main_lab_title" fontRef="uiFont">
+          <f:percentconstr col="4" row="0"/>
+        </f:label>
+        <f:statictext name="title" noField="false" fontRef="uiFont">
+          <f:percentconstr col="6" row="0"/>
+        </f:statictext>
+
+        <f:label textres="main_lab_index" fontRef="uiFont">
+          <f:percentconstr col="0" row="2"/>
+        </f:label>
+        <f:statictext name="playlistIndex" noField="false" fontRef="uiFont">
+          <f:percentconstr col="2" row="2"/>
+        </f:statictext>
+        <f:label textres="main_lab_album" fontRef="uiFont">
+          <f:percentconstr col="4" row="2"/>
+        </f:label>
+        <f:statictext name="albumAndTrack" noField="false" fontRef="uiFont">
+          <f:percentconstr col="6" row="2"/>
+        </f:statictext>
+
+        <f:label textres="main_lab_time" fontRef="uiFont">
+          <f:percentconstr col="0" row="4"/>
+        </f:label>
+        <f:statictext name="playbackTime" noField="false" fontRef="uiFont">
+          <f:percentconstr col="2" row="4"/>
+        </f:statictext>
+        <f:label textres="main_lab_year" fontRef="uiFont">
+          <f:percentconstr col="4" row="4"/>
+        </f:label>
+        <f:statictext name="year" noField="false" fontRef="uiFont">
+          <f:percentconstr col="6" row="4"/>
+        </f:statictext>
+      </f:panel>
 
       <f:panel>
         <f:borderconstr name="CENTER"/>
-        <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="4dlu"
-          bottomMargin="4dlu" northGap="4dlu"/>
-        <f:panel>
-          <f:borderconstr name="NORTH"/>
-          <f:percentlayout
-            columns="end/preferred 2dlu full/none(20dlu)/50 2dlu end/preferred 2dlu full/none(20dlu)/50"
-            rows="preferred 2dlu preferred 2dlu preferred"
-            canShrink="true">
-            <f:colgroup indices="0, 4"/>
-          </f:percentlayout>
-          <f:label textres="main_lab_artist" fontRef="uiFont">
-            <f:percentconstr col="0" row="0"/>
-          </f:label>
-          <f:statictext name="artist" noField="false" fontRef="uiFont">
-            <f:percentconstr col="2" row="0"/>
-          </f:statictext>
-          <f:label textres="main_lab_title" fontRef="uiFont">
-            <f:percentconstr col="4" row="0"/>
-          </f:label>
-          <f:statictext name="title" noField="false" fontRef="uiFont">
-            <f:percentconstr col="6" row="0"/>
-          </f:statictext>
+        <f:percentlayout
+          columns="full/preferred/100" rows="preferred 2dlu full/preferred/100"
+          canShrink="true">
+        </f:percentlayout>
+        <f:progressbar name="playbackRatio" min="0" max="100" noField="false">
+          <f:percentconstr col="0" row="0"/>
+        </f:progressbar>
 
-          <f:label textres="main_lab_index" fontRef="uiFont">
-            <f:percentconstr col="0" row="2"/>
-          </f:label>
-          <f:statictext name="playlistIndex" noField="false" fontRef="uiFont">
-            <f:percentconstr col="2" row="2"/>
-          </f:statictext>
-          <f:label textres="main_lab_album" fontRef="uiFont">
-            <f:percentconstr col="4" row="2"/>
-          </f:label>
-          <f:statictext name="albumAndTrack" noField="false" fontRef="uiFont">
-            <f:percentconstr col="6" row="2"/>
-          </f:statictext>
+        <f:table name="playlistTable" model="playlistTableModel" noField="false"
+                 scrollHeight="250" scrollWidth="450" fontRef="uiFont">
+          <f:percentconstr col="0" row="2"/>
+          <f:column name="title" percentWidth="85" headerres="plcol_title"
+                    columnClass="String"/>
+          <f:column name="duration" percentWidth="15" headerres="plcol_duration">
+            <f:transformer type="write" beanName="durationTransformer"/>
+          </f:column>
 
-          <f:label textres="main_lab_time" fontRef="uiFont">
-            <f:percentconstr col="0" row="4"/>
-          </f:label>
-          <f:statictext name="playbackTime" noField="false" fontRef="uiFont">
-            <f:percentconstr col="2" row="4"/>
-          </f:statictext>
-          <f:label textres="main_lab_year" fontRef="uiFont">
-            <f:percentconstr col="4" row="4"/>
-          </f:label>
-          <f:statictext name="year" noField="false" fontRef="uiFont">
-            <f:percentconstr col="6" row="4"/>
-          </f:statictext>
-        </f:panel>
-
-        <f:panel>
-          <f:borderconstr name="CENTER"/>
-          <f:percentlayout
-            columns="full/preferred/100" rows="preferred 2dlu preferred"
-            canShrink="true">
-          </f:percentlayout>
-          <f:progressbar name="playbackRatio" min="0" max="100" noField="false">
-            <f:percentconstr col="0" row="0"/>
-          </f:progressbar>
-
-          <f:table name="playlistTable" model="playlistTableModel" noField="false"
-            scrollHeight="250" scrollWidth="450" fontRef="uiFont">
-            <f:percentconstr col="0" row="2"/>
-            <f:column name="title" percentWidth="85" headerres="plcol_title"
-              columnClass="String"/>
-            <f:column name="duration" percentWidth="15" headerres="plcol_duration">
-              <f:transformer type="write" beanName="durationTransformer"/>
-            </f:column>
-
-            <!-- Connects double clicks to the action for selecting a specific song -->
-            <a:mouseEvent actionName="gotoSongAction">
-              <a:eventFilter beanName="mouseDoubleClickEventFilter"/>
-            </a:mouseEvent>
-          </f:table>
-        </f:panel>
+          <!-- Connects double clicks to the action for selecting a specific song -->
+          <a:mouseEvent actionName="gotoSongAction">
+            <a:eventFilter beanName="mouseDoubleClickEventFilter"/>
+          </a:mouseEvent>
+        </f:table>
       </f:panel>
     </f:panel>
 

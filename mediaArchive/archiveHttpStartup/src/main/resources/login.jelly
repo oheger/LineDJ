@@ -41,7 +41,7 @@
     <f:borderlayout/>
       <f:panel>
         <f:borderconstr name="CENTER"/>
-        <f:percentlayout columns="4dlu end/preferred 3dlu start/minimum(3cm) 4dlu"
+        <f:percentlayout columns="4dlu end/preferred 3dlu full/minimum(3cm) 4dlu"
                          rows="4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
         <f:label textres="lab_log_prompt">
           <f:percentconstr col="1" row="1" spanx="3"/>

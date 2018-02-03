@@ -129,7 +129,7 @@
 
       <!-- Table for archives -->
       <f:table name="tabArchives" model="archivesTableModel" multiSelection="false"
-        scrollHeight="5cm">
+        scrollHeight="200">
         <f:column name="icon" percentWidth="20" headerres="tcol_state"
                   columnClass="Icon"/>
         <f:column name="name" percentWidth="80" headerres="tcol_archive"
@@ -139,7 +139,7 @@
 
       <!-- Table for realms -->
       <f:table name="tabRealms" model="realmsTableModel" multiSelection="false"
-        scrollHeight="5cm">
+        scrollHeight="200">
         <f:column name="icon" percentWidth="20" headerres="tcol_state"
                   columnClass="Icon"/>
         <f:column name="name" percentWidth="80" headerres="tcol_realm"
