@@ -17,20 +17,15 @@
 
 -->
 <!--
-  The configuration file of the LineDJ playlist generator application.
+  Global bean definitions for the LineDJ archive startup application.
 -->
-<config>
-  <framework>
-    <builder>
-      <mainScript>main.jelly</mainScript>
-      <beandefinitions>
-        <beandefinition>appbeans.jelly</beandefinition>
-      </beandefinitions>
-    </builder>
-    <appctx>
-      <defaultResourceGroup>archiveAdmin-resources</defaultResourceGroup>
-    </appctx>
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
-    <storeuserconfig>true</storeuserconfig>
-  </framework>
-</config>
+  <!-- The specialized window manager -->
+  <di:bean name="jguiraffe.windowManager"
+           beanClassName="de.oliver_heger.linedj.platform.app.JavaFxSharedWindowManager">
+    <di:constructor>
+      <di:param refName="jguiraffe.styleSheetProvider"/>
+    </di:constructor>
+  </di:bean>
+</j:jelly>

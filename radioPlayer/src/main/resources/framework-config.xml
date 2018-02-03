@@ -23,6 +23,9 @@
   <framework>
     <builder>
       <mainScript>main.jelly</mainScript>
+      <beandefinitions>
+        <beandefinition>appbeans.jelly</beandefinition>
+      </beandefinitions>
     </builder>
     <appctx>
       <defaultResourceGroup>radioplayer-resources</defaultResourceGroup>

@@ -21,6 +21,14 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
+  <!-- The specialized window manager -->
+  <di:bean name="jguiraffe.windowManager"
+           beanClassName="de.oliver_heger.linedj.platform.app.JavaFxSharedWindowManager">
+    <di:constructor>
+      <di:param refName="jguiraffe.styleSheetProvider"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The resolver for unknown meta data properties -->
   <di:bean name="unknownPropertyResolver"
     beanClassName="de.oliver_heger.linedj.platform.audio.model.UnknownPropertyResourceResolver">
