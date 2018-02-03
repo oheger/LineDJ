@@ -228,8 +228,11 @@ object ExportActor {
   private def createRemoveOperations(scanResult: ScanResult) : ListBuffer[ExportOperation] = {
     val buffer = ListBuffer.empty[ExportOperation]
     buffer ++= scanResult.files.map(f => RemoveOperation(Paths get f.path))
-    // The first directory is the output root directory
-    buffer ++= scanResult.directories.tail.reverse.map(RemoveOperation)
+    if (scanResult.directories.nonEmpty) {
+      // The first directory is the output root directory
+      buffer ++= scanResult.directories.tail.reverse.map(RemoveOperation)
+    }
+    buffer
   }
 
   /**

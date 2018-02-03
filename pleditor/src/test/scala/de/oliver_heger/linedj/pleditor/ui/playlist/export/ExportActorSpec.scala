@@ -274,6 +274,15 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
     copyOp.affectedPath should be(targetPath(1))
   }
 
+  it should "handle a ScanResult with an empty sequence of directories" in {
+    val data = ExportActor.ExportData(songs(1), TestScanResult.copy(directories = Nil),
+      ExportPath, clearTarget = true, overrideFiles = false)
+
+    val (ops, _) = ExportActor.initializeExportData(data)
+    val removeOps = ops takeWhile (_.operationType == ExportActor.OperationType.Remove)
+    removeOps should have size TestScanResult.files.size
+  }
+
   it should "not copy already existing files on the target medium if overriding is disabled" in {
     val songList = List(createSongData(1), createSongData(2), createSongData(3, Some
     (DefaultFileSize)), createSongData(4))
