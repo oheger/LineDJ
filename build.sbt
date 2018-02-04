@@ -9,7 +9,8 @@ import de.heikoseeberger.sbtheader.license.Apache2_0
 lazy val AkkaVersion = "2.5.8"
 lazy val AkkaHttpVersion = "10.0.10"
 lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.11.8"
+lazy val VersionScala = "2.12.4"
+lazy val VersionScalaTest = "3.0.4"
 lazy val VersionJetty = "9.4.2.v20170220"
 
 /** The copyright dates. */
@@ -24,7 +25,7 @@ lazy val akkaDependencies = Seq(
 )
 
 lazy val testDependencies = Seq(
-  "org.scalatest" %% "scalatest" % "2.1.6" % "test",
+  "org.scalatest" %% "scalatest" % VersionScalaTest % "test",
   "junit" % "junit" % "4.12" % "test",
   "org.mockito" % "mockito-core" % "1.9.5" % "test"
 )
@@ -32,7 +33,7 @@ lazy val testDependencies = Seq(
 lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" exclude
     ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
-  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.7"
 )
 
 lazy val osgiDependencies = Seq(
@@ -50,7 +51,7 @@ val defaultSettings = Seq(
   scalaVersion := VersionScala,
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
-  libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.3",
+  libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.6",
   resolvers += Resolver.mavenLocal,
   HeaderPlugin.autoImport.headers := Map(
     "scala" -> Apache2_0(CopyRight, "The Developers Team."),
