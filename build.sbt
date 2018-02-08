@@ -1,9 +1,23 @@
+/*
+ * Copyright 2015-2018 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import com.github.oheger.sbt.spifly.SbtSpiFly
 import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
 import com.typesafe.sbt.osgi.SbtOsgi.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
-import de.heikoseeberger.sbtheader.HeaderPlugin
-import de.heikoseeberger.sbtheader.license.Apache2_0
 
 /** Definition of versions. */
 lazy val AkkaVersion = "2.5.8"
@@ -12,9 +26,6 @@ lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.4"
 lazy val VersionScalaTest = "3.0.4"
 lazy val VersionJetty = "9.4.2.v20170220"
-
-/** The copyright dates. */
-val CopyRight = "2015-2017"
 
 lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
@@ -52,11 +63,7 @@ val defaultSettings = Seq(
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
   libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.6",
-  resolvers += Resolver.mavenLocal,
-  HeaderPlugin.autoImport.headers := Map(
-    "scala" -> Apache2_0(CopyRight, "The Developers Team."),
-    "conf" -> Apache2_0(CopyRight, "The Developers Team.", "#")
-  )
+  resolvers += Resolver.mavenLocal
 )
 
 lazy val LineDJ = (project in file("."))
@@ -201,6 +208,7 @@ lazy val platform = (project in file("platform"))
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
+    OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
   ) dependsOn (shared % "compile->compile;test->test")
