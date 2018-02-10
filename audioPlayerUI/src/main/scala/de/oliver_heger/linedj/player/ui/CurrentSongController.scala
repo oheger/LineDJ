@@ -277,6 +277,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
   private def clearAllFields(): Unit = {
     playlistUpdateFunctions.keys foreach (_.setText(Empty))
     timeUpdateFunctions = Map.empty
+    updateProgress(0)
   }
 
   /**

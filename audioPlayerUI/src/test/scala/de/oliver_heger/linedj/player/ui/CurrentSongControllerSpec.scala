@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object CurrentSongControllerSpec {
@@ -292,6 +292,16 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
       .verifyNoMoreProgressUpdates()
   }
 
+  it should "reset the progress bar if there is no current song" in {
+    val helper = new ControllerTestHelper
+
+    helper.triggerPlaylistChanged()
+      .sendProgress(posOfs = 0, timeOfs = 100)
+      .clearTableSelection()
+      .triggerPlaylistChanged()
+      .verifyProgress(0, expCount = 2)
+  }
+
   /**
     * Test helper class managing a test instance and its dependencies.
     *
@@ -447,10 +457,11 @@ class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar
       * Verifies that the progress bar has been updated correctly.
       *
       * @param expValue the expected value
+      * @param expCount the number of times the value is expected
       * @return this test helper
       */
-    def verifyProgress(expValue: Int): ControllerTestHelper = {
-      verify(progressHandler).setValue(expValue)
+    def verifyProgress(expValue: Int, expCount: Int = 1): ControllerTestHelper = {
+      verify(progressHandler, times(expCount)).setValue(expValue)
       this
     }
 
