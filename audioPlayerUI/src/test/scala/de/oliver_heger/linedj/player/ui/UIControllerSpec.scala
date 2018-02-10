@@ -23,22 +23,23 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerState
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
-import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.Matchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.reflect.ClassTag
 
-/**
-  * Test class for ''UIController''.
-  */
-class UIControllerSpec extends FlatSpec with Matchers {
+object UIControllerSpec {
+  /** A test medium ID. */
+  private val TestMedium = MediumID("testMedium", Some("testSettings"))
+
   /**
     * Generates a state object for the audio player.
     *
@@ -46,8 +47,17 @@ class UIControllerSpec extends FlatSpec with Matchers {
     * @param seqNo   the sequence number for the playlist
     * @return the player state
     */
-  private def createState(playing: Boolean, seqNo: Int = 1): AudioPlayerState =
-    AudioPlayerState(Playlist(Nil, Nil), seqNo, playing, playlistClosed = true)
+  private def createState(playing: Boolean, playlist: Playlist = createPlaylist(),
+                          seqNo: Int = 1): AudioPlayerState =
+    AudioPlayerState(playlist, seqNo, playing, playlistClosed = true)
+
+  /**
+    * Creates a test non-empty playlist.
+    *
+    * @return the playlist
+    */
+  private def createPlaylist(): Playlist =
+    Playlist(pendingSongs = List(MediaFileID(TestMedium, "someSong")), playedSongs = Nil)
 
   /**
     * Creates a test playback progress event.
@@ -60,6 +70,13 @@ class UIControllerSpec extends FlatSpec with Matchers {
     PlaybackProgressEvent(bytesProcessed = pos, playbackTime = time,
       currentSource = AudioSource("test", 123456, 0, 0))
   }
+}
+
+/**
+  * Test class for ''UIController''.
+  */
+class UIControllerSpec extends FlatSpec with Matchers {
+  import UIControllerSpec._
 
   "A UIController" should "pass a player state to its sub controllers" in {
     val state = createState(playing = false)
@@ -188,6 +205,15 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val state = createState(playing = false)
 
     helper.playerStateChanged(state)
+      .verifyPlaybackNotStarted()
+  }
+
+  it should "not start playback if the new playlist is empty" in {
+    val helper = new ControllerTestHelper
+    val state = createState(playlist = Playlist(Nil, Nil), playing = false)
+
+    helper.enablePlaybackAutoStart(f = true)
+      .playerStateChanged(state)
       .verifyPlaybackNotStarted()
   }
 
@@ -429,7 +455,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
       * @return this test helper
       */
     def enablePlaybackAutoStart(f: Boolean): ControllerTestHelper = {
-      when(playerConfig.autoStartPlayback).thenReturn(f)
+      when(playerConfig.autoStartMode).thenReturn(AutoStartNever)
       this
     }
 
@@ -494,7 +520,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
       */
     private def createAppConfig(): AudioPlayerConfig = {
       val config = mock[AudioPlayerConfig]
-      when(config.autoStartPlayback).thenReturn(false)
+      when(config.autoStartMode).thenReturn(AutoStartNever)
       config
     }
 

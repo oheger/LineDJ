@@ -199,9 +199,11 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     */
   private def handlePlaybackAutoStart(oldState: AudioPlayerState,
                                       newState: AudioPlayerState): Unit = {
-    if (config.autoStartPlayback && !newState.playbackActive &&
-      oldState.playlistSeqNo != newState.playlistSeqNo) {
-      actionStore.getAction(ActionStartPlayback).execute(null)
-    }
+    //TODO rework for playback mode
+//    if (config.autoStartMode && !newState.playbackActive &&
+//      oldState.playlistSeqNo != newState.playlistSeqNo &&
+//      newState.playlist.pendingSongs.nonEmpty) {
+//      actionStore.getAction(ActionStartPlayback).execute(null)
+//    }
   }
 }

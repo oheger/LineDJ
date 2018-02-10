@@ -27,18 +27,15 @@ class AudioPlayerConfigSpec extends FlatSpec with Matchers {
     val MaxFieldSize = 42
     val RotationSpeed = 3
     val SkipBackwardsThreshold = 8
-    val AutoStart = true
     val c = new PropertiesConfiguration
     c.addProperty(AudioPlayerConfig.PropMaxFieldSize, MaxFieldSize)
     c.addProperty(AudioPlayerConfig.PropRotationSpeed, RotationSpeed)
     c.addProperty(AudioPlayerConfig.PropSkipBackwardsThreshold, SkipBackwardsThreshold)
-    c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, AutoStart)
 
     val config = AudioPlayerConfig(c)
     config.maxUIFieldSize should be(MaxFieldSize)
     config.rotationSpeed should be(RotationSpeed)
     config.skipBackwardsThreshold should be(SkipBackwardsThreshold)
-    config.autoStartPlayback shouldBe AutoStart
   }
 
   it should "use correct default values" in {
@@ -47,6 +44,30 @@ class AudioPlayerConfigSpec extends FlatSpec with Matchers {
     config.maxUIFieldSize should be(Integer.MAX_VALUE)
     config.rotationSpeed should be(AudioPlayerConfig.DefRotationSpeed)
     config.skipBackwardsThreshold should be(AudioPlayerConfig.DefSkipBackwardsThreshold)
-    config.autoStartPlayback shouldBe false
+    config.autoStartMode should be(AudioPlayerConfig.AutoStartNever)
+  }
+
+  it should "detect auto start mode always" in {
+    val c = new PropertiesConfiguration
+    c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "Always")
+    val config = AudioPlayerConfig(c)
+
+    config.autoStartMode should be(AudioPlayerConfig.AutoStartAlways)
+  }
+
+  it should "detect auto start mode closed" in {
+    val c = new PropertiesConfiguration
+    c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "CLOSED")
+    val config = AudioPlayerConfig(c)
+
+    config.autoStartMode should be(AudioPlayerConfig.AutoStartIfClosed)
+  }
+
+  it should "handle an invalid auto start mode" in {
+    val c = new PropertiesConfiguration
+    c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "an invalid mode!")
+    val config = AudioPlayerConfig(c)
+
+    config.autoStartMode should be(AudioPlayerConfig.AutoStartNever)
   }
 }

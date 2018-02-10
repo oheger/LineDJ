@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
+import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
@@ -170,7 +171,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   "A PreviousSongTask" should "move to the previous song if progress is under threshold" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val Index = 17
     val playlist = mock[Playlist]
     val newPlaylist = mock[Playlist]
@@ -187,7 +188,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "reset the current song if progress is over the threshold" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
 
@@ -201,7 +202,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "respect the playlist closed flag" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
 
@@ -214,7 +215,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "reset the current song if it is the first in the playlist" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
     when(plService.currentIndex(playlist)).thenReturn(Some(0))
@@ -228,7 +229,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "handle a None result in setCurrentSong" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val Index = 17
     val playlist = mock[Playlist]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
@@ -243,7 +244,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
 
   it should "handle a None result in currentIndex" in {
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
-      rotationSpeed = 1, autoStartPlayback = false)
+      rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
     when(plService.currentIndex(playlist)).thenReturn(None)
