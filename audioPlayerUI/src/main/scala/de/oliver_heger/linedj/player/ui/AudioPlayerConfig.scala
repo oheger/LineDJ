@@ -118,7 +118,7 @@ object AudioPlayerConfig {
     * playlist is available.
     */
   object AutoStartAlways extends AutoStartMode {
-    override def canStartPlayback(state: AudioPlayerState): Boolean = ???
+    override def canStartPlayback(state: AudioPlayerState): Boolean = true
   }
 
   /**
@@ -126,14 +126,14 @@ object AudioPlayerConfig {
     * is available that has been closed.
     */
   object AutoStartIfClosed extends AutoStartMode {
-    override def canStartPlayback(state: AudioPlayerState): Boolean = ???
+    override def canStartPlayback(state: AudioPlayerState): Boolean = state.playlistClosed
   }
 
   /**
     * A special auto start mode that disables auto start of playback.
     */
   object AutoStartNever extends AutoStartMode {
-    override def canStartPlayback(state: AudioPlayerState): Boolean = ???
+    override def canStartPlayback(state: AudioPlayerState): Boolean = false
   }
 
   /**

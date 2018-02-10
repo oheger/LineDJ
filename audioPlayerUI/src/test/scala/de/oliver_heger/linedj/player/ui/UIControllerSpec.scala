@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerState
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
-import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
+import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.{AutoStartAlways, AutoStartIfClosed, AutoStartMode, AutoStartNever}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.Matchers.any
@@ -43,13 +43,15 @@ object UIControllerSpec {
   /**
     * Generates a state object for the audio player.
     *
-    * @param playing flag whether playback is active.
-    * @param seqNo   the sequence number for the playlist
+    * @param playing  flag whether playback is active.
+    * @param playlist an optional playlist
+    * @param seqNo    the sequence number for the playlist
+    * @param closed   flag whether the playlist has been closed
     * @return the player state
     */
   private def createState(playing: Boolean, playlist: Playlist = createPlaylist(),
-                          seqNo: Int = 1): AudioPlayerState =
-    AudioPlayerState(playlist, seqNo, playing, playlistClosed = true)
+                          seqNo: Int = 1, closed: Boolean = true): AudioPlayerState =
+    AudioPlayerState(playlist, seqNo, playing, playlistClosed = closed)
 
   /**
     * Creates a test non-empty playlist.
@@ -195,7 +197,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val helper = new ControllerTestHelper
     val state = createState(playing = false)
 
-    helper.enablePlaybackAutoStart(f = true)
+    helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackStarted()
   }
@@ -212,7 +214,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val helper = new ControllerTestHelper
     val state = createState(playlist = Playlist(Nil, Nil), playing = false)
 
-    helper.enablePlaybackAutoStart(f = true)
+    helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
   }
@@ -222,7 +224,7 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val orgState = helper.lastPlayerState
     val state = createState(playing = false, seqNo = orgState.playlistSeqNo)
 
-    helper.enablePlaybackAutoStart(f = true)
+    helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
   }
@@ -231,9 +233,27 @@ class UIControllerSpec extends FlatSpec with Matchers {
     val state = createState(playing = true)
     val helper = new ControllerTestHelper
 
-    helper.enablePlaybackAutoStart(f = true)
+    helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
+  }
+
+  it should "not start playback for mode if-closed if the playlist is not closed" in {
+    val state = createState(playing = false, closed = false)
+    val helper = new ControllerTestHelper
+
+    helper.enablePlaybackAutoStart(AutoStartIfClosed)
+      .playerStateChanged(state)
+      .verifyPlaybackNotStarted()
+  }
+
+  it should "start playback for mode if-closed if the playlist is closed" in {
+    val state = createState(playing = false)
+    val helper = new ControllerTestHelper
+
+    helper.enablePlaybackAutoStart(AutoStartIfClosed)
+      .playerStateChanged(state)
+      .verifyPlaybackStarted()
   }
 
   /**
@@ -449,13 +469,13 @@ class UIControllerSpec extends FlatSpec with Matchers {
 
     /**
       * Prepares the mock for the player configuration to return the specified
-      * flag for the auto start option.
+      * auto start mode.
       *
-      * @param f the flag value
+      * @param mode the auto start mode
       * @return this test helper
       */
-    def enablePlaybackAutoStart(f: Boolean): ControllerTestHelper = {
-      when(playerConfig.autoStartMode).thenReturn(AutoStartNever)
+    def enablePlaybackAutoStart(mode: AutoStartMode): ControllerTestHelper = {
+      when(playerConfig.autoStartMode).thenReturn(mode)
       this
     }
 
