@@ -47,7 +47,7 @@ named _audio.ui_ as shown in the following fragment:
     <maxFieldSize>25</maxFieldSize>
     <rotationSpeed>1</rotationSpeed>
     <skipBackwardsThreshold>7</skipBackwardsThreshold>
-    <autoStartPlayback>true</autoStartPlayback>
+    <autoStartPlayback>closed</autoStartPlayback>
   </ui>
 </audio>
 ```
@@ -59,7 +59,7 @@ The properties have the following meaning:
 | maxFieldSize | Int | Defines the maximum size of a field in the details view. If the value of a field exceeds this limit, the field only shows a substring which is rotated (i.e. it scrolls). |
 | rotationSpeed | Int | This property defines the speed for rotation, which is used for fields in the UI exceeding their maximum size. In this case, the portion of the value displayed is changed with the playback progress of the current song. A value of `1` in this property means, that the value is rotated for every second of elapsed playback time. With a value of `2` it changes only for every second second of elapsed playback time and so on. |
 | skipBackwardsThreshold | Int | This value is a threshold in seconds and determines the behavior of the move backwards action. The action checks the playback time of the current song: If it is below this threshold, playback moves to the previous song in the playlist. Otherwise, the current song is played again from the beginning. |
-| autoStartPlayback | Boolean | A flag that determines whether playback should start directly when there is a change in the playlist. This is especially useful at application startup: if this mode is enabled (the default value is *false*), playback starts automatically as soon as a playlist becomes available. |
+| autoStartPlayback | String | A value that determines whether playback should start directly when there is a change in the playlist. This is especially useful at application startup, so that the player starts playing without the need to press the start button. The string can have the following values: _never_ (which is also the default) disables this feature; _always_ starts playback automatically as soon as a playlist becomes available; _closed_ starts playback when a playlist becomes available that has been closed (i.e. is completed, so no songs can be added any more). Invalid strings are mapped to _never_. |
 
 All configuration settings are optional; for a missing value a meaningful
 default is applied.
