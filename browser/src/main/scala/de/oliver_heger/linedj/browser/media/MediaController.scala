@@ -185,12 +185,13 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
-    enableAction(ActionAddMedium, enabled = true)
+    enableAddMediumAction()
   }
 
   /**
    * Notifies this controller that the selection of the tree view has changed.
    * The table has to be updated accordingly to display all selected albums.
+ *
    * @param paths the paths representing the selection of the tree view
    */
   def selectAlbums(paths: Array[TreeNodePath]): Unit = {
@@ -200,8 +201,8 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       selectedAlbumKeys = keys.toSet
       fillTableModelForSelection(m.tableModel, keys)
 
-      enableAction(ActionAddArtist, paths.nonEmpty)
-      enableAction(ActionAddAlbum, selectedAlbumKeys.nonEmpty)
+      enableAddArtistAction()
+      enableAddAlbumAction()
     }
   }
 
@@ -210,13 +211,14 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     * changed. In this case, some actions need to be updated.
     */
   def songSelectionChanged(): Unit = {
-    enableAction("addSongsAction", tableHandler.getSelectedIndices.nonEmpty)
+    enableAddSongsAction()
   }
 
   /**
    * Returns all songs belonging to selected albums. The songs are returned in
    * the correct order (defined by artist names and albums).
-   * @return a sequence with the songs of all selected albums
+    *
+    * @return a sequence with the songs of all selected albums
    */
   def songsForSelectedAlbums: Seq[SongData] = {
     val keys = fetchAllAlbumKeys()
@@ -426,8 +428,8 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    * @return all album keys in the tree model
    */
   private def fetchAllAlbumKeys(): Seq[AlbumKey] = {
-    import collection.JavaConversions._
-    treeModel.getKeys.map(treeModel.getProperty(_).asInstanceOf[AlbumKey]).toSeq
+    import collection.JavaConverters._
+    treeModel.getKeys.asScala.map(treeModel.getProperty(_).asInstanceOf[AlbumKey]).toSeq
   }
 
   /**
@@ -443,6 +445,38 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       case None =>
         Nil
     }
+
+  /**
+    * Sets the enabled state of the add medium action after changes of the
+    * state of this controller.
+    */
+  private def enableAddMediumAction(): Unit = {
+    enableAction(ActionAddMedium, selectedMediumID.isDefined)
+  }
+
+  /**
+    * Sets the enabled state of the add album action after changes of the
+    * state of this controller.
+    */
+  private def enableAddAlbumAction(): Unit = {
+    enableAction(ActionAddAlbum, selectedAlbumKeys.nonEmpty)
+  }
+
+  /**
+    * Sets the enabled state of the add artist action after changes of the
+    * state of this controller.
+    */
+  private def enableAddArtistAction(): Unit = {
+    enableAction(ActionAddArtist, selectedPaths.nonEmpty)
+  }
+
+  /**
+    * Sets the enabled state of the add songs action after changes of the
+    * state of this controller.
+    */
+  private def enableAddSongsAction(): Unit = {
+    enableAction(ActionAddSongs, tableHandler.getSelectedIndices.nonEmpty)
+  }
 
   /**
     * Changes the enabled state of an action.
@@ -502,7 +536,13 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     */
   private def handlePlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit = {
     playlistClosed = event.state.playlistClosed
-    if(playlistClosed) disableAddActions()
+    if (playlistClosed) disableAddActions()
+    else {
+      enableAddAlbumAction()
+      enableAddArtistAction()
+      enableAddMediumAction()
+      enableAddSongsAction()
+    }
   }
 
   /**

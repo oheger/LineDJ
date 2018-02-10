@@ -41,7 +41,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.annotation.tailrec
@@ -542,7 +542,6 @@ class MediaControllerSpec extends FlatSpec with Matchers {
   it should "disable all actions when the playlist is closed" in {
     val helper = prepareAlbumSelection()
     when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
-    helper.selectMedium()
     helper.selectAlbums(createTreePath(Artist1, Album1))
     helper.controller.songSelectionChanged()
 
@@ -560,6 +559,20 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     helper.controller.songSelectionChanged()
     sendPlaylistState(helper.controller, playlistClosed = false)
     helper.verifyAction("addSongsAction", enabled = true)
+  }
+
+  it should "enable actions again when the playlist is re-opened" in {
+    val helper = prepareAlbumSelection()
+    helper selectAlbums createTreePath(Artist1, Album1)
+    when(helper.tableHandler.getSelectedIndices).thenReturn(Array(1, 2))
+    helper.controller.songSelectionChanged()
+    helper.closePlaylist()
+
+    helper.changePlaylistOpenState(playlistClosed = false)
+      .verifyAction("addArtistAction", enabled = true)
+      .verifyAction("addAlbumAction", enabled = true)
+      .verifyAction("addMediumAction", enabled = true)
+      .verifyAction("addSongsAction", enabled = true)
   }
 
   it should "update the table model for multiple chunks" in {
@@ -918,14 +931,24 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     }
 
     /**
+      * Sends a playlist changed notification to the test controller with the
+      * specified ''playlistClosed'' flag.
+      *
+      * @param playlistClosed flag whether the playlist is closed
+      * @return this test helper
+      */
+    def changePlaylistOpenState(playlistClosed: Boolean): MediaControllerTestHelper = {
+      sendPlaylistState(controller, playlistClosed)
+      this
+    }
+
+    /**
       * Closes the playlist.
       *
       * @return this test helper
       */
-    def closePlaylist(): MediaControllerTestHelper = {
-      sendPlaylistState(controller, playlistClosed = true)
-      this
-    }
+    def closePlaylist(): MediaControllerTestHelper =
+      changePlaylistOpenState(playlistClosed = true)
 
     /**
      * Creates a mock for the message bus. All messages published via the bus
@@ -985,6 +1008,7 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     private def createTableHandler(model: java.util.ArrayList[AnyRef]): TableHandler = {
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(model)
+      when(handler.getSelectedIndices).thenReturn(Array.emptyIntArray)
       handler
     }
 
