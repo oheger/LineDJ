@@ -60,11 +60,23 @@ case class SetPlaylist(playlist: Playlist, closePlaylist: Boolean = true,
   * message are appended to the current playlist. Optionally, the playlist
   * can be closed then.
   *
+  * With the ''activate'' flag a hint can be given to the platform whether the
+  * current playlist is expected to be played immediately. In this case, the
+  * new songs can be passed directly to the player engine, which might trigger
+  * some actions, like triggering downloads for song files. A value of
+  * '''false''' means that the playlist may be changed again before it is
+  * finalized; in this case, no actions need to be taken yet. It is, however,
+  * up to the audio platform to decide how to handle this flag. Typically, if
+  * the playlist has already been activated, the flag is ignored, and new songs
+  * will be propagated to the player engine.
+  *
   * @param songs         list of songs to be appended to the playlist
   * @param closePlaylist flag whether the playlist is to be closed
+  * @param activate      a hint whether new songs should become active
   */
 case class AppendPlaylist(songs: PlaylistService.SongList,
-                          closePlaylist: Boolean = false)
+                          closePlaylist: Boolean = false,
+                          activate: Boolean = true) extends AudioPlayerCommand
 
 /**
   * A command to start playback of audio files.

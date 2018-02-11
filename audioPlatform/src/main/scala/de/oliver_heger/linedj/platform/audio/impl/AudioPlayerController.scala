@@ -44,9 +44,7 @@ private class AudioPlayerController(val player: AudioPlayer,
                                     = PlaylistService)
   extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
   /** Stores the last state change event. */
-  private var lastEvent =
-    AudioPlayerStateChangedEvent(AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
-      playlistClosed = false, playlistSeqNo = PlaylistService.SeqNoInitial))
+  private var lastEvent = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
 
   /**
     * The time when the last reset of the player engine took place. This is
@@ -78,23 +76,30 @@ private class AudioPlayerController(val player: AudioPlayer,
           // no action for empty list of pending songs
       }
       updateState { s =>
-        val seqNo = if(playlistService.playlistEquals(s.playlist, playlist)) s.playlistSeqNo
+        val seqNo = if (playlistService.playlistEquals(s.playlist, playlist)) s.playlistSeqNo
         else playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)
-        s.copy(playlist = playlist, playlistClosed = closePlaylist, playlistSeqNo = seqNo)
+        s.copy(playlist = playlist, playlistClosed = closePlaylist, playlistSeqNo = seqNo,
+          playlistActivated = playlist.pendingSongs.nonEmpty)
       }
 
-    case AppendPlaylist(songs, closePlaylist) =>
+    case AppendPlaylist(songs, closePlaylist, activate) =>
       if (!currentState.playlistClosed) {
-        appendSongsToPlaylist(songs, closePlaylist)
+        val needActivate = closePlaylist || activate || currentState.playlistActivated
+        if (needActivate) {
+          ensurePlaylistActivated()
+          appendSongsToPlaylist(songs, closePlaylist)
+        }
         updateState(s =>
           s.copy(playlist = s.playlist.copy(pendingSongs = s.playlist.pendingSongs ++ songs),
-            playlistSeqNo = playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)))
+            playlistSeqNo = playlistService.incrementPlaylistSeqNo(s.playlistSeqNo),
+            playlistActivated = needActivate))
       }
 
     case StartAudioPlayback(delay) =>
       if (!currentState.playbackActive) {
+        ensurePlaylistActivated()
         player startPlayback delay
-        updateState(_.copy(playbackActive = true))
+        updateState(_.copy(playbackActive = true, playlistActivated = true))
       }
 
     case StopAudioPlayback(delay) =>
@@ -146,6 +151,16 @@ private class AudioPlayerController(val player: AudioPlayer,
     songs map (toPlaylistInfo(_, 0, 0)) foreach (s => player addToPlaylist s)
     if (closePlaylist) {
       player.closePlaylist()
+    }
+  }
+
+  /**
+    * Makes sure that the songs of the current playlist have been activated.
+    * If necessary, the songs are passed to the player engine.
+    */
+  private def ensurePlaylistActivated(): Unit = {
+    if (!currentState.playlistActivated) {
+      appendSongsToPlaylist(currentState.playlist.pendingSongs, closePlaylist = false)
     }
   }
 

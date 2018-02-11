@@ -27,9 +27,10 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import org.mockito.Matchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
@@ -116,6 +117,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     state.playlist.playedSongs shouldBe 'empty
     state.playlist.pendingSongs shouldBe 'empty
     state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
+    state.playlistActivated shouldBe false
   }
 
   it should "process a SetPlaylist message with the close flag set to true" in {
@@ -131,6 +133,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe true
+    state.playlistActivated shouldBe true
     state.playlist.playedSongs should be(extractIDs(playedSongs))
     state.playlist.pendingSongs should be(extractIDs(pendingSongs))
     state.playlistSeqNo should not be PlaylistService.SeqNoInitial
@@ -151,12 +154,22 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = checkEventTime(helper.lastStateEvent).state
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe false
+    state.playlistActivated shouldBe true
     state.playlist.playedSongs should be(extractIDs(playedSongs))
     state.playlist.pendingSongs should be(extractIDs(pendingSongs))
     state.playlistSeqNo should not be PlaylistService.SeqNoInitial
 
     pendingSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
     verifyNoMoreInteractions(helper.audioPlayer)
+  }
+
+  it should "process a SetPlaylist message with an empty list of pending songs" in {
+    val helper = new ControllerTestHelper
+
+    helper send SetPlaylist(Playlist(playedSongs = List(createFileID(2), createFileID(1)),
+      pendingSongs = Nil), closePlaylist = false)
+    val state = checkEventTime(helper.lastStateEvent).state
+    state.playlistActivated shouldBe false
   }
 
   it should "not change the playlist seq number if the playlist content does not change" in {
@@ -205,7 +218,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     helper send StartAudioPlayback(delay)
     verify(helper.audioPlayer).startPlayback(delay)
     helper.lastState should be(AudioPlayerState(playlist = Playlist(Nil, Nil),
-      playbackActive = true, playlistClosed = false,
+      playbackActive = true, playlistClosed = false, playlistActivated = true,
       playlistSeqNo = PlaylistService.SeqNoInitial))
   }
 
@@ -241,12 +254,11 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   it should "process a stop playback command" in {
     val delay = 1.second
     val helper = new ControllerTestHelper
-    val initState = helper.lastState
 
     helper.send(StartAudioPlayback())
       .send(StopAudioPlayback(delay))
     verify(helper.audioPlayer).stopPlayback(delay)
-    helper.lastState should be(initState)
+    helper.lastState.playbackActive shouldBe false
   }
 
   it should "stop playback only if it is active" in {
@@ -289,6 +301,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val state = checkEventTime(helper.lastStateEvent).state
     state.playlist.pendingSongs should be(extractIDs(allSongs))
     state.playlistSeqNo should be > 1
+    state.playlistActivated shouldBe true
     val io = Mockito.inOrder(helper.audioPlayer)
     allSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     verifyNoMoreInteractions(helper.audioPlayer)
@@ -300,6 +313,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
     helper send AppendPlaylist(extractIDs(appendSongs), closePlaylist = true)
     helper.lastState.playlist.pendingSongs should be(extractIDs(appendSongs))
+    helper.lastState.playlistActivated shouldBe true
     val io = Mockito.inOrder(helper.audioPlayer)
     appendSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     io.verify(helper.audioPlayer).closePlaylist()
@@ -314,6 +328,59 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     helper send AppendPlaylist(songs = List(createFileID(3)))
     verify(helper.audioPlayer, never()).addToPlaylist(createPlaylistInfo(3))
     helper.lastStateEvent should be(event)
+  }
+
+  it should "allow appending songs, but not activating the playlist" in {
+    val appendSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))
+    val helper = new ControllerTestHelper
+
+    helper send AppendPlaylist(extractIDs(appendSongs), activate = false)
+    helper.lastState.playlist.pendingSongs should be(extractIDs(appendSongs))
+    helper.lastState.playlistActivated shouldBe false
+    verify(helper.audioPlayer, never()).addToPlaylist(any())
+  }
+
+  it should "ignore the activate flag when appending songs and the playlist is to be closed" in {
+    val appendSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))
+    val helper = new ControllerTestHelper
+
+    helper send AppendPlaylist(extractIDs(appendSongs), closePlaylist = true, activate = false)
+    helper.lastState.playlistActivated shouldBe true
+    val io = Mockito.inOrder(helper.audioPlayer)
+    appendSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
+    io.verify(helper.audioPlayer).closePlaylist()
+  }
+
+  it should "ignore the activate flag when appending songs and the playlist is activated" in {
+    val song1 = createPlaylistInfo(1)
+    val song2 = createPlaylistInfo(2)
+    val helper = new ControllerTestHelper
+    helper send AppendPlaylist(List(song1.sourceID))
+
+    helper send AppendPlaylist(List(song2.sourceID), activate = false)
+    helper.lastState.playlistActivated shouldBe true
+    verify(helper.audioPlayer).addToPlaylist(song2)
+  }
+
+  it should "pass all songs to the engine when the playlist is activated" in {
+    val firstSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))
+    val nextSongs = List(createPlaylistInfo(3), createPlaylistInfo(4))
+    val helper = new ControllerTestHelper
+    helper send AppendPlaylist(extractIDs(firstSongs), activate = false)
+
+    helper send AppendPlaylist(extractIDs(nextSongs))
+    helper.lastState.playlistActivated shouldBe true
+    val io = Mockito.inOrder(helper.audioPlayer)
+    (firstSongs ++ nextSongs) foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
+  }
+
+  it should "pass all songs to the engine when playback starts" in {
+    val appendSongs = List(createPlaylistInfo(1), createPlaylistInfo(2))
+    val helper = new ControllerTestHelper
+    helper send AppendPlaylist(extractIDs(appendSongs), activate = false)
+
+    helper send StartAudioPlayback()
+    appendSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
   }
 
   it should "move to the next song on receiving a source finished event" in {

@@ -21,8 +21,7 @@ import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.audio._
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
-import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.platform.audio.playlist.{PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
@@ -135,8 +134,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
   private var requestedFiles = List.empty[MediaFileID]
 
   /** Stores the current state of the audio player. */
-  private var currentPlayerState = AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
-    playlistClosed = false, playlistSeqNo = PlaylistService.SeqNoInitial)
+  private var currentPlayerState = AudioPlayerState.Initial
 
   /** A sequence number to be increased when a playlist update comes in. */
   private var seqNo = -1

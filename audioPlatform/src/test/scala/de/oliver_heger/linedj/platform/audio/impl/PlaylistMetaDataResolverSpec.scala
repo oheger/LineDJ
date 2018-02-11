@@ -141,7 +141,7 @@ object PlaylistMetaDataResolverSpec {
   AudioPlayerStateChangedEvent = {
     val playlist = Playlist(pendingSongs = pendingIDs, playedSongs = playedIDs)
     val state = AudioPlayerState(playlist = playlist, playbackActive = false,
-      playlistClosed = false, playlistSeqNo = seqNo)
+      playlistClosed = false, playlistSeqNo = seqNo, playlistActivated = false)
     AudioPlayerStateChangedEvent(state)
   }
 

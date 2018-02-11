@@ -17,6 +17,17 @@
 package de.oliver_heger.linedj.platform.audio
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+
+object AudioPlayerState {
+  /**
+    * An initial audio player state that can be assumed at application startup.
+    * No playlist has been set, and all flags are set to initial values.
+    */
+  val Initial = AudioPlayerState(Playlist(Nil, Nil), playbackActive = false,
+    playlistClosed = false, playlistSeqNo = PlaylistService.SeqNoInitial,
+    playlistActivated = false)
+}
 
 /**
   * A class representing the current playback state of the audio player
@@ -34,4 +45,5 @@ import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 case class AudioPlayerState(playlist: Playlist,
                             playlistSeqNo: Int,
                             playbackActive: Boolean,
-                            playlistClosed: Boolean)
+                            playlistClosed: Boolean,
+                            playlistActivated: Boolean)
