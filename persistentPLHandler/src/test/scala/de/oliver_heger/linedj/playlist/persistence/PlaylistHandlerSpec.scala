@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -133,7 +133,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   it should "forward a state update event to the state writer actor" in {
     val state = AudioPlayerState(TestSetPlaylist.playlist, 42, playbackActive = true,
-      playlistClosed = false)
+      playlistClosed = false, playlistActivated = true)
     val helper = new HandlerTestHelper
     helper.activate()
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))

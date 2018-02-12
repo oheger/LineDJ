@@ -160,7 +160,8 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
   }
 
   override def receive: Receive = {
-    case AudioPlayerState(playlist, no, _, _) if closeRequest.isEmpty =>
+    case AudioPlayerState(playlist, no, _, _, playlistActivated)
+      if closeRequest.isEmpty && playlistActivated =>
       handlePlaylistUpdate(playlist, no)
       handlePositionUpdate(extractPosition(playlist))
 

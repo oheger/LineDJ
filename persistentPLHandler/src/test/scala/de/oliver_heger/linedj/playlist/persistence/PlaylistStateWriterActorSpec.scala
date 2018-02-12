@@ -57,13 +57,14 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     * @param songCount    the number of songs in the playlist
     * @param currentIndex the index of the current song
     * @param seqNo        the sequence number of the playlist
+    * @param activated    flag whether the playlist is activated
     * @return the player state object
     */
-  def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1):
-  AudioPlayerState = {
+  def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1,
+                        activated: Boolean = true): AudioPlayerState = {
     val playlist = generatePlaylist(songCount, currentIndex)
     AudioPlayerState(playlist = playlist, playbackActive = true, playlistClosed = false,
-      playlistSeqNo = seqNo)
+      playlistSeqNo = seqNo, playlistActivated = activated)
   }
 
   /**
@@ -111,6 +112,15 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .send(state)
       .expectAndHandleWriteOperation()
       .expectPersistedPlaylist(state.playlist)
+      .expectNoWriteOperation()
+  }
+
+  it should "not store a playlist that has not yet been activated" in {
+    val state = createPlayerState(4, activated = false)
+    val helper = new WriterActorTestHelper
+
+    helper.sendInitState()
+      .send(state)
       .expectNoWriteOperation()
   }
 
