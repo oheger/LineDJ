@@ -271,7 +271,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     playbackContextFactories foreach player.addPlaybackContextFactory
     val sink = Sink.foreach[Any](e => clientApplicationContext.messageBus publish e)
     sinkRegistrationID = player registerEventSink sink
-    new AudioPlayerController(player)
+    new AudioPlayerController(player, clientApplicationContext.messageBus)
   }
 
   /**

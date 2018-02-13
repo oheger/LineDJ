@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.platform.audio.impl
 import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.atomic.AtomicReference
 
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.mockito.Matchers.any
@@ -95,6 +96,17 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
   import AudioPlayerControllerSpec._
 
   /**
+    * Checks whether the provided time is close to the current time. This is
+    * needed to check timestamps in events.
+    *
+    * @param time the time to be checked
+    */
+  private def checkCurrentTime(time: LocalDateTime): Unit = {
+    val timeDelta = Duration.between(time, LocalDateTime.now())
+    timeDelta.getSeconds should be < 3L
+  }
+
+  /**
     * Checks the time stamp of the specified event. It is checked whether the
     * event's time is close to the current time.
     *
@@ -103,8 +115,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     */
   private def checkEventTime(event: AudioPlayerStateChangedEvent):
   AudioPlayerStateChangedEvent = {
-    val timeDelta = Duration.between(event.time, LocalDateTime.now())
-    timeDelta.getSeconds should be < 3L
+    checkCurrentTime(event.time)
     event
   }
 
@@ -142,6 +153,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     pendingSongs foreach (s => io.verify(helper.audioPlayer).addToPlaylist(s))
     io.verify(helper.audioPlayer).closePlaylist()
     verifyNoMoreInteractions(helper.audioPlayer)
+    helper.expectProgressEvent(3, PosOfs, TimeOffset)
   }
 
   it should "process a SetPlaylist message with the close flag set to false" in {
@@ -161,6 +173,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
     pendingSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
     verifyNoMoreInteractions(helper.audioPlayer)
+    helper.expectProgressEvent(3, 0, 0)
   }
 
   it should "process a SetPlaylist message with an empty list of pending songs" in {
@@ -170,6 +183,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
       pendingSongs = Nil), closePlaylist = false)
     val state = checkEventTime(helper.lastStateEvent).state
     state.playlistActivated shouldBe false
+    helper.expectNoProgressEvent()
   }
 
   it should "not change the playlist seq number if the playlist content does not change" in {
@@ -452,6 +466,9 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     /** The mock for the audio player. */
     val audioPlayer: AudioPlayer = mock[AudioPlayer]
 
+    /** The test message bus. */
+    private val messageBus = new MessageBusTestImpl
+
     /** Stores the latest change event received from the test controller. */
     private val lastEvent = new AtomicReference[AudioPlayerStateChangedEvent]
 
@@ -491,12 +508,43 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
       lastStateEvent.state
 
     /**
+      * Expects a progress event to be published on the message bus with the
+      * provided parameters.
+      *
+      * @param songIdx the index of the song the event is about
+      * @param posOfs  the position offset
+      * @param timeOfs the time offset
+      * @return this test helper
+      */
+    def expectProgressEvent(songIdx: Int, posOfs: Long, timeOfs: Long): ControllerTestHelper = {
+      val event = messageBus.expectMessageType[PlaybackProgressEvent]
+      event.currentSource.uri should be(songUri(songIdx))
+      event.currentSource.isLengthUnknown shouldBe true
+      event.currentSource.skip should be(posOfs)
+      event.currentSource.skipTime should be(timeOfs)
+      event.bytesProcessed should be(posOfs)
+      event.playbackTime should be(timeOfs)
+      checkCurrentTime(event.time)
+      this
+    }
+
+    /**
+      * Expects that no progress event is published on the message bus.
+      *
+      * @return this test helper
+      */
+    def expectNoProgressEvent(): ControllerTestHelper = {
+      messageBus.expectNoMessage(100.millis)
+      this
+    }
+
+    /**
       * Creates a test controller instance and initializes the test consumer.
       *
       * @return the test controller
       */
     private def createTestController(): AudioPlayerController = {
-      val ctrl = new AudioPlayerController(audioPlayer)
+      val ctrl = new AudioPlayerController(audioPlayer, messageBus)
       val func: ConsumerFunction[AudioPlayerStateChangedEvent] = e => lastEvent.set(e)
       ctrl receive AudioPlayerStateChangeRegistration(componentID, func)
       ctrl

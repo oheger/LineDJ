@@ -38,7 +38,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -304,6 +304,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     def verifyAudioControllerCreation(): ComponentTestHelper = {
       audioController should not be null
       audioController.player should be(audioPlayer)
+      audioController.messageBus should be(messageBus)
       this
     }
 

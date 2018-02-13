@@ -21,8 +21,9 @@ import java.time.LocalDateTime
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
-import de.oliver_heger.linedj.player.engine.{AudioSourceFinishedEvent, AudioSourcePlaylistInfo}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
@@ -37,9 +38,11 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
   * change events and are then notified whenever the player's state changes.
   *
   * @param player          the player object to be managed
+  * @param messageBus      the UI message bus
   * @param playlistService the service for dealing with playlist objects
   */
 private class AudioPlayerController(val player: AudioPlayer,
+                                    val messageBus: MessageBus,
                                     playlistService: PlaylistService[Playlist, MediaFileID]
                                     = PlaylistService)
   extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
@@ -72,6 +75,7 @@ private class AudioPlayerController(val player: AudioPlayer,
         case h :: t =>
           player addToPlaylist toPlaylistInfo(h, posOfs, timeOfs)
           appendSongsToPlaylist(t, closePlaylist)
+          messageBus publish createProgressEvent(h, posOfs, timeOfs)
         case _ =>
           // no action for empty list of pending songs
       }
@@ -162,6 +166,23 @@ private class AudioPlayerController(val player: AudioPlayer,
     if (!currentState.playlistActivated) {
       appendSongsToPlaylist(currentState.playlist.pendingSongs, closePlaylist = false)
     }
+  }
+
+  /**
+    * Creates a progress event with the specified parameters. Such an event is
+    * published after a new playlist has been set. Thus, interested parties get
+    * information about the offset parameters of the first song.
+    *
+    * @param fileID  the ID of the current song file
+    * @param posOfs  the position offset
+    * @param timeOfs the time offset
+    * @return the new event
+    */
+  private def createProgressEvent(fileID: MediaFileID, posOfs: Long, timeOfs: Long)
+  : PlaybackProgressEvent = {
+    val source = AudioSource(fileID.uri, AudioSource.UnknownLength, posOfs, timeOfs)
+    val event = PlaybackProgressEvent(posOfs, timeOfs, source)
+    event
   }
 
   /**
