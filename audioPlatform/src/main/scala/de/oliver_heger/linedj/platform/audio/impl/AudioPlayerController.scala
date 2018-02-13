@@ -66,38 +66,11 @@ private class AudioPlayerController(val player: AudioPlayer,
       addConsumer(reg)
       reg.callback(lastEvent)
 
-    case SetPlaylist(playlist, closePlaylist, posOfs, timeOfs) =>
-      if (hasCurrentPlaylist) {
-        resetPlayer()
-      }
-      lastResetTime = LocalDateTime.now()
-      playlist.pendingSongs match {
-        case h :: t =>
-          player addToPlaylist toPlaylistInfo(h, posOfs, timeOfs)
-          appendSongsToPlaylist(t, closePlaylist)
-          messageBus publish createProgressEvent(h, posOfs, timeOfs)
-        case _ =>
-          // no action for empty list of pending songs
-      }
-      updateState { s =>
-        val seqNo = if (playlistService.playlistEquals(s.playlist, playlist)) s.playlistSeqNo
-        else playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)
-        s.copy(playlist = playlist, playlistClosed = closePlaylist, playlistSeqNo = seqNo,
-          playlistActivated = playlist.pendingSongs.nonEmpty)
-      }
+    case cmd: SetPlaylist =>
+      handleSetPlaylist(cmd)
 
-    case AppendPlaylist(songs, closePlaylist, activate) =>
-      if (!currentState.playlistClosed) {
-        val needActivate = closePlaylist || activate || currentState.playlistActivated
-        if (needActivate) {
-          ensurePlaylistActivated()
-          appendSongsToPlaylist(songs, closePlaylist)
-        }
-        updateState(s =>
-          s.copy(playlist = s.playlist.copy(pendingSongs = s.playlist.pendingSongs ++ songs),
-            playlistSeqNo = playlistService.incrementPlaylistSeqNo(s.playlistSeqNo),
-            playlistActivated = needActivate))
-      }
+    case cmd: AppendPlaylist =>
+      handleAppendPlaylist(cmd)
 
     case StartAudioPlayback(delay) =>
       if (!currentState.playbackActive) {
@@ -118,17 +91,78 @@ private class AudioPlayerController(val player: AudioPlayer,
       }
 
     case AudioSourceFinishedEvent(source, time) =>
-      if (playlistService.currentSong(currentState.playlist)
-        .exists(_.uri == source.uri) && isCurrentPlayerEvent(time)) {
-        updateState { s =>
-          val nextPlaylist = playlistService.moveForwards(s.playlist).get
-          val nextState = s.copy(playlist = nextPlaylist)
-          if (playlistService.currentSong(nextPlaylist).isEmpty &&
-            s.playlistClosed && s.playbackActive)
-            nextState.copy(playbackActive = false)
-          else nextState
-        }
+      handleSourceFinishedEvent(source, time)
+  }
+
+  /**
+    * Handles a command that sets a new playlist. The current state is updated
+    * to match the new playlist.
+    *
+    * @param cmd the set playlist command
+    */
+  private def handleSetPlaylist(cmd: SetPlaylist): Unit = {
+    if (hasCurrentPlaylist) {
+      resetPlayer()
+    }
+    lastResetTime = LocalDateTime.now()
+    cmd.playlist.pendingSongs match {
+      case h :: t =>
+        player addToPlaylist toPlaylistInfo(h, cmd.positionOffset, cmd.timeOffset)
+        appendSongsToPlaylist(t, cmd.closePlaylist)
+        messageBus publish createProgressEvent(h, cmd.positionOffset, cmd.timeOffset)
+      case _ =>
+      // no action for empty list of pending songs
+    }
+    updateState { s =>
+      val seqNo = if (playlistService.playlistEquals(s.playlist, cmd.playlist)) s.playlistSeqNo
+      else playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)
+      s.copy(playlist = cmd.playlist, playlistClosed = cmd.closePlaylist, playlistSeqNo = seqNo,
+        playlistActivated = cmd.playlist.pendingSongs.nonEmpty)
+    }
+  }
+
+  /**
+    * Handles a command to add songs to the current playlist. It is possible to
+    * add songs without activating them, i.e. passing them to the player
+    * engine. This can be useful if the playlist is going to be manipulated
+    * before the songs are actually played.
+    *
+    * @param cmd the append playlist command
+    */
+  private def handleAppendPlaylist(cmd: AppendPlaylist): Unit = {
+    if (!currentState.playlistClosed) {
+      val needActivate = cmd.closePlaylist || cmd.activate || currentState.playlistActivated
+      if (needActivate) {
+        ensurePlaylistActivated()
+        appendSongsToPlaylist(cmd.songs, cmd.closePlaylist)
       }
+      updateState(s =>
+        s.copy(playlist = s.playlist.copy(pendingSongs = s.playlist.pendingSongs ++ cmd.songs),
+          playlistSeqNo = playlistService.incrementPlaylistSeqNo(s.playlistSeqNo),
+          playlistActivated = needActivate))
+    }
+  }
+
+  /**
+    * Handles an event about a finished audio source. If the source affected is
+    * the current song in the playlist, the controller's state is updated
+    * accordingly.
+    *
+    * @param source the source of the event
+    * @param time   the time of the event
+    */
+  private def handleSourceFinishedEvent(source: AudioSource, time: LocalDateTime): Unit = {
+    if (playlistService.currentSong(currentState.playlist)
+      .exists(_.uri == source.uri) && isCurrentPlayerEvent(time)) {
+      updateState { s =>
+        val nextPlaylist = playlistService.moveForwards(s.playlist).get
+        val nextState = s.copy(playlist = nextPlaylist)
+        if (playlistService.currentSong(nextPlaylist).isEmpty &&
+          s.playlistClosed && s.playbackActive)
+          nextState.copy(playbackActive = false)
+        else nextState
+      }
+    }
   }
 
   /**

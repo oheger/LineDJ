@@ -395,6 +395,7 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
     helper send StartAudioPlayback()
     appendSongs foreach (s => verify(helper.audioPlayer).addToPlaylist(s))
+    helper.lastState.playlistActivated shouldBe true
   }
 
   it should "move to the next song on receiving a source finished event" in {
