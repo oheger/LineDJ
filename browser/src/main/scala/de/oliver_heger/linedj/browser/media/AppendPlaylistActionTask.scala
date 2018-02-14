@@ -54,7 +54,7 @@ abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable
     * @return the message to extend the playlist by these songs
     */
   private def createAppendMessage(songs: Seq[SongData]): AppendPlaylist =
-    AppendPlaylist(songs.map(_.id).toList)
+    AppendPlaylist(songs.map(_.id).toList, activate = false)
 }
 
 /**

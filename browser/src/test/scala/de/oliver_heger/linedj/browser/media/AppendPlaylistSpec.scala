@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
 /**
   * Test class for the action tasks that append songs to the playlist.
@@ -119,7 +119,7 @@ class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
       * @param songs the expected songs
       */
     def verifySongsAppended(songs: List[MediaFileID]): Unit = {
-      verify(messageBus).publish(AppendPlaylist(songs))
+      verify(messageBus).publish(AppendPlaylist(songs, activate = false))
     }
 
     /**

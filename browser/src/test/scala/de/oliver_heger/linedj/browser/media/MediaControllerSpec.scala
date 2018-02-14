@@ -219,7 +219,7 @@ object MediaControllerSpec {
     val reg = ConsumerRegistrationProviderTestHelper
       .findRegistration[AudioPlayerStateChangeRegistration](controller)
     val event = AudioPlayerStateChangedEvent(AudioPlayerState(playlist = null, playlistSeqNo = 0,
-      playbackActive = true, playlistClosed = playlistClosed))
+      playbackActive = true, playlistClosed = playlistClosed, playlistActivated = true))
     reg.callback(event)
   }
 }
