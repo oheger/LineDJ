@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.reflect.ClassTag
@@ -131,7 +131,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(tabHandler.getSelectedIndex).thenReturn(Index)
     when(plService.setCurrentSong(playlist, Index)).thenReturn(Some(updatedPlaylist))
     val state = AudioPlayerState(playlist, 1, playbackActive = true,
-      playlistClosed = closePlaylist)
+      playlistClosed = closePlaylist, playlistActivated = true)
 
     val cmd = checkTaskWithBusResult[SetPlaylist](state = state)(new GotoSongTask(_, tabHandler,
       plService))
@@ -154,7 +154,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(tabHandler.getSelectedIndex).thenReturn(Index)
     when(plService.setCurrentSong(playlist, Index)).thenReturn(None)
     val state = AudioPlayerState(playlist, 1, playbackActive = true,
-      playlistClosed = false)
+      playlistClosed = false, playlistActivated = true)
 
     checkTaskNoBusResult(state)(new GotoSongTask(_, tabHandler, plService))
   }
@@ -180,7 +180,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(plService.setCurrentSong(playlist, Index - 1)).thenReturn(Some(newPlaylist))
 
     val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = true),
+      playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(newPlaylist))
@@ -193,7 +193,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
 
     val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = true),
+      playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist))
@@ -207,7 +207,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
 
     val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = false),
+      playbackActive = true, playlistClosed = false, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist, closePlaylist = false))
@@ -221,7 +221,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(plService.currentIndex(playlist)).thenReturn(Some(0))
 
     val cmd = checkTaskWithBusResult[SetPlaylist](state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = true),
+      playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist))
@@ -237,7 +237,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(plService.setCurrentSong(playlist, Index - 1)).thenReturn(None)
 
     checkTaskNoBusResult(state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = true),
+      playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
   }
@@ -250,7 +250,7 @@ class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
     when(plService.currentIndex(playlist)).thenReturn(None)
 
     checkTaskNoBusResult(state = AudioPlayerState(playlist, 1,
-      playbackActive = true, playlistClosed = true),
+      playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
   }

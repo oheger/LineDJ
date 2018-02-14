@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.player.ui
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
@@ -45,14 +44,6 @@ object UIController {
 
   /** Name of the action to move to a specific song. */
   val ActionGotoSong = "gotoSongAction"
-
-  /**
-    * The initial player state. This is used only to have a defined
-    * value. It should be overridden immediately with a real state.
-    */
-  private val InitialPlayerState =
-    AudioPlayerState(Playlist(Nil, Nil), PlaylistService.SeqNoInitial,
-      playbackActive = false, playlistClosed = false)
 
   /**
     * Initial value for the last progress event. Here some plausible values are
@@ -101,7 +92,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
       PlaylistMetaDataRegistration(componentID, consumePlaylistMetaDataChanged))
 
   /** Stores the last known player state. */
-  private var currentState = InitialPlayerState
+  private var currentState = AudioPlayerState.Initial
 
   /** Stores the last playback progress event. */
   private var currentProgress = InitialProgressEvent

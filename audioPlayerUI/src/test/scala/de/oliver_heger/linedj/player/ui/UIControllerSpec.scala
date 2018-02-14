@@ -51,7 +51,7 @@ object UIControllerSpec {
     */
   private def createState(playing: Boolean, playlist: Playlist = createPlaylist(),
                           seqNo: Int = 1, closed: Boolean = true): AudioPlayerState =
-    AudioPlayerState(playlist, seqNo, playing, playlistClosed = closed)
+    AudioPlayerState(playlist, seqNo, playing, playlistClosed = closed, playlistActivated = true)
 
   /**
     * Creates a test non-empty playlist.

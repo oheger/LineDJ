@@ -28,7 +28,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.Matchers.{any, anyInt}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object PlaylistTableControllerSpec {
@@ -112,7 +112,8 @@ class PlaylistTableControllerSpec extends FlatSpec with Matchers with MockitoSug
     * @return the ''AudioPlayerState''
     */
   private def playerState(): AudioPlayerState =
-    AudioPlayerState(mock[Playlist], 42, playbackActive = true, playlistClosed = false)
+    AudioPlayerState(mock[Playlist], 42, playbackActive = true, playlistClosed = false,
+      playlistActivated = true)
 
   /**
     * Generates a test object with playlist meta data. The actual content does
