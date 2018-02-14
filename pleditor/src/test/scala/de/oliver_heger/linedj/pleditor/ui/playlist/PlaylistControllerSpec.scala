@@ -29,7 +29,7 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Matchers.anyInt
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
@@ -331,7 +331,8 @@ class PlaylistControllerSpec extends FlatSpec with Matchers {
     def addSongs(ids: List[MediaFileID]): PlaylistControllerTestHelper = {
       val playlist = Playlist(pendingSongs = ids, playedSongs = Nil)
       val stateEvent = AudioPlayerStateChangedEvent(AudioPlayerState(playlist = playlist,
-        playlistSeqNo = 1, playbackActive = false, playlistClosed = false))
+        playlistSeqNo = 1, playbackActive = false, playlistClosed = false,
+        playlistActivated = true))
       ConsumerRegistrationProviderTestHelper
         .findRegistration[AudioPlayerStateChangeRegistration](controller)
         .callback(stateEvent)
