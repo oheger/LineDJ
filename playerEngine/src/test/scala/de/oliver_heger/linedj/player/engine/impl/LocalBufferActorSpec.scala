@@ -23,7 +23,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.mutable.ListBuffer
@@ -132,7 +132,7 @@ with MockitoSugar {
         listBuffer += FileWriteData(currentPath, currentStream.toByteArray)
         bufferActor ! CloseAck(testActor)
         bytesWritten = 0
-        listBuffer.size >= maxFiles
+        listBuffer.lengthCompare(maxFiles) >= 0
 
       case BufferFilled(actor, sourceLength) =>
         actor should be(testActor)
@@ -567,6 +567,14 @@ with MockitoSugar {
     verify(bufferManager).checkOutAndRemove()
   }
 
+  it should "not wait on closing if no read actor exists yet" in {
+    val bufferActor = system.actorOf(propsWithMockFactory())
+
+    bufferActor ! ReadBuffer
+    bufferActor ! CloseRequest
+    expectMsg(CloseAck(bufferActor))
+  }
+
   it should "perform cleanup on closing" in {
     val bufferManager = createBufferFileManager()
     val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
@@ -604,7 +612,7 @@ with MockitoSugar {
     bufferActor ! CloseRequest
     bufferActor ! WriteResult(FileWriterActor.WriteResultStatus.Ok, 8)
     expectMsg(CloseRequest)
-    probe.expectNoMsg(1.second)
+    probe.expectNoMessage(1.second)
   }
 
   it should "allow to complete the current playlist" in {
@@ -625,7 +633,7 @@ with MockitoSugar {
     val bufferActor = system.actorOf(propsWithMockFactory())
 
     bufferActor ! SequenceComplete
-    expectNoMsg(1.second)
+    expectNoMessage(1.second)
   }
 
   it should "send a busy message when completing the playlist on closing" in {
@@ -670,7 +678,7 @@ with MockitoSugar {
     bufferActor ! FillBuffer(testActor)
     simulateFilling(bufferActor, toBytes(TestData * 3), 2)
     probe.expectMsg(BufferReadActor(testActor))
-    probe.expectNoMsg(1.seconds)
+    probe.expectNoMessage(1.seconds)
   }
 }
 

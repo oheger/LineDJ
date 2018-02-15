@@ -478,7 +478,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       * @return a flag whether this actor could be closed directly
      */
     def initiateClosing(): Boolean = {
-      readActorPending = readClient.isDefined
+      readActorPending = readClient.isDefined && readActor != null
       writeActorPending = currentPath.isDefined
       if (writeActorPending) {
         writerActor ! CloseRequest
