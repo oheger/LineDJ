@@ -94,7 +94,7 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.triggerLoad(Paths get "nonExistingPlaylist.json",
       Paths get "nonExistingPos.json")
-      .expectPlaylistResult(Playlist(Nil, Nil))
+      .expectPlaylistResult(Playlist(Nil, Nil), closed = false)
   }
 
   it should "load the content of a playlist file" in {
@@ -220,7 +220,7 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new LoadActorTestHelper
 
     helper.triggerLoad(playlistPath, Paths get "somePos.json")
-      .expectPlaylistResult(Playlist(Nil, Nil))
+      .expectPlaylistResult(Playlist(Nil, Nil), closed = false)
   }
 
   it should "only read position files up to the maximum size" in {
@@ -282,12 +282,13 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param playlist the expected playlist
       * @param posOfs   the position offset
       * @param timeOfs  the time offset
+      * @param closed   flag whether the playlist should be closed
       * @return this test helper
       */
-    def expectPlaylistResult(playlist: Playlist, posOfs: Long = 0, timeOfs: Long = 0):
-    LoadActorTestHelper =
+    def expectPlaylistResult(playlist: Playlist, posOfs: Long = 0, timeOfs: Long = 0,
+                             closed: Boolean = true): LoadActorTestHelper =
       expectPlaylistResult(SetPlaylist(playlist = playlist, positionOffset = posOfs,
-        timeOffset = timeOfs))
+        timeOffset = timeOfs, closePlaylist = closed))
 
     /**
       * Expects that the test actor has published the specified playlist

@@ -109,7 +109,8 @@ object PersistentPlaylistParser {
           else splitAndConvert(t, h._2 :: played)
 
         case _ =>
-          SetPlaylist(Playlist(playedSongs = played, pendingSongs = Nil))
+          SetPlaylist(Playlist(playedSongs = played, pendingSongs = Nil),
+            closePlaylist = played.nonEmpty)
       }
 
     splitAndConvert(items, Nil)
