@@ -101,7 +101,7 @@ private class AudioPlayerController(val player: AudioPlayer,
     * @param cmd the set playlist command
     */
   private def handleSetPlaylist(cmd: SetPlaylist): Unit = {
-    if (hasCurrentPlaylist) {
+    if (hasActivePlaylist) {
       resetPlayer()
     }
     lastResetTime = LocalDateTime.now()
@@ -252,12 +252,13 @@ private class AudioPlayerController(val player: AudioPlayer,
   private def currentState: AudioPlayerState = lastEvent.state
 
   /**
-    * Checks whether a current playlist exists.
+    * Checks whether a current playlist exists and has been activated.
     *
     * @return a flag if a current playlist exists
     */
-  private def hasCurrentPlaylist: Boolean =
-    currentState.playlist.pendingSongs.nonEmpty || currentState.playlist.playedSongs.nonEmpty
+  private def hasActivePlaylist: Boolean =
+    (currentState.playlist.pendingSongs.nonEmpty || currentState.playlist.playedSongs.nonEmpty) &&
+      currentState.playlistActivated
 
   /**
     * Checks whether the given event time indicates a current audio player

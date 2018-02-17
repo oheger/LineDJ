@@ -214,8 +214,9 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
 
   it should "reset the audio player when setting a new playlist, and played songs exist" in {
     val helper = new ControllerTestHelper
-    helper send SetPlaylist(Playlist(playedSongs = List(createFileID(1)),
-      pendingSongs = Nil), closePlaylist = false)
+    helper.send(SetPlaylist(Playlist(pendingSongs = List(createFileID(1)),
+      playedSongs = Nil), closePlaylist = false))
+      .send(AudioSourceFinishedEvent(createAudioSource(1)))
     reset(helper.audioPlayer)
     val nextSource = createPlaylistInfo(2)
 
@@ -223,6 +224,14 @@ class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar
     val io = Mockito.inOrder(helper.audioPlayer)
     io.verify(helper.audioPlayer).reset()
     io.verify(helper.audioPlayer).addToPlaylist(nextSource)
+  }
+
+  it should "not reset the audio player if the current playlist is not activated" in {
+    val helper = new ControllerTestHelper
+
+    helper.send(AppendPlaylist(List(createFileID(1)), activate = false))
+      .send(SetPlaylist(Playlist(pendingSongs = List(createFileID(2)), playedSongs = Nil)))
+    verify(helper.audioPlayer, never()).reset()
   }
 
   it should "process a start playback command" in {
