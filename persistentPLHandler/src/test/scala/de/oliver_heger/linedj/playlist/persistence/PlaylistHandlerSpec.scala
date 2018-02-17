@@ -115,10 +115,11 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.activate()
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .expectStateWriterMsg(TestSetPlaylist)
+      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
     helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
     helper.expectMessageOnBus[AvailableMediaUnregistration]
       .id should be(helper.handlerComponentID)
-    helper.expectConsumerRegistration[AudioPlayerStateChangeRegistration]
   }
 
   it should "remove the consumer registrations on deactivate" in {
@@ -135,11 +136,12 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val state = AudioPlayerState(TestSetPlaylist.playlist, 42, playbackActive = true,
       playlistClosed = false, playlistActivated = true)
     val helper = new HandlerTestHelper
+
     helper.activate()
       .publishOnBus(LoadedPlaylist(TestSetPlaylist))
+      .expectStateWriterMsg(TestSetPlaylist)
+      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
       .skipMessagesOnBus(2)
-
-    helper.expectConsumerRegistration[AudioPlayerStateChangeRegistration]
       .invokeConsumerCallback[AudioPlayerStateChangeRegistration,
       AudioPlayerStateChangedEvent](AudioPlayerStateChangedEvent(state))
       .expectStateWriterMsg(state)

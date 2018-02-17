@@ -143,10 +143,11 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
   override def receive: Receive = {
     case LoadedPlaylist(setPlaylist) =>
       loadedPlaylist = setPlaylist
+      sendMsgToStateWriter(setPlaylist)
+      bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
       referencedMediaIDs = Some(PlaylistService.toSongList(setPlaylist.playlist)
         .foldLeft(Set.empty[MediumID])(_ + _.mediumID))
       activatePlaylistIfPossible()
-      bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
