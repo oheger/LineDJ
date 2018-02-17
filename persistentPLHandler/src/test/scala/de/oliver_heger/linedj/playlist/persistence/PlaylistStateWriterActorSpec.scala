@@ -51,6 +51,15 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
   /** A timestamp used for events. */
   private val TimeStamp = LocalDateTime.of(2017, 12, 15, 21, 35)
 
+  /** The size of the initial playlist. */
+  private val InitialPlaylistSize = 4
+
+  /** The current index in the initial playlist. */
+  private val InitialPlaylistIndex = 1
+
+  /** The default message to initialize the playlist. */
+  private val InitialPlaylist = createInitialPlaylist()
+
   /**
     * Generates a player state object based on the specified parameters.
     *
@@ -60,12 +69,31 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     * @param activated    flag whether the playlist is activated
     * @return the player state object
     */
-  def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1,
-                        activated: Boolean = true): AudioPlayerState = {
-    val playlist = generatePlaylist(songCount, currentIndex)
-    AudioPlayerState(playlist = playlist, playbackActive = true, playlistClosed = false,
-      playlistSeqNo = seqNo, playlistActivated = activated)
-  }
+  private def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1,
+                                activated: Boolean = true): AudioPlayerState =
+    createStateFromPlaylist(generatePlaylist(songCount, currentIndex), seqNo, activated)
+
+  /**
+    * Creates a player state object based on the given parameters
+    *
+    * @param playlist  the current playlist
+    * @param seqNo     the sequence number of the playlist
+    * @param activated flag whether the playlist is activated
+    * @return the player state object
+    */
+  private def createStateFromPlaylist(playlist: Playlist, seqNo: Int = 1,
+                                      activated: Boolean = true): AudioPlayerState =
+    AudioPlayerState(playlist = playlist, playlistSeqNo = seqNo, playbackActive = true,
+      playlistClosed = false, playlistActivated = activated)
+
+  /**
+    * Creates the default ''SetPlaylist'' message to set the initial playlist.
+    *
+    * @return the default initial ''SetPlaylist'' message
+    */
+  private def createInitialPlaylist(): SetPlaylist =
+    SetPlaylist(playlist = createPlayerState(songCount = InitialPlaylistSize,
+      currentIndex = InitialPlaylistIndex).playlist)
 
   /**
     * Creates a playback progress event with the relevant parts.
@@ -74,7 +102,7 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     * @param timeOfs the time offset
     * @return the progress event
     */
-  def createProgressEvent(posOfs: Long, timeOfs: Long): PlaybackProgressEvent =
+  private def createProgressEvent(posOfs: Long, timeOfs: Long): PlaybackProgressEvent =
     PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs,
       currentSource = TestAudioSource, time = TimeStamp)
 }
@@ -104,30 +132,59 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     props.args should be(List(pathPlaylist, pathPosition, autoSave))
   }
 
-  it should "store the playlist if there is a state change" in {
-    val state = createPlayerState(8)
+  it should "ignore state changes before the initial playlist is set" in {
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.send(createPlayerState(8))
+      .expectNoWriteOperation()
+  }
+
+  it should "store the playlist if there is a state change" in {
+    val SongCount = 8
+    val state = createPlayerState(SongCount, currentIndex = InitialPlaylistIndex)
+    val helper = new WriterActorTestHelper
+
+    helper.sendInitPlaylist()
       .send(state)
       .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(state.playlist)
+      .expectPersistedPlaylist(generatePlaylist(SongCount, 0))
+      .expectNoWriteOperation()
+  }
+
+  it should "not store the playlist if the same playlist as the initial one comes in" in {
+    val state = createStateFromPlaylist(InitialPlaylist.playlist, seqNo = 5)
+    val helper = new WriterActorTestHelper
+
+    helper.sendInitPlaylist()
+      .send(state)
       .expectNoWriteOperation()
   }
 
   it should "not store a playlist that has not yet been activated" in {
-    val state = createPlayerState(4, activated = false)
+    val state = createPlayerState(6, activated = false)
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.sendInitPlaylist()
       .send(state)
       .expectNoWriteOperation()
   }
 
-  it should "store position data if the playlist index is changed" in {
-    val state = createPlayerState(4, currentIndex = 1)
+  it should "store a later playlist if the seqNo has changed" in {
+    val state = createStateFromPlaylist(InitialPlaylist.playlist, seqNo = 8)
+    val updatedState = state.copy(playlistSeqNo = state.playlistSeqNo + 1)
     val helper = new WriterActorTestHelper
-    helper.sendInitState().send(createPlayerState(4))
+
+    helper.sendInitPlaylist()
+      .send(state)
+      .send(updatedState)
+      .expectAndHandleWriteOperation()
+      .expectPersistedPlaylist(generatePlaylist(InitialPlaylistSize, 0))
+  }
+
+  it should "store position data if the playlist index is changed" in {
+    val state = createPlayerState(5, currentIndex = InitialPlaylistIndex + 1)
+    val helper = new WriterActorTestHelper
+    helper.sendInitPlaylist().send(createPlayerState(5, currentIndex = InitialPlaylistIndex))
       .expectAndHandleWriteOperation()
 
     helper.send(state)
@@ -142,7 +199,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     val PosOffset = 5000
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.sendInitPlaylist()
       .send(createPlayerState(8, currentIndex = 2))
       .expectAndHandleWriteOperation().expectAndHandleWriteOperation()
       .send(createProgressEvent(PosOffset, AutoSaveInterval.toSeconds))
@@ -154,7 +211,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
   it should "only write the playlist on receiving a progress event if there is a change" in {
     val helper = new WriterActorTestHelper
 
-    helper.send(createPlayerState(4, currentIndex = 2))
+    helper.sendInitPlaylist()
       .send(createProgressEvent(11111, AutoSaveInterval.toSeconds - 1))
       .expectNoWriteOperation()
   }
@@ -166,14 +223,24 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .expectNoWriteOperation()
   }
 
+  it should "extract the position from the initial playlist" in {
+    val PosOffset = 20180217
+    val InitMsg = InitialPlaylist.copy(positionOffset = PosOffset, timeOffset = 1)
+    val helper = new WriterActorTestHelper
+
+    helper.sendInitPlaylist(InitMsg)
+      .send(createProgressEvent(PosOffset + 1, AutoSaveInterval.toSeconds))
+      .expectNoWriteOperation()
+  }
+
   it should "serialize file write operations" in {
-    val SongCount = 8
+    val SongCount = 12
     val Index = 3
     val Offset = 65536
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
-      .send(createPlayerState(SongCount / 2, currentIndex = 1))
+    helper.sendInitPlaylist()
+      .send(createPlayerState(SongCount / 2, currentIndex = InitialPlaylistIndex + 1))
       .skipWriteOperation().skipWriteOperation()
       .send(createPlayerState(SongCount, currentIndex = Index, seqNo = 2))
       .expectNoWriteOperation()
@@ -189,7 +256,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
   it should "answer a close request if no actions are pending" in {
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.sendInitPlaylist()
       .send(createProgressEvent(1234, AutoSaveInterval.toSeconds))
       .skipWriteOperation().sendWriteConfirmationForPosition()
       .sendCloseRequest()
@@ -199,8 +266,8 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
   it should "not send a close ack before write operations have completed" in {
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
-      .send(createPlayerState(4, currentIndex = 1))
+    helper.sendInitPlaylist()
+      .send(createPlayerState(InitialPlaylistSize + 1, currentIndex = InitialPlaylistIndex + 1))
       .sendCloseRequest()
       .expectNoCloseAck()
       .skipWriteOperation().skipWriteOperation()
@@ -215,7 +282,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     val PosOffset = 5000
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.sendInitPlaylist()
       .send(createPlayerState(SongCount, currentIndex = Index))
       .expectAndHandleWriteOperation().expectAndHandleWriteOperation()
       .send(createProgressEvent(PosOffset, TimeOffset))
@@ -227,10 +294,10 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
   }
 
   it should "not accept updates after a close request has been received" in {
-    val state = createPlayerState(4, currentIndex = 2)
+    val state = createPlayerState(InitialPlaylistSize - 1, currentIndex = 2)
     val helper = new WriterActorTestHelper
 
-    helper.sendInitState()
+    helper.sendInitPlaylist()
       .send(state)
       .sendCloseRequest()
       .expectAndHandleWriteOperation()
@@ -276,14 +343,15 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     }
 
     /**
-      * Sends a message with the initial playlist state to the test actor. The
-      * first state message should cause the actor to initialize itself; this
-      * state should not be written to disk.
+      * Sends a message with the initial playlist to the test actor. This
+      * message notifies the actor about the playlist loaded from disk. It is
+      * needed to determine whether further updates need to be persisted.
       *
+      * @param msg the init message to be sent
       * @return this test helper
       */
-    def sendInitState(): WriterActorTestHelper = {
-      send(createPlayerState(0, seqNo = 0))
+    def sendInitPlaylist(msg: SetPlaylist = InitialPlaylist): WriterActorTestHelper = {
+      send(msg)
       this
     }
 

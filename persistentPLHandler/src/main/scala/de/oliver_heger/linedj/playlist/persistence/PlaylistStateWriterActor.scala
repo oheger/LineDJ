@@ -23,7 +23,7 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.platform.audio.AudioPlayerState
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
@@ -103,7 +103,10 @@ object PlaylistStateWriterActor {
   * This actor is notified whenever there are changes in the current state of
   * the audio player and when a ''PlaybackProgressEvent'' arrives. It then
   * decides whether playlist information needs to be persisted. If so, it calls
-  * a child writer actor with the data to be persisted.
+  * a child writer actor with the data to be persisted. In order to have the
+  * initial state (i.e. the persisted playlist that has been loaded from disk),
+  * an initial ''SetPlaylist'' message is expected; before this message
+  * arrives, update notifications are ignored.
   *
   * The actor keeps track on ongoing write operations; a file can only be
   * written after the previous write operation completes. It also supports a
@@ -142,6 +145,9 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
     */
   private var writesInProgress = Set.empty[Path]
 
+  /** Stores the initial playlist. */
+  private var initialPlaylist: Option[Playlist] = None
+
   /** Stores the sequence number of the current playlist. */
   private var playlistSeqNo: Option[Int] = None
 
@@ -160,13 +166,20 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
   }
 
   override def receive: Receive = {
+    case SetPlaylist(playlist, _, positionOffset, timeOffset) =>
+      initialPlaylist = Some(playlist)
+      currentPosition = extractPosition(playlist).copy(positionOffset = positionOffset,
+        timeOffset = timeOffset)
+
     case AudioPlayerState(playlist, no, _, _, playlistActivated)
       if closeRequest.isEmpty && playlistActivated =>
-      handlePlaylistUpdate(playlist, no)
-      handlePositionUpdate(extractPosition(playlist))
+      initialPlaylist foreach { initPl =>
+        handlePlaylistUpdate(playlist, initPl, no)
+        handlePositionUpdate(extractPosition(playlist))
+      }
 
     case PlaybackProgressEvent(ofs, time, _, _) if closeRequest.isEmpty &&
-      playlistSeqNo.isDefined =>
+      initialPlaylist.isDefined =>
       val position = CurrentPlaylistPosition(currentPosition.index, ofs, time)
       handlePositionUpdate(position)
 
@@ -194,24 +207,20 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
     * Handles an update notification for a playlist. If the change is
     * relevant, the updated playlist is written to disk.
     *
-    * @param playlist the playlist
-    * @param no       the playlist sequence number
+    * @param playlist     the playlist
+    * @param initPlaylist the initial playlist
+    * @param no           the playlist sequence number
     */
-  private def handlePlaylistUpdate(playlist: Playlist, no: Int): Unit = {
-    playlistSeqNo match {
-      case Some(seqNo) =>
-        if (seqNo != no) {
-          val source = Source(plService.toSongList(playlist))
-          val sepStage =
-            new ListSeparatorStage[MediaFileID]("[\n", ",\n", "\n]\n")(convertItem)
-          triggerWrite(source.via(sepStage), pathPlaylist)
-          playlistSeqNo = Some(no)
-        }
-
-      case None =>
-        playlistSeqNo = Some(no)
-        currentPosition = extractPosition(playlist)
+  private def handlePlaylistUpdate(playlist: Playlist, initPlaylist: Playlist, no: Int): Unit = {
+    val plChanged = playlistSeqNo.map(_ != no)
+      .getOrElse(!plService.playlistEquals(playlist, initPlaylist))
+    if (plChanged) {
+      val source = Source(plService.toSongList(playlist))
+      val sepStage =
+        new ListSeparatorStage[MediaFileID]("[\n", ",\n", "\n]\n")(convertItem)
+      triggerWrite(source.via(sepStage), pathPlaylist)
     }
+    playlistSeqNo = Some(no)
   }
 
   /**
