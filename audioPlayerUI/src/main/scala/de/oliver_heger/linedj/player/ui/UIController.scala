@@ -52,6 +52,20 @@ object UIController {
   private val InitialProgressEvent =
     PlaybackProgressEvent(bytesProcessed = 0, playbackTime = 0,
       currentSource = AudioSource("", 1, 0, 0))
+
+  /**
+    * Checks if there is a relevant change in the state of the current
+    * playlist. This is used to determine whether auto start of playback can be
+    * triggered.
+    *
+    * @param oldState the old audio player state
+    * @param newState the new audio player state
+    * @return a flag whether there is a relevant state change
+    */
+  private def playlistStateChanged(oldState: AudioPlayerState, newState: AudioPlayerState)
+  : Boolean =
+    oldState.playlistSeqNo != newState.playlistSeqNo ||
+      (!oldState.playlistActivated && newState.playlistActivated)
 }
 
 /**
@@ -191,7 +205,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
   private def handlePlaybackAutoStart(oldState: AudioPlayerState,
                                       newState: AudioPlayerState): Unit = {
     if (!newState.playbackActive &&
-      oldState.playlistSeqNo != newState.playlistSeqNo &&
+      playlistStateChanged(oldState, newState) &&
       newState.playlist.pendingSongs.nonEmpty &&
       config.autoStartMode.canStartPlayback(newState)) {
       actionStore.getAction(ActionStartPlayback).execute(null)

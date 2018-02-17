@@ -47,11 +47,13 @@ object UIControllerSpec {
     * @param playlist an optional playlist
     * @param seqNo    the sequence number for the playlist
     * @param closed   flag whether the playlist has been closed
+    * @param active   flag if the playlist has been activated
     * @return the player state
     */
   private def createState(playing: Boolean, playlist: Playlist = createPlaylist(),
-                          seqNo: Int = 1, closed: Boolean = true): AudioPlayerState =
-    AudioPlayerState(playlist, seqNo, playing, playlistClosed = closed, playlistActivated = true)
+                          seqNo: Int = 1, closed: Boolean = true, active: Boolean = true):
+  AudioPlayerState =
+    AudioPlayerState(playlist, seqNo, playing, playlistClosed = closed, playlistActivated = active)
 
   /**
     * Creates a test non-empty playlist.
@@ -222,11 +224,22 @@ class UIControllerSpec extends FlatSpec with Matchers {
   it should "not start playback if the playlist sequence number does not change" in {
     val helper = new ControllerTestHelper
     val orgState = helper.lastPlayerState
-    val state = createState(playing = false, seqNo = orgState.playlistSeqNo)
+    val state = createState(playing = false, active = false, seqNo = orgState.playlistSeqNo)
 
     helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
+  }
+
+  it should "start playback if the playlist is now activated" in {
+    val helper = new ControllerTestHelper
+    val state1 = createState(playing = false, active = false, closed = false)
+    val state2 = state1.copy(playlistActivated = true, playlistClosed = true)
+
+    helper.enablePlaybackAutoStart(AutoStartIfClosed)
+      .playerStateChanged(state1)
+      .playerStateChanged(state2)
+      .verifyPlaybackStarted()
   }
 
   it should "not start playback for a new playlist if it is already active" in {
