@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import javax.net.ssl.SSLException
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
-
 import akka.actor.ActorSystem
+import akka.http.impl.engine.client.ProxyConnectionFailedException
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.stream.ActorMaterializer
@@ -27,6 +27,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.eclipse.jetty.server.{AbstractNetworkConnector, Server}
 import org.eclipse.jetty.servlet.ServletHandler
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -70,7 +71,7 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   import system.dispatcher
 
   /** Object to materialize streams. */
-  private implicit val mat = ActorMaterializer()
+  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /** A reference to the embedded server. */
   private var server: Server = _
@@ -163,10 +164,14 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   /**
     * Creates a test HTTP flow factory.
     *
+    * @param sysProps system properties to be set
     * @return the test instance
     */
-  private def createHttpFlowFactory(): HttpFlowFactory =
-    new HttpFlowFactory {}
+  private def createHttpFlowFactory(sysProps: Map[String, String] = Map.empty):
+  HttpFlowFactory =
+    new HttpFlowFactory with SystemPropertyAccess {
+      override def getSystemProperty(key: String): Option[String] = sysProps get key
+    }
 
   "A HttpFlowFactory" should "create a flow through which a request can be sent" in {
     val factory = createHttpFlowFactory()
@@ -212,6 +217,23 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     response match {
       case Failure(e) =>
         e shouldBe a[SSLException]
+      case r =>
+        fail("Unexpected response: " + r)
+    }
+  }
+
+  it should "use a proxy from system properties" in {
+    val props = Map("http.proxyHost" -> "127.0.0.1", "http.proxyPort" -> localPort.toString)
+    val factory = createHttpFlowFactory(props)
+    // use another URI; the request should go to the proxy
+    val serverUri = Uri.from(scheme = "http", host = "testhost", port = 1234)
+    val flow = factory.createHttpFlow[String](serverUri)
+    val Path = "/my/test/path/data.tst"
+
+    val response = sendRequest(flow, ServletPath + Path)
+    response match {
+      case Failure(e) =>
+        e shouldBe a[ProxyConnectionFailedException]
       case r =>
         fail("Unexpected response: " + r)
     }

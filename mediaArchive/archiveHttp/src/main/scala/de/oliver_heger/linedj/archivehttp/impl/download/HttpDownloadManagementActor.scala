@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementAc
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -64,7 +64,8 @@ object HttpDownloadManagementActor {
                                                 monitoringActor: ActorRef,
                                                 removeActor: ActorRef)
     extends HttpDownloadManagementActor(config, pathGenerator, monitoringActor, removeActor)
-      with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[DownloadOperationRequest]
+      with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
+      with HttpRequestSupport[DownloadOperationRequest]
 
   /**
     * A message class this actor sends to itself when a response for a download

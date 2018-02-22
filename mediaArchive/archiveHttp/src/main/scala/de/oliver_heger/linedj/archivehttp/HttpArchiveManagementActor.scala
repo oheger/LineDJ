@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStre
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
 import scala.concurrent.Future
 import scala.util.{Success, Try}
@@ -49,7 +49,8 @@ object HttpArchiveManagementActor {
                                                removeActor: ActorRef)
     extends HttpArchiveManagementActor(config, pathGenerator, unionMediaManager,
       unionMetaDataManager, monitoringActor, removeActor)
-      with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData]
+      with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
+      with HttpRequestSupport[RequestData]
 
   /**
     * Returns creation ''Props'' for this actor class.

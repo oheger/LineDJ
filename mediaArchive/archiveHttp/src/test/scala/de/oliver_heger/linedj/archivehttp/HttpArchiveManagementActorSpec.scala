@@ -39,7 +39,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -783,7 +783,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       Props(new HttpArchiveManagementActor(ArchiveConfig, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
         probeMonitoringActor.ref, probeRemoveActor.ref)
-        with ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData] {
+        with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
+        with HttpRequestSupport[RequestData] {
         override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
           uri should be(ArchiveConfig.archiveURI)

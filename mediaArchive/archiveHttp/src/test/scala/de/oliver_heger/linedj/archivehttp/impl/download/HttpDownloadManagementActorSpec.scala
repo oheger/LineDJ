@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementAc
 import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -383,7 +383,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private def createTestActor(): ActorRef =
       system.actorOf(Props(new HttpDownloadManagementActor(config, pathGenerator,
         probeMonitoringActor.ref, probeRemoveActor.ref) with ChildActorFactory
-        with HttpFlowFactory with HttpRequestSupport[DownloadOperationRequest] {
+        with HttpFlowFactory with SystemPropertyAccess
+        with HttpRequestSupport[DownloadOperationRequest] {
         /**
           * @inheritdoc This implementation does some parameter checks and
           *             returns the mock HTTP flow.
