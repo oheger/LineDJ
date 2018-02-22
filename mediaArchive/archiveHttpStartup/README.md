@@ -209,3 +209,17 @@ realm have become available - some timeouts are applied:
 | ------- | ----------- | -------- |
 | initTimeout | The timeout (in seconds) for requesting the actors for the central union archive. (These actors are needed to add the data about the media files hosted by the HTTP archive to the central union archive.) If the actors of the union archive cannot be obtained in this time interval, startup of the HTTP archive fails, and the union archive is considered unavailable. | Yes, defaults to 10 seconds |
 | stateRequestTimeout | After an HTTP archive is started, it is queried for its state to find out whether the startup has been successful. The archive will only answer this request after it has processed the content document of the server. This property defines a timeout (in seconds) to wait for a response. If no response is received within this time, another request for the current state is sent. | Yes, defaults to 60 seconds |
+
+### Proxy configuration
+
+When working with HTTP archives it may be necessary to configure a proxy
+server. This is supported, but not via the XML-based configuration. Rather, the
+standard Java system properties that define a proxy (_http.proxyHost_ and
+_http.proxyPort_) are evaluated. If both are defined, connections to the HTTP
+archive are routed via this proxy server.
+
+For more information about these properties refer to [Java Networking and
+Proxies](https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html).
+Note however, that the current implementation does not evaluate the properties 
+for an HTTPS proxy; the proxy server defined by the properties for plain HTTP
+is used for both HTTP and HTTPS connections.
