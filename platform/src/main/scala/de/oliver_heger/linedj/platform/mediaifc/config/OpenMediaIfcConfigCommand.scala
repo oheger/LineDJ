@@ -16,9 +16,14 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.config
 
+import java.util
+
 import net.sf.jguiraffe.di.ClassLoaderProvider
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
-import net.sf.jguiraffe.resources.{ResourceLoader, ResourceManager}
+import net.sf.jguiraffe.resources.ResourceManager
+import net.sf.jguiraffe.resources.impl.ResourceManagerImpl
+import net.sf.jguiraffe.resources.impl.bundle.BundleResourceLoader
+import net.sf.jguiraffe.transform.{TransformerContext, TransformerContextPropertiesWrapper}
 
 /**
   * A special command class for opening a dialog window for the configuration
@@ -36,25 +41,16 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
   /** Stores the current class loader provider. */
   private var classLoaderProvider: ClassLoaderProvider = _
 
-  /** The resource manager. */
-  private var resourceManager: ResourceManager = _
-
-  /** The original resource loader. */
-  private var originalResourceLoader: ResourceLoader = _
-
   /**
     * @inheritdoc This implementation registers the class loader for the
     *             configuration dialog.
     */
   override protected[config] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
     super.prepareBuilderData(builderData)
-    classLoaderProvider = builderData.getParentContext.getClassLoaderProvider
-    classLoaderProvider.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName,
-      configData.configClassLoader)
-    //TODO This is a hack until JGUIraffe exposes its resource manager classes
-    resourceManager = builderData.getTransformerContext.getResourceManager
-    originalResourceLoader = resourceManager.getResourceLoader
-    resourceManager.setResourceLoader(new ResourceLoaderImpl(configData.configClassLoader))
+    classLoaderProvider = registerConfigClassLoader(builderData)
+    val resMan = createResourceManager(classLoaderProvider)
+    val transCtx = createTransformerContext(builderData, resMan)
+    builderData setTransformerContext transCtx
   }
 
   /**
@@ -63,6 +59,47 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
   override def onFinally(): Unit = {
     super.onFinally()
     classLoaderProvider.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName, null)
-    resourceManager setResourceLoader originalResourceLoader
   }
+
+  /**
+    * Adds a class loader to access classes from the configuration data to the
+    * ''ClassLoaderProvider'' of the builder.
+    *
+    * @param builderData the builder data object
+    * @return the modified ''ClassLoaderProvider''
+    */
+  private def registerConfigClassLoader(builderData: ApplicationBuilderData):
+  ClassLoaderProvider = {
+    val clp = builderData.getParentContext.getClassLoaderProvider
+    clp.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName,
+      configData.configClassLoader)
+    clp
+  }
+
+  /**
+    * Creates the ''ResourceManager'' to be used when executing the Jelly
+    * script for the media interface configuration.
+    *
+    * @param clp the ''ClassLoaderProvider''
+    * @return the new resource manager
+    */
+  private def createResourceManager(clp: ClassLoaderProvider): ResourceManager =
+    new ResourceManagerImpl(new BundleResourceLoader(clp,
+      MediaIfcConfigData.ConfigClassLoaderName))
+
+  /**
+    * Creates a special ''TransformerContext'' for the execution of the Jelly
+    * script for the media interface configuration. The context uses the
+    * resource manager specified.
+    *
+    * @param builderData the builder data
+    * @param resMan      the resource manager to be used
+    * @return the ''TransformerContext''
+    */
+  private def createTransformerContext(builderData: ApplicationBuilderData,
+                                       resMan: ResourceManager): TransformerContext =
+    new TransformerContextPropertiesWrapper(builderData.getTransformerContext,
+      new util.HashMap) {
+      override def getResourceManager: ResourceManager = resMan
+    }
 }
