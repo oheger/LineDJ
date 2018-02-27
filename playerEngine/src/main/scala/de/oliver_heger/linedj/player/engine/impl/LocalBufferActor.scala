@@ -197,12 +197,6 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     */
   private var sourceLengths = List.empty[Long]
 
-  /**
-    * Like ''sourceLengths'', but stores the lengths for the last temporary
-    * file that has been created.
-    */
-  private var sourceLengthsForLastTempFile = List.empty[Long]
-
   /** The number of bytes that have been written to the current temporary file. */
   private var bytesWrittenToFile = 0
 
@@ -250,11 +244,9 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       }
 
     case CloseAck(actor) if writerActor == actor =>
-      bufferManager append BufferFile(currentPath.get, Nil)
+      bufferManager append BufferFile(currentPath.get, sourceLengths.reverse)
       bytesWrittenToFile = 0
       currentPath = None
-      sourceLengthsForLastTempFile = sourceLengths.reverse
-      println("Writer actor closed, sourceLengths = " + sourceLengthsForLastTempFile)
       sourceLengths = Nil
       serveReadRequest()
       continueFilling()
@@ -343,6 +335,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
         fillActor = None
         context unwatch a
         sourceLengths = bytesWrittenForSource :: sourceLengths
+        log.info("Source completed. Read {} bytes.", bytesWrittenForSource)
       }
     }
   }
@@ -470,7 +463,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
         readActor = createChildActor(Props[FileReaderActor])
         context watch readActor
         readActor ! InitFile(file.path)
-        client ! BufferReadActor(readActor, sourceLengthsForLastTempFile)
+        client ! BufferReadActor(readActor, file.sourceLengths)
       }
     }
   }

@@ -1,6 +1,7 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayOutputStream, IOException}
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
@@ -20,6 +21,7 @@ import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
+import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -352,19 +354,21 @@ with MockitoSugar {
 
   it should "support reading from the buffer" in {
     val bufferManager = createBufferFileManager()
-    when(bufferManager.read).thenReturn(Some(BufferPath))
+    val file = BufferPath.copy(sourceLengths = List(1, 2, 3, 4))
+    when(bufferManager.read).thenReturn(Some(file))
     val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufferManager)))
     val probe = TestProbe()
 
     bufferActor.tell(ReadBuffer, probe.ref)
     expectMsg(InitFile(BufferPath.path))
-    probe.expectMsg(BufferReadActor(testActor, Nil))
+    probe.expectMsg(BufferReadActor(testActor, file.sourceLengths))
   }
 
   it should "checkout a temporary file after it has been read" in {
     val bufferManager = createBufferFileManager()
+    val file = BufferPath.copy(sourceLengths = List(20180227220401L))
     val latch = new CountDownLatch(1)
-    when(bufferManager.read).thenReturn(Some(BufferPath))
+    when(bufferManager.read).thenReturn(Some(file))
     when(bufferManager.checkOutAndRemove()).thenAnswer(new Answer[Path] {
       override def answer(invocation: InvocationOnMock): Path = {
         latch.countDown()
@@ -376,7 +380,7 @@ with MockitoSugar {
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref, Nil))
+    expectMsg(BufferReadActor(probe.ref, file.sourceLengths))
     bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
@@ -686,6 +690,27 @@ with MockitoSugar {
     simulateFilling(bufferActor, toBytes(TestData * 3), 2)
     probe.expectMsg(BufferReadActor(testActor, Nil))
     probe.expectNoMessage(1.seconds)
+  }
+
+  it should "record and report source lengths when filling the buffer" in {
+    val bufManager = createBufferFileManager()
+    val data1 = "Some data 1".getBytes(StandardCharsets.UTF_8)
+    val data2 = "And some more data".getBytes(StandardCharsets.UTF_8)
+    val readerProbe = TestProbe()
+    val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufManager),
+      readerActor = Some(readerProbe.ref)))
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, data1)
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, data2, continueOp = true)
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, toBytes(TestData * 3), maxFiles = 2, continueOp = true)
+
+    val captor = ArgumentCaptor.forClass(classOf[BufferFile])
+    verify(bufManager, times(2)).append(captor.capture())
+    captor.getAllValues should have size 2
+    captor.getAllValues.get(0).sourceLengths should be(List(data1.length, data2.length))
+    captor.getAllValues.get(1).sourceLengths should have length 0
   }
 }
 
