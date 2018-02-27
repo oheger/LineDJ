@@ -136,8 +136,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val fileReader = TestProbe()
     val reader = readerActor(optBufferActor = Some(buffer.ref))
 
-    reader ! LocalBufferActor.BufferReadActor(fileReader.ref)
-    val unexpected = LocalBufferActor.BufferReadActor(fileReader.ref)
+    reader ! LocalBufferActor.BufferReadActor(fileReader.ref, Nil)
+    val unexpected = LocalBufferActor.BufferReadActor(fileReader.ref, Nil)
     reader ! unexpected
     val msgErr = expectMsgType[PlaybackProtocolViolation]
     msgErr.msg should be(unexpected)
@@ -182,7 +182,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
    */
   private def installFileReaderActor(actor: ActorRef): TestProbe = {
     val fileReader = TestProbe()
-    actor ! LocalBufferActor.BufferReadActor(fileReader.ref)
+    actor ! LocalBufferActor.BufferReadActor(fileReader.ref, Nil)
     fileReader
   }
 

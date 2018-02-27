@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 object BufferFileManagerSpec {
@@ -12,6 +13,8 @@ object BufferFileManagerSpec {
 
   /** A suffix for temporary files. */
   private val FileSuffix = ".tmp"
+
+  private val SourceLengths = List(1024L, 512L, 768L)
 }
 
 /**
@@ -58,27 +61,29 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
   it should "allow appending and querying a path" in {
     val manager = createManager()
     val path = manager.createPath()
-    manager append path
-    manager.read.get should be(path)
+    val file = BufferFile(path, SourceLengths)
+    manager append file
+    manager.read.get should be(file)
   }
 
   it should "have capacity for two temporary files" in {
     val manager = createManager()
     val path1 = manager.createPath()
     val path2 = manager.createPath()
-    manager append path1
-    manager append path2
-    manager.read.get should be(path1)
+    val file = BufferFile(path1, SourceLengths)
+    manager append file
+    manager append BufferFile(path2, Nil)
+    manager.read.get should be(file)
   }
 
   it should "throw an exception when appending to a full buffer" in {
     val manager = createManager()
-    manager append manager.createPath()
-    manager append manager.createPath()
+    manager append BufferFile(manager.createPath(), SourceLengths)
+    manager append BufferFile(manager.createPath(), Nil)
     manager shouldBe 'full
 
     intercept[IllegalStateException] {
-      manager append manager.createPath()
+      manager append BufferFile(manager.createPath(), SourceLengths)
     }
   }
 
@@ -100,12 +105,13 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
     Files.exists(path) shouldBe false
   }
 
-  it should "allow checking out a path from the buffer" in {
+  it should "allow checking out a file from the buffer" in {
     val manager = createManager()
     val path1 = manager.createPath()
+    val file = BufferFile(path1, SourceLengths)
 
-    manager append path1
-    manager.checkOut() should be(path1)
+    manager append file
+    manager.checkOut() should be(file)
     manager.read shouldBe 'empty
   }
 
@@ -119,25 +125,26 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
 
   it should "allow checking out multiple paths" in {
     val manager = createManager()
-    val path1 = manager.createPath()
-    val path2 = manager.createPath()
-    val path3 = manager.createPath()
+    val file1 = BufferFile(manager.createPath(), Nil)
+    val file2 = BufferFile(manager.createPath(), SourceLengths)
+    val file3 = BufferFile(manager.createPath(), Nil)
 
-    manager append path1
-    manager append path2
-    manager.checkOut() should be(path1)
-    manager append path3
-    manager.checkOut() should be(path2)
-    manager.read.get should be(path3)
-    manager.checkOut() should be(path3)
+    manager append file1
+    manager append file2
+    manager.checkOut() should be(file1)
+    manager append file3
+    manager.checkOut() should be(file2)
+    manager.read.get should be(file3)
+    manager.checkOut() should be(file3)
   }
 
   it should "allow checking out and removing a path" in {
     val manager = createManager()
     val path = createDataFile()
-    manager append path
+    val file = BufferFile(path, SourceLengths)
+    manager append file
 
-    manager.checkOutAndRemove() should be(path)
+    manager.checkOutAndRemove() should be(file)
     Files.exists(path) shouldBe false
   }
 
@@ -148,15 +155,15 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
 
   it should "be able to remove the paths currently contained in the buffer" in {
     val manager = createManager()
-    val path1 = createDataFile()
-    val path2 = createDataFile("some other data")
-    manager append path1
-    manager append path2
+    val file1 = BufferFile(createDataFile(), SourceLengths)
+    val file2 = BufferFile(createDataFile("some other data"), Nil)
+    manager append file1
+    manager append file2
 
     val paths = manager.removeContainedPaths()
     paths should have length 2
-    paths should contain(path1)
-    paths should contain(path2)
+    paths should contain(file1)
+    paths should contain(file2)
     listManagedDirectory() shouldBe 'empty
   }
 

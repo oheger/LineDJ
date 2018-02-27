@@ -225,7 +225,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
    * could not finish its closing sequence.
    */
   def closing: Receive = {
-    case BufferReadActor(actor) =>
+    case BufferReadActor(actor, _) =>
       context stop actor
   }
 

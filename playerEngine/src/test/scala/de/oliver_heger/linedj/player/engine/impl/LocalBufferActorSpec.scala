@@ -1,7 +1,7 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.{ByteArrayOutputStream, IOException}
-import java.nio.file.{FileSystems, Path, Paths}
+import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.regex.Pattern
@@ -15,6 +15,7 @@ import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io.FileWriterActor.{WriteResult, WriteResultStatus}
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -39,8 +40,8 @@ object LocalBufferActorSpec {
   /** The suffix for temporary files. */
   private val FileSuffix = ".tst"
 
-  /** A path pointing to the test buffer directory. */
-  private val BufferPath = FileSystems.getDefault.getPath("test")
+  /** A test file with a path pointing to the test buffer directory. */
+  private val BufferPath = BufferFile(Paths get "test", Nil)
 
   /** A configuration object used by tests. */
   private val Config = createConfig()
@@ -91,15 +92,20 @@ with MockitoSugar {
     * @param bufferActor the test actor
     * @param data        the data to be filled into the buffer
     * @param maxFiles    the maximum number of files to be created
+    * @param continueOp  flag whether a fill operation is to be continued
     * @return a list with information about the files written into the buffer
     */
   private def simulateFilling(bufferActor: ActorRef, data: Array[Byte],
-                              maxFiles: Int = Integer.MAX_VALUE): List[FileWriteData] = {
+                              maxFiles: Int = Integer.MAX_VALUE,
+                              continueOp: Boolean = false): List[FileWriteData] = {
     val listBuffer = ListBuffer.empty[FileWriteData]
     var currentStream: ByteArrayOutputStream = null
     var currentPath: Path = null
     var pos = 0
     var bytesWritten = 0
+    if (continueOp) {
+      currentStream = new ByteArrayOutputStream
+    }
 
     fishForMessage() {
       case DownloadData(count) =>
@@ -166,14 +172,14 @@ with MockitoSugar {
     when(manager.read).thenReturn(None)
     when(manager.createPath()).thenAnswer(new Answer[Path] {
       override def answer(invocation: InvocationOnMock): Path =
-        BufferPath.resolve(FilePrefix + pathCounter.incrementAndGet() + FileSuffix)
+        BufferPath.path.resolve(FilePrefix + pathCounter.incrementAndGet() + FileSuffix)
     })
     doAnswer(new Answer[AnyRef] {
       override def answer(invocation: InvocationOnMock): AnyRef = {
         appendCounter.incrementAndGet()
         null
       }
-    }).when(manager).append(any(classOf[Path]))
+    }).when(manager).append(any(classOf[BufferFile]))
     manager
   }
 
@@ -243,7 +249,7 @@ with MockitoSugar {
   private def checkWriteFileName(writeData: FileWriteData): Unit = {
     writeData.path.getFileName.toString should fullyMatch regex (FilePrefix + "\\d+" + Pattern
       .quote(FileSuffix))
-    writeData.path.getParent should be(BufferPath)
+    writeData.path.getParent should be(BufferPath.path)
   }
 
   it should "allow filling the buffer from a source reader" in {
@@ -321,7 +327,7 @@ with MockitoSugar {
     bufferActor ! FillBuffer(testActor)
     val fileList = simulateFilling(bufferActor, toBytes(TestData + "some more data"))
 
-    verify(bufferManager).append(fileList.head.path)
+    verify(bufferManager).append(BufferFile(fileList.head.path, Nil))
   }
 
   it should "not write new data into the buffer when it is full" in {
@@ -351,8 +357,8 @@ with MockitoSugar {
     val probe = TestProbe()
 
     bufferActor.tell(ReadBuffer, probe.ref)
-    expectMsg(InitFile(BufferPath))
-    probe.expectMsg(BufferReadActor(testActor))
+    expectMsg(InitFile(BufferPath.path))
+    probe.expectMsg(BufferReadActor(testActor, Nil))
   }
 
   it should "checkout a temporary file after it has been read" in {
@@ -370,7 +376,7 @@ with MockitoSugar {
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
@@ -390,22 +396,23 @@ with MockitoSugar {
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     system stop probe.ref
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "allow multiple read request in series" in {
     val bufferManager = createBufferFileManager()
-    val path1 = BufferPath resolve "file1"
-    val path2 = BufferPath resolve "file2"
-    when(bufferManager.read).thenReturn(Some(path1), Some(path2))
+    val path1 = BufferPath.path resolve "file1"
+    val path2 = BufferPath.path resolve "file2"
+    when(bufferManager.read).thenReturn(Some(BufferFile(path1, Nil)),
+      Some(BufferFile(path2, Nil)))
     val probe = TestProbe()
     val bufferActor = TestActorRef(propsWithMockFactoryForMultipleReaders(bufferManager = Some
       (bufferManager), readers = List(probe.ref, probe.ref), writerActor = None))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
     bufferActor ! ReadBuffer
     fishForMessage(max = 3.second) {
@@ -413,7 +420,7 @@ with MockitoSugar {
         bufferActor ! ReadBuffer
         false
 
-      case BufferReadActor(_) =>
+      case BufferReadActor(_, _) =>
         true
     }
   }
@@ -433,7 +440,7 @@ with MockitoSugar {
     bufferActor.tell(ReadBuffer, probe.ref)
     bufferActor ! FillBuffer(testActor)
     simulateFilling(bufferActor, testBytes())
-    probe.expectMsg(BufferReadActor(testActor))
+    probe.expectMsg(BufferReadActor(testActor, Nil))
   }
 
   it should "continue a fill operation after space is available again in the buffer" in {
@@ -446,7 +453,7 @@ with MockitoSugar {
     simulateFilling(bufferActor, toBytes(TestData * 3), 2)
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     probe.expectMsgType[ChannelHandler.InitFile]
     when(bufferManager.isFull).thenReturn(false)
     bufferActor ! LocalBufferActor.BufferReadComplete(probe.ref)
@@ -457,7 +464,7 @@ with MockitoSugar {
   it should "reset pending fill requests when they have been processed" in {
     def readRequest(bufferActor: ActorRef, readActor: TestProbe): Unit = {
       bufferActor ! ReadBuffer
-      expectMsg(BufferReadActor(readActor.ref))
+      expectMsg(BufferReadActor(readActor.ref, Nil))
       bufferActor ! LocalBufferActor.BufferReadComplete(readActor.ref)
     }
 
@@ -538,7 +545,7 @@ with MockitoSugar {
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     bufferActor ! CloseRequest
     bufferActor ! ReadBuffer
     expectMsg(BufferBusy)
@@ -558,7 +565,7 @@ with MockitoSugar {
       readerActor = Some(probe.ref)))
 
     bufferActor ! ReadBuffer
-    expectMsg(BufferReadActor(probe.ref))
+    expectMsg(BufferReadActor(probe.ref, Nil))
     bufferActor ! CloseRequest
     bufferActor ! ReadBuffer
     expectMsg(BufferBusy)
@@ -626,7 +633,7 @@ with MockitoSugar {
     bufferActor ! CloseAck(testActor)
     bufferActor ! FillBuffer(testActor)
     expectMsgType[DownloadData]
-    verify(bufferManager).append(any(classOf[Path]))
+    verify(bufferManager).append(any())
   }
 
   it should "do nothing on completion of the current playlist if no file is written" in {
@@ -677,7 +684,7 @@ with MockitoSugar {
     bufferActor.tell(ReadBuffer, probe.ref)
     bufferActor ! FillBuffer(testActor)
     simulateFilling(bufferActor, toBytes(TestData * 3), 2)
-    probe.expectMsg(BufferReadActor(testActor))
+    probe.expectMsg(BufferReadActor(testActor, Nil))
     probe.expectNoMessage(1.seconds)
   }
 }

@@ -20,10 +20,24 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file._
 
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 
 object BufferFileManager {
   /** The system property pointing to the user's home directory. */
   private val PropUserHome = "user.home"
+
+  /**
+    * A class representing a temporary file managed by the
+    * ''BufferFileManager''.
+    *
+    * An instance consists of the path to the underlying file and some meta
+    * information useful for clients of the buffer manager.
+    *
+    * @param path          the path to the underlying file
+    * @param sourceLengths a list with the lengths of audio sources that have
+    *                      been completed in the represented file
+    */
+  case class BufferFile(path: Path, sourceLengths: List[Long])
 
   /**
     * Creates a new instance of ''BufferFileManager'' based on the specified
@@ -81,7 +95,7 @@ object BufferFileManager {
  */
 class BufferFileManager(val directory: Path, val prefix: String, val extension: String) {
   /** An array for storing the files contained in this buffer. */
-  private val content = Array[Option[Path]](None, None)
+  private val content = Array[Option[BufferFile]](None, None)
 
   /** A counter for generating file names. */
   private var counter = 0
@@ -115,49 +129,61 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
   }
 
   /**
+    * Safely removes the specified buffer file from disk. Works like
+    * ''removePath()'', but operates on a ''BufferFile'' object.
+    *
+    * @param file the file to be removed
+    * @return the file that was passed in
+    */
+  def removeFile(file: BufferFile): BufferFile = {
+    removePath(file.path)
+    file
+  }
+
+  /**
    * Returns an option for the next file to be read from the buffer.
    * If there is no such file, result is ''None''.
    *
    * @return an option for the next file to be read
    */
-  def read: Option[Path] = content(0)
+  def read: Option[BufferFile] = content(0)
 
   /**
-   * Appends the specified path to this buffer. It is stored as the last
+   * Appends the specified file to this buffer. It is stored as the last
    * element.
    *
-   * @param path the path to be appended
+   * @param file the file object to be appended
    */
-  def append(path: Path): Unit = {
+  def append(file: BufferFile): Unit = {
     if (isFull) {
       throw new IllegalStateException("Cannot append to a full buffer!")
     }
 
     val index = if (content(0).isEmpty) 0 else 1
-    content(index) = Some(path)
+    content(index) = Some(file)
   }
 
   /**
-   * Removes the first path from this buffer and returns it. If the buffer is
+   * Removes the first file from this buffer and returns it. If the buffer is
    * empty, an exception is thrown.
    *
-   * @return the first path in this buffer which has been removed
+   * @return the first file in this buffer which has been removed
    */
-  def checkOut(): Path = {
-    val path = content(0).get
+  def checkOut(): BufferFile = {
+    val file = content(0).get
     content(0) = content(1)
     content(1) = None
-    path
+    file
   }
 
   /**
-   * Checks out the first path from this buffer and removes it from disk. This
+   * Checks out the first file from this buffer and removes it from disk. This
    * is a combination of the methods ''checkOut()'' and ''removePath()''. If
    * the buffer is empty, an exception is thrown.
    *
-   * @return the path which has been removed
+   * @return the file which has been removed
    */
-  def checkOutAndRemove(): Path = removePath(checkOut())
+  def checkOutAndRemove(): BufferFile = removeFile(checkOut())
 
   /**
    * Removes the paths that are currently stored in this buffer. This is
@@ -166,10 +192,8 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    *
    * @return a sequence with the paths which were contained in this buffer
    */
-  def removeContainedPaths(): Seq[Path] = {
-    val definedPaths = content.flatten
-    definedPaths foreach removePath
-    definedPaths
+  def removeContainedPaths(): Seq[BufferFile] = {
+    content.flatten map removeFile
   }
 
   /**

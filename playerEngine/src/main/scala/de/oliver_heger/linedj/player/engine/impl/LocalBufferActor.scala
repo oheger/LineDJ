@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
 import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -66,18 +67,24 @@ object LocalBufferActor {
   case object ReadBuffer
 
   /**
-   * A message sent in response on a [[ReadBuffer]] request.
-   *
-   * Data is read from the buffer via a newly created ''FileReaderActor''.
-   * As soon as a temporary file is ready for being read, this message is sent
-   * to the original caller. The caller can then read data via the protocol
-   * defined by ''FileReaderActor''. When this is done, the actor must be
-   * stopped. This causes the underlying file to be marked as read and
-   * removed from the buffer.
+    * A message sent in response on a [[ReadBuffer]] request.
     *
-    * @param readerActor the actor for reading data from the buffer
-   */
-  case class BufferReadActor(readerActor: ActorRef)
+    * Data is read from the buffer via a newly created ''FileReaderActor''.
+    * As soon as a temporary file is ready for being read, this message is sent
+    * to the original caller. The caller can then read data via the protocol
+    * defined by ''FileReaderActor''. When this is done, the actor must be
+    * stopped. This causes the underlying file to be marked as read and
+    * removed from the buffer.
+    *
+    * In addition to the reader actor, this message contains a list of length
+    * values for the sources that are fully contained in the underlying file.
+    * This allows clients to determine when the data of a source ends and the
+    * next one begins.
+    *
+    * @param readerActor   the actor for reading data from the buffer
+    * @param sourceLengths length values for the sources in the file
+    */
+  case class BufferReadActor(readerActor: ActorRef, sourceLengths: List[Long])
 
   /**
     * A message processed by [[LocalBufferActor]] that notifies the buffer
@@ -184,6 +191,18 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   /** A read result which has to be processed after finishing the current write operation. */
   private var pendingReadResult: Option[ByteString] = None
 
+  /**
+    * Stores the lengths of sources that have been written completely into the
+    * current temporary file.
+    */
+  private var sourceLengths = List.empty[Long]
+
+  /**
+    * Like ''sourceLengths'', but stores the lengths for the last temporary
+    * file that has been created.
+    */
+  private var sourceLengthsForLastTempFile = List.empty[Long]
+
   /** The number of bytes that have been written to the current temporary file. */
   private var bytesWrittenToFile = 0
 
@@ -231,9 +250,12 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       }
 
     case CloseAck(actor) if writerActor == actor =>
-      bufferManager append currentPath.get
+      bufferManager append BufferFile(currentPath.get, Nil)
       bytesWrittenToFile = 0
       currentPath = None
+      sourceLengthsForLastTempFile = sourceLengths.reverse
+      println("Writer actor closed, sourceLengths = " + sourceLengthsForLastTempFile)
+      sourceLengths = Nil
       serveReadRequest()
       continueFilling()
 
@@ -244,7 +266,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       if (readClient.isDefined) {
         sender ! BufferBusy
       } else {
-        readClient = Option(sender())
+        readClient = Some(sender())
         serveReadRequest()
       }
 
@@ -320,6 +342,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
         fillClient ! BufferFilled(a, bytesWrittenForSource)
         fillActor = None
         context unwatch a
+        sourceLengths = bytesWrittenForSource :: sourceLengths
       }
     }
   }
@@ -443,11 +466,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   private def serveReadRequest(): Unit = {
     if (readActor == null) {
       for {client <- readClient
-           path <- bufferManager.read} {
+           file <- bufferManager.read} {
         readActor = createChildActor(Props[FileReaderActor])
         context watch readActor
-        readActor ! InitFile(path)
-        client ! BufferReadActor(readActor)
+        readActor ! InitFile(file.path)
+        client ! BufferReadActor(readActor, sourceLengthsForLastTempFile)
       }
     }
   }
