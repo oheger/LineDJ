@@ -23,7 +23,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.impl.download.{RemoveTempFilesActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors

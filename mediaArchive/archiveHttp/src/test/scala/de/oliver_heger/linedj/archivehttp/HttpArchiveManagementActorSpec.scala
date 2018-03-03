@@ -32,8 +32,9 @@ import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media._

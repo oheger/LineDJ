@@ -22,7 +22,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.download.{RemoveTempFilesActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors

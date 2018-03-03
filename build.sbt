@@ -189,8 +189,8 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % "test",
     libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % "test",
     libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % "test",
-    OsgiKeys.exportPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl",
-      "de.oliver_heger.linedj.archivehttp.*"),
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
+      "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn (shared % "compile->compile;test->test", archiveCommon, id3Extract)
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl.download
+package de.oliver_heger.linedj.archivehttp.temp
 
 import java.nio.file.{DirectoryStream, Path}
 

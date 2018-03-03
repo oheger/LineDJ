@@ -27,8 +27,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.download.{HttpDownloadManagementActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}

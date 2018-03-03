@@ -22,6 +22,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 

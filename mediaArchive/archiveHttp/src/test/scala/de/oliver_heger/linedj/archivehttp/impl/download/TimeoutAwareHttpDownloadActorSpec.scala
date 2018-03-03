@@ -28,13 +28,14 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await

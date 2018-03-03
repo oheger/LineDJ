@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl.download
+package de.oliver_heger.linedj.archivehttp.temp
 
 import java.nio.file.{Files, Path, Paths}
 
@@ -23,8 +23,8 @@ import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.RemoveFileActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
