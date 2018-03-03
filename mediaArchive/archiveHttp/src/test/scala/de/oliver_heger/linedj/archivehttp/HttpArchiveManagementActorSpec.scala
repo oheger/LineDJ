@@ -40,7 +40,7 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -563,6 +563,15 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .checkArchiveState(HttpArchiveStateFailedRequest(status))
   }
 
+  it should "forward a DownloadActorAlive notification to the monitoring actor" in {
+    val aliveMsg = DownloadActorAlive(TestProbe().ref,
+      MediumID("testMediumURI", Some("settings.set")))
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.post(aliveMsg)
+      .expectDownloadMonitoringMessage(aliveMsg)
+  }
+
   /**
     * A test helper class managing all dependencies of a test actor instance.
     */
@@ -674,7 +683,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return this test helper
       */
     def expectNoProcessingRequest(): HttpArchiveManagementActorTestHelper = {
-      probeContentProcessor.expectNoMsg(1.second)
+      probeContentProcessor.expectNoMessage(1.second)
       this
     }
 
@@ -763,6 +772,17 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       val stateResponse = expectMsgType[HttpArchiveStateResponse]
       stateResponse.archiveName should be(ArchiveName)
       stateResponse.state should be(expState)
+      this
+    }
+
+    /**
+      * Expects a message to be passed to the download monitoring actor.
+      *
+      * @param msg the expected message
+      * @return this test helper
+      */
+    def expectDownloadMonitoringMessage(msg: Any): HttpArchiveManagementActorTestHelper = {
+      probeMonitoringActor.expectMsg(msg)
       this
     }
 

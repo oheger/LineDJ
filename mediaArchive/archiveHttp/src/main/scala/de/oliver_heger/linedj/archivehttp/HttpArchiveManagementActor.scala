@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpF
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumID, MediumInfo, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
@@ -236,6 +236,9 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
         case None =>
           pendingStateClients += sender()
       }
+
+    case alive: DownloadActorAlive =>
+      monitoringActor ! alive
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams
