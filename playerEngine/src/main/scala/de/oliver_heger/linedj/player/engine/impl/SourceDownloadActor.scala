@@ -186,7 +186,6 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     case filled: BufferFilled =>
       currentReadActor match {
         case Some(actor) =>
-          readerActor ! SourceReaderActor.AudioSourceDownloadCompleted(filled.sourceLength)
           currentReadActor = None
           downloadInProgress = None
           downloadIfPossible()

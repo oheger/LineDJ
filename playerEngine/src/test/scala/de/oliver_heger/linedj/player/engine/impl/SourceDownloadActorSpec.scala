@@ -23,7 +23,6 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.impl.SourceReaderActor.AudioSourceDownloadCompleted
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
@@ -245,7 +244,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     actor ! createPlaylistInfo(3)
     actor ! SourceDownloadActor.PlaylistEnd
     actor ! LocalBufferActor.BufferFilled(contentActor1.ref, SourceLength)
-    readActor.expectMsgType[AudioSourceDownloadCompleted]
     srcActor.expectMsg(downloadRequest(2))
     actor ! downloadResponse(2, contentActor2.ref, SourceLength + 1)
     readActor.expectMsg(AudioSource(sourceURI(2), AudioSource.UnknownLength, 0, 0))
@@ -366,21 +364,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
     actor ! SourceDownloadActor.ReportReaderActorAlive
     srcActor.expectNoMessage(1.second)
-  }
-
-  it should "send a download completion message after a buffer fill operation" in {
-    val FilledSize = 20150410
-    val srcActor, bufActor, readActor, contentActor = TestProbe()
-    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
-
-    actor ! createPlaylistInfo(1)
-    srcActor.expectMsg(downloadRequest(1))
-    actor ! downloadResponse(1, contentActor.ref, SourceLength)
-    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor.ref))
-    readActor.expectMsgType[AudioSource]
-
-    actor ! LocalBufferActor.BufferFilled(contentActor.ref, FilledSize)
-    readActor.expectMsg(SourceReaderActor.AudioSourceDownloadCompleted(FilledSize))
   }
 
   it should "ack a close request" in {

@@ -83,15 +83,6 @@ object SourceReaderActor {
   val ErrorUnexpectedDownloadCompleted = "Unexpected AudioSourceDownloadCompleted message!"
 
   /**
-   * A message processed by ''SourceReaderActor'' telling it that an audio
-   * source has been downloaded. The message defines the final length of this
-   * source. (If there is an error while downloading the source, the length may
-   * be less than the original value; in this case, it has to be adapted.)
-   * @param finalLength the final length of the last audio source
-   */
-  case class AudioSourceDownloadCompleted(finalLength: Long)
-
-  /**
     * Determines the the number of bytes that can be currently read from an
     * audio source. Handles the case that the source's length is unknown. In
     * this case, there is no length restriction. (At least all bytes can be
