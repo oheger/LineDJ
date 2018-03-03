@@ -8,7 +8,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object SourceReaderActorSpec {
@@ -175,14 +175,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Creates a ''TestProbe'' for a file reader actor and passes it to the
-   * test source reader actor.
-   * @param actor the test source reader actor
-   * @return the probe for the file reader actor
-   */
-  private def installFileReaderActor(actor: ActorRef): TestProbe = {
+    * Creates a ''TestProbe'' for a file reader actor and passes it to the
+    * test source reader actor.
+    *
+    * @param actor         the test source reader actor
+    * @param sourceLengths a list with the lengths of completed sources
+    * @return the probe for the file reader actor
+    */
+  private def installFileReaderActor(actor: ActorRef, sourceLengths: List[Long] = Nil):
+  TestProbe = {
     val fileReader = TestProbe()
-    actor ! LocalBufferActor.BufferReadActor(fileReader.ref, Nil)
+    actor ! LocalBufferActor.BufferReadActor(fileReader.ref, sourceLengths)
     fileReader
   }
 
@@ -364,49 +367,25 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   it should "allow adapting the size of the last audio source (to handle source read errors)" in {
-    val buffer = TestProbe()
-    val reader = readerActor(optBufferActor = Some(buffer.ref))
-    reader ! audioSource(1)
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(100)
+    val Size = 20180227L
+    val reader = readerActor(optBufferActor = Some(TestProbe().ref))
+    reader ! audioSource(1, length = AudioSource.UnknownLength)
+    installFileReaderActor(reader, List(Size))
 
     reader ! PlaybackActor.GetAudioSource
     val src = expectMsgType[AudioSource]
-    src.length should be(100)
+    src.length should be(Size)
   }
 
-  it should "send an error message about an unexpected download completed message" in {
-    val buffer = TestProbe()
-    val reader = readerActor(optBufferActor = Some(buffer.ref))
-    val completedMsg = SourceReaderActor.AudioSourceDownloadCompleted(100)
-    reader ! completedMsg
-
-    val errMsg = expectMsgType[PlaybackProtocolViolation]
-    errMsg.msg should be(completedMsg)
-    errMsg.errorText should include("Unexpected AudioSourceDownloadCompleted")
-  }
-
-  it should "allow adapting the size of the currently processed audio source" in {
-    val buffer = TestProbe()
-    val reader = readerActor(optBufferActor = Some(buffer.ref))
-    reader ! audioSource(1)
-    reader ! GetAudioSource
-    expectMsg(audioSource(1))
-
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(100)
-    val fileReaderActor = installFileReaderActor(reader)
-    reader ! GetAudioData(10000)
-    fileReaderActor.expectMsg(FileReaderActor.ReadData(100))
-  }
-
-  it should "replace a source only if its length has changed" in {
-    val buffer = TestProbe()
-    val reader = readerActor(optBufferActor = Some(buffer.ref))
-    val source = audioSource(1)
-    reader ! source
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(source.length)
+  it should "only change the size of a source that is undefined" in {
+    val Size = 20180228L
+    val reader = readerActor(optBufferActor = Some(TestProbe().ref))
+    reader ! audioSource(1, length = Size)
+    installFileReaderActor(reader, List(Size - 1))
 
     reader ! PlaybackActor.GetAudioSource
-    expectMsgType[AudioSource] should be theSameInstanceAs source
+    val src = expectMsgType[AudioSource]
+    src.length should be(Size)
   }
 
   it should "handle size updates for multiple sources" in {
@@ -416,16 +395,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val ChunkSize = 64
     val buffer = TestProbe()
     val reader = readerActor(optBufferActor = Some(buffer.ref))
-    reader ! audioSource(1)
-    reader ! audioSource(2)
-    reader ! audioSource(3)
+    reader ! audioSource(1, length = AudioSource.UnknownLength)
+    reader ! audioSource(2, length = AudioSource.UnknownLength)
+    reader ! audioSource(3, length = AudioSource.UnknownLength)
     reader ! GetAudioSource
-    expectMsg(audioSource(1))
-    val fileReader = installFileReaderActor(reader)
+    expectMsg(audioSource(1, length = AudioSource.UnknownLength))
+    val fileReader = installFileReaderActor(reader, List(SourceLength1, SourceLength2,
+      SourceLength3))
 
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength1)
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength2)
-    reader ! SourceReaderActor.AudioSourceDownloadCompleted(SourceLength3)
     processSource(reader, fileReader, SourceLength1, ChunkSize)
     reader ! GetAudioSource
     expectMsgType[AudioSource]
@@ -433,5 +410,47 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! GetAudioSource
     expectMsgType[AudioSource]
     processSource(reader, fileReader, SourceLength3, ChunkSize)
+  }
+
+  it should "handle source sizes over multiple file reader actors" in {
+    val SourceLength1 = 100
+    val SourceLength2 = 110
+    val SourceLength2InFirstFile = 60
+    val ChunkSize = 64
+    val reader = readerActor(optBufferActor = Some(TestProbe().ref))
+    val fileReader1 = installFileReaderActor(reader, List(SourceLength1))
+    reader ! audioSource(1, length = AudioSource.UnknownLength)
+    reader ! audioSource(2, length = AudioSource.UnknownLength)
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
+    processSource(reader, fileReader1, SourceLength1, ChunkSize)
+
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
+    expectMsg(audioDataRequest(reader, fileReader1, ChunkSize, ChunkSize,
+      arraySourceMock(SourceLength2InFirstFile)))
+    reader ! GetAudioData(ChunkSize)
+    fileReader1.expectMsg(FileReaderActor.ReadData(ChunkSize))
+    reader ! EndOfFile(null)
+    val fileReader2 = installFileReaderActor(reader, List(SourceLength2))
+    fileReader2.expectMsg(FileReaderActor.ReadData(SourceLength2 - SourceLength2InFirstFile))
+  }
+
+  it should "handle a pending read request with a remaining size of 0" in {
+    val Length = 100
+    val reader = readerActor(optBufferActor = Some(TestProbe().ref))
+    val fileReader = installFileReaderActor(reader, List())
+    reader ! audioSource(1, length = AudioSource.UnknownLength)
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
+    expectMsg(audioDataRequest(reader, fileReader, Length, Length, arraySourceMock(Length)))
+
+    reader ! GetAudioData(Length)
+    reader ! EndOfFile(null)
+    val fileReader2 = installFileReaderActor(reader, List(Length))
+    expectMsg(EndOfFile(null))
+    val ping = new Object
+    fileReader2.ref ! ping
+    fileReader2.expectMsg(ping)
   }
 }

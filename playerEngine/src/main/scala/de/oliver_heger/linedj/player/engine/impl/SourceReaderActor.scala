@@ -102,6 +102,16 @@ object SourceReaderActor {
     */
   private def bytesAvailable(src: AudioSource): Long =
     if (src.isLengthUnknown) Long.MaxValue else src.length
+
+  /**
+    * Initializes the length of an audio source.
+    *
+    * @param src the source
+    * @param len the length of this source
+    * @return the updated audio source
+    */
+  private def initSourceLength(src: AudioSource, len: Long): AudioSource =
+    src.copy(length = len)
 }
 
 /**
@@ -130,9 +140,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   /** A queue for storing the audio sources in the current playlist. */
   private val sourceQueue = mutable.Queue.empty[AudioSource]
 
-  /** A queue for storing messages about completed audio sources. */
-  private val completedQueue = mutable.Queue.empty[AudioSourceDownloadCompleted]
-
   /**
    * Stores the reference to an actor which requested a new audio source. This
    * field is set when currently no audio source is available. As soon as one
@@ -154,11 +161,14 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   /** A request for audio data which is currently in progress. */
   private var currentDataRequest: Option[AudioDataRequest] = None
 
+  /**
+    * A list with the lengths of sources that are completed in the temporary
+    * file processed currently.
+    */
+  private var sourceLengthsInCurrentFile = List.empty[Long]
+
   /** The number of bytes read in the current source. */
   private var bytesReadInCurrentSource = 0L
-
-  /** A flag whether a completed message for the current source arrived. */
-  private var currentSourceCompleted = false
 
   /**
    * @inheritdoc This implementation directly requests a reader actor from the
@@ -207,9 +217,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     case eof: EndOfFile =>
       fileReaderEndOfFile(eof)
 
-    case compl: AudioSourceDownloadCompleted =>
-      handleSourceDownloadCompleted(compl)
-
     case CloseRequest =>
       fileReaderActor foreach context.stop
       sender ! CloseAck(self)
@@ -239,25 +246,18 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   }
 
   /**
-   * Initializes the current audio source from the queue and notifies the
-   * requesting actor.
-   * @param client the actor requesting the audio source
-   * @return the new current audio source
-   */
+    * Initializes the current audio source from the queue and notifies the
+    * requesting actor.
+    *
+    * @param client the actor requesting the audio source
+    * @return the new current audio source
+    */
   private def initCurrentAudioSource(client: ActorRef): AudioSource = {
     assert(sourceQueue.nonEmpty, "No sources available")
-    val src = sourceQueue.dequeue()
-    val adaptedSrc = if (completedQueue.nonEmpty) {
-      val compl = completedQueue.dequeue()
-      currentSourceCompleted = true
-      if (src.length != compl.finalLength) src.copy(length = compl.finalLength)
-      else src
-    } else {
-      currentSourceCompleted = false
-      src
-    }
-    client ! adaptedSrc
-    currentSource = Some(adaptedSrc)
+    val src = initSourceLengthFromCurrentFile(sourceQueue.dequeue())
+
+    client ! src
+    currentSource = Some(src)
     bytesReadInCurrentSource = 0
     audioSourceRequest = None
     src
@@ -276,14 +276,35 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
 
       case None =>
         fileReaderActor = Some(msg.readerActor)
+        sourceLengthsInCurrentFile = msg.sourceLengths
+        currentSource = currentSource map initSourceLengthFromCurrentFile
         serveDataRequestIfPossible()
     }
   }
 
   /**
+    * Initializes the length of the specified source from the data of the
+    * current temporary file if possible. If the source length is defined for
+    * the current file, it is updated.
+    *
+    * @param src the source
+    * @return the source with an initialized length if possible
+    */
+  private def initSourceLengthFromCurrentFile(src: AudioSource): AudioSource =
+    if (src.isLengthUnknown) {
+      sourceLengthsInCurrentFile match {
+        case h :: t =>
+          sourceLengthsInCurrentFile = t
+          initSourceLength(src, h)
+        case _ => src
+      }
+    } else src
+
+  /**
    * A request for audio data was received. It is either handled directly or
    * put on hold until a file reader actor is available.
-   * @param client the actor who sent this request
+    *
+    * @param client the actor who sent this request
    * @param source the current audio source
    * @param msg the message containing the request
    * @return the next current audio source; this may be ''None'' when the end was reached
@@ -346,14 +367,53 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   }
 
   /**
-   * Checks whether a request for audio data can now be handled. If so, it is
-   * passed to the file reader actor.
-   */
+    * Checks whether a request for audio data can now be handled. If so, it is
+    * passed to the file reader actor.
+    */
   private def serveDataRequestIfPossible(): Unit = {
-    for {
+    val req = for {
+      src <- currentSource
       actor <- fileReaderActor
-      request <- fetchAndResetPendingDataRequest()} {
-      actor ! request.request
+      request <- ensureRequestSizeRestriction(src, fetchAndResetPendingDataRequest())
+    } yield (actor, request)
+    req foreach (t => handleDataRequest(t._1, t._2))
+  }
+
+  /**
+    * Ensures that a pending request for audio data does not exceed the
+    * remaining capacity of an audio source. It can happen that the size of the
+    * current source has been set after the request was stored. Then the amount
+    * of data requested might be too big.
+    *
+    * @param src     the current source
+    * @param request the pending request
+    * @return an option with the corrected request
+    */
+  private def ensureRequestSizeRestriction(src: AudioSource, request: Option[AudioDataRequest]):
+  Option[AudioDataRequest] =
+    request.map { r =>
+      val remainingSize = bytesAvailable(src) - bytesReadInCurrentSource
+      if (r.request.count > remainingSize)
+        r.copy(request = r.request.copy(count = remainingSize.toInt))
+      else r
+    }
+
+  /**
+    * Handles a request to read data from the current reader actor. The request
+    * is forwarded to the file reader actor unless the data size requested is
+    * 0. This is a corner case which can occur if an audio source ends with the
+    * current temporary file. In this case, an end-of-file message is sent
+    * back to the caller.
+    *
+    * @param readActor the current file reader actor
+    * @param request   the request for audio data
+    */
+  private def handleDataRequest(readActor: ActorRef, request: AudioDataRequest): Unit = {
+    if (request.request.count > 0) {
+      readActor ! request.request
+    } else {
+      request.sender ! EndOfFile(null)
+      currentDataRequest = None
     }
   }
 
@@ -376,41 +436,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     val result = fileReaderActor
     fileReaderActor = None
     result
-  }
-
-  /**
-    * Handles a message about a completed download of an audio source.
-    *
-    * @param compl the completion message
-    */
-  private def handleSourceDownloadCompleted(compl: AudioSourceDownloadCompleted): Unit = {
-    if (currentSourceCompleted) {
-      enqueueCompleted(compl)
-    } else {
-      currentSource match {
-        case Some(src) =>
-          if (src.length != compl.finalLength) {
-            currentSource = Some(src.copy(length = compl.finalLength))
-          }
-          currentSourceCompleted = true
-        case None =>
-          enqueueCompleted(compl)
-      }
-    }
-  }
-
-  /**
-    * Adds a completed message for an audio source to the queue.
-    *
-    * @param compl the completed message
-    */
-  private def enqueueCompleted(compl: AudioSourceDownloadCompleted): Unit = {
-    val srcCount = sourceQueue.size + (if (currentSource.isDefined) 1 else 0)
-    if (completedQueue.size + 1 > srcCount) {
-      protocolError(compl, ErrorUnexpectedDownloadCompleted)
-    } else {
-      completedQueue += compl
-    }
   }
 }
 
