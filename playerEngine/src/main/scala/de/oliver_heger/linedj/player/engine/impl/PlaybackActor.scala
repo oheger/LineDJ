@@ -422,14 +422,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
                   }
                   audioPlaybackPending = true
                 } else {
-                  if (!currentSourceIsInfinite) {
-                    lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
-                  } else {
-                    if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
-                      log.warning("Playback stalled! Flushing buffer.")
-                      audioDataStream.clear()
-                    }
-                  }
+                  handleEmptyRead(ctx)
                 }
               case Failure(exception) =>
                 log.error(exception, "Error when reading audio stream!")
@@ -438,6 +431,30 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
           }
           requestAudioDataIfPossible()
         }
+      }
+    }
+  }
+
+  /**
+    * Handles a read operation of audio data that yields an empty result. This
+    * can either mean that the end of the audio stream is reached or indicate
+    * illegal audio data. In the latter case, error handling has to be applied
+    * which depends on the type of the audio source currently played.
+    *
+    * @param ctx the current playback context
+    */
+  private def handleEmptyRead(ctx: PlaybackContext): Unit = {
+    log.info("Empty read.")
+    if (!currentSourceIsInfinite) {
+      if (audioDataStream.completed) {
+        lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+      } else {
+        playbackError(PlaybackErrorEvent(currentSource.get))
+      }
+    } else {
+      if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
+        log.warning("Playback stalled! Flushing buffer.")
+        audioDataStream.clear()
       }
     }
   }
@@ -512,7 +529,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * with the next audio source in the playlist.
    */
   private def sourceCompleted(): Unit = {
-    log.info("Finished playback of audio source {}.", currentSource.get)
+    log.info("Finished playback of audio source {} ({} bytes read).",
+      currentSource.get, bytesProcessed)
     audioDataStream.clear()
     closePlaybackContext()
     eventActor ! AudioSourceFinishedEvent(source = currentSource.get)
@@ -559,6 +577,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * @param errorEvent the error event
     */
   private def playbackError(errorEvent: PlayerEvent): Unit = {
+    log.warning("Playback error!")
     eventActor ! errorEvent
     enterSkipMode(afterError = true)
   }

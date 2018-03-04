@@ -17,7 +17,7 @@ import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
@@ -890,6 +890,32 @@ with EventTestSupport {
     actor ! AudioSource.infinite("infiniteURI")
     sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, AudioBufferSize))
     lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+  }
+
+  it should "skip the current finite source if no audio data can be read" in {
+    val lineWriter = TestProbe()
+    val eventMan = TestProbe()
+    val streamFactory = mock[SimulatedAudioStreamFactory]
+    val audioStream = mock[InputStream]
+    when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0)
+    when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
+    val source = createSource(1)
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+      optEventMan = Some(eventMan)))
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! source
+    sendAudioData(actor, arraySource(1, AudioBufferSize), arraySource(2, AudioBufferSize),
+      arraySource(3, AudioBufferSize), EndOfFile(null))
+    expectMsg(GetAudioSource)
+    actor.tell(LineWriterActor.AudioDataWritten(1, 0), lineWriter.ref)
+    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    expectEvent[PlaybackErrorEvent](eventMan).source should be(source)
+    expectEvent[AudioSourceFinishedEvent](eventMan).source should be(source)
   }
 
   it should "ignore exceptions when closing a playback context" in {
