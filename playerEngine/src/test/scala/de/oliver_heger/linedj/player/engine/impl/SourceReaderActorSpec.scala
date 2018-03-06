@@ -442,6 +442,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val fileReader = installFileReaderActor(reader, List())
     reader ! audioSource(1, length = AudioSource.UnknownLength)
     reader ! GetAudioSource
+    reader ! audioSource(2)
     expectMsgType[AudioSource]
     expectMsg(audioDataRequest(reader, fileReader, Length, Length, arraySourceMock(Length)))
 
@@ -452,5 +453,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val ping = new Object
     fileReader2.ref ! ping
     fileReader2.expectMsg(ping)
+    reader ! GetAudioSource
+    expectMsgType[AudioSource]
   }
 }

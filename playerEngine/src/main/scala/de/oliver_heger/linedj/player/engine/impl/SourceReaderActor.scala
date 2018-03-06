@@ -405,6 +405,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     } else {
       request.sender ! EndOfFile(null)
       currentDataRequest = None
+      currentSource = None
     }
   }
 
