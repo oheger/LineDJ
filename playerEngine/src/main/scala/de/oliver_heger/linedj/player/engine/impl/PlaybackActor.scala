@@ -226,6 +226,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       }
 
     case eof: EndOfFile =>
+      log.debug("Received EoF.")
       if (checkAudioDataResponse(eof)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
@@ -242,11 +243,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       } else {
         audioPlaybackPending = false
         updatePlaybackProgress(length, duration)
-        if (length < audioChunk.length && !currentSourceIsInfinite) {
-          lineWriterActor ! LineWriterActor.DrainLine(playbackContext.get.line)
-        } else {
-          playback()
-        }
+        playback()
       }
 
     case LineWriterActor.LineDrained =>
