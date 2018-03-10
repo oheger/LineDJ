@@ -288,32 +288,30 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     bufActor.expectMsg(LocalBufferActor.SequenceComplete)
   }
 
-  it should "ignore download response messages if the length is undefined" in {
-    val srcActor, bufActor, readActor, contentActor1, contentActor2 = TestProbe()
+  /**
+    * Checks processing of a message that indicates a failed download.
+    * @param response the message
+    */
+  private def checkFailedDownloadMessage(response: MediumFileResponse): Unit = {
+    val srcActor, bufActor, readActor = TestProbe()
     val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
     actor ! createPlaylistInfo(1)
     srcActor.expectMsg(downloadRequest(1))
-    actor ! createPlaylistInfo(2)
 
-    actor ! downloadResponse(1, contentActor1.ref, -1)
-    srcActor.expectMsg(downloadRequest(2))
-    actor ! downloadResponse(2, contentActor2.ref, SourceLength)
-    readActor.expectMsg(AudioSource(sourceURI(2), AudioSource.UnknownLength, 0, 0))
-    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor2.ref))
+    actor ! response
+    readActor.expectMsg(AudioSource(sourceURI(1), AudioSource.UnknownLength, 0, 0))
+    val fillMsg = bufActor.expectMsgType[LocalBufferActor.FillBuffer]
+    fillMsg.readerActor ! DownloadData(42)
+    expectMsg(DownloadComplete)
+  }
+
+  it should "ignore download response messages if the length is undefined" in {
+    val contentActor = TestProbe()
+    checkFailedDownloadMessage(downloadResponse(1, contentActor.ref, -1))
   }
 
   it should "ignore download response messages with an undefined download actor" in {
-    val srcActor, bufActor, readActor, contentActor = TestProbe()
-    val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
-    actor ! createPlaylistInfo(1)
-    srcActor.expectMsg(downloadRequest(1))
-    actor ! createPlaylistInfo(2)
-
-    actor ! downloadResponse(1, null, SourceLength)
-    srcActor.expectMsg(downloadRequest(2))
-    actor ! downloadResponse(2, contentActor.ref, SourceLength)
-    readActor.expectMsg(AudioSource(sourceURI(2), AudioSource.UnknownLength, 0, 0))
-    bufActor.expectMsg(LocalBufferActor.FillBuffer(contentActor.ref))
+    checkFailedDownloadMessage(downloadResponse(1, null, SourceLength))
   }
 
   it should "report that a reader actor is still alive" in {

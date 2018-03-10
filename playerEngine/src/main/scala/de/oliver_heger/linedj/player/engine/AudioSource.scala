@@ -31,7 +31,7 @@ object AudioSource {
     * size is only determined at the end of the load operation. This can be
     * expressed using this constant.
     */
-  val UnknownLength = 0L
+  val UnknownLength: Long = -1L
 
   /**
     * Constant representing an error source. This value is used if an error

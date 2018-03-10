@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.{Actor, ActorRef, Cancellable, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
@@ -74,6 +74,20 @@ object SourceDownloadActor {
   private def downloadRequest(sourceID: MediaFileID): MediumFileRequest =
     MediumFileRequest(MediaFileID(sourceID.mediumID, sourceID.uri), withMetaData = false)
 
+  /**
+    * An actor implementation which is used for media files that cannot be
+    * downloaded.
+    *
+    * The actor simulates an empty reader actor. It reacts on download data
+    * requests by returning a ''DownloadComplete'' message immediately.
+    */
+  private class DummyReaderActor extends Actor {
+    override def receive = {
+      case DownloadData(_) =>
+        sender ! DownloadComplete
+    }
+  }
+
   private class SourceDownloadActorImpl(config: PlayerConfig, bufferActor: ActorRef,
                                         readerActor: ActorRef)
     extends SourceDownloadActor(config, bufferActor, readerActor)
@@ -112,7 +126,7 @@ object SourceDownloadActor {
  * @param readerActor the actor which reads audio data from the buffer
  */
 class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerActor: ActorRef)
-  extends Actor {
+  extends Actor with ActorLogging {
   me: SchedulerSupport =>
 
   import SourceDownloadActor._
@@ -170,14 +184,10 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     case response: MediumFileResponse =>
       resetCurrentDownload() match {
         case Some(info) =>
-          if (isValidDownloadResponse(response)) {
-            readerActor ! AudioSource(uri = info.sourceID.uri, length =
-                          AudioSource.UnknownLength, skip = info.skip, skipTime = info.skipTime)
-            currentReadActor = triggerFillBuffer(response)
-            downloadInProgress = Some(response.request)
-          } else {
-            downloadIfPossible()
-          }
+          readerActor ! AudioSource(uri = info.sourceID.uri, length =
+            AudioSource.UnknownLength, skip = info.skip, skipTime = info.skipTime)
+          currentReadActor = triggerFillBuffer(response)
+          downloadInProgress = Some(response.request)
 
         case None =>
           sender ! PlaybackProtocolViolation(response, ErrorUnexpectedDownloadResponse)
@@ -268,8 +278,14 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     * @return the new value for the current reader actor
     */
   private def triggerFillBuffer(response: MediumFileResponse): Option[ActorRef] = {
-    assert(response.contentReader.isDefined)
-    bufferActor ! FillBuffer(response.contentReader.get)
-    response.contentReader
+    val downloadActor = if (isValidDownloadResponse(response)) {
+      assert(response.contentReader.isDefined)
+      response.contentReader.get
+    } else {
+      log.warning("Download failed! Creating dummy actor.")
+      context.actorOf(Props[DummyReaderActor])
+    }
+    bufferActor ! FillBuffer(downloadActor)
+    Some(downloadActor)
   }
 }
