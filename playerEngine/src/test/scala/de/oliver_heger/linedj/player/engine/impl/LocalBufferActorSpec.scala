@@ -712,6 +712,51 @@ with MockitoSugar {
     captor.getAllValues.get(0).sourceLengths should be(List(data1.length, data2.length))
     captor.getAllValues.get(1).sourceLengths should have length 0
   }
+
+  it should "handle a failed download if the buffer is full" in {
+    val fileCounter = new AtomicInteger
+    val bufManager = createBufferFileManager(optAppendCounter = Some(fileCounter))
+    when(bufManager.read).thenReturn(Some(BufferPath))
+    val readerProbe = TestProbe()
+    val fillActor = system.actorOf(Props(new Actor {
+      var data = ByteString(TestData * 3)
+      override def receive: Receive = {
+        case DownloadData(count) =>
+          if (data.isEmpty) {
+            sender ! DownloadComplete
+          } else {
+            data.take(count).toArray
+            sender ! DownloadDataResult(data take count)
+            data = data drop count
+          }
+      }
+    }))
+    val bufferActor = system.actorOf(propsWithMockFactory(bufferManager = Some(bufManager),
+      readerActor = Some(readerProbe.ref)))
+    bufferActor ! FillBuffer(fillActor)
+    simulateFilling(bufferActor, Array.emptyByteArray, maxFiles = 2)
+    val expSrcLength = (2 * TestData.length / ChunkSize + 1) * ChunkSize
+    // plus the part which has been downloaded and is stored in-memory
+
+    system stop fillActor
+    expectNoMessage(1.seconds)
+    bufferActor ! ReadBuffer
+    val readerMsg = expectMsgType[BufferReadActor]
+    fileCounter.decrementAndGet()
+    bufferActor ! BufferReadComplete(readerMsg.readerActor) // removes file from buffer
+    expectMsgType[InitFile]  // starts new file
+    val writeMsg = expectMsgType[ArraySource]
+    bufferActor ! WriteResult(FileWriterActor.WriteResultStatus.Ok, writeMsg.length)
+    expectMsg(BufferFilled(fillActor, expSrcLength))
+
+    bufferActor ! FillBuffer(testActor)
+    simulateFilling(bufferActor, toBytes(TestData), maxFiles = 1, continueOp = true)
+    val captor = ArgumentCaptor.forClass(classOf[BufferFile])
+    verify(bufManager, times(3)).append(captor.capture())
+    captor.getAllValues.get(0).sourceLengths should have length 0
+    captor.getAllValues.get(1).sourceLengths should have length 0
+    captor.getAllValues.get(2).sourceLengths.head should be(expSrcLength)
+  }
 }
 
 /**

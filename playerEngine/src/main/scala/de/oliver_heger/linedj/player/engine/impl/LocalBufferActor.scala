@@ -192,6 +192,13 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   private var pendingReadResult: Option[ByteString] = None
 
   /**
+    * Stores a message about a completed fill operation. The message may be
+    * stored to be sent out later when there is again space in the buffer to
+    * continue filling.
+    */
+  private var fillCompleteMessage: Option[BufferFilled] = None
+
+  /**
     * Stores the lengths of sources that have been written completely into the
     * current temporary file.
     */
@@ -245,9 +252,9 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
 
     case CloseAck(actor) if writerActor == actor =>
       bufferManager append BufferFile(currentPath.get, sourceLengths.reverse)
-      bytesWrittenToFile = 0
       currentPath = None
       sourceLengths = Nil
+      bytesWrittenToFile = 0
       serveReadRequest()
       continueFilling()
 
@@ -314,9 +321,16 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
         handleReadResult(result)
       case None =>
         if (!readOperationInProgress) {
-          fillActor foreach { a =>
-            a ! DownloadData(config.bufferChunkSize)
-            readOperationInProgress = true
+          fillCompleteMessage match {
+            case Some(msg) =>
+              fillClient ! msg
+              fillCompleteMessage = None
+
+            case None =>
+              fillActor foreach { a =>
+                a ! DownloadData(config.bufferChunkSize)
+                readOperationInProgress = true
+              }
           }
         }
     }
@@ -331,11 +345,17 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   private def fillOperationCompleted(actor: ActorRef): Unit = {
     fillActor foreach { a =>
       if (actor == a) {
-        fillClient ! BufferFilled(a, bytesWrittenForSource)
+        val sourceLen = bytesWrittenForSource + pendingReadResult.map(_.length).getOrElse(0)
+        val fillMsg = BufferFilled(a, sourceLen)
+        if (bufferManager.isFull) {
+          fillCompleteMessage = Some(fillMsg)
+        } else {
+          fillClient ! fillMsg
+        }
         fillActor = None
         context unwatch a
-        sourceLengths = bytesWrittenForSource :: sourceLengths
-        log.info("Source completed. Read {} bytes.", bytesWrittenForSource)
+        sourceLengths = sourceLen :: sourceLengths
+        log.info("Source completed. Read {} bytes.", sourceLen)
       }
     }
   }
