@@ -144,11 +144,6 @@
     </di:shutdown>
   </di:bean>
 
-  <!-- The playlist service -->
-  <di:const var="playlistService"
-            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService$"
-            field="MODULE$"/>
-
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>

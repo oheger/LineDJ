@@ -60,16 +60,6 @@
     </a:menu>
   </a:menubar>
 
-  <!-- The playlist service -->
-  <di:const var="playlistService"
-            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService$"
-            field="MODULE$"/>
-
-  <!-- The playlist meta data service -->
-  <di:const var="playlistMetaDataService"
-            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistMetaDataService$"
-            field="MODULE$"/>
-
   <!-- The model of the playlist table. This is a plain array list.-->
   <di:bean name="playlistTableModel" beanClass="java.util.ArrayList"/>
 

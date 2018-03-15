@@ -46,4 +46,16 @@
       <di:param refName="unknownPropertyResolver"/>
     </di:constructor>
   </di:bean>
+
+  <!-- The playlist service -->
+  <di:const var="playlistServiceVar"
+            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService$"
+            field="MODULE$"/>
+  <di:contextBean var="playlistServiceVar" name="playlistService"/>
+
+  <!-- The playlist meta data service -->
+  <di:const var="playlistMetaDataServiceVar"
+            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistMetaDataService$"
+            field="MODULE$"/>
+  <di:contextBean var="playlistMetaDataServiceVar" name="playlistMetaDataService"/>
 </j:jelly>
