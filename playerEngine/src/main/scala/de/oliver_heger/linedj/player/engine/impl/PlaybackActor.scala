@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import javax.sound.sampled.LineUnavailableException
 
+import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
@@ -157,6 +157,12 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
 
   /** An array for playing audio data chunk-wise. */
   private var audioChunk: Array[Byte] = _
+
+  /**
+    * Stores the time it takes to play a chunk of audio data if this can be
+    * determined.
+    */
+  private var chunkPlaybackTime: Option[Long] = None
 
   /** An actor which triggered a close request. */
   private var closingActor: ActorRef = _
@@ -336,7 +342,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     */
   private def updatePlaybackProgress(length: Int, duration: Long): Unit = {
     bytesPlayed += length
-    playbackNanos += duration
+    playbackNanos += chunkPlaybackTime getOrElse duration
     if (playbackNanos >= NanosPerSecond) {
       playbackSeconds += playbackNanos / NanosPerSecond
       playbackNanos = playbackNanos % NanosPerSecond
@@ -558,6 +564,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       playbackContext match {
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
+          chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
         case None =>
           log.warning("Could not create playback context for {}!", currentSource.get.uri)
           val event = PlaybackContextCreationFailedEvent(currentSource.get)
@@ -566,6 +573,22 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       playbackContext
     } else None
   }
+
+  /**
+    * Calculates the playback duration of a chunk of audio data if the current
+    * audio format supports this. Based on the frame size and frame rate the
+    * playback time of a block of audio can be determined. This makes it
+    * possible to have the current playback time pretty accurate.
+    *
+    * @param format the audio format
+    * @return an option with the playback duration of an audio chunk
+    */
+  private def calculateChunkPlaybackTime(format: AudioFormat): Option[Long] =
+    if (format.getFrameRate != AudioSystem.NOT_SPECIFIED && format.getFrameSize !=
+      AudioSystem.NOT_SPECIFIED)
+      Some(math.round(TimeUnit.SECONDS.toNanos(1) * audioChunk.length / format.getFrameSize /
+        format.getFrameRate))
+    else None
 
   /**
     * Handles an error during playback. Sends the specified error event to the

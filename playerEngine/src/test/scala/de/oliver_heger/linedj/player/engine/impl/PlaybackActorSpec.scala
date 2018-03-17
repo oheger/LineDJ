@@ -3,8 +3,8 @@ package de.oliver_heger.linedj.player.engine.impl
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
 import java.util
 import java.util.concurrent.TimeUnit
-import javax.sound.sampled.{AudioFormat, LineUnavailableException, SourceDataLine}
 
+import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, SourceDataLine}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
@@ -35,7 +35,7 @@ object PlaybackActorSpec {
 
   /** A test audio format. */
   private val TestAudioFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f, 8, 2, 16,
-    1, true)
+    AudioSystem.NOT_SPECIFIED, true)
 
   /** The configuration used by tests. */
   private val Config = createConfig()
@@ -132,17 +132,18 @@ with EventTestSupport {
     *
     * @param optLine an optional line mock
    * @param optStreamFactory an optional stream factory
+    * @param optFormat an optional audio format to be returned
    * @return the factory
    */
   private def mockPlaybackContextFactory(optLine: Option[SourceDataLine] = None,
                                          optStreamFactory: Option[SimulatedAudioStreamFactory] =
-                                         None):
+                                         None, optFormat: Option[AudioFormat] = None):
   PlaybackContextFactory = {
     val factory = mock[PlaybackContextFactory]
     when(factory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenAnswer(new
         Answer[Option[PlaybackContext]] {
       override def answer(invocationOnMock: InvocationOnMock): Option[PlaybackContext] = {
-        createPlaybackContextFromMock(optLine, optStreamFactory, invocationOnMock)
+        createPlaybackContextFromMock(optLine, optStreamFactory, optFormat, invocationOnMock)
       }
     })
     factory
@@ -154,19 +155,23 @@ with EventTestSupport {
     *
     * @param optLine          an optional line mock
     * @param optStreamFactory an optional stream factory
+    * @param optFormat        an optional audio format
     * @param invocationOnMock the current mock invocation
     * @return an option with the context
     */
   private def createPlaybackContextFromMock(optLine: Option[SourceDataLine], optStreamFactory:
-  Option[SimulatedAudioStreamFactory], invocationOnMock: InvocationOnMock): Some[PlaybackContext]
+  Option[SimulatedAudioStreamFactory], optFormat: Option[AudioFormat],
+  invocationOnMock: InvocationOnMock): Some[PlaybackContext]
   = {
     val factory = optStreamFactory getOrElse new SimulatedAudioStreamFactory
     val stream = factory createAudioStream invocationOnMock.getArguments()(0)
       .asInstanceOf[InputStream]
+    val format = optFormat getOrElse TestAudioFormat
     val context = mock[PlaybackContext]
     when(context.stream).thenReturn(stream)
     when(context.bufferSize).thenReturn(LineChunkSize)
     when(context.line).thenReturn(optLine.getOrElse(mock[SourceDataLine]))
+    when(context.format).thenReturn(format)
     Some(context)
   }
 
@@ -263,7 +268,7 @@ with EventTestSupport {
       override def answer(invocation: InvocationOnMock): Option[PlaybackContext] = {
         val stream = invocation.getArguments.head.asInstanceOf[InputStream]
         stream.read(new Array[Byte](AudioBufferSize - 1)) // read data from stream
-        createPlaybackContextFromMock(None, None, invocation)
+        createPlaybackContextFromMock(None, None, None, invocation)
       }
     })
 
@@ -547,6 +552,33 @@ with EventTestSupport {
     event2.playbackTime should be(SkipTime + 3)
     event2.currentSource should be(source)
     expectMsgType[GetAudioData]
+  }
+
+  it should "determine the playback time from the audio format's properties" in {
+    val lineWriter = TestProbe()
+    val eventMan = TestProbe()
+    val Chunks = 4
+    val SkipTime = 42
+    val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
+      testActor, lineWriter.ref, eventMan.ref))
+    val line = mock[SourceDataLine]
+    val format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1f, 8, 2, 16,
+      4, true)
+    val factory = mockPlaybackContextFactory(optLine = Some(line), optFormat = Some(format))
+    actor ! AddPlaybackContextFactory(factory)
+    val source = createSource(1, skipTime = SkipTime)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! source
+    val audioData = (1 to Chunks) map (i => arraySource(i.toByte, LineChunkSize))
+    sendAudioData(actor, audioData: _*)
+    expectEvent[AudioSourceStartedEvent](eventMan)
+    gatherPlaybackData(actor, lineWriter, line, Chunks * LineChunkSize,
+      TimeUnit.SECONDS.toNanos(2))
+    expectMsgType[GetAudioData]
+    val event = expectEvent[PlaybackProgressEvent](eventMan)
+    event.playbackTime should be(SkipTime + 1)
   }
 
   it should "reset progress counters when playback of a new source starts" in {
