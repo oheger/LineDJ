@@ -26,7 +26,6 @@ import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataPars
 import de.oliver_heger.linedj.io.parser.ParserStage
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object PersistentMetaDataReaderActor {
 
@@ -41,10 +40,6 @@ object PersistentMetaDataReaderActor {
     */
   case class ReadMetaDataFile(path: Path, mediumID: MediumID)
 
-  private class PersistentMetaDataReaderActorImpl(parent: ActorRef,
-                                                  chunkSize: Int) extends
-    PersistentMetaDataReaderActor(parent, chunkSize) with ChildActorFactory
-
   /**
     * Returns a ''Props'' object for creating new actor instances of this
     * class.
@@ -54,7 +49,7 @@ object PersistentMetaDataReaderActor {
     * @return creation properties
     */
   def apply(parent: ActorRef, chunkSize: Int): Props =
-    Props(classOf[PersistentMetaDataReaderActorImpl], parent, chunkSize)
+    Props(classOf[PersistentMetaDataReaderActor], parent, chunkSize)
 }
 
 /**
@@ -83,7 +78,7 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
   override def receive: Receive = {
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
-      implicit val materializer = ActorMaterializer()
+      implicit val materializer: ActorMaterializer = ActorMaterializer()
       import context.dispatcher
       val source = FileIO.fromPath(p, chunkSize)
       val sink = Sink.foreach[MetaDataProcessingSuccess](parent ! _)

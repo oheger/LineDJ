@@ -110,7 +110,6 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     val props = PersistentMetaDataReaderActor(parent.ref, ReadChunkSize)
 
     classOf[PersistentMetaDataReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
-    classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(parent.ref, ReadChunkSize))
   }
 
