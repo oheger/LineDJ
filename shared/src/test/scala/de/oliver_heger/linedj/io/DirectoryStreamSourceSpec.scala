@@ -97,6 +97,16 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   /**
+    * Extracts all files with the ''mp3'' extension from the given map with
+    * file information.
+    *
+    * @param fileData the list with file data
+    * @return a list with all mp3 files
+    */
+  private def filterMp3Files(fileData: Map[Path, Seq[Path]]): List[Path] =
+    fileData.toList.flatMap(_._2).filter(_.getFileName.toString.endsWith(".mp3"))
+
+  /**
     * Returns the transformation function used by the tests. This function
     * produces elements of type ''PathData''.
     *
@@ -120,7 +130,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @return a sequence with the paths produced by the source
     */
   private def runSource(source: Source[PathData, Any]): Seq[PathData] = {
-    implicit val mat = ActorMaterializer()
+    implicit val mat: ActorMaterializer = ActorMaterializer()
     val futRun = source.runWith(foldSink())
     Await.result(futRun, 5.seconds)
   }
@@ -188,7 +198,8 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   it should "support suppressing files with specific extensions" in {
     setUpDirectoryStructure()
     val source = DirectoryStreamSource(testDirectory,
-      filter = DirectoryStreamSource.excludeExtensionsFilter(Set("TXT")))(transFunc)
+      filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
+        DirectoryStreamSource.excludeExtensionsFilter(Set("TXT")))(transFunc)
     val (_, files) = splitDirs(runSource(source))
 
     val fileNames = files.map(f => f.path.getFileName.toString).toSet
@@ -199,11 +210,37 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   it should "scan directories even if suppressed by file exclusion filter" in {
     val fileData = setUpDirectoryStructure()
     val source = DirectoryStreamSource(testDirectory,
-      filter = DirectoryStreamSource.excludeExtensionsFilter(Set("TXT", "")))(transFunc)
+      filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
+        DirectoryStreamSource.excludeExtensionsFilter(Set("TXT", "")))(transFunc)
 
     val (directories, _) = splitDirs(runSource(source))
     val expDirs = fileData.keySet - testDirectory
     directories.map(_.path) should contain only (expDirs.toSeq: _*)
+  }
+
+  it should "support an inclusion filter for file extensions" in {
+    val fileData = setUpDirectoryStructure()
+    val source = DirectoryStreamSource(testDirectory,
+      filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
+        DirectoryStreamSource.includeExtensionsFilter(Set("MP3")))(transFunc)
+    val (_, files) = splitDirs(runSource(source))
+
+    val expFiles = filterMp3Files(fileData)
+    files.map(_.path) should contain only (expFiles: _*)
+  }
+
+  it should "support combining filters with AND logic" in {
+    val nameCondition: Path => Boolean = !_.getFileName.toString.contains("no")
+    val nameFilter = DirectoryStreamSource.PathFilter(nameCondition)
+    val includeFilter = DirectoryStreamSource.includeExtensionsFilter(Set("MP3"))
+    val combinedFilter = nameFilter && includeFilter
+    val fileData = setUpDirectoryStructure()
+    val source = DirectoryStreamSource(testDirectory,
+      filter = combinedFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter)(transFunc)
+    val (_, files) = splitDirs(runSource(source))
+
+    val expFiles = filterMp3Files(fileData) filter nameCondition
+    files.map(_.path) should contain only (expFiles: _*)
   }
 
   it should "close all directory streams it creates" in {
@@ -217,7 +254,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   it should "support canceling stream processing" in {
-    implicit val mat = ActorMaterializer()
+    implicit val mat: ActorMaterializer = ActorMaterializer()
     val Count = 32
     (1 to Count).foreach(i => createFile(testDirectory, s"test$i.txt"))
     val (queue, factory) = createStreamWrapperFactory()

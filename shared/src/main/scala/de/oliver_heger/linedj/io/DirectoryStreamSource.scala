@@ -23,8 +23,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{Attributes, Outlet, SourceShape}
 import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
-import de.oliver_heger.linedj.io.DirectoryStreamSource.{DirectoryStreamRef, StreamFactory,
-TransformFunc}
+import de.oliver_heger.linedj.io.DirectoryStreamSource.{DirectoryStreamRef, PathFilter, StreamFactory, TransformFunc}
 
 import scala.annotation.tailrec
 
@@ -49,6 +48,77 @@ object DirectoryStreamSource {
   }
 
   /**
+    * A class representing a filter for the entries encountered by a
+    * [[DirectoryStreamSource]].
+    *
+    * When creating a ''DirectoryStreamSource'' it is possible to specify a
+    * filter object. Only entries in the directory to be processed that pass
+    * this filter are emitted to the stream.
+    *
+    * The class is a simple predicate. It defines some boolean operators that
+    * allow combining more complex expressions based on simple ones.
+    *
+    * @param accept a function whether a path in the directory is accepted
+    */
+  case class PathFilter(accept: Path => Boolean) {
+    /**
+      * Generates a new ''PathFilter'' that accepts a path if and only if it is
+      * accepted by this filter OR by the other filter.
+      *
+      * @param other the filter to be combined
+      * @return the resulting filter implementing an OR
+      */
+    def ||(other: PathFilter): PathFilter =
+      PathFilter(p => accept(p) || other.accept(p))
+
+    /**
+      * Generates a new ''PathFilter'' that accepts a path if and only if it is
+      * accepted by this filter AND by the other filter.
+      *
+      * @param other the filter to be combined
+      * @return the resulting filter implementing an AND
+      */
+    def &&(other: PathFilter): PathFilter =
+      PathFilter(p => accept(p) && other.accept(p))
+
+    /**
+      * Generates a new ''PathFilter'' that accepts exactly the opposite paths
+      * than this filter.
+      *
+      * @return the resulting filter implementing the negation of this one
+      */
+    def negate(): PathFilter = PathFilter(!accept(_))
+  }
+
+  /**
+    * A conversion function which generates a ''DirectoryStream.Filter'' out of
+    * a ''PathFilter''.
+    *
+    * @param filter the ''PathFilter''
+    * @return the equivalent ''DirectoryStream.Filter''
+    */
+  implicit def toDirFilter(filter: PathFilter): DirectoryStream.Filter[Path] =
+    new DirectoryStream.Filter[Path] {
+      override def accept(entry: Path): Boolean = filter.accept(entry)
+    }
+
+  /**
+    * A ''PathFilter'' implementation that accepts all entries in a directory.
+    * This filter is used if no special filter has been provided. It ensures
+    * that a whole directory structure is scanned.
+    */
+  val AcceptAllFilter: PathFilter = PathFilter(_ => true)
+
+  /**
+    * A ''PathFilter'' implementation that accepts sub directories. Note that
+    * when using a filter other than ''AcceptAllFilter'', the directory source
+    * only scans the current directory. To scan a whole directory structure,
+    * this filter has to be integrated using the ''||'' operator.
+    */
+  val AcceptSubdirectoriesFilter: PathFilter =
+    PathFilter(p => Files isDirectory p)
+
+  /**
     * A special filter that excludes files with specific extensions.
     *
     * @param exclusions a set with file extensions to be excluded
@@ -59,14 +129,6 @@ object DirectoryStreamSource {
     override def accept(entry: Path): Boolean =
       Files.isDirectory(entry) ||
         !exclusions.contains(extractExtension(entry).toUpperCase(Locale.ENGLISH))
-  }
-
-  /**
-    * A special filter that accepts all incoming paths. This filter is used
-    * if no custom filter was provided.
-    */
-  private object AcceptAllFilter extends DirectoryStream.Filter[Path] {
-    override def accept(entry: Path): Boolean = true
   }
 
   /**
@@ -95,7 +157,7 @@ object DirectoryStreamSource {
     * be provided when creating a source. This can be used to influence the
     * creation of directory streams.
     */
-  type StreamFactory = (Path, DirectoryStream.Filter[Path]) => DirectoryStream[Path]
+  type StreamFactory = (Path, PathFilter) => DirectoryStream[Path]
 
   /**
     * A default function for creating a ''DirectoryStream''. This function
@@ -104,19 +166,33 @@ object DirectoryStreamSource {
     * @param path the path in question
     * @return a ''DirectoryStream'' for this path
     */
-  def createDirectoryStream(path: Path, filter: DirectoryStream.Filter[Path]):
-  DirectoryStream[Path] =
+  def createDirectoryStream(path: Path, filter: PathFilter): DirectoryStream[Path] =
     Files.newDirectoryStream(path, filter)
 
   /**
+    * Returns a filter that includes only files with extensions in the set
+    * specified (ignoring case). Note: In order to support matching of file
+    * extensions ignoring case, the extensions must be provided in uppercase.
+    *
+    * @param extensions the set with the extensions to be included
+    * @return a filter which includes files with these extensions
+    */
+  def includeExtensionsFilter(extensions: Set[String]): PathFilter =
+    PathFilter { entry =>
+      extensions.contains(extractExtension(entry).toUpperCase(Locale.ROOT))
+    }
+
+  /**
     * Returns a filter that excludes files with the specified extensions from
-    * the result produced by the source.
+    * the result produced by the source. Note: In order to support matching of
+    * file extensions ignoring case, the extensions must be provided in
+    * uppercase.
     *
     * @param extensions the set with extensions to be excluded
     * @return a filter which excludes files with these extensions
     */
-  def excludeExtensionsFilter(extensions: Set[String]): DirectoryStream.Filter[Path] =
-    new ExcludeExtensionsFilter(extensions)
+  def excludeExtensionsFilter(extensions: Set[String]): PathFilter =
+    includeExtensionsFilter(extensions).negate()
 
   /**
     * Creates a ''Source'' for reading the content of a directory structure.
@@ -128,7 +204,7 @@ object DirectoryStreamSource {
     * @tparam A the type of items produced by this source
     * @return the newly created ''Source''
     */
-  def apply[A](root: Path, filter: DirectoryStream.Filter[Path] = AcceptAllFilter,
+  def apply[A](root: Path, filter: PathFilter = AcceptAllFilter,
                streamFactory: StreamFactory = createDirectoryStream)
               (f: TransformFunc[A]): Source[A, NotUsed] = {
     val dirSource = new DirectoryStreamSource[A](root, filter, streamFactory)(f)
@@ -154,7 +230,7 @@ object DirectoryStreamSource {
   * @tparam A the type of items produced by this source
   */
 class DirectoryStreamSource[A](val root: Path,
-                               val filter: DirectoryStream.Filter[Path],
+                               val filter: PathFilter,
                                streamFactory: StreamFactory)
                               (f: TransformFunc[A])
   extends GraphStage[SourceShape[A]] {
