@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.temp
 
-import java.nio.file.{DirectoryStream, Path}
+import java.nio.file.Path
 
 import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
@@ -122,7 +122,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
   import context.dispatcher
 
   /** The object to materialize streams. */
-  private implicit val materializer = ActorMaterializer()
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   /** The actor which actually removes files. */
   private var removeFileActor: ActorRef = _
@@ -160,9 +160,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
     */
   private def processTempDirectory(root: Path, generator: TempPathGenerator,
                                    dirFlag: Boolean): Future[Done] = {
-    val filter = new DirectoryStream.Filter[Path] {
-      override def accept(entry: Path): Boolean = generator isRemovableTempPath entry
-    }
+    val filter = DirectoryStreamSource.PathFilter(generator.isRemovableTempPath)
     val source = DirectoryStreamSource(root, filter)(transformByPathType(dirFlag))
     source.runForeach(_ foreach (removeFileActor ! RemoveFileActor.RemoveFile(_)))
   }

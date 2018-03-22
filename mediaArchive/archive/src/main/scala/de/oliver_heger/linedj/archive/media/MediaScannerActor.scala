@@ -207,7 +207,8 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String])
     */
   private[media] def createSource(path: Path): Source[FileData, Any] =
     DirectoryStreamSource[FileData](path,
-      filter = DirectoryStreamSource.excludeExtensionsFilter(exclusions)) { (p, d) =>
+      filter = DirectoryStreamSource.excludeExtensionsFilter(exclusions) ||
+        DirectoryStreamSource.AcceptSubdirectoriesFilter) { (p, d) =>
       FileData(p.toString, if (d) -1 else Files.size(p))
     }
 
