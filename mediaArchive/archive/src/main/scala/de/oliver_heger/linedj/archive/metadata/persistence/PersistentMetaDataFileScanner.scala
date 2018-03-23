@@ -16,20 +16,41 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.io.IOException
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 import akka.stream.ActorMaterializer
-import org.slf4j.LoggerFactory
+import akka.stream.scaladsl.Sink
+import de.oliver_heger.linedj.io.DirectoryStreamSource
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object PersistentMetaDataFileScanner {
   /** The file extension for persistent meta data files. */
-  val MetaDataFileExtension = "mdt"
+  val MetaDataFileExtension = "MDT"
 
-  /** The glob for selecting meta data files. */
-  private val MetaDataFileGlob = "*." + MetaDataFileExtension
+  /**
+    * Determines the checksum of a meta data file.
+    *
+    * @param p the path of the meta data file
+    * @return the checksum for this file
+    */
+  private def checksumFor(p: Path): String = {
+    val name = p.getFileName.toString
+    name.substring(0, name.lastIndexOf('.'))
+  }
+
+  /**
+    * The transformation function used by the directory source. Each meta data
+    * file is converted to a tuple consisting of the checksum and the path of a
+    * meta data file. Note that the ''dir'' flag is ignored because no sub
+    * directories are passed.
+    *
+    * @param p   the path to a meta data file
+    * @param dir the flag whether the path is a directory
+    * @return the transformed stream element
+    */
+  private def transformMetaDataFile(p: Path, dir: Boolean): (String, Path) =
+    (checksumFor(p), p)
 }
 
 /**
@@ -47,9 +68,6 @@ private class PersistentMetaDataFileScanner {
 
   import PersistentMetaDataFileScanner._
 
-  /** The logger. */
-  val log = LoggerFactory.getLogger(getClass)
-
   /**
     * Scans the specified directory for meta data files. All detected files are
     * returned in a map. The key of the map is the checksum of a file; the full
@@ -63,26 +81,11 @@ private class PersistentMetaDataFileScanner {
     * @return a future with a map with the results of the scan operation
     */
   def scanForMetaDataFiles(dir: Path)(implicit mat: ActorMaterializer, ec: ExecutionContext):
-  Future[Map[String, Path]] =
-    Future {
-      log.info("Scanning directory {} for mdt files.", dir)
-      val stream = Files.newDirectoryStream(dir, MetaDataFileGlob)
-
-      try {
-        import scala.collection.JavaConverters._
-        val iterator = stream.iterator().asScala
-        iterator.foldLeft(Map.empty[String, Path]) { (m, p) =>
-          val name = p.getFileName.toString
-          val checkSum = name.substring(0, name.lastIndexOf('.'))
-          m + (checkSum -> p)
-        }
-      } finally {
-        try {
-          stream.close()
-        } catch {
-          case e: IOException =>
-            log.warn("Exception when closing directory stream.", e)
-        }
-      }
-    }
+  Future[Map[String, Path]] = {
+    val source = DirectoryStreamSource(dir,
+      filter = DirectoryStreamSource
+        .includeExtensionsFilter(Set(MetaDataFileExtension)))(transformMetaDataFile)
+    val sink = Sink.fold[Map[String, Path], (String, Path)](Map.empty)(_ + _)
+    source runWith sink
+  }
 }
