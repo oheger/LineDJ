@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import java.io.IOException
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 
@@ -33,7 +34,7 @@ import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
@@ -311,6 +312,15 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! enhancedScanResult(1)
     actor ! ScanForMetaDataFiles
     helper.expectChildReaderActor().expectMsg(readerMessage(1))
+  }
+
+  it should "handle a failed future when reading meta data files" in {
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles().createTestActor()
+
+    actor ! enhancedScanResult(1)
+    expectMsgType[UnresolvedMetaDataFiles].mediumID should be(mediumID(1))
+    helper.expectNoChildReaderActor()
   }
 
   /**
@@ -681,14 +691,17 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     /**
       * Prepares the mock file scanner to return the media files derived from
-      * the passed in indices.
+      * the passed in indices. If no indices are provided, the scanner is
+      * configured to return a failed future.
       *
       * @param indices the indices
       * @return this test helper
       */
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper = {
+      val futResult = if(indices.isEmpty) Future.failed[Map[String, Path]](new IOException)
+      else Future.successful(persistentFileMapping(indices: _*))
       when(fileScanner.scanForMetaDataFiles(argEq(FilePath))(any(), any()))
-        .thenReturn(Future.successful(persistentFileMapping(indices: _*)))
+        .thenReturn(futResult)
       this
     }
 

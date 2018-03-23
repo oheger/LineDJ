@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -40,7 +41,7 @@ object PersistentMetaDataManagerActor {
     * object is returned if meta data information is requested before a scan
     * for meta data files has been triggered.
     */
-  val EmptyMetaDataFilInfo = MetaDataFileInfo(Map.empty, Set.empty)
+  val EmptyMetaDataFileInfo = MetaDataFileInfo(Map.empty, Set.empty)
 
   /**
     * A message expected by [[PersistentMetaDataManagerActor]] at the end of
@@ -48,6 +49,14 @@ object PersistentMetaDataManagerActor {
     * a scan.
     */
   case object ScanCompleted
+
+  /**
+    * A message sent by [[PersistentMetaDataManagerActor]] to itself when the
+    * map with meta data files is available.
+    *
+    * @param files the map with meta data files
+    */
+  private case class MetaDataFileResult(files: Map[String, Path])
 
   /**
     * An internally used data class that stores information about media that
@@ -155,10 +164,14 @@ object PersistentMetaDataManagerActor {
 class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
                                      metaDataUnionActor: ActorRef,
                                      private[persistence] val fileScanner:
-                                     PersistentMetaDataFileScanner) extends Actor {
+                                     PersistentMetaDataFileScanner)
+  extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import PersistentMetaDataManagerActor._
+
+  /** The object to materialize streams. */
+  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Stores information about meta data files available. The data is loaded
@@ -221,9 +234,11 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
   override def receive: Receive = {
     case ScanForMetaDataFiles =>
-      //TODO handle scanning
-      //optMetaDataFiles = Some(fileScanner scanForMetaDataFiles config.metaDataPersistencePath)
+      triggerMetaDataFileScan()
       checksumMapping = Map.empty
+
+    case MetaDataFileResult(files) =>
+      optMetaDataFiles = Some(files)
       processPendingScanResults(pendingScanResults)
 
     case res: EnhancedMediaScanResult if closeRequest.isEmpty =>
@@ -285,6 +300,22 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       mediaInProgress = Map.empty
       pendingReadRequests = Nil
       checkAndSendCloseAck(sender())
+  }
+
+  /**
+    * Invokes the file scanner to start the scan for meta data files. When
+    * the future with the scan result completes, the result is sent as a
+    * message to this actor.
+    */
+  private def triggerMetaDataFileScan(): Unit = {
+    log.info("Scanning {} for meta data files.", config.metaDataPersistencePath)
+    import context.dispatcher
+    fileScanner.scanForMetaDataFiles(config.metaDataPersistencePath)
+      .recover {
+        case e: Exception =>
+          log.error(e, "Could not read meta data files!")
+          Map.empty[String, Path]
+      } map (m => MetaDataFileResult(m)) foreach (self ! _)
   }
 
   /**
@@ -504,7 +535,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private def fetchCurrentMetaFileInfo(): MetaDataFileInfo =
     optMetaDataFiles map (createMetaDataFileInfo(_,
-      checksumMapping)) getOrElse EmptyMetaDataFilInfo
+      checksumMapping)) getOrElse EmptyMetaDataFileInfo
 
   /**
     * Creates an object with information about meta data files.
