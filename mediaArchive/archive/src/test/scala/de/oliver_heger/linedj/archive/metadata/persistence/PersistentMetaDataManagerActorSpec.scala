@@ -32,10 +32,12 @@ import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
+import org.mockito.Matchers.{any, eq => argEq}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
+import scala.concurrent.Future
 import scala.reflect.ClassTag
 
 object PersistentMetaDataManagerActorSpec {
@@ -685,8 +687,8 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       * @return this test helper
       */
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper = {
-      when(fileScanner.scanForMetaDataFiles(FilePath)).thenReturn(persistentFileMapping(indices:
-        _*))
+      when(fileScanner.scanForMetaDataFiles(argEq(FilePath))(any(), any()))
+        .thenReturn(Future.successful(persistentFileMapping(indices: _*)))
       this
     }
 

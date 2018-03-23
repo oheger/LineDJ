@@ -19,7 +19,10 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.io.IOException
 import java.nio.file.{Files, Path}
 
+import akka.stream.ActorMaterializer
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object PersistentMetaDataFileScanner {
   /** The file extension for persistent meta data files. */
@@ -50,14 +53,18 @@ private class PersistentMetaDataFileScanner {
   /**
     * Scans the specified directory for meta data files. All detected files are
     * returned in a map. The key of the map is the checksum of a file; the full
-    * path is provided as value. If an ''IOException'' occurs (which typically
-    * means that the directory does not exist), result is an empty map.
+    * path is provided as value. Scanning is done in background; therefore,
+    * result is a future. If an ''IOException'' occurs (which typically
+    * means that the directory does not exist), result is a failed future.
     *
     * @param dir the directory to be scanned
-    * @return a map with the results of the scan operation
+    * @param mat the object to materialize a directory stream
+    * @param ec the execution context
+    * @return a future with a map with the results of the scan operation
     */
-  def scanForMetaDataFiles(dir: Path): Map[String, Path] = {
-    try {
+  def scanForMetaDataFiles(dir: Path)(implicit mat: ActorMaterializer, ec: ExecutionContext):
+  Future[Map[String, Path]] =
+    Future {
       log.info("Scanning directory {} for mdt files.", dir)
       val stream = Files.newDirectoryStream(dir, MetaDataFileGlob)
 
@@ -77,10 +84,5 @@ private class PersistentMetaDataFileScanner {
             log.warn("Exception when closing directory stream.", e)
         }
       }
-    } catch {
-      case e: IOException =>
-        log.error("Could not read meta data directory: " + dir, e)
-        Map.empty[String, Path]
     }
-  }
 }

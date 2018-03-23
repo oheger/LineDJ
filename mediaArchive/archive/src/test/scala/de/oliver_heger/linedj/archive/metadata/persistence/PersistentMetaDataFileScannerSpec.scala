@@ -16,19 +16,31 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import java.io.IOException
 import java.nio.file.Paths
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 /**
   * Test class for ''PersistentMetaDataFileScanner''.
   */
-class PersistentMetaDataFileScannerSpec extends FlatSpec with BeforeAndAfter with Matchers with
+class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfter with BeforeAndAfterAll with Matchers with
   FileTestHelper {
+  def this() = this(ActorSystem("PersistentMetaDataFileScannerSpec"))
 
   after {
     tearDownTestFile()
+  }
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
   }
 
   "A PersistentMetaDataFileScanner" should "find all meta data files in a directory" in {
@@ -42,13 +54,20 @@ class PersistentMetaDataFileScannerSpec extends FlatSpec with BeforeAndAfter wit
 
     val expMap = checkSumList.zip(pathList).toMap
     val scanner = new PersistentMetaDataFileScanner
-    val fileMap = scanner scanForMetaDataFiles testDirectory
+    val futFileMap = scanner.scanForMetaDataFiles(testDirectory)(ActorMaterializer(),
+      system.dispatcher)
+    val fileMap = Await.result(futFileMap, 5.seconds)
     fileMap should contain theSameElementsAs expMap
   }
 
-  it should "return an empty map if an IO exception is thrown" in {
+  it should "return a failed futire if an IO exception is thrown" in {
+    import system.dispatcher
+    implicit val mat: ActorMaterializer = ActorMaterializer()
     val scanner = new PersistentMetaDataFileScanner
 
-    scanner.scanForMetaDataFiles(Paths get "nonExistingPath") shouldBe 'empty
+    val futFileMap = scanner.scanForMetaDataFiles(Paths get "nonExistingPath")
+    intercept[IOException] {
+      Await.result(futFileMap, 5.seconds)
+    }
   }
 }

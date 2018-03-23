@@ -221,7 +221,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
   override def receive: Receive = {
     case ScanForMetaDataFiles =>
-      optMetaDataFiles = Some(fileScanner scanForMetaDataFiles config.metaDataPersistencePath)
+      //TODO handle scanning
+      //optMetaDataFiles = Some(fileScanner scanForMetaDataFiles config.metaDataPersistencePath)
       checksumMapping = Map.empty
       processPendingScanResults(pendingScanResults)
 
