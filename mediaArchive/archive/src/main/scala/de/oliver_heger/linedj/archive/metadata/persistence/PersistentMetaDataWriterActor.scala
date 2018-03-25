@@ -247,10 +247,10 @@ private class FutureIOResultHandler {
     result match {
       case Failure(ex) =>
         log.error(ex, "Stream operation caused an exception!")
-        notifyTriggerActor(data, success = false)
+        notifyTriggerActor(data, actor, success = false)
       case Success(_) =>
         log.info("Meta data file written successfully.")
-        notifyTriggerActor(data, success = true)
+        notifyTriggerActor(data, actor, success = true)
     }
   }
 
@@ -260,9 +260,10 @@ private class FutureIOResultHandler {
     * newly written meta data files.
     *
     * @param data    the data object for the write operation
+    * @param actor   the owning actor
     * @param success a flag whether the operation was successful
     */
-  protected def notifyTriggerActor(data: MediumData, success: Boolean): Unit = {
-    data.trigger ! MetaDataWritten(data.process, success)
+  protected def notifyTriggerActor(data: MediumData, actor: ActorRef, success: Boolean): Unit = {
+    data.trigger.tell(MetaDataWritten(data.process, success), actor)
   }
 }

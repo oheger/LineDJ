@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.event.LoggingAdapter
 import akka.stream.{ActorMaterializer, IOResult}
 import akka.stream.scaladsl.{FileIO, Source}
@@ -37,7 +37,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaDat
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.{Await, Promise}
@@ -59,6 +59,15 @@ object PersistentMetaDataWriterActorSpec {
 
   /** A JSON parser used by tests. */
   private val Parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
+
+  /**
+    * A data class for storing information about a response message that has
+    * been sent to the triggering actor.
+    *
+    * @param msg    the message
+    * @param sender the sending actor
+    */
+  private case class TriggerResponse(msg: Any, sender: ActorRef)
 
   /**
     * Generates a meta data object based on the given index.
@@ -180,13 +189,16 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val promise = Promise[IOResult]()
     val actor = createTestActorRef()
     val writerActor = actor.underlyingActor
-    val mediumData = createMediumData(Some(testActor))
+    val triggerHelper = new TriggerActorTestHelper
+    val mediumData = createMediumData(triggerHelper.trigger)
 
     writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future,
-      TestProbe().ref, log, mediumData)
+      actor, log, mediumData)
     promise complete Failure(new Exception("Test exception"))
-    expectMsg(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
+    val response = triggerHelper.nextMessage()
+    response.msg should be(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
       success = false))
+    response.sender should be(actor)
   }
 
   /**
@@ -210,7 +222,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the ''IOResult''
     */
   private def createIOResult(path: Path): IOResult = {
-    implicit val mat = ActorMaterializer()
+    implicit val mat: ActorMaterializer = ActorMaterializer()
     val futureResult = Source.single(ByteString("Test")).runWith(FileIO.toPath(path))
     Await.result(futureResult, 5.seconds)
   }
@@ -236,13 +248,16 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val promise = Promise[IOResult]()
     val actor = createTestActorRef()
     val writerActor = actor.underlyingActor
-    val mediumData = createMediumData(Some(testActor))
+    val triggerHelper = new TriggerActorTestHelper
+    val mediumData = createMediumData(triggerHelper.trigger)
 
     writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future,
-      TestProbe().ref, mock[LoggingAdapter], mediumData)
+      actor, mock[LoggingAdapter], mediumData)
     promise complete Success(ioResult)
-    expectMsg(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
+    val response = triggerHelper.nextMessage()
+    response.msg should be(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
       success = true))
+    response.sender should be(actor)
   }
 
   /**
@@ -362,7 +377,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   it should "not write a file before sufficient meta data is available" in {
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("other.mdt")
-    val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"), resolvedSize = 0)
+    val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"))
     actor ! processMessage(target, OtherMedium, 0)
 
     actor ! chunk(1, BlockSize - 1, complete = false, mediumID = OtherMedium)
@@ -374,7 +389,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   it should "write a file for a chunk with complete flag set to true" in {
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("metaSmall.mdt")
-    val actor = createActorForMedium(handler, target, resolvedSize = 0)
+    val actor = createActorForMedium(handler, target)
 
     actor ! chunk(1, BlockSize - 1, complete = true)
     handler.await()
@@ -402,7 +417,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   it should "take the initial resolved count into account" in {
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("otherUnresolved.mdt")
-    val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"), resolvedSize = 0)
+    val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"))
     actor ! processMessage(target, OtherMedium, 1)
 
     actor ! chunk(1, BlockSize, complete = false, mediumID = OtherMedium)
@@ -415,7 +430,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     val handler = new TestFutureResultHandler(new CountDownLatch(2))
     val target = createPathInDirectory("metaRemoved.mdt")
     val target2 = createPathInDirectory("metaStandard.mdt")
-    val actor = createActorForMedium(handler, target, resolvedSize = 0)
+    val actor = createActorForMedium(handler, target)
     actor ! processMessage(target2, OtherMedium, resolvedSize = 0)
 
     actor ! chunk(1, 10, complete = true)
@@ -439,7 +454,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
         }
       }
     }
-    val actor = createActorForMedium(handler, target, resolvedSize = 0)
+    val actor = createActorForMedium(handler, target)
     actor ! processMessage(target2, OtherMedium, resolvedSize = 0)
 
     actor ! chunk(1, 64, complete = false)
@@ -452,7 +467,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   it should "override existing files" in {
     val target = writeFileContent(createFileReference(), FileTestHelper.TestData * 10)
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
-    val actor = createActorForMedium(handler, target, resolvedSize = 0)
+    val actor = createActorForMedium(handler, target)
 
     actor ! chunk(1, 2, complete = true)
     handler.await()
@@ -490,7 +505,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     /**
       * @inheritdoc Overrides this method to not send any messages.
       */
-    override protected def notifyTriggerActor(data: MediumData, success: Boolean): Unit = {}
+    override protected def notifyTriggerActor(data: MediumData, actor: ActorRef,
+                                              success: Boolean): Unit = {}
 
     /**
       * Executes some checks directly after the stream was written. This can be
@@ -500,6 +516,44 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       * @param data the data object for the current wirte operation
       */
     protected def performChecks(data: MediumData): Unit = {
+    }
+  }
+
+  /**
+    * A helper class to verify whether the triggering actor is invoked
+    * correctly.
+    */
+  private class TriggerActorTestHelper {
+    /** A queue for storing messages sent to the trigger actor. */
+    private val queue = new LinkedBlockingQueue[TriggerResponse]
+
+    /**
+      * An actor simulating the triggering actor. This actor just stores all
+      * messages it receives in a queue.
+      */
+    private val triggerActor = system.actorOf(Props(new Actor {
+      override def receive: Receive = {
+        case msg => queue.offer(TriggerResponse(msg, sender()))
+      }
+    }))
+
+    /**
+      * Returns an option with the trigger actor managed by this instance.
+      *
+      * @return the trigger actor option (which is always defined)
+      */
+    def trigger: Option[ActorRef] = Some(triggerActor)
+
+    /**
+      * Returns information about the next message that has been sent to the
+      * trigger actor. Fails the test if no message has been received.
+      *
+      * @return information about the next message
+      */
+    def nextMessage(): TriggerResponse = {
+      val msg = queue.poll(3, TimeUnit.SECONDS)
+      msg should not be null
+      msg
     }
   }
 
