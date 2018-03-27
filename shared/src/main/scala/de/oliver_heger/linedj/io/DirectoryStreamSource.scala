@@ -16,16 +16,19 @@
 
 package de.oliver_heger.linedj.io
 
+import java.io.IOException
 import java.nio.file.{DirectoryStream, Files, Path}
 import java.util.Locale
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import akka.stream.{Attributes, Outlet, SourceShape}
 import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
-import de.oliver_heger.linedj.io.DirectoryStreamSource.{DirectoryStreamRef, PathFilter, StreamFactory, TransformFunc}
+import akka.stream.{Attributes, Outlet, SourceShape}
+import de.oliver_heger.linedj.io.DirectoryStreamSource.{PathFilter, StreamFactory, TransformFunc}
+import scalaz.State
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 
 object DirectoryStreamSource {
   /** Constant for an undefined file extension. */
@@ -140,7 +143,27 @@ object DirectoryStreamSource {
     * @param iterator the iterator
     */
   private case class DirectoryStreamRef(stream: DirectoryStream[Path],
-                                        iterator: java.util.Iterator[Path])
+                                        iterator: java.util.Iterator[Path]) {
+    /**
+      * Closes the underlying stream ignoring all exceptions.
+      */
+    def close(): Unit = {
+      try {
+        stream.close()
+      } catch {
+        case _: IOException => // ignore
+      }
+    }
+  }
+
+  /**
+    * Case class representing the state of a BFS iteration.
+    *
+    * @param optCurrentStream option for the currently active stream
+    * @param dirsToProcess    a list with directories to be processed
+    */
+  private case class BFSState(optCurrentStream: Option[DirectoryStreamRef],
+                              dirsToProcess: Queue[Path])
 
   /**
     * Definition of the transformation function used by the source to transform
@@ -195,20 +218,73 @@ object DirectoryStreamSource {
     includeExtensionsFilter(extensions).negate()
 
   /**
-    * Creates a ''Source'' for reading the content of a directory structure.
+    * Creates a new source that returns the content of the specified root
+    * directory in BFS order.
     *
-    * @param root          the root directory to be scanned
+    * @param root          the root directory to be processed
+    * @param filter        the filter for elements encountered
+    * @param streamFactory a factory for creating directory streams
+    * @param f             the transformation function
+    * @tparam A the type of the elements produced by this source
+    * @return the new source
+    */
+  def newBFSSource[A](root: Path, filter: PathFilter = AcceptAllFilter,
+                      streamFactory: StreamFactory = createDirectoryStream)
+                     (f: TransformFunc[A]): Source[A, NotUsed] = {
+    val dirSrc = new DirectoryStreamSource[A](root, filter, streamFactory)(f) {
+      override type IterationState = BFSState
+
+      override protected val iterationFunc: State[IterationState, Option[A]] =
+        State(state => iterateBFS(filter, streamFactory, f)(state))
+
+      override protected val initialState: IterationState = BFSState(None, Queue(root))
+
+      override protected def iterationComplete(state: BFSState): Unit = {
+        state.optCurrentStream foreach (_.close())
+      }
+    }
+    Source fromGraph dirSrc
+  }
+
+  /**
+    * The iteration function for BFS traversal. This function processes
+    * directories on the current level first before sub directories are
+    * iterated over.
+    *
     * @param filter        a filter to be applied to the directory stream
     * @param streamFactory the function for creating directory streams
     * @param f             the transformation function
+    * @param state         the current state of the iteration
     * @tparam A the type of items produced by this source
-    * @return the newly created ''Source''
+    * @return a tuple with the new current directory stream, the new list of
+    *         pending directories, and the next element to emit
     */
-  def apply[A](root: Path, filter: PathFilter = AcceptAllFilter,
-               streamFactory: StreamFactory = createDirectoryStream)
-              (f: TransformFunc[A]): Source[A, NotUsed] = {
-    val dirSource = new DirectoryStreamSource[A](root, filter, streamFactory)(f)
-    Source fromGraph dirSource
+  @tailrec private def iterateBFS[A](filter: PathFilter, streamFactory: StreamFactory,
+                                     f: TransformFunc[A])(state: BFSState):
+  (BFSState, Option[A]) = {
+    state.optCurrentStream match {
+      case Some(ref) =>
+        if (ref.iterator.hasNext) {
+          val path = ref.iterator.next()
+          val isDir = Files isDirectory path
+          val elem = Some(f(path, isDir))
+          if (isDir) (BFSState(state.optCurrentStream, state.dirsToProcess enqueue path), elem)
+          else (state, elem)
+        } else {
+          ref.close()
+          iterateBFS(filter, streamFactory, f)(BFSState(None, state.dirsToProcess))
+        }
+
+      case None =>
+        state.dirsToProcess.dequeueOption match {
+          case Some((p, q)) =>
+            val stream = streamFactory(p, filter)
+            iterateBFS(filter, streamFactory, f)(BFSState(Some(DirectoryStreamRef(stream,
+              stream.iterator())), q))
+          case _ =>
+            (BFSState(None, Queue()), None)
+        }
+    }
   }
 }
 
@@ -229,78 +305,64 @@ object DirectoryStreamSource {
   * @param f      the transformation function
   * @tparam A the type of items produced by this source
   */
-class DirectoryStreamSource[A](val root: Path,
-                               val filter: PathFilter,
-                               streamFactory: StreamFactory)
-                              (f: TransformFunc[A])
+abstract class DirectoryStreamSource[A](val root: Path,
+                                        val filter: PathFilter,
+                                        streamFactory: StreamFactory)
+                                       (f: TransformFunc[A])
   extends GraphStage[SourceShape[A]] {
+
+  /** Type definition for the current state of the iteration. */
+  type IterationState
+
   val out: Outlet[A] = Outlet("DirectoryStreamSource")
 
   override def shape: SourceShape[A] = SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) {
-      /** Holds the currently processed directory stream. */
-      private var optCurrentStream: Option[DirectoryStreamRef] = None
-
-      /** The list with directories to be processed. */
-      private var dirsToProcess = List(root)
+      /** The current state of the iteration. */
+      private var currentState = initialState
 
       setHandler(out, new OutHandler {
         override def onPull(): Unit = {
-          val (optStream, pendingDirs, optElem) = iterate(optCurrentStream, dirsToProcess)
+          val (nextState, optElem) = iterationFunc(currentState)
           optElem match {
             case Some(e) =>
               push(out, e)
-              optCurrentStream = optStream
-              dirsToProcess = pendingDirs
+              currentState = nextState
             case None =>
               complete(out)
           }
         }
 
         override def onDownstreamFinish(): Unit = {
-          optCurrentStream foreach (_.stream.close())
+          iterationComplete(currentState)
           super.onDownstreamFinish()
         }
       })
     }
 
   /**
-    * The iteration function. Updates the current state of the source and
-    * returns the next element to emit if any. If the end of the iteration is
-    * reached, a ''None'' element is returned.
+    * Returns the iteration function. This function is used to obtain the next
+    * stream element based on the current state of the iteration.
     *
-    * @param optStream   option for the current directory stream
-    * @param pendingDirs a list with the directories to be processed
-    * @return a tuple with the new current directory stream, the new list of
-    *         pending directories, and the next element to emit
+    * @return the iteration function
     */
-  @tailrec private def iterate(optStream: Option[DirectoryStreamRef],
-                               pendingDirs: List[Path]):
-  (Option[DirectoryStreamRef], List[Path], Option[A]) = {
-    optStream match {
-      case Some(ref) =>
-        if (ref.iterator.hasNext) {
-          val path = ref.iterator.next()
-          val isDir = Files isDirectory path
-          val elem = Some(f(path, isDir))
-          if (isDir) (optStream, path :: pendingDirs, elem)
-          else (optStream, pendingDirs, elem)
-        } else {
-          ref.stream.close()
-          iterate(None, pendingDirs)
-        }
+  protected val iterationFunc: State[IterationState, Option[A]]
 
-      case None =>
-        pendingDirs match {
-          case h :: t =>
-            val stream = streamFactory(h, filter)
-            iterate(Some(DirectoryStreamRef(stream, stream.iterator())), t)
-          case _ =>
-            (None, Nil, None)
-        }
-    }
-  }
+  /**
+    * Returns the initial state of the iteration. This value is obtained during
+    * initialization.
+    *
+    * @return the initial state of the iteration
+    */
+  protected def initialState: IterationState
+
+  /**
+    * Callback function to indicate that stream processing is now finished. A
+    * concrete implementation should free all resources that are still in use.
+    *
+    * @param state the current iteration state
+    */
+  protected def iterationComplete(state: IterationState): Unit
 }
-

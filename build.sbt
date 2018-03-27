@@ -24,6 +24,7 @@ lazy val AkkaVersion = "2.5.8"
 lazy val AkkaHttpVersion = "10.0.10"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.4"
+lazy val VersionScalaz = "7.2.20"
 lazy val VersionScalaTest = "3.0.4"
 lazy val VersionJetty = "9.4.2.v20170220"
 
@@ -89,6 +90,7 @@ lazy val shared = (project in file("shared"))
   .settings(osgiSettings: _*)
   .settings(
     name := "linedj-shared",
+    libraryDependencies += "org.scalaz" %% "scalaz-core" % VersionScalaz,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
     OsgiKeys.privatePackage := Seq.empty
   )

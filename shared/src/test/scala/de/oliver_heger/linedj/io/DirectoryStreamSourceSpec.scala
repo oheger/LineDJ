@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.io
 
+import java.io.IOException
 import java.nio.file.{DirectoryStream, Files, Path}
 import java.util
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
@@ -152,11 +153,11 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     *
     * @return a tuple with the queue and the factory
     */
-  private def createStreamWrapperFactory(): (BlockingQueue[DirectoryStreamWrapper],
-    DirectoryStreamSource.StreamFactory) = {
+  private def createStreamWrapperFactory(failOnClose: Boolean = false):
+  (BlockingQueue[DirectoryStreamWrapper], DirectoryStreamSource.StreamFactory) = {
     val queue = new LinkedBlockingQueue[DirectoryStreamWrapper]
     val factory: DirectoryStreamSource.StreamFactory = (p, f) => {
-      val stream = new DirectoryStreamWrapper(Files.newDirectoryStream(p, f))
+      val stream = new DirectoryStreamWrapper(Files.newDirectoryStream(p, f), failOnClose)
       queue offer stream
       stream
     }
@@ -180,7 +181,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   "A DirectoryStreamSource" should "return all files in the scanned directory structure" in {
     val fileData = setUpDirectoryStructure()
     val allFiles = fileData.values.flatten.toSeq
-    val source = DirectoryStreamSource(testDirectory)(transFunc)
+    val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
     val (_, files) = splitDirs(runSource(source))
 
     files map (_.path) should contain only (allFiles: _*)
@@ -188,7 +189,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "return all directories in the scanned directory structure" in {
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource(testDirectory)(transFunc)
+    val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
 
     val (directories, _) = splitDirs(runSource(source))
     val expDirs = fileData.keySet - testDirectory
@@ -197,7 +198,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "support suppressing files with specific extensions" in {
     setUpDirectoryStructure()
-    val source = DirectoryStreamSource(testDirectory,
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
       filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
         DirectoryStreamSource.excludeExtensionsFilter(Set("TXT")))(transFunc)
     val (_, files) = splitDirs(runSource(source))
@@ -209,7 +210,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "scan directories even if suppressed by file exclusion filter" in {
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource(testDirectory,
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
       filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
         DirectoryStreamSource.excludeExtensionsFilter(Set("TXT", "")))(transFunc)
 
@@ -220,7 +221,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "support an inclusion filter for file extensions" in {
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource(testDirectory,
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
       filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
         DirectoryStreamSource.includeExtensionsFilter(Set("MP3")))(transFunc)
     val (_, files) = splitDirs(runSource(source))
@@ -235,7 +236,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val includeFilter = DirectoryStreamSource.includeExtensionsFilter(Set("MP3"))
     val combinedFilter = nameFilter && includeFilter
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource(testDirectory,
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
       filter = combinedFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter)(transFunc)
     val (_, files) = splitDirs(runSource(source))
 
@@ -246,7 +247,8 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   it should "close all directory streams it creates" in {
     setUpDirectoryStructure()
     val (queue, factory) = createStreamWrapperFactory()
-    val source = DirectoryStreamSource(testDirectory, streamFactory = factory)(transFunc)
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
+      streamFactory = factory)(transFunc)
 
     runSource(source)
     queue.isEmpty shouldBe false
@@ -258,7 +260,8 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val Count = 32
     (1 to Count).foreach(i => createFile(testDirectory, s"test$i.txt"))
     val (queue, factory) = createStreamWrapperFactory()
-    val source = DirectoryStreamSource(testDirectory, streamFactory = factory)(transFunc)
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
+      streamFactory = factory)(transFunc)
     val srcDelay = source.delay(1.second, DelayOverflowStrategy.backpressure)
     val (killSwitch, futSrc) = srcDelay
       .viaMat(KillSwitches.single)(Keep.right)
@@ -271,6 +274,34 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     result.size should be < Count
     streamWrapper.closed shouldBe true
     checkAllStreamsClosed(queue)
+  }
+
+  it should "ignore exceptions when closing directory streams" in {
+    setUpDirectoryStructure()
+    val (queue, factory) = createStreamWrapperFactory(failOnClose = true)
+    val source = DirectoryStreamSource.newBFSSource(testDirectory,
+      streamFactory = factory)(transFunc)
+
+    runSource(source)
+    queue.isEmpty shouldBe false
+    checkAllStreamsClosed(queue)
+  }
+
+  it should "support iteration in BFS order" in {
+    @tailrec def calcLevel(p: Path, dist: Int): Int =
+      if (testDirectory == p) dist
+      else calcLevel(p.getParent, dist + 1)
+
+    def level(p: Path): Int = calcLevel(p, 0)
+
+    setUpDirectoryStructure()
+    val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
+    val paths = runSource(source).reverse
+    val pathLevels = paths map (d => level(d.path))
+    pathLevels.foldLeft(0)((last, cur) => {
+      last should be <= cur
+      cur
+    })
   }
 }
 
@@ -285,11 +316,13 @@ case class PathData(path: Path, isDir: Boolean)
 
 /**
   * A wrapper around a directory stream to verify that the stream is correctly
-  * closed.
+  * closed and to test exception handling.
   *
-  * @param stream the stream to be wrapped
+  * @param stream      the stream to be wrapped
+  * @param failOnClose flag whether the close operation should throw
   */
-class DirectoryStreamWrapper(stream: DirectoryStream[Path]) extends DirectoryStream[Path] {
+class DirectoryStreamWrapper(stream: DirectoryStream[Path], failOnClose: Boolean)
+  extends DirectoryStream[Path] {
   /** Stores a flag whether the stream was closed. */
   var closed = false
 
@@ -298,5 +331,7 @@ class DirectoryStreamWrapper(stream: DirectoryStream[Path]) extends DirectoryStr
   override def close(): Unit = {
     stream.close()
     closed = true
+    if (failOnClose)
+      throw new IOException("Test exception!")
   }
 }
