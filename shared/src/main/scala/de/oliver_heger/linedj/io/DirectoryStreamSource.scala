@@ -29,6 +29,8 @@ import scalaz.State
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
+import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 object DirectoryStreamSource {
   /** Constant for an undefined file extension. */
@@ -166,6 +168,14 @@ object DirectoryStreamSource {
                               dirsToProcess: Queue[Path])
 
   /**
+    * Case class representing the state of a DFS iteration.
+    *
+    * @param streams a stack with all directory streams that are currently
+    *                processed
+    */
+  private case class DFSState(streams: List[DirectoryStreamRef])
+
+  /**
     * Definition of the transformation function used by the source to transform
     * a ''Path'' into the desired target type. The function receives the path
     * and a flag whether it is a directory. It has to create a corresponding
@@ -247,6 +257,39 @@ object DirectoryStreamSource {
   }
 
   /**
+    * Creates a new source that returns the content of the specified root
+    * directory in BFS order.
+    *
+    * @param root          the root directory to be processed
+    * @param filter        the filter for elements encountered
+    * @param streamFactory a factory for creating directory streams
+    * @param f             the transformation function
+    * @tparam A the type of the elements produced by this source
+    * @return the new source
+    */
+  def newDFSSource[A](root: Path, filter: PathFilter = AcceptAllFilter,
+                      streamFactory: StreamFactory = createDirectoryStream)
+                     (f: TransformFunc[A]): Source[A, NotUsed] =
+    Try {
+      new DirectoryStreamSource[A](root, filter, streamFactory)(f) {
+        override type IterationState = DFSState
+
+        override protected val iterationFunc: State[IterationState, Option[A]] =
+          State(state => iterateDFS(filter, streamFactory, f)(state))
+
+        override protected val initialState: IterationState =
+          DFSState(List(createStreamRef(root, streamFactory, filter)))
+
+        override protected def iterationComplete(state: DFSState): Unit = {
+          state.streams foreach (_.close())
+        }
+      }
+    } match {
+      case Success(src) => Source fromGraph src
+      case Failure(e) => Source.failed(e)
+    }
+
+  /**
     * The iteration function for BFS traversal. This function processes
     * directories on the current level first before sub directories are
     * iterated over.
@@ -278,13 +321,62 @@ object DirectoryStreamSource {
       case None =>
         state.dirsToProcess.dequeueOption match {
           case Some((p, q)) =>
-            val stream = streamFactory(p, filter)
-            iterateBFS(filter, streamFactory, f)(BFSState(Some(DirectoryStreamRef(stream,
-              stream.iterator())), q))
+            iterateBFS(filter, streamFactory, f)(BFSState(Some(createStreamRef(p, streamFactory,
+              filter)), q))
           case _ =>
             (BFSState(None, Queue()), None)
         }
     }
+  }
+
+  /**
+    * The iteration function for DFS traversal. This function processes
+    * sub directories first before it continues with the iteration of the
+    * current directory.
+    *
+    * @param filter        a filter to be applied to the directory stream
+    * @param streamFactory the function for creating directory streams
+    * @param f             the transformation function
+    * @param state         the current state of the iteration
+    * @tparam A the type of items produced by this source
+    * @return a tuple with the new current directory stream, the new list of
+    *         pending directories, and the next element to emit
+    */
+  @tailrec private def iterateDFS[A](filter: PathFilter, streamFactory: StreamFactory,
+                                     f: TransformFunc[A])(state: DFSState):
+  (DFSState, Option[A]) = {
+    state.streams match {
+      case h :: t =>
+        if (h.iterator.hasNext) {
+          val path = h.iterator.next()
+          val isDir = Files isDirectory path
+          val elem = Some(f(path, isDir))
+          if (isDir) (DFSState(createStreamRef(path, streamFactory, filter) :: state.streams), elem)
+          else (state, elem)
+        } else {
+          h.close()
+          iterateDFS(filter, streamFactory, f)(DFSState(t))
+        }
+
+      case _ =>
+        (DFSState(Nil), None)
+    }
+  }
+
+
+  /**
+    * Uses the specified ''StreamFactory'' to create a ''DirectoryStreamRef''
+    * for the specified path.
+    *
+    * @param p       the path
+    * @param factory the ''StreamFactory''
+    * @param filter  the filter
+    * @return the new ''DirectoryStreamRef''
+    */
+  private def createStreamRef(p: Path, factory: StreamFactory, filter: PathFilter):
+  DirectoryStreamRef = {
+    val stream = factory(p, filter)
+    DirectoryStreamRef(stream, stream.iterator())
   }
 }
 
@@ -293,9 +385,17 @@ object DirectoryStreamSource {
   *
   * This source generates items for all files and directories below a given
   * root folder. A transformation function can be specified to transform the
-  * encountered ''Path'' objects to a target type. The order in which elements
-  * are visited is not specified. Note that the root directory itself is not
-  * part of the output of this source.
+  * encountered ''Path'' objects to a target type. It is also possible to
+  * specify a filter to control which items are to be processed; that way it is
+  * possible for instance to limit the iteration to a single directory only or
+  * to specific sub directories or files. Note that the root directory itself
+  * is not part of the output of this source.
+  *
+  * There are factory methods for creating instances of this source that return
+  * elements in a specific order. In BFS mode all directories on a specific
+  * level are processed first before sub directories are handled. In DFS mode
+  * iteration navigates to sub directories first before it continues with the
+  * current directory.
   *
   * This source makes use of the ''DirectoryStream'' API from Java nio. It
   * thus uses blocking operations.

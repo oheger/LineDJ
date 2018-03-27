@@ -17,20 +17,20 @@
 package de.oliver_heger.linedj.io
 
 import java.io.IOException
-import java.nio.file.{DirectoryStream, Files, Path}
+import java.nio.file.{DirectoryStream, Files, NoSuchFileException, Path}
 import java.util
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, DelayOverflowStrategy, KillSwitches}
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.{ActorMaterializer, DelayOverflowStrategy, KillSwitches}
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
   * Test class for ''DirectoryStreamSource''.
@@ -80,6 +80,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val rootFiles = List(createFile(testDirectory, "test.txt"),
       createFile(testDirectory, "noMedium1.mp3"))
     val dir1 = createDir(testDirectory, "medium1")
+    val dir2 = createDir(testDirectory, "medium2")
     val dir1Files = List(
       createFile(dir1, "noMedium2.mp3"),
       createFile(dir1, "README.TXT"),
@@ -92,9 +93,15 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
       createFile(sub1Sub, "medium1Song3.mp3"))
     val sub2 = createDir(dir1, "anotherSub")
     val sub2Files = List(createFile(sub2, "song.mp3"))
+    val dir2Files = List(
+      createFile(dir2, "medium2Song1.mp3"),
+      createFile(dir2, "medium2Song2.mp3")
+    )
+    val sub3 = createDir(dir2, "medium2Sub")
+    val sub3Files = List(createFile(sub3, "medium2Song3.mp3"))
 
     Map(testDirectory -> rootFiles, dir1 -> dir1Files, sub1 -> sub1Files, sub1Sub ->
-      sub1SubFiles, sub2 -> sub2Files)
+      sub1SubFiles, sub2 -> sub2Files, dir2 -> dir2Files, sub3 -> sub3Files)
   }
 
   /**
@@ -131,9 +138,20 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @return a sequence with the paths produced by the source
     */
   private def runSource(source: Source[PathData, Any]): Seq[PathData] = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
-    val futRun = source.runWith(foldSink())
+    val futRun: Future[List[PathData]] = obtainSourceFuture(source)
     Await.result(futRun, 5.seconds)
+  }
+
+  /**
+    * Executes the test source on a directory structure and returns the
+    * resulting future.
+    *
+    * @param source the source to be run
+    * @return the future with the result of the execution
+    */
+  private def obtainSourceFuture(source: Source[PathData, Any]): Future[List[PathData]] = {
+    implicit val mat: ActorMaterializer = ActorMaterializer()
+    source.runWith(foldSink())
   }
 
   /**
@@ -178,7 +196,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     }
   }
 
-  "A DirectoryStreamSource" should "return all files in the scanned directory structure" in {
+  "A DirectoryStreamSource" should "return all files in the scanned BFS directory structure" in {
     val fileData = setUpDirectoryStructure()
     val allFiles = fileData.values.flatten.toSeq
     val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
@@ -187,9 +205,27 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     files map (_.path) should contain only (allFiles: _*)
   }
 
-  it should "return all directories in the scanned directory structure" in {
+  it should "return all directories in the scanned BFS directory structure" in {
     val fileData = setUpDirectoryStructure()
     val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
+
+    val (directories, _) = splitDirs(runSource(source))
+    val expDirs = fileData.keySet - testDirectory
+    directories.map(_.path) should contain only (expDirs.toSeq: _*)
+  }
+
+  it should "return all files in the scanned DFS directory structure" in {
+    val fileData = setUpDirectoryStructure()
+    val allFiles = fileData.values.flatten.toSeq
+    val source = DirectoryStreamSource.newDFSSource(testDirectory)(transFunc)
+    val (_, files) = splitDirs(runSource(source))
+
+    files map (_.path) should contain only (allFiles: _*)
+  }
+
+  it should "return all directories in the scanned DFS directory structure" in {
+    val fileData = setUpDirectoryStructure()
+    val source = DirectoryStreamSource.newDFSSource(testDirectory)(transFunc)
 
     val (directories, _) = splitDirs(runSource(source))
     val expDirs = fileData.keySet - testDirectory
@@ -221,7 +257,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "support an inclusion filter for file extensions" in {
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource.newBFSSource(testDirectory,
+    val source = DirectoryStreamSource.newDFSSource(testDirectory,
       filter = DirectoryStreamSource.AcceptSubdirectoriesFilter ||
         DirectoryStreamSource.includeExtensionsFilter(Set("MP3")))(transFunc)
     val (_, files) = splitDirs(runSource(source))
@@ -236,7 +272,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val includeFilter = DirectoryStreamSource.includeExtensionsFilter(Set("MP3"))
     val combinedFilter = nameFilter && includeFilter
     val fileData = setUpDirectoryStructure()
-    val source = DirectoryStreamSource.newBFSSource(testDirectory,
+    val source = DirectoryStreamSource.newDFSSource(testDirectory,
       filter = combinedFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter)(transFunc)
     val (_, files) = splitDirs(runSource(source))
 
@@ -244,10 +280,21 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     files.map(_.path) should contain only (expFiles: _*)
   }
 
-  it should "close all directory streams it creates" in {
+  it should "close all directory streams it creates in BFS order" in {
     setUpDirectoryStructure()
     val (queue, factory) = createStreamWrapperFactory()
     val source = DirectoryStreamSource.newBFSSource(testDirectory,
+      streamFactory = factory)(transFunc)
+
+    runSource(source)
+    queue.isEmpty shouldBe false
+    checkAllStreamsClosed(queue)
+  }
+
+  it should "close all directory streams it creates in DFS order" in {
+    setUpDirectoryStructure()
+    val (queue, factory) = createStreamWrapperFactory()
+    val source = DirectoryStreamSource.newDFSSource(testDirectory,
       streamFactory = factory)(transFunc)
 
     runSource(source)
@@ -276,10 +323,21 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     checkAllStreamsClosed(queue)
   }
 
-  it should "ignore exceptions when closing directory streams" in {
+  it should "ignore exceptions when closing directory streams in BFS order" in {
     setUpDirectoryStructure()
     val (queue, factory) = createStreamWrapperFactory(failOnClose = true)
     val source = DirectoryStreamSource.newBFSSource(testDirectory,
+      streamFactory = factory)(transFunc)
+
+    runSource(source)
+    queue.isEmpty shouldBe false
+    checkAllStreamsClosed(queue)
+  }
+
+  it should "ignore exceptions when closing directory streams in DFS order" in {
+    setUpDirectoryStructure()
+    val (queue, factory) = createStreamWrapperFactory(failOnClose = true)
+    val source = DirectoryStreamSource.newDFSSource(testDirectory,
       streamFactory = factory)(transFunc)
 
     runSource(source)
@@ -302,6 +360,49 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
       last should be <= cur
       cur
     })
+  }
+
+  it should "handle a non existing root directory in BFS mode" in {
+    val source = DirectoryStreamSource
+      .newBFSSource(createPathInDirectory("nonExisting"))(transFunc)
+
+    intercept[NoSuchFileException] {
+      runSource(source)
+    }
+  }
+
+  it should "support iteration in DFS order" in {
+    @tailrec def mapToMedium(p: Path): Int =
+      if(testDirectory == p) 0
+      else if("medium1" == p.getFileName.toString) 1
+      else if("medium2" == p.getFileName.toString) 2
+      else mapToMedium(p.getParent)
+
+    def filterMedium(p: Path): Boolean = {
+      val medium = mapToMedium(p)
+      medium == 1 || medium == 2
+    }
+
+    setUpDirectoryStructure()
+    val source = DirectoryStreamSource.newDFSSource(testDirectory)(transFunc)
+    val mediumIndices = runSource(source)
+        .map(_.path)
+        .filter(filterMedium)
+        .map(mapToMedium)
+      .reverse
+    val (mediumChanges, _) = mediumIndices.foldLeft((0, 0))((s, e) =>
+      if(s._2 == e) s else (s._1 + 1, e))
+    // all songs of a medium should be listed in a series
+    mediumChanges should be(2)
+  }
+
+  it should "handle a non existing root directory in DFS mode" in {
+    val source = DirectoryStreamSource
+      .newDFSSource(createPathInDirectory("nonExisting"))(transFunc)
+
+    intercept[NoSuchFileException] {
+      runSource(source)
+    }
   }
 }
 
