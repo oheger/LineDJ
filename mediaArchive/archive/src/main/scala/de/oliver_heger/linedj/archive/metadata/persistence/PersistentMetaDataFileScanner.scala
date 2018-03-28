@@ -82,7 +82,7 @@ private class PersistentMetaDataFileScanner {
     */
   def scanForMetaDataFiles(dir: Path)(implicit mat: ActorMaterializer, ec: ExecutionContext):
   Future[Map[String, Path]] = {
-    val source = DirectoryStreamSource(dir,
+    val source = DirectoryStreamSource.newBFSSource(dir,
       filter = DirectoryStreamSource
         .includeExtensionsFilter(Set(MetaDataFileExtension)))(transformMetaDataFile)
     val sink = Sink.fold[Map[String, Path], (String, Path)](Map.empty)(_ + _)

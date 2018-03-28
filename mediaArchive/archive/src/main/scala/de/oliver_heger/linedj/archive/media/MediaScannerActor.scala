@@ -206,7 +206,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String])
     * @return the source for scanning this structure
     */
   private[media] def createSource(path: Path): Source[FileData, Any] =
-    DirectoryStreamSource[FileData](path,
+    DirectoryStreamSource.newBFSSource[FileData](path,
       filter = DirectoryStreamSource.excludeExtensionsFilter(exclusions) ||
         DirectoryStreamSource.AcceptSubdirectoriesFilter) { (p, d) =>
       FileData(p.toString, if (d) -1 else Files.size(p))
