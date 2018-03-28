@@ -161,7 +161,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
   private def processTempDirectory(root: Path, generator: TempPathGenerator,
                                    dirFlag: Boolean): Future[Done] = {
     val filter = DirectoryStreamSource.PathFilter(generator.isRemovableTempPath)
-    val source = DirectoryStreamSource(root, filter)(transformByPathType(dirFlag))
+    val source = DirectoryStreamSource.newDFSSource(root, filter)(transformByPathType(dirFlag))
     source.runForeach(_ foreach (removeFileActor ! RemoveFileActor.RemoveFile(_)))
   }
 }
