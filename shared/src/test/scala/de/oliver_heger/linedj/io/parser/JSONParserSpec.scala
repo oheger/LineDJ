@@ -55,7 +55,7 @@ object JSONParserSpec {
     val input1 = JsonText.substring(0, split)
     val input2 = JsonText.substring(split)
     ParserImpl.runChunk(jsonParser)(input1, lastChunk = false) match {
-      case f@Failure(err, com, data) =>
+      case f@Failure(_, _, _) =>
         ParserImpl.runChunk(jsonParser)(input2, lastChunk = true, optFailure = Some(f))
       case s => s
     }
@@ -73,7 +73,7 @@ class JSONParserSpec extends FlatSpec with Matchers {
   "A JSONParser" should "parse a JSON string" in {
     val result = ParserImpl.runChunk(jsonParser)(JsonText, lastChunk = true)
 
-    result shouldBe a[Success[JSONData]]
+    result shouldBe a[Success[_]]
     val songList = result.asInstanceOf[Success[JSONData]].get
     songList should have size 2
     val song1 = songList.head
