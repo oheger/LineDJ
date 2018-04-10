@@ -16,123 +16,63 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Path
+import java.util.Locale
 
-import akka.actor.ActorLogging
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{KillSwitch, KillSwitches}
+import akka.actor.{ActorLogging, ActorRef, Props}
+import akka.pattern.ask
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
+import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
+import akka.util.Timeout
+import de.oliver_heger.linedj.io.DirectoryStreamSource
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
-import de.oliver_heger.linedj.io.{DirectoryStreamSource, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.utils.ChildActorFactory
 
-import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.concurrent.duration._
 
 /**
   * Companion object.
   */
 object MediaScannerActor {
-  /** The file separator character. */
-  private val FileSeparator = System.getProperty("file.separator")
-
   /** Constant for the extension for medium description files. */
   private val SettingsExtension = ".settings"
 
-  /**
-    * Determines the path prefix of a medium description file. This is the
-    * directory which contains the description file as string.
-    *
-    * @param descFile the path to the description file
-    * @return the prefix for this description file
-    */
-  private def descriptionPrefix(descFile: Path): String =
-    descFile.getParent.toString
+  /** The extension for settings files to be used in filter expressions. */
+  private val SettingsExtFilter = "SETTINGS"
 
   /**
-    * Checks whether the specified file is a medium settings file.
+    * Returns a ''Props'' object to create an instance of this actor class.
+    *
+    * @param archiveName      the name of the media archive
+    * @param exclusions       a set of file extensions to exclude
+    * @param inclusions       a set of file extensions to include
+    * @param maxBufSize       the size of internal buffers for aggregated results
+    * @param mediumInfoParser the actor for parsing medium info files
+    * @return a ''Props'' object to create an instance
+    */
+  def apply(archiveName: String, exclusions: Set[String], inclusions: Set[String],
+            maxBufSize: Int, mediumInfoParser: ActorRef): Props =
+    Props(classOf[MediaScannerActorImpl], archiveName, exclusions, inclusions, maxBufSize,
+      mediumInfoParser)
+
+  /**
+    * The mapping function from a stream failure to a corresponding message.
+    *
+    * @param ex the exception that occurred during stream processing
+    * @return the corresponding error message
+    */
+  private def mapException(ex: Throwable): Any = ScanSinkActor.StreamFailure(ex)
+
+  /**
+    * Checks whether the specified path is a medium settings file.
     *
     * @param file the file to be checked
     * @return a flag whether this is a settings file
     */
-  private def isSettingsFile(file: FileData): Boolean =
-    file.path.toString endsWith SettingsExtension
-
-  /**
-    * Creates a ''MediaScanResult'' object from the sequence of
-    * ''FileData'' objects obtained during the scan operation.
-    *
-    * @param root        the root path
-    * @param fileData    the files detected during the scan operation
-    * @param archiveName the name of the archive component
-    * @return the ''MediaScanResult''
-    */
-  private def createScanResult(root: Path, fileData: Seq[FileData], archiveName: String):
-  MediaScanResult = {
-    val (descriptions, files) = fileData partition isSettingsFile
-    MediaScanResult(root, createResultMap(descriptions.map(p => Paths get p.path).toList,
-      files.toList, root.toString, archiveName))
-  }
-
-  /**
-    * Creates the map with result data for a scan operation. As the scanner only
-    * returns a list with all media files and a list with all medium description
-    * files, a transformation has to take place in order to create the map with
-    * all results.
-    *
-    * @param mediumDescriptions the list with the medium description files
-    * @param mediaFiles         the list with all files
-    * @param mediumURI          the URI for the medium
-    * @param archiveName the name of the media archive
-    * @return the result map
-    */
-  private def createResultMap(mediumDescriptions: List[Path], mediaFiles: List[FileData],
-                              mediumURI: String, archiveName: String):
-  Map[MediumID, List[FileData]] = {
-    val sortedDescriptions = mediumDescriptions sortWith (descriptionPrefix(_) >
-      descriptionPrefix(_))
-    val start = (mediaFiles, Map.empty[MediumID, List[FileData]])
-    val end = sortedDescriptions.foldLeft(start) { (state, path) =>
-      val partition = findFilesForDescription(path, state._1)
-      (partition._2, state._2 +
-        (MediumID.fromDescriptionPath(path, archiveName) -> partition._1))
-    }
-
-    if (end._1.isEmpty) end._2
-    else {
-      end._2 + (MediumID(mediumURI, None, archiveName) -> end._1)
-    }
-  }
-
-  /**
-    * Finds all files which belong to the given medium description file. All
-    * such files are contained in the first list of the returned tuple. The
-    * second list contains the remaining files.
-    *
-    * @param desc       the path to the description file
-    * @param mediaFiles the list with all media files
-    * @return a partition with the files for this description and the remaining
-    *         files
-    */
-  private def findFilesForDescription(desc: Path, mediaFiles: List[FileData]): (List[FileData],
-    List[FileData]) = {
-    val prefix = descriptionPrefix(desc)
-    val len = prefix.length
-    mediaFiles partition (f => belongsToMedium(prefix, len, f.path))
-  }
-
-  /**
-    * Checks whether the specified path belongs to a specific medium. The prefix
-    * URI for this medium is specified. This method checks whether the path
-    * starts with this prefix, but is a real sub directory. (Files in the same
-    * directory in which the medium description file is located are not
-    * considered to belong to this medium.)
-    *
-    * @param prefix    the prefix for the medium
-    * @param prefixLen the length of the prefix
-    * @param path      the path to be checked
-    * @return a flag whether this path belongs to this medium
-    */
-  private def belongsToMedium(prefix: String, prefixLen: Int, path: String): Boolean =
-    path.startsWith(prefix) && path.lastIndexOf(FileSeparator) > prefixLen
+  private def isSettingsFile(file: Path): Boolean =
+    file.toString endsWith SettingsExtension
 
   /**
     * A message received by ''MediaScannerActor'' telling it to scan a
@@ -145,6 +85,15 @@ object MediaScannerActor {
   case class ScanPath(path: Path, seqNo: Int)
 
   /**
+    * A message sent by ''MediaScannerActor'' after the completion of a scan
+    * operation. When this message arrives the caller can be sure that no more
+    * scan results will come in.
+    *
+    * @param request the original ''ScanPath'' request
+    */
+  case class PathScanCompleted(request: ScanPath)
+
+  /**
     * A message sent by [[MediaScannerActor]] as result for a scan request.
     * The message contains a [[MediaScanResult]] with all the files that have
     * been found during the scan operation.
@@ -154,6 +103,12 @@ object MediaScannerActor {
     */
   case class ScanPathResult(request: ScanPath, result: MediaScanResult)
 
+  private class MediaScannerActorImpl(archiveName: String, exclusions: Set[String],
+                                      inclusions: Set[String], maxBufSize: Int,
+                                      mediumInfoParser: ActorRef)
+    extends MediaScannerActor(archiveName, exclusions, inclusions, maxBufSize,
+      mediumInfoParser) with ChildActorFactory
+
 }
 
 /**
@@ -161,19 +116,26 @@ object MediaScannerActor {
   * directories and files.
   *
   * This actor implementation uses a [[DirectoryStreamSource]] to scan a folder
-  * structure. From all encountered files (that are accepted by the exclusion
-  * filter) a [[MediaScanResult]] is generated and sent back to the caller.
+  * structure. The files encountered in this structure are aggregated to
+  * [[EnhancedMediaScanResult]] objects. Also, medium description files are
+  * parsed. From this information combined result objects are created and
+  * passed to the calling actor.
   *
   * All ongoing scan operations can be canceled by sending the actor a
   * ''CancelStreams'' message. The actor does not send a response on this
   * message, but for all ongoing scan operations result messages are generated
   * (with the files encountered until the operation was canceled).
   *
-  * @param archiveName the name of the media archive
-  * @param exclusions the set of file extensions to exclude
+  * @param archiveName      the name of the media archive
+  * @param exclusions       a set of file extensions to exclude
+  * @param inclusions       a set of file extensions to include
+  * @param maxBufSize       the size of internal buffers for aggregated results
+  * @param mediumInfoParser the actor for parsing medium info files
   */
-class MediaScannerActor(archiveName: String, exclusions: Set[String])
+class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions: Set[String],
+                        maxBufSize: Int, mediumInfoParser: ActorRef)
   extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport {
+  this: ChildActorFactory =>
 
   import MediaScannerActor._
 
@@ -188,15 +150,18 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String])
     * @param req the request to be handled
     */
   private def handleScanRequest(req: ScanPath): Unit = {
+    val promiseDone = Promise[Unit]()
+    val sinkActor = createChildActor(Props(classOf[ScanSinkActor], sender(), promiseDone,
+      maxBufSize))
     val source = createSource(req.path)
-    val (ks, futStream) = runStream(source)
-    processStreamResult(futStream map { s =>
-      ScanPathResult(req, createScanResult(req.path, s, archiveName))
+    val ks = runStream(source, req.path, sinkActor)
+    processStreamResult(promiseDone.future map { _ =>
+      PathScanCompleted(req)
     }, ks) { f =>
-      log.error(f.exception, "Ignoring media path " + req.path)
-      ScanPathResult(req, MediaScanResult(req.path, Map.empty))
+      log.error(f.exception, "Error when scanning media path " + req.path)
+      PathScanCompleted(req)
     }
-    log.info("Started scan operation for " + req.path)
+    log.info("Started scan operation for {}.", req.path)
   }
 
   /**
@@ -205,29 +170,75 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String])
     * @param path the root of the file structure to be scanned
     * @return the source for scanning this structure
     */
-  private[media] def createSource(path: Path): Source[FileData, Any] =
-    DirectoryStreamSource.newBFSSource[FileData](path,
-      filter = DirectoryStreamSource.excludeExtensionsFilter(exclusions) ||
-        DirectoryStreamSource.AcceptSubdirectoriesFilter) { (p, d) =>
-      FileData(p.toString, if (d) -1 else Files.size(p))
-    }
+  private[media] def createSource(path: Path): Source[Path, Any] =
+    DirectoryStreamSource.newDFSSource[(Path, Boolean)](path,
+      filter = createFilter()) { (p, d) =>
+      (p, d)
+    }.filterNot(_._2)
+      .map(_._1)
 
   /**
     * Executes a stream with the provided source and returns a sequence of
     * ''FileData'' objects for all the files encountered and an object to
     * cancel the stream.
     *
-    * @param source the source
+    * @param source    the source
+    * @param root      the root path to be scanned
+    * @param sinkActor the actor serving as sink
     * @return a tuple with with a kill switch and the future result of stream
     *         processing
     */
-  private[media] def runStream(source: Source[FileData, Any]):
-  (KillSwitch, Future[Seq[FileData]]) = {
-    val sink: Sink[FileData, Future[List[FileData]]] =
-      Sink.fold(List.empty[FileData])((lst, e) => e :: lst)
-    source.filterNot(_.size < 0)
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(sink)(Keep.both)
-      .run()
+  private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
+  KillSwitch = {
+    implicit val infoParseTimeout: Timeout = Timeout(1.minute)
+    val sinkScanResults = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
+      ScanSinkActor.Ack, ScanSinkActor.ScanResultsComplete, mapException)
+    val sinkInfo = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
+      ScanSinkActor.Ack, ScanSinkActor.MediaInfoComplete, mapException)
+    val ks = KillSwitches.single[Path]
+    val g = RunnableGraph.fromGraph(GraphDSL.create(ks) { implicit builder =>
+      ks =>
+        import GraphDSL.Implicits._
+        val broadcast = builder.add(Broadcast[Path](2))
+        val aggregate = new MediumAggregateStage(root, archiveName)
+        val enhance = Flow[MediaScanResult].map(ScanResultEnhancer.enhance)
+        val filterSettings = Flow[Path].filter(isSettingsFile)
+        val parseRequest = Flow[Path].map(parseMediumInfoRequest)
+        val parseInfo = Flow[MediumInfoParserActor.ParseMediumInfo].mapAsync(1) {
+          r =>
+            (mediumInfoParser ? r).mapTo[MediumInfoParserActor.ParseMediumInfoResult]
+              .map(_.info)
+        }
+        source ~> ks ~> broadcast.in
+        broadcast ~> aggregate ~> enhance ~> sinkScanResults
+        broadcast ~> filterSettings ~> parseRequest ~> parseInfo ~> sinkInfo
+        ClosedShape
+    })
+    g.run()
+  }
+
+  /**
+    * Generates a request to parse a medium description file based on the path
+    * to this file.
+    *
+    * @param p the path to the settings file
+    * @return the request for the medium info parser actor
+    */
+  private def parseMediumInfoRequest(p: Path): MediumInfoParserActor.ParseMediumInfo =
+    MediumInfoParserActor.ParseMediumInfo(p, MediumID.fromDescriptionPath(p, archiveName), 0)
+
+  /**
+    * Creates the filter for the directory stream source based on the provided
+    * sets for inclusions and exclusions. If both are defined, inclusions take
+    * precedence.
+    *
+    * @return the filter for the directory source
+    */
+  private def createFilter(): DirectoryStreamSource.PathFilter = {
+    val extFilter = if (inclusions.nonEmpty)
+      DirectoryStreamSource.includeExtensionsFilter(inclusions +
+        SettingsExtFilter.toUpperCase(Locale.ROOT))
+    else DirectoryStreamSource.excludeExtensionsFilter(exclusions)
+    extFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter
   }
 }

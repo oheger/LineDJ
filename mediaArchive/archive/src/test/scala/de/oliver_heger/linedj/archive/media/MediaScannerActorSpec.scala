@@ -1,22 +1,23 @@
 package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.stream.{DelayOverflowStrategy, KillSwitch}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.media.MediaScannerActor.{ScanPath, ScanPathResult}
+import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object MediaScannerActorSpec {
@@ -26,74 +27,14 @@ object MediaScannerActorSpec {
   /** The name of the test archive. */
   private val ArchiveName = "MyCoolMusicArchive"
 
+  /** A list with some test files that will be scanned by test cases. */
+  private val TestFiles = testMediaFiles()
+
   /** A test sequence number. */
-  private val SeqNo = 128
+  val SeqNo = 128
 
-  /**
-    * The ID for an undefined medium as is expected to be produced by
-    * the directory scanner.
-    */
-  private val UndefinedMediumID =
-    MediumID(RootPath.toString, None, ArchiveName)
-
-  /**
-    * Helper method for checking whether all elements in a sub set are contained
-    * in another set. Result is the first element in the sub set which was not
-    * found in the set. A result of ''None'' means that the check was
-    * successful.
-    *
-    * @param set    the full set
-    * @param subSet the sub set
-    * @tparam T the element type
-    * @return an option with the first element that could not be found
-    */
-  private def checkContainsAll[T](set: Seq[T], subSet: Iterable[T]): Option[T] =
-    subSet find (!set.contains(_))
-
-  /**
-    * Generates a path to the test directory structure. This is similar to the
-    * normal way of constructing path objects; however, the initial path element
-    * is to be considered the test directory.
-    *
-    * @param first the first (sub) component of the path
-    * @param more  optional additional path elements
-    * @return the resulting path
-    */
-  private def constructPath(first: String, more: String*): Path = {
-    val p = Paths.get(RootPath.toString, first)
-    if (more.isEmpty) p
-    else Paths.get(p.toString, more: _*)
-  }
-
-  /**
-    * Maps a relative file name (using '/' as path separator) to a path in the
-    * test directory.
-    *
-    * @param s the relative file name
-    * @return the resulting path
-    */
-  private def toPath(s: String): Path = {
-    val components = s.split("/")
-    constructPath(components.head, components.tail: _*)
-  }
-
-  /**
-    * Generates a set with path elements from the given list of strings.
-    *
-    * @param s the strings
-    * @return a set with transformed path elements
-    */
-  private def paths(s: String*): Set[Path] =
-    s.toSet map toPath
-
-  /**
-    * Extracts path information from a list of media files.
-    *
-    * @param files the sequence with file objects
-    * @return a sequence with the extracts paths
-    */
-  private def extractPaths(files: Seq[FileData]): Seq[Path] =
-    files map (f => Paths get f.path)
+  /** The size of internal buffers. */
+  private val BufferSize = 11
 
   /**
     * Creates a ''FileData'' object for the specified path.
@@ -121,7 +62,7 @@ object MediaScannerActorSpec {
     */
   private def testMediaFiles(): List[FileData] = {
     val medium1 = RootPath resolve "medium1"
-    val sub1 = medium1 resolve "aSub1"
+    val sub1 = medium1 resolve "songSub1"
     val sub1Sub = sub1 resolve "subSub"
     val medium2 = RootPath resolve "medium2"
     val sub2 = medium2 resolve "sub2"
@@ -137,22 +78,56 @@ object MediaScannerActorSpec {
       createFile(sub1Sub, "medium1Song3.mp3"),
       createFile(medium2, "medium2.settings"),
       createFile(sub2, "medium2Song1.mp3"),
+      createFile(sub2, "medium2Text.txt"),
       createFile(sub3, "medium3Song1.mp3"),
       createFile(medium3, "medium3.settings"),
       createFile(otherDir, "noMedium3.mp3"))
   }
 
   /**
-    * Adds some entries about directories to the list of media files. These
-    * should be ignored by the stream.
+    * Returns default properties for the creation of a test actor instance.
     *
-    * @param data the list with media files
-    * @return the enhanced list with directories
+    * @param parser the medium info parser actor
+    * @return creation properties for the test actor
     */
-  private def addDirectories(data: List[FileData]): List[FileData] = {
-    def dirData(name: String): FileData = FileData(RootPath.resolve(name).toString, -1)
+  private def testActorProps(parser: ActorRef): Props =
+    Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty,
+      BufferSize, parser) with ChildActorFactory)
 
-    dirData("dir1") :: dirData("other_dir") :: data
+  /**
+    * Extracts only the file name from the specified file data.
+    *
+    * @param file the file data
+    * @return the file name
+    */
+  private def extractFileName(file: FileData): String =
+    Paths.get(file.path).getFileName.toString
+
+  /**
+    * Extracts the IDs of all media from the given sequence of result objects.
+    *
+    * @param results the result objects
+    * @return a set with all encountered medium IDs
+    */
+  private def extractMedia(results: List[ScanSinkActor.CombinedResults]): Set[MediumID] =
+    results.foldLeft(Set.empty[MediumID]) { (s, res) =>
+      s ++ res.results.flatMap(_.result.scanResult.mediaFiles.keys)
+    }
+
+  /**
+    * Searches in a list of scan results for result information for a specific
+    * medium.
+    *
+    * @param results the result objects
+    * @param mid     the medium ID
+    * @return a tuple with the scan result and the medium information
+    */
+  private def findResultFor(results: List[ScanSinkActor.CombinedResults], mid: MediumID):
+  (EnhancedMediaScanResult, Option[MediumInfo]) = {
+    val optMediumRes = results.flatMap(_.results).find(
+      _.result.scanResult.mediaFiles.contains(mid))
+    val mediumRes = optMediumRes.get
+    (mediumRes.result, mediumRes.info.get(mid))
   }
 }
 
@@ -167,168 +142,337 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   def this() = this(ActorSystem("MediaScannerActorSpec"))
 
+  override protected def beforeAll(): Unit = {
+    resolveTestFiles() foreach { file =>
+      val path = Paths get file.path
+      writeFileContent(path, FileTestHelper.TestData.substring(file.size.toInt))
+    }
+  }
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
     tearDownTestFile()
   }
 
   /**
-    * Creates a test actor instance that processes the specified source of
-    * file data objects
+    * Resolves all test files against the current temp directory.
     *
-    * @param source the source to be processed
-    * @return the test actor reference
+    * @return the resolved file data objects
     */
-  private def createActorForSource(source: Source[FileData, Any]): ActorRef = {
-    val props = Props(new MediaScannerActor(ArchiveName, Set.empty) {
-      override private[media] def createSource(path: Path): Source[FileData, Any] = source
-    })
-    system.actorOf(props)
-  }
-
-  /**
-    * Creates a test actor that processes the specified list of media file
-    * objects.
-    *
-    * @param fileData the list with file data objects
-    * @return the test actor reference
-    */
-  private def createActorForFiles(fileData: List[FileData]): ActorRef =
-    createActorForSource(Source(fileData))
-
-  /**
-    * Triggers a scan operation for the specified test actor.
-    *
-    * @param actor the test actor
-    * @param root  the root path to be scanned
-    * @return the result
-    */
-  private def scan(actor: ActorRef, root: Path = RootPath): MediaScanResult = {
-    val request = ScanPath(root, SeqNo)
-    actor ! request
-    val result = expectMsgType[ScanPathResult]
-    result.request should be(request)
-    result.result
-  }
-
-  "A MediaScannerActor" should "find media files in a directory structure" in {
-    val expected = paths("noMedium1.mp3", "medium1/noMedium2.mp3", "other/noMedium3.mp3")
-    val scanActor = createActorForFiles(testMediaFiles())
-
-    val result = scan(scanActor)
-    result.root should be(RootPath)
-    checkContainsAll(extractPaths(result.mediaFiles(UndefinedMediumID)),
-      expected) should be(None)
-  }
-
-  it should "detect all media directories" in {
-    val expected = paths("medium1/medium1.settings", "medium2/medium2.settings",
-      "medium2/sub2/medium3/medium3.settings")
-    val scanActor = createActorForFiles(testMediaFiles())
-    val result = scan(scanActor)
-
-    result.mediaFiles.keySet should have size 4
-    val settingsPaths = result.mediaFiles.keys.map(m =>
-      Paths.get(m.mediumDescriptionPath.getOrElse(""))).toList
-    checkContainsAll(settingsPaths, expected) should be(None)
-  }
-
-  it should "return the correct number of other files" in {
-    val scanActor = createActorForFiles(testMediaFiles())
-    val result = scan(scanActor)
-
-    result.mediaFiles(UndefinedMediumID) should have length 3
-  }
-
-  it should "not return an entry for other files if none are found" in {
-    val files = testMediaFiles() filterNot (_.path contains "noMedium")
-    val scanActor = createActorForFiles(files)
-    val result = scan(scanActor)
-
-    result.mediaFiles.keySet should not contain UndefinedMediumID
-  }
-
-  it should "set a correct archive component ID in all MediumID objects" in {
-    val scanActor = createActorForFiles(testMediaFiles())
-    val result = scan(scanActor)
-
-    result.mediaFiles.keys forall (_.archiveComponentID == ArchiveName) shouldBe true
-  }
-
-  it should "filter out directories from the source" in {
-    val paths = addDirectories(testMediaFiles())
-    val scanActor = createActorForFiles(paths)
-    val result = scan(scanActor)
-
-    val allFiles = result.mediaFiles.values.flatten
-    allFiles.filter(_.path.contains("dir")) shouldBe 'empty
-  }
-
-  it should "correctly scan a data directory" in {
-    val mediaDir = createPathInDirectory("music")
-
-    def writeMediaFile(name: String): Path = {
-      val path = mediaDir resolve name
-      writeFileContent(path, name)
+  private def resolveTestFiles(): List[FileData] =
+    TestFiles map { f =>
+      val path = createPathInDirectory(f.path)
+      f.copy(path = path.toString)
     }
 
-    writeFileContent(createPathInDirectory("test.settings"), "*")
-    val file1 = writeMediaFile("coolMusic1.mp3")
-    writeMediaFile("lyrics.txt")
-    val file2 = writeMediaFile("moreMusic.mp3")
-    writeMediaFile("noExtension")
-    val Exclusions = Set("TXT", "")
-    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], ArchiveName, Exclusions))
+  /**
+    * Returns a set with all defined medium IDs for the test directory
+    * structure.
+    *
+    * @return a set with all defined medium IDs
+    */
+  private def allDefinedMediumIDs(): Set[MediumID] =
+    TestFiles.map(_.path)
+      .filter(_.endsWith(".settings"))
+      .map { p =>
+        val path = testDirectory resolve p
+        MediumID(path.getParent.toString, Some(path.toString), ArchiveName)
+      }.toSet
 
-    val result = scan(scanActor, testDirectory)
-    result.mediaFiles should have size 1
-    val allFiles = result.mediaFiles.values.flatten.toList
-    allFiles should have size 2
-    checkContainsAll(extractPaths(allFiles), List(file1, file2)) should be(None)
+  /**
+    * Returns an ID for a test medium that contains the specified key.
+    * Using keys like ''medium1'', or ''medium2'', a specific medium can be
+    * selected.
+    *
+    * @param key the key
+    * @return the medium ID for this key
+    */
+  private def testMediumID(key: String): MediumID =
+    allDefinedMediumIDs().find(_.mediumURI contains key).get
+
+  "A MediaScannerActor" should "return correct creation Props" in {
+    val exclusions = Set("FOO", "BAR")
+    val inclusions = Set("BAZ")
+    val parser = TestProbe().ref
+    val props = MediaScannerActor(ArchiveName, exclusions, inclusions, BufferSize, parser)
+
+    classOf[MediaScannerActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    props.args should be(List(ArchiveName, exclusions, inclusions, BufferSize, parser))
+  }
+
+  it should "find all defined media in a directory structure" in {
+    val helper = new ScannerActorTestHelper
+
+    val results = helper.scanAndGetResults()
+    extractMedia(results) should contain allElementsOf allDefinedMediumIDs()
+  }
+
+  it should "read the content of media" in {
+    val helper = new ScannerActorTestHelper
+    val results = helper.scanAndGetResults()
+
+    def filesFor(key: String): List[String] = {
+      val mid = testMediumID(key)
+      findResultFor(results, mid)._1.scanResult.mediaFiles(mid)
+        .map(extractFileName)
+    }
+
+    val m1Files = filesFor("medium1")
+    m1Files should have size 3
+    m1Files forall (_.startsWith("medium1Song")) shouldBe true
+    val m2Files = filesFor("medium2")
+    m2Files should have size 2
+    m2Files should contain only("medium2Song1.mp3", "medium2Text.txt")
+    val m3Files = filesFor("medium3")
+    m3Files should have size 1
+    m3Files should contain only "medium3Song1.mp3"
+  }
+
+  it should "read the content of the undefined medium" in {
+    val helper = new ScannerActorTestHelper
+    val results = helper.scanAndGetResults()
+
+    val optResUndef = results.flatMap(_.results)
+      .find(_.result.scanResult.mediaFiles.keys.exists(_.mediumDescriptionPath.isEmpty))
+    val resUndef = optResUndef.get
+    val mid = resUndef.result.scanResult.mediaFiles.keys
+      .find(_.mediumDescriptionPath.isEmpty).get
+    val files = resUndef.result.scanResult.mediaFiles(mid).map(extractFileName)
+    files should have size 3
+    files forall (_.startsWith("noMedium")) shouldBe true
+  }
+
+  it should "obtain medium information for defined media" in {
+    val helper = new ScannerActorTestHelper
+    val results = helper.scanAndGetResults()
+
+    allDefinedMediumIDs() foreach { mid =>
+      val (_, optInfo) = findResultFor(results, mid)
+      val info = optInfo.get
+      info.mediumID should be(mid)
+      info.name should be(mid.mediumDescriptionPath.get)
+    }
   }
 
   it should "correctly handle an exception during a scan operation" in {
-    val scanActor = system.actorOf(Props(classOf[MediaScannerActor], ArchiveName, Set.empty))
+    val helper = new ScannerActorTestHelper
 
-    val result = scan(scanActor)
-    result.root should be(RootPath)
-    result.mediaFiles shouldBe 'empty
+    val results = helper.scan(Paths get "nonExistingPath")
+      .waitForScanComplete()
+      .fetchAllResults()
+    results shouldBe 'empty
   }
 
   it should "support canceling a scan operation" in {
-    val files = testMediaFiles()
-    val source = Source(files).delay(200.milliseconds, DelayOverflowStrategy.backpressure)
-    val scanActor = createActorForSource(source)
-    scanActor ! ScanPath(RootPath, SeqNo)
+    val fProps: ActorRef => Props = parserActor =>
+      Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
+        parserActor) with ChildActorFactory {
+        override private[media] def createSource(path: Path): Source[Path, Any] = {
+          super.createSource(path).delay(200.milliseconds, DelayOverflowStrategy.backpressure)
+        }
+      })
+    val helper = new ScannerActorTestHelper(fProps)
 
-    scanActor ! CancelStreams
-    val result = expectMsgType[ScanPathResult]
-    val expectedFiles = files.filterNot(_.path.endsWith(".settings"))
-    val allFiles = result.result.mediaFiles.values.flatten.toList
-    allFiles.size should be < expectedFiles.size
+    val results = helper.scan()
+      .post(CancelStreams)
+      .waitForScanComplete()
+      .fetchAllResults()
+    extractMedia(results).size should be < 4
   }
 
   it should "unregister kill switches after stream processing" in {
     val refKillSwitch = new AtomicReference[KillSwitch]
-    val scanActor = system.actorOf(Props(new MediaScannerActor(ArchiveName, Set.empty) {
-      override private[media] def createSource(path: Path): Source[FileData, Any] =
-        Source(testMediaFiles())
-
-      override private[media] def runStream(source: Source[FileData, Any]):
-      (KillSwitch, Future[Seq[FileData]]) = {
-        val t = super.runStream(source)
-        if (refKillSwitch.get() != null) t
-        else {
-          val ks = mock[KillSwitch]
-          refKillSwitch set ks
-          (ks, t._2)
+    val fProps: ActorRef => Props = parserActor =>
+      Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
+        parserActor) with ChildActorFactory {
+        override private[media] def runStream(source: Source[Path, Any], root: Path,
+                                              sinkActor: ActorRef): KillSwitch = {
+          val res = super.runStream(source, root, sinkActor)
+          if (refKillSwitch.get() != null) res
+          else {
+            val ks = mock[KillSwitch]
+            refKillSwitch set ks
+            ks
+          }
         }
-      }
-    }))
+      })
+    val helper = new ScannerActorTestHelper(fProps)
 
-    scan(scanActor)
-    scanActor ! CancelStreams
-    scan(scanActor)
+    helper.scan()
+      .waitForScanComplete()
+      .post(CancelStreams)
     verify(refKillSwitch.get(), never()).shutdown()
+  }
+
+  it should "support excluding files" in {
+    val fProps: ActorRef => Props = parserActor =>
+      Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
+        parserActor) with ChildActorFactory)
+    val helper = new ScannerActorTestHelper(fProps)
+
+    val results = helper.scanAndGetResults()
+    val mid = testMediumID("medium2")
+    val m2Results = findResultFor(results, mid)
+    val files = m2Results._1.scanResult.mediaFiles(mid).map(extractFileName)
+    files should contain only "medium2Song1.mp3"
+  }
+
+  it should "support including files (with a higher preference than excluding)" in {
+    val fProps: ActorRef => Props = parserActor =>
+      Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set("TXT"), BufferSize,
+        parserActor) with ChildActorFactory)
+    val helper = new ScannerActorTestHelper(fProps)
+
+    val results = helper.scanAndGetResults()
+    val mid = testMediumID("medium2")
+    val m2Results = findResultFor(results, mid)
+    val files = m2Results._1.scanResult.mediaFiles(mid).map(extractFileName)
+    files should contain only "medium2Text.txt"
+  }
+
+  /**
+    * A test helper class managing a test actor and its dependencies.
+    *
+    * @param fProps a function to adapt the properties of the test actor
+    */
+  private class ScannerActorTestHelper(fProps: ActorRef => Props = testActorProps) {
+    /** The queue in which results are stored. */
+    private val resultQueue = new LinkedBlockingQueue[ScanSinkActor.CombinedResults]
+
+    /** The flag to detect a completed scan operation. */
+    private val scanCompleted = new AtomicBoolean
+
+    /** The actor that processes results from the test actor. */
+    private val resultConsumerActor =
+      system.actorOf(Props(classOf[ResultsConsumerActor], resultQueue, scanCompleted))
+
+    /** The actor to be tested. */
+    private val scanActor = createTestActor()
+
+    /**
+      * Posts the specified message to the actor under test.
+      *
+      * @param msg the message
+      * @return this test helper
+      */
+    def post(msg: Any): ScannerActorTestHelper = {
+      scanActor ! msg
+      this
+    }
+
+    /**
+      * Starts a scan operation on the test directory.
+      *
+      * @param root optional root path to scan
+      * @return this test helper
+      */
+    def scan(root: Path = testDirectory resolve RootPath): ScannerActorTestHelper = {
+      scanActor.tell(ScanPath(root, SeqNo), resultConsumerActor)
+      this
+    }
+
+    /**
+      * Returns the next result object that was received by the consumer actor.
+      *
+      * @return the next result object
+      */
+    def nextResult(): ScanSinkActor.CombinedResults = {
+      val res = resultQueue.poll(5, TimeUnit.SECONDS)
+      res should not be null
+      res
+    }
+
+    /**
+      * Returns a flag whether more results are available. Note that this
+      * method works reliably only after the end of the scan operation.
+      *
+      * @return a flag whether more results are available
+      */
+    def hasMoreResults: Boolean = !resultQueue.isEmpty
+
+    /**
+      * Returns a sequence with all result objects received by the result
+      * consumer actor. Note that this method works reliably only after the end
+      * of the scan operation.
+      *
+      * @return a sequence with all received result objects
+      */
+    def fetchAllResults(): List[ScanSinkActor.CombinedResults] = {
+      def fetchNextResult(res: List[ScanSinkActor.CombinedResults]):
+      List[ScanSinkActor.CombinedResults] =
+        if (hasMoreResults) fetchNextResult(nextResult() :: res)
+        else res
+
+      fetchNextResult(Nil).reverse
+    }
+
+    /**
+      * Waits for the end of the current scan operation. This method waits
+      * for the arrival of the scan completed message from the test actor.
+      *
+      * @return this test helper
+      */
+    def waitForScanComplete(): ScannerActorTestHelper = {
+      awaitCond(scanCompleted.get())
+      this
+    }
+
+    /**
+      * Scans the test directory, waits for the completion of the scan
+      * operation, and returns the list with all results.
+      *
+      * @return the list with all results generated during the scan operation
+      */
+    def scanAndGetResults(): List[ScanSinkActor.CombinedResults] =
+      scan().waitForScanComplete().fetchAllResults()
+
+    /**
+      * Creates an instance of the test actor.
+      *
+      * @return the test actor instance
+      */
+    private def createTestActor(): ActorRef = {
+      val infoParser = system.actorOf(Props[MockMediumInfoParserActor])
+      system.actorOf(fProps(infoParser))
+    }
+  }
+
+}
+
+/**
+  * A test actor class simulating the media manager regarding results
+  * consumption. Each result object passed to the actor is stored in the queue
+  * provided, and an ACK message is sent. On receiving a message about the
+  * completion of the scan request, the given atomic boolean is set to
+  * '''true'''.
+  *
+  * @param resultsQueue the queue for storing results
+  * @param completed    flag to be set when the scan operation is done
+  */
+class ResultsConsumerActor(resultsQueue: LinkedBlockingQueue[ScanSinkActor.CombinedResults],
+                           completed: AtomicBoolean)
+  extends Actor {
+  override def receive: Receive = {
+    case r: ScanSinkActor.CombinedResults =>
+      resultsQueue offer r
+      sender() ! ScanSinkActor.Ack
+
+    case MediaScannerActor.PathScanCompleted(req) if req.seqNo == MediaScannerActorSpec.SeqNo =>
+      completed set true
+  }
+}
+
+/**
+  * A mock implementation of an actor that parses a medium description file.
+  * This implementation just generates a dummy ''MediumInfo'' based on the
+  * parameters passed in.
+  */
+class MockMediumInfoParserActor extends Actor {
+  override def receive: Receive = {
+    case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) =>
+      val info = MediumInfo(mediumID = mid, name = path.toString, description = "",
+        orderMode = "", orderParams = "", checksum = "0")
+      sender() ! MediumInfoParserActor.ParseMediumInfoResult(req, info)
   }
 }
