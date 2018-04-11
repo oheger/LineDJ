@@ -168,12 +168,31 @@ object DirectoryStreamSource {
                               dirsToProcess: Queue[Path])
 
   /**
+    * A data class representing an iteration over a directory in DFS mode.
+    * In this mode, the files of the current directory are processed first. If
+    * a sub directory is encountered, it is stored in a list for later
+    * traversal. After all entries of the current directory have been visited,
+    * the list with sub directories is processed.
+    *
+    * @param optStream option for the directory stream
+    * @param subDirs   the list with sub directories of the current directory
+    */
+  private case class DFSCurrentDir(optStream: Option[DirectoryStreamRef], subDirs: List[Path]) {
+    /**
+      * Closes the stream for this directory if it is still open.
+      */
+    def close(): Unit = {
+      optStream foreach (_.close())
+    }
+  }
+
+  /**
     * Case class representing the state of a DFS iteration.
     *
     * @param streams a stack with all directory streams that are currently
     *                processed
     */
-  private case class DFSState(streams: List[DirectoryStreamRef])
+  private case class DFSState(streams: List[DFSCurrentDir])
 
   /**
     * Definition of the transformation function used by the source to transform
@@ -278,7 +297,8 @@ object DirectoryStreamSource {
           State(state => iterateDFS(filter, streamFactory, f)(state))
 
         override protected val initialState: IterationState =
-          DFSState(List(createStreamRef(root, streamFactory, filter)))
+          DFSState(List(DFSCurrentDir(subDirs = Nil,
+            optStream = Some(createStreamRef(root, streamFactory, filter)))))
 
         override protected def iterationComplete(state: DFSState): Unit = {
           state.streams foreach (_.close())
@@ -330,9 +350,9 @@ object DirectoryStreamSource {
   }
 
   /**
-    * The iteration function for DFS traversal. This function processes
-    * sub directories first before it continues with the iteration of the
-    * current directory.
+    * The iteration function for DFS traversal. This function processes the
+    * files of the current directory first, and then recursively descends into
+    * all sub directories.
     *
     * @param filter        a filter to be applied to the directory stream
     * @param streamFactory the function for creating directory streams
@@ -347,15 +367,32 @@ object DirectoryStreamSource {
   (DFSState, Option[A]) = {
     state.streams match {
       case h :: t =>
-        if (h.iterator.hasNext) {
-          val path = h.iterator.next()
-          val isDir = Files isDirectory path
-          val elem = Some(f(path, isDir))
-          if (isDir) (DFSState(createStreamRef(path, streamFactory, filter) :: state.streams), elem)
-          else (state, elem)
-        } else {
-          h.close()
-          iterateDFS(filter, streamFactory, f)(DFSState(t))
+        h.optStream match {
+          case Some(stream) =>
+            if (stream.iterator.hasNext) {
+              val path = stream.iterator.next()
+              val isDir = Files isDirectory path
+              val elem = Some(f(path, isDir))
+              if (isDir) {
+                val nextDir = h.copy(subDirs = path :: h.subDirs)
+                (DFSState(nextDir :: t), elem)
+              }
+              else (state, elem)
+            } else {
+              h.close()
+              val nextDir = h.copy(optStream = None)
+              iterateDFS(filter, streamFactory, f)(DFSState(nextDir :: t))
+            }
+
+          case None =>
+            h.subDirs match {
+              case dh :: dt =>
+                val nextDir = DFSCurrentDir(Some(createStreamRef(dh, streamFactory, filter)), Nil)
+                val lastDir = h.copy(subDirs = dt)
+                iterateDFS(filter, streamFactory, f)(DFSState(nextDir :: lastDir :: t))
+              case _ =>
+                iterateDFS(filter, streamFactory, f)(DFSState(t))
+            }
         }
 
       case _ =>

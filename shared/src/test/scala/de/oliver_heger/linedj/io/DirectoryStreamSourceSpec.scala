@@ -138,8 +138,8 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @return a sequence with the paths produced by the source
     */
   private def runSource(source: Source[PathData, Any]): Seq[PathData] = {
-    val futRun: Future[List[PathData]] = obtainSourceFuture(source)
-    Await.result(futRun, 5.seconds)
+    val futRun = obtainSourceFuture(source)
+    Await.result(futRun, 5.seconds).reverse
   }
 
   /**
@@ -230,6 +230,19 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (directories, _) = splitDirs(runSource(source))
     val expDirs = fileData.keySet - testDirectory
     directories.map(_.path) should contain only (expDirs.toSeq: _*)
+  }
+
+  it should "process the files of a directory before sub dirs in DFS mode" in {
+    def indexOfFile(files: Seq[PathData], name: String): Int =
+      files.indexWhere(_.path.toString endsWith name)
+
+    setUpDirectoryStructure()
+    val source = DirectoryStreamSource.newDFSSource(testDirectory)(transFunc)
+    val (_, files) = splitDirs(runSource(source))
+
+    val idxSettings = indexOfFile(files, "medium1.settings")
+    val idxSong = indexOfFile(files, "medium1Song1.mp3")
+    idxSettings should be < idxSong
   }
 
   it should "support suppressing files with specific extensions" in {
@@ -354,7 +367,7 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     setUpDirectoryStructure()
     val source = DirectoryStreamSource.newBFSSource(testDirectory)(transFunc)
-    val paths = runSource(source).reverse
+    val paths = runSource(source)
     val pathLevels = paths map (d => level(d.path))
     pathLevels.foldLeft(0)((last, cur) => {
       last should be <= cur
@@ -385,11 +398,11 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     setUpDirectoryStructure()
     val source = DirectoryStreamSource.newDFSSource(testDirectory)(transFunc)
-    val mediumIndices = runSource(source)
+    val (_, files) = splitDirs(runSource(source))
+    val mediumIndices = files
         .map(_.path)
         .filter(filterMedium)
         .map(mapToMedium)
-      .reverse
     val (mediumChanges, _) = mediumIndices.foldLeft((0, 0))((s, e) =>
       if(s._2 == e) s else (s._1 + 1, e))
     // all songs of a medium should be listed in a series
