@@ -21,10 +21,9 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 import akka.util.Timeout
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.commons.configuration.Configuration
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -39,6 +38,14 @@ object MediaArchiveConfig {
 
   /** The configuration property for the excluded file extensions. */
   val PropExcludedExtensions: String = CConfigPrefix + "excludedExtensions"
+
+  /**
+    * The configuration property for file extensions to be included when
+    * scanning for media files. If this property is defined, only files with an
+    * extension defined here are taken into account. Note that this property
+    * takes precedence over excluded file extensions.
+    */
+  val PropIncludedExtensions: String = CConfigPrefix + "includedExtensions"
 
   /** Constant for the prefix for the meta data extraction configuration. */
   val MetaExtractionPrefix: String = CConfigPrefix + "metaDataExtraction."
@@ -73,14 +80,20 @@ object MediaArchiveConfig {
   /** The configuration property for the meta data persistence write block size. */
   val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
 
-  /** Constant for the path property of a media root object. */
-  val RootPropPath = "path"
+  /**
+    * Constant for the property defining the root directory of the media
+    * archive. The directory structure below this path is scanned for media
+    * files.
+    */
+  val PropRootPath: String = CConfigPrefix + "rootPath"
 
-  /** Constant for the processorCount property of a media root object. */
-  val RootPropProcessorCount = "processorCount"
-
-  /** Constant for the accessRestriction property of a media root object. */
-  val RootPropAccessRestriction = "accessRestriction"
+  /**
+    * The configuration property defining the number of processors to be used
+    * when extracting meta data. If the hard disc is powerful, it can make
+    * sense to set a higher number to speed up meta data extraction. The
+    * default value is 1.
+    */
+  val PropProcessorCount: String = CConfigPrefix + "processorCount"
 
   /**
     * The configuration property to define the archive's name. This can be a
@@ -132,6 +145,30 @@ object MediaArchiveConfig {
     */
   val PropTocMetaDataPrefix: String = ToCPrefix + "metaDataPrefix"
 
+  /** Prefix for properties related to media archive scan operations. */
+  val ScanPrefix: String = CConfigPrefix + "scan."
+
+  /**
+    * Configuration property for the timeout for parsing a medium description
+    * file (in seconds). Medium description files (with the extension
+    * ''.settings'') are parsed in parallel while the directory structure of a
+    * media archive is scanned. If the parsing result does not arrive within
+    * this time span, an error is assumed.
+    */
+  val PropScanParseInfoTimeout: String = ScanPrefix + "parseInfoTimeout"
+
+  /**
+    * Configuration property determining the size of the buffer for media
+    * during a scan operation. During such an operation files are assigned to
+    * the media they belong to, and completed media are passed to the media
+    * manager actor. If processing of completed media takes longer, the stream
+    * for scanning the directory structure has to be slowed down. With this
+    * property a buffer for completed media is defined. The given number of
+    * media is buffered; only if there are more completed media, the stream has
+    * to wait until the media manager has processed results.
+    */
+  val PropScanMediaBufferSize: String = ScanPrefix + "mediaBufferSize"
+
   /**
     * Placeholder for the host name which can occur in the configured archive
     * name.
@@ -150,18 +187,27 @@ object MediaArchiveConfig {
     */
   val DefaultNamePattern: String = PlaceholderHost + DefaultNameSuffix
 
+  /** The default timeout for parsing a medium description file. */
+  val DefaultInfoParserTimeout = Timeout(1.minute)
+
+  /** The default value for the ''PropScanMediaBufferSize'' property. */
+  val DefaultScanMediaBufferSize = 8
+
+  /** The default number of processors for meta data extraction. */
+  val DefaultProcessorCount = 1
+
   /** The logger. */
   private val Log = LoggerFactory.getLogger(classOf[MediaArchiveConfig])
 
   /**
-    * Creates a new instance of ''ServerConfig'' based on the passed in
-    * ''HierarchicalConfiguration'' object.
+    * Creates a new instance of ''MediaArchiveConfig'' based on the passed in
+    * ''Configuration'' object.
     *
-    * @param config the ''HierarchicalConfiguration'' to be processed
+    * @param config the ''Configuration'' to be processed
     * @param nameResolver a function for resolving the archive name
     * @return the new ''ServerConfig'' instance
     */
-  def apply(config: HierarchicalConfiguration,
+  def apply(config: Configuration,
             nameResolver: => String = LocalNameResolver.localHostName): MediaArchiveConfig =
   new MediaArchiveConfig(metaDataReadChunkSize = config getInt PropMetaDataReadChunkSize,
     infoSizeLimit = config getInt PropInfoSizeLimit,
@@ -174,10 +220,16 @@ object MediaArchiveConfig {
     metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
     metaDataPersistenceWriteBlockSize = config getInt PropMetaDataPersistenceWriteBlockSize,
     excludedFileExtensions = obtainExcludedExtensions(config),
-    rootMap = createMediaData(config),
+    includedFileExtensions = obtainIncludedExtensions(config),
+    rootPath = Paths get config.getString(PropRootPath),
+    processorCount = config.getInt(PropProcessorCount, DefaultProcessorCount),
     downloadConfig = DownloadConfig(config),
     contentTableConfig = createTocConfig(config),
-    archiveName = resolveArchiveName(config, nameResolver))
+    archiveName = resolveArchiveName(config, nameResolver),
+    infoParserTimeout = if(config containsKey PropScanParseInfoTimeout)
+      durationProperty(config, PropScanParseInfoTimeout)
+    else DefaultInfoParserTimeout,
+    scanMediaBufferSize = config.getInt(PropScanMediaBufferSize, DefaultScanMediaBufferSize))
 
   /**
     * Resolves the archive name using the resolver function. Also handles
@@ -207,7 +259,17 @@ object MediaArchiveConfig {
     * @return the set with excluded file extensions
     */
   private def obtainExcludedExtensions(config: Configuration): Set[String] =
-  createExclusionSet(config getList PropExcludedExtensions)
+  createExtensionSet(config getList PropExcludedExtensions)
+
+  /**
+    * Determines the set with file extensions to be included from the given
+    * Commons configuration object.
+    *
+    * @param config the configuration
+    * @return the set with included file extensions
+    */
+  private def obtainIncludedExtensions(config: Configuration): Set[String] =
+    createExtensionSet(config getList PropIncludedExtensions)
 
   /**
     * Reads a property from the given configuration object and converts it to a
@@ -221,66 +283,15 @@ object MediaArchiveConfig {
   FiniteDuration(config getLong key, TimeUnit.SECONDS)
 
   /**
-    * Generates a map with information about media roots from the given
-    * Commons Configuration object. The map uses root paths as keys and
-    * associated ''MediaRootData'' objects as values.
+    * Transforms a list with file extensions to a set.
     *
-    * @param config the configuration
-    * @return a map with information about media roots
-    */
-  private def createMediaData(config: HierarchicalConfiguration): Map[Path, MediaRootData] = {
-    import collection.JavaConversions._
-    val mediaRoots = config.configurationsAt(CConfigPrefix + "roots.root")
-      .map(createMediaRoot)
-    createRootData(mediaRoots)
-  }
-
-  /**
-    * Creates a ''MediaRootData'' object from the given Commons Configuration
-    * object.
-    *
-    * @param config the configuration object
-    * @return the ''MediaRootData''
-    */
-  private def createMediaRoot(config: Configuration): MediaRootData = {
-    MediaRootData(Paths.get(config.getString(RootPropPath)),
-      config.getInt(RootPropProcessorCount),
-      accessRestrictionProperty(config))
-  }
-
-  /**
-    * Extracts the property for the access restriction of a media root from the
-    * given Commons Configuration object.
-    *
-    * @param config the configuration
-    * @return the access restriction property
-    */
-  private def accessRestrictionProperty(config: Configuration): Option[Int] = {
-    if (config containsKey RootPropAccessRestriction)
-      Some(config.getInt(RootPropAccessRestriction))
-    else None
-  }
-
-  /**
-    * Transforms a list with file extensions to be excluded into a set.
-    *
-    * @param excludes the list with file extensions to be excluded
+    * @param extensions the list with file extensions
     * @return the converted set with exclusions
     */
-  private def createExclusionSet(excludes: java.util.List[_]): Set[String] = {
-    import collection.JavaConversions._
-    excludes.map(_.toString.toUpperCase(Locale.ENGLISH)).toSet
+  private def createExtensionSet(extensions: java.util.List[_]): Set[String] = {
+    import collection.JavaConverters._
+    extensions.asScala.map(_.toString.toUpperCase(Locale.ROOT)).toSet
   }
-
-  /**
-    * Creates the map with data about roots from the given sequence of root
-    * data.
-    *
-    * @param mediaRoots the sequence of ''MediaRootData'' objects
-    * @return the map with root data
-    */
-  private def createRootData(mediaRoots: Seq[MediaRootData]): Map[Path, MediaRootData] =
-  Map(mediaRoots map (r => (r.rootPath, r)): _*)
 
   /**
     * Extracts the settings for the ''ArchiveContentTableConfig'' from the
@@ -362,9 +373,17 @@ object MediaArchiveConfig {
  *                                          file for this medium is written
  * @param excludedFileExtensions the set with file extensions (in upper case)
  *                               to be excluded when scanning media files
- * @param rootMap a map with information about media roots
+ * @param includedFileExtensions the set with file extensions (in upper case)
+ *                               to be included when scanning media files
+ * @param rootPath the root path to be scanned for media files
+ * @param processorCount the number of parallel processor actors for meta
+ *                       data extraction
  * @param contentTableConfig the config for the archives's table of content
  * @param archiveName a name for this archive
+ * @param infoParserTimeout timeout for the parsing of a medium description
+ *                          file
+ * @param scanMediaBufferSize the buffer for media during scanning of an
+  *                            archive directory
  */
 case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataReadChunkSize: Int,
@@ -378,39 +397,15 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metaDataPersistenceParallelCount: Int,
                                               metaDataPersistenceWriteBlockSize: Int,
                                               excludedFileExtensions: Set[String],
-                                              rootMap: Map[Path, MediaRootData],
+                                              includedFileExtensions: Set[String],
+                                              rootPath: Path,
+                                              processorCount: Int,
                                               contentTableConfig: ArchiveContentTableConfig,
-                                              archiveName: String) {
+                                              archiveName: String,
+                                              infoParserTimeout: Timeout,
+                                              scanMediaBufferSize: Int) {
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
-
-  /**
-   * Returns a set with objects that represent root directories for media files.
-   * All media files processed by this application should be contained in one
-   * of these directory structures.
-   *
-   * @return a set with the root paths for media files
-   */
-  def mediaRoots: Set[MediaRootData] = rootMap.values.toSet
-
-  /**
-    * Returns a set with the paths under which media files are located. This is
-    * a convenience method that extracts the paths from the ''MediaRootData''
-    * objects.
-    *
-    * @return a set with paths for media files
-    */
-  def mediaRootPaths: Set[String] = mediaRoots map (_.rootPath.toString)
-
-  /**
-   * Returns an option for the ''MediaRootData'' object with the specified
-   * root path. With this method extended information about a given root
-   * path can be obtained.
-   *
-   * @param rootPath the root path
-   * @return an option for the corresponding ''MediaRootData''
-   */
-  def rootFor(rootPath: Path): Option[MediaRootData] = rootMap get rootPath
 
   /**
     * Calculates the maximum message size based on constructor parameters. This

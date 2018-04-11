@@ -32,7 +32,7 @@ options:
 
 ```xml
 <configuration>
-<media>
+  <media>
     <metaDataExtraction>
       <metaDataUpdateChunkSize>8</metaDataUpdateChunkSize>
       <metaDataMaxMessageSize>160</metaDataMaxMessageSize>

@@ -28,11 +28,11 @@ object MediaArchiveConfigSpec {
   /** The reader check interval. */
   private val ReaderCheckInterval = 10.minutes
 
-  /** Test root object. */
-  private val MusicRoot = MediaArchiveConfig.MediaRootData(Paths get "music1", 3, None)
+  /** The root path of the test archive. */
+  private val RootPath = Paths get "music"
 
-  /** Another root object. */
-  private val CDRomRoot = MediaArchiveConfig.MediaRootData(Paths get "cdrom", 1, Some(1))
+  /** Test processor count value. */
+  private val ProcessorCount = 3
 
   /** Test value for the chunk size when extracting meta data. */
   private val ReadChunkSize = 16384
@@ -82,6 +82,12 @@ object MediaArchiveConfigSpec {
   /** The archive name as returned by the name resolver function. */
   private val ArchiveName = "MyTestArchive"
 
+  /** Test value for the info parser timeout property. */
+  private val InfoParserTimeout = Timeout(5.minutes)
+
+  /** Test value for the media buffer size property. */
+  private val ScanMediaBufferSize = 11
+
   /**
     * The default name resolver function passed to the archive.
     *
@@ -101,12 +107,10 @@ object MediaArchiveConfigSpec {
     config.addProperty("media.downloadTimeout", 60)
     config.addProperty("media.downloadCheckInterval", ReaderCheckInterval.toSeconds)
     config.addProperty("media.downloadChunkSize", DownloadChunkSize)
-    config.addProperty("media.roots.root.path", MusicRoot.rootPath.toString)
-    config.addProperty("media.roots.root.processorCount", MusicRoot.processorCount)
-    config.addProperty("media.roots.root(-1).path", CDRomRoot.rootPath.toString)
-    config.addProperty("media.roots.root.processorCount", CDRomRoot.processorCount)
-    config.addProperty("media.roots.root.accessRestriction", CDRomRoot.accessRestriction.get)
+    config.addProperty("media.rootPath", RootPath.toString)
+    config.addProperty("media.processorCount", ProcessorCount)
     config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
+    config.addProperty("media.includedExtensions", Array("MP3", "WAV"))
     config.addProperty("media.metaDataExtraction.readChunkSize", ReadChunkSize)
     config.addProperty("media.metaDataExtraction.tagSizeLimit", TagSizeLimit)
     config.addProperty("media.metaDataExtraction.processingTimeout",
@@ -124,17 +128,20 @@ object MediaArchiveConfigSpec {
     config.addProperty("media.toc.descUrlEncoding", true)
     config.addProperty("media.toc.rootPrefix", TocRootPrefix)
     config.addProperty("media.toc.metaDataPrefix", TocMetaDataPrefix)
+    config.addProperty("media.scan.parseInfoTimeout", InfoParserTimeout.duration.toSeconds)
+    config.addProperty("media.scan.mediaBufferSize", ScanMediaBufferSize)
 
     config
   }
 
   /**
-    * Creates a ''ServerConfig'' object from a hierarchical configuration.
+    * Creates a ''MediaArchiveConfig'' object from a hierarchical configuration.
     *
+    * @param c the underlying hierarchical configuration
     * @return the config object
     */
-  private def createArchiveConfig(): MediaArchiveConfig =
-    MediaArchiveConfig(createHierarchicalConfig(), staticArchiveName)
+  private def createArchiveConfig(c: HierarchicalConfiguration = createHierarchicalConfig()):
+  MediaArchiveConfig = MediaArchiveConfig(c, staticArchiveName)
 }
 
 /**
@@ -200,14 +207,23 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
     createArchiveConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
   }
 
-  it should "return a collection of paths with media files" in {
-    val paths = createArchiveConfig().mediaRoots
-    paths should contain only(MusicRoot, CDRomRoot)
+  it should "return the file extensions to be included" in {
+    createArchiveConfig().includedFileExtensions should contain only ("MP3", "WAV")
   }
 
-  it should "return a sequence of root paths" in {
-    val paths = createArchiveConfig().mediaRootPaths
-    paths should contain only(MusicRoot.rootPath.toString, CDRomRoot.rootPath.toString)
+  it should "return the root path of the archive" in {
+    createArchiveConfig().rootPath should be(RootPath)
+  }
+
+  it should "return the processor count" in {
+    createArchiveConfig().processorCount should be(ProcessorCount)
+  }
+
+  it should "use a default processor count if undefined" in {
+    val c = createHierarchicalConfig()
+    c.clearProperty("media.processorCount")
+
+    createArchiveConfig(c).processorCount should be(MediaArchiveConfig.DefaultProcessorCount)
   }
 
   it should "contain a config for the archive's ToC" in {
@@ -260,5 +276,33 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
     val config = MediaArchiveConfig(createHierarchicalConfig(), nameCrashed)
     config.archiveName should be(MediaArchiveConfig.DefaultNamePattern)
+  }
+
+  it should "return the info parser timeout" in {
+    val config = createArchiveConfig()
+
+    config.infoParserTimeout should be(InfoParserTimeout)
+  }
+
+  it should "use a correct default value for the info parser timeout" in {
+    val c = createHierarchicalConfig()
+    c.clearProperty("media.scan.parseInfoTimeout")
+    val config = createArchiveConfig(c)
+
+    config.infoParserTimeout should be(MediaArchiveConfig.DefaultInfoParserTimeout)
+  }
+
+  it should "return the media buffer size" in {
+    val config = createArchiveConfig()
+
+    config.scanMediaBufferSize should be(ScanMediaBufferSize)
+  }
+
+  it should "use a correct default value for the media buffer size" in {
+    val c = createHierarchicalConfig()
+    c.clearProperty("media.scan.mediaBufferSize")
+    val config = createArchiveConfig(c)
+
+    config.scanMediaBufferSize should be(MediaArchiveConfig.DefaultScanMediaBufferSize)
   }
 }

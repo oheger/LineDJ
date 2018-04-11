@@ -244,10 +244,10 @@ Actor with ActorLogging {
 
   override def receive: Receive = {
     case ScanMedia(roots) =>
-      processScanRequest(roots)
+      processScanRequest(roots map (Paths.get(_)))
 
     case ScanAllMedia =>
-      processScanRequest(config.mediaRootPaths)
+      processScanRequest(List(config.rootPath))
 
     case MediaScannerActor.ScanPathResult(req, scanResult) if req.seqNo == sequenceNumber =>
       processScanResult(scanResult)
@@ -365,12 +365,12 @@ Actor with ActorLogging {
     *
     * @param roots a sequence with the root directories to be scanned
    */
-  private def processScanRequest(roots: Iterable[String]): Unit = {
+  private def processScanRequest(roots: Iterable[Path]): Unit = {
     if (noScanInProgress) {
       sendScanStartMessages()
       mediaMap = Map.empty
       mediaCount = 0
-      pathsToScan = roots.size
+      pathsToScan = 1
       pathsScanned = 0
       scanMediaRoots(roots)
     } else log.warning("Ignoring scan request for {}. Scan already in progress.", roots)
@@ -395,10 +395,10 @@ Actor with ActorLogging {
     *
     * @param roots a sequence with the root directories to be scanned
    */
-  private def scanMediaRoots(roots: Iterable[String]): Unit = {
+  private def scanMediaRoots(roots: Iterable[Path]): Unit = {
     log.info("Processing scan request for roots {}.", roots)
     roots foreach { root =>
-      mediaScannerActor ! MediaScannerActor.ScanPath(Paths.get(root), sequenceNumber)
+      mediaScannerActor ! MediaScannerActor.ScanPath(root, sequenceNumber)
     }
     mediaDataAdded()
   }

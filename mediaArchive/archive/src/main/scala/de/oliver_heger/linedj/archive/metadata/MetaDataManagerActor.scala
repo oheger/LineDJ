@@ -79,8 +79,6 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
                            metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
 
-  import MetaDataManagerActor._
-
   /** The factory for extractor actors. */
   private val ExtractorFactory = new ExtractorActorFactoryImpl(config)
 
@@ -163,7 +161,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def createProcessorActor(root: Path, result: EnhancedMediaScanResult): ActorRef =
     createChildActor(MetaDataExtractionActor(self, result.fileUriMapping, ExtractorFactory,
-      config.rootFor(root).getOrElse(DefaultMediaRoot).processorCount, config.processingTimeout))
+      config.processorCount, config.processingTimeout))
 
   /**
     * Prepares a new scan operation. Initializes some internal state.

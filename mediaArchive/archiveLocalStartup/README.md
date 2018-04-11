@@ -42,6 +42,10 @@ configuration options:
     <excludedExtensions>TEX</excludedExtensions>
     <excludedExtensions>DB</excludedExtensions>
     <infoSizeLimit>32768</infoSizeLimit>
+    <scan>
+      <parseInfoTimeout>60</parseInfoTimeout>
+      <mediaBufferSize>8</mediaBufferSize>
+    </scan>
     <metaDataExtraction>
       <readChunkSize>16384</readChunkSize>
       <tagSizeLimit>4096</tagSizeLimit>
@@ -53,16 +57,8 @@ configuration options:
       <parallelCount>2</parallelCount>
       <writeBlockSize>40</writeBlockSize>
     </metaDataPersistence>
-    <roots>
-      <root>
-        <path>C:\data\music\archive</path>
-        <processorCount>1</processorCount>
-      </root>
-      <root>
-        <path>D:\</path>
-        <processorCount>2</processorCount>
-      </root>
-    </roots>
+    <rootPath>C:\data\music\archive</rootPath>
+    <processorCount>1</processorCount>
     <toc>
       <file>C:\data\music\testArchive\testContent.json</file>
       <descRemovePrefix>C:\data\music\testArchive</descRemovePrefix>
@@ -86,8 +82,23 @@ found:
 | Setting | Description |
 | ------- | ----------- |
 | excludedExtensions | With this list property (elements can be repeated as often as necessary) the extensions of files can be specified which should be ignored when scanning for media files. Such files are not included in media. |
+| includedExtensions | As an alternative to _excludedProperties_, with this property a set of files extensions can be specified that are included; files with other extensions are ignored. If both file extensions to include and to exclude are specified, inclusions take precedence. |
 | infoSizeLimit | Files with information about a medium (typically called `playlist.settings`) are fully read and processed in-memory. To avoid unrestricted memory consumption, with this property a maximum file size (in bytes) can be specified. Info files which are larger will not be processed. |
-| roots.root | This section defines the folders to be scanned for media files. An arbitrary number of _root_ elements can be specified, each of which defining the top-level folder of a directory structure with media files. A _root_ element can have the sub elements _path_ for the corresponding path in the local file system, and _processorCount_ for the number of reader actors processing this folder structure in parallel. |
+| rootPath | This property defines the folder to be scanned for media files. |
+| processorCount | Defines the number of reader actors processing this folder structure in parallel. |
+
+### Settings related to scans for media files
+
+These settings control the process of scanning a directory structure for media
+files. Here the file system is traversed, media files are assigned to media
+(identified by _medium description files_ with the file extension _.settings_),
+and the description files are parsed to extract meta data about these media.
+The settings are placed in a section named _scan_.
+
+| Setting | Description | Default |
+| ------- | ----------- | ------- |
+| parseInfoTimeout | A timeout (in seconds) for parsing a medium description file. If a parse operation takes longer than this time span, it is aborted and dummy meta data is used for this medium. | 60 seconds |
+| mediaBufferSize | The size of the buffer for media to be processed in parallel. When scanning a directory structure for media files some temporary data is created for assignments of files to media, parsed description files, etc. This property defines the number of temporary artifacts of those types that can exist. If this limit is reached, stream processing pauses until the limiting temporary artifacts have been processed. | 8 |
 
 ### Meta data extraction
 
