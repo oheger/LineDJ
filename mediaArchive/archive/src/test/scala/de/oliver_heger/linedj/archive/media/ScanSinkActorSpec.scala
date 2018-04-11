@@ -37,6 +37,9 @@ object ScanSinkActorSpec {
   /** Maximum buffer size used by tests. */
   private val BufferSize = 42
 
+  /** A test sequence number. */
+  private val SeqNo = 111
+
   /**
     * Creates a test medium ID with the given index.
     *
@@ -120,7 +123,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   "A ScanSinkActor" should "use the default sink update service" in {
     val manager = TestProbe()
     val actor = TestActorRef[ScanSinkActor](Props(classOf[ScanSinkActor], manager.ref,
-      Promise(), BufferSize))
+      Promise[Unit](), BufferSize, SeqNo))
 
     actor.underlyingActor.sinkUpdateService should be(ScanSinkUpdateServiceImpl)
   }
@@ -335,7 +338,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       */
     def expectCombinedResults(results: Iterable[CombinedMediaScanResult]):
     SinkActorTestHelper = {
-      probeManager.expectMsg(ScanSinkActor.CombinedResults(results))
+      probeManager.expectMsg(ScanSinkActor.CombinedResults(results, SeqNo))
       this
     }
 
@@ -445,7 +448,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return the test actor instance
       */
     private def createSinkActor(): ActorRef =
-      system.actorOf(Props(new ScanSinkActor(probeManager.ref, promise, BufferSize,
+      system.actorOf(Props(new ScanSinkActor(probeManager.ref, promise, BufferSize, SeqNo,
         updateService)))
   }
 

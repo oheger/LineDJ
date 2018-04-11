@@ -152,7 +152,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
   private def handleScanRequest(req: ScanPath): Unit = {
     val promiseDone = Promise[Unit]()
     val sinkActor = createChildActor(Props(classOf[ScanSinkActor], sender(), promiseDone,
-      maxBufSize))
+      maxBufSize, req.seqNo))
     val source = createSource(req.path)
     val ks = runStream(source, req.path, sinkActor)
     processStreamResult(promiseDone.future map { _ =>

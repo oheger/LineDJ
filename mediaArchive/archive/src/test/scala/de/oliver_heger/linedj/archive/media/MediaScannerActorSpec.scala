@@ -380,6 +380,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     def nextResult(): ScanSinkActor.CombinedResults = {
       val res = resultQueue.poll(5, TimeUnit.SECONDS)
       res should not be null
+      res.seqNo should be(SeqNo)
       res
     }
 

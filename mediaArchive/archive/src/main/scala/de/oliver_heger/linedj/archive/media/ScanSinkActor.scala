@@ -65,8 +65,10 @@ object ScanSinkActor {
     * process further results.
     *
     * @param results the results currently available
+    * @param seqNo   the sequence number of the current scan operation
     */
-  private[media] case class CombinedResults(results: Iterable[CombinedMediaScanResult])
+  private[media] case class CombinedResults(results: Iterable[CombinedMediaScanResult],
+                                            seqNo: Int)
 
 }
 
@@ -88,10 +90,11 @@ object ScanSinkActor {
   * @param streamDone        the promise to signal the completion of stream
   *                          processing
   * @param maxBufferSize     the maximum size of internal result buffers
+  * @param seqNo             a sequence number; this is added to results
   * @param sinkUpdateService the service to update the sink state
   */
 class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBufferSize: Int,
-                    private[media] val sinkUpdateService: ScanSinkUpdateService)
+                    seqNo: Int, private[media] val sinkUpdateService: ScanSinkUpdateService)
   extends Actor {
   /** The current state of the sink. */
   private var sinkState = ScanSinkUpdateServiceImpl.InitialState
@@ -105,10 +108,11 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
     * @param streamDone    the promise to signal the completion of stream
     *                      processing
     * @param maxBufferSize the maximum size of internal result buffers
+    * @param seqNo         a sequence number; this is added to results
     * @return the new instance
     */
-  def this(mediaManager: ActorRef, streamDone: Promise[Unit], maxBufferSize: Int) =
-    this(mediaManager, streamDone, maxBufferSize, ScanSinkUpdateServiceImpl)
+  def this(mediaManager: ActorRef, streamDone: Promise[Unit], maxBufferSize: Int, seqNo: Int) =
+    this(mediaManager, streamDone, maxBufferSize, seqNo, ScanSinkUpdateServiceImpl)
 
   override def receive: Receive = {
     case Init =>
@@ -144,7 +148,7 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
     val (next, msg) = state(sinkState)
     msg.actorsToAck foreach (_ ! Ack)
     if (msg.results.nonEmpty) {
-      mediaManager ! CombinedResults(msg.results)
+      mediaManager ! CombinedResults(msg.results, seqNo)
     }
     sinkState = next
 
