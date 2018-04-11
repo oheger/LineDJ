@@ -8,10 +8,11 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
+import de.oliver_heger.linedj.io.{CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
@@ -35,6 +36,9 @@ object MediaScannerActorSpec {
 
   /** The size of internal buffers. */
   private val BufferSize = 11
+
+  /** The default timeout for parsing medium info files. */
+  private val InfoParserTimeout = Timeout(1.minute)
 
   /**
     * Creates a ''FileData'' object for the specified path.
@@ -92,7 +96,7 @@ object MediaScannerActorSpec {
     */
   private def testActorProps(parser: ActorRef): Props =
     Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty,
-      BufferSize, parser) with ChildActorFactory)
+      BufferSize, parser, InfoParserTimeout) with ChildActorFactory)
 
   /**
     * Extracts only the file name from the specified file data.
@@ -194,11 +198,14 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val exclusions = Set("FOO", "BAR")
     val inclusions = Set("BAZ")
     val parser = TestProbe().ref
-    val props = MediaScannerActor(ArchiveName, exclusions, inclusions, BufferSize, parser)
+    val parseTimeout = Timeout(11.seconds)
+    val props = MediaScannerActor(ArchiveName, exclusions, inclusions, BufferSize,
+      parser, parseTimeout)
 
     classOf[MediaScannerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(ArchiveName, exclusions, inclusions, BufferSize, parser))
+    props.args should be(List(ArchiveName, exclusions, inclusions, BufferSize,
+      parser, parseTimeout))
   }
 
   it should "find all defined media in a directory structure" in {
@@ -267,7 +274,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support canceling a scan operation" in {
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
-        parserActor) with ChildActorFactory {
+        parserActor, InfoParserTimeout) with ChildActorFactory {
         override private[media] def createSource(path: Path): Source[Path, Any] = {
           super.createSource(path).delay(200.milliseconds, DelayOverflowStrategy.backpressure)
         }
@@ -285,7 +292,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val refKillSwitch = new AtomicReference[KillSwitch]
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
-        parserActor) with ChildActorFactory {
+        parserActor, InfoParserTimeout) with ChildActorFactory {
         override private[media] def runStream(source: Source[Path, Any], root: Path,
                                               sinkActor: ActorRef): KillSwitch = {
           val res = super.runStream(source, root, sinkActor)
@@ -308,7 +315,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support excluding files" in {
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
-        parserActor) with ChildActorFactory)
+        parserActor, InfoParserTimeout) with ChildActorFactory)
     val helper = new ScannerActorTestHelper(fProps)
 
     val results = helper.scanAndGetResults()
@@ -321,7 +328,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support including files (with a higher preference than excluding)" in {
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set("TXT"), BufferSize,
-        parserActor) with ChildActorFactory)
+        parserActor, InfoParserTimeout) with ChildActorFactory)
     val helper = new ScannerActorTestHelper(fProps)
 
     val results = helper.scanAndGetResults()
@@ -329,6 +336,16 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val m2Results = findResultFor(results, mid)
     val files = m2Results._1.scanResult.mediaFiles(mid).map(extractFileName)
     files should contain only "medium2Text.txt"
+  }
+
+  it should "handle timeouts when parsing medium description files" in {
+    val fProps: ActorRef => Props = parserActor =>
+      Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
+        parserActor, Timeout(500.millis)) with ChildActorFactory)
+    val helper = new ScannerActorTestHelper(fProps)
+
+    val results = helper.disableInfoParserActor().scanAndGetResults()
+    results should have size 0
   }
 
   /**
@@ -346,6 +363,9 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /** The actor that processes results from the test actor. */
     private val resultConsumerActor =
       system.actorOf(Props(classOf[ResultsConsumerActor], resultQueue, scanCompleted))
+
+    /** The mock info parser actor. */
+    private val infoParser = system.actorOf(Props[MockMediumInfoParserActor])
 
     /** The actor to be tested. */
     private val scanActor = createTestActor()
@@ -429,12 +449,22 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       scan().waitForScanComplete().fetchAllResults()
 
     /**
+      * Disables the mock medium info parser actor, so that no parse results
+      * will be sent.
+      *
+      * @return this test helper
+      */
+    def disableInfoParserActor(): ScannerActorTestHelper = {
+      infoParser ! CloseRequest
+      this
+    }
+
+    /**
       * Creates an instance of the test actor.
       *
       * @return the test actor instance
       */
     private def createTestActor(): ActorRef = {
-      val infoParser = system.actorOf(Props[MockMediumInfoParserActor])
       system.actorOf(fProps(infoParser))
     }
   }
@@ -468,12 +498,21 @@ class ResultsConsumerActor(resultsQueue: LinkedBlockingQueue[ScanSinkActor.Combi
   * A mock implementation of an actor that parses a medium description file.
   * This implementation just generates a dummy ''MediumInfo'' based on the
   * parameters passed in.
+  *
+  * In order to test timeouts, an instance can be deactivated by sending it a
+  * ''CloseRequest'' message. Then no answers are sent.
   */
 class MockMediumInfoParserActor extends Actor {
+  /** Flag whether this actor is active. */
+  private var active = true
+
   override def receive: Receive = {
-    case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) =>
+    case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) if active =>
       val info = MediumInfo(mediumID = mid, name = path.toString, description = "",
         orderMode = "", orderParams = "", checksum = "0")
       sender() ! MediumInfoParserActor.ParseMediumInfoResult(req, info)
+
+    case CloseRequest =>
+      active = false
   }
 }

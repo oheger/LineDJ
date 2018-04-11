@@ -30,7 +30,6 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Promise
-import scala.concurrent.duration._
 
 /**
   * Companion object.
@@ -50,12 +49,13 @@ object MediaScannerActor {
     * @param inclusions       a set of file extensions to include
     * @param maxBufSize       the size of internal buffers for aggregated results
     * @param mediumInfoParser the actor for parsing medium info files
+    * @param parserTimeout    the timeout for parsing of medium info files
     * @return a ''Props'' object to create an instance
     */
   def apply(archiveName: String, exclusions: Set[String], inclusions: Set[String],
-            maxBufSize: Int, mediumInfoParser: ActorRef): Props =
+            maxBufSize: Int, mediumInfoParser: ActorRef, parserTimeout: Timeout): Props =
     Props(classOf[MediaScannerActorImpl], archiveName, exclusions, inclusions, maxBufSize,
-      mediumInfoParser)
+      mediumInfoParser, parserTimeout)
 
   /**
     * The mapping function from a stream failure to a corresponding message.
@@ -105,9 +105,9 @@ object MediaScannerActor {
 
   private class MediaScannerActorImpl(archiveName: String, exclusions: Set[String],
                                       inclusions: Set[String], maxBufSize: Int,
-                                      mediumInfoParser: ActorRef)
+                                      mediumInfoParser: ActorRef, parserTimeout: Timeout)
     extends MediaScannerActor(archiveName, exclusions, inclusions, maxBufSize,
-      mediumInfoParser) with ChildActorFactory
+      mediumInfoParser, parserTimeout) with ChildActorFactory
 
 }
 
@@ -131,9 +131,10 @@ object MediaScannerActor {
   * @param inclusions       a set of file extensions to include
   * @param maxBufSize       the size of internal buffers for aggregated results
   * @param mediumInfoParser the actor for parsing medium info files
+  * @param parserTimeout    the timeout for parsing of medium info files
   */
 class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions: Set[String],
-                        maxBufSize: Int, mediumInfoParser: ActorRef)
+                        maxBufSize: Int, mediumInfoParser: ActorRef, parserTimeout: Timeout)
   extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport {
   this: ChildActorFactory =>
 
@@ -190,7 +191,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     */
   private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
   KillSwitch = {
-    implicit val infoParseTimeout: Timeout = Timeout(1.minute)
+    implicit val infoParseTimeout: Timeout = parserTimeout
     val sinkScanResults = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.ScanResultsComplete, mapException)
     val sinkInfo = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
