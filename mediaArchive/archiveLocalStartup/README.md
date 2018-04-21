@@ -50,6 +50,7 @@ configuration options:
       <readChunkSize>16384</readChunkSize>
       <tagSizeLimit>4096</tagSizeLimit>
       <processingTimeout>60</processingTimeout>
+      <metaDataMediaBufferSize>4</metaDataMediaBufferSize>
     </metaDataExtraction>
     <metaDataPersistence>
       <path>C:\data\music\metadata</path>
@@ -86,6 +87,7 @@ found:
 | infoSizeLimit | Files with information about a medium (typically called `playlist.settings`) are fully read and processed in-memory. To avoid unrestricted memory consumption, with this property a maximum file size (in bytes) can be specified. Info files which are larger will not be processed. |
 | rootPath | This property defines the folder to be scanned for media files. |
 | processorCount | Defines the number of reader actors processing this folder structure in parallel. |
+| metaDataMediaBufferSize | A property determining the maximum size of the buffer for media waiting to be processed for meta data extraction. During a meta data scan operation, in a first step the content of media is determined. Then the meta data for the files on the media is obtained (either from a persistent storage or by meta data extraction). As this may take more time, the number of media waiting to be processed for meta data extraction may increase. This property defines a threshold for this number. When it is reached the scan operation is blocked until media have been processed completely. This reduces the amount of memory consumption during a scan operation. The property is optional; a default value is used if it is not specified. |
 
 ### Settings related to scans for media files
 

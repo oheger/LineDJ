@@ -55,6 +55,9 @@ object MediaArchiveConfigSpec {
   /** Test value for the maximum message size of meta data chunk messages. */
   private val MetaDataMaxMsgSize = 150
 
+  /** Test value for the buffer size during meta data extraction. */
+  private val MetaDataMediaBufSize = 16
+
   /** Test value for the meta data persistence path. */
   private val MetaDataPersistencePath = Paths get "persistence"
 
@@ -117,6 +120,7 @@ object MediaArchiveConfigSpec {
       ProcessingTimeout.duration.toSeconds)
     config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize)
     config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize)
+    config.addProperty("media.metaDataExtraction.metaDataMediaBufferSize", MetaDataMediaBufSize)
     config.addProperty("media.metaDataPersistence.path", MetaDataPersistencePath.toString)
     config.addProperty("media.metaDataPersistence.chunkSize", MetaDataPersistenceChunkSize)
     config.addProperty("media.metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount)
@@ -185,6 +189,18 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
   it should "return the maximum meta data message size" in {
     createArchiveConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+  }
+
+  it should "return the media buffer size for meta data extraction" in {
+    createArchiveConfig().metaDataMediaBufferSize should be(MetaDataMediaBufSize)
+  }
+
+  it should "use a default value for the media buffer size for meta data extraction" in {
+    val c = createHierarchicalConfig()
+    c clearProperty MediaArchiveConfig.PropMetaDataBufferSize
+
+    createArchiveConfig(c).metaDataMediaBufferSize should be(MediaArchiveConfig
+      .DefaultMetaDataMediaBufferSize)
   }
 
   it should "return the path for meta data persistence" in {

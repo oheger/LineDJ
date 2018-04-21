@@ -65,6 +65,22 @@ object MediaArchiveConfig {
   /** The configuration property for the maximum meta data message size. */
   val PropMetaDataMaxMessageSize: String = MetaExtractionPrefix + "metaDataMaxMessageSize"
 
+  /**
+    * The configuration property defining a maximum buffer size for the
+    * processing of media during meta data extraction. When the content of a
+    * medium has been determined during a media scan operation it is sent to
+    * the meta data manager actor which then triggers the processing of this
+    * medium. As this may take a while, more media may be sent before their
+    * processing is complete. This property defines the maximum size of a
+    * buffer for such media. As long as the current number of media in this
+    * buffer is below this threshold, the meta data manager sends ACK
+    * responses; so the scan operation can continue. When the limit is reached,
+    * however, no ACK is send - pausing the scan operation - until media have
+    * been processed completely. This property has a direct impact on the
+    * memory consumption during meta data extraction.
+    */
+  val PropMetaDataBufferSize: String = MetaExtractionPrefix + "metaDataMediaBufferSize"
+
   /** Constant for the prefix for the meta data persistence configuration. */
   val MetaPersistencePrefix: String = CConfigPrefix + "metaDataPersistence."
 
@@ -190,6 +206,9 @@ object MediaArchiveConfig {
   /** The default timeout for parsing a medium description file. */
   val DefaultInfoParserTimeout = Timeout(1.minute)
 
+  /** The default value for the ''PropMetaDataBufferSize'' property. */
+  val DefaultMetaDataMediaBufferSize = 2
+
   /** The default value for the ''PropScanMediaBufferSize'' property. */
   val DefaultScanMediaBufferSize = 8
 
@@ -215,6 +234,8 @@ object MediaArchiveConfig {
     processingTimeout = durationProperty(config, PropProcessingTimeout),
     metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
     initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize,
+    metaDataMediaBufferSize = config.getInt(PropMetaDataBufferSize,
+      DefaultMetaDataMediaBufferSize),
     metaDataPersistencePath = Paths.get(config getString PropMetaDataPersistencePath),
     metaDataPersistenceChunkSize = config getInt PropMetaDataPersistenceChunkSize,
     metaDataPersistenceParallelCount = config getInt PropMetaDataPersistenceParallelCount,
@@ -360,6 +381,7 @@ object MediaArchiveConfig {
  *                               parameter is important to not exceed this
  *                               limit; this value should be a multiple of the
  *                               update chunk size
+ * @param metaDataMediaBufferSize the buffer for meta data extraction
  * @param metaDataPersistencePath the path used by meta data persistence; here
  *                                extracted meta data is stored in files
  * @param metaDataPersistenceChunkSize the chunk size to be used when reading
@@ -392,6 +414,7 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               processingTimeout: Timeout,
                                               metaDataUpdateChunkSize: Int,
                                               initMetaDataMaxMsgSize: Int,
+                                              metaDataMediaBufferSize: Int,
                                               metaDataPersistencePath: Path,
                                               metaDataPersistenceChunkSize: Int,
                                               metaDataPersistenceParallelCount: Int,
