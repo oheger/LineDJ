@@ -81,7 +81,7 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
 
   it should "return None if an unknown medium ID is to be resolved" in {
     MediaFileUriHandler.resolveUri(TestMedium, "path://somePath/someFile.mp3",
-      scala.collection.mutable.Map.empty) shouldBe 'empty
+      Map.empty) shouldBe 'empty
   }
 
   it should "resolve a valid path URI" in {
@@ -91,14 +91,14 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val fileUri = s"path://$Directory/$fileName"
     val otherUri = s"path://$Directory/someOtherFile.ogg"
     val UriMapping = Map(fileUri -> fileData1, otherUri -> fileData2)
-    val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
+    val MediaData = Map(TestMedium -> UriMapping)
 
     MediaFileUriHandler.resolveUri(TestMedium, fileUri, MediaData) should be(Some(fileData1))
   }
 
   it should "return None if an unknown URI is to be resolved" in {
     val UriMapping = Map("someUri" -> fileData("someFile"))
-    val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
+    val MediaData = Map(TestMedium -> UriMapping)
 
     MediaFileUriHandler.resolveUri(TestMedium, "path://somePath/someFile.mp3",
       MediaData) shouldBe 'empty
@@ -119,7 +119,7 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val data = fileData(fileName)
     val fileUri = s"path://$Directory/$fileName"
     val UriMapping = Map(fileUri -> data)
-    val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
+    val MediaData = Map(TestMedium -> UriMapping)
     val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileUri
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
@@ -133,7 +133,7 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val mid2 = MediumID(RootName, None, ComponentID + "_other")
     val UriMapping = Map(fileUri -> data)
     val UriMapping2 = Map(fileUri -> fileData("anotherName.mp3"))
-    val MediaData = scala.collection.mutable.Map(mid2 -> UriMapping2, TestMedium -> UriMapping)
+    val MediaData = Map(mid2 -> UriMapping2, TestMedium -> UriMapping)
     val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":" + fileUri
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
@@ -144,7 +144,7 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":NoPathUriFollows"
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
-      scala.collection.mutable.Map.empty) shouldBe 'empty
+      Map.empty) shouldBe 'empty
   }
 
   it should "return None for a reference URI if the target medium is unknown" in {
@@ -152,7 +152,7 @@ class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
     val data = fileData(fileName)
     val fileUri = s"path://$Directory/$fileName"
     val UriMapping = Map(fileUri -> data)
-    val MediaData = scala.collection.mutable.Map(TestMedium -> UriMapping)
+    val MediaData = Map(TestMedium -> UriMapping)
     val refUri = "ref://unknownMedium:" + ComponentIDEnc + ":" + fileUri
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,

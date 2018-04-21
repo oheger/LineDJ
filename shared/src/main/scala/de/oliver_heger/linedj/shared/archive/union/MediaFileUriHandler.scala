@@ -24,8 +24,6 @@ import java.util.regex.Pattern
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
-import scala.collection.mutable
-
 /**
   * A data class representing an URI for the global undefined medium split
   * into its single components.
@@ -142,8 +140,8 @@ object MediaFileUriHandler {
     * @param mediaData the mapping for known media and their files
     * @return an option with the resolved ''FileData'' object
     */
-  def resolveUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
-  .Map[MediumID, Map[String, FileData]]): Option[FileData] = {
+  def resolveUri(mediumID: MediumID, uri: String,
+                 mediaData: Map[MediumID, Map[String, FileData]]): Option[FileData] = {
     if (uri startsWith PrefixReference) {
       resolveReferenceUri(uri, mediaData)
     } else {
@@ -160,8 +158,8 @@ object MediaFileUriHandler {
     * @param mediaData the mapping for known media and their files
     * @return an option with the resolved ''FileData'' object
     */
-  private def resolveReferenceUri(uri: String, mediaData: scala.collection.mutable.Map[MediumID,
-    Map[String, FileData]]): Option[FileData] =
+  private def resolveReferenceUri(uri: String, mediaData: Map[MediumID, Map[String, FileData]]):
+  Option[FileData] =
     for {
       extractedUri <- extractRefUri(uri)
       referencedMedium <- findMediumForUri(mediaData, extractedUri)
@@ -175,7 +173,7 @@ object MediaFileUriHandler {
     * @param undefinedUri the ''UndefinedMediumUri''
     * @return an option with the matched ''MediumID''
     */
-  private def findMediumForUri(mediaData: mutable.Map[MediumID, Map[String, FileData]],
+  private def findMediumForUri(mediaData: Map[MediumID, Map[String, FileData]],
                                undefinedUri: UndefinedMediumUri): Option[MediumID] =
     mediaData.keys.find { m =>
       m.mediumURI == undefinedUri.mediumURI &&
@@ -202,8 +200,9 @@ object MediaFileUriHandler {
     * @param mediaData the mapping for known media and their files
     * @return an option with the resolved ''FileData'' object
     */
-  private def resolvePathUri(mediumID: MediumID, uri: String, mediaData: scala.collection.mutable
-  .Map[MediumID, Map[String, FileData]]): Option[FileData] =
+  private def resolvePathUri(mediumID: MediumID, uri: String,
+                             mediaData: Map[MediumID, Map[String, FileData]]):
+  Option[FileData] =
     mediaData.get(mediumID).flatMap(_.get(uri))
 
   /**
