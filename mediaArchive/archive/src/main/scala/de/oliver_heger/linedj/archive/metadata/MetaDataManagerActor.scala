@@ -20,8 +20,8 @@ import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaRootData
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
+import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor.ScanResultProcessed
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
@@ -31,9 +31,20 @@ import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import scala.collection.immutable.Queue
+
 object MetaDataManagerActor {
-  /** Default root data used for unknown root paths. */
-  private val DefaultMediaRoot = MediaRootData(null, 1, None)
+
+  /**
+    * A message sent by [[MetaDataManagerActor]] in response to scan results as
+    * an ACK signal.
+    *
+    * This message is used to implement back-pressure for meta data extraction.
+    * It is sent to clients when there is capacity to process further media.
+    * The number of media waiting to be processed is defined in the archive
+    * configuration.
+    */
+  case object ScanResultProcessed
 
   private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
                                          metaDataUnionActor: ActorRef)
@@ -71,6 +82,11 @@ object MetaDataManagerActor {
   * is sent to a union meta data manager actor. It is then stored in the union
   * archive an can be queried by clients.
   *
+  * To avoid an unlimited growth of the queue of media waiting to be processed
+  * for meta data extraction, the actor sends ACK messages when there is
+  * capacity for more media to be processed. When a medium has been completed
+  * it is checked whether there is another client waiting for an ACK.
+  *
   * @param config             the central configuration object
   * @param persistenceManager reference to the persistence manager actor
   * @param metaDataUnionActor reference to the meta data union actor
@@ -93,6 +109,12 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** A set with IDs for media which have already been completed. */
   private var completedMedia = Set.empty[MediumID]
 
+  /** A set with media that are currently processed. */
+  private var mediaInProgress = Set.empty[MediumID]
+
+  /** Stores client references waiting for an ACK message. */
+  private var pendingAck = Queue.empty[ActorRef]
+
   /**
     * Stores information about all available media. This is provided by the
     * media manager when the file scan is complete. It is used to determine
@@ -104,8 +126,11 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private var scanInProgress = false
 
   override def receive: Receive = {
-    case MediaScanStarts if !scanInProgress =>
-      initiateNewScan()
+    case MediaScanStarts =>
+      if (!scanInProgress) {
+        initiateNewScan()
+      }
+      sender ! ScanResultProcessed
 
     case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
       if (handleProcessingResult(result.mediumID, result)) {
@@ -124,6 +149,10 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       persistenceManager ! esr
       metaDataUnionActor ! MediaContribution(esr.scanResult.mediaFiles)
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
+      sendAckIfPossible(esr)
+
+    case _: EnhancedMediaScanResult =>  // no scan in progress or closing
+      sender ! ScanResultProcessed
 
     case AvailableMedia(media) =>
       availableMedia = Some(media)
@@ -136,6 +165,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case CloseRequest if scanInProgress =>
       val actorsToClose = processorActors.values.toSet + persistenceManager
       onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)
+      pendingAck foreach(_ ! ScanResultProcessed)
+      mediaInProgress = Set.empty
+      pendingAck = Queue.empty
 
     case CloseComplete =>
       onCloseComplete()
@@ -150,6 +182,21 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       } else {
         persistenceManager forward removeMsg
       }
+  }
+
+  /**
+    * Sends an ACK for an incoming result if possible. If this is not possible,
+    * the state is updated to reflect a pending ACK.
+    *
+    * @param esr the new result object
+    */
+  private def sendAckIfPossible(esr: EnhancedMediaScanResult): Unit = {
+    mediaInProgress ++= esr.scanResult.mediaFiles.keys
+    if (mediaInProgress.size <= config.metaDataMediaBufferSize) {
+      sender ! ScanResultProcessed
+    } else {
+      pendingAck = pendingAck enqueue sender()
+    }
   }
 
   /**
@@ -215,10 +262,29 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
                                     handler: MediumDataHandler): Boolean =
     if (handler.resultReceived(result)) {
       if (handler.isComplete) {
-        completedMedia += mediumID
+        processPendingAck(mediumID)
       }
       true
     } else false
+
+  /**
+    * Checks whether an ACK has to be sent after the specified medium has been
+    * completed.
+    *
+    * @param mediumID the completed medium
+    */
+  private def processPendingAck(mediumID: MediumID): Unit = {
+    completedMedia += mediumID
+    mediaInProgress -= mediumID
+    if (mediaInProgress.size <= config.metaDataMediaBufferSize) {
+      pendingAck.dequeueOption match {
+        case Some((actor, queue)) =>
+          actor ! ScanResultProcessed
+          pendingAck = queue
+        case _ =>
+      }
+    }
+  }
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the

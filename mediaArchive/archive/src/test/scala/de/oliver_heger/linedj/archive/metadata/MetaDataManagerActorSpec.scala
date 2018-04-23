@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
@@ -190,6 +190,19 @@ object MetaDataManagerActorSpec {
   }
 
   /**
+    * Generates an enhanced scan result that contains information for a single
+    * test medium.
+    *
+    * @param mid the medium
+    * @return the scan result for this medium
+    */
+  def createResultForMedium(mid: MediumID): EnhancedMediaScanResult = {
+    val files = generateMediaFiles(path(mid.mediumURI), 4)
+    val scanRes = MediaScanResult(path(mid.mediumURI), Map(mid -> files))
+    createEnhancedScanResult(scanRes)
+  }
+
+  /**
     * Generates an ''AvailableMedia'' message for the specified scan result.
     *
     * @param result the scan result
@@ -278,19 +291,33 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   /**
     * Generates an alternative scan result and tells the test actor to process
     * it.
-    * @param helper the test helper
-    * @param files the files to be found in this scan result
+    *
+    * @param helper    the test helper
+    * @param files     the files to be found in this scan result
+    * @param expectAck flag whether an ACK message is expected
     * @return the alternative scan result
     */
-  private def processAnotherScanResult(helper: MetaDataManagerActorTestHelper, files: List[FileData]): EnhancedMediaScanResult = {
+  private def processAnotherScanResult(helper: MetaDataManagerActorTestHelper,
+                                       files: List[FileData],
+                                       expectAck: Boolean): EnhancedMediaScanResult = {
     val root = path("anotherRootDirectory")
     val medID = MediumID(root.toString, Some("someDescFile.txt"))
     val scanResult2 = MediaScanResult(root, Map(medID -> files))
     val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> "testCheckSum"),
       createFileUriMapping(scanResult2))
     helper.actor ! esr
+    if (expectAck) {
+      expectAckFromManager()
+    }
     helper.sendProcessingResults(medID, files)
     esr
+  }
+
+  /**
+    * Expects that an ACK message from the meta data manager actor is received.
+    */
+  private def expectAckFromManager(): Unit = {
+    expectMsg(MetaDataManagerActor.ScanResultProcessed)
   }
 
   /**
@@ -324,7 +351,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
     helper.startProcessing()
     val files = generateMediaFiles(path("otherPath"), 2)
-    val otherResult = processAnotherScanResult(helper, files)
+    val otherResult = processAnotherScanResult(helper, files, expectAck = false)
+    expectAckFromManager()
     val unresolved1 = UnresolvedMetaDataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
     val unresolved2 = UnresolvedMetaDataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
@@ -334,7 +362,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.actor ! unresolved2
     val creation = helper.nextChildCreation()
     creation.probe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
-    creation.props.args(3) should be(1) // default async count
+    creation.props.args(3) should be(AsyncCount)
     helper.numberOfChildActors should be(2)
   }
 
@@ -342,10 +370,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
     helper.startProcessing()
     val files = generateMediaFiles(path("otherPath"), 2)
-    val otherResult = processAnotherScanResult(helper, files)
+    val otherResult = processAnotherScanResult(helper, files, expectAck = false)
     val unresolved1 = UnresolvedMetaDataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
-    val unresolved2 = UnresolvedMetaDataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
+    val unresolved2 = UnresolvedMetaDataFiles(otherResult.scanResult.mediaFiles.keys.head,
+      files, otherResult)
     helper.actor ! unresolved1
     helper.actor ! unresolved2
     helper.sendAllProcessingResults(ScanResult)
@@ -353,6 +382,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     assertActorStopped(helper.nextChild())
     assertActorStopped(helper.nextChild())
+    expectAckFromManager()
+  }
+
+  it should "update processed media, so that ACK messages are sent correctly" in {
+    val helper = new MetaDataManagerActorTestHelper(checkChildActorProps = false)
+    helper.startProcessing()
+    helper.sendAllProcessingResults(ScanResult)
+
+    val files = generateMediaFiles(path("otherPath"), 1)
+    processAnotherScanResult(helper, files, expectAck = true)
   }
 
   it should "notify the persistence manager actor when a scan is complete" in {
@@ -404,6 +443,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
     helper.actor ! EnhancedScanResult
+    expectAckFromManager()
     helper.persistenceManager.expectMsg(EnhancedScanResult)
   }
 
@@ -441,7 +481,8 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.startProcessing()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     val files = generateMediaFiles(path("otherPath"), 2)
-    val otherResult = processAnotherScanResult(helper, files)
+    val otherResult = processAnotherScanResult(helper, files, expectAck = false)
+    expectAckFromManager()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     helper.actor ! UnresolvedMetaDataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
@@ -506,6 +547,38 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsg(CloseAck(helper.actor))
   }
 
+  it should "send pending ACK messages if a Cancel request is received" in {
+    val mid1 = MediumID("mediumRoot1", Some("medium1.settings"))
+    val mid2 = MediumID("mediumRoot2", Some("medium2.settings"))
+    val probe1 = TestProbe()
+    val probe2 = TestProbe()
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+
+    helper.actor.tell(createResultForMedium(mid1), probe1.ref)
+    helper.actor.tell(createResultForMedium(mid2), probe2.ref)
+    helper.prepareCloseRequest(avMediaPresent = false)()
+    helper.actor ! CloseRequest
+    probe1.expectMsg(MetaDataManagerActor.ScanResultProcessed)
+    probe2.expectMsg(MetaDataManagerActor.ScanResultProcessed)
+  }
+
+  it should "reset information related to ACK messages when a scan is canceled" in {
+    val mid = MediumID("mediumRoot", Some("medium.settings"))
+    val probe = TestProbe()
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.sendAvailableMedia()
+
+    helper.actor.tell(createResultForMedium(mid), probe.ref)
+    helper.actor ! CloseRequest
+    helper.actor ! CloseHandlerActor.CloseComplete
+    probe.expectMsg(MetaDataManagerActor.ScanResultProcessed)
+    helper.startProcessing(checkPersistenceMan = false)
+    helper.sendAllProcessingResults(ScanResult)
+    expectNoMoreMessage(probe)
+  }
+
   it should "ignore a scan start message if a scan is in progress" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
@@ -560,6 +633,29 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     expectMsg(RemovePersistentMetaDataResult(removeMsg, Set.empty))
     expectNoMoreMessage(helper.persistenceManager)
+  }
+
+  it should "ACK a MediaScanStarts message" in {
+    val helper = new MetaDataManagerActorTestHelper
+
+    helper.actor ! MediaScanStarts
+    expectAckFromManager()
+  }
+
+  it should "ACK a result if no scan is in progress" in {
+    val helper = new MetaDataManagerActorTestHelper
+
+    helper.actor ! EnhancedScanResult
+    expectAckFromManager()
+  }
+
+  it should "ACK a result if closing is in progress" in {
+    val helper = new MetaDataManagerActorTestHelper
+
+    helper.startProcessing()
+    helper.prepareCloseRequest(avMediaPresent = false, closing = true)()
+    helper.actor ! EnhancedScanResult
+    expectAckFromManager()
   }
 
   /**
@@ -637,10 +733,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult,
                         checkPersistenceMan: Boolean = true): ActorRef = {
       actor ! MediaScanStarts
+      expectAckFromManager()
       if (checkPersistenceMan) {
         persistenceManager.expectMsg(ScanForMetaDataFiles)
       }
       actor ! esr
+      expectAckFromManager()
       actor
     }
 
@@ -860,19 +958,14 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       *
       * @return the mock configuration
      */
-    private def createConfig() = {
+    private def createConfig(): MediaArchiveConfig = {
       val config = mock[MediaArchiveConfig]
       when(config.metaDataUpdateChunkSize).thenReturn(2)
       when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
-      //TODO rework test for changes on root configuration
-//      when(config.rootFor(any(classOf[Path]))).thenAnswer(new Answer[Option[MediaRootData]] {
-//        override def answer(invocation: InvocationOnMock): Option[MediaRootData] = {
-//          if(invocation.getArguments.head == EnhancedScanResult.scanResult.root)
-//            Some(MediaRootData(EnhancedScanResult.scanResult.root, AsyncCount, None))
-//          else None
-//        }
-//      })
+      when(config.rootPath).thenReturn(EnhancedScanResult.scanResult.root)
+      when(config.processorCount).thenReturn(AsyncCount)
       when(config.processingTimeout).thenReturn(ProcessingTimeout)
+      when(config.metaDataMediaBufferSize).thenReturn(MediaIDs.size + 1)
       config
     }
   }
