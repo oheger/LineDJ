@@ -240,6 +240,23 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     expectMsg(ScanAllMedia)
   }
 
+  it should "not override a controller with another actor" in {
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 1))
+    val helper = new MediaUnionActorTestHelper
+    val ctrl1 = helper.addMedia(mediaMap1, 1)
+    val ctrl2 = helper.addMedia(Map(mediaMapping(3, 2)), 2)
+
+    val ctrl3 = helper.addMedia(mediaMap2, 1)
+    stopActor(ctrl3.ref)
+    stopActor(ctrl2.ref)
+    awaitCond(helper.queryMedia().media == mediaMap1 ++ mediaMap2)
+    val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"),
+      withMetaData = false)
+    helper.manager ! request
+    ctrl1.expectMsg(request)
+  }
+
   it should "process a CloseRequest message" in {
     val helper = new MediaUnionActorTestHelper
     val ctrl1 = helper.addMedia(Map(mediaMapping(1, 1)), 1)

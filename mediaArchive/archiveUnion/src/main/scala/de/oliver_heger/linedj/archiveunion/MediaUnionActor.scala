@@ -92,10 +92,13 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
 
     case AddMedia(media, compID, optCtrlActor) =>
       availableMedia = AvailableMedia(availableMedia.media ++ media)
-      val controller = optCtrlActor getOrElse sender()
-      controllerMap += compID -> controller
-      context watch controller
       log.info(s"Received AddMedia message from component $compID.")
+      if (!controllerMap.contains(compID)) {
+        val controller = optCtrlActor getOrElse sender()
+        controllerMap += compID -> controller
+        context watch controller
+        log.info("Added controller actor.")
+      }
 
     case fileReq: MediumFileRequest =>
       forwardToController(fileReq.fileID.mediumID, fileReq)(undefinedMediumFileResponse)
@@ -110,6 +113,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     case Terminated(actor) =>
       val optMapping = controllerMap.find(t => t._2 == actor)
       optMapping foreach { m =>
+        log.info(s"Removing data from component ${m._1} because controller actor died.")
         metaDataUnionActor ! ArchiveComponentRemoved(m._1)
         availableMedia = removeMediaFrom(availableMedia, m._1)
         controllerMap -= m._1
