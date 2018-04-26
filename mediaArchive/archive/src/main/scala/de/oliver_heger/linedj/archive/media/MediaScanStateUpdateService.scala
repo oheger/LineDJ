@@ -200,11 +200,14 @@ private trait MediaScanStateUpdateService {
     * Updates the state after a notification that the scan is now complete has
     * been received. This means that no new results will be processed any more.
     * However, it can be the case that there are still current results that
-    * need to be propagated to the union archive or the meta data manager.
+    * need to be propagated to the union archive or the meta data manager. The
+    * passed in sequence number is checked against the current sequence number
+    * to detect outdated messages.
     *
+    * @param seqNo the sequence number
     * @return the updated ''State''
     */
-  def scanComplete(): StateUpdate[Unit]
+  def scanComplete(seqNo: Int): StateUpdate[Unit]
 
   /**
     * Updates the state after the scan operation has been canceled. In this
@@ -257,6 +260,33 @@ private trait MediaScanStateUpdateService {
   } yield msg
 
   /**
+    * Updates the state when the current scan operation is complete and returns
+    * an object with messages to be sent now. Typically, at this point of time
+    * a message with available media will have to be sent.
+    *
+    * @param seqNo the sequence number of this scan operation
+    * @param archiveName the name of the archive component
+    * @return the updated ''State'' and messages to be sent
+    */
+  def handleScanComplete(seqNo: Int, archiveName: String):
+  StateUpdate[ScanStateTransitionMessages] = for {
+    _ <- scanComplete(seqNo)
+    msg <- fetchTransitionMessages(archiveName)
+  } yield msg
+
+  /**
+    * Updates the state when the current scan operation is canceled and returns
+    * an object with messages to be sent now. At this point, it is important to
+    * sent a pending ACK notification, so that the scan stream can terminate.
+    *
+    * @return the updated ''State'' and messages to be sent
+    */
+  def handleScanCanceled(): StateUpdate[ScanStateTransitionMessages] = for {
+    _ <- scanCanceled()
+    ack <- actorToAck()
+  } yield ScanStateTransitionMessages(ack = ack)
+
+  /**
     * Generates a ''ScanStateTransitionMessages'' object from the current
     * state. This functionality is needed by multiple functions that return
     * composed results.
@@ -292,6 +322,9 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
       currentResults = Nil,
       currentMediaData = Map.empty,
       availableMediaSent = true)
+
+  /** Constant for an undefined checksum. */
+  val UndefinedChecksum = ""
 
   /** Constant for empty transition messages. */
   private val NoTransitionMessages = ScanStateTransitionMessages()
@@ -335,11 +368,14 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
   override def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef):
   StateUpdate[Unit] = modify { s =>
     if (s.ackPending.isDefined || results.seqNo != s.seqNo) s
-    else s.copy(fileData = updateFileDataForResults(s.fileData, results.results),
-      mediaData = updateMediaDataForResults(s.mediaData, results.results),
-      currentResults = extractCurrentResults(results.results),
-      currentMediaData = extractCurrentMediaInfo(results.results),
-      ackPending = Some(sender))
+    else {
+      val resWithCheck = results.results map updateChecksumInfo
+      s.copy(fileData = updateFileDataForResults(s.fileData, resWithCheck),
+        mediaData = updateMediaDataForResults(s.mediaData, resWithCheck),
+        currentResults = extractCurrentResults(results.results),
+        currentMediaData = extractCurrentMediaInfo(resWithCheck),
+        ackPending = Some(sender))
+    }
   }
 
   override def actorToAck(): StateUpdate[Option[ActorRef]] = State { s =>
@@ -348,8 +384,9 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
   }
 
   override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
-    if (!s.availableMediaSent)
-      (s.copy(availableMediaSent = true), Some(AvailableMedia(s.mediaData)))
+    if (!s.availableMediaSent) // clear media state, it is not needed by actor
+      (s.copy(availableMediaSent = true, mediaData = Map.empty),
+        Some(AvailableMedia(s.mediaData)))
     else if (metaDataMessageBlocked(s)) (s, None)
     else generateMetaDataMessage(s)
   }
@@ -361,12 +398,15 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else (s, None)
   }
 
-  override def scanComplete(): StateUpdate[Unit] = modify { s =>
-    s.copy(scanInProgress = false, seqNo = s.seqNo + 1)
+  override def scanComplete(seqNo: Int): StateUpdate[Unit] = modify { s =>
+    if (seqNo == s.seqNo)
+      s.copy(scanInProgress = false, availableMediaSent = false, seqNo = s.seqNo + 1)
+    else s
   }
 
   override def scanCanceled(): StateUpdate[Unit] = modify { s =>
-    s.copy(removeState = Initial, currentMediaData = Map.empty, currentResults = List.empty)
+    s.copy(removeState = Initial, currentMediaData = Map.empty, currentResults = List.empty,
+      mediaData = Map.empty, availableMediaSent = true)
   }
 
   /**
@@ -440,6 +480,22 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     results.foldLeft(data) { (map, res) =>
       updateFileDataForResult(map, res.result)
     }
+
+  /**
+    * Adds information about the checksum (which is contained in file data) to
+    * the medium information in the specified result object where possible.
+    * As this information is calculated by different components, it has to be
+    * combined explicitly.
+    *
+    * @param result the result object
+    * @return the modified result with updated checksum information
+    */
+  private def updateChecksumInfo(result: CombinedMediaScanResult): CombinedMediaScanResult = {
+    val mediaMap = result.info map { e =>
+      (e._1, e._2.copy(checksum = result.result.checksumMapping.getOrElse(e._1, "")))
+    }
+    result.copy(info = mediaMap)
+  }
 
   /**
     * Updates the data with media information for the given sequence of result
