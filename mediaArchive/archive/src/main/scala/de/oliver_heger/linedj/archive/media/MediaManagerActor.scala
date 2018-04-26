@@ -20,6 +20,7 @@ import java.nio.file.Paths
 
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -164,7 +165,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       updateStateAndSendMessages(scanStateUpdateService
         .handleRemovedFromUnionArchive(config.archiveName))
 
-    case ScanSinkActor.Ack if sender() == metaDataManager =>
+    case MetaDataManagerActor.ScanResultProcessed if sender() == metaDataManager =>
       updateStateAndSendMessages(scanStateUpdateService
         .handleAckFromMetaManager(config.archiveName))
 
@@ -172,15 +173,16 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       updateStateAndSendMessages(scanStateUpdateService.handleResultsReceived(res, sender(),
         config.archiveName))
 
-    case ScanSinkActor.ScanResultsComplete =>
-      updateState(scanStateUpdateService.scanComplete())
+    case MediaScannerActor.PathScanCompleted(request) =>
+      updateStateAndSendMessages(scanStateUpdateService.handleScanComplete(request.seqNo,
+        config.archiveName))
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
       mediaScannerActor ! AbstractStreamProcessingActor.CancelStreams
 
     case CloseComplete =>
-      updateState(scanStateUpdateService.scanCanceled())
+      updateStateAndSendMessages(scanStateUpdateService.handleScanCanceled())
       onCloseComplete()
   }
 

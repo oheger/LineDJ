@@ -93,16 +93,6 @@ object MediaScannerActor {
     */
   case class PathScanCompleted(request: ScanPath)
 
-  /**
-    * A message sent by [[MediaScannerActor]] as result for a scan request.
-    * The message contains a [[MediaScanResult]] with all the files that have
-    * been found during the scan operation.
-    *
-    * @param request the original request
-    * @param result  the actual scan result
-    */
-  case class ScanPathResult(request: ScanPath, result: MediaScanResult)
-
   private class MediaScannerActorImpl(archiveName: String, exclusions: Set[String],
                                       inclusions: Set[String], maxBufSize: Int,
                                       mediumInfoParser: ActorRef, parserTimeout: Timeout)

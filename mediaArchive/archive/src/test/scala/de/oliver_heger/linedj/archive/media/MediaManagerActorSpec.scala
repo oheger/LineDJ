@@ -24,6 +24,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -212,14 +213,17 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a close complete message" in {
+    val probeAck = TestProbe()
+    val messages = ScanStateTransitionMessages(ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(()) {
-      _.scanCanceled()
+    helper.stub(messages) {
+      _.handleScanCanceled()
     }
       .post(CloseHandlerActor.CloseComplete)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectCloseCompleteProcessed()
+    probeAck.expectMsg(ScanSinkActor.Ack)
   }
 
   it should "handle a message to start a new scan operation" in {
@@ -298,7 +302,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "ignore an ACK message from another source" in {
     val helper = new MediaManagerTestHelper
 
-    helper.send(ScanSinkActor.Ack)
+    helper.send(MetaDataManagerActor.ScanResultProcessed)
       .expectNoStateUpdate()
   }
 
@@ -315,18 +319,22 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a scan completed message" in {
+    val completeMsg = MediaScannerActor.PathScanCompleted(
+      MediaScannerActor.ScanPath(RootPath, 30))
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
+    val messages = ScanStateTransitionMessages(metaManagerMessage = Some("availableMedia"))
     val result = mock[ScanSinkActor.CombinedResults]
     val helper = new MediaManagerTestHelper
 
-    helper.stub((), state) {
-      _.scanComplete()
+    helper.stub(messages, state) {
+      _.handleScanComplete(completeMsg.request.seqNo, ArchiveName)
     }
       .stub(ScanStateTransitionMessages()) {
         _.handleResultsReceived(result, testActor, ArchiveName)
       }
-      .post(ScanSinkActor.ScanResultsComplete)
+      .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
+      .expectMetaDataMessage(messages.metaManagerMessage.get)
       .post(result)
       .expectStateUpdate(state)
   }
@@ -509,7 +517,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def postAckFromMetaManager(): MediaManagerTestHelper = {
-      testManagerActor.tell(ScanSinkActor.Ack, probeMetaDataManager.ref)
+      testManagerActor.tell(MetaDataManagerActor.ScanResultProcessed, probeMetaDataManager.ref)
       this
     }
 
