@@ -29,12 +29,12 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.mockito.Matchers.{any, anyString, eq => eqArg}
+import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object LocalArchiveStartupSpec {
@@ -54,9 +54,8 @@ object LocalArchiveStartupSpec {
     config.addProperty("media.readerCheckInitialDelay", 240)
     config.addProperty("media.downloadChunkSize", 16384)
     config.addProperty("media.infoSizeLimit", 16384)
-    config.addProperty("media.roots.root.path", "myMusic")
-    config.addProperty("media.roots.root.processorCount", 2)
-    config.addProperty("media.roots.root.accessRestriction", 1)
+    config.addProperty("media.rootPath", "myMusic")
+    config.addProperty("media.processorCount", 2)
     config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
     config.addProperty("media.metaDataExtraction.readChunkSize", 4096)
     config.addProperty("media.metaDataExtraction.tagSizeLimit", 16384)
