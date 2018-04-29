@@ -141,8 +141,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
       val actorMap = if (processorActors contains root) processorActors
-      else processorActors + (root -> createProcessorActor(root, result))
-      actorMap(root) ! ProcessMediaFiles(mid, files)
+      else processorActors + (root -> createProcessorActor(root))
+      actorMap(root) ! ProcessMediaFiles(mid, files, result.fileUriMapping)
       processorActors = actorMap
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
@@ -203,11 +203,10 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * Creates a meta data processing actor for the specified root path.
     *
     * @param root   the root path
-    * @param result the scan result object for this path
     * @return the new processing actor
     */
-  private def createProcessorActor(root: Path, result: EnhancedMediaScanResult): ActorRef =
-    createChildActor(MetaDataExtractionActor(self, result.fileUriMapping, ExtractorFactory,
+  private def createProcessorActor(root: Path): ActorRef =
+    createChildActor(MetaDataExtractionActor(self, ExtractorFactory,
       config.processorCount, config.processingTimeout))
 
   /**

@@ -33,11 +33,10 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 object MetaDataExtractionActor {
 
   private class MetaDataExtractionActorImpl(metaDataManager: ActorRef,
-                                            fileUriMapping: Map[String, FileData],
                                             extractorFactory: ExtractorActorFactory,
                                             asyncCount: Int,
                                             asyncTimeout: Timeout)
-    extends MetaDataExtractionActor(metaDataManager, fileUriMapping, extractorFactory,
+    extends MetaDataExtractionActor(metaDataManager, extractorFactory,
       asyncCount, asyncTimeout) with ChildActorFactory with CloseSupport
 
   /**
@@ -45,16 +44,15 @@ object MetaDataExtractionActor {
     * class.
     *
     * @param metaDataManager  the actor receiving meta data processing results
-    * @param uriPathMapping   a mapping from file URIs to file objects
     * @param extractorFactory the factory for extractor actors
     * @param asyncCount       the number of parallel processing actors
     * @param asyncTimeout     the timeout for processing of a single file
     * @return ''Props'' for the new actor
     */
-  def apply(metaDataManager: ActorRef, uriPathMapping: Map[String, FileData],
-            extractorFactory: ExtractorActorFactory, asyncCount: Int, asyncTimeout: Timeout):
+  def apply(metaDataManager: ActorRef, extractorFactory: ExtractorActorFactory,
+            asyncCount: Int, asyncTimeout: Timeout):
   Props =
-    Props(classOf[MetaDataExtractionActorImpl], metaDataManager, uriPathMapping, extractorFactory,
+    Props(classOf[MetaDataExtractionActorImpl], metaDataManager, extractorFactory,
       asyncCount, asyncTimeout)
 
   /**
@@ -97,21 +95,17 @@ object MetaDataExtractionActor {
   * during a scan operation should be stopped when the scan is done.
   *
   * @param metaDataManager  the actor receiving meta data processing results
-  * @param uriPathMapping   a mapping from file URIs to file objects
   * @param extractorFactory the factory for extractor actors
   * @param asyncCount       the number of parallel processing actors
   * @param asyncTimeout     the timeout for processing of a single file
   */
-class MetaDataExtractionActor(metaDataManager: ActorRef, uriPathMapping: Map[String, FileData],
+class MetaDataExtractionActor(metaDataManager: ActorRef,
                               extractorFactory: ExtractorActorFactory, asyncCount: Int,
                               asyncTimeout: Timeout)
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
   this: ChildActorFactory with CloseSupport =>
 
   import MetaDataExtractionActor._
-
-  /** The mapping from paths to URIs. */
-  private val pathUriMapping = reverseUriMapping(uriPathMapping)
 
   /** The extractor wrapper child actor. */
   private var extractorWrapperActor: ActorRef = _
@@ -170,7 +164,7 @@ class MetaDataExtractionActor(metaDataManager: ActorRef, uriPathMapping: Map[Str
     if (!streamInProgress && pendingRequests.nonEmpty) {
       val request = pendingRequests.head
       pendingRequests = pendingRequests.tail
-      processMediaFiles(request.mediumID, request.files)
+      processMediaFiles(request.mediumID, request.files, request.uriPathMapping)
     }
   }
 
@@ -190,12 +184,14 @@ class MetaDataExtractionActor(metaDataManager: ActorRef, uriPathMapping: Map[Str
     * @param mediumID the ID of the medium the files belong to
     * @param files    the list of files to be processed
     */
-  private def processMediaFiles(mediumID: MediumID, files: List[FileData]): Unit = {
-    implicit val timeout = asyncTimeout
+  private def processMediaFiles(mediumID: MediumID, files: List[FileData],
+                                uriPathMapping: Map[String, FileData]): Unit = {
+    implicit val timeout: Timeout = asyncTimeout
+    val pathUriMapping = reverseUriMapping(uriPathMapping)
     val source = createSource(files)
     val sink = Sink.foreach(metaDataManager.!)
     val (ks, futStream) = source
-      .map(fd => processRequest(mediumID, fd))
+      .map(fd => processRequest(mediumID, fd, pathUriMapping))
       .viaMat(KillSwitches.single)(Keep.right)
       .mapAsyncUnordered(asyncCount) { p =>
         (extractorWrapperActor ? p) recover {
@@ -211,11 +207,13 @@ class MetaDataExtractionActor(metaDataManager: ActorRef, uriPathMapping: Map[Str
   /**
     * Creates a request to process the specified file.
     *
-    * @param mediumID the medium ID
-    * @param fd       the data for the file to be processed
+    * @param mediumID       the medium ID
+    * @param fd             the data for the file to be processed
+    * @param pathUriMapping the mapping from file objects to URIs
     * @return the request to process this file
     */
-  private def processRequest(mediumID: MediumID, fd: FileData): ProcessMetaDataFile =
+  private def processRequest(mediumID: MediumID, fd: FileData,
+                             pathUriMapping: Map[String, String]): ProcessMetaDataFile =
     ProcessMetaDataFile(fd, MetaDataProcessingSuccess(fd.path, mediumID,
       pathUriMapping(fd.path), MediaMetaData()))
 }

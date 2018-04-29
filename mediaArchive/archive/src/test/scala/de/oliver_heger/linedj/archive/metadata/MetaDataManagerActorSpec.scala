@@ -341,9 +341,11 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       EnhancedScanResult)
     helper.actor ! unresolved1
     val processor = helper.nextChild()
-    processor.expectMsg(ProcessMediaFiles(unresolved1.mediumID, unresolved1.files))
+    processor.expectMsg(ProcessMediaFiles(unresolved1.mediumID, unresolved1.files,
+      EnhancedScanResult.fileUriMapping))
     helper.actor ! unresolved2
-    processor.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
+    processor.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files,
+      EnhancedScanResult.fileUriMapping))
     helper.numberOfChildActors should be(1)
   }
 
@@ -361,8 +363,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
 
     helper.actor ! unresolved2
     val creation = helper.nextChildCreation()
-    creation.probe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files))
-    creation.props.args(3) should be(AsyncCount)
+    creation.probe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files,
+      otherResult.fileUriMapping))
+    creation.props.args(2) should be(AsyncCount)
     helper.numberOfChildActors should be(2)
   }
 
@@ -908,15 +911,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {
-            val sampleProps = MetaDataExtractionActor(actor, EnhancedScanResult.fileUriMapping,
-              null, 0, null)
+            val sampleProps = MetaDataExtractionActor(actor, null, 0, null)
             p.actorClass() should be(sampleProps.actorClass())
             p.args.head should be(actor)
-            p.args(1) should be(EnhancedScanResult.fileUriMapping)
-            p.args(2) shouldBe a[ExtractorActorFactoryImpl]
-            p.args(2).asInstanceOf[ExtractorActorFactoryImpl].config should be(config)
-            p.args(3) should be(AsyncCount)
-            p.args(4) should be(ProcessingTimeout)
+            p.args(1) shouldBe a[ExtractorActorFactoryImpl]
+            p.args(1).asInstanceOf[ExtractorActorFactoryImpl].config should be(config)
+            p.args(2) should be(AsyncCount)
+            p.args(3) should be(ProcessingTimeout)
           }
           val probe = TestProbe()
           childActorQueue offer ChildCreation(probe, p)

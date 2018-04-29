@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -28,10 +28,9 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError,
-MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -101,7 +100,7 @@ object MetaDataExtractionActorSpec {
     */
   private def createProcessRequest(from: Int, to: Int): ProcessMediaFiles = {
     val files = from.to(to).map(testFileData).toList
-    ProcessMediaFiles(TestMediumID, files)
+    ProcessMediaFiles(TestMediumID, files, UriMapping)
   }
 
   /**
@@ -166,7 +165,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val childCount = new AtomicInteger
     val childRefProps = MetaDataExtractorWrapperActor(extractorFactory)
     val closeCompleteCount = optCloseCount getOrElse new AtomicInteger
-    val props = Props(new MetaDataExtractionActor(manager, UriMapping, extractorFactory,
+    val props = Props(new MetaDataExtractionActor(manager, extractorFactory,
       asyncCount, timeout) with ChildActorFactory with CloseSupport {
       override def createChildActor(p: Props): ActorRef = {
         if (p.actorClass() == childRefProps.actorClass()) {
@@ -217,12 +216,12 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
   "A MetaDataExtractionActor" should "return correct properties" in {
     val factory = mock[ExtractorActorFactory]
     val timeout = Timeout(5.minutes)
-    val props = MetaDataExtractionActor(testActor, UriMapping, factory, 1, timeout)
+    val props = MetaDataExtractionActor(testActor, factory, 1, timeout)
 
     classOf[MetaDataExtractionActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(testActor, UriMapping, factory, 1, timeout))
+    props.args should be(List(testActor, factory, 1, timeout))
   }
 
   it should "process a number of media files" in {
@@ -275,7 +274,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     expectMsg(CloseAck(actor))
     queue.size() should be < Count
     (1 to queue.size()).foreach(_ => receiver.expectMsgType[MetaDataProcessingResult])
-    receiver.expectNoMsg(500.millis)
+    receiver.expectNoMessage(500.millis)
   }
 
   it should "no longer accepts requests after a close request" in {
@@ -285,7 +284,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! CloseRequest
     actor ! createProcessRequest(1, 22)
     expectMsg(CloseAck(actor))
-    receiver.expectNoMsg(500.millis)
+    receiver.expectNoMessage(500.millis)
   }
 
   it should "react on a close complete message" in {
