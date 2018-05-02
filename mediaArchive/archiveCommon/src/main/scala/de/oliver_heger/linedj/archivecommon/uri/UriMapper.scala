@@ -22,6 +22,8 @@ import java.util.regex.Pattern
 
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
+import scala.annotation.tailrec
+
 object UriMapper {
   /** Constant for an empty medium path. */
   private val EmptyMediumPath = ""
@@ -51,7 +53,8 @@ object UriMapper {
   private def applyUriTemplate(config: UriMappingSpec, mid: MediumID, strippedUri: String):
   String =
     config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mid))
-      .replace(UriMappingSpec.VarUri, urlEncode(config, strippedUri))
+      .replace(UriMappingSpec.VarUri,
+        removePrefixComponents(config, urlEncode(config, strippedUri)))
 
   /**
     * Removes the prefix from the URI if possible. If a prefix is defined, but
@@ -91,6 +94,27 @@ object UriMapper {
     */
   private def encode(uri: String): String =
     URLEncoder.encode(uri, StandardCharsets.UTF_8.name()).replace("+", "%20")
+
+  /**
+    * Removes the configured number of path components from the beginning of
+    * the given (encoded) URI.
+    *
+    * @param config the mapping config
+    * @param uri    the URI
+    * @return the URI with prefix components stripped off
+    */
+  private def removePrefixComponents(config: UriMappingSpec, uri: String): String = {
+    @tailrec def removeComponent(currentUri: String, compCount: Int): String =
+      if (compCount <= 0) currentUri
+      else {
+        val pos = currentUri indexOf '/'
+        if (pos > 0 && pos < currentUri.length - 1)
+          removeComponent(currentUri.substring(pos + 1), compCount - 1)
+        else currentUri
+      }
+
+    removeComponent(uri, config.pathComponentsToRemove)
+  }
 }
 
 /**

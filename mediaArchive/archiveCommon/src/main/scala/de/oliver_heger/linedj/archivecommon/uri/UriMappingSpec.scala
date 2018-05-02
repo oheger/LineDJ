@@ -61,6 +61,20 @@ trait UriMappingSpec {
   def prefixToRemove: String
 
   /**
+    * The number of (prefix) path components to remove from a URI (after the
+    * prefix has been removed). A file URI may have some components in common
+    * with the root path of the owning medium. When constructing the final URI
+    * based on the ''uriTemplate'' it can therefore be necessary to cut off
+    * this common prefix. If this property has a value greater than 0, then the
+    * given number of path components is removed from the beginning of the
+    * URL-encoded URI string. (If the string has less components, the last one
+    * is returned.)
+    *
+    * @return the number of path components to be removed
+    */
+  def pathComponentsToRemove: Int
+
+  /**
     * The configuration property defining the template to be applied for URI
     * mapping. This template defines how resulting URIs look like. It is an
     * arbitrary string which can contain a few number of variables. The

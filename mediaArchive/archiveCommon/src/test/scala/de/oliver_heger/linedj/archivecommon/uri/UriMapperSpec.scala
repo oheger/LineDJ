@@ -23,6 +23,7 @@ import org.scalatest.{FlatSpec, Matchers}
   * Implementation of the mapping spec.
   */
 case class UriMappingSpecImpl(override val prefixToRemove: String,
+                              override val pathComponentsToRemove: Int,
                               override val uriTemplate: String,
                               override val uriPathSeparator: String,
                               override val urlEncoding: Boolean) extends UriMappingSpec
@@ -34,10 +35,16 @@ object UriMapperSpec {
   /** The default prefix for URIs. */
   private val UriPrefix = "path://"
 
+  /** String for the prefix path components that are to be removed. */
+  private val PrefixComponents = "test/medium/"
+
+  /** A prefix containing path components to be removed. */
+  private val PrefixWithPaths = UriPrefix + PrefixComponents
+
   /** A default mapping configuration. */
   private val MappingConfig = UriMappingSpecImpl(prefixToRemove = UriPrefix,
     uriTemplate = "${medium}/songs/${uri}", urlEncoding = false,
-    uriPathSeparator = null)
+    uriPathSeparator = null, pathComponentsToRemove = 2)
 
   /** A test medium ID. */
   private val TestMedium = MediumID("someMedium", Some(MediumPath + "/playlist.settings"))
@@ -69,14 +76,14 @@ class UriMapperSpec extends FlatSpec with Matchers {
   }
 
   it should "apply a template correctly" in {
-    val uri = UriPrefix + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
+    val uri = PrefixWithPaths + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
     val exp = MediumPath + "/songs/Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
 
     mapUri(uri).get should be(exp)
   }
 
   it should "handle a medium ID without a settings path gracefully" in {
-    val uri = UriPrefix + "song.mp3"
+    val uri = PrefixWithPaths + "song.mp3"
     val exp = "/songs/song.mp3"
 
     mapUri(uri, mid = TestMedium.copy(mediumDescriptionPath = None)).get should be(exp)
@@ -93,7 +100,8 @@ class UriMapperSpec extends FlatSpec with Matchers {
     val uri = "someFile.mp3"
     val exp = MediumPath + "/songs/someFile.mp3"
 
-    mapUri(uri, config = MappingConfig.copy(prefixToRemove = null)).get should be(exp)
+    mapUri(uri, config = MappingConfig.copy(prefixToRemove = null,
+      pathComponentsToRemove = 0)).get should be(exp)
   }
 
   it should "apply URL encoding" in {
@@ -104,7 +112,7 @@ class UriMapperSpec extends FlatSpec with Matchers {
   }
 
   it should "URL encode URIs with multiple path components" in {
-    val uri = UriPrefix + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
+    val uri = PrefixWithPaths + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
     val exp = MediumPath + "/songs/Prince%20-%20%281988%29%20-%20Lovesexy/03%20-%20Glam%20Slam.mp3"
     val config = MappingConfig.copy(urlEncoding = true, uriPathSeparator = "/")
 
@@ -112,9 +120,18 @@ class UriMapperSpec extends FlatSpec with Matchers {
   }
 
   it should "quote the path separator character when used in split" in {
-    val uri = UriPrefix + "Prince - (1988) - Lovesexy\\03 - Glam Slam.mp3"
+    val uri = UriPrefix + PrefixComponents.replace('/', '\\') +
+      "Prince - (1988) - Lovesexy\\03 - Glam Slam.mp3"
     val exp = MediumPath + "/songs/Prince%20-%20%281988%29%20-%20Lovesexy/03%20-%20Glam%20Slam.mp3"
     val config = MappingConfig.copy(urlEncoding = true, uriPathSeparator = "\\")
+
+    mapUri(uri, config = config).get should be(exp)
+  }
+
+  it should "handle a URL ending on a separator as input" in {
+    val uri = PrefixWithPaths + "special-songs/"
+    val exp = MediumPath + "/songs/special-songs/"
+    val config = MappingConfig.copy(pathComponentsToRemove = 42)
 
     mapUri(uri, config = config).get should be(exp)
   }
