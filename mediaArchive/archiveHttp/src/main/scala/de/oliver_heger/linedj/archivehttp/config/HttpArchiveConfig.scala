@@ -111,6 +111,15 @@ object HttpArchiveConfig {
   val PropMappingRemovePrefix: String = PrefixUriMapping + "removePrefix"
 
   /**
+    * The configuration property for the number of path components to be
+    * removed from the beginning of an URI. This value is evaluated after the
+    * URI prefix has been removed. With this setting it is possible to remove
+    * overlapping paths between the medium root path and the URIs pointing to
+    * the files of this medium.
+    */
+  val PropMappingRemoveComponents: String = PrefixUriMapping + "removePathComponents"
+
+  /**
     * The configuration property defining the template to be applied for URI
     * mapping. This template defines how resulting URIs look like. It is an
     * arbitrary string which can contain a few number of variables. The
@@ -172,6 +181,12 @@ object HttpArchiveConfig {
 
   /** Default value for the URI mapping template. */
   val DefaultUriMappingTemplate = "${uri}"
+
+  /**
+    * Default value for the number of path components to be removed. If not
+    * explicitly specified, no path components will be removed.
+    */
+  val DefaultPathComponentsToRemove = 0
 
   /** The separator for property keys. */
   private val Separator = "."
@@ -247,7 +262,9 @@ object HttpArchiveConfig {
     UriMappingConfig(removePrefix = c.getString(prefix + PropMappingRemovePrefix),
       uriTemplate = c.getString(prefix + PropMappingUriTemplate, DefaultUriMappingTemplate),
       pathSeparator = c.getString(prefix + PropMappingPathSeparator),
-      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false))
+      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false),
+      removeComponents = c.getInt(prefix + PropMappingRemoveComponents,
+        DefaultPathComponentsToRemove))
 }
 
 /**
@@ -263,13 +280,16 @@ object HttpArchiveConfig {
   * specified.
   *
   * @param removePrefix a prefix to be removed from URIs
+  * @param removeComponents the number of prefix path components to remove
   * @param uriTemplate  a template to construct the resulting URI
   * @param pathSeparator the path
   * @param urlEncode    flag whether the URI needs to be encoded
   */
-case class UriMappingConfig(removePrefix: String, uriTemplate: String,
+case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemplate: String,
                             pathSeparator: String, urlEncode: Boolean) extends UriMappingSpec {
   override val prefixToRemove: String = removePrefix
+
+  override val pathComponentsToRemove: Int = removeComponents
 
   override val urlEncoding: Boolean = urlEncode
 

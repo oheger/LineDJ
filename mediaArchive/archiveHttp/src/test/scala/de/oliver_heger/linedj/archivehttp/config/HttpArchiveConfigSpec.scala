@@ -67,6 +67,9 @@ object HttpArchiveConfigSpec {
   /** The prefix to be removed during URI mapping. */
   private val RemovePrefix = "path://"
 
+  /** The number of path components to be removed for an URI. */
+  private val RemoveComponentCount = 4
+
   /** The template for URIs. */
   private val UriTemplate = "/foo/${uri}"
 
@@ -91,6 +94,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".downloadReadChunkSize", DownloadReadChunkSize)
     c.addProperty(at + ".timeoutReadSize", TimeoutReadSize)
     c.addProperty(at + ".uriMapping.removePrefix", RemovePrefix)
+    c.addProperty(at + ".uriMapping.removePathComponents", RemoveComponentCount)
     c.addProperty(at + ".uriMapping.uriTemplate", UriTemplate)
     c.addProperty(at + ".uriMapping.pathSeparator", UriPathSeparator)
     c.addProperty(at + ".uriMapping.urlEncoding", true)
@@ -136,6 +140,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.downloadMaxInactivity should be(DownloadMaxInactivity)
         config.timeoutReadSize should be(TimeoutReadSize)
         config.mappingConfig.removePrefix should be(RemovePrefix)
+        config.mappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
         config.mappingConfig.uriTemplate should be(UriTemplate)
         config.mappingConfig.pathSeparator should be(UriPathSeparator)
         config.mappingConfig.urlEncode shouldBe true
@@ -261,14 +266,17 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = clearProperty(
       clearProperty(
         clearProperty(
-          clearProperty(createConfiguration(), HttpArchiveConfig.PropMappingRemovePrefix),
-          HttpArchiveConfig.PropMappingUriTemplate),
-        HttpArchiveConfig.PropMappingPathSeparator),
-      HttpArchiveConfig.PropMappingEncoding)
+          clearProperty(
+            clearProperty(createConfiguration(), HttpArchiveConfig.PropMappingRemovePrefix),
+            HttpArchiveConfig.PropMappingUriTemplate),
+          HttpArchiveConfig.PropMappingPathSeparator),
+        HttpArchiveConfig.PropMappingEncoding),
+      HttpArchiveConfig.PropMappingRemoveComponents)
 
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
         config.mappingConfig.removePrefix should be(null)
+        config.mappingConfig.pathComponentsToRemove should be(0)
         config.mappingConfig.uriTemplate should be("${uri}")
         config.mappingConfig.pathSeparator should be(null)
         config.mappingConfig.urlEncode shouldBe false

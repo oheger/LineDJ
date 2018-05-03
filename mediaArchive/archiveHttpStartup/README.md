@@ -97,6 +97,7 @@ example configuration with all supported options:
       <timeoutReadSize>262144</timeoutReadSize>
       <uriMapping>
         <removePrefix>path://</removePrefix>
+        <removePathComponents>1</removePathComponents>
         <uriTemplate>${medium}/${uri}</uriTemplate>
         <urlEncoding>true</urlEncoding>
         <pathSeparator>/</pathSeparator>
@@ -188,6 +189,9 @@ URI declared in the meta data file applying the following algorithm:
   URIs are based on file systems, so they can contain characters that are not
   valid in HTTP URIs.
 * The path separator character is replaced by the slash ("/") used for URIs.
+* A configurable number of path components can be removed from the beginning of
+  the URI. This can be necessary if there is an overlap in the root path of a
+  medium and the paths of the files belonging to this medium.
 * The final URI is constructed based on a template that may contain static
   elements and variables.
   
@@ -196,6 +200,7 @@ Details are defined using the following settings:
 | Setting | Description | Optional |
 | ------- | ----------- | -------- |
 | removePrefix | The prefix to be removed from the original URI. If the original URI does not start with this prefix, this file is ignored. | Yes, if missing, no prefix is removed. |
+| removePathComponents | The number of URI path components to be removed (from the beginning). Path components are separated by the '/' character; so typically URIs are stripped at the given number of occurrences of this separator character. | Yes, defaults to 0, which means that no components are removed. | 
 | urlEncoding | A boolean flag that determines whether an URL encoding is to be applied to original URIs. | Yes, defaults to *false* |
 | pathSeparator | The separator character used to split path components in original URIs. This is needed if URL encoding is enabled to avoid that the path separator is encoded, too. It is typically a slash on Unix and a backslash on Windows. | Yes, if missing, path separator characters are ignored |
 | uriTemplate| The template to generate the actual URI. This is an arbitrary string that can contain variables using the _${}_ notation. Supported variables are _${medium}_ for the the root path to the medium the current file belongs to, and _${uri}_ for the processed URI of the file. | Yes, defaults to _${uri}_ |

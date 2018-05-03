@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, StatusCodes, Uri}
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
+import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.uri.{UriMapper, UriMappingSpec}
@@ -28,9 +28,9 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStre
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
-import org.scalatest.mock.MockitoSugar
+import org.mockito.Mockito._
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
@@ -44,7 +44,8 @@ object MetaDataResponseProcessingActorSpec {
 
   /** A test mapping configuration. */
   private val MappingConfig = UriMappingConfig(removePrefix = "audio://",
-    pathSeparator = null, urlEncode = false, uriTemplate = "/test/${uri}")
+    pathSeparator = null, urlEncode = false, uriTemplate = "/test/${uri}",
+    removeComponents = 0)
 
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
