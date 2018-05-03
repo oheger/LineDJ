@@ -63,6 +63,7 @@ configuration options:
     <toc>
       <file>C:\data\music\testArchive\testContent.json</file>
       <descRemovePrefix>C:\data\music\testArchive</descRemovePrefix>
+      <descRemovePathComponents>1</descRemovePathComponents>
       <descPathSeparator>\</descPathSeparator>
       <descUrlEncoding>true</descUrlEncoding>
       <rootPrefix>/test</rootPrefix>
@@ -142,6 +143,7 @@ ToC file is generated only if a target file is specified.
 | ------- | ----------- |
 | file | Defines the location where the table of contents file is to be stored. If this property is missing, no such file is generated. |
 | descRemovePrefix | The paths to the single media contained in the archive are typically absolute paths. For some use cases, e.g. if they are to be exposed via an HTTP server, they have to be converted to relative URIs. This property defines the prefix of the paths that must be removed for this purpose. Note that only media are included in the ToC document whose path starts with this prefix. If no prefix is specified, the whole paths to media are used. |
+| descRemovePathComponents | After the path to a medium description file has been processed (by removing the prefix and converting it to a URI), it is possible to strip off a number of URI path components from the beginning. The number of components to remove can be specified using this property. The default value is 0; so no components will be removed. |
 | descPathSeparator | The path separator used in paths to media description files. This is typically the slash on Linux and the backslash on Windows. |
 | descUrlEncoding | A flag whether URL encoding should be applied to paths to media. If the media should be exposed via an HTTP server, this is typically needed. |
 | rootPrefix | Here a prefix can be specified which is added to paths to media files. That way, they can be referenced correctly, even if they are stored in a sub folder structure. |

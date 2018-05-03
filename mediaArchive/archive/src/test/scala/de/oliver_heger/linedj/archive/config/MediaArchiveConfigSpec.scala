@@ -76,6 +76,9 @@ object MediaArchiveConfigSpec {
   /** Test remove prefix for medium description files. */
   private val TocRemoveDescPrefix = "C:\\data\\music\\archive\\"
 
+  /** Test number of path components to be removed in ToC URIs. */
+  private val TocRemovePathComponents = 3
+
   /** Test prefix for URIs in the archive ToC. */
   private val TocRootPrefix = "/remote/archive"
 
@@ -128,6 +131,7 @@ object MediaArchiveConfigSpec {
       MetaDataPersistenceWriteBlockSize)
     config.addProperty("media.toc.file", TocFile)
     config.addProperty("media.toc.descRemovePrefix", TocRemoveDescPrefix)
+    config.addProperty("media.toc.descRemovePathComponents", TocRemovePathComponents)
     config.addProperty("media.toc.descPathSeparator", "\\")
     config.addProperty("media.toc.descUrlEncoding", true)
     config.addProperty("media.toc.rootPrefix", TocRootPrefix)
@@ -247,6 +251,7 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
     tocConfig.contentFile should be(Some(Paths.get(TocFile)))
     tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix)
+    tocConfig.descriptionRemovePathComponents should be(TocRemovePathComponents)
     tocConfig.descriptionPathSeparator should be("\\")
     tocConfig.rootPrefix should be(Some(TocRootPrefix))
     tocConfig.metaDataPrefix should be(Some(TocMetaDataPrefix))
@@ -257,6 +262,7 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
     val config = createHierarchicalConfig()
     config.clearProperty("media.toc.file")
     config.clearProperty("media.toc.descRemovePrefix")
+    config.clearProperty("media.toc.descRemovePathComponents")
     config.clearProperty("media.toc.descPathSeparator")
     config.clearProperty("media.toc.descUrlEncoding")
     config.clearProperty("media.toc.rootPrefix")
@@ -265,6 +271,7 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
     tocConfig.contentFile shouldBe 'empty
     tocConfig.descriptionRemovePrefix should be(null)
+    tocConfig.pathComponentsToRemove should be(0)
     tocConfig.descriptionPathSeparator should be(null)
     tocConfig.rootPrefix shouldBe 'empty
     tocConfig.metaDataPrefix shouldBe 'empty

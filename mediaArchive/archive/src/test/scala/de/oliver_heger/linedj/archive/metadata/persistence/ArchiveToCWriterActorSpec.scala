@@ -39,7 +39,7 @@ object ArchiveToCWriterActorSpec {
   private val ToCConfig = ArchiveContentTableConfig(contentFile = Some(Paths.get("content.json")),
     descriptionRemovePrefix = "C:\\music\\", descriptionPathSeparator = "\\",
     descriptionUrlEncoding = false, rootPrefix = Some("/music/"),
-    metaDataPrefix = Some("/meta/"))
+    metaDataPrefix = Some("/meta/"), descriptionRemovePathComponents = 0)
 
   /** The line separator. */
   private val CR = System.lineSeparator()

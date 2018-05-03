@@ -134,6 +134,13 @@ object MediaArchiveConfig {
   val PropTocDescRemovePrefix: String = ToCPrefix + "descRemovePrefix"
 
   /**
+    * The configuration property for the number of path components to be
+    * removed from the URI to a medium description path when writing the
+    * archive's ToC.
+    */
+  val PropTocDescRemovePathComponents: String = ToCPrefix + "descRemovePathComponents"
+
+  /**
     * The configuration property for the path separator in medium description
     * files. This has to be treated in a special way if URI encoding is
     * enabled.
@@ -214,6 +221,12 @@ object MediaArchiveConfig {
 
   /** The default number of processors for meta data extraction. */
   val DefaultProcessorCount = 1
+
+  /**
+    * The default number of path components to be removed from URIs of medium
+    * description files when writing the archive's ToC.
+    */
+  val DefaultTocDescRemovePathComponents = 0
 
   /** The logger. */
   private val Log = LoggerFactory.getLogger(classOf[MediaArchiveConfig])
@@ -327,7 +340,9 @@ object MediaArchiveConfig {
       descriptionPathSeparator = c getString PropTocDescPatSeparator,
       descriptionUrlEncoding = c.getBoolean(PropTocDescUrlEncoding, false),
       rootPrefix = Option(c.getString(PropTocRootPrefix)),
-      metaDataPrefix = Option(c.getString(PropTocMetaDataPrefix)))
+      metaDataPrefix = Option(c.getString(PropTocMetaDataPrefix)),
+      descriptionRemovePathComponents = c.getInt(PropTocDescRemovePathComponents,
+        DefaultTocDescRemovePathComponents))
 
   /**
     * Extracts the path for the file where to store the ToC (if any) from the
@@ -467,6 +482,9 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
   * @param descriptionRemovePrefix  a prefix to be removed from the path to
   *                                 medium description files; can be undefined,
   *                                 then no prefix is removed
+  * @param descriptionRemovePathComponents the number of path components to be
+  *                                        removed from the URIs to description
+  *                                        files
   * @param descriptionPathSeparator the separator character used in the path to
   *                                 the medium description file
   * @param descriptionUrlEncoding   flag whether for medium description paths
@@ -476,6 +494,7 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
   */
 case class ArchiveContentTableConfig(contentFile: Option[Path],
                                      descriptionRemovePrefix: String,
+                                     descriptionRemovePathComponents: Int,
                                      descriptionPathSeparator: String,
                                      descriptionUrlEncoding: Boolean,
                                      rootPrefix: Option[String],
@@ -491,4 +510,6 @@ case class ArchiveContentTableConfig(contentFile: Option[Path],
   override val urlEncoding: Boolean = descriptionUrlEncoding
 
   override val uriPathSeparator: String = descriptionPathSeparator
+
+  override val pathComponentsToRemove: Int = descriptionRemovePathComponents
 }
