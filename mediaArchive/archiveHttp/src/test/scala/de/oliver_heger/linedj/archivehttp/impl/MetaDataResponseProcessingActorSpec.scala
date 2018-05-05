@@ -16,8 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, StatusCodes, Uri}
+import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
@@ -30,6 +32,8 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -166,13 +170,20 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
   }
 
   it should "discard the entity when receiving a failure response" in {
+    val latch = new CountDownLatch(1)
     val entity = mock[ResponseEntity]
+    when(entity.discardBytes(any())).thenAnswer(new Answer[HttpMessage.DiscardedEntity] {
+      override def answer(invocation: InvocationOnMock): HttpMessage.DiscardedEntity = {
+        latch.countDown()
+        null
+      }
+    })
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
     val response = HttpResponse(status = StatusCodes.BadRequest, entity = entity)
 
     actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
     expectMsgType[ResponseProcessingError]
-    verify(entity).discardBytes(any())
+    latch.await(3, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "handle a successful response" in {
