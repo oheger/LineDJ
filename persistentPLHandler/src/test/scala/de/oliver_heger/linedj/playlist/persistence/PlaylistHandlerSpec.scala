@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import java.nio.file.Paths
+import java.util
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{TestKit, TestProbe}
@@ -24,23 +25,27 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ShutdownHandler}
 import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
+import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.comm.ActorFactory
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import scalaz.State
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-object PlaylistHandlerSpec extends PlaylistTestHelper {
+object PlaylistHandlerSpec {
   /** Path to the playlist file. */
   private val PathPlaylist = Paths get "persistedPlaylist.json"
 
@@ -53,8 +58,14 @@ object PlaylistHandlerSpec extends PlaylistTestHelper {
   /** The maximum size of a playlist file. */
   private val MaxFileSize = 8 * 1024
 
-  /** A test set playlist command. */
-  private val TestSetPlaylist = generateSetPlaylist(16, 3, 1000, 60)
+  /**
+    * Convenience function to to generate an ''Iterable''. This is needed when
+    * stubbing operations on the update service.
+    *
+    * @param m a sequence with messages
+    * @return the ''Iterable'' with these messages
+    */
+  def messages(m: Any*): Iterable[Any] = List(m: _*)
 }
 
 /**
@@ -70,7 +81,13 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     TestKit shutdownActorSystem system
   }
 
-  "A PlaylistHandler" should "register itself at the message bus on activation" in {
+  "A PlaylistHandler" should "create a default update service" in {
+    val handler = new PlaylistHandler
+
+    handler.updateService should be(PersistentPlaylistStateUpdateServiceImpl)
+  }
+
+  it should "register itself at the message bus on activation" in {
     val helper = new HandlerTestHelper
 
     helper.activate()
@@ -96,7 +113,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
     helper.config.clearProperty(PlaylistHandlerConfig.PropPositionPath)
 
-    helper.activate(expectRegistration = false)
+    helper.activate(stubActivation = false)
       .expectBusListenerRegistrationCount(0)
       .expectNoLoadPlaylistOperation()
       .deactivate()
@@ -110,16 +127,39 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .numberOfCreatedActors should be(2)
   }
 
-  it should "handle the completion of a playlist load operation" in {
+  it should "invoke the update service correctly" in {
+    val MsgActivate1 = "activate1"
+    val MsgActivate2 = "activate2"
+    val MsgPlaylist = "playlist arrived"
+    val MsgMedia = "media arrived"
+    val Playlist = mock[SetPlaylist]
+    val AvMedia = mock[AvailableMedia]
     val helper = new HandlerTestHelper
+    val stateActive = PersistentPlaylistStateUpdateServiceImpl.InitialState
+      .copy(componentID = Some(helper.handlerComponentID))
+    val statePlaylist = stateActive.copy(loadedPlaylist = Some(mock[SetPlaylist]))
+    val stateMedia = statePlaylist.copy(availableMediaIDs = Set(MediumID("test", None)))
 
-    helper.activate()
-      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .expectStateWriterMsg(TestSetPlaylist)
-      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
-    helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
-    helper.expectMessageOnBus[AvailableMediaUnregistration]
-      .id should be(helper.handlerComponentID)
+    helper.stub(messages(MsgActivate1, MsgActivate2), stateActive) { s =>
+      s.handleActivation(argEq(helper.handlerComponentID), any())
+    }.stub(messages(MsgPlaylist), statePlaylist) { s =>
+      s.handlePlaylistLoaded(argEq(Playlist), any())
+    }.stub(messages(MsgMedia), stateMedia) { s =>
+      s.handleNewAvailableMedia(AvMedia)
+    }.activate(stubActivation = false)
+
+    val mediaCallback = helper.capture { s =>
+      val captor = ArgumentCaptor.forClass(classOf[ConsumerFunction[AvailableMedia]])
+      verify(s).handleActivation(argEq(helper.handlerComponentID), captor.capture())
+      captor
+    }
+    helper.publishOnBus(LoadedPlaylist(Playlist))
+    mediaCallback(AvMedia)
+    List(MsgActivate1, MsgActivate2, MsgPlaylist, MsgMedia) foreach { m =>
+      helper.expectMessageOnBus[Any] should be(m)
+    }
+    helper.expectUpdatedState(PersistentPlaylistStateUpdateServiceImpl.InitialState,
+      stateActive, statePlaylist)
   }
 
   it should "remove the consumer registrations on deactivate" in {
@@ -133,18 +173,25 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "forward a state update event to the state writer actor" in {
-    val state = AudioPlayerState(TestSetPlaylist.playlist, 42, playbackActive = true,
+    val Msg = "test_message"
+    val TestList = mock[SetPlaylist]
+    val state = AudioPlayerState(mock[Playlist], 42, playbackActive = true,
       playlistClosed = false, playlistActivated = true)
     val helper = new HandlerTestHelper
 
-    helper.activate()
-      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .expectStateWriterMsg(TestSetPlaylist)
-      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
-      .skipMessagesOnBus(2)
-      .invokeConsumerCallback[AudioPlayerStateChangeRegistration,
-      AudioPlayerStateChangedEvent](AudioPlayerStateChangedEvent(state))
-      .expectStateWriterMsg(state)
+    helper.stub(messages(Msg)) { s => s.handlePlaylistLoaded(argEq(TestList), any()) }
+      .activate()
+      .publishOnBus(LoadedPlaylist(TestList))
+      .expectStateWriterMsg(TestList)
+    helper.expectMessageOnBus[Any] should be(Msg)
+    val eventCallback = helper.capture { s =>
+      val captor =
+        ArgumentCaptor.forClass(classOf[ConsumerFunction[AudioPlayerStateChangedEvent]])
+      verify(s).handlePlaylistLoaded(argEq(TestList), captor.capture())
+      captor
+    }
+    eventCallback(AudioPlayerStateChangedEvent(state))
+    helper.expectStateWriterMsg(state)
   }
 
   it should "stop the state writer actor on deactivation" in {
@@ -195,35 +242,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .expectNoMessageOnBus(Timeout.minus(100.millis))
   }
 
-  it should "not set the playlist if not all media are available" in {
-    val helper = new HandlerTestHelper
-
-    helper.activate(availableMedia = MediaIDs drop 1)
-      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .expectConsumerRegistration[AudioPlayerStateChangeRegistration]
-      .expectNoMessageOnBus()
-  }
-
-  it should "set the playlist when all media become available" in {
-    val helper = new HandlerTestHelper
-
-    helper.activate(availableMedia = Set.empty)
-      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .skipMessagesOnBus()
-      .sendAvailableMedia(MediaIDs)
-    helper.expectMessageOnBus[SetPlaylist] should be(TestSetPlaylist)
-  }
-
-  it should "activate a playlist only once" in {
-    val helper = new HandlerTestHelper
-    helper.activate()
-      .publishOnBus(LoadedPlaylist(TestSetPlaylist))
-      .skipMessagesOnBus(3)
-
-    helper.sendAvailableMedia(MediaIDs)
-      .expectNoMessageOnBus()
-  }
-
   /**
     * Test helper class managing a test instance and its dependencies.
     */
@@ -247,30 +265,35 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     /** The client context passed to the test instance. */
     private val clientCtx = createClientContext()
 
-    /** A set with consumer registrations created by the test handler. */
-    private var consumerRegistrations = Set.empty[ConsumerRegistration[_]]
+    /** Mock for the update service. */
+    private val updateService = mock[PersistentPlaylistStateUpdateService]
+
+    /**
+      * A queue which stores the state objects passed to the state monad
+      * returned by the update service.
+      */
+    private val stateQueue = new util.LinkedList[PersistentPlaylistState]
 
     /** The handler to be tested. */
-    private val handler = new PlaylistHandler
+    private val handler = new PlaylistHandler(updateService)
 
     /**
       * Activates the handler component under test. This method already expects
       * the consumer registrations that need to be done on activation and can
       * pass an object with available media.
       *
-      * @param expectRegistration flag whether consumer registrations should be
-      *                           handled
-      * @param availableMedia     defines the media available initially
+      * @param stubActivation flag whether the activation on the update service
+      *                       should be mocked
       * @return this test helper
       */
-    def activate(expectRegistration: Boolean = true,
-                 availableMedia: Iterable[MediumID] = MediaIDs): HandlerTestHelper = {
+    def activate(stubActivation: Boolean = true): HandlerTestHelper = {
+      if (stubActivation) {
+        stub(List.empty[Any]: Iterable[Any]) { s =>
+          s.handleActivation(argEq(handlerComponentID), any())
+        }
+      }
       handler initClientContext clientCtx
       handler.activate(mock[ComponentContext])
-      if (expectRegistration) {
-        expectConsumerRegistration[AvailableMediaRegistration]
-        sendAvailableMedia(availableMedia)
-      }
       this
     }
 
@@ -293,41 +316,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def expectBusListenerRegistrationCount(count: Int): HandlerTestHelper = {
       messageBus.currentListeners should have size count
-      this
-    }
-
-    /**
-      * Expects that a message for a consumer registration of the specified
-      * type is published on the message bus by the test handler. The
-      * registration is stored, so that it can be used later to invoke the
-      * callback.
-      *
-      * @param t the class tag for the registration class
-      * @tparam T the type of the registration
-      * @return this test helper
-      */
-    def expectConsumerRegistration[T <: ConsumerRegistration[_]](implicit t: ClassTag[T]):
-    HandlerTestHelper = {
-      val reg = expectMessageOnBus[T]
-      reg.id should be(handlerComponentID)
-      consumerRegistrations += reg
-      this
-    }
-
-    /**
-      * Invokes the callback of a consumer registration with the specified
-      * data.
-      *
-      * @param data the data to be passed
-      * @param t    the class tag for the registration class
-      * @tparam T the type of the consumer registration class
-      * @return this test helper
-      */
-    def invokeConsumerCallback[R <: ConsumerRegistration[T], T](data: T)
-                                                               (implicit t: ClassTag[R]):
-    HandlerTestHelper = {
-      val reg = consumerRegistrations.find(_.getClass == t.runtimeClass).get.asInstanceOf[R]
-      reg.callback(data)
       this
     }
 
@@ -402,20 +390,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
 
     /**
-      * Ignores the given number of messages on the message bus.
-      *
-      * @param count the number of messages to be ignored
-      * @return this test helper
-      */
-    def skipMessagesOnBus(count: Int = 1): HandlerTestHelper = {
-      if (count < 1) this
-      else {
-        messageBus.expectMessageType[AnyRef]
-        skipMessagesOnBus(count - 1)
-      }
-    }
-
-    /**
       * Checks that the state writer actor has been stopped.
       *
       * @return this test helper
@@ -448,22 +422,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
 
     /**
-      * Passes an ''AvailableMedia'' object to the test handler that contains
-      * the specified media.
-      *
-      * @param media a collection with the media
-      * @return this test helper
-      */
-    def sendAvailableMedia(media: Iterable[MediumID]): HandlerTestHelper = {
-      val mediaData = media map { m =>
-        val info = MediumInfo(m.mediumURI, "desc", m, "", "", "")
-        m -> info
-      }
-      invokeConsumerCallback[AvailableMediaRegistration, AvailableMedia](AvailableMedia(mediaData.toMap))
-      this
-    }
-
-    /**
       * Allows access to the configuration passed to the test handler. This can
       * be used to tweak certain settings in tests.
       *
@@ -484,6 +442,74 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return the component ID of the test handler
       */
     def handlerComponentID: ComponentID = handler.componentID
+
+    /**
+      * Prepares the mock update service to expect an invocation that returns
+      * a ''State'' with the specified parameters.
+      *
+      * @param data  the additional data
+      * @param state the updated sink state
+      * @param f     a function that invokes the mock update service
+      * @tparam A the type of the additional data
+      * @return this test helper
+      */
+    def stub[A](data: A, state: PersistentPlaylistState =
+    PersistentPlaylistStateUpdateServiceImpl.InitialState)
+               (f: PersistentPlaylistStateUpdateService =>
+                 PersistentPlaylistStateUpdateServiceImpl.StateUpdate[A]): HandlerTestHelper = {
+      when(f(updateService)).thenReturn(createState(state, data))
+      this
+    }
+
+    /**
+      * Invokes the given function on the update service to capture an
+      * argument.
+      *
+      * @param f the function to be invoked
+      * @tparam A the type of the result
+      * @return the captured argument
+      */
+    def capture[A](f: PersistentPlaylistStateUpdateService => ArgumentCaptor[A]): A =
+      f(updateService).getValue
+
+    /**
+      * Returns the next state that was passed to an update operation.
+      *
+      * @return the next state
+      */
+    def nextUpdatedState(): PersistentPlaylistState = {
+      stateQueue.isEmpty should not be true
+      stateQueue.poll()
+    }
+
+    /**
+      * Expects that the provided states have been involved in update
+      * operations (in this order).
+      *
+      * @param states the sequence of expected states
+      * @return this test helper
+      */
+    def expectUpdatedState(states: PersistentPlaylistState*): HandlerTestHelper = {
+      states foreach { s =>
+        nextUpdatedState() should be(s)
+      }
+      this
+    }
+
+    /**
+      * Creates a ''State'' object that records the passed in former state and
+      * returns the specified data.
+      *
+      * @param state the updated state
+      * @param data  the additional data to be returned
+      * @tparam A the type of the additional data
+      * @return the ''State'' object
+      */
+    private def createState[A](state: PersistentPlaylistState, data: A):
+    PersistentPlaylistStateUpdateServiceImpl.StateUpdate[A] = State { s =>
+      stateQueue offer s
+      (state, data)
+    }
 
     /**
       * Creates the client application context.
@@ -529,6 +555,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       config
     }
   }
+
 }
 
 /**

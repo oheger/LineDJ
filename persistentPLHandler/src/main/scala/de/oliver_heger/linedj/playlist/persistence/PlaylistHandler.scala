@@ -22,13 +22,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, ShutdownHandler}
-import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent, SetPlaylist}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
-import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
@@ -63,8 +62,18 @@ object PlaylistHandler {
   * kind of auto-save functionality to avoid data loss if the application
   * shuts down in an unexpected way). The updated state is also saved before
   * the component is deactivated.
+  *
+  * @param updateService the update service used by this instance
   */
-class PlaylistHandler extends ClientContextSupport with MessageBusListener with Identifiable {
+class PlaylistHandler private[persistence](val updateService: PersistentPlaylistStateUpdateService)
+  extends ClientContextSupport with MessageBusListener with Identifiable {
+
+  /**
+    * Creates a new instance of ''PlaylistHandler'' with default dependencies.
+    *
+    * @return the new instance
+    */
+  def this() = this(PersistentPlaylistStateUpdateServiceImpl)
 
   import PlaylistHandler._
 
@@ -95,19 +104,8 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
   /** Stores the ID of the registration at the message bus. */
   private var busRegistrationID = 0
 
-  /** Stores the playlist that was loaded and needs to be persisted. */
-  private var loadedPlaylist: SetPlaylist = _
-
-  /** A set with the IDs of the media that are currently available. */
-  private var availableMediaIDs = Set.empty[MediumID]
-
-  /**
-    * A set with the IDs of media referenced by the playlist. The playlist is
-    * activated only if all these media are available. If this field is
-    * ''None'', the playlist either has not yet been loaded or has already been
-    * activated.
-    */
-  private var referencedMediaIDs: Option[Set[MediumID]] = None
+  /** The state managed by this component. */
+  private var currentState = PersistentPlaylistStateUpdateServiceImpl.InitialState
 
   /**
     * @inheritdoc This implementation triggers the load of the persistent
@@ -142,12 +140,8 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
     */
   override def receive: Receive = {
     case LoadedPlaylist(setPlaylist) =>
-      loadedPlaylist = setPlaylist
       sendMsgToStateWriter(setPlaylist)
-      bus publish AudioPlayerStateChangeRegistration(componentID, handlePlaylistStateChange)
-      referencedMediaIDs = Some(PlaylistService.toSongList(setPlaylist.playlist)
-        .foldLeft(Set.empty[MediumID])(_ + _.mediumID))
-      activatePlaylistIfPossible()
+      updateState(updateService.handlePlaylistLoaded(setPlaylist, handlePlaylistStateChange))
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
@@ -168,7 +162,7 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
       PlaylistStateWriterActor(config.pathPlaylist, config.pathPosition,
         config.autoSaveInterval), WriterActorName))
     busRegistrationID = bus registerListener receive
-    bus publish AvailableMediaRegistration(componentID, handleAvailableMedia)
+    updateState(updateService.handleActivation(componentID, handleAvailableMedia))
     triggerLoadOfPersistentPlaylist(config)
   }
 
@@ -205,20 +199,20 @@ class PlaylistHandler extends ClientContextSupport with MessageBusListener with 
     * @param availableMedia the ''AvailableMedia'' data
     */
   private def handleAvailableMedia(availableMedia: AvailableMedia): Unit = {
-    availableMediaIDs = availableMedia.media.keySet
-    activatePlaylistIfPossible()
+    updateState(updateService.handleNewAvailableMedia(availableMedia))
   }
 
   /**
-    * Checks whether the playlist can be activated. If so, this is done now.
+    * Updates the state managed by this component and sends out corresponding
+    * messages on the message bus.
+    *
+    * @param update the update operation
     */
-  private def activatePlaylistIfPossible(): Unit = {
-    if (referencedMediaIDs exists (_.forall(availableMediaIDs.contains))) {
-      log.info("Activating playlist.")
-      bus publish loadedPlaylist
-      removeAvailableMediaRegistration()
-      referencedMediaIDs = None
-    }
+  private def updateState(update: PersistentPlaylistStateUpdateServiceImpl
+  .StateUpdate[Iterable[Any]]): Unit = {
+    val (nextState, messages) = update(currentState)
+    currentState = nextState
+    messages foreach bus.publish
   }
 
   /**
