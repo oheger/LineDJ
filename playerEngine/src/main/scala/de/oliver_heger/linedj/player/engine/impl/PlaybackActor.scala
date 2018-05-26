@@ -19,14 +19,14 @@ package de.oliver_heger.linedj.player.engine.impl
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
 import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
-import de.oliver_heger.linedj.player.engine._
+import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 
 import scala.util.{Failure, Success, Try}
 
@@ -548,26 +548,32 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
    * @return an option for the current playback context
    */
   private def fetchPlaybackContext(): Option[PlaybackContext] = {
-    playbackContext orElse createPlaybackContext()
+    playbackContext orElse createPlaybackContext(currentSource.get)
   }
 
   /**
     * Creates a new playback context if this is currently possible.
     *
+    * @param audioSource the current audio source
     * @return an option for the new playback context
     */
-  private def createPlaybackContext(): Option[PlaybackContext] = {
+  private def createPlaybackContext(audioSource: => AudioSource): Option[PlaybackContext] = {
+    lazy val source = audioSource
     if (audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0) {
-      log.info("Creating playback context for {}.", currentSource.get.uri)
+      log.info("Creating playback context for {}.", source.uri)
       playbackContext = initLine(contextFactory.createPlaybackContext(audioDataStream,
-        currentSource.get.uri))
+        source.uri))
       playbackContext match {
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
           chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
+          if (chunkPlaybackTime.isDefined) {
+            // time will be updated while reaching skip position
+            playbackSeconds = 0
+          }
         case None =>
-          log.warning("Could not create playback context for {}!", currentSource.get.uri)
-          val event = PlaybackContextCreationFailedEvent(currentSource.get)
+          log.warning("Could not create playback context for {}!", source.uri)
+          val event = PlaybackContextCreationFailedEvent(source)
           playbackError(event)
       }
       playbackContext

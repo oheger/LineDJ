@@ -4,7 +4,6 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputS
 import java.util
 import java.util.concurrent.TimeUnit
 
-import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, SourceDataLine}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
@@ -13,6 +12,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
+import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, SourceDataLine}
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -578,7 +578,7 @@ with EventTestSupport {
       TimeUnit.SECONDS.toNanos(2))
     expectMsgType[GetAudioData]
     val event = expectEvent[PlaybackProgressEvent](eventMan)
-    event.playbackTime should be(SkipTime + 1)
+    event.playbackTime should be(1)
   }
 
   it should "reset progress counters when playback of a new source starts" in {
