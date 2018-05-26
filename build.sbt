@@ -495,6 +495,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .settings(spiFlySettings: _*)
   .settings(
     name := "linedj-mp3-playback-context-factory",
+    fork := true,
     libraryDependencies ++= Seq(
       "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2",
       "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3",
