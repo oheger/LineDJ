@@ -59,6 +59,17 @@ object HttpArchiveStarterSpec {
     props.addProperty(HttpArchiveStarter.PropTempDirectory, PathTempDir.toString)
     props
   }
+
+  /**
+    * Checks that no message has been sent to the specified test probe.
+    *
+    * @param probe the test probe
+    */
+  private def expectNoMessageToProble(probe: TestProbe): Unit = {
+    val Ping = new Object
+    probe.ref ! Ping
+    probe.expectMsg(Ping)
+  }
 }
 
 /**
@@ -135,12 +146,20 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.expectClearTempDirectory(pathGen)
   }
 
+  it should "not start a clear temp files operation if disabled" in {
+    val helper = new StarterTestHelper(clearTemp = false)
+
+    helper.startArchiveAndCheckActors()
+        .expectNoClearTempDirectory()
+  }
+
   /**
     * A test helper class managing a test instance and its dependencies.
     *
-    * @param index the numeric index to be passed to the starter
+    * @param index     the numeric index to be passed to the starter
+    * @param clearTemp flag whether the temp directory is to be cleared
     */
-  private class StarterTestHelper(index: Int = ArcIndex) {
+  private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true) {
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -176,7 +195,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory, index)
+      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory, index,
+        clearTemp)
 
     /**
       * Invokes the test instance to start the archive and checks whether the
@@ -251,6 +271,17 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def expectClearTempDirectory(pathGenerator: TempPathGenerator): StarterTestHelper = {
       probeRemoveActor.expectMsg(RemoveTempFilesActor.ClearTempDirectory(PathTempDir,
         pathGenerator))
+      this
+    }
+
+    /**
+      * Checks that no message to clear the temp directory has been sent to the
+      * remove actor.
+      *
+      * @return this test helper
+      */
+    def expectNoClearTempDirectory(): StarterTestHelper = {
+      expectNoMessageToProble(probeRemoveActor)
       this
     }
 

@@ -54,8 +54,8 @@ object HttpArchiveStarter {
     * name for the target archive and the provided suffix.
     *
     * @param arcShortName the short name of the HTTP archive
-    * @param suffix the suffix, the actual actor name
-    * @param index an index to make actor names unique
+    * @param suffix       the suffix, the actual actor name
+    * @param index        an index to make actor names unique
     * @return the resulting full actor name
     */
   def archiveActorName(arcShortName: String, suffix: String, index: Int): String =
@@ -106,15 +106,16 @@ class HttpArchiveStarter {
     * @param credentials        the user credentials for reading data from the archive
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
+    * @param clearTemp          flag whether the temp directory should be cleared
     * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, credentials: UserCredentials, actorFactory: ActorFactory,
-              index: Int): Map[String, ActorRef] = {
+              index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
     val archiveConfig = archiveData.config.copy(credentials = credentials)
-      createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-        archiveData.shortName, index)
+    createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+      archiveData.shortName, index, clearTemp)
   }
 
   /**
@@ -127,13 +128,13 @@ class HttpArchiveStarter {
     * @param config             the original configuration
     * @param shortName          the short name of the archive to be created
     * @param index              an index for unique actor name generation
-    *
+    * @param clearTemp          the clear temp directory flag
     * @return the map with the actors created by this method
     */
   private def createArchiveActors(unionArchiveActors: MediaFacadeActors,
                                   actorFactory: ActorFactory, archiveConfig: HttpArchiveConfig,
-                                  config: Configuration, shortName: String, index: Int):
-  Map[String, ActorRef] = {
+                                  config: Configuration, shortName: String, index: Int,
+                                  clearTemp: Boolean): Map[String, ActorRef] = {
     def actorName(n: String): String = archiveActorName(shortName, n, index)
 
     val managerName = actorName(ManagementActorName)
@@ -149,7 +150,9 @@ class HttpArchiveStarter {
       monitoringActor, removeActor), managerName)
 
     managerActor ! ScanAllMedia
-    removeActor ! RemoveTempFilesActor.ClearTempDirectory(pathGenerator.rootPath, pathGenerator)
+    if (clearTemp) {
+      removeActor ! RemoveTempFilesActor.ClearTempDirectory(pathGenerator.rootPath, pathGenerator)
+    }
 
     Map(managerName -> managerActor,
       monitorName -> monitoringActor,

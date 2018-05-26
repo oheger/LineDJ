@@ -387,9 +387,10 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     if (canStartHttpArchives) {
       archivesToBeStarted foreach { e =>
         archiveIndexCounter += 1
+        //TODO set clearTemp parameter
         val actors = archiveStarter.startup(mediaActors, e._2,
           clientApplicationContext.managementConfiguration, realms(e._2.realm),
-          clientApplicationContext.actorFactory, archiveIndexCounter)
+          clientApplicationContext.actorFactory, archiveIndexCounter, true)
         actors foreach (e => registerActor(e._1, e._2))
         val arcState = ArchiveStateData(actors = actors,
           state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing),

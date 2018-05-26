@@ -35,7 +35,7 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, anyInt, eq => argEq}
+import org.mockito.Matchers.{any, anyBoolean, anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.{Answer, OngoingStubbing}
@@ -725,9 +725,10 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     def fetchIndexPassedToStarter(): Seq[Int] = {
       import collection.JavaConverters._
       val captor = ArgumentCaptor.forClass(classOf[Int])
+      //TODO verify clearTemp parameter
       verify(archiveStarter, times(2)).startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
         probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
-        any(classOf[UserCredentials]), argEq(actorFactory), captor.capture())
+        any(classOf[UserCredentials]), argEq(actorFactory), captor.capture(), argEq(true))
       captor.getAllValues.asScala
     }
 
@@ -771,7 +772,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val creds = credentials(realmIdx)
       when(archiveStarter.startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
         probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig),
-        argEq(creds), argEq(actorFactory), anyInt()))
+        argEq(creds), argEq(actorFactory), anyInt(), anyBoolean()))
     }
   }
 
