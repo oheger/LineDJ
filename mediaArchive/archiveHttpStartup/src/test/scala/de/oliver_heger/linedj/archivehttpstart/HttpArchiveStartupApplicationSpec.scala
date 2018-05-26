@@ -40,7 +40,7 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.{Answer, OngoingStubbing}
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -328,9 +328,12 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .processUIFuture()
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
 
-    val indices = helper.fetchIndexPassedToStarter()
+    val (indices, clears) = helper.fetchStarterParameters()
     indices.size should be > 1
     indices.toSet should have size indices.size
+    clears.size should be(indices.size)
+    clears.head shouldBe true
+    clears.tail forall(_ == false) shouldBe true
   }
 
   it should "check preconditions again after facade actors have been fetched" in {
@@ -717,19 +720,22 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
-      * Returns the numeric indices that have been passed to the starter
-      * object.
+      * Returns the variable parameters that have been passed to the starter
+      * object. These consist of the archive indices and the flags to clear
+      * the temporary directory.
       *
-      * @return the numeric indices
+      * @return tuple with numeric indices and clear flags
       */
-    def fetchIndexPassedToStarter(): Seq[Int] = {
+    def fetchStarterParameters(): (Seq[Int], Seq[Boolean]) = {
       import collection.JavaConverters._
-      val captor = ArgumentCaptor.forClass(classOf[Int])
-      //TODO verify clearTemp parameter
-      verify(archiveStarter, times(2)).startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
-        any(classOf[UserCredentials]), argEq(actorFactory), captor.capture(), argEq(true))
-      captor.getAllValues.asScala
+      val captorIdx = ArgumentCaptor.forClass(classOf[Int])
+      val captorClear = ArgumentCaptor.forClass(classOf[Boolean])
+      verify(archiveStarter, times(2))
+        .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
+          probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
+          any(classOf[UserCredentials]), argEq(actorFactory), captorIdx.capture(),
+          captorClear.capture())
+      (captorIdx.getAllValues.asScala, captorClear.getAllValues.asScala)
     }
 
     /**

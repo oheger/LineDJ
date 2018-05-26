@@ -379,7 +379,8 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * and the actors of the union archive could be fetched. The method checks
     * again for the preconditions (as something might have changed in the
     * meantime) and then calls the archive starter for each archive that can be
-    * started.
+    * started. For the first time an archive is started, the shared temporary
+    * directory is cleared.
     *
     * @param mediaActors the object with the actors of the union archive
     */
@@ -387,10 +388,10 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     if (canStartHttpArchives) {
       archivesToBeStarted foreach { e =>
         archiveIndexCounter += 1
-        //TODO set clearTemp parameter
         val actors = archiveStarter.startup(mediaActors, e._2,
           clientApplicationContext.managementConfiguration, realms(e._2.realm),
-          clientApplicationContext.actorFactory, archiveIndexCounter, true)
+          clientApplicationContext.actorFactory, archiveIndexCounter,
+          clearTemp = archiveIndexCounter == 1)
         actors foreach (e => registerActor(e._1, e._2))
         val arcState = ArchiveStateData(actors = actors,
           state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing),
