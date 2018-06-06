@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import java.nio.file.Paths
-import java.util
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{TestKit, TestProbe}
+import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ShutdownHandler}
@@ -40,7 +40,6 @@ import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-import scalaz.State
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
@@ -179,8 +178,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       playlistClosed = false, playlistActivated = true)
     val helper = new HandlerTestHelper
 
-    helper.stub(messages(Msg)) { s => s.handlePlaylistLoaded(argEq(TestList), any()) }
-      .activate()
+    helper.stub(messages(Msg), PersistentPlaylistStateUpdateServiceImpl.InitialState) { s =>
+      s.handlePlaylistLoaded(argEq(TestList), any())
+    }.activate()
       .publishOnBus(LoadedPlaylist(TestList))
       .expectStateWriterMsg(TestList)
     helper.expectMessageOnBus[Any] should be(Msg)
@@ -245,7 +245,11 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   /**
     * Test helper class managing a test instance and its dependencies.
     */
-  private class HandlerTestHelper {
+  private class HandlerTestHelper
+    extends StateTestHelper[PersistentPlaylistState, PersistentPlaylistStateUpdateService] {
+    /** Mock for the playlist state update service. */
+    override val updateService = mock[PersistentPlaylistStateUpdateService]
+
     /** The test message bus. */
     private val messageBus = new MessageBusTestImpl
 
@@ -265,15 +269,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     /** The client context passed to the test instance. */
     private val clientCtx = createClientContext()
 
-    /** Mock for the update service. */
-    private val updateService = mock[PersistentPlaylistStateUpdateService]
-
-    /**
-      * A queue which stores the state objects passed to the state monad
-      * returned by the update service.
-      */
-    private val stateQueue = new util.LinkedList[PersistentPlaylistState]
-
     /** The handler to be tested. */
     private val handler = new PlaylistHandler(updateService)
 
@@ -288,7 +283,8 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def activate(stubActivation: Boolean = true): HandlerTestHelper = {
       if (stubActivation) {
-        stub(List.empty[Any]: Iterable[Any]) { s =>
+        stub(List.empty[Any]: Iterable[Any],
+          PersistentPlaylistStateUpdateServiceImpl.InitialState) { s =>
           s.handleActivation(argEq(handlerComponentID), any())
         }
       }
@@ -444,45 +440,6 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     def handlerComponentID: ComponentID = handler.componentID
 
     /**
-      * Prepares the mock update service to expect an invocation that returns
-      * a ''State'' with the specified parameters.
-      *
-      * @param data  the additional data
-      * @param state the updated sink state
-      * @param f     a function that invokes the mock update service
-      * @tparam A the type of the additional data
-      * @return this test helper
-      */
-    def stub[A](data: A, state: PersistentPlaylistState =
-    PersistentPlaylistStateUpdateServiceImpl.InitialState)
-               (f: PersistentPlaylistStateUpdateService =>
-                 PersistentPlaylistStateUpdateServiceImpl.StateUpdate[A]): HandlerTestHelper = {
-      when(f(updateService)).thenReturn(createState(state, data))
-      this
-    }
-
-    /**
-      * Invokes the given function on the update service to capture an
-      * argument.
-      *
-      * @param f the function to be invoked
-      * @tparam A the type of the result
-      * @return the captured argument
-      */
-    def capture[A](f: PersistentPlaylistStateUpdateService => ArgumentCaptor[A]): A =
-      f(updateService).getValue
-
-    /**
-      * Returns the next state that was passed to an update operation.
-      *
-      * @return the next state
-      */
-    def nextUpdatedState(): PersistentPlaylistState = {
-      stateQueue.isEmpty should not be true
-      stateQueue.poll()
-    }
-
-    /**
       * Expects that the provided states have been involved in update
       * operations (in this order).
       *
@@ -491,24 +448,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def expectUpdatedState(states: PersistentPlaylistState*): HandlerTestHelper = {
       states foreach { s =>
-        nextUpdatedState() should be(s)
+        nextUpdatedState().get should be(s)
       }
       this
-    }
-
-    /**
-      * Creates a ''State'' object that records the passed in former state and
-      * returns the specified data.
-      *
-      * @param state the updated state
-      * @param data  the additional data to be returned
-      * @tparam A the type of the additional data
-      * @return the ''State'' object
-      */
-    private def createState[A](state: PersistentPlaylistState, data: A):
-    PersistentPlaylistStateUpdateServiceImpl.StateUpdate[A] = State { s =>
-      stateQueue offer s
-      (state, data)
     }
 
     /**
