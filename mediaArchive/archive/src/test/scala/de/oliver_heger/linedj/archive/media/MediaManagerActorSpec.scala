@@ -23,6 +23,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
@@ -37,7 +38,6 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-import scalaz.State
 
 import scala.concurrent.duration._
 
@@ -217,7 +217,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val messages = ScanStateTransitionMessages(ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
       _.handleScanCanceled()
     }
       .post(CloseHandlerActor.CloseComplete)
@@ -236,7 +236,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.stub(Option(scanMsg), state1) {
       _.triggerStartScan(RootPath)
     }
-      .stub(initMsg) {
+      .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
         _.startScanMessages(ArchiveName)
       }
       .post(ScanAllMedia)
@@ -268,7 +268,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
       _.handleRemovedFromUnionArchive(ArchiveName)
     }
       .send(RemovedArchiveComponentProcessed(ArchiveName))
@@ -290,7 +290,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
       _.handleAckFromMetaManager(ArchiveName)
     }
       .postAckFromMetaManager()
@@ -329,7 +329,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.stub(messages, state) {
       _.handleScanComplete(completeMsg.request.seqNo, ArchiveName)
     }
-      .stub(ScanStateTransitionMessages()) {
+      .stub(ScanStateTransitionMessages(), MediaScanStateUpdateServiceImpl.InitialState) {
         _.handleResultsReceived(result, testActor, ArchiveName)
       }
       .post(completeMsg)
@@ -445,7 +445,11 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
-  private class MediaManagerTestHelper {
+  private class MediaManagerTestHelper
+    extends StateTestHelper[MediaScanState, MediaScanStateUpdateService] {
+    /** Mock for the state update service. */
+    override val updateService = mock[MediaScanStateUpdateService]
+
     /** Test probe for the medium info parser actor. */
     private val probeInfoParser = TestProbe()
 
@@ -469,9 +473,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     /** The mock for the configuration passed to the actor. */
     private val actorConfig = createConfiguration()
-
-    /** Mock for the state update service. */
-    private val updateService = mock[MediaScanStateUpdateService]
 
     /**
       * A queue which stores the state objects passed to the state monad
@@ -606,42 +607,13 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     /**
-      * Prepares the mock update service to expect an invocation that returns
-      * a ''State'' with the specified parameters.
-      *
-      * @param data  the additional data
-      * @param state the updated sink state
-      * @param f     a function that invokes the mock update service
-      * @tparam A the type of the additional data
-      * @return this test helper
-      */
-    def stub[A](data: A, state: MediaScanState =
-    MediaScanStateUpdateServiceImpl.InitialState)(f: MediaScanStateUpdateService =>
-      State[MediaScanState, A]): MediaManagerTestHelper = {
-      when(f(updateService)).thenReturn(createState(state, data))
-      this
-    }
-
-    /**
-      * Returns the next state that was passed to a ''State'' object. This can
-      * be used to check whether the actor updates and stores states correctly.
-      *
-      * @return the next state
-      */
-    def nextState(): MediaScanState = {
-      val state = stateQueue.poll(5, TimeUnit.SECONDS)
-      state should not be null
-      state
-    }
-
-    /**
       * Expects a state transition from the passed in state.
       *
       * @param state the expected (original) state
       * @return this test helper
       */
     def expectStateUpdate(state: MediaScanState): MediaManagerTestHelper = {
-      nextState() should be(state)
+      nextUpdatedState().get should be(state)
       this
     }
 
@@ -686,21 +658,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       data should not be null
       data
     }
-
-    /**
-      * Creates a ''State'' object that records the passed in former state and
-      * returns the specified data.
-      *
-      * @param state the updated state
-      * @param data  the additional data to be returned
-      * @tparam A the type of the additional data
-      * @return the ''State'' object
-      */
-    private def createState[A](state: MediaScanState, data: A): State[MediaScanState, A] =
-      State { s =>
-        stateQueue offer s
-        (state, data)
-      }
 
     /**
       * Helper method to check whether the specified message was sent to the
