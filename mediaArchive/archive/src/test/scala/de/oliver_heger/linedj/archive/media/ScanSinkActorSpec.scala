@@ -18,16 +18,14 @@ package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-import scalaz.State
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
@@ -141,7 +139,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleNewScanResult(res, testActor, BufferSize)
     }
       .post(res)
@@ -156,7 +154,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleNewScanResult(res, testActor, BufferSize)
     }
       .post(res)
@@ -172,7 +170,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(results, List(probeAck.ref), processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleNewMediumInfo(info, testActor, BufferSize)
     }
       .post(info)
@@ -192,7 +190,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.stub(messages1, state) {
       _.handleNewScanResult(res, testActor, BufferSize)
     }
-      .stub(messages2) {
+      .stub(messages2, ScanSinkUpdateServiceImpl.InitialState) {
         _.handleNewMediumInfo(info, testActor, BufferSize)
       }
       .post(res)
@@ -208,7 +206,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(Nil, List(actor.ref), processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleResultAck(BufferSize)
     }
       .postAckFromManager()
@@ -223,10 +221,10 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages2 = SinkTransitionMessages(results2, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages1) {
+    helper.stub(messages1, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleResultAck(BufferSize)
     }
-      .stub(messages2) {
+      .stub(messages2, ScanSinkUpdateServiceImpl.InitialState) {
         _.handleNewScanResult(res, testActor, BufferSize)
       }
       .post(ScanSinkActor.Ack)
@@ -239,7 +237,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleScanResultsDone(BufferSize)
     }
       .post(ScanSinkActor.ScanResultsComplete)
@@ -251,7 +249,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleMediaInfoDone(BufferSize)
     }
       .post(ScanSinkActor.MediaInfoComplete)
@@ -262,7 +260,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val messages = SinkTransitionMessages(Nil, Nil, processingDone = true)
     val helper = new SinkActorTestHelper
 
-    helper.stub(messages) {
+    helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleResultAck(BufferSize)
     }
       .postAckFromManager()
@@ -282,18 +280,13 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   /**
     * A test helper class managing a test instance and its dependencies.
     */
-  private class SinkActorTestHelper {
+  private class SinkActorTestHelper
+    extends StateTestHelper[ScanSinkState, ScanSinkUpdateService] {
+    /** Mock for the scan sink update service. */
+    override val updateService = mock[ScanSinkUpdateService]
+
     /** Test probe for the media manager actor. */
     private val probeManager = TestProbe()
-
-    /** Mock for the scan sink update service. */
-    private val updateService = mock[ScanSinkUpdateService]
-
-    /**
-      * A queue which stores the state objects passed to the state monad
-      * returned by the update service.
-      */
-    private val stateQueue = new LinkedBlockingQueue[ScanSinkState]
 
     /** The promise passed to the test actor. */
     private val promise = Promise[Unit]()
@@ -309,23 +302,6 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       */
     def post(msg: Any): SinkActorTestHelper = {
       sinkActor ! msg
-      this
-    }
-
-    /**
-      * Prepares the mock update service to expect an invocation that returns
-      * a ''State'' with the specified parameters.
-      *
-      * @param data  the additional data
-      * @param state the updated sink state
-      * @param f     a function that invokes the mock update service
-      * @tparam A the type of the additional data
-      * @return this test helper
-      */
-    def stub[A](data: A, state: ScanSinkState =
-    ScanSinkUpdateServiceImpl.InitialState)(f: ScanSinkUpdateService =>
-      State[ScanSinkState, A]): SinkActorTestHelper = {
-      when(f(updateService)).thenReturn(createState(state, data))
       this
     }
 
@@ -353,25 +329,13 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     }
 
     /**
-      * Returns the next state that was passed to a ''State'' object. This can
-      * be used to check whether the actor updates and stores states correctly.
-      *
-      * @return the next state
-      */
-    def nextState(): ScanSinkState = {
-      val state = stateQueue.poll(5, TimeUnit.SECONDS)
-      state should not be null
-      state
-    }
-
-    /**
       * Expects a state transition from the passed in state.
       *
       * @param state the expected (original) state
       * @return this test helper
       */
     def expectStateUpdate(state: ScanSinkState): SinkActorTestHelper = {
-      nextState() should be(state)
+      nextUpdatedState().get should be(state)
       this
     }
 
@@ -426,21 +390,6 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       awaitCond(refEx.get() == ex)
       this
     }
-
-    /**
-      * Creates a ''State'' object that records the passed in former state and
-      * returns the specified data.
-      *
-      * @param state the updated state
-      * @param data  the additional data to be returned
-      * @tparam A the type of the additional data
-      * @return the ''State'' object
-      */
-    private def createState[A](state: ScanSinkState, data: A): State[ScanSinkState, A] =
-      State { s =>
-        stateQueue offer s
-        (state, data)
-      }
 
     /**
       * Creates a test actor instance.
