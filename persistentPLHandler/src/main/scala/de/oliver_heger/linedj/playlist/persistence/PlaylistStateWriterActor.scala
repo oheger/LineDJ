@@ -16,85 +16,27 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.Path
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
-import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-
-import scala.concurrent.duration.FiniteDuration
 
 object PlaylistStateWriterActor {
   /**
     * Creates a ''Props'' object for the creation of a new actor instance.
     *
-    * @param pathPlaylist     the path to the file with the playlist
-    * @param pathPosition     the path to the file with the current position
-    * @param autoSaveInterval the auto save interval
+    * @param writeConfig the object with configuration data
     * @return ''Props'' for a new actor instance
     */
-  def apply(pathPlaylist: Path, pathPosition: Path,
-            autoSaveInterval: FiniteDuration): Props =
-    Props(classOf[PlaylistStateWriterActorImpl], pathPlaylist, pathPosition, autoSaveInterval)
+  def apply(writeConfig: PlaylistWriteConfig): Props =
+    Props(classOf[PlaylistStateWriterActorImpl], writeConfig)
 
-  private class PlaylistStateWriterActorImpl(pathPlaylist: Path, pathPosition: Path,
-                                             autoSaveInterval: FiniteDuration)
-    extends PlaylistStateWriterActor(pathPlaylist, pathPosition, autoSaveInterval)
-      with ChildActorFactory
+  private class PlaylistStateWriterActorImpl(writeConfig: PlaylistWriteConfig)
+    extends PlaylistStateWriterActor(writeConfig) with ChildActorFactory
 
-  /**
-    * Generates a string for the specified playlist item.
-    *
-    * @param item the item in the playlist
-    * @param idx  the index of this item
-    * @return a string representation of this item
-    */
-  private def convertItem(item: MediaFileID, idx: Int): String = {
-    val descPath = generateDescriptionPath(item.mediumID)
-    s"""{
-       |"${PersistentPlaylistParser.PropIndex}": $idx,
-       |"${PersistentPlaylistParser.PropMediumURI}": "${item.mediumID.mediumURI}",$descPath
-       |"${PersistentPlaylistParser.PropArchiveCompID}": "${item.mediumID
-      .archiveComponentID}",
-       |"${PersistentPlaylistParser.PropURI}": "${item.uri}"
-       |}
-    """.stripMargin
-  }
-
-  /**
-    * Generates a string for the optional medium description path. If no
-    * description path is defined, result is an empty string.
-    *
-    * @param mid the medium ID
-    * @return a string for the description path
-    */
-  private def generateDescriptionPath(mid: MediumID): String =
-    mid.mediumDescriptionPath.map("\n\"" + PersistentPlaylistParser.PropMediumDescPath +
-      "\": \"" + _ + "\",") getOrElse ""
-
-  /**
-    * Generates a string for the specified current playlist position.
-    *
-    * @param position the position
-    * @return the JSON representation for this position
-    */
-  private def convertPosition(position: CurrentPlaylistPosition): ByteString =
-    ByteString(
-      s"""{
-         |"${CurrentPositionParser.PropIndex}": ${position.index},
-         |"${CurrentPositionParser.PropPosition}": ${position.positionOffset},
-         |"${CurrentPositionParser.PropTime}": ${position.timeOffset}
-         |}
-     """.stripMargin)
 }
 
 /**
@@ -118,15 +60,17 @@ object PlaylistStateWriterActor {
   * intermediate updates. This can be configured by an auto save interval. A
   * save operation is then triggered after ongoing playback for this time span.
   *
-  * @param pathPlaylist     the path to the file with the playlist
-  * @param pathPosition     the path to the file with the current position
-  * @param autoSaveInterval the auto save interval
+  * @param updateService the service for updating the playlist write state
+  * @param writeConfig   the configuration for writing the playlist
   */
-class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
-                               autoSaveInterval: FiniteDuration) extends Actor with ActorLogging {
-  this: ChildActorFactory =>
+class PlaylistStateWriterActor(private[persistence]
+                               val updateService: PlaylistWriteStateUpdateService,
+                               writeConfig: PlaylistWriteConfig) extends Actor
+  with ActorLogging {
+  me: ChildActorFactory =>
 
-  import PlaylistStateWriterActor._
+  def this(writeConfig: PlaylistWriteConfig) =
+    this(PlaylistWriteStateUpdateServiceImpl, writeConfig)
 
   /** The playlist service. */
   private val plService = PlaylistService
@@ -134,31 +78,8 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
   /** The child actor for file write operations. */
   private var fileWriterActor: ActorRef = _
 
-  /**
-    * A map for keeping track on write operations that are blocked by ongoing
-    * operations.
-    */
-  private var pendingWriteOperations = Map.empty[Path, WriteFile]
-
-  /**
-    * A set for keeping track on write operations that are currently executed.
-    */
-  private var writesInProgress = Set.empty[Path]
-
-  /** Stores the initial playlist. */
-  private var initialPlaylist: Option[Playlist] = None
-
-  /** Stores the sequence number of the current playlist. */
-  private var playlistSeqNo: Option[Int] = None
-
-  /** Stores information about the current playlist position. */
-  private var currentPosition = CurrentPlaylistPosition(0, 0, 0)
-
-  /** Stores an updated position that has not yet been written. */
-  private var updatedPosition = currentPosition
-
-  /** Stores the sender of a close request. */
-  private var closeRequest: Option[ActorRef] = None
+  /** The state of the written playlist. */
+  private var state = PlaylistWriteStateUpdateServiceImpl.InitialState
 
   override def preStart(): Unit = {
     super.preStart()
@@ -167,124 +88,46 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
 
   override def receive: Receive = {
     case SetPlaylist(playlist, _, positionOffset, timeOffset) =>
-      initialPlaylist = Some(playlist)
-      currentPosition = extractPosition(playlist).copy(positionOffset = positionOffset,
-        timeOffset = timeOffset)
+      updateState(updateService.initPlaylist(plService, playlist, positionOffset, timeOffset))
 
-    case AudioPlayerState(playlist, no, _, _, playlistActivated)
-      if closeRequest.isEmpty && playlistActivated =>
-      initialPlaylist foreach { initPl =>
-        handlePlaylistUpdate(playlist, initPl, no)
-        handlePositionUpdate(extractPosition(playlist))
-      }
+    case playerState: AudioPlayerState =>
+      updateStateAndHandleMessages(updateService.handlePlayerStateChange(plService,
+        playerState, writeConfig))
 
-    case PlaybackProgressEvent(ofs, time, _, _) if closeRequest.isEmpty &&
-      initialPlaylist.isDefined =>
-      val position = CurrentPlaylistPosition(currentPosition.index, ofs, time)
-      handlePositionUpdate(position)
+    case PlaybackProgressEvent(ofs, time, _, _) =>
+      updateStateAndHandleMessages(updateService.handlePlaybackProgress(ofs, time, writeConfig))
 
     case FileWritten(path, _) =>
-      writesInProgress -= path
-      pendingWriteOperations.get(path) foreach { msg =>
-        callWriteActor(msg)
-        pendingWriteOperations -= path
-      }
-      if (writesInProgress.isEmpty) {
-        closeRequest foreach (_ ! CloseAck(self))
-      }
+      updateStateAndHandleMessages(updateService.handleFileWritten(path, writeConfig))
 
     case CloseRequest =>
-      if (updatedPosition != currentPosition) {
-        writePosition(updatedPosition)
-      }
-      if (writesInProgress.isEmpty) {
-        sender ! CloseAck(self)
-      }
-      closeRequest = Some(sender())
+      updateStateAndHandleMessages(updateService.handleCloseRequest(sender(), writeConfig))
   }
 
   /**
-    * Handles an update notification for a playlist. If the change is
-    * relevant, the updated playlist is written to disk.
+    * Performs an update operation on the current state.
     *
-    * @param playlist     the playlist
-    * @param initPlaylist the initial playlist
-    * @param no           the playlist sequence number
+    * @param update the update to be executed
+    * @tparam A the type of the result of the update
+    * @return the result of the update operation
     */
-  private def handlePlaylistUpdate(playlist: Playlist, initPlaylist: Playlist, no: Int): Unit = {
-    val plChanged = playlistSeqNo.map(_ != no)
-      .getOrElse(!plService.playlistEquals(playlist, initPlaylist))
-    if (plChanged) {
-      val source = Source(plService.toSongList(playlist))
-      val sepStage =
-        new ListSeparatorStage[MediaFileID]("[\n", ",\n", "\n]\n")(convertItem)
-      triggerWrite(source.via(sepStage), pathPlaylist)
-    }
-    playlistSeqNo = Some(no)
+  private def updateState[A](update: PlaylistWriteStateUpdateServiceImpl.StateUpdate[A]): A = {
+    val (next, res) = update(state)
+    state = next
+    res
   }
 
   /**
-    * Handles an update notification for a position. If there is a relevant
-    * change, the position data is written to disk.
+    * Performs an update operation of the current state and processes state
+    * transition messages that are generated by the update.
     *
-    * @param position the object representing the updated position
+    * @param update the update to be executed
     */
-  private def handlePositionUpdate(position: CurrentPlaylistPosition): Unit = {
-    if (positionChanged(position)) {
-      writePosition(position)
-    }
-    updatedPosition = position
-  }
-
-  /**
-    * Sends a write request to store the specified position.
-    *
-    * @param position the position to be written
-    */
-  private def writePosition(position: CurrentPlaylistPosition): Unit = {
-    triggerWrite(Source.single(convertPosition(position)), pathPosition)
-    currentPosition = position
-  }
-
-  /**
-    * Extracts information about the current position from the passed in
-    * playlist. If the playlist has no current element, a position after the
-    * end is returned.
-    *
-    * @param playlist the ''Playlist''
-    * @return an object with the current position
-    */
-  private def extractPosition(playlist: Playlist): CurrentPlaylistPosition =
-    plService.currentIndex(playlist) map { current =>
-      CurrentPlaylistPosition(current, 0, 0)
-    } getOrElse CurrentPlaylistPosition(plService.size(playlist), 0, 0)
-
-  /**
-    * Checks whether a relevant change in the playlist position took place. If
-    * so, the position data has to be written.
-    *
-    * @param position the updated position
-    * @return a flag whether there is a relevant change
-    */
-  private def positionChanged(position: CurrentPlaylistPosition): Boolean =
-    position.index != currentPosition.index ||
-      position.timeOffset - currentPosition.timeOffset >= autoSaveInterval.toSeconds
-
-  /**
-    * Triggers a write operation for the specified data. This method also keeps
-    * track on ongoing write operations and prevents that the same file is
-    * written multiple times concurrently.
-    *
-    * @param source the source defining the file content
-    * @param path   the path to the file to be written
-    */
-  private def triggerWrite(source: Source[ByteString, Any], path: Path): Unit = {
-    val writeMsg = WriteFile(source, path)
-    if (writesInProgress contains path) {
-      pendingWriteOperations += path -> writeMsg
-    } else {
-      callWriteActor(writeMsg)
-    }
+  private def updateStateAndHandleMessages(update: PlaylistWriteStateUpdateServiceImpl
+  .StateUpdate[WriteStateTransitionMessages]): Unit = {
+    val messages = updateState(update)
+    messages.writes foreach callWriteActor
+    messages.closeAck foreach (_ ! CloseAck(self))
   }
 
   /**
@@ -295,7 +138,6 @@ class PlaylistStateWriterActor(pathPlaylist: Path, pathPosition: Path,
     */
   private def callWriteActor(writeMsg: WriteFile): Unit = {
     fileWriterActor ! writeMsg
-    writesInProgress += writeMsg.target
     log.info("Saving playlist information to {}.", writeMsg.target)
   }
 }

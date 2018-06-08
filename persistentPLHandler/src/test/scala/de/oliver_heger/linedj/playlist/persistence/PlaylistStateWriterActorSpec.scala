@@ -16,23 +16,24 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Paths
 import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.FileIO
+import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.FileTestHelper
+import akka.util.ByteString
+import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
+import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
@@ -45,55 +46,25 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
   /** The auto-save interval used by the test actor. */
   private val AutoSaveInterval = 2.minutes
 
+  /** The configuration object for the test actor. */
+  private val WriteConfig = PlaylistWriteConfig(Paths get PlaylistFileName,
+    Paths get PositionFileName, AutoSaveInterval)
+
   /** A test audio source used in events. */
   private val TestAudioSource = AudioSource("testSource", 20171215, 42, 11)
 
   /** A timestamp used for events. */
   private val TimeStamp = LocalDateTime.of(2017, 12, 15, 21, 35)
 
-  /** The size of the initial playlist. */
-  private val InitialPlaylistSize = 4
-
-  /** The current index in the initial playlist. */
-  private val InitialPlaylistIndex = 1
-
-  /** The default message to initialize the playlist. */
-  private val InitialPlaylist = createInitialPlaylist()
-
   /**
-    * Generates a player state object based on the specified parameters.
+    * Creates a ''WriteFile'' message based on the given index.
     *
-    * @param songCount    the number of songs in the playlist
-    * @param currentIndex the index of the current song
-    * @param seqNo        the sequence number of the playlist
-    * @param activated    flag whether the playlist is activated
-    * @return the player state object
+    * @param idx the index
+    * @return the message
     */
-  private def createPlayerState(songCount: Int, currentIndex: Int = 0, seqNo: Int = 1,
-                                activated: Boolean = true): AudioPlayerState =
-    createStateFromPlaylist(generatePlaylist(songCount, currentIndex), seqNo, activated)
-
-  /**
-    * Creates a player state object based on the given parameters
-    *
-    * @param playlist  the current playlist
-    * @param seqNo     the sequence number of the playlist
-    * @param activated flag whether the playlist is activated
-    * @return the player state object
-    */
-  private def createStateFromPlaylist(playlist: Playlist, seqNo: Int = 1,
-                                      activated: Boolean = true): AudioPlayerState =
-    AudioPlayerState(playlist = playlist, playlistSeqNo = seqNo, playbackActive = true,
-      playlistClosed = false, playlistActivated = activated)
-
-  /**
-    * Creates the default ''SetPlaylist'' message to set the initial playlist.
-    *
-    * @return the default initial ''SetPlaylist'' message
-    */
-  private def createInitialPlaylist(): SetPlaylist =
-    SetPlaylist(playlist = createPlayerState(songCount = InitialPlaylistSize,
-      currentIndex = InitialPlaylistIndex).playlist)
+  private def createWriteFile(idx: Int): WriteFile =
+    WriteFile(Source.single(ByteString(idx.toString)),
+      if (idx % 2 == 0) WriteConfig.pathPlaylist else WriteConfig.pathPosition)
 
   /**
     * Creates a playback progress event with the relevant parts.
@@ -111,221 +82,111 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
   * Test class for ''PlaylistStateWriterActor''.
   */
 class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("PlaylistStateWriterActorSpec"))
 
   import PlaylistStateWriterActorSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
-    tearDownTestFile()
   }
 
   "A PlaylistStateWriterActor" should "create correct Props" in {
-    val pathPlaylist = Paths get "playlist.json"
-    val pathPosition = Paths get "position.json"
-    val autoSave = 3.minutes
+    val props = PlaylistStateWriterActor(WriteConfig)
 
-    val props = PlaylistStateWriterActor(pathPlaylist, pathPosition, autoSave)
     classOf[PlaylistStateWriterActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(pathPlaylist, pathPosition, autoSave))
+    props.args should be(List(WriteConfig))
   }
 
-  it should "ignore state changes before the initial playlist is set" in {
+  it should "use a default state update service" in {
+    val actorRef = TestActorRef[PlaylistStateWriterActor](PlaylistStateWriterActor(WriteConfig))
+
+    actorRef.underlyingActor.updateService should be(PlaylistWriteStateUpdateServiceImpl)
+  }
+
+  it should "store the initial playlist" in {
+    val playlist = mock[Playlist]
+    val PosOfs = 20180607220325L
+    val TimeOfs = 220335
+    val state1 = mock[PlaylistWriteState]
     val helper = new WriterActorTestHelper
 
-    helper.send(createPlayerState(8))
+    helper.stub((), state1) { svc =>
+      svc.initPlaylist(PlaylistService, playlist, PosOfs, TimeOfs)
+    }
+      .stub(WriteStateTransitionMessages(Nil, None), mock[PlaylistWriteState]) { svc =>
+        svc.handlePlaybackProgress(PosOfs + 100, TimeOfs + 1, WriteConfig)
+      }
+      .sendInitPlaylist(SetPlaylist(playlist, positionOffset = PosOfs, timeOffset = TimeOfs))
+      .send(createProgressEvent(PosOfs + 100, TimeOfs + 1))
+      .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, state1)
+  }
+
+  it should "handle an audio player state update event" in {
+    val playerState = mock[AudioPlayerState]
+    val nextState = mock[PlaylistWriteState]
+    val PosOfs = 20180607222036L
+    val TimeOfs = 222045
+    val write1 = createWriteFile(1)
+    val write2 = createWriteFile(2)
+    val messages = WriteStateTransitionMessages(List(write1, write2), None)
+    val helper = new WriterActorTestHelper
+
+    helper.stub(messages, nextState) { svc =>
+      svc.handlePlayerStateChange(PlaylistService, playerState, WriteConfig)
+    }
+      .stub(WriteStateTransitionMessages(Nil, None), mock[PlaylistWriteState]) { svc =>
+        svc.handlePlaybackProgress(PosOfs, TimeOfs, WriteConfig)
+      }
+      .send(playerState)
+      .expectWriteOperation(write1)
+      .expectWriteOperation(write2)
+      .send(createProgressEvent(PosOfs, TimeOfs))
+      .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, nextState)
+  }
+
+  it should "handle file written notifications" in {
+    val write = createWriteFile(1)
+    val otherPath = Paths get "someOtherPath.json"
+    val stateTemp = mock[PlaylistWriteState]
+    val messages1 = WriteStateTransitionMessages(List(write), None)
+    val messages2 = WriteStateTransitionMessages(Nil, Some(testActor))
+    val helper = new WriterActorTestHelper
+
+    helper.stub(messages1, stateTemp) { svc => svc.handleFileWritten(write.target, WriteConfig) }
+      .stub(messages2, mock[PlaylistWriteState]) { svc =>
+        svc.handleFileWritten(otherPath, WriteConfig)
+      }
+      .send(FileWritten(write.target, None))
+      .expectWriteOperation(write)
+      .send(FileWritten(otherPath, None))
       .expectNoWriteOperation()
-  }
-
-  it should "store the playlist if there is a state change" in {
-    val SongCount = 8
-    val state = createPlayerState(SongCount, currentIndex = InitialPlaylistIndex)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(state)
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generatePlaylist(SongCount, 0))
-      .expectNoWriteOperation()
-  }
-
-  it should "not store the playlist if the same playlist as the initial one comes in" in {
-    val state = createStateFromPlaylist(InitialPlaylist.playlist, seqNo = 5)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(state)
-      .expectNoWriteOperation()
-  }
-
-  it should "not store a playlist that has not yet been activated" in {
-    val state = createPlayerState(6, activated = false)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(state)
-      .expectNoWriteOperation()
-  }
-
-  it should "store a later playlist if the seqNo has changed" in {
-    val state = createStateFromPlaylist(InitialPlaylist.playlist, seqNo = 8)
-    val updatedState = state.copy(playlistSeqNo = state.playlistSeqNo + 1)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(state)
-      .send(updatedState)
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generatePlaylist(InitialPlaylistSize, 0))
-  }
-
-  it should "store position data if the playlist index is changed" in {
-    val state = createPlayerState(5, currentIndex = InitialPlaylistIndex + 1)
-    val helper = new WriterActorTestHelper
-    helper.sendInitPlaylist().send(createPlayerState(5, currentIndex = InitialPlaylistIndex))
-      .expectAndHandleWriteOperation()
-
-    helper.send(state)
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(state.playlist)
-      .expectNoWriteOperation()
-  }
-
-  it should "write the playlist position on receiving a relevant progress event" in {
-    val SongCount = 8
-    val Index = 2
-    val PosOffset = 5000
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(createPlayerState(8, currentIndex = 2))
-      .expectAndHandleWriteOperation().expectAndHandleWriteOperation()
-      .send(createProgressEvent(PosOffset, AutoSaveInterval.toSeconds))
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, PosOffset,
-        AutoSaveInterval.toSeconds))
-  }
-
-  it should "only write the playlist on receiving a progress event if there is a change" in {
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(createProgressEvent(11111, AutoSaveInterval.toSeconds - 1))
-      .expectNoWriteOperation()
-  }
-
-  it should "ignore progress events before the initial state was set" in {
-    val helper = new WriterActorTestHelper
-
-    helper.send(createProgressEvent(1234, AutoSaveInterval.toSeconds))
-      .expectNoWriteOperation()
-  }
-
-  it should "extract the position from the initial playlist" in {
-    val PosOffset = 20180217
-    val InitMsg = InitialPlaylist.copy(positionOffset = PosOffset, timeOffset = 1)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist(InitMsg)
-      .send(createProgressEvent(PosOffset + 1, AutoSaveInterval.toSeconds))
-      .expectNoWriteOperation()
-  }
-
-  it should "serialize file write operations" in {
-    val SongCount = 12
-    val Index = 3
-    val Offset = 65536
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(createPlayerState(SongCount / 2, currentIndex = InitialPlaylistIndex + 1))
-      .skipWriteOperation().skipWriteOperation()
-      .send(createPlayerState(SongCount, currentIndex = Index, seqNo = 2))
-      .expectNoWriteOperation()
-      .sendWriteConfirmationForPlaylist()
-      .expectAndHandleWriteOperation()
-      .send(createProgressEvent(Offset, 2 * AutoSaveInterval.toSeconds))
-      .sendWriteConfirmationForPosition()
-      .expectAndHandleWriteOperation()
-      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, Offset,
-        2 * AutoSaveInterval.toSeconds))
-  }
-
-  it should "answer a close request if no actions are pending" in {
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(createProgressEvent(1234, AutoSaveInterval.toSeconds))
-      .skipWriteOperation().sendWriteConfirmationForPosition()
-      .sendCloseRequest()
+      .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, stateTemp)
       .expectCloseAck()
   }
 
-  it should "not send a close ack before write operations have completed" in {
+  it should "handle a close request" in {
+    val write = createWriteFile(2)
+    val messages = WriteStateTransitionMessages(List(write), Some(testActor))
     val helper = new WriterActorTestHelper
 
-    helper.sendInitPlaylist()
-      .send(createPlayerState(InitialPlaylistSize + 1, currentIndex = InitialPlaylistIndex + 1))
-      .sendCloseRequest()
-      .expectNoCloseAck()
-      .skipWriteOperation().skipWriteOperation()
-      .sendWriteConfirmationForPlaylist().sendWriteConfirmationForPosition()
+    helper.stub(messages, mock[PlaylistWriteState]) { svc =>
+      svc.handleCloseRequest(testActor, WriteConfig)
+    }.sendCloseRequest()
+      .expectWriteOperation(write)
       .expectCloseAck()
-  }
-
-  it should "store an updated position when receiving a close request" in {
-    val SongCount = 8
-    val Index = 5
-    val TimeOffset = AutoSaveInterval.toSeconds / 2
-    val PosOffset = 5000
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(createPlayerState(SongCount, currentIndex = Index))
-      .expectAndHandleWriteOperation().expectAndHandleWriteOperation()
-      .send(createProgressEvent(PosOffset, TimeOffset))
-      .sendCloseRequest()
-      .expectNoCloseAck()
-      .expectAndHandleWriteOperation()
-      .expectCloseAck()
-      .expectPersistedPlaylist(generateSetPlaylist(SongCount, Index, PosOffset, TimeOffset))
-  }
-
-  it should "not accept updates after a close request has been received" in {
-    val state = createPlayerState(InitialPlaylistSize - 1, currentIndex = 2)
-    val helper = new WriterActorTestHelper
-
-    helper.sendInitPlaylist()
-      .send(state)
-      .sendCloseRequest()
-      .expectAndHandleWriteOperation()
-      .send(createPlayerState(5))
-      .send(createProgressEvent(1, AutoSaveInterval.toSeconds))
-      .expectAndHandleWriteOperation()
-      .expectCloseAck()
-      .expectNoWriteOperation()
   }
 
   /**
     * Helper class managing a test instance and its dependencies.
     */
-  private class WriterActorTestHelper {
+  private class WriterActorTestHelper
+    extends StateTestHelper[PlaylistWriteState, PlaylistWriteStateUpdateService] {
+    override val updateService = mock[PlaylistWriteStateUpdateService]
+
     /** Test probe for the file writer child actor. */
     private val probeFileWriter = TestProbe()
-
-    /** The path to the file with playlist information. */
-    private val pathPlaylist = initPlaylistFile(PlaylistFileName)
-
-    /** The path to the file with position information. */
-    private val pathPosition = initPlaylistFile(PositionFileName)
-
-    /** The actor for loading playlist information. */
-    private lazy val loaderActor = createLoaderActor()
-
-    /** A message bus for interaction with the loader actor. */
-    private lazy val messageBus = new MessageBusTestImpl
 
     /** The actor to be tested. */
     private val writerActor = createTestActor()
@@ -350,8 +211,21 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the init message to be sent
       * @return this test helper
       */
-    def sendInitPlaylist(msg: SetPlaylist = InitialPlaylist): WriterActorTestHelper = {
+    def sendInitPlaylist(msg: SetPlaylist): WriterActorTestHelper = {
       send(msg)
+      this
+    }
+
+    /**
+      * Expects that the given state updates were done.
+      *
+      * @param states the states passed to the update service
+      * @return this test helper
+      */
+    def expectStateUpdates(states: PlaylistWriteState*): WriterActorTestHelper = {
+      states foreach { s =>
+        nextUpdatedState().get should be(s)
+      }
       this
     }
 
@@ -368,6 +242,18 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     }
 
     /**
+      * Expects that the specified write message was sent to the file writer
+      * actor.
+      *
+      * @param write the expected write operation
+      * @return this test helper
+      */
+    def expectWriteOperation(write: WriteFile): WriterActorTestHelper = {
+      expectWriteOperation() should be(write)
+      this
+    }
+
+    /**
       * Expects that a write operation was triggered and returns the
       * corresponding message.
       *
@@ -377,88 +263,8 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       probeFileWriter.expectMsgType[PlaylistFileWriterActor.WriteFile]
 
     /**
-      * Expects that a write operation has been triggered, but ignores the
-      * concrete parameters. Just returns this test helper, allowing fluent
-      * syntax in test cases.
-      *
-      * @return this test helper
-      */
-    def skipWriteOperation(): WriterActorTestHelper = {
-      expectWriteOperation()
-      this
-    }
-
-    /**
-      * Expects that a write operation was triggered and writes the data to
-      * disk, so that it can be loaded later on.
-      *
-      * @return this test helper
-      */
-    def expectAndHandleWriteOperation(): WriterActorTestHelper = {
-      val writeMsg = expectWriteOperation()
-      List(pathPosition, pathPlaylist) should contain(writeMsg.target)
-      implicit val mat: ActorMaterializer = ActorMaterializer()
-      val sink = FileIO.toPath(writeMsg.target)
-      val futResult = writeMsg.source.runWith(sink)
-      Await.result(futResult, 3.seconds)
-      sendWriteConfirmation(writeMsg.target)
-    }
-
-    /**
-      * Loads the playlist persisted by the test actor using a loader actor.
-      *
-      * @return the ''SetPlaylist'' command read by the loader actor
-      */
-    def loadPlaylist(): SetPlaylist = {
-      loaderActor ! LoadPlaylistActor.LoadPlaylistData(pathPlaylist, pathPosition,
-        Integer.MAX_VALUE, messageBus)
-      messageBus.expectMessageType[LoadedPlaylist].setPlaylist
-    }
-
-    /**
-      * Loads the playlist persisted by the test actor and compares it
-      * against the specified object. Here it is expected that no position
-      * information has been written.
-      *
-      * @param playlist the ''Playlist''
-      * @return this test helper
-      */
-    def expectPersistedPlaylist(playlist: Playlist): WriterActorTestHelper =
-      expectPersistedPlaylist(SetPlaylist(playlist))
-
-    /**
-      * Loads the playlist persisted by the test actor and compares it against
-      * the expected set playlist command.
-      *
-      * @param cmd the expected playlist command
-      * @return this test helper
-      */
-    def expectPersistedPlaylist(cmd: SetPlaylist): WriterActorTestHelper = {
-      loadPlaylist() should be(cmd)
-      this
-    }
-
-    /**
-      * Sends a confirmation to the test actor that the playlist file has been
-      * written.
-      *
-      * @return this test helper
-      */
-    def sendWriteConfirmationForPlaylist(): WriterActorTestHelper =
-      sendWriteConfirmation(pathPlaylist)
-
-    /**
-      * Sends a confirmation to the test actor that the position file has been
-      * written.
-      *
-      * @return this test helper
-      */
-    def sendWriteConfirmationForPosition(): WriterActorTestHelper =
-      sendWriteConfirmation(pathPosition)
-
-    /**
       * Sends a close request to the test actor. Note: This request is sent via
-      * ''!'' rather than passed directly to the recieve function.
+      * ''!'' rather than passed directly to the receive function.
       *
       * @return this test helper
       */
@@ -478,43 +284,14 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     }
 
     /**
-      * Checks that no close Ack message has been received.
-      *
-      * @return this test helper
-      */
-    def expectNoCloseAck(): WriterActorTestHelper = {
-      expectNoMessage(500.millis)
-      this
-    }
-
-    /**
-      * Sends a confirmation message that the specified file has been
-      * written.
-      *
-      * @param path the path to the file that was written
-      * @return this test helper
-      */
-    private def sendWriteConfirmation(path: Path): WriterActorTestHelper = {
-      send(PlaylistFileWriterActor.FileWritten(path, None))
-    }
-
-    /**
-      * Creates an actor for loading playlist information.
-      *
-      * @return the loader actor
-      */
-    private def createLoaderActor(): ActorRef =
-      system.actorOf(Props[LoadPlaylistActor])
-
-    /**
       * Creates a test actor instance with a child actor factory implementation
       * that returns the probe for the file writer actor.
       *
       * @return the test actor instance
       */
     private def createTestActor(): TestActorRef[PlaylistStateWriterActor] =
-      TestActorRef(Props(new PlaylistStateWriterActor(pathPlaylist, pathPosition,
-        AutoSaveInterval) with ChildActorFactory {
+      TestActorRef(Props(new PlaylistStateWriterActor(updateService, WriteConfig)
+        with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[PlaylistFileWriterActor])
           p.args shouldBe 'empty
@@ -522,20 +299,6 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
         }
       }))
 
-    /**
-      * Initializes a temporary file to be used for saving playlist data. It is
-      * ensured that the file does not yet exist.
-      *
-      * @param name the name of the file
-      * @return the path to this temporary file
-      */
-    private def initPlaylistFile(name: String): Path = {
-      val path = createPathInDirectory(name)
-      if (Files exists path) {
-        Files delete path
-      }
-      path
-    }
   }
 
 }
