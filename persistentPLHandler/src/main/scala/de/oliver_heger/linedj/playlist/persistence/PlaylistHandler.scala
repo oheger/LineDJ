@@ -158,9 +158,10 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     */
   private def handleActivation(config: PlaylistHandlerConfig): Unit = {
     handlerConfig = config
-    //TODO fix actor parameters
+    val writeConfig = PlaylistWriteConfig(config.pathPlaylist, config.pathPosition,
+      config.autoSaveInterval)
     stateWriterActor = Some(clientApplicationContext.actorFactory.createActor(
-      PlaylistStateWriterActor(null), WriterActorName))
+      PlaylistStateWriterActor(writeConfig), WriterActorName))
     busRegistrationID = bus registerListener receive
     updateState(updateService.handleActivation(componentID, handleAvailableMedia))
     triggerLoadOfPersistentPlaylist(config)

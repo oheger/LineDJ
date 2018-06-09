@@ -54,6 +54,9 @@ object PlaylistHandlerSpec {
   /** The auto save interval from the configuration. */
   private val AutoSaveInterval = 90.seconds
 
+  /** The expected write configuration. */
+  private val WriteConfig = PlaylistWriteConfig(PathPlaylist, PathPosition, AutoSaveInterval)
+
   /** The maximum size of a playlist file. */
   private val MaxFileSize = 8 * 1024
 
@@ -475,7 +478,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
             case "persistentPlaylistStateWriterActor" =>
               classOf[PlaylistStateWriterActor].isAssignableFrom(props.actorClass()) shouldBe true
               classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-              props.args should be(List(PathPlaylist, PathPosition, AutoSaveInterval))
+              props.args should be(List(WriteConfig))
               stateWriterActor
           }
         }
