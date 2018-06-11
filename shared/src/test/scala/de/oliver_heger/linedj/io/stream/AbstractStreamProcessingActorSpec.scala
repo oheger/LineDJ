@@ -21,7 +21,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future

@@ -71,7 +71,12 @@ trait AbstractStreamProcessingActor extends Actor {
   protected implicit val ec: ExecutionContext = context.dispatcher
 
   /** The object for materializing streams. */
-  protected implicit val materializer = ActorMaterializer()
+  protected implicit var materializer: ActorMaterializer = _
+
+  override def preStart(): Unit = {
+    super.preStart()
+    materializer = createMaterializer()
+  }
 
   /**
     * The message processing function. This implementation returns a function
@@ -127,6 +132,16 @@ trait AbstractStreamProcessingActor extends Actor {
   protected def propagateResult(client: ActorRef, result: Any): Unit = {
     client ! result
   }
+
+  /**
+    * Creates the object to materialize streams. This method is called when
+    * this actor is constructed. The base implementation creates a standard
+    * materializer. Derived classes can override it if they have special
+    * needs, e.g. regarding supervision.
+    *
+    * @return the ''ActorMaterializer''
+    */
+  protected def createMaterializer(): ActorMaterializer = ActorMaterializer()
 
   /**
     * A receive function that handles the messages which are directly
