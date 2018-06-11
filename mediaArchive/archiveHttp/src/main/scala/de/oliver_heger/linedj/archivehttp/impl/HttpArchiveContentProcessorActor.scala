@@ -17,16 +17,14 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.Done
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.ActorLogging
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
-import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream._
+import akka.stream.scaladsl.{Keep, Sink}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.impl.HttpArchiveContentProcessorActor.RemoveKillSwitch
-import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
@@ -59,28 +57,28 @@ object HttpArchiveContentProcessorActor {
   * stream. This actor configures the stream and materializes it. When the
   * stream has been fully processed the manager actor is notified.
   */
-class HttpArchiveContentProcessorActor extends Actor with ActorLogging
+class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor with ActorLogging
   with CancelableStreamSupport {
-  /** The materializer for streams. */
-  private implicit val materializer = createMaterializer()
 
-  import context.dispatcher
-
-  override def receive: Receive = {
+  override def customReceive: Receive = {
     case req: ProcessHttpArchiveRequest =>
       val (killSwitch, futStream) = materializeStream(req)
-      val killSwitchID = registerKillSwitch(killSwitch)
-      futStream andThen {
-        case _ =>
-          req.archiveActor ! HttpArchiveProcessingComplete(req.seqNo)
-          self ! RemoveKillSwitch(killSwitchID)
-      }
+      val futResult = futStream map (_ => HttpArchiveProcessingComplete(req.seqNo))
+      processStreamResult(futResult, killSwitch, req.archiveActor)(identity)
+  }
 
-    case CancelStreams =>
-      cancelCurrentStreams()
-
-    case RemoveKillSwitch(killSwitchID) =>
-      unregisterKillSwitch(killSwitchID)
+  /**
+    * @inheritdoc This implementation creates a materializer with a supervision
+    *             strategy that resumes the stream in case of an error.
+    */
+  protected override def createMaterializer(): ActorMaterializer = {
+    val decider: Supervision.Decider = {
+      e =>
+        log.error(e, "Exception during stream processing!")
+        Supervision.Resume
+    }
+    ActorMaterializer(ActorMaterializerSettings(context.system)
+      .withSupervisionStrategy(decider))
   }
 
   /**
@@ -162,20 +160,5 @@ class HttpArchiveContentProcessorActor extends Actor with ActorLogging
     val mediumID = MediumID(mediumURI, Some(md.mediumDescriptionPath),
       req.archiveConfig.archiveURI.toString())
     mediumID
-  }
-
-  /**
-    * Creates the object for materialization of streams.
-    *
-    * @return the ''ActorMaterializer''
-    */
-  private def createMaterializer(): ActorMaterializer = {
-    val decider: Supervision.Decider = {
-      e =>
-        log.error(e, "Exception during stream processing!")
-        Supervision.Resume
-    }
-    ActorMaterializer(ActorMaterializerSettings(context.system)
-      .withSupervisionStrategy(decider))
   }
 }

@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.ActorRef
 import akka.http.scaladsl.model.HttpResponse
 import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
@@ -27,20 +26,6 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-
-object AbstractResponseProcessingActor {
-
-  /**
-    * An internally used message class that is sent when a stream completes.
-    * In this case, the associated ''KillSwitch'' has to be removed.
-    *
-    * @param client       the client actor
-    * @param result       the result of stream processing
-    * @param killSwitchID the ID of the kill switch
-    */
-  private case class StreamCompleted(client: ActorRef, result: Any, killSwitchID: Int)
-
-}
 
 /**
   * An abstract base actor class for processing responses for meta data or

@@ -16,19 +16,19 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.{Done, NotUsed}
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, Location}
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import akka.{Done, NotUsed}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
