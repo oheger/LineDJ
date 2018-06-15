@@ -24,12 +24,12 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
+import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -284,9 +284,10 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
   private def createProcessArchiveRequest(resp: HttpResponse, curSeqNo: Int):
   ProcessHttpArchiveRequest = {
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
+    //TODO initialize correct Sink parameter
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
-      archiveActor = self, mediaSource = resp.entity.dataBytes.via(parseStage),
+      sink = null, mediaSource = resp.entity.dataBytes.via(parseStage),
       seqNo = curSeqNo)
   }
 

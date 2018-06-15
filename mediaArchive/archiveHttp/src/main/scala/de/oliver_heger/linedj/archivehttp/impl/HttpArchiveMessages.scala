@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.scaladsl.{Flow, Source}
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveState, HttpArchiveStateConnected}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveState, HttpArchiveStateConnected}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
@@ -71,37 +71,6 @@ case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
   */
 case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
                            archiveConfig: HttpArchiveConfig, seqNo: Int)
-
-/**
-  * A data class combining the relevant information for processing the content
-  * of an HTTP archive.
-  *
-  * An instance of this class contains all the information required to process
-  * the source of the content document of an HTTP archive and to download the
-  * settings and metadata of all hosted media. The class is used by the actor
-  * that handles the gathering of media data from an archive.
-  *
-  * Each scan operation started by the management actor has a sequence number
-  * which is also part of this message. Result messages sent back to the
-  * management actor must have the same sequence number. This is used to
-  * identify stale messages from older scan operations; it is part of the
-  * mechanism to handle cancellation of scan operations.
-  *
-  * @param mediaSource            the source for the content of the HTTP archive
-  * @param clientFlow             a flow for requesting files from the archive
-  * @param archiveConfig          the configuration for the HTTP archive
-  * @param settingsProcessorActor the actor to process settings requests
-  * @param metaDataProcessorActor the actor to process meta data requests
-  * @param archiveActor           the management actor to send the final result to
-  * @param seqNo                  the sequence number of the current scan operation
-  */
-case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
-                                     clientFlow: Flow[(HttpRequest, RequestData),
-                                       (Try[HttpResponse], RequestData), _],
-                                     archiveConfig: HttpArchiveConfig,
-                                     settingsProcessorActor: ActorRef,
-                                     metaDataProcessorActor: ActorRef,
-                                     archiveActor: ActorRef, seqNo: Int)
 
 /**
   * A message that indicates that processing of the content of an HTTP archive
@@ -161,3 +130,49 @@ case class MetaDataResponseProcessingResult(mediumID: MediumID,
   * @param seqNo      the sequence number of the current scan operation
   */
 case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo, seqNo: Int)
+
+/**
+  * A message that contains all processing results for a single medium.
+  *
+  * Objects of this type are produced by the archive content processor actor
+  * and passed to the sink of the process request.
+  *
+  * @param mediumInfo the ''MediumInfo'' object of the current medium
+  * @param metaData   a sequence with all meta data for the songs on the medium
+  * @param seqNo      the sequence number of the current scan operation
+  */
+case class MediumProcessingResult(mediumInfo: MediumInfo,
+                                  metaData: Iterable[MetaDataProcessingSuccess],
+                                  seqNo: Int)
+
+/**
+  * A data class combining the relevant information for processing the content
+  * of an HTTP archive.
+  *
+  * An instance of this class contains all the information required to process
+  * the source of the content document of an HTTP archive and to download the
+  * settings and metadata of all hosted media. The class is used by the actor
+  * that handles the gathering of media data from an archive.
+  *
+  * Each scan operation started by the management actor has a sequence number
+  * which is also part of this message. Result messages sent back to the
+  * management actor must have the same sequence number. This is used to
+  * identify stale messages from older scan operations; it is part of the
+  * mechanism to handle cancellation of scan operations.
+  *
+  * @param mediaSource            the source for the content of the HTTP archive
+  * @param clientFlow             a flow for requesting files from the archive
+  * @param archiveConfig          the configuration for the HTTP archive
+  * @param settingsProcessorActor the actor to process settings requests
+  * @param metaDataProcessorActor the actor to process meta data requests
+  * @param sink                   the sink where to pass processing results
+  * @param seqNo                  the sequence number of the current scan operation
+  */
+case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
+                                     clientFlow: Flow[(HttpRequest, RequestData),
+                                       (Try[HttpResponse], RequestData), _],
+                                     archiveConfig: HttpArchiveConfig,
+                                     settingsProcessorActor: ActorRef,
+                                     metaDataProcessorActor: ActorRef,
+                                     sink: Sink[MediumProcessingResult, Any],
+                                     seqNo: Int)
