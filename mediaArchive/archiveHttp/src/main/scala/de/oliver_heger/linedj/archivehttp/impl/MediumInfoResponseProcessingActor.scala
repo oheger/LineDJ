@@ -16,19 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.stream.{KillSwitch, KillSwitches}
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
-
-object MediumInfoResponseProcessingActor {
-  /** Constant for the file type processed by this actor. */
-  val FileType = "MediumInfo"
-}
 
 /**
   * An actor class for processing responses for medium info files (aka
@@ -45,7 +40,7 @@ object MediumInfoResponseProcessingActor {
   * @param infoParser the parser for medium info files
   */
 class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
-  extends AbstractResponseProcessingActor(MediumInfoResponseProcessingActor.FileType) {
+  extends AbstractResponseProcessingActor {
   /**
     * Default constructor. This constructor creates an instance with a default
     * [[MediumInfoParser]] object.

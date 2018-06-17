@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
+import akka.actor.Status
 import akka.http.scaladsl.model.HttpResponse
 import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
@@ -38,11 +39,8 @@ import scala.util.{Failure, Success, Try}
   * class implements this common functionality. Concrete subclasses mainly have
   * to deal with setting up a stream to process the content of the response
   * entity and to produce the results to be sent back to the caller.
-  *
-  * @param fileType a name for the file type processed by this actor; this is
-  *                 used when generating error messages
   */
-abstract class AbstractResponseProcessingActor(val fileType: String)
+abstract class AbstractResponseProcessingActor
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
 
   override def customReceive: Receive = {
@@ -100,15 +98,15 @@ abstract class AbstractResponseProcessingActor(val fileType: String)
           val (futureStream, killSwitch) = processSource(
             createResponseDataSource(mid, response, config), mid, config, seqNo)
           processStreamResult(futureStream, killSwitch) { f =>
-            ResponseProcessingError(mid, fileType, f.exception)
+            Status.Failure(f.exception)
           }
         } else {
-          sender() ! ResponseProcessingError(mid, fileType,
+          sender() ! Status.Failure(
             new IllegalStateException(s"Failed response: ${response.status}"))
           response.discardEntityBytes()
         }
       case Failure(exception) =>
-        sender() ! ResponseProcessingError(mid, fileType, exception)
+        sender() ! Status.Failure(exception)
     }
   }
 }

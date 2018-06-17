@@ -31,7 +31,7 @@ import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -137,7 +137,6 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID)))
       .thenThrow(exception)
     val actor = createActor(parser)
-    actor.underlyingActor.fileType should be(MediumInfoResponseProcessingActor.FileType)
 
     val (futureStream, _) = invoke(actor)
     intercept[IllegalStateException] {

@@ -27,11 +27,6 @@ import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 import scala.concurrent.Future
 
-object MetaDataResponseProcessingActor {
-  /** Constant for the file type processed by this actor. */
-  val FileType = "MetaData"
-}
-
 /**
   * An actor class responsible for processing a response for a meta data file.
   *
@@ -42,7 +37,7 @@ object MetaDataResponseProcessingActor {
   * @param uriMapper the object for mapping URIs of meta data results
   */
 class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
-  extends AbstractResponseProcessingActor(MetaDataResponseProcessingActor.FileType) {
+  extends AbstractResponseProcessingActor {
 
   def this() = this(new UriMapper)
 

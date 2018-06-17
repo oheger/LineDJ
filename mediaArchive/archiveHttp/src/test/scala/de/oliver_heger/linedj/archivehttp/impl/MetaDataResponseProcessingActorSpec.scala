@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, Props, Status}
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
@@ -150,11 +150,9 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = HttpResponse(status = StatusCodes.BadRequest)
 
     actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
-    val errMsg = expectMsgType[ResponseProcessingError]
-    errMsg.mediumID should be(TestMediumID)
-    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
-    errMsg.exception shouldBe a[IllegalStateException]
-    errMsg.exception.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
+    val errMsg = expectMsgType[Status.Failure]
+    errMsg.cause shouldBe a[IllegalStateException]
+    errMsg.cause.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
   }
 
   it should "directly react on an exception when receiving the response" in {
@@ -163,10 +161,8 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val triedResponse = Try[HttpResponse](throw exception)
 
     actor ! ProcessResponse(TestMediumID, triedResponse, DefaultArchiveConfig, SeqNo)
-    val errMsg = expectMsgType[ResponseProcessingError]
-    errMsg.mediumID should be(TestMediumID)
-    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
-    errMsg.exception should be(exception)
+    val errMsg = expectMsgType[Status.Failure]
+    errMsg.cause should be(exception)
   }
 
   it should "discard the entity when receiving a failure response" in {
@@ -182,7 +178,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = HttpResponse(status = StatusCodes.BadRequest, entity = entity)
 
     actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
-    expectMsgType[ResponseProcessingError]
+    expectMsgType[Status.Failure]
     latch.await(3, TimeUnit.SECONDS) shouldBe true
   }
 
@@ -230,9 +226,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
 
     actor ! ProcessResponse(TestMediumID, Try(response),
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
-    val errMsg = expectMsgType[ResponseProcessingError]
-    errMsg.mediumID should be(TestMediumID)
-    errMsg.fileType should be(MetaDataResponseProcessingActor.FileType)
+    expectMsgType[Status.Failure]
   }
 
   it should "allow cancellation of the current stream" in {
