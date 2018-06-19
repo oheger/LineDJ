@@ -20,6 +20,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
+import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -57,6 +58,17 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     }
   }
 
+  /**
+    * Creates a mock for a ''MediumProcessingResult''.
+    *
+    * @return the mock result
+    */
+  private def createResult(): MediumProcessingResult = {
+    val result = mock[MediumProcessingResult]
+    when(result.seqNo).thenReturn(SeqNo)
+    result
+  }
+
   "A ContentPropagationActor" should "use a correct propagation service" in {
     val mediaManager = TestProbe().ref
     val metaManager = TestProbe().ref
@@ -67,8 +79,8 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
   }
 
   it should "handle medium results" in {
-    val result1 = mock[MediumProcessingResult]
-    val result2 = mock[MediumProcessingResult]
+    val result1 = createResult()
+    val result2 = createResult()
     val helper = new PropagationActorTestHelper
     val sendMsg1 = List(MessageData(helper.actors.mediaManager,
       Seq("foo", "bar")), MessageData(helper.actors.metaManager, Seq("baz")))
@@ -77,14 +89,14 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val state2 = state1.copy(messages = sendMsg2)
 
     helper.stub(sendMsg1: Iterable[MessageData], state1) { svc =>
-      svc.handleMediumProcessed(result1, helper.actors, ArchiveUri, remove = true, SeqNo)
+      svc.handleMediumProcessed(result1, helper.actors, ArchiveUri, remove = true)
     }
       .stub(sendMsg2: Iterable[MessageData], state2) { svc =>
-        svc.handleMediumProcessed(result2, helper.actors, ArchiveUri, remove = false, SeqNo)
+        svc.handleMediumProcessed(result2, helper.actors, ArchiveUri, remove = false)
       }
-      .send(PropagateMediumResult(result1, removeContent = true, SeqNo))
+      .send(PropagateMediumResult(result1, removeContent = true))
       .expectStateUpdate(ContentPropagationUpdateServiceImpl.InitialState)
-      .send(PropagateMediumResult(result2, removeContent = false, SeqNo))
+      .send(PropagateMediumResult(result2, removeContent = false))
       .expectStateUpdate(state1)
 
     verifyMessages(helper.probeMediaManager, sendMsg1.head)
@@ -94,7 +106,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
   it should "handle a remove confirmation" in {
     val confirm = RemovedArchiveComponentProcessed(ArchiveUri)
-    val result = mock[MediumProcessingResult]
+    val result = createResult()
     val helper = new PropagationActorTestHelper
     val sendMsg1 = List(MessageData(helper.actors.mediaManager, Seq("confirm")))
     val sendMsg2 = List(MessageData(helper.actors.metaManager, Seq("data")))
@@ -103,11 +115,11 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     helper.stub(sendMsg1: Iterable[MessageData], state1) { svc => svc.handleRemovalConfirmed() }
       .stub(sendMsg2: Iterable[MessageData], state2) { svc =>
-        svc.handleMediumProcessed(result, helper.actors, ArchiveUri, remove = false, SeqNo)
+        svc.handleMediumProcessed(result, helper.actors, ArchiveUri, remove = false)
       }
       .send(confirm)
       .expectStateUpdate(ContentPropagationUpdateServiceImpl.InitialState)
-      .send(PropagateMediumResult(result, removeContent = false, SeqNo))
+      .send(PropagateMediumResult(result, removeContent = false))
       .expectStateUpdate(state1)
     verifyMessages(helper.probeMediaManager, sendMsg1.head)
     verifyMessages(helper.probeMetaManager, sendMsg2.head)

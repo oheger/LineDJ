@@ -63,9 +63,9 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
   private var state = ContentPropagationUpdateServiceImpl.InitialState
 
   override def receive: Receive = {
-    case PropagateMediumResult(result, remove, seqNo) =>
+    case PropagateMediumResult(result, remove) =>
       updateStateAndSendMessages(propagationService.handleMediumProcessed(result, createActors(),
-        archiveUri, remove, seqNo))
+        archiveUri, remove))
 
     case RemovedArchiveComponentProcessed(_) =>
       updateStateAndSendMessages(propagationService.handleRemovalConfirmed())

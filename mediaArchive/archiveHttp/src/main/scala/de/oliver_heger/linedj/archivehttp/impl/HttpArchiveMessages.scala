@@ -152,10 +152,8 @@ case class MediumProcessingResult(mediumInfo: MediumInfo,
   * @param result        the result to be propagated
   * @param removeContent flag whether the HTTP archive content has to be
   *                      removed from the union archive first
-  * @param seqNo         the sequence number of the current operation
   */
-case class PropagateMediumResult(result: MediumProcessingResult, removeContent: Boolean,
-                                 seqNo: Int)
+case class PropagateMediumResult(result: MediumProcessingResult, removeContent: Boolean)
 
 /**
   * A data class combining the relevant information for processing the content

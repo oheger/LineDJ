@@ -259,7 +259,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       metaManagerMessages(Idx, actors), ackMessage(actors))
 
     val next = modifyState(ContentPropagationUpdateServiceImpl
-      .mediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false, SeqNo))
+      .mediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false))
     next.pendingMessages shouldBe 'empty
     next.removeAck shouldBe true
     next.messages should contain theSameElementsInOrderAs expMessages
@@ -275,7 +275,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val state = ContentPropagationUpdateServiceImpl.InitialState.copy(messages = orgMessages)
 
     val next = modifyState(ContentPropagationUpdateServiceImpl
-      .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false, SeqNo), state)
+      .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false), state)
     next.messages should contain theSameElementsInOrderAs expMessages
   }
 
@@ -289,7 +289,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       pendingMessages = orgMessages)
 
     val next = modifyState(ContentPropagationUpdateServiceImpl
-      .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false, SeqNo), state)
+      .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false), state)
     next.pendingMessages should contain theSameElementsInOrderAs expMessages
     next.messages shouldBe 'empty
   }
@@ -306,7 +306,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       pendingMessages = orgPending)
 
     val next = modifyState(ContentPropagationUpdateServiceImpl
-      .mediumProcessed(mediumResult(3), actors, ArchiveName, remove = true, SeqNo), state)
+      .mediumProcessed(mediumResult(3), actors, ArchiveName, remove = true), state)
     next.removeAck shouldBe false
     next.messages should contain only removeMessage(actors)
     next.pendingMessages should contain theSameElementsInOrderAs newPending
@@ -355,7 +355,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       metaManagerMessages(Idx, actors), ackMessage(actors))
 
     val (next, sendMsg) = updateState(ContentPropagationUpdateServiceImpl
-      .handleMediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false, SeqNo))
+      .handleMediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false))
     next.pendingMessages shouldBe 'empty
     next.removeAck shouldBe true
     next.messages shouldBe 'empty

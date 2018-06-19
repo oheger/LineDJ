@@ -96,11 +96,10 @@ trait ContentPropagationUpdateService {
     * @param actors     involved actors
     * @param archiveUri URI for the current HTTP archive
     * @param remove     flag whether archive content is to be removed
-    * @param seqNo      the sequence number of the current operation
     * @return the updated state
     */
   def mediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                      archiveUri: String, remove: Boolean, seqNo: Int): StateUpdate[Unit]
+                      archiveUri: String, remove: Boolean): StateUpdate[Unit]
 
   /**
     * Updates the state when an ACK for a remove request arrives. Then pending
@@ -128,13 +127,12 @@ trait ContentPropagationUpdateService {
     * @param actors     involved actors
     * @param archiveUri URI for the current HTTP archive
     * @param remove     flag whether archive content is to be removed
-    * @param seqNo      the sequence number of the current operation
     * @return the updated state and messages to be sent
     */
   def handleMediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                            archiveUri: String, remove: Boolean, seqNo: Int):
+                            archiveUri: String, remove: Boolean):
   StateUpdate[Iterable[MessageData]] = for {
-    _ <- mediumProcessed(result, actors, archiveUri, remove, seqNo)
+    _ <- mediumProcessed(result, actors, archiveUri, remove)
     msg <- messagesToSend()
   } yield msg
 
@@ -160,16 +158,16 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     ContentPropagationState(messages = Nil, pendingMessages = Nil, removeAck = true)
 
   override def mediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                               archiveUri: String, remove: Boolean, seqNo: Int):
+                               archiveUri: String, remove: Boolean):
   StateUpdate[Unit] = modify { s =>
     if (remove)
       ContentPropagationState(messages = List(MessageData(actors.mediaManager,
         Seq(ArchiveComponentRemoved(archiveUri)))), removeAck = false,
-        pendingMessages = createMessagesForMedium(result, actors, archiveUri, seqNo))
+        pendingMessages = createMessagesForMedium(result, actors, archiveUri, result.seqNo))
     else {
       val orgMessages = if (s.removeAck) s.messages else s.pendingMessages
       val updateMessages = createMessagesForMedium(result, actors, archiveUri,
-        seqNo) ::: orgMessages
+        result.seqNo) ::: orgMessages
       val (newMessages, newPending) =
         if (s.removeAck) (updateMessages, s.pendingMessages)
         else (s.messages, updateMessages)
