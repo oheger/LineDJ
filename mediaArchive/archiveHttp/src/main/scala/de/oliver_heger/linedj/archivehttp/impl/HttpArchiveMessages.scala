@@ -146,6 +146,18 @@ case class MediumProcessingResult(mediumInfo: MediumInfo,
                                   seqNo: Int)
 
 /**
+  * A message used to trigger the propagation of a medium processing result to
+  * the union archive.
+  *
+  * @param result        the result to be propagated
+  * @param removeContent flag whether the HTTP archive content has to be
+  *                      removed from the union archive first
+  * @param seqNo         the sequence number of the current operation
+  */
+case class PropagateMediumResult(result: MediumProcessingResult, removeContent: Boolean,
+                                 seqNo: Int)
+
+/**
   * A data class combining the relevant information for processing the content
   * of an HTTP archive.
   *
