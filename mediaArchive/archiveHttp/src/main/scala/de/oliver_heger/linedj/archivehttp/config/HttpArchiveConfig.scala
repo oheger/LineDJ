@@ -55,6 +55,18 @@ object HttpArchiveConfig {
   /** The configuration property for the processor timeout. */
   val PropProcessorTimeout: String = "processorTimeout"
 
+  /**
+    * The configuration property for the number of processed media whose
+    * content can be propagated to the union archive in parallel. Media in
+    * the HTTP archive are processed one by one, and their content is
+    * determined. This content then has to be propagated to the union archive.
+    * As this may take longer than processing of the next medium, the data to
+    * be sent to the union archive may pile up. This property defines the
+    * number of media that can be buffered. If more processed media become
+    * available, back-pressure is used to slow down stream processing.
+    */
+  val PropPropagationBufSize: String = "propagationBufferSize"
+
   /** The configuration property for the maximum size of a content file. */
   val PropMaxContentSize: String = "maxContentSize"
 
@@ -168,6 +180,12 @@ object HttpArchiveConfig {
   val DefaultProcessorTimeout = Timeout(1.minute)
 
   /**
+    * The default number of processed media that can be in the buffer for
+    * propagation of content data.
+    */
+  val DefaultPropagationBufSize = 4
+
+  /**
     * The default maximum size for content files loaded from an HTTP archive
     * (in kilobytes). Responses with a larger size will be canceled.
     */
@@ -222,6 +240,7 @@ object HttpArchiveConfig {
       if (c.containsKey(Path + PropProcessorTimeout))
         Timeout(c.getInt(Path + PropProcessorTimeout), TimeUnit.SECONDS)
       else DefaultProcessorTimeout,
+      c.getInt(Path + PropPropagationBufSize, DefaultPropagationBufSize),
       c.getInt(Path + PropMaxContentSize, DefaultMaxContentSize),
       c getInt Path + PropDownloadBufferSize,
       c.getInt(Path + PropDownloadMaxInactivity).seconds,
@@ -306,6 +325,8 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param processorCount        the number of parallel processor actors to be used
   *                              when downloading meta data from the archive
   * @param processorTimeout      the timeout for calls to processor actors
+  * @param propagationBufSize    number of processed media whose content can be
+  *                              propagated to the union archive in parallel
   * @param maxContentSize        the maximum size of a content file (either a
   *                              settings or a meta data file) in kilobytes; if a
   *                              file is larger, it is canceled
@@ -327,6 +348,7 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              credentials: UserCredentials,
                              processorCount: Int,
                              processorTimeout: Timeout,
+                             propagationBufSize: Int,
                              maxContentSize: Int,
                              downloadBufferSize: Int,
                              downloadMaxInactivity: FiniteDuration,

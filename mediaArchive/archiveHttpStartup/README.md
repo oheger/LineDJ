@@ -90,6 +90,7 @@ example configuration with all supported options:
       <archiveName>My Cloud Archive</archiveName>
       <processorCount>2</processorCount>
       <processorTimeout>60</processorTimeout>
+      <propagationBufferSize>4</propagationBufferSize>
       <maxContentSize>128</maxContentSize>
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
@@ -145,6 +146,7 @@ archive, such as its URL or its name. The following properties are supported:
 | realm | The name of the realm the archive belongs to. Realms are plain strings which are not evaluated any further. Archives assigned to the same realm share their login credentials. | No |
 | processorCount | The number of processor actors to be used when reading the content of the archive during startup. This is roughly equivalent to the number of parallel HTTP requests sent to the server when processing the archive's content file. | Yes, defaults to 2. |
 | processorTimeout | A timeout (in seconds) for a request for a file referenced by the archive's content document. If no response is received within this time frame, this medium is ignored. | Yes, defaults to 60 seconds. |
+| propagationBufferSize | The media contained in an HTTP archive are processed one by one to determine their content. This information then has to be propagated to the union archive. As propagation may take longer than processing of the next medium, the data to send to the union archive may pile up. This property defines the number of media that can be buffered. If more processed media become available, back-pressure is used to slow down stream processing. | Yes, defaults to 4. |
 | maxContentSize | The maximum size (in KBytes) of a file referenced by the archive's content document. This setting has the purpose to avoid unrestricted memory allocation when processing an HTTP archive. | Yes, defaults to 64 KByte. |
 
 ### Download configuration

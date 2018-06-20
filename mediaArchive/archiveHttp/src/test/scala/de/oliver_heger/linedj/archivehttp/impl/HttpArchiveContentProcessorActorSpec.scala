@@ -54,7 +54,7 @@ object HttpArchiveContentProcessorActorSpec {
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri), "Test",
-    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 64,
+    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 2, 64,
     downloadConfig = null, downloadBufferSize = 512,
     downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
     timeoutReadSize = 222, mappingConfig = null)

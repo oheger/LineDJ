@@ -49,6 +49,9 @@ object HttpArchiveConfigSpec {
   /** The timeout for processor actors. */
   private val ProcessorTimeout = 60
 
+  /** The size of the propagation buffer. */
+  private val PropagationBufSize = 8
+
   /** The maximum content size value. */
   private val MaxContentSize = 10
 
@@ -88,6 +91,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".archiveName", ArchiveName)
     c.addProperty(at + ".processorCount", ProcessorCount)
     c.addProperty(at + ".processorTimeout", ProcessorTimeout)
+    c.addProperty(at + ".propagationBufferSize", PropagationBufSize)
     c.addProperty(at + ".maxContentSize", MaxContentSize)
     c.addProperty(at + ".downloadBufferSize", DownloadBufferSize)
     c.addProperty(at + ".downloadMaxInactivity", DownloadMaxInactivity.toSeconds)
@@ -134,6 +138,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.archiveName should be(ArchiveName)
         config.processorCount should be(ProcessorCount)
         config.processorTimeout should be(Timeout(ProcessorTimeout, TimeUnit.SECONDS))
+        config.propagationBufSize should be(PropagationBufSize)
         config.maxContentSize should be(MaxContentSize)
         config.downloadBufferSize should be(DownloadBufferSize)
         config.downloadReadChunkSize should be(DownloadReadChunkSize)
@@ -246,6 +251,17 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
         config.downloadReadChunkSize should be(HttpArchiveConfig.DefaultDownloadReadChunkSize)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default propagation buffer size if none is specified" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropPropagationBufSize)
+
+    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+      case Success(config) =>
+        config.propagationBufSize should be(HttpArchiveConfig.DefaultPropagationBufSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }

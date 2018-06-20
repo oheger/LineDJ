@@ -54,7 +54,7 @@ object MetaDataResponseProcessingActorSpec {
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
     "Test", UserCredentials("scott", "tiger"), processorCount = 3,
-    processorTimeout = Timeout(2.seconds), maxContentSize = 256,
+    processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, mappingConfig = MappingConfig)
 
