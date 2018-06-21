@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
@@ -32,9 +32,8 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
 import scala.concurrent.Future
@@ -42,14 +41,15 @@ import scala.util.{Success, Try}
 
 object HttpArchiveManagementActor {
 
-  private class HttpArchiveManagementActorImpl(config: HttpArchiveConfig,
+  private class HttpArchiveManagementActorImpl(processingService: ContentProcessingUpdateService,
+                                               config: HttpArchiveConfig,
                                                pathGenerator: TempPathGenerator,
                                                unionMediaManager: ActorRef,
                                                unionMetaDataManager: ActorRef,
                                                monitoringActor: ActorRef,
                                                removeActor: ActorRef)
-    extends HttpArchiveManagementActor(config, pathGenerator, unionMediaManager,
-      unionMetaDataManager, monitoringActor, removeActor)
+    extends HttpArchiveManagementActor(processingService, config, pathGenerator,
+      unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
       with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
       with HttpRequestSupport[RequestData]
 
@@ -57,18 +57,18 @@ object HttpArchiveManagementActor {
     * Returns creation ''Props'' for this actor class.
     *
     * @param config               the configuration for the HTTP archive
-    * @param pathGenerator the generator for paths for temp files
+    * @param pathGenerator        the generator for paths for temp files
     * @param unionMediaManager    the union media manager actor
     * @param unionMetaDataManager the union meta data manager actor
-    * @param monitoringActor the download monitoring actor
-    * @param removeActor the actor for removing temp files
+    * @param monitoringActor      the download monitoring actor
+    * @param removeActor          the actor for removing temp files
     * @return ''Props'' for creating a new actor instance
     */
   def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
             unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
             monitoringActor: ActorRef, removeActor: ActorRef): Props =
-    Props(classOf[HttpArchiveManagementActorImpl], config, pathGenerator, unionMediaManager,
-      unionMetaDataManager, monitoringActor, removeActor)
+    Props(classOf[HttpArchiveManagementActorImpl], ContentProcessingUpdateServiceImpl, config,
+      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
 
   /** The object for parsing medium descriptions in JSON. */
   private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
@@ -112,6 +112,7 @@ object HttpArchiveManagementActor {
   * single media available. The data is collected and then propagated to a
   * union media archive.
   *
+  * @param processingService    the content processing update service
   * @param config               the configuration for the HTTP archive
   * @param pathGenerator        the generator for paths for temp files
   * @param unionMediaManager    the union media manager actor
@@ -119,7 +120,8 @@ object HttpArchiveManagementActor {
   * @param monitoringActor      the download monitoring actor
   * @param removeActor          the actor for removing temp files
   */
-class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
+class HttpArchiveManagementActor(processingService: ContentProcessingUpdateService,
+                                 config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
                                  unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
                                  monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
   with ActorLogging {
@@ -145,33 +147,15 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
   /** The download management actor. */
   private var downloadManagementActor: ActorRef = _
 
+  /** The actor that propagates result to the union archive. */
+  private var propagationActor: ActorRef = _
+
   /** The flow for sending HTTP requests. */
   private var httpFlow:
     Flow[(HttpRequest, RequestData), (Try[HttpResponse], RequestData), Any] = _
 
-  /** A list with information of media discovered during a scan operation. */
-  private var mediaInfo: List[MediumInfo] = List.empty[MediumInfo]
-
-  /**
-    * A list with information about files per medium constructed during a
-    * scan operation.
-    */
-  private var fileInfo: List[(MediumID, Iterable[FileData])] = List.empty[(MediumID, Iterable[FileData])]
-
-  /** A set with meta data objects aggregated during a scan operation. */
-  private var metaData = Set.empty[MetaDataProcessingSuccess]
-
-  /**
-    * A sequence number identifying the current scan operation. The sequence
-    * number is increased every time is scan is completed. Because all
-    * processing results contain the sequence number of the current operation
-    * it is possible to find out which results are from an older operation.
-    * (This greatly simplifies cancellation of operations: it is no necessary
-    * to wait until all involved actors have finished processing, but the
-    * sequence number is just changed, and results from older operations are
-    * ignored.)
-    */
-  private var seqNo = 0
+  /** The archive processing state. */
+  private var processingState = ContentProcessingUpdateServiceImpl.InitialState
 
   /**
     * Stores a response for a request to the archive's current state.
@@ -184,12 +168,6 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     */
   private var pendingStateClients = Set.empty[ActorRef]
 
-  /** A flag whether a scan is currently in progress. */
-  private var scanInProgress = false
-
-  /** A flag whether this actor has contributed data to the union archive. */
-  private var dataInUnionArchive = false
-
   import context.{dispatcher, system}
 
   override def preStart(): Unit = {
@@ -199,33 +177,30 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))
+    propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
+      unionMetaDataManager, config.archiveURI.toString()))
     httpFlow = createHttpFlow[RequestData](config.archiveURI)
     updateArchiveState(HttpArchiveStateDisconnected)
   }
 
   override def receive: Receive = {
-    case ScanAllMedia if !scanInProgress =>
+    case ScanAllMedia =>
       startArchiveProcessing()
 
-    case MediumInfoResponseProcessingResult(info, sn) if sn == seqNo =>
-      mediaInfo = info :: mediaInfo
-      updateArchiveState(HttpArchiveStateConnected)
+    case HttpArchiveProcessingInit =>
+      sender() ! HttpArchiveMediumAck
 
-    case MetaDataResponseProcessingResult(mid, meta, sn) if sn == seqNo =>
-      fileInfo = (mid, meta.map(m => FileData(m.path, m.metaData.size))) :: fileInfo
-      metaData ++= meta
-      updateArchiveState(HttpArchiveStateConnected)
+    case res: MediumProcessingResult =>
+      updateStateWithTransitions(processingService.handleResultAvailable(res, sender(),
+        config.propagationBufSize))
 
-    case HttpArchiveProcessingComplete(sn, nextState) if sn == seqNo =>
-      val validMedia = completeMedia
-      if (validMedia.nonEmpty) {
-        unionMediaManager ! createAddMediaMsg(validMedia)
-        unionMetaDataManager ! createMediaContributionMsg(validMedia)
-        filteredMetaDataResults(validMedia) foreach unionMetaDataManager.!
-        dataInUnionArchive = true
-      }
+    case prop: MediumPropagated =>
+      updateStateWithTransitions(processingService.handleResultPropagated(prop.seqNo,
+        config.propagationBufSize))
+
+    case HttpArchiveProcessingComplete(nextState) =>
+      updateState(processingService.processingDone())
       updateArchiveState(nextState)
-      completeScanOperation()
 
     case req: MediumFileRequest =>
       downloadManagementActor forward req
@@ -246,30 +221,24 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
       mediumInfoProcessor ! CancelStreams
       metaDataProcessor ! CancelStreams
       sender ! CloseAck(self)
-      completeScanOperation()
   }
 
   /**
     * Starts processing of the managed HTTP archive.
     */
   private def startArchiveProcessing(): Unit = {
-    scanInProgress = true
-    archiveStateResponse = None
-    if (dataInUnionArchive) {
-      unionMediaManager ! ArchiveComponentRemoved(config.archiveURI.toString())
-      dataInUnionArchive = false
-    }
-
-    val currentSeqNo = seqNo
-    loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1, currentSeqNo)
-    } onComplete {
-      case Success(req) =>
-        archiveContentProcessor ! req
-      case scala.util.Failure(ex) =>
-        log.error(ex, "Could not load content document for archive " +
-          config.archiveURI)
-        self ! HttpArchiveProcessingComplete(currentSeqNo,
-          nextState = stateFromException(ex))
+    if (updateState(processingService.processingStarts())) {
+      archiveStateResponse = None
+      val currentSeqNo = processingState.seqNo
+      loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1, currentSeqNo)
+      } onComplete {
+        case Success(req) =>
+          archiveContentProcessor ! req
+        case scala.util.Failure(ex) =>
+          log.error(ex, "Could not load content document for archive " +
+            config.archiveURI)
+          self ! HttpArchiveProcessingComplete(stateFromException(ex))
+      }
     }
   }
 
@@ -284,10 +253,11 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
   private def createProcessArchiveRequest(resp: HttpResponse, curSeqNo: Int):
   ProcessHttpArchiveRequest = {
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
-    //TODO initialize correct Sink parameter
+    val sink = Sink.actorRefWithAck(self, HttpArchiveProcessingInit,
+      HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected))
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
-      sink = null, mediaSource = resp.entity.dataBytes.via(parseStage),
+      sink = sink, mediaSource = resp.entity.dataBytes.via(parseStage),
       seqNo = curSeqNo)
   }
 
@@ -314,14 +284,32 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
   }
 
   /**
-    * Resets internal flags after a scan operation has completed.
+    * Performs a state update using the specified update function.
+    *
+    * @param update the update function
+    * @tparam A the type of the data produced by this update
+    * @return the data produced by this update
     */
-  private def completeScanOperation(): Unit = {
-    mediaInfo = List.empty
-    fileInfo = List.empty
-    metaData = Set.empty
-    scanInProgress = false
-    seqNo += 1
+  private def updateState[A](update: ContentProcessingUpdateServiceImpl.StateUpdate[A]): A = {
+    val (next, data) = update(processingState)
+    processingState = next
+    if (next.contentInArchive) {
+      updateArchiveState(HttpArchiveStateConnected)
+    }
+    data
+  }
+
+  /**
+    * Performs a state update using the specified update function and executes
+    * the actions triggered by this transition.
+    *
+    * @param update the update function
+    */
+  private def updateStateWithTransitions(update: ContentProcessingUpdateServiceImpl.
+  StateUpdate[ProcessingStateTransitionData]): Unit = {
+    val transitionData = updateState(update)
+    transitionData.propagateMsg foreach (propagationActor ! _)
+    transitionData.actorToAck foreach (_ ! HttpArchiveMediumAck)
   }
 
   /**
@@ -331,49 +319,11 @@ class HttpArchiveManagementActor(config: HttpArchiveConfig, pathGenerator: TempP
     * @param state the new state
     */
   private def updateArchiveState(state: HttpArchiveState): Unit = {
-    log.info("Next archive state: {}.", state)
+    log.debug("Next archive state: {}.", state)
     val response = HttpArchiveStateResponse(config.archiveName, state)
     archiveStateResponse = Some(response)
 
-    pendingStateClients foreach(_ ! response)
+    pendingStateClients foreach (_ ! response)
     pendingStateClients = Set.empty
   }
-
-  /**
-    * Returns a set with the media for which complete information is available
-    * after a scan operation. Only those media are passed to the union archive.
-    *
-    * @return a set with the IDs of complete media
-    */
-  private def completeMedia: Set[MediumID] =
-    fileInfo.map(_._1).toSet.intersect(mediaInfo.map(_.mediumID).toSet)
-
-  /**
-    * Creates an ''AddMedia'' message for scan results.
-    *
-    * @param completeMedia the set with complete media
-    * @return the ''AddMedia'' message
-    */
-  private def createAddMediaMsg(completeMedia: Set[MediumID]): AddMedia =
-    AddMedia(mediaInfo.filter(completeMedia contains _.mediumID)
-      .map(i => (i.mediumID, i)).toMap, config.archiveURI.toString(), None)
-
-  /**
-    * Creates a ''MediaContribution'' message for scan results.
-    *
-    * @param completeMedia the set with complete media
-    * @return the ''MediaContribution'' message
-    */
-  private def createMediaContributionMsg(completeMedia: Set[MediumID]): MediaContribution =
-    MediaContribution(fileInfo.filter(completeMedia contains _._1).toMap)
-
-  /**
-    * Returns a set with meta data results for the complete media only. These
-    * are the results to be sent to the union archive.
-    *
-    * @param validMedia the set with complete media
-    * @return the set with results to be sent to the union archive
-    */
-  private def filteredMetaDataResults(validMedia: Set[MediumID]): Set[MetaDataProcessingSuccess] =
-    metaData filter (validMedia contains _.mediumID)
 }

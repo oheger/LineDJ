@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import de.oliver_heger.linedj.archivehttp.HttpArchiveState
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveState, HttpArchiveStateConnected}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
@@ -78,14 +78,11 @@ case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
   *
   * This message is sent to the manager actor for an HTTP archive to notify it
   * that the process operation is now done and that no further messages about
-  * the content of this archive are going to be sent. The sequence number part
-  * of this message identifies the scan operation this message belongs to.
+  * the content of this archive are going to be sent.
   *
-  * @param seqNo     the sequence number of the current scan operation
   * @param nextState the next state of the HTTP archive
   */
-case class HttpArchiveProcessingComplete(seqNo: Int, nextState: HttpArchiveState =
-HttpArchiveStateConnected)
+case class HttpArchiveProcessingComplete(nextState: HttpArchiveState)
 
 /**
   * A message that indicates that processing of the response for a specific
@@ -186,3 +183,15 @@ case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      metaDataProcessorActor: ActorRef,
                                      sink: Sink[MediumProcessingResult, Any],
                                      seqNo: Int)
+
+/**
+  * A message indicating that the processing of an HTTP archive starts now.
+  */
+case object HttpArchiveProcessingInit
+
+/**
+  * A message sent by the HTTP archive management actor to ACK a processing
+  * result for a medium. This is used to sync the processing stream with the
+  * speed in which results can be processed.
+  */
+case object HttpArchiveMediumAck
