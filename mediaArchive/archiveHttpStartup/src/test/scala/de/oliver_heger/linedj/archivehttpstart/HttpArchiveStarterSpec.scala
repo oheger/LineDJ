@@ -85,6 +85,19 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     TestKit shutdownActorSystem system
   }
 
+  /**
+    * Starts the HTTP archive and obtains the temp path generator from the
+    * arguments passed to the manager actor.
+    *
+    * @param helper the test helper
+    * @return the ''TempPathGenerator''
+    */
+  private def fetchPathGenerator(helper: StarterTestHelper): TempPathGenerator = {
+    val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
+    creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
+      .args(2).asInstanceOf[TempPathGenerator]
+  }
+
   "A HttpArchiveStarter" should "create correct actors for the archive" in {
     val helper = new StarterTestHelper
 
@@ -103,10 +116,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "create a correct temp path generator" in {
     val helper = new StarterTestHelper
-
-    val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
-      .args(1).asInstanceOf[TempPathGenerator]
+    val pathGen = fetchPathGenerator(helper)
 
     pathGen.rootPath should be(PathTempDir)
     java.time.Duration.between(pathGen.time, Instant.now()).toMillis should be < 3000L
@@ -119,7 +129,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     val creationProps = helper.startArchiveAndCheckActors(config).actorCreationProps
     val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
-      .args(1).asInstanceOf[TempPathGenerator]
+      .args(2).asInstanceOf[TempPathGenerator]
     val tempFile = Files.createTempFile("Test", ".tmp")
     try {
       pathGen.rootPath should be(tempFile.getParent)
@@ -139,9 +149,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "start a clear temp files operation" in {
     val helper = new StarterTestHelper
-    val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
-    val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
-      .args(1).asInstanceOf[TempPathGenerator]
+    val pathGen = fetchPathGenerator(helper)
 
     helper.expectClearTempDirectory(pathGen)
   }
@@ -232,12 +240,12 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
       classOf[ChildActorFactory].isAssignableFrom(propsManager.actorClass()) shouldBe true
-      propsManager.args should have size 6
-      propsManager.args.head should be(archiveData.config)
-      propsManager.args(2) should be(unionArchiveActors.mediaManager)
-      propsManager.args(3) should be(unionArchiveActors.metaDataManager)
-      propsManager.args(4) should be(probeMonitoringActor.ref)
-      propsManager.args(5) should be(probeRemoveActor.ref)
+      propsManager.args should have size 7
+      propsManager.args(1) should be(archiveData.config)
+      propsManager.args(3) should be(unionArchiveActors.mediaManager)
+      propsManager.args(4) should be(unionArchiveActors.metaDataManager)
+      propsManager.args(5) should be(probeMonitoringActor.ref)
+      propsManager.args(6) should be(probeRemoveActor.ref)
 
       val propsMonitor = actorCreationProps(actorName(
         HttpArchiveStarter.DownloadMonitoringActorName))
