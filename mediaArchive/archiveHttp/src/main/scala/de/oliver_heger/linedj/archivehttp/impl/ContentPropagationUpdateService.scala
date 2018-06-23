@@ -47,14 +47,6 @@ case class MessageData(target: ActorRef, messages: Iterable[Any])
 case class PropagationActors(mediaManager: ActorRef, metaManager: ActorRef, client: ActorRef)
 
 /**
-  * A message class indicating that the data of a medium has been propagated to
-  * the union archive.
-  *
-  * @param seqNo the sequence number of the current operation
-  */
-case class MediumPropagated(seqNo: Int)
-
-/**
   * A class representing the propagation state to the union archive.
   *
   * The state contains the messages that are to be sent to the actors of the
