@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream._
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, ZipWith}
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
@@ -35,20 +35,23 @@ object HttpArchiveContentProcessorActor {
   /** Sequence number used for undefined results. */
   private val UndefinedSeqNo = -1
 
-  /** An undefined medium info result. */
-  private val UndefinedInfoResult = MediumInfoResponseProcessingResult(
-    MediumInfo("", "", MediumID.UndefinedMediumID, "", "", ""), UndefinedSeqNo)
-
-  /** Un undefined meta data result. */
-  private val UndefinedMetaResult = MetaDataResponseProcessingResult(metaData = Nil,
-    mediumID = MediumID.UndefinedMediumID, seqNo = UndefinedSeqNo)
+  /**
+    * Creates a special undefined medium info result for the given medium ID.
+    *
+    * @param mid the medium ID
+    * @return the undefined medium info result for this medium ID
+    */
+  private def createUndefinedInfoResult(mid: MediumID): MediumInfoResponseProcessingResult =
+    MediumInfoResponseProcessingResult(MediumInfo("", "", mid, "", "", ""), UndefinedSeqNo)
 
   /**
-    * Constant for a special processing result generated for failed partial
-    * results. Such elements are filtered out from the stream.
+    * Creates a special undefined meta data result for the given medium ID.
+    *
+    * @param mid the medium ID
+    * @return the undefined meta data result for this medium ID
     */
-  private val UndefinedResult = MediumProcessingResult(
-    MediumInfo("", "", MediumID.UndefinedMediumID, "", "", ""), Nil, -1)
+  private def createUndefinedMetaResult(mid: MediumID): MetaDataResponseProcessingResult =
+    MetaDataResponseProcessingResult(metaData = Nil, mediumID = mid, seqNo = UndefinedSeqNo)
 
   /**
     * Tests whether a medium description is fully defined. All paths must be
@@ -61,32 +64,16 @@ object HttpArchiveContentProcessorActor {
     desc.metaDataPath != null && desc.mediumDescriptionPath != null
 
   /**
-    * Generates a ''MediumProcessingResult'' from the partial results passed
-    * as arguments. If one of the partial results is a special undefined
-    * result, also an undefined processing result is returned.
+    * Checks whether the specified result object is valid. This function,
+    * together with the ''createUndefinedXXXResult()'' functions, is used to
+    * identify and filter out results created from partial processing results
+    * with errors.
     *
-    * @param info the medium info processing result
-    * @param meta the meta data processing result
-    * @return the complete processing result
+    * @param result the medium processing result to be checked
+    * @return a flag whether this result is valid
     */
-  private def createProcessingResult(info: MediumInfoResponseProcessingResult,
-                                     meta: MetaDataResponseProcessingResult):
-  MediumProcessingResult =
-    if (isValidResult(info, meta))
-      MediumProcessingResult(info.mediumInfo, meta.metaData, meta.seqNo)
-    else UndefinedResult
-
-  /**
-    * Checks whether the specified result objects are both valid.
-    *
-    * @param info the medium info processing result
-    * @param meta the meta data processing result
-    * @return a flag whether both results are valid
-    */
-  private def isValidResult(info: MediumInfoResponseProcessingResult,
-                            meta: MetaDataResponseProcessingResult): Boolean =
-    info.mediumInfo.mediumID != MediumID.UndefinedMediumID &&
-      meta.mediumID != MediumID.UndefinedMediumID
+  private def isValidResult(result: MediumProcessingResult): Boolean =
+    result.mediumInfo.name.length > 0 && result.metaData.nonEmpty
 }
 
 /**
@@ -160,24 +147,23 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     val filterDesc = Flow[HttpMediumDesc].filter(isFullyDefined)
     val infoReq = Flow[HttpMediumDesc].map(createMediumInfoRequest(req, _))
     val metaReq = Flow[HttpMediumDesc].map(createMetaDataRequest(req, _))
-    val processInfo = processFlow(req, UndefinedInfoResult)
-    val processMeta = processFlow(req, UndefinedMetaResult)
-    val filterUndef = Flow[MediumProcessingResult].filterNot(_ == UndefinedResult)
+    val processInfo = processFlow(req)(createUndefinedInfoResult)
+    val processMeta = processFlow(req)(createUndefinedMetaResult)
+    val combine = new ProcessingResultCombiningStage
+    val filterUndef = Flow[MediumProcessingResult].filter(isValidResult)
     val sinkDone = Sink.ignore
     val g = RunnableGraph.fromGraph(GraphDSL.create(ks, sinkDone)((_, _)) { implicit builder =>
       (ks, sink) =>
         import GraphDSL.Implicits._
         val broadcast = builder.add(Broadcast[HttpMediumDesc](2))
-        val merge = builder.add(ZipWith { (info: MediumInfoResponseProcessingResult,
-                                           meta: MetaDataResponseProcessingResult) =>
-          createProcessingResult(info, meta)
-        })
+        val merge = builder.add(
+          Zip[MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult]())
         val broadcastSink = builder.add(Broadcast[MediumProcessingResult](2))
 
         req.mediaSource ~> ks ~> filterDesc ~> broadcast
         broadcast ~> infoReq ~> req.clientFlow ~> processInfo ~> merge.in0
         broadcast ~> metaReq ~> req.clientFlow ~> processMeta ~> merge.in1
-        merge.out ~> filterUndef ~> broadcastSink ~> req.sink
+        merge.out ~> combine ~> filterUndef ~> broadcastSink ~> req.sink
         broadcastSink ~> sink
         ClosedShape
     })
@@ -188,19 +174,24 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * Creates a flow stage that invokes a processing actor to obtain a partial
     * result. This is basically an ask invocation of an actor mapped to the
     * expect result type. If the future for the invocation fails, a special
-    * undefined result is returned. This seems to be necessary, otherwise the
-    * zip stage combines wrong elements.
+    * undefined result is returned that is created by the function provided.
+    * This seems to be necessary, otherwise the zip stage combines wrong
+    * elements.
     *
     * @param req   the request to process the archive
-    * @param undef the undefined result to return in case of an error
+    * @param fUndef the undefined result to return in case of an error
     * @param tag   the class tag
     * @tparam T the type of the result
     * @return the processing flow stage
     */
-  private def processFlow[T](req: ProcessHttpArchiveRequest, undef: T)(implicit tag: ClassTag[T])
+  private def processFlow[T](req: ProcessHttpArchiveRequest)(fUndef: MediumID => T)
+                            (implicit tag: ClassTag[T])
   : Flow[(Try[HttpResponse], RequestData), T, NotUsed] =
     Flow[(Try[HttpResponse], RequestData)].mapAsync(1) { t =>
-      processHttpResponse(req, t).mapTo[T].fallbackTo(Future(undef))
+      processHttpResponse(req, t).mapTo[T].fallbackTo(Future {
+        val mid = createMediumID(req, t._2.mediumDesc)
+        fUndef(mid)
+      })
     }
 
   /**

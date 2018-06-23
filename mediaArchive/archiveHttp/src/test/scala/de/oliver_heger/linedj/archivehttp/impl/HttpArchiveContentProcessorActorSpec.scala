@@ -34,7 +34,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.util.matching.Regex
-import scala.util.{Success, Try}
+import scala.util.{Random, Success, Try}
 
 object HttpArchiveContentProcessorActorSpec {
   /** Constant for the root URI of the test archive. */
@@ -293,6 +293,26 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       .fishForProcessingComplete()
   }
 
+  it should "handle processing results in unexpected order" in {
+    val random = new Random
+
+    def createShuffeledMapping(descs: Seq[HttpMediumDesc], f: HttpMediumDesc => String):
+    Map[HttpRequest, HttpResponse] = {
+      val requests = random.shuffle(descs map (d => createRequest(f(d))))
+      val responses = random.shuffle(descs map (d => createResponse(f(d))))
+      requests.zip(responses).toMap
+    }
+
+    val descriptions = createMediumDescriptions(16)
+    val mapping = createShuffeledMapping(descriptions, _.mediumDescriptionPath) ++
+      createShuffeledMapping(descriptions, _.metaDataPath)
+    val helper = new ContentProcessorActorTestHelper
+
+    val results = helper.processArchive(descriptions, mapping, DefaultArchiveConfig)
+      .expectProcessingResults(descriptions.size)
+    expectResultsFor(results, descriptions)
+  }
+
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
@@ -426,14 +446,13 @@ abstract class AbstractTestProcessorActor extends Actor {
   import HttpArchiveContentProcessorActorSpec._
 
   override def receive: Receive = {
-    case ProcessResponse(mid, resp, config, seqNo)
+    case ProcessResponse(_, resp, config, seqNo)
       if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo =>
       resp match {
         case Success(r) if r.status.isSuccess() &&
           config.archiveURI == Uri(ArchiveUri) =>
           val optResponse = r.header[Location].flatMap(loc => createMediumDescFromLocation(loc.uri
             .toString()))
-            .filter(mediumID(_) == mid)
             .map(createResult)
           optResponse foreach sender.!
         case _ => // ignore which leads to timeout
@@ -478,7 +497,8 @@ class TestMediumInfoProcessingActor extends AbstractTestProcessorActor {
     location match {
       case HttpArchiveContentProcessorActorSpec.RegExSettings(idx) =>
         Some(idx.toInt)
-      case _ => None
+      case _ =>
+        None
     }
 }
 
