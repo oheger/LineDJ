@@ -54,6 +54,14 @@ object MediaUnionActorSpec {
     MediumID(MediumPrefix + idx, None, componentID(componentIdx))
 
   /**
+    * Generates a checksum string for the medium with the given index.
+    *
+    * @param idx the index
+    * @return the checksum for this test medium
+    */
+  private def checksum(idx: Int): String = s"check_$idx"
+
+  /**
     * Generates a test medium info object.
     *
     * @param mid the associated medium ID
@@ -62,7 +70,7 @@ object MediaUnionActorSpec {
     */
   private def mediumInfo(mid: MediumID, idx: Int): MediumInfo =
     MediumInfo(name = "MediumName" + idx, description = "desc" + idx, orderMode = "",
-      orderParams = "", checksum = idx.toString, mediumID = mid)
+      orderParams = "", checksum = checksum(idx), mediumID = mid)
 
   /**
     * Creates a mapping for a test medium.
@@ -153,6 +161,21 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     expectMsg(ForwardTestActor.ForwardedMessage(request))
   }
 
+  it should "evaluate the checksum in a medium file request" in {
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 2))
+    val mid = mediumID(2, 1)
+    val request = MediumFileRequest(MediaFileID(mid, "someFile", Some(checksum(2))),
+      withMetaData = false)
+    val controller = ForwardTestActor()
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap1, 1)
+    helper.addMedia(mediaMap2, 2, controller)
+
+    helper.manager ! request
+    expectMsg(ForwardTestActor.ForwardedMessage(request))
+  }
+
   it should "handle a medium file request for a non-existing controller actor" in {
     val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
@@ -163,6 +186,19 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     response.length should be(-1)
   }
 
+  it should "fallback to the medium ID if the checksum of a file request cannot be resolved" in {
+    val mediaMap = Map(mediaMapping(1, 1))
+    val mid = mediumID(1, 1)
+    val request = MediumFileRequest(MediaFileID(mid, "someFile", Some(checksum(2))),
+      withMetaData = false)
+    val controller = ForwardTestActor()
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap, 1, controller)
+
+    helper.manager ! request
+    expectMsg(ForwardTestActor.ForwardedMessage(request))
+  }
+
   it should "return an undefined reader actor for an invalid file request" in {
     val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
@@ -170,6 +206,22 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.manager ! request
     val response = expectMsgType[MediumFileResponse]
     response.contentReader shouldBe 'empty
+  }
+
+  it should "reset the checksum mapping if new media data is added" in {
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 2))
+    val mid = mediumID(1, 1)
+    val request = MediumFileRequest(MediaFileID(mid, "someFile", Some(checksum(2))),
+      withMetaData = false)
+    val helper = new MediaUnionActorTestHelper
+    val ctrl1 = helper.addMedia(mediaMap1, 1)
+    helper.manager ! request
+    ctrl1.expectMsg(request)
+
+    val ctrl2 = helper.addMedia(mediaMap2, 2)
+    helper.manager ! request
+    ctrl2.expectMsg(request)
   }
 
   it should "handle a ReaderActorAlive message" in {
@@ -209,6 +261,24 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     stopActor(ctrl.ref)
     awaitCond(helper.queryMedia().media == mediaMap2)
+  }
+
+  it should "reset the checksum mapping if an archive component is removed" in {
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 2))
+    val mid = mediumID(1, 1)
+    val request = MediumFileRequest(MediaFileID(mid, "someFile", Some(checksum(2))),
+      withMetaData = false)
+    val helper = new MediaUnionActorTestHelper
+    val probe1 = helper.addMedia(mediaMap1, 1)
+    val probe2 = helper.addMedia(mediaMap2, 2)
+    helper.manager ! request
+    probe2.expectMsgType[MediumFileRequest]
+
+    stopActor(probe2.ref)
+    awaitCond(helper.queryMedia().media.size == 1)
+    helper.manager ! request
+    probe1.expectMsg(request)
   }
 
   it should "remove the media of a controller on request" in {
