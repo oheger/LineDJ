@@ -316,6 +316,20 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.playlistSeqNo should be(Some(2))
   }
 
+  it should "write the checksum of media file IDs if defined" in {
+    val plService = PlaylistService
+    val state = StateWithPlaylist.copy(playlistSeqNo = Some(1))
+    val playlist = generatePlaylistWithChecksum(InitialPlaylistSize + 1,
+      currentIdx = InitialPlaylistIndex + 1, checksum = "someChecksum")
+    val playerState = createStateFromPlaylist(playlist, seqNo = 2)
+
+    val next = modifyState(PlaylistWriteStateUpdateServiceImpl.playerStateChange(plService,
+      playerState, WriteConfig), state)
+    checkPersistedPlaylist(next, SetPlaylist(playerState.playlist))
+    next.updatedPosition should be(CurrentPlaylistPosition(InitialPlaylistIndex + 1, 0, 0))
+    next.playlistSeqNo should be(Some(2))
+  }
+
   it should "ignore a player event if a close request is pending" in {
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(1),
       closeRequest = Some(TestProbe().ref))
