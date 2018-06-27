@@ -72,7 +72,7 @@ object SourceDownloadActor {
     * @return the ''MediumFileRequest''
     */
   private def downloadRequest(sourceID: MediaFileID): MediumFileRequest =
-    MediumFileRequest(MediaFileID(sourceID.mediumID, sourceID.uri), withMetaData = false)
+    MediumFileRequest(sourceID, withMetaData = false)
 
   /**
     * An actor implementation which is used for media files that cannot be
