@@ -41,6 +41,9 @@ object PersistentPlaylistParser {
   /** Property for the description path of the medium. */
   val PropMediumDescPath = "mediumDescriptionPath"
 
+  /** Property for the checksum of the medium. */
+  val PropMediumChecksum = "mediumChecksum"
+
   /** Property for the component ID of the managing archive. */
   val PropArchiveCompID = "archiveComponentID"
 
@@ -135,8 +138,8 @@ object PersistentPlaylistParser {
 
   /**
     * Converts a single item in the playlist to its model representation. If
-    * properties are invalid or mandatory properties are missing, result is
-    * ''None''.
+    * properties are invalid or mandatory properties are missing, result is a
+    * failed ''Try''.
     *
     * @param obj the object to be converted
     * @return the result of the conversion
@@ -144,9 +147,11 @@ object PersistentPlaylistParser {
   private def convertItem(obj: Map[String, String]): PlaylistItem = Try {
     val idx = obj(PropIndex).toInt
     val mediumURI = obj(PropMediumURI)
+    val mediumChecksum = obj get PropMediumChecksum
     val compID = obj(PropArchiveCompID)
     val uri = obj(PropURI)
-    val fileID = MediaFileID(MediumID(mediumURI, obj get PropMediumDescPath, compID), uri)
+    val fileID = MediaFileID(MediumID(mediumURI, obj get PropMediumDescPath, compID), uri,
+      checksum = mediumChecksum)
     (idx, fileID)
   }
 

@@ -100,7 +100,6 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "load the content of a playlist file" in {
     val SongCount = 8
     val strPlaylist = generatePersistentPlaylist(SongCount)
-    println(strPlaylist)
     val playlistPath = createDataFile(strPlaylist)
     val expPlaylist = generatePlaylist(SongCount, 0)
     val helper = new LoadActorTestHelper
@@ -134,6 +133,25 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.triggerLoad(playlistPath, Paths get "nonExistingPos.json")
       .expectPlaylistResult(generatePlaylist(2, 0))
+  }
+
+  it should "evaluate the checksum property in a persistent playlist" in {
+    val Checksum = "CHECKSUM_FOR_TEST_MEDIUM"
+    val content =
+      s"""[
+        |{ "index": 0, "mediumURI": "medium1","mediumDescriptionPath": "medium1.settings",
+        |"archiveComponentID": "component1", "uri": "song://TestSong_0.mp3",
+        |"mediumChecksum": "$Checksum" },
+        |{ "index": 1, "mediumURI": "medium2","archiveComponentID": "component2",
+        |"uri": "song://TestSong_1.mp3", "mediumChecksum": "$Checksum" }
+        |]
+      """.stripMargin
+    val playlistPath = createDataFile(content)
+    val expPlaylist = generatePlaylistWithChecksum(2, 0, Checksum)
+    val helper = new LoadActorTestHelper
+
+    helper.triggerLoad(playlistPath, Paths get "nonExistingPos.json")
+      .expectPlaylistResult(expPlaylist)
   }
 
   it should "evaluate the position file" in {

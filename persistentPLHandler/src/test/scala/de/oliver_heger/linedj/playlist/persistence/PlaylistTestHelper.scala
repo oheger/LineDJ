@@ -79,6 +79,20 @@ trait PlaylistTestHelper {
   }
 
   /**
+    * Generates a test playlist in which all media file IDs have the specified
+    * checksum value.
+    *
+    * @param length     the length of the playlist
+    * @param currentIdx the index of the current song (0-based)
+    * @param checksum   the checksum for the single IDs
+    * @return the resulting playlist
+    */
+  def generatePlaylistWithChecksum(length: Int, currentIdx: Int, checksum: String): Playlist = {
+    val pl = generatePlaylist(length, currentIdx)
+    pl.copy(pendingSongs = pl.pendingSongs map (_.copy(checksum = Some(checksum))))
+  }
+
+  /**
     * Generates a ''SetPlaylist'' command based on the given parameters.
     *
     * @param length         the length of the playlist
