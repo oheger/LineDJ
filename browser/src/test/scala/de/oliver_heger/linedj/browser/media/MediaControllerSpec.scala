@@ -50,6 +50,9 @@ import scala.reflect.ClassTag
 import scala.util.Random
 
 object MediaControllerSpec {
+  /** A prefix for URIs for test media. */
+  private val MediumUriPrefix = "media://"
+
   /** Constant for a medium name. */
   private val Medium = "Rock1"
 
@@ -98,8 +101,20 @@ object MediaControllerSpec {
    * @param name the name of the medium
    * @return the corresponding test medium ID
    */
-  private def mediumID(name: String): MediumID = MediumID("media://" + name,
+  private def mediumID(name: String): MediumID = MediumID(MediumUriPrefix + name,
     Some(Paths.get(name).toString))
+
+  /**
+    * Extracts the name of a test medium from the given medium ID. If the
+    * medium URI has not the expected form, ''None'' is returned.
+    *
+    * @param mid the medium ID
+    * @return an option with the extracted name of this test medium
+    */
+  private def mediumName(mid: MediumID): Option[String] =
+    if (mid.mediumURI startsWith MediumUriPrefix)
+      Some(mid.mediumURI.substring(MediumUriPrefix.length))
+    else None
 
   /**
    * Transforms the given string to upper case.
@@ -149,15 +164,23 @@ object MediaControllerSpec {
   }
 
   /**
-   * Creates a ''MediumInfo'' mock.
-   * @param name the medium name
-   * @return the mock for this medium info
-   */
-  private def mediumInfo(name: String): MediumInfo = {
-    val info = mock(classOf[MediumInfo])
-    when(info.name).thenReturn(name)
-    info
-  }
+    * Creates a test ''MediumInfo'' object.
+    *
+    * @param name the medium name
+    * @return the mock for this medium info
+    */
+  private def mediumInfo(name: String): MediumInfo =
+    MediumInfo(name = name, description = name + "_desc", mediumID = mediumID(name),
+      checksum = mediumChecksum(name), orderMode = "", orderParams = "")
+
+  /**
+    * Generates a checksum for a test medium.
+    *
+    * @param name the name of the medium
+    * @return the checksum for this test medium
+    */
+  private def mediumChecksum(name: String): String =
+    name + "_checksum"
 
   /**
    * Creates ''SongData'' objects for a test album.
@@ -169,7 +192,8 @@ object MediaControllerSpec {
    */
   private def createSongData(artist: String, album: String, songs: Seq[String],
                               mediumID: MediumID = TestMediumID): Seq[SongData] = {
-    songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1),
+    songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1,
+      mediumName(mediumID) map mediumChecksum),
       MediaMetaData(title = Some(e._1), artist = Some(artist), album = Some(album),
         trackNumber = Some(e._2)), e._1, artist, album))
   }
@@ -253,9 +277,8 @@ class MediaControllerSpec extends FlatSpec with Matchers {
 
   it should "pass available media to the combo handler" in {
     val helper = new MediaControllerTestHelper
-    helper prepareMediaListModel 3
 
-    helper sendAvailableMedia AvailableMediaMsg
+    helper.sendDefaultAvailableMedia()
     val verInOrder = Mockito.inOrder(helper.comboHandler)
     verInOrder.verify(helper.comboHandler).removeItem(2)
     verInOrder.verify(helper.comboHandler).removeItem(1)
@@ -461,7 +484,8 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     val songs = createSongData(Artist1, Album1, Songs1)
     val chunk = createChunk(songs = songs)
     val helper = new MediaControllerTestHelper
-    helper selectMediumAndSendMeta chunk
+    helper.sendDefaultAvailableMedia()
+      .selectMediumAndSendMeta(chunk)
 
     helper selectAlbums createTreePath(Artist1, Album1)
     verify(helper.tableHandler).tableDataChanged()
@@ -581,7 +605,8 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     val chunk1 = createChunk(songs = songs1)
     val chunk2 = createChunk(songs = songs2)
     val helper = new MediaControllerTestHelper
-    val callback = helper selectMediumAndSendMeta chunk1
+    val callback = helper.sendDefaultAvailableMedia()
+      .selectMediumAndSendMeta(chunk1)
     callback(chunk2)
 
     helper selectAlbums createTreePath(Artist2, Album3)
@@ -612,7 +637,8 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     val songs3 = createSongData(Artist2, Album3, Songs3)
     val chunk = createChunk(songs = songs1 ++ songs2 ++ songs3)
     val helper = new MediaControllerTestHelper
-    helper selectMediumAndSendMeta chunk
+    helper.sendDefaultAvailableMedia()
+      .selectMediumAndSendMeta(chunk)
 
     helper.selectAlbums(createTreePath(Artist1, Album1),
       createTreePath(new DefaultConfigurationNode),
@@ -636,11 +662,15 @@ class MediaControllerSpec extends FlatSpec with Matchers {
   }
 
   it should "reset all models when the medium selection changes" in {
-    val OtherMedium = mediumID("_other")
+    val OtherName = "_other"
+    val OtherMedium = mediumID(OtherName)
     val songs1 = createSongData(Artist1, Album1, Songs1)
     val songs2 = createSongData(Artist1, Album2, Songs2 take 1)
     val songs3 = createSongData(Artist1, Album2, Songs2 drop 1, mediumID = OtherMedium)
     val helper = new MediaControllerTestHelper
+    helper prepareMediaListModel 4
+    helper sendAvailableMedia AvailableMediaMsg
+      .copy(media = AvailableMediaMsg.media + (OtherMedium -> mediumInfo(OtherName)))
     helper selectMediumAndSendMeta createChunk(songs = songs1 ++ songs2)
     helper selectAlbums createTreePath(Artist1, Album2)
     helper.clearReceivedMessages()
@@ -689,7 +719,7 @@ class MediaControllerSpec extends FlatSpec with Matchers {
 
   it should "return the songs of the currently selected albums" in {
     val helper = new MediaControllerTestHelper
-    val songs = addAllSongsToController(helper)
+    val songs = addAllSongsToController(helper.sendDefaultAvailableMedia())
     helper.selectAlbums(createTreePath(Artist2, Album3), createTreePath(Artist1, Album1))
 
     helper.controller.songsForSelectedAlbums should be(songs(1) ++ songs(2))
@@ -703,7 +733,7 @@ class MediaControllerSpec extends FlatSpec with Matchers {
 
   it should "return the songs of the currently selected artists" in {
     val helper = new MediaControllerTestHelper
-    val songs = addAllSongsToController(helper)
+    val songs = addAllSongsToController(helper.sendDefaultAvailableMedia())
     helper.selectAlbums(createTreePath(Artist2, Album3),
       createTreePath(helper.treeModel.getRootNode.getChild(0)))
 
@@ -712,7 +742,7 @@ class MediaControllerSpec extends FlatSpec with Matchers {
 
   it should "return the songs of the current medium" in {
     val helper = new MediaControllerTestHelper
-    val songs = addAllSongsToController(helper)
+    val songs = addAllSongsToController(helper.sendDefaultAvailableMedia())
 
     helper.controller.songsForSelectedMedium should be(songs.flatten)
   }
@@ -824,6 +854,17 @@ class MediaControllerSpec extends FlatSpec with Matchers {
       when(model.size()).thenReturn(size)
       when(comboHandler.getListModel).thenReturn(model)
       model
+    }
+
+    /**
+      * Sends the message with default available media to the test controller.
+      *
+      * @return this test helper
+      */
+    def sendDefaultAvailableMedia(): MediaControllerTestHelper = {
+      prepareMediaListModel(3)
+      sendAvailableMedia(AvailableMediaMsg)
+      this
     }
 
     /**

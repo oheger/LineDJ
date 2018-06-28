@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.browser.media
 
 import java.util.Locale
 
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -281,7 +281,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    */
   private def addMetaDataChunk(chunk: MetaDataChunk): Unit = {
     val songData = chunk.data.toList map { e =>
-      val song = songFactory.createSongData(MediaFileID(chunk.mediumID, e._1), e._2)
+      val song = songFactory.createSongData(createFileID(chunk.mediumID, e._1), e._2)
       (createAlbumKey(song), song)
     }
 
@@ -301,6 +301,18 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       inProgressWidget setVisible false
     }
   }
+
+  /**
+    * Creates a ''MediaFileID'' from the specified parameters. The passed in
+    * medium ID and URI are used directly. If a checksum is available for this
+    * medium, it is added as well.
+    *
+    * @param mid the medium ID
+    * @param uri the URI
+    * @return the ''MediaFileID''
+    */
+  private def createFileID(mid: MediumID, uri: String): MediaFileID =
+    MediaFileID(mid, uri, availableMedia.get(mid).map(_.checksum))
 
   /**
    * Checks whether a new chunk of meta data has an impact on the data
