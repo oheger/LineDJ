@@ -74,6 +74,15 @@ class MediumInfoParserSpec extends FlatSpec with Matchers {
     info.checksum should be("")
   }
 
+  it should "support setting a specific checksum" in {
+    val Checksum = "a_special_medium_checksum"
+    val parser = new MediumInfoParser
+
+    val info = parser.parseMediumInfo(createMediumSettingsFileContent(), TestMediumID,
+      Checksum).get
+    info.checksum should be(Checksum)
+  }
+
   it should "handle exceptions when parsing XML" in {
     val Content = "<configuration><name>Invalid</name><description>test</configuration>"
     val parser = new MediumInfoParser

@@ -26,6 +26,13 @@ import scala.util.Try
  * Companion object for ''MediumInfoParser''.
  */
 private object MediumInfoParser {
+  /**
+    * Constant for an undefined checksum for a medium. This value is set by the
+    * parser for the ''checksum'' property of generated description objects if
+    * no specific checksum is provided.
+    */
+  val ChecksumUndefined = ""
+
   /** Constant for the XML element defining the name of a medium. */
   private val ElemName = "name"
 
@@ -53,20 +60,23 @@ private object MediumInfoParser {
   }
 
   /**
-   * Extracts information about a medium from the given XML document and
-   * returns it as a ''MediumSettingsData'' object.
-   * @param mediumID the ID to the affected medium
-   * @param elem the XML structure to be processed
-   * @return the resulting ''MediumSettingsData'' object
-   */
-  private def extractMediumInfo(mediumID: MediumID, elem: xml.NodeSeq): MediumInfo = {
+    * Extracts information about a medium from the given XML document and
+    * returns it as a ''MediumSettingsData'' object.
+    *
+    * @param mediumID the ID to the affected medium
+    * @param checksum the checksum for the resulting object
+    * @param elem     the XML structure to be processed
+    * @return the resulting ''MediumInfo'' object
+    */
+  private def extractMediumInfo(mediumID: MediumID, checksum: String, elem: xml.NodeSeq):
+  MediumInfo = {
     val elemOrder = elem \ ElemOrder
     MediumInfo(name = (elem \ ElemName).text,
       description = (elem \ ElemDesc).text,
       orderMode = (elemOrder \ ElemOrderMode).text,
       orderParams = (elemOrder \ ElemOrderParams \ "_").toString(),
       mediumID = mediumID,
-      checksum = "")
+      checksum = checksum)
   }
 }
 
@@ -83,12 +93,15 @@ class MediumInfoParser {
   import MediumInfoParser._
 
   /**
-   * Parses the given medium information provided in binary form and converts
-   * it to a ''MediumInfo'' object if possible.
-   * @param data the data to be parsed
-   * @param mediumID the ID of the medium
-   * @return a ''Try'' with the resulting ''MediumInfo'' object
-   */
-  def parseMediumInfo(data: Array[Byte], mediumID: MediumID): Try[MediumInfo] =
-    Try(extractMediumInfo(mediumID, parseMediumDescription(data)))
+    * Parses the given medium information provided in binary form and converts
+    * it to a ''MediumInfo'' object if possible.
+    *
+    * @param data     the data to be parsed
+    * @param mediumID the ID of the medium
+    * @param checksum the value to set as checksum in the result
+    * @return a ''Try'' with the resulting ''MediumInfo'' object
+    */
+  def parseMediumInfo(data: Array[Byte], mediumID: MediumID,
+                      checksum: String = ChecksumUndefined): Try[MediumInfo] =
+    Try(extractMediumInfo(mediumID, checksum, parseMediumDescription(data)))
 }

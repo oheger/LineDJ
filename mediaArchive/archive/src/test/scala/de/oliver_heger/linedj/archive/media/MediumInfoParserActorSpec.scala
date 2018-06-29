@@ -29,9 +29,9 @@ import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.{any, anyString, eq => argEq}
 import org.mockito.Mockito._
-import org.mockito.Matchers.{any, eq => argEq}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
@@ -122,7 +122,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "return a default description if a parsing error occurs" in {
     val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(), argEq(TestMediumID)))
+    when(parser.parseMediumInfo(any(), argEq(TestMediumID), anyString()))
       .thenReturn(Try[MediumInfo](throw new Exception))
 
     val actor = parserActor(parser)
@@ -146,7 +146,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "support cancellation of stream processing" in {
     val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(), argEq(TestMediumID)))
+    when(parser.parseMediumInfo(any(), argEq(TestMediumID), anyString()))
       .thenReturn(Success(TestInfo))
     val FileSize = 3 * 8192
     val file = createLargeTestFile(FileSize)
@@ -159,7 +159,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     actor ! AbstractStreamProcessingActor.CancelStreams
     expectMsgType[ParseMediumInfoResult]
     val captor = ArgumentCaptor.forClass(classOf[Array[Byte]])
-    verify(parser).parseMediumInfo(captor.capture(), argEq(TestMediumID))
+    verify(parser).parseMediumInfo(captor.capture(), argEq(TestMediumID), anyString())
     captor.getValue.length should be < FileSize
   }
 
