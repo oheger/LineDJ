@@ -44,8 +44,8 @@ abstract class AbstractResponseProcessingActor
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
 
   override def customReceive: Receive = {
-    case ProcessResponse(mid, _, triedResponse, config, seqNo) =>
-      handleHttpResponse(mid, triedResponse, config, seqNo)
+    case ProcessResponse(mid, desc, triedResponse, config, seqNo) =>
+      handleHttpResponse(mid, desc, triedResponse, config, seqNo)
   }
 
   /**
@@ -59,11 +59,12 @@ abstract class AbstractResponseProcessingActor
     *
     * @param source the source to be processed
     * @param mid    the current ''MediumID''
+    * @param desc   the medium description
     * @param config the archive configuration
     * @param seqNo  the sequence number of the current scan operation
     * @return a ''Future'' for the processing result and a ''KillSwitch''
     */
-  protected def processSource(source: Source[ByteString, Any], mid: MediumID,
+  protected def processSource(source: Source[ByteString, Any], mid: MediumID, desc: HttpMediumDesc,
                               config: HttpArchiveConfig, seqNo: Int): (Future[Any], KillSwitch)
 
   /**
@@ -90,13 +91,14 @@ abstract class AbstractResponseProcessingActor
     * @param config        the HTTP archive configuration
     * @param seqNo         the current sequence number
     */
-  private def handleHttpResponse(mid: MediumID, triedResponse: Try[HttpResponse],
-                                 config: HttpArchiveConfig, seqNo: Int): Unit = {
+  private def handleHttpResponse(mid: MediumID, desc: HttpMediumDesc,
+                                 triedResponse: Try[HttpResponse], config: HttpArchiveConfig,
+                                 seqNo: Int): Unit = {
     triedResponse match {
       case Success(response) =>
         if (response.status.isSuccess()) {
           val (futureStream, killSwitch) = processSource(
-            createResponseDataSource(mid, response, config), mid, config, seqNo)
+            createResponseDataSource(mid, response, config), mid, desc, config, seqNo)
           processStreamResult(futureStream, killSwitch) { f =>
             Status.Failure(f.exception)
           }

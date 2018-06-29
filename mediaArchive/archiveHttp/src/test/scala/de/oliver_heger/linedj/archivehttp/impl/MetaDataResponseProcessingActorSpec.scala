@@ -252,8 +252,8 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val Result = 42
     val props = Props(new MetaDataResponseProcessingActor {
       override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                           config: HttpArchiveConfig, seqNo: Int):
-      (Future[Any], KillSwitch) =
+                                           desc: HttpMediumDesc, config: HttpArchiveConfig,
+                                           seqNo: Int): (Future[Any], KillSwitch) =
         (Future.successful(Result), killSwitch)
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)

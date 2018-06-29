@@ -37,6 +37,11 @@ import scala.concurrent.Future
   * information. If this is successful, a result of type
   * [[MediumInfoResponseProcessingResult]] is produced and sent to the caller.
   *
+  * Note that in order to obtain the correct checksum for the medium, the
+  * [[HttpMediumDesc]] object for the current medium is evaluated. The actor
+  * assumes that the meta data file is named by the checksum of the medium; so
+  * the checksum is derived from this URI.
+  *
   * @param infoParser the parser for medium info files
   */
 class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
@@ -57,17 +62,35 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     *             produce a result object.
     */
   override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                       config: HttpArchiveConfig, seqNo: Int):
-  (Future[Any], KillSwitch) = {
+                                       desc: HttpMediumDesc, config: HttpArchiveConfig,
+                                       seqNo: Int): (Future[Any], KillSwitch) = {
     val sink = Sink.fold[ByteString, ByteString](ByteString())(_ ++ _)
     val (killSwitch, futureResult) = source
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)
       .run()
     val futureInfo = futureResult map { bs =>
-      MediumInfoResponseProcessingResult(infoParser.parseMediumInfo(bs.toArray, mid).get,
-        seqNo)
+      MediumInfoResponseProcessingResult(infoParser.parseMediumInfo(bs.toArray, mid,
+        fetchChecksum(desc)).get, seqNo)
     }
     (futureInfo, killSwitch)
+  }
+
+  /**
+    * Obtains the checksum of the current medium from the medium description.
+    * This implementation returns the file name of the URI for the meta data
+    * file. Per convention, this file has the checksum as name plus an
+    * extension.
+    *
+    * @param desc the medium description
+    * @return the checksum to be used for this medium
+    */
+  private def fetchChecksum(desc: HttpMediumDesc): String = {
+    val lastSegmentPos = desc.metaDataPath lastIndexOf '/'
+    val lastSegment = if (lastSegmentPos >= 0) desc.metaDataPath.substring(lastSegmentPos + 1)
+    else desc.metaDataPath
+    val extPos = lastSegment lastIndexOf '.'
+    if (extPos > 0) lastSegment.substring(0, extPos)
+    else lastSegment
   }
 }

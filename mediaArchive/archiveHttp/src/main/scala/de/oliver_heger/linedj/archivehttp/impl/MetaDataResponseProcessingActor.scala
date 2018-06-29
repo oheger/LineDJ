@@ -48,8 +48,8 @@ class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
     *             result object is produced.
     */
   protected override def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                       config: HttpArchiveConfig, seqNo: Int):
-  (Future[Any], KillSwitch) = {
+                                       desc: HttpMediumDesc, config: HttpArchiveConfig,
+                                       seqNo: Int): (Future[Any], KillSwitch) = {
     val sink = Sink.fold[List[MetaDataProcessingSuccess],
       MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
