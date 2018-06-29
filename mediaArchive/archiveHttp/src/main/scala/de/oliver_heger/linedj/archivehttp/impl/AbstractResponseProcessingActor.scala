@@ -44,7 +44,7 @@ abstract class AbstractResponseProcessingActor
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
 
   override def customReceive: Receive = {
-    case ProcessResponse(mid, triedResponse, config, seqNo) =>
+    case ProcessResponse(mid, _, triedResponse, config, seqNo) =>
       handleHttpResponse(mid, triedResponse, config, seqNo)
   }
 

@@ -243,7 +243,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
                                   t: (Try[HttpResponse], RequestData)): Future[Any] = {
     val mediumID: MediumID = createMediumID(req, t._2.mediumDesc)
-    val msg = ProcessResponse(mediumID, t._1, req.archiveConfig, req.seqNo)
+    val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)
   }
 

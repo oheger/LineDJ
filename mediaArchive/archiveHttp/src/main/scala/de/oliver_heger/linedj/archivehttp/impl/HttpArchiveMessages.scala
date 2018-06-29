@@ -65,12 +65,14 @@ case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
   * now has to process the response and produce a corresponding result object.
   *
   * @param mediumID      the ID of the medium affected
+  * @param mediumDesc    the object with data about the current medium
   * @param response      the response received from the archive
   * @param archiveConfig the config for the HTTP archive
   * @param seqNo         the sequence number of the current scan operation
   */
-case class ProcessResponse(mediumID: MediumID, response: Try[HttpResponse],
-                           archiveConfig: HttpArchiveConfig, seqNo: Int)
+case class ProcessResponse(mediumID: MediumID, mediumDesc: HttpMediumDesc,
+                           response: Try[HttpResponse], archiveConfig: HttpArchiveConfig,
+                           seqNo: Int)
 
 /**
   * A message that indicates that processing of the content of an HTTP archive

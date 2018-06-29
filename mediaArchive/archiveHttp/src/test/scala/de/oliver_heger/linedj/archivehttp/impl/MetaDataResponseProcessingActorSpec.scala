@@ -149,7 +149,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
     val response = HttpResponse(status = StatusCodes.BadRequest)
 
-    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, Success(response), DefaultArchiveConfig, SeqNo)
     val errMsg = expectMsgType[Status.Failure]
     errMsg.cause shouldBe a[IllegalStateException]
     errMsg.cause.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
@@ -160,7 +160,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val exception = new Exception("Failed response")
     val triedResponse = Try[HttpResponse](throw exception)
 
-    actor ! ProcessResponse(TestMediumID, triedResponse, DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, triedResponse, DefaultArchiveConfig, SeqNo)
     val errMsg = expectMsgType[Status.Failure]
     errMsg.cause should be(exception)
   }
@@ -177,7 +177,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
     val response = HttpResponse(status = StatusCodes.BadRequest, entity = entity)
 
-    actor ! ProcessResponse(TestMediumID, Success(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, Success(response), DefaultArchiveConfig, SeqNo)
     expectMsgType[Status.Failure]
     latch.await(3, TimeUnit.SECONDS) shouldBe true
   }
@@ -188,7 +188,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, Try(response), DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
     result.metaData should contain theSameElementsAs mappedResults
@@ -215,7 +215,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props(classOf[MetaDataResponseProcessingActor], mapper))
 
-    actor ! ProcessResponse(TestMediumID, Try(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, Try(response), DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.metaData should contain theSameElementsAs mappedResults
   }
@@ -224,7 +224,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(createProcessingResults(32, mapped = false)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, Try(response),
+    actor ! ProcessResponse(TestMediumID, null, Try(response),
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
     expectMsgType[Status.Failure]
   }
@@ -241,7 +241,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
       Source[ByteString, Any] = source
     }))
 
-    actor ! ProcessResponse(TestMediumID, Try(createResponse(responseData)),
+    actor ! ProcessResponse(TestMediumID, null, Try(createResponse(responseData)),
       DefaultArchiveConfig, SeqNo)
     actor ! CancelStreams
     expectMsgType[MetaDataResponseProcessingResult]
@@ -257,7 +257,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
         (Future.successful(Result), killSwitch)
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
-    actor ! ProcessResponse(TestMediumID,
+    actor ! ProcessResponse(TestMediumID, null,
       Try(createResponse(generateJson(createProcessingResults(2, mapped = false)))),
       DefaultArchiveConfig, SeqNo)
     expectMsg(Result)

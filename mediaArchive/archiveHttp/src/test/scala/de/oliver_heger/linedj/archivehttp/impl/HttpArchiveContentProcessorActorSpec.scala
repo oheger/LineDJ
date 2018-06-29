@@ -296,7 +296,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
   it should "handle processing results in unexpected order" in {
     val random = new Random
 
-    def createShuffeledMapping(descs: Seq[HttpMediumDesc], f: HttpMediumDesc => String):
+    def createShuffledMapping(descs: Seq[HttpMediumDesc], f: HttpMediumDesc => String):
     Map[HttpRequest, HttpResponse] = {
       val requests = random.shuffle(descs map (d => createRequest(f(d))))
       val responses = random.shuffle(descs map (d => createResponse(f(d))))
@@ -304,9 +304,9 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     }
 
     val descriptions = createMediumDescriptions(16)
-    val mapping = createShuffeledMapping(descriptions, _.mediumDescriptionPath) ++
-      createShuffeledMapping(descriptions, _.metaDataPath)
-    val helper = new ContentProcessorActorTestHelper
+    val mapping = createShuffledMapping(descriptions, _.mediumDescriptionPath) ++
+      createShuffledMapping(descriptions, _.metaDataPath)
+    val helper = new ContentProcessorActorTestHelper(checkProcessingMessages = false)
 
     val results = helper.processArchive(descriptions, mapping, DefaultArchiveConfig)
       .expectProcessingResults(descriptions.size)
@@ -315,13 +315,18 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
+    *
+    * @param checkProcessingMessages flag whether the mock processing actors
+    *                                should check the messages they receive
     */
-  private class ContentProcessorActorTestHelper {
+  private class ContentProcessorActorTestHelper(checkProcessingMessages: Boolean = true) {
     /** The settings processor actor. */
-    private val settingsProcessor = system.actorOf(Props[TestMediumInfoProcessingActor])
+    private val settingsProcessor =
+      system.actorOf(Props(classOf[TestMediumInfoProcessingActor], checkProcessingMessages))
 
     /** The meta data processor actor. */
-    private val metaDataProcessor = system.actorOf(Props[TestMetaDataProcessingActor])
+    private val metaDataProcessor =
+      system.actorOf(Props(classOf[TestMetaDataProcessingActor], checkProcessingMessages))
 
     /** A test probe acting as sink for archive processing. */
     private val sinkProbe = TestProbe()
@@ -440,19 +445,22 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
   * header of the response to obtain the original request path. If the
   * response is not successful, the actor does nothing forcing a timeout.
   * Otherwise, a dummy processing result is generated and sent to the sender.
+  *
+  * @param checkMsg flag whether incoming messages must be checked
   */
-abstract class AbstractTestProcessorActor extends Actor {
+abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
 
   import HttpArchiveContentProcessorActorSpec._
 
   override def receive: Receive = {
-    case ProcessResponse(_, resp, config, seqNo)
+    case ProcessResponse(mid, desc, resp, config, seqNo)
       if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo =>
       resp match {
         case Success(r) if r.status.isSuccess() &&
           config.archiveURI == Uri(ArchiveUri) =>
-          val optResponse = r.header[Location].flatMap(loc => createMediumDescFromLocation(loc.uri
-            .toString()))
+          val optResponse = r.header[Location]
+            .flatMap(loc => createMediumDescFromLocation(loc.uri.toString()))
+            .filter(d => !checkMsg || (d == desc && mid == mediumID(desc)))
             .map(createResult)
           optResponse foreach sender.!
         case _ => // ignore which leads to timeout
@@ -489,7 +497,8 @@ abstract class AbstractTestProcessorActor extends Actor {
 /**
   * A concrete test processing actor that generates medium info results.
   */
-class TestMediumInfoProcessingActor extends AbstractTestProcessorActor {
+class TestMediumInfoProcessingActor(checkMsg: Boolean)
+  extends AbstractTestProcessorActor(checkMsg) {
   override protected def createResult(desc: HttpMediumDesc): AnyRef =
     HttpArchiveContentProcessorActorSpec.createSettingsProcessingResult(desc)
 
@@ -505,7 +514,8 @@ class TestMediumInfoProcessingActor extends AbstractTestProcessorActor {
 /**
   * A concrete test processing actor that generates meta data results.
   */
-class TestMetaDataProcessingActor extends AbstractTestProcessorActor {
+class TestMetaDataProcessingActor(checkMsg: Boolean)
+  extends AbstractTestProcessorActor(checkMsg) {
   override protected def createResult(desc: HttpMediumDesc): AnyRef =
     HttpArchiveContentProcessorActorSpec.createMetaDataProcessingResult(desc)
 
