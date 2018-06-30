@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent, SetPlaylist}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import org.scalatest.{FlatSpec, Matchers}
 
 object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
@@ -51,11 +51,56 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
     */
   private def createAvailableMedia(media: Iterable[MediumID]): AvailableMedia = {
     val mediaData = media map { m =>
-      val info = MediumInfo(m.mediumURI, "desc", m, "", "", "")
+      val info = MediumInfo(m.mediumURI, "desc", m, "", "", generateChecksum(m))
       m -> info
     }
     AvailableMedia(mediaData.toMap)
   }
+
+  /**
+    * Generates a checksum for the given medium.
+    *
+    * @param mid the ID of the medium
+    * @return the checksum for this medium
+    */
+  private def generateChecksum(mid: MediumID): String = mid.mediumURI + "_check"
+
+  /**
+    * Returns a sequence with the checksum strings for all test media.
+    *
+    * @return the checksum values for the test media
+    */
+  private def testChecksumSeq: Seq[String] = MediaIDs map generateChecksum
+
+  /**
+    * Generates a test ''MediaFileID'' based on the given medium ID.
+    *
+    * @param mid          the medium ID
+    * @param withChecksum flag whether a checksum is to be generated
+    * @return the resulting file ID
+    */
+  private def generateFileID(mid: MediumID, withChecksum: Boolean = true): MediaFileID =
+    MediaFileID(mid, null, if (withChecksum) Some(generateChecksum(mid)) else None)
+
+  /**
+    * Generates a set of ''MediaFileID'' objects from the given collection of
+    * medium IDs.
+    *
+    * @param mids         the collection of medium IDs
+    * @param withChecksum flag whether a checksum is to be generated
+    * @return the resulting set of ''MediaFileID'' objects
+    */
+  private def generateFileIDs(mids: Iterable[MediumID], withChecksum: Boolean = true):
+  Set[MediaFileID] = mids.map(m => generateFileID(m, withChecksum)).toSet
+
+  /**
+    * Returns a set with the ''MediaFileID'' objects for all test media.
+    *
+    * @param withChecksum flag whether a checksum is to be generated
+    * @return the set with test ''MediaFileID'' objects
+    */
+  private def testFileIDs(withChecksum: Boolean = true): Set[MediaFileID] =
+    MediaIDs.map(m => generateFileID(m, withChecksum)).toSet
 
   /**
     * Convenience method to execute a ''State'' object to produce the updated
@@ -102,6 +147,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
     state.componentID shouldBe 'empty
     state.referencedMediaIDs shouldBe 'empty
     state.availableMediaIDs shouldBe 'empty
+    state.availableChecksums shouldBe 'empty
     state.messages shouldBe 'empty
   }
 
@@ -129,7 +175,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(TestPlaylist,
       callback), ActiveState)
     next.loadedPlaylist shouldBe Some(TestPlaylist)
-    next.referencedMediaIDs.get should contain only (MediaIDs: _*)
+    next.referencedMediaIDs.get should contain only (testFileIDs(withChecksum = false).toSeq: _*)
     next.messages should contain only AudioPlayerStateChangeRegistration(TestComponent, callback)
   }
 
@@ -145,6 +191,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av))
     next.availableMediaIDs should contain only (MediaIDs: _*)
+    next.availableChecksums should contain only (testChecksumSeq: _*)
   }
 
   it should "activate the playlist when it arrives and all media are available" in {
@@ -157,8 +204,19 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
     next.messages should contain(TestPlaylist)
   }
 
+  it should "activate the playlist when it arrives and the checksum set can be matched" in {
+    val Checksum = "testChecksum"
+    val playlist = SetPlaylist(generatePlaylistWithChecksum(5, 0, Checksum))
+    val state = ActiveState.copy(availableChecksums = Set(Checksum))
+
+    val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(playlist,
+      createCallback()), state)
+    next.messages should have size 2
+    next.messages should contain(playlist)
+  }
+
   it should "activate the playlist when all referenced media become available" in {
-    val state = ActiveState.copy(referencedMediaIDs = Some(MediaIDs.drop(1).toSet),
+    val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))),
       loadedPlaylist = Some(TestPlaylist))
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
@@ -168,9 +226,33 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
     next.availableMediaIDs shouldBe 'empty
   }
 
+  it should "activate the playlist when the checksum set can be matched" in {
+    val av = createAvailableMedia(Seq(MediumID("someUri", Some("settings"))))
+    val Checksum = av.media.values.head.checksum
+    val fileID = MediaFileID(MediumID("otherUri", Some("other_settings")), null, Some(Checksum))
+    val state = ActiveState.copy(referencedMediaIDs = Some(Set(fileID)),
+      loadedPlaylist = Some(TestPlaylist))
+
+    val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
+      .availableMediaArrived(av), state)
+    next.messages should contain only TestPlaylist
+  }
+
   it should "not activate the playlist before all media are available" in {
-    val state = ActiveState.copy(referencedMediaIDs = Some(MediaIDs.toSet),
-      availableMediaIDs = Set(MediaIDs.head), loadedPlaylist = Some(TestPlaylist))
+    val state = ActiveState.copy(referencedMediaIDs = Some(testFileIDs()),
+      availableMediaIDs = Set(MediaIDs.head), loadedPlaylist = Some(TestPlaylist),
+      availableChecksums = Set(testChecksumSeq.head))
+    val av = createAvailableMedia(MediaIDs take 2)
+
+    val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av),
+      state)
+    next.messages shouldBe 'empty
+    next.availableMediaIDs shouldBe 'empty
+  }
+
+  it should "not activate the playlist if there is no checksum to match against" in {
+    val state = ActiveState.copy(referencedMediaIDs = Some(testFileIDs(withChecksum = false)),
+      loadedPlaylist = Some(TestPlaylist))
     val av = createAvailableMedia(MediaIDs take 2)
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av),
@@ -180,7 +262,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
   }
 
   it should "handle a state with referenced IDs, but no playlist gracefully" in {
-    val state = ActiveState.copy(referencedMediaIDs = Some(MediaIDs.drop(1).toSet))
+    val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))))
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
       .availableMediaArrived(createAvailableMedia(MediaIDs)), state)
@@ -222,7 +304,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
   }
 
   it should "handle the arrival of new available media" in {
-    val state = ActiveState.copy(referencedMediaIDs = Some(MediaIDs.drop(1).toSet),
+    val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))),
       loadedPlaylist = Some(TestPlaylist))
 
     val (next, msg) = updateState(PersistentPlaylistStateUpdateServiceImpl

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent, SetPlaylist}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
 import scalaz.State
 import scalaz.State._
 
@@ -34,12 +34,15 @@ import scalaz.State._
   *                           playlist
   * @param availableMediaIDs  a set with the IDs of media that are currently
   *                           available in the archive
+  * @param availableChecksums a set with checksum strings for the media that
+  *                           are currently available in the archive
   * @param messages           messages to be published on the bus
   */
 case class PersistentPlaylistState(componentID: Option[ComponentID],
                                    loadedPlaylist: Option[SetPlaylist],
-                                   referencedMediaIDs: Option[Set[MediumID]],
+                                   referencedMediaIDs: Option[Set[MediaFileID]],
                                    availableMediaIDs: Set[MediumID],
+                                   availableChecksums: Set[String],
                                    messages: List[Any])
 
 /**
@@ -147,7 +150,8 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
     */
   val InitialState: PersistentPlaylistState =
     PersistentPlaylistState(componentID = None, loadedPlaylist = None,
-      referencedMediaIDs = None, availableMediaIDs = Set.empty, messages = Nil)
+      referencedMediaIDs = None, availableMediaIDs = Set.empty, availableChecksums = Set.empty,
+      messages = Nil)
 
   override def activate(compID: ComponentID, callback: ConsumerSupport
   .ConsumerFunction[AvailableMedia]): PersistentPlaylistStateUpdateServiceImpl
@@ -172,9 +176,9 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
   .StateUpdate[Unit] = modify { s =>
     s.componentID map { cid =>
       val messages = AudioPlayerStateChangeRegistration(cid, callback) :: s.messages
-      val referencedMediaIDs = PlaylistService.toSongList(playlist.playlist)
-        .foldLeft(Set.empty[MediumID])(_ + _.mediumID)
-      val playlistActive = canActivatePlaylist(referencedMediaIDs, s.availableMediaIDs)
+      val referencedMediaIDs = extractReferencedMedia(playlist)
+      val playlistActive = canActivatePlaylist(referencedMediaIDs, s.availableMediaIDs,
+        s.availableChecksums)
       val finalMessages = if (playlistActive) playlist :: messages else messages
       s.copy(loadedPlaylist = Some(playlist),
         referencedMediaIDs = if (playlistActive) None else Some(referencedMediaIDs),
@@ -186,14 +190,15 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
     s.loadedPlaylist match {
       case Some(pl) =>
         val playlistActive = s.referencedMediaIDs.exists(m =>
-          canActivatePlaylist(m, av.media.keySet))
+          canActivatePlaylist(m, av.media.keySet, extractChecksumSet(av)))
         if (playlistActive)
           s.copy(messages = pl :: s.messages,
             availableMediaIDs = Set.empty, referencedMediaIDs = None)
         else s.copy(availableMediaIDs = Set.empty)
 
       case None =>
-        s.copy(availableMediaIDs = av.media.keySet)
+        s.copy(availableMediaIDs = av.media.keySet,
+          availableChecksums = extractChecksumSet(av))
     }
   }
 
@@ -203,13 +208,39 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
 
   /**
     * Checks whether all media referenced by the playlist are actually
-    * available.
+    * available. For each referenced medium either the medium ID or its
+    * checksum must be available.
     *
     * @param referencedMediaIDs the collection of referenced media
     * @param availableMediaIDs  the set with available media IDs
+    * @param availableChecksums the set with available checksum strings
     * @return a flag whether all referenced media are available
     */
-  private def canActivatePlaylist(referencedMediaIDs: Iterable[MediumID],
-                                  availableMediaIDs: Set[MediumID]): Boolean =
-    referencedMediaIDs forall availableMediaIDs.contains
+  private def canActivatePlaylist(referencedMediaIDs: Iterable[MediaFileID],
+                                  availableMediaIDs: Set[MediumID],
+                                  availableChecksums: Set[String]): Boolean =
+    referencedMediaIDs forall { fid =>
+      availableMediaIDs.contains(fid.mediumID) ||
+        fid.checksum.exists(availableChecksums.contains)
+    }
+
+  /**
+    * Extracts a set with ''MediaFileID'' objects representing the media that
+    * are referenced by the current playlist. For this purpose, only the medium
+    * ID and the checksum are relevant.
+    *
+    * @param playlist the playlist
+    * @return a set with referenced media IDs
+    */
+  private def extractReferencedMedia(playlist: SetPlaylist): Set[MediaFileID] =
+    PlaylistService.toSongList(playlist.playlist).map(_.copy(uri = null)).toSet
+
+  /**
+    * Extracts a set with checksum strings from the available media object.
+    *
+    * @param av the ''AvailableMedia''
+    * @return the resulting set
+    */
+  private def extractChecksumSet(av: AvailableMedia): Set[String] =
+    av.media.values.map(_.checksum).toSet
 }
