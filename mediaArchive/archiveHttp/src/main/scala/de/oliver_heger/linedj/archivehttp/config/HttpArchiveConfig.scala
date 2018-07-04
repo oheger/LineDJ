@@ -22,6 +22,7 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
+import de.oliver_heger.linedj.archivehttp.impl.io.UriUtils
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
@@ -355,4 +356,10 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              downloadReadChunkSize: Int,
                              timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
-                             mappingConfig: UriMappingConfig)
+                             mappingConfig: UriMappingConfig) {
+  /**
+    * A sequence with the single components of the archive URI. This is needed
+    * when constructing relative URIs for songs contained in the archive.
+    */
+  val archiveUriComponents: Seq[String] = UriUtils.uriComponents(archiveURI)
+}

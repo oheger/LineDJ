@@ -29,7 +29,7 @@ import scala.util.{Failure, Success, Try}
 
 object HttpArchiveConfigSpec {
   /** The URI to the HTTP archive. */
-  private val ArchiveUri = "https://music.archive.org/content.json"
+  private val ArchiveUri = "https://music.archive.org/music/test/content.json"
 
   /** An object with test user credentials. */
   private val Credentials = UserCredentials("scott", "tiger")
@@ -204,12 +204,23 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "derive the archive name from the URI" in {
-    checkArchiveName("music_archive_org_content")
+    checkArchiveName("music_archive_org_music_test_content")
   }
 
   it should "handle an archive name if the URI has no extension" in {
     checkArchiveName(uri = "http://archive.org/foo/bar/index",
       expName = "archive_org_foo_bar_index")
+  }
+
+  it should "return a sequence with the components of the archive URI" in {
+    val config = HttpArchiveConfig(createConfiguration(), Prefix, Credentials, DownloadData)
+    config match {
+      case Success(c) =>
+        c.archiveUriComponents should contain theSameElementsInOrderAs Seq("music", "test",
+          "content.json")
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
   }
 
   it should "set a default processor count if unspecified" in {
