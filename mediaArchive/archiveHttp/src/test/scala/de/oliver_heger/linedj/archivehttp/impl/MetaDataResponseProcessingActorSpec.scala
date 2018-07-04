@@ -42,17 +42,26 @@ import scala.concurrent.duration._
 import scala.util.{Success, Try}
 
 object MetaDataResponseProcessingActorSpec {
+  /** Path prefix for the test online archive. */
+  private val ArchivePath = "/test/music"
+
+  /** The relative path to the test medium. */
+  private val MediumPath = "medium"
+
+  /** The path to the test songs. */
+  private val SongPath = "/artist/album"
+
   /** Test medium ID. */
-  private val TestMediumID = MediumID("testMedium", Some("test.settings"),
-    "HTTPArchive")
+  private val TestMediumID = MediumID("testMedium",
+    Some(s"$ArchivePath/$MediumPath/test.settings"), "HTTPArchive")
 
   /** A test mapping configuration. */
   private val MappingConfig = UriMappingConfig(removePrefix = "audio://",
-    pathSeparator = null, urlEncode = false, uriTemplate = "/test/${uri}",
-    removeComponents = 0)
+    pathSeparator = null, urlEncode = false, uriTemplate = "${medium}/${uri}",
+    removeComponents = 1)
 
   /** Test configuration for the archive. */
-  private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
+  private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc" + ArchivePath),
     "Test", UserCredentials("scott", "tiger"), processorCount = 3,
     processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
@@ -69,13 +78,13 @@ object MetaDataResponseProcessingActorSpec {
     * @return the new URI
     */
   private def createUri(idx: Int, mapped: Boolean): String =
-    if (mapped) s"/test/song$idx.mp3"
-    else s"audio://song$idx.mp3"
+    if (mapped) s"$MediumPath$SongPath/song$idx.mp3"
+    else s"audio://test$SongPath/song$idx.mp3"
 
   /**
     * Creates a meta data processing result object for the specified index.
     *
-    * @param idx the index
+    * @param idx    the index
     * @param mapped flag whether the URI should be mapped
     * @return the test processing result
     */
