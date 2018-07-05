@@ -37,7 +37,7 @@ import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -48,7 +48,10 @@ object HttpDownloadManagementActorSpec {
   private val ArchiveUri = "https://my.cool.music.archive.io/cool/music.json"
 
   /** The URI of a test file to be downloaded. */
-  private val DownloadUri = "https://my.cool.music.archive.io/cool/medium/song.mp3"
+  private val DownloadUri = "medium/song.mp3"
+
+  /** The expected resolved URI for downloading a test song. */
+  private val ResolvedDownloadUri = Uri("/cool/medium/song.mp3")
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
@@ -414,7 +417,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
             Credentials.password)))
           data.request should be(expectedRequest)
           data.client should be(testActor)
-          request.uri should be(Uri(data.request.fileID.uri))
+          request.uri should be(ResolvedDownloadUri)
           optArchiveResponse match {
             case Some(response) =>
               Future((response, data))
