@@ -27,27 +27,22 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 /**
   * A data class representing an URI for the global undefined medium split
   * into its single components.
-  * @param mediumURI the URI of the medium
+  *
+  * @param mediumURI   the URI of the medium
   * @param componentID the ID of the archive component responsible for the
   *                    represented file
-  * @param path the path local to the archive component (without the path
-  *             prefix)
+  * @param path        the path URI local to the archive component (without the path
+  *                    prefix and still URI encoded)
   */
-case class UndefinedMediumUri(mediumURI: String, componentID: String, path: String) {
-  /**
-    * The URI to the referenced file, local to the archive component. This is
-    * the ''path'' prefixed with the ''PathPrefix''
-    */
-  lazy val pathUri: String = MediaFileUriHandler.PrefixPath + path
-}
+case class UndefinedMediumUri(mediumURI: String, componentID: String, path: String)
 
 /**
   * A class which is responsible for the handling of the URIs for media files.
   *
   * An archive component typically accesses media files directly by using their
   * absolute ''Path'' objects. When information about media files is passed to
-  * clients these paths are converted to URIs. Clients request media files
-  * in terms of their URIs; so there has to be a bidirectional conversion
+  * clients these paths are converted to relative URIs. Clients request media
+  * files in terms of their URIs; so there has to be a bidirectional conversion
   * between paths and URIs. This class is responsible for this.
   *
   * Situation is a bit more complicated because of the global list of files
@@ -84,7 +79,9 @@ object MediaFileUriHandler {
     * @return the generated URI for this file
     */
   def generateMediaFileUri(mediumRoot: Path, path: Path): String =
-    PrefixPath + mediumRoot.relativize(path).toString.replace('\\', '/')
+    urlEncode(mediumRoot.relativize(path).toString)
+      .replace("%2F", "/")
+      .replace("%5C", "/")
 
   /**
     * Generates a URI to be used for the global undefined medium list that
@@ -97,8 +94,10 @@ object MediaFileUriHandler {
     * @param pathURI  the URI in terms of the owning medium
     * @return the generated URI referencing this file
     */
-  def generateUndefinedMediumUri(mediumID: MediumID, pathURI: String): String =
-    PrefixReference + encodeMediumID(mediumID) + UriSeparator + pathURI
+  def generateUndefinedMediumUri(mediumID: MediumID, pathURI: String): String = {
+    val uriWithPrefix = if (pathURI startsWith PrefixPath) pathURI else PrefixPath + pathURI
+    PrefixReference + encodeMediumID(mediumID) + UriSeparator + uriWithPrefix
+  }
 
   /**
     * Removes the prefix (indicating the URI type) from the given URI. This is
@@ -125,7 +124,7 @@ object MediaFileUriHandler {
   def extractRefUri(refUri: String): Option[UndefinedMediumUri] =
     refUri match {
       case RegExUndefinedMediumUri(medUri, compID, path) =>
-        Some(UndefinedMediumUri(medUri, decodeComponentID(compID), path))
+        Some(UndefinedMediumUri(medUri, urlDecode(compID), path))
       case _ => None
     }
 
@@ -150,6 +149,22 @@ object MediaFileUriHandler {
   }
 
   /**
+    * Tries to find the ID for the specific undefined medium (with a valid
+    * archive component ID) the provided URI belongs to. This function can be
+    * used to map a song from the global undefined medium to the archive
+    * component that hosts it.
+    *
+    * @param refUri    the reference URI to be mapped
+    * @param mediaData a collection with all media IDs available
+    * @return an option with the resolved ''MediumID''
+    */
+  def findSpecificUndefinedMedium(refUri: String, mediaData: Iterable[MediumID]):
+  Option[MediumID] = for {
+    extractedUri <- extractRefUri(refUri)
+    mid <- findMediumForUri(mediaData, extractedUri)
+  } yield mid
+
+  /**
     * Resolves a URI pointing to a file in the global undefined medium list. In
     * this case the actual target medium and the path URI are extracted from
     * the reference URI.
@@ -162,20 +177,20 @@ object MediaFileUriHandler {
   Option[FileData] =
     for {
       extractedUri <- extractRefUri(uri)
-      referencedMedium <- findMediumForUri(mediaData, extractedUri)
-      data <- resolvePathUri(referencedMedium, extractedUri.pathUri, mediaData)
+      referencedMedium <- findMediumForUri(mediaData.keys, extractedUri)
+      data <- resolvePathUri(referencedMedium, extractedUri.path, mediaData)
     } yield data
 
   /**
     * Tries to match the medium ID for the specified ''UndefinedMediumUri''.
     *
-    * @param mediaData    the map with data about available media
+    * @param mediaData    a collection with the IDs of the media available
     * @param undefinedUri the ''UndefinedMediumUri''
     * @return an option with the matched ''MediumID''
     */
-  private def findMediumForUri(mediaData: Map[MediumID, Map[String, FileData]],
+  private def findMediumForUri(mediaData: Iterable[MediumID],
                                undefinedUri: UndefinedMediumUri): Option[MediumID] =
-    mediaData.keys.find { m =>
+    mediaData.find { m =>
       m.mediumURI == undefinedUri.mediumURI &&
         m.archiveComponentID == undefinedUri.componentID
     }
@@ -189,7 +204,7 @@ object MediaFileUriHandler {
     * @return the encoded ''MediumID''
     */
   private def encodeMediumID(mid: MediumID): String =
-    mid.mediumURI + UriSeparator + encodeComponentID(mid.archiveComponentID)
+    mid.mediumURI + UriSeparator + urlEncode(mid.archiveComponentID)
 
   /**
     * Resolves a URI pointing to a file belonging to a defined medium. In this
@@ -206,20 +221,23 @@ object MediaFileUriHandler {
     mediaData.get(mediumID).flatMap(_.get(uri))
 
   /**
-    * Encodes an archive component ID so that it can be referenced in a URI.
+    * Performs URL encoding on the specified URI string by handling special
+    * characters now allowed in URIs. Note that the '+' character produced by
+    * ''URLEncoder'' for whitespace is replaced by the code ''%20''.
     *
-    * @param compID the component ID to be encoded
-    * @return the encoded component ID
+    * @param uri the URI string to be encoded
+    * @return the encoded URI
     */
-  private def encodeComponentID(compID: String): String =
-    URLEncoder.encode(compID, StandardCharsets.UTF_8.name())
+  private def urlEncode(uri: String): String =
+    URLEncoder.encode(uri, StandardCharsets.UTF_8.name())
+      .replace("+", "%20")
 
   /**
-    * Decodes an archive component ID extracted from a URI.
+    * Decodes an URI.
     *
-    * @param compID the encoded component ID
-    * @return the decoded component ID
+    * @param uri the URI in encoded form
+    * @return the decoded URI
     */
-  private def decodeComponentID(compID: String): String =
-    URLDecoder.decode(compID, StandardCharsets.UTF_8.name())
+  private def urlDecode(uri: String): String =
+    URLDecoder.decode(uri, StandardCharsets.UTF_8.name())
 }
