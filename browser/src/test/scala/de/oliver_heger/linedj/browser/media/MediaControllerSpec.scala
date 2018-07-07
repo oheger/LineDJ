@@ -31,6 +31,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.Avai
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model._
@@ -64,6 +65,9 @@ object MediaControllerSpec {
 
   /** The name for the undefined medium. */
   private val UndefinedMediumName = "The undefined medium!"
+
+  /** URI for a specific undefined medium. */
+  private val UndefinedMediumUri = "anUndefinedMedium"
 
   /** The message with the available media. */
   private val AvailableMediaMsg = createAvailableMediaMsg()
@@ -121,7 +125,16 @@ object MediaControllerSpec {
    * @param s the string
    * @return the string in upper case
    */
-  private def toUpper(s: String): String = s toUpperCase Locale.ENGLISH
+  private def toUpper(s: String): String = s toUpperCase Locale.ROOT
+
+  /**
+    * Generates the name of a test archive component based on the medium root
+    * URI.
+    *
+    * @param mediumUri the medium URI
+    * @return the test archive component name
+    */
+  private def archiveComponentName(mediumUri: String): String = "archive_component_" + mediumUri
 
   /**
    * Creates a medium info object with dummy property values for the specified
@@ -139,7 +152,7 @@ object MediaControllerSpec {
    * @return the undefined medium info
    */
   private def undefinedMediumInfo(uri: String): MediumInfo =
-    undefinedMediumInfo(MediumID(uri, None))
+    undefinedMediumInfo(MediumID(uri, None, archiveComponentName(uri)))
 
   /**
    * Generates a mapping for a medium info object.
@@ -157,8 +170,8 @@ object MediaControllerSpec {
     val definedMappings = MediaNames map { m =>
       (mediumID(m), mediumInfo(m))
     }
-    val undefinedMappings = List(infoMapping(undefinedMediumInfo("someURI")), infoMapping
-      (undefinedMediumInfo("anotherURI")))
+    val undefinedMappings = List(infoMapping(undefinedMediumInfo(UndefinedMediumUri)), infoMapping
+      (undefinedMediumInfo("anotherUndefinedURI")))
     val mappings = Random.shuffle(List(definedMappings, undefinedMappings).flatten)
     AvailableMedia(Map(mappings: _*))
   }
@@ -755,6 +768,62 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     helper.verifyAction("addArtistAction", enabled = false)
     helper.verifyAction("addAlbumAction", enabled = false)
     helper.verifyAction("addSongsAction", enabled = false)
+  }
+
+  it should "create correct songs for the undefined medium" in {
+    val songName = Songs1.head
+    val songUri = "somePath/" + songName + ".mp3"
+    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
+      archiveComponentName(UndefinedMediumUri) + ":" + MediaFileUriHandler.PrefixPath + songUri
+    val songFileID = MediaFileID(MediumID.UndefinedMediumID, refUri)
+    val song = SongData(songFileID, MediaMetaData(title = Some(songName), artist = Some(Artist1),
+      album = Some(Album1)), songName, Artist1, Album1)
+    val helper = new MediaControllerTestHelper
+    helper.sendDefaultAvailableMedia()
+    helper selectMediumAndSendMeta createChunk(mediumID = MediumID.UndefinedMediumID,
+      complete = true, songs = Seq(song))
+
+    val songs = helper.controller.songsForSelectedMedium
+    songs should have size 1
+    val selSong = songs.head
+    selSong.id.mediumID should be(MediumID(UndefinedMediumUri, None,
+      archiveComponentName(UndefinedMediumUri)))
+    selSong.id.uri should be(songUri)
+  }
+
+  /**
+    * Checks whether failures when resolving a song from the undefined medium
+    * are handled correctly.
+    *
+    * @param uri the ref URI of the song to test with
+    */
+  private def checkFailedResolvingOfUndefMedium(uri: String): Unit = {
+    val songFileID = MediaFileID(MediumID.UndefinedMediumID, uri)
+    val song = SongData(songFileID, MediaMetaData(title = Some(uri), artist = Some(Artist1),
+      album = Some(Album1)), uri, Artist1, Album1)
+    val helper = new MediaControllerTestHelper
+    helper.sendDefaultAvailableMedia()
+    helper selectMediumAndSendMeta createChunk(mediumID = MediumID.UndefinedMediumID,
+      complete = true, songs = Seq(song))
+
+    val songs = helper.controller.songsForSelectedMedium
+    songs should have size 1
+    val selSong = songs.head
+    selSong.id.mediumID should be(MediumID.UndefinedMediumID)
+    selSong.id.uri should be(uri)
+  }
+
+  it should "handle an invalid ref URI for a song from the undefined medium" in {
+    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
+      archiveComponentName(UndefinedMediumUri) + ":" + "noValidUri"
+    checkFailedResolvingOfUndefMedium(refUri)
+  }
+
+  it should "handle an unresolvable medium for a song from the undefined medium" in {
+    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
+      archiveComponentName("unknownArchive") + ":" +
+      MediaFileUriHandler.PrefixPath + "test/song.mp3"
+    checkFailedResolvingOfUndefMedium(refUri)
   }
 
   /**

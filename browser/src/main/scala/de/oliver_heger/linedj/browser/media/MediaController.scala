@@ -29,6 +29,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRe
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
+import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
@@ -311,8 +312,29 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     * @param uri the URI
     * @return the ''MediaFileID''
     */
-  private def createFileID(mid: MediumID, uri: String): MediaFileID =
-    MediaFileID(mid, uri, availableMedia.get(mid).map(_.checksum))
+  private def createFileID(mid: MediumID, uri: String): MediaFileID = {
+    val (targetMid, relUri) = resolveUndefinedMediumUri(mid, uri) getOrElse(mid, uri)
+    MediaFileID(targetMid, relUri, availableMedia.get(mid).map(_.checksum))
+  }
+
+  /**
+    * Tries to resolve the correct medium for the specified song URI. This
+    * function deals with songs from the global undefined medium. In order to
+    * resolve them correctly, they have to be mapped to the specific undefined
+    * medium of the archive component that hosts them. To do this, the function
+    * iterates over the available media to find the correct medium ID and also
+    * generates a suitable relative URI. This may fail for invalid URIs or
+    * non-existing media.
+    *
+    * @param mid the medium ID
+    * @param uri the URI of the song
+    * @return an option with a tuple of the resolved medium ID and relative URI
+    */
+  private def resolveUndefinedMediumUri(mid: MediumID, uri: String): Option[(MediumID, String)] =
+    (for {
+      targetMid <- MediaFileUriHandler.findSpecificUndefinedMedium(uri, availableMedia.keys)
+      relUri <- MediaFileUriHandler.extractRefUri(uri)
+    } yield (targetMid, relUri)).map(t => (t._1, t._2.path))
 
   /**
    * Checks whether a new chunk of meta data has an impact on the data
