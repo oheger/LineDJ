@@ -24,32 +24,41 @@ import org.scalatest.{FlatSpec, Matchers}
   */
 class UriUtilsSpec extends FlatSpec with Matchers {
   "UriUtils" should "split a URI into path components" in {
-    val uri = Uri("https://my.online-music.org/music/test/data.json")
+    val uri = Uri("https://my.online-music.org/my%20music/test/data.json")
 
-    val components = UriUtils.uriComponents(uri)
-    components should contain theSameElementsInOrderAs Seq("music", "test", "data.json")
+    val components = UriUtils.uriComponents(uri.toString())
+    components should contain theSameElementsInOrderAs Seq("my%20music", "test", "data.json")
   }
 
   it should "correctly split a relative URI" in {
-    val uri = Uri("/this/is/a/relative/test/uri.html")
+    val uri = "/this/is/a/relative/test/uri.html"
 
     val components = UriUtils.uriComponents(uri)
     components should contain theSameElementsInOrderAs Seq("this", "is", "a", "relative",
       "test", "uri.html")
   }
 
+  it should "split a complex URI with escaped characters into path components" in {
+    val uri = "TangerineDream2/2%20-%20Purgatorio%20CD%201%20%282004%29/" +
+      "01%20-%20Tangerine%20Dream%20-%20%20Above%20the%20Great%20Dry%20Land.mp3"
+
+    val components = UriUtils.uriComponents(uri)
+    components should contain theSameElementsInOrderAs Seq("TangerineDream2",
+      "2%20-%20Purgatorio%20CD%201%20%282004%29",
+      "01%20-%20Tangerine%20Dream%20-%20%20Above%20the%20Great%20Dry%20Land.mp3")
+  }
+
   it should "create a relative URI if there is no common prefix with base components" in {
     val base = Seq("base", "path", "content.json")
-    val uriStr = "/other/path/index.html"
-    val uri = Uri(uriStr)
+    val uri = "/other/path/index.html"
 
     val relUri = UriUtils.relativeUri(base, uri)
-    relUri should be(uriStr drop 1)
+    relUri should be(uri drop 1)
   }
 
   it should "create a relative URI against a base URI that starts with a slash" in {
     val base = Seq("music", "test-archive", "content.json")
-    val uri = Uri("/music/test-archive/medium/artist/album/song.mp3")
+    val uri = "/music/test-archive/medium/artist/album/song.mp3"
 
     val relUri = UriUtils.relativeUri(base, uri)
     relUri should be("medium/artist/album/song.mp3")
@@ -57,7 +66,7 @@ class UriUtilsSpec extends FlatSpec with Matchers {
 
   it should "create a relative URI against a base URI that does not start with a slash" in {
     val base = Seq("music", "test-archive", "content.json")
-    val uri = Uri("music/test-archive/medium/artist/album/song.mp3")
+    val uri = "music/test-archive/medium/artist/album/song.mp3"
 
     val relUri = UriUtils.relativeUri(base, uri)
     relUri should be("medium/artist/album/song.mp3")

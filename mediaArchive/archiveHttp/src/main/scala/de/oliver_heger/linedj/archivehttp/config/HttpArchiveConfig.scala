@@ -361,5 +361,5 @@ case class HttpArchiveConfig(archiveURI: Uri,
     * A sequence with the single components of the archive URI. This is needed
     * when constructing relative URIs for songs contained in the archive.
     */
-  val archiveUriComponents: Seq[String] = UriUtils.uriComponents(archiveURI)
+  val archiveUriComponents: Seq[String] = UriUtils.uriComponents(archiveURI.toString())
 }

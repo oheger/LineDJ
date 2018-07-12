@@ -22,14 +22,24 @@ import akka.http.scaladsl.model.Uri
   * A class providing utility functions related to URI handling.
   */
 object UriUtils {
+  /** The character sequence that separates the scheme from the host. */
+  private val SchemeSeparator = "://"
+
+  /**
+    * A character sequence that replaces the scheme separator, so that it is
+    * not affected by a split operation and can be detected.
+    */
+  private val SchemeReplacement = ":::"
+
   /**
     * Splits the specified URI into its path components.
     *
     * @param uri the URI
     * @return a sequence with the single path components
     */
-  def uriComponents(uri: Uri): Seq[String] =
-    uri.path.toString().split("/").dropWhile(_.length < 1)
+  def uriComponents(uri: String): Seq[String] =
+    uri.replace(SchemeSeparator, SchemeReplacement)
+      .split("(^[:/])?/").dropWhile(s => s.length < 1 || s.contains(SchemeReplacement))
 
   /**
     * Calculates a URI based on the given one that is relative to the
@@ -41,7 +51,7 @@ object UriUtils {
     * @param uri            the URI in question
     * @return a string with the URI relative to the base components
     */
-  def relativeUri(baseComponents: Seq[String], uri: Uri): String = {
+  def relativeUri(baseComponents: Seq[String], uri: String): String = {
     val components = uriComponents(uri)
     baseComponents.zipAll(components, "", "")
       .dropWhile(t => t._1 == t._2)
