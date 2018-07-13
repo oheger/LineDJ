@@ -26,8 +26,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -322,7 +322,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
                                        requestTimeout: Timeout = MetaDataRequestTimeout):
     ComponentTestHelper = {
       metaDataResolver should not be null
-      metaDataResolver.metaDataActor should be(metaDataManager)
+      metaDataResolver.metaDataActor should be(mediaManager)
       metaDataResolver.bus should be(messageBus)
       metaDataResolver.ec should be(system.dispatcher)
       metaDataResolver.queryChunkSize should be(chunkSize)

@@ -282,7 +282,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   private[impl] def createPlaylistMetaDataResolver(): PlaylistMetaDataResolver = {
     val conf = clientApplicationContext.managementConfiguration
     implicit val ec: ExecutionContextExecutor = clientApplicationContext.actorSystem.dispatcher
-    new PlaylistMetaDataResolver(metaDataActor = mediaFacadeActors.metaDataManager,
+    new PlaylistMetaDataResolver(metaDataActor = mediaFacadeActors.mediaManager,
       bus = clientApplicationContext.messageBus,
       queryChunkSize = conf.getInt(PropMetaDataQueryChunkSize, DefaultMetaDataQueryChunkSize),
       cacheSize = conf.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize),
