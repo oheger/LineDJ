@@ -20,6 +20,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.GetFilesMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -84,6 +85,20 @@ object MediaUnionActor {
   *  - If a controller actor dies, all data contributed by this archive
   * component is removed from the union archive.
   *
+  * Media typically are assigned a unique checksum (a hash value). When
+  * requesting data from this actor (media files or meta data) such a checksum
+  * can be specified. If this is done, the checksum has precedence over the
+  * ''MediumID'' in the request. This is useful when media can be provided by
+  * different archive components; as the checksum is independent from an
+  * archive component, the correct medium can be identified, no matter which
+  * concrete archive component owns it. To enable this independence of concrete
+  * archive components for meta data requests as well, this actor supports
+  * messages of type [[GetFilesMetaData]]. These messages are forwarded to the
+  * meta data union actor after an attempt was made to map the referenced media
+  * based on checksum values. (''GetFilesMetaData'' messages can also be sent
+  * directly to the meta data union actor, but in this case the checksum is
+  * ignored and media IDs must match directly.)
+  *
   * @param metaDataUnionActor the actor managing the union of meta data
   */
 class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
@@ -116,13 +131,18 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       }
 
     case fileReq: MediumFileRequest =>
-      val mid = fileReq.fileID.checksum flatMap checksumMap.get getOrElse fileReq.fileID.mediumID
+      val mid = resolveMediumID(fileReq.fileID)
       controllerMap.get(mid.archiveComponentID) match {
         case Some(ctrl) =>
           ctrl forward fileReq
         case None =>
           sender ! undefinedMediumFileResponse(fileReq)
       }
+
+    case req@GetFilesMetaData(files, _) =>
+      val adaptedReq = MetaDataUnionActor.GetFilesMetaDataWithMapping(request = req,
+        idMapping = mapMediaIDsInMetaDataRequest(files))
+      metaDataUnionActor forward adaptedReq
 
     case ral: DownloadActorAlive =>
       controllerMap.get(ral.mediumID.archiveComponentID) foreach (_ forward ral)
@@ -150,6 +170,35 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     case CloseComplete =>
       onCloseComplete()
   }
+
+  /**
+    * Resolves a medium ID from a ''MediaFileID'' taking the checksum into
+    * account. If a checksum is specified, and a medium with this checksum
+    * exists, the ID of this medium is returned. Otherwise, the medium ID
+    * contained in the file ID is returned directly.
+    *
+    * @param fileID the ''MediaFileID''
+    * @return the ''MediumID'' referenced by this file ID
+    */
+  private def resolveMediumID(fileID: MediaFileID): MediumID =
+    fileID.checksum flatMap checksumMap.get getOrElse fileID.mediumID
+
+  /**
+    * Maps the media IDs in the specified sequence of ''MediaFileID'' objects
+    * based on the checksum if possible. If a ''MediaFileID'' contains a
+    * checksum, this checksum has precedence over the medium ID. So this method
+    * checks for each file ID whether a checksum is present and whether it
+    * references a different medium. If so, the ''MediaFileID'' is altered;
+    * otherwise, it remains as is.
+    *
+    * @param files the sequence of ''MediaFileID'' objects
+    * @return the sequence with adapted file IDs
+    */
+  private def mapMediaIDsInMetaDataRequest(files: Iterable[MediaFileID]):
+  Map[MediaFileID, MediumID] =
+    files.foldLeft(Map.empty[MediaFileID, MediumID]) { (m, f) =>
+      m + (f -> resolveMediumID(f))
+    }
 
   /**
     * Generates a response for a medium file request which cannot be resolved.

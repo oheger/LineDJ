@@ -24,6 +24,7 @@ import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.GetFilesMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -369,6 +370,29 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! msg
     expectMsg(ForwardTestActor.ForwardedMessage(msg))
+  }
+
+  it should "process and forward a GetFilesMetaData message" in {
+    def fileID(mid: MediumID, checkIdx: Int): MediaFileID =
+      MediaFileID(mid, "someFile", Some(checksum(checkIdx)))
+
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 2))
+    val fileID1 = fileID(mediumID(1, 1), 2)
+    val fileID2 = MediaFileID(mediumID(2, 2), "otherFile")
+    val fileID3 = fileID(mediumID(3, 1), 42)
+    val mappedFile = fileID(mediumID(2, 2), 2)
+    val expMapping = Map(fileID2 -> fileID2.mediumID, fileID3 -> fileID3.mediumID,
+      fileID1 -> mappedFile.mediumID)
+    val request = GetFilesMetaData(Seq(fileID1, fileID2, fileID3), 21)
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap1, 1)
+    helper.addMedia(mediaMap2, 2)
+
+    helper.manager ! request
+    val fwdMsg = helper.metaDataActor.expectMsgType[MetaDataUnionActor.GetFilesMetaDataWithMapping]
+    fwdMsg.request should be(request)
+    fwdMsg.idMapping should be(expMapping)
   }
 
   /**
