@@ -25,6 +25,20 @@ import de.oliver_heger.linedj.shared.archive.union._
 object MetaDataUnionActor {
 
   /**
+    * A message processed by ''MetaDataUnionActor'' that allows an enhanced
+    * request for meta data. This message is handled like a normal
+    * [[GetFilesMetaData]] message, but in addition a mapping of medium IDs is
+    * contained in the message. This mapping is applied to the requested media.
+    * Background is that meta data requests can contain a medium checksum;
+    * this may cause some medium IDs to be changed.
+    *
+    * @param request   the actual request for meta data
+    * @param idMapping the mapping to be applied to ''MediaFileID'' objects
+    */
+  case class GetFilesMetaDataWithMapping(request: GetFilesMetaData,
+                                         idMapping: Map[MediaFileID, MediumID])
+
+  /**
     * An internally used data class to handle removed archive components. Such
     * an event may be processed at a later point in time; therefore, the
     * relevant information has to be stored.
@@ -196,7 +210,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       }
 
     case req: GetFilesMetaData =>
-      sender ! FilesMetaDataResponse(req, resolveFilesMetaData(req))
+      handleFilesMetaDataRequest(req, Map.empty)
+
+    case GetFilesMetaDataWithMapping(request, idMapping) =>
+      handleFilesMetaDataRequest(request, idMapping)
 
     case ArchiveComponentRemoved(archiveCompID) =>
       handleRemovedArchiveComponent(archiveCompID)
@@ -478,14 +495,29 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   }
 
   /**
-    * Handles a request for meta data for files by returning a map with all
-    * meta data that could be resolved.
+    * Handles a request for meta data for files. Sends a response with the
+    * resolved meta data to the caller.
     *
-    * @param req the request
+    * @param req     the request
+    * @param mapping a mapping for medium IDs
+    */
+  private def handleFilesMetaDataRequest(req: GetFilesMetaData,
+                                         mapping: Map[MediaFileID, MediumID]): Unit = {
+    sender ! FilesMetaDataResponse(req, resolveFilesMetaData(req, mapping))
+  }
+
+  /**
+    * Resolves meta data for requested files by querying the data structures
+    * managed by this actor. The mapping for medium IDs is taken into account.
+    *
+    * @param req     the request
+    * @param mapping a mapping for medium IDs
     * @return a map with all meta data that could be resolved
     */
-  private def resolveFilesMetaData(req: GetFilesMetaData): Map[MediaFileID, MediaMetaData] =
+  private def resolveFilesMetaData(req: GetFilesMetaData, mapping: Map[MediaFileID, MediumID]):
+  Map[MediaFileID, MediaMetaData] =
     req.files.flatMap { f =>
-      mediaMap.get(f.mediumID).flatMap(_.metaDataFor(f.uri)).map((f, _))
+      val mid = mapping.getOrElse(f, f.mediumID)
+      mediaMap.get(mid).flatMap(_.metaDataFor(f.uri)).map((f, _))
     }.toMap
 }

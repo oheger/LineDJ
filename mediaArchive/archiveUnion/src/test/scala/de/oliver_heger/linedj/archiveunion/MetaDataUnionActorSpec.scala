@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanA
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
@@ -258,7 +258,8 @@ object MetaDataUnionActorSpec {
 /**
   * Test class for ''MetaDataUnionActor''.
   */
-class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   import MetaDataUnionActorSpec._
 
   def this() = this(ActorSystem("MetaDataUnionActorSpec"))
@@ -933,6 +934,26 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val id = MediaFileID(mid, uriFor(p))
       resp.data(id) should be(metaDataFor(p))
     }
+  }
+
+  it should "handle a request for file meta data with a medium mapping" in {
+    val mid = MediaIDs(1)
+    val midMapped = MediumID("otherMedium", Some("other"), "other")
+    val files = Contribution.files(mid)
+    val reqFile1 = MediaFileID(mid, uriFor(Paths get files.head.path))
+    val fileMapped = files.drop(1).head
+    val reqFile2 = MediaFileID(midMapped, uriFor(Paths get fileMapped.path))
+    val request = MetaDataUnionActor.GetFilesMetaDataWithMapping(GetFilesMetaData(seqNo = 11,
+      files = Seq(reqFile1, reqFile2)), Map(reqFile2 -> mid))
+    val helper = new MetaDataUnionActorTestHelper
+    helper.sendContribution()
+      .sendProcessingResults(mid, files)
+
+    helper.actor ! request
+    val resp = expectMsgType[FilesMetaDataResponse]
+    resp.request should be(request.request)
+    resp.data.keys should contain only(reqFile1, reqFile2)
+    resp.data(reqFile2) should be(metaDataFor(path(fileMapped.path)))
   }
 
   /**
