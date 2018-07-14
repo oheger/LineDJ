@@ -51,6 +51,29 @@ case object MetaDataScanStarted extends MetaDataStateEvent
 case object MetaDataScanCompleted extends MetaDataStateEvent
 
 /**
+  * A meta data state event indicating that now updates of the meta data in
+  * the archive are in progress.
+  *
+  * This event can wrap multiple scan operations (reported by a series of
+  * [[MetaDataScanStarted]] and [[MetaDataScanCompleted]] events). An archive
+  * component that is going to add meta data to the archive typically triggers
+  * multiple scan operations yielding partial results. Event listeners not
+  * interested in those partial results can focus on this event (and its
+  * counterpart) to only get notified at the very beginning and the end of the
+  * operation.
+  */
+case object MetaDataUpdateInProgress extends MetaDataStateEvent
+
+/**
+  * A meta data state event indicating that now all updates of meta data in
+  * the archive are done.
+  *
+  * This event corresponds to [[MetaDataUpdateInProgress]] and reports the
+  * end of an operation that updates meta data in the archive.
+  */
+case object MetaDataUpdateCompleted extends MetaDataStateEvent
+
+/**
   * A meta data state event indicating that a scan operation has been
   * canceled.
   *
