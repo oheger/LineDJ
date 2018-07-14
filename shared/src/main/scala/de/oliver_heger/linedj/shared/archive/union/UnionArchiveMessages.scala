@@ -53,6 +53,36 @@ case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
 case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
 
 /**
+  * A message processed by the meta data union actor announcing that a meta
+  * data update operation is going to start.
+  *
+  * Clients of the union archive should send a message of this type before they
+  * collect meta data results and pass them to the archive (using messages like
+  * [[AddMedia]] or [[MediaContribution]]). This ensures that the archive's
+  * update in progress state can be updated correctly.
+  *
+  * The message contains an optional reference to the processor actor
+  * responsible for the update. A value of ''None'' means that the sender of
+  * this message is the processor actor.
+  *
+  * @param processor an option for the responsible processor actor
+  */
+case class UpdateOperationStarts(processor: Option[ActorRef])
+
+/**
+  * A message processed by the meta data union actor indicating that a
+  * processor actor has completed updates of meta data in the archive.
+  *
+  * This message is the counterpart of [[UpdateOperationStarts]]. It should be
+  * sent by an archive component after all meta data has been added to the
+  * archive. Again, the actor responsible for the update operation can be
+  * either specified explicitly or the sender of the message is used.
+  *
+  * @param processor an option for the responsible processor actor
+  */
+case class UpdateOperationCompleted(processor: Option[ActorRef])
+
+/**
   * A trait describing the result of a meta data processing operation.
   *
   * A result consists of some meta information about the file that was subject
