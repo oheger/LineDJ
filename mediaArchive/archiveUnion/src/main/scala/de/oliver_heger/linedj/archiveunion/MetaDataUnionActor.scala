@@ -72,11 +72,17 @@ object MetaDataUnionActor {
   * components of the media archive. In order to contribute meta data, an
   * archive component has to do the following interactions with this actor:
   *
+  *  - At the beginning of the interaction an [[UpdateOperationStarts]] message
+  * has to be sent to announce that now meta data will be added.
   *  - A [[MediaContribution]] message has to be sent listing all media and
   * files a component wants to contribute.
   *  - For each file part of the contribution a [[MetaDataProcessingSuccess]]
   * message has to be sent.
-  * - When data owned by a component becomes invalid and should be replaced
+  *  - These two steps can be repeated, e.g. for multiple media managed by the
+  * archive component.
+  *  - When the component will send no more contributions, it should announce
+  * this by sending a [[UpdateOperationCompleted]] message.
+  *  - When data owned by a component becomes invalid and should be replaced
   * with newer information the same steps have to be followed, but an
   * [[ArchiveComponentRemoved]] message should be sent first; this removes
   * all data related to this component. To be sure that the message has been
@@ -126,6 +132,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   /** A set with IDs for media which have already been completed. */
   private var completedMedia = Set.empty[MediumID]
 
+  /** A set with the actors that have an operation in progress. */
+  private var processorActors = Set.empty[ActorRef]
+
   /**
     * Stores information about archive components that have been removed. Such
     * remove operations can only be handled at the end of a scan; therefore,
@@ -149,6 +158,19 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private var currentSize = 0L
 
   override def receive: Receive = {
+    case UpdateOperationStarts(processor) =>
+      val procRef = obtainProcessorActor(processor)
+      context watch procRef
+      processorActors += procRef
+      if (processorActors.size == 1) {
+        fireStateEvent(MetaDataUpdateInProgress)
+      }
+
+    case UpdateOperationCompleted(processor) =>
+      val procRef = obtainProcessorActor(processor)
+      context unwatch procRef
+      removeProcessorActor(procRef)
+
     case MediaContribution(files) =>
       log.info("Received MediaContribution.")
       if (!scanInProgress) {
@@ -228,9 +250,13 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       sender ! CloseAck(self)
 
     case Terminated(actor) =>
-      // a state listener actor died, so remove it from the set
-      removeStateListenerActor(actor)
-      log.warning("State listener terminated. Removed from collection.")
+      // a state listener or processor actor died, so remove it from the set(s)
+      if (removeStateListenerActor(actor)) {
+        log.warning("State listener terminated. Removed from collection.")
+      }
+      if (removeProcessorActor(actor)) {
+        log.warning("A processor actor terminated. Removed from collection.")
+      }
   }
 
   /**
@@ -240,6 +266,37 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @return a set with the registered state listeners
     */
   def registeredStateListeners: Set[ActorRef] = stateListeners
+
+  /**
+    * Obtains the processor actor from the given optional reference. If a
+    * processor actor has been provided explicitly, it is used. Otherwise, it
+    * is assumed that the sender is the processor actor.
+    *
+    * @param optProcessor the optional reference to the processor actor
+    * @return the processor actor to be used
+    */
+  private def obtainProcessorActor(optProcessor: Option[ActorRef]): ActorRef =
+    optProcessor getOrElse sender()
+
+  /**
+    * Removes an actor from the set of active processors. This method is called
+    * when the update operation of this processor is completed normally or when
+    * the processor actor dies. In both cases, the set of active processors has
+    * to be updated, and events have to be sent if necessary.
+    *
+    * @param processor the processor actor to be removed
+    * @return a flag whether the actor could be removed
+    */
+  private def removeProcessorActor(processor: ActorRef): Boolean = {
+    val nextProcessors = processorActors - processor
+    if (nextProcessors != processorActors) {
+      processorActors = nextProcessors
+      if (nextProcessors.isEmpty) {
+        fireStateEvent(MetaDataUpdateCompleted)
+      }
+      true
+    } else false
+  }
 
   /**
     * Prepares a new scan operation. Initializes some internal state.

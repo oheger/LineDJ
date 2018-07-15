@@ -956,6 +956,52 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     resp.data(reqFile2) should be(metaDataFor(path(fileMapped.path)))
   }
 
+  it should "handle messages indicating start and end of update operations" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+
+    helper.actor ! UpdateOperationStarts(None)
+    listener.expectMsg(MetaDataUpdateInProgress)
+    helper.actor ! UpdateOperationCompleted(None)
+    listener.expectMsg(MetaDataUpdateCompleted)
+  }
+
+  it should "ignore an update completed message from an unknown processor actor" in {
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+    helper.actor ! UpdateOperationStarts(None)
+    listener.expectMsg(MetaDataUpdateInProgress)
+
+    helper.actor receive UpdateOperationCompleted(Some(TestProbe().ref))
+    expectNoMoreMessage(listener)
+  }
+
+  it should "deal with multiple concurrent update operations" in {
+    val otherProcessor = TestProbe().ref
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+    helper.actor ! UpdateOperationStarts(None)
+    listener.expectMsg(MetaDataUpdateInProgress)
+
+    helper.actor receive UpdateOperationStarts(Some(otherProcessor))
+    expectNoMoreMessage(listener)
+    helper.actor ! UpdateOperationCompleted(None)
+    helper.actor receive UpdateOperationCompleted(Some(otherProcessor))
+    listener.expectMsg(MetaDataUpdateCompleted)
+    expectNoMoreMessage(listener)
+  }
+
+  it should "monitor processor actors to remove them when they die" in {
+    val processor = TestProbe().ref
+    val helper = new MetaDataUnionActorTestHelper
+    val listener = helper.newStateListener()
+    helper.actor ! UpdateOperationStarts(Some(processor))
+    listener.expectMsg(MetaDataUpdateInProgress)
+
+    system stop processor
+    listener.expectMsg(MetaDataUpdateCompleted)
+  }
+
   /**
     * Test helper class which manages a test actor instance and offers some
     * convenience methods for test cases.
