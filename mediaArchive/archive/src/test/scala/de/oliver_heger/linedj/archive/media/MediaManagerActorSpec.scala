@@ -418,7 +418,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a file request for a file in global undefined medium" in {
-    val fileURI = "ref://" + TestMedium.mediumURI + ":" + ArchiveName + ":" + testFileUri
+    val fileURI = "ref://" + TestMedium.mediumURI + ":" + ArchiveName + ":" +
+      MediaFileUriHandler.PrefixPath + testFileUri
     val helper = new MediaManagerTestHelper
 
     helper.passTestData()
