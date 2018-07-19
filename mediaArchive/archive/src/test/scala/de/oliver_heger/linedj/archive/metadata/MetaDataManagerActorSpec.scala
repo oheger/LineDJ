@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, Process
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
@@ -412,6 +412,21 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectNoMoreMessage(helper.persistenceManager)
   }
 
+  it should "notify the union meta data manager actor when a scan is complete" in {
+    val helper = new MetaDataManagerActorTestHelper
+    helper.startProcessing()
+    helper.sendAvailableMedia()
+      .sendAllProcessingResults(ScanResult)
+
+    helper.metaDataUnionActor.fishForMessage() {
+      case UpdateOperationCompleted(Some(proc)) if proc == helper.actor =>
+        true
+      case _ => // ignore all other messages
+        false
+    }
+    expectNoMoreMessage(helper.metaDataUnionActor)
+  }
+
   it should "restart processor actors for a new scan" in {
     val unresolved = UnresolvedMetaDataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
@@ -781,6 +796,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     def expectMediaContribution(esr: EnhancedMediaScanResult = EnhancedScanResult):
     MetaDataManagerActorTestHelper = {
+      metaDataUnionActor.expectMsg(UpdateOperationStarts(Some(actor)))
       metaDataUnionActor.expectMsg(MediaContribution(esr.scanResult.mediaFiles))
       this
     }

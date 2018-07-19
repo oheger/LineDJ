@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.collection.immutable.Queue
@@ -213,6 +213,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * Prepares a new scan operation. Initializes some internal state.
     */
   private def initiateNewScan(): Unit = {
+    log.info("Starting new scan.")
+    metaDataUnionActor ! UpdateOperationStarts(Some(self))
     persistenceManager ! ScanForMetaDataFiles
     mediaMap = Map.empty
     completedMedia = Set(MediumID.UndefinedMediumID)
@@ -306,6 +308,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     completedMedia = Set.empty
     processorActors.values.foreach(context.stop)
     processorActors = Map.empty
+    metaDataUnionActor ! UpdateOperationCompleted(Some(self))
+    log.info("Scan complete.")
   }
 
   /**
