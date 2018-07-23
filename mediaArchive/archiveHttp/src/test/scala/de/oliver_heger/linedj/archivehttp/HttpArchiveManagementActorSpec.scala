@@ -37,6 +37,7 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
 import org.mockito.Matchers.{any, eq => argEq}
@@ -194,7 +195,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   it should "pass a process request to the content processor actor" in {
     val helper = new HttpArchiveManagementActorTestHelper
 
-    val request = helper.triggerScan().expectProcessingRequest()
+    val request = helper.stub((), ProgressState)(_.processingDone())
+      .triggerScan().expectProcessingRequest()
     request.archiveConfig should be(ArchiveConfig)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
     request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
@@ -215,6 +217,22 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.expectStateUpdate(ContentProcessingUpdateServiceImpl.InitialState)
       .expectStateUpdate(ProgressState)
     verify(helper.updateService).handleResultAvailable(argEq(result), any(), argEq(PropBufSize))
+  }
+
+  it should "notify the union archive about a started scan operation" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.stub((), ProgressState)(_.processingDone())
+      .triggerScan()
+    helper.probeUnionMetaDataManager.expectMsg(UpdateOperationStarts(None))
+  }
+
+  it should "notify the union archive about a completed scan operation" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.stub((), ProgressState)(_.processingDone())
+      .post(HttpArchiveProcessingComplete(HttpArchiveStateConnected))
+    helper.probeUnionMetaDataManager.expectMsg(UpdateOperationCompleted(None))
   }
 
   it should "not send a process request for a response error" in {
@@ -241,6 +259,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.stub(false, ProgressState)(_.processingStarts())
       .triggerScan(stubProcStarts = false)
       .expectNoProcessingRequest()
+    expectNoMoreMsg(helper.probeUnionMetaDataManager)
   }
 
   it should "answer an archive processing init message" in {

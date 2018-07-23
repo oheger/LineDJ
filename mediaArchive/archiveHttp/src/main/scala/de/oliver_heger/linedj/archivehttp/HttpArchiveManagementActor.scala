@@ -34,6 +34,7 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
 import scala.concurrent.Future
@@ -201,6 +202,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     case HttpArchiveProcessingComplete(nextState) =>
       updateState(processingService.processingDone())
       updateArchiveState(nextState)
+      unionMetaDataManager ! UpdateOperationCompleted(None)
 
     case req: MediumFileRequest =>
       downloadManagementActor forward req
@@ -228,6 +230,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private def startArchiveProcessing(): Unit = {
     if (updateState(processingService.processingStarts())) {
+      unionMetaDataManager ! UpdateOperationStarts(None)
       archiveStateResponse = None
       val currentSeqNo = processingState.seqNo
       loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1, currentSeqNo)
