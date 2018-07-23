@@ -419,9 +419,9 @@ class MetaDataFilesController(application: ArchiveAdminApp,
         switchToState(StateScanning)
       case MetaDataScanCompleted =>
         switchToState(StateLoading)
-      case MetaDataStateUpdated(MetaDataState(_, _, _, _, true)) =>
+      case MetaDataStateUpdated(MetaDataState(_, _, _, _, true, _)) =>
         switchToState(StateScanning)
-      case MetaDataStateUpdated(MetaDataState(_, _, _, _, false)) =>
+      case MetaDataStateUpdated(MetaDataState(_, _, _, _, false, _)) =>
         switchToState(StateLoading)
       case _ => // ignore other events
     }

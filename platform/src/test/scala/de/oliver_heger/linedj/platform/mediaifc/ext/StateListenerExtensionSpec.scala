@@ -22,12 +22,13 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.StateListenerUnregistration
 import de.oliver_heger.linedj.shared.archive.metadata._
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object StateListenerExtensionSpec {
   /** A test meta data state event. */
-  private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false))
+  private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false,
+    updateInProgress = false))
 }
 
 /**

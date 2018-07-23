@@ -27,18 +27,18 @@ import net.sf.jguiraffe.gui.builder.components.model.StaticTextData
 import net.sf.jguiraffe.gui.forms.Form
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object ArchiveAdminControllerSpec {
   /** A test state object with data from the media archive. */
   private val CurrentState = MetaDataStateUpdated(MetaDataState(mediaCount = 28,
     songCount = 1088, size = 20161020213108L, duration = ((3 * 60 * 60 + 25 * 60) + 14) * 1000L,
-    scanInProgress = false))
+    scanInProgress = false, updateInProgress = false))
 
   /** Text constant for an archive not available. */
   private val TextArchiveUnavailable = "No archive"

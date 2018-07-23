@@ -109,14 +109,17 @@ case class MediumMetaDataCompleted(mediumID: MediumID) extends MetaDataStateEven
   * produced from time to time. This gives applications a chance to monitor
   * progress and display statistical information.
   *
-  * @param mediaCount     the current number of media in the archive
-  * @param songCount      the current number of songs
-  * @param size           the total size of all audio files (in bytes)
-  * @param duration       the total duration of all audio files (in milliseconds)
-  * @param scanInProgress a flag whether currently a scan is in progress
+  * @param mediaCount       the current number of media in the archive
+  * @param songCount        the current number of songs
+  * @param size             the total size of all audio files (in bytes)
+  * @param duration         the total duration of all audio files (in
+  *                         milliseconds)
+  * @param scanInProgress   a flag whether currently a scan is in progress
+  * @param updateInProgress a flag whether currently an update operation is in
+  *                         progress (which can consist of multiple scans)
   */
 case class MetaDataState(mediaCount: Int, songCount: Int, size: Long, duration: Long,
-                         scanInProgress: Boolean) {
+                         scanInProgress: Boolean, updateInProgress: Boolean) {
   /**
     * Returns a new ''MetaDataState'' object which represents the sum of this
     * object and the specified meta data. This is useful to calculate

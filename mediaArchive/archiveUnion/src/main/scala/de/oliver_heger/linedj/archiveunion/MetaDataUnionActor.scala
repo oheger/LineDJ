@@ -526,7 +526,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private def createStateUpdatedEvent(): MetaDataStateUpdated =
     MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount =
       currentSongCount, duration = currentDuration, size = currentSize,
-      scanInProgress = scanInProgress))
+      scanInProgress = scanInProgress, updateInProgress = processorActors.nonEmpty))
 
   /**
     * Sends the specified event to all registered state listeners.

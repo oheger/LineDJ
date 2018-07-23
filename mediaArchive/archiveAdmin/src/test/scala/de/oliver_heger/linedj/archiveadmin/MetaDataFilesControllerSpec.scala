@@ -48,7 +48,7 @@ import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -131,7 +131,7 @@ object MetaDataFilesControllerSpec {
     */
   private def updateEvent(scanInProgress: Boolean): MetaDataStateUpdated =
   MetaDataStateUpdated(MetaDataState(scanInProgress = scanInProgress,
-    mediaCount = 0, songCount = 0, size = 0, duration = 0))
+    mediaCount = 0, songCount = 0, size = 0, duration = 0, updateInProgress = false))
 
   /**
     * Generates a sequence with model data which should be contained in the

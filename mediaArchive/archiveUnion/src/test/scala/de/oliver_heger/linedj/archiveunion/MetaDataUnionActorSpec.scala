@@ -481,7 +481,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val listener = helper.newStateListener(expectStateMsg = false)
 
     listener.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 0,
-      size = 0, duration = 0, scanInProgress = false)))
+      size = 0, duration = 0, scanInProgress = false, updateInProgress = false)))
   }
 
   it should "correctly update the scan in progress state when a scan starts" in {
@@ -491,7 +491,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     helper.addStateListener(listener)
     listener.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 0,
-      size = 0, duration = 0, scanInProgress = true)))
+      size = 0, duration = 0, scanInProgress = true, updateInProgress = false)))
   }
 
   it should "correctly update the meta data state during a scan operation" in {
@@ -501,12 +501,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .sendProcessingResults(TestMediumID, Contribution.files(TestMediumID) take 1)
       .addStateListener(listener1)
     listener1.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 1,
-      size = 100, duration = 10, scanInProgress = true)))
+      size = 100, duration = 10, scanInProgress = true, updateInProgress = false)))
 
     helper.sendProcessingResults(TestMediumID, Contribution.files(TestMediumID).slice(1, 2))
     helper addStateListener listener2
     listener2.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 2,
-      size = 300, duration = 30, scanInProgress = true)))
+      size = 300, duration = 30, scanInProgress = true, updateInProgress = false)))
   }
 
   it should "send messages during a scan operation" in {
@@ -570,7 +570,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val listener2 = TestProbe()
     helper addStateListener listener2
     listener2.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0,
-      songCount = 0, size = 0, duration = 0, scanInProgress = true)))
+      songCount = 0, size = 0, duration = 0, scanInProgress = true, updateInProgress = false)))
   }
 
   it should "reset internal data when another scan starts" in {
@@ -1000,6 +1000,17 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     system stop processor
     listener.expectMsg(MetaDataUpdateCompleted)
+  }
+
+  it should "update the operation in progress flag in the meta data state" in {
+    val helper = new MetaDataUnionActorTestHelper
+    helper.actor ! UpdateOperationStarts(None)
+    val listener1 = helper.newStateListener(expectStateMsg = false)
+
+    listener1.expectMsgType[MetaDataStateUpdated].state.updateInProgress shouldBe true
+    helper.actor ! UpdateOperationCompleted(None)
+    val listener2 = helper.newStateListener(expectStateMsg = false)
+    listener2.expectMsgType[MetaDataStateUpdated].state.updateInProgress shouldBe false
   }
 
   /**
