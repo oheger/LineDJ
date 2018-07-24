@@ -67,15 +67,15 @@ object ArchiveAdminControllerSpec {
   private def transformedString(o: Any): String = o + "_transformed"
 
   /**
-    * Produces a state updated event with the specified scan in progress
+    * Produces a state updated event with the specified operation in progress
     * flag.
     *
     * @param inProgress the in progress flag
     * @return the update event
     */
-  private def stateWithScanFlag(inProgress: Boolean): MetaDataStateUpdated =
+  private def stateWithInProgressFlag(inProgress: Boolean): MetaDataStateUpdated =
   if (CurrentState.state.scanInProgress == inProgress) CurrentState
-  else MetaDataStateUpdated(CurrentState.state.copy(scanInProgress = inProgress))
+  else MetaDataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
 }
 
 /**
@@ -113,7 +113,8 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
   it should "ignore irrelevant meta data state events" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper sendMetaDataStateEvent MetaDataScanCanceled
+    helper.sendMetaDataStateEvent(MetaDataScanCanceled)
+        .sendMetaDataStateEvent(MetaDataScanCompleted)
     verifyZeroInteractions(helper.form)
   }
 
@@ -149,15 +150,22 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
   it should "set the archive state if a media scan is in progress" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = true))
+    helper.sendMetaDataStateEvent(stateWithInProgressFlag(inProgress = true))
       .verifyArchiveState(TextScanInProgress, IconScanInProgress)
   }
 
   it should "set the archive state if no media scan is in progress" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = false))
+    helper.sendMetaDataStateEvent(stateWithInProgressFlag(inProgress = false))
       .verifyArchiveState(TextNoScanInProgress, IconNoScanInProgress)
+  }
+
+  it should "set the archive state if an update operation starts" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataUpdateInProgress)
+      .verifyArchiveState(TextScanInProgress, IconScanInProgress)
   }
 
   it should "not update the archive status when the archive becomes available" in {
@@ -167,10 +175,10 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     verify(helper.form, never()).initFields(any())
   }
 
-  it should "update the archive state if a media scan is complete" in {
+  it should "update the archive state if an update operation is complete" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataScanCompleted)
+    helper.sendMetaDataStateEvent(MetaDataUpdateCompleted)
       .verifyArchiveState(TextNoScanInProgress, IconNoScanInProgress)
   }
 
@@ -183,10 +191,19 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       .verifyAction("metaDataFilesAction", enabled = false)
   }
 
+  it should "update action states if an update operation starts" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataUpdateInProgress)
+      .verifyAction("startScanAction", enabled = false)
+      .verifyAction("cancelScanAction", enabled = true)
+      .verifyAction("metaDataFilesAction", enabled = false)
+  }
+
   it should "update action states if a scan is in progress" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = true))
+    helper.sendMetaDataStateEvent(stateWithInProgressFlag(inProgress = true))
       .verifyAction("startScanAction", enabled = false)
       .verifyAction("cancelScanAction", enabled = true)
       .verifyAction("metaDataFilesAction", enabled = false)
@@ -195,16 +212,16 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
   it should "update action states if no scan is in progress" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(stateWithScanFlag(inProgress = false))
+    helper.sendMetaDataStateEvent(stateWithInProgressFlag(inProgress = false))
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
       .verifyAction("metaDataFilesAction", enabled = true)
   }
 
-  it should "update action states if a scan is complete" in {
+  it should "update action states if an update operation is complete" in {
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataScanCompleted)
+    helper.sendMetaDataStateEvent(MetaDataUpdateCompleted)
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
       .verifyAction("metaDataFilesAction", enabled = true)

@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.platform.ui.DurationTransformer
-import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataState, MetaDataStateEvent, MetaDataStateUpdated}
+import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextData
@@ -69,13 +69,13 @@ object ArchiveAdminController {
     * given archive state.
     *
     * @param archiveAvailable flag whether the archive is available
-    * @param scanInProgress   flag whether a scan is in progress
+    * @param updateInProgress flag whether an update is in progress
     * @return the set with actions that need to be enabled
     */
-  private def enabledActionsForState(archiveAvailable: Boolean, scanInProgress: Boolean):
+  private def enabledActionsForState(archiveAvailable: Boolean, updateInProgress: Boolean):
   Set[String] = {
     if (!archiveAvailable) Set.empty
-    else if (scanInProgress) Set(ActionCancelScan)
+    else if (updateInProgress) Set(ActionCancelScan)
     else Set(ActionStartScan, ActionMetaDataFiles)
   }
 }
@@ -154,13 +154,18 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
         updateArchiveStatus(data)
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
-          scanInProgress = state.scanInProgress))
+          updateInProgress = state.updateInProgress))
 
-      case MetaDataScanCompleted =>
+      case MetaDataUpdateInProgress =>
+        updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = true))
+        updateForm()
+        updateActions(enabledActionsForState(archiveAvailable = true, updateInProgress = true))
+
+      case MetaDataUpdateCompleted =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = false))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
-          scanInProgress = false))
+          updateInProgress = false))
 
       case _ =>
     }
@@ -177,7 +182,7 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
         updateArchiveStatus(staticTextData(stateUnavailableText, stateUnavailableIcon))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = false,
-          scanInProgress = false))
+          updateInProgress = false))
 
       case _ => // ignore because this is handled by state update events
     }
@@ -203,7 +208,7 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
     * @return the status to be displayed for the archive
     */
   private def archiveStatusForUpdateEvent(state: MetaDataState): StaticTextData =
-  archiveStatusForScanFlag(state.scanInProgress)
+  archiveStatusForScanFlag(state.updateInProgress)
 
   /**
     * Updates the status property of the form bean.
