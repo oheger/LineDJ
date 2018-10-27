@@ -23,7 +23,8 @@ import java.security.MessageDigest
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
-import javax.xml.bind.DatatypeConverter
+
+import scala.annotation.tailrec
 
 /**
   * An object that calculates the information required to transform a
@@ -35,6 +36,9 @@ import javax.xml.bind.DatatypeConverter
 private object ScanResultEnhancer {
   /** The hash algorithm for checksum generation. */
   private val HashAlgorithm = "SHA-1"
+
+  /** The digits that can appear in a hex string; used for conversion. */
+  private val HexDigits = "0123456789ABCDEF"
 
   /**
     * Transforms the given ''MediaScanResult'' into an
@@ -90,7 +94,7 @@ private object ScanResultEnhancer {
     val digest = MessageDigest getInstance HashAlgorithm
     fileUriData map { t => t._1 + ':' + t._2.size } sortWith (_ < _) foreach (u =>
       digest.update(u.getBytes(StandardCharsets.UTF_8)))
-    DatatypeConverter.printHexBinary(digest.digest())
+    toHexString(digest.digest())
   }
 
   /**
@@ -105,4 +109,25 @@ private object ScanResultEnhancer {
   private def generateUris(root: Path, files: Seq[FileData]): Seq[(String, FileData)] =
     files.map(f => MediaFileUriHandler.generateMediaFileUri(root, Paths get f.path))
       .zip(files)
+
+  /**
+    * Converts the given byte array into a hex string representation.
+    *
+    * @param bytes the byte array
+    * @return the resulting hex string
+    */
+  private def toHexString(bytes: Array[Byte]): String = {
+    def toHexChar(value: Int): Char = HexDigits(value & 0x0F)
+
+    val buf = new java.lang.StringBuilder(bytes.length * 2)
+
+    @tailrec def convertBytes(index: Int): Unit =
+      if (index < bytes.length) {
+        buf.append(toHexChar(bytes(index) >>> 4)).append(toHexChar(bytes(index)))
+        convertBytes(index + 1)
+      }
+
+    convertBytes(0)
+    buf.toString
+  }
 }
