@@ -228,6 +228,12 @@ lazy val actorSystem = (project in file("actorSystem"))
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % AkkaVersion,
+    // need to import packages of akka modules whose configuration has to be added
+    OsgiKeys.importPackage := Seq(
+      "akka.remote",
+      "akka.stream",
+      "akka.http;resolution:=optional",
+      "*"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
     OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
   ) dependsOn shared
