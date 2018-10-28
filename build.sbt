@@ -20,8 +20,8 @@ import com.typesafe.sbt.osgi.SbtOsgi.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.5.12"
-lazy val AkkaHttpVersion = "10.0.10"
+lazy val AkkaVersion = "2.5.17"
+lazy val AkkaHttpVersion = "10.1.5"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.6"
 lazy val VersionScalaz = "7.2.20"
@@ -45,7 +45,7 @@ lazy val testDependencies = Seq(
 lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" exclude
     ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
-  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.7"
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.0"
 )
 
 lazy val osgiDependencies = Seq(
