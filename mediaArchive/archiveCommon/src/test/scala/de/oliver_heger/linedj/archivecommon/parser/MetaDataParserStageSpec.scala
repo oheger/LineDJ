@@ -17,10 +17,11 @@
 package de.oliver_heger.linedj.archivecommon.parser
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{FileIO, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -29,6 +30,11 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+object MetaDataParserStageSpec {
+  /** A test medium ID. */
+  private val TestMedium = MediumID("testMedium", Some("test.settings"), "foo")
+}
 
 /**
   * Test class for ''MetaDataParserStage''. This class only tests basic
@@ -41,6 +47,23 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+  }
+
+  import MetaDataParserStageSpec._
+
+  /**
+    * Executes a stream with the parser stage using the given source.
+    *
+    * @param src the source
+    * @return the resulting list of processing results
+    */
+  private def parse(src: Source[ByteString, Any]): List[MetaDataProcessingSuccess] = {
+    implicit val mat: ActorMaterializer = ActorMaterializer()
+    val stage = new MetaDataParserStage(TestMedium)
+
+    val futureStream = src.via(stage)
+      .runFold(List.empty[MetaDataProcessingSuccess])((lst, r) => r :: lst)
+    Await.result(futureStream, 3.seconds)
   }
 
   "A MetaDataParserStage" should "process a source with JSON data" in {
@@ -59,17 +82,18 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
          |}]
    """.stripMargin
     val data = ByteString(json, StandardCharsets.UTF_8.name())
-    val TestMedium = MediumID("testMedium", Some("test.settings"), "foo")
-    implicit val mat = ActorMaterializer()
-    val stage = new MetaDataParserStage(TestMedium)
 
-    val futureStream = Source.single(data)
-      .via(stage)
-      .runFold(List.empty[MetaDataProcessingSuccess])((lst, r) => r :: lst)
-    val lstMetaData = Await.result(futureStream, 3.seconds)
+    val lstMetaData = parse(Source.single(data))
     lstMetaData should have size 2
     val titles = lstMetaData map (_.metaData.title.get)
     titles should contain only("Fire Water Burn", "When the Night Comes")
     lstMetaData.map(_.mediumID).toSet should contain only TestMedium
+  }
+
+  it should "process a real-life meta data file" in {
+    val filePath = Paths.get(getClass.getResource("/metadata.mdt").toURI)
+
+    val lstMetaData = parse(FileIO.fromPath(filePath, chunkSize = 512))
+    lstMetaData should have size 67
   }
 }

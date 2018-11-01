@@ -76,7 +76,11 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
             case Some(bs) =>
               val (results, nextFailure) = parser(bs, lastFailure, false)
               lastFailure = nextFailure
-              emitMultiple(out, results.toIterator)
+              if (results.nonEmpty) {
+                emitMultiple(out, results.toIterator)
+              } else {
+                pull(in)
+              }
           }
           previousChunk = Some(chunk)
         }
