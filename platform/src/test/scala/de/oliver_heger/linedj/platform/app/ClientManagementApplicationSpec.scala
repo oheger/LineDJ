@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.platform.app
 
 import java.io.File
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.{Actor, ActorSystem, Terminated}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency}
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
@@ -31,13 +32,16 @@ import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager,
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.reflect.ClassTag
 
 object ClientManagementApplicationSpec {
@@ -358,17 +362,44 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     app extractStageFactory appCtx should be(stageFactory)
   }
 
-  it should "set an OSGi-compliant exit handler" in {
+  /**
+    * Checks whether the exit handler works correctly if termination of the
+    * actor system yields the given future.
+    *
+    * @param futTerminate the future for the actor system's termination
+    */
+  private def checkExitHandler(futTerminate: Future[Terminated]): Unit = {
+    val system = mock[ActorSystem]
+    when(system.terminate()).thenReturn(futTerminate)
     val componentContext = createComponentContext()
     val bundleContext = componentContext.getBundleContext
     val bundle = mock[Bundle]
+    val latch = new CountDownLatch(1)
     when(bundleContext.getBundle(0)).thenReturn(bundle)
+    doAnswer(new Answer[Unit] {
+      override def answer(invocation: InvocationOnMock): Unit = latch.countDown()
+    }).when(bundle).stop()
     val app = new ClientManagementApplicationTestImpl
+    app initActorSystem system
     runApp(app, Some(componentContext))
 
     val exitHandler = app.getExitHandler
     exitHandler.run()
-    verify(bundle).stop()
+    latch.await(3, TimeUnit.SECONDS) shouldBe true
+    val io = Mockito.inOrder(system, bundle)
+    io.verify(system).terminate()
+    io.verify(bundle).stop()
+  }
+
+  it should "set an OSGi-compliant exit handler" in {
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+    val term = Terminated(null)(existenceConfirmed = true, addressTerminated = true)
+    checkExitHandler(Future(term))
+  }
+
+  it should "exit the app even if shutdown of the actor system fails" in {
+    val futTerm = Future.failed[Terminated](new RuntimeException("BOOM"))
+    checkExitHandler(futTerm)
   }
 
   it should "return undefined configuration data per default" in {

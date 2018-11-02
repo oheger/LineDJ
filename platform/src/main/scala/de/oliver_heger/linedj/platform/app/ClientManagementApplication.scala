@@ -26,8 +26,11 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
 import org.apache.commons.configuration.Configuration
+import org.apache.commons.logging.Log
 import org.osgi.framework.BundleContext
 import org.osgi.service.component.ComponentContext
+
+import scala.concurrent.ExecutionContext
 
 object ClientManagementApplication {
   /** The prefix for beans read from the bean definition file. */
@@ -63,13 +66,21 @@ object ClientManagementApplication {
     * Creates an exit handler for shutting down this application in an OSGi
     * context.
     * @param compContext the ''ComponentContext''
+    * @param actorSystem the actor system
     * @return the exit handler
     */
-  private def createExitHandler(compContext: ComponentContext): Runnable = {
+  private def createExitHandler(compContext: ComponentContext, actorSystem: ActorSystem,
+                                log: Log): Runnable = {
     new Runnable {
       override def run(): Unit = {
+        log.info("Exit handler called.")
+        log.info("Stopping actor system.")
+        implicit val ec: ExecutionContext = ExecutionContext.global
+        actorSystem.terminate() onComplete { _ =>
+          log.info("Stopping system bundle.")
         val systemBundle = compContext.getBundleContext.getBundle(0)
         systemBundle.stop()
+        }
       }
     }
   }
@@ -222,7 +233,7 @@ ClientApplicationContext with ApplicationSyncStartup {
   def activate(compContext: ComponentContext): Unit = {
     log.info("Activating ClientManagementApplication.")
     bundleContext = compContext.getBundleContext
-    setExitHandler(createExitHandler(compContext))
+    setExitHandler(createExitHandler(compContext, system, log))
     startApplication(this, "management")
   }
 
