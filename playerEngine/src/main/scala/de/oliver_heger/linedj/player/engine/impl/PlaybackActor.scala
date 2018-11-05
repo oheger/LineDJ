@@ -502,11 +502,15 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     */
   private def enterSkipMode(afterError: Boolean): Unit = {
     currentSource foreach { s =>
+      val streamCompleted = audioDataStream.completed
       audioDataStream.clear()
       if (afterError && s.isInfinite) {
         skipInfiniteSource()
       } else {
-        skipStreamPosition = if(s.isInfinite) 0 else Long.MaxValue
+        skipStreamPosition = if (s.isInfinite) 0 else Long.MaxValue
+        if (streamCompleted) {
+          sourceCompleted()
+        }
         requestAudioDataIfPossible()
       }
     }

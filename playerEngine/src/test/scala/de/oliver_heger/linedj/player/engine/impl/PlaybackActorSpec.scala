@@ -874,6 +874,28 @@ with EventTestSupport {
     expectEvent[AudioSourceFinishedEvent](eventMan)
   }
 
+  it should "handle an exception of the audio stream when it already has been completed" in {
+    val lineWriter = TestProbe()
+    val source = createSource(1)
+    val streamFactory = mock[SimulatedAudioStreamFactory]
+    val audioStream = mock[InputStream]
+    when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(LineChunkSize / 2)
+      .thenThrow(new ArrayIndexOutOfBoundsException)
+    when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
+    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref)))
+    val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
+    actor ! AddPlaybackContextFactory(contextFactory)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! source
+    sendAudioData(actor, arraySource(1, LineChunkSize), EndOfFile(null))
+    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
+    lineWriter.expectNoMessage(100.millis)
+    expectMsg(GetAudioSource)
+  }
+
   it should "ignore empty read results for infinite sources" in {
     val lineWriter = TestProbe()
     val streamFactory = mock[SimulatedAudioStreamFactory]
