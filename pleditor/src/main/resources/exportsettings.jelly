@@ -97,7 +97,7 @@
       <f:button name="btnOk" textres="exp_btn_ok"
         mnemonicres="exp_btn_ok_mnemo" default="true"/>
       <f:button name="btnCancel" textres="exp_btn_cancel"
-        mnemonicres="exp_btn_cancel_mnemo"/>
+        mnemonicres="exp_btn_cancel_mnemo" cancel="true"/>
       <f:button name="btnDefaults" textres="exp_btn_defaults"
         mnemonicres="exp_btn_defaults_mnemo"/>
     </f:panel>

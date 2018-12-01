@@ -56,7 +56,7 @@
       <f:borderconstr name="SOUTH"/>
       <f:buttonlayout/>
       <f:button name="btnCancel" textres="exp_btn_cancel"
-        mnemonicres="exp_btn_cancel_mnemo"/>
+        mnemonicres="exp_btn_cancel_mnemo" cancel="true"/>
     </f:panel>
 
     <!-- Connect the dialog controller -->

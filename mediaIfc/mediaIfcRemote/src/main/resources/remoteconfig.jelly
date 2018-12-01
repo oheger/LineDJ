@@ -90,7 +90,7 @@
       <f:button name="btnOk" textres="btn_ok" resgrp="remoteconfig"
         mnemonicres="btn_ok_mnemo" default="true"/>
       <f:button name="btnCancel" textres="btn_cancel" resgrp="remoteconfig"
-        mnemonicres="btn_cancel_mnemo"/>
+        mnemonicres="btn_cancel_mnemo" cancel="true"/>
     </f:panel>
 
     <!-- Connect the form controller -->

@@ -43,7 +43,7 @@
       <f:button name="btnOk" textres="rod_btn_ok"
                 mnemonicres="rod_btn_ok_mnemo" default="true" command="OK"/>
       <f:button name="btnCancel" textres="rod_btn_cancel"
-                mnemonicres="rod_btn_cancel_mnemo" command="CANCEL"/>
+                mnemonicres="rod_btn_cancel_mnemo" command="CANCEL" cancel="true"/>
     </f:panel>
 
     <!-- The bean for the form controller.-->

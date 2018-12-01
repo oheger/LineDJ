@@ -71,9 +71,9 @@
         <f:borderconstr name="SOUTH"/>
         <f:buttonlayout/>
         <f:button name="btnLogin" textres="btn_log_in"
-          mnemonicres="btn_log_in_mnemo"/>
+          mnemonicres="btn_log_in_mnemo" default="true"/>
         <f:button name="btnCancel" textres="btn_log_cancel"
-          mnemonicres="btn_log_cancel_mnemo"/>
+          mnemonicres="btn_log_cancel_mnemo" cancel="true"/>
       </f:panel>
 
     <w:controller beanName="loginController"/>
