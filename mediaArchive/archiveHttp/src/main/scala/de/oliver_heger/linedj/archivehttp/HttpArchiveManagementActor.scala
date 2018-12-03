@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.routing.SmallestMailboxPool
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
@@ -73,6 +74,12 @@ object HttpArchiveManagementActor {
 
   /** The object for parsing medium descriptions in JSON. */
   private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
+
+  /** The number of parallel processor actors for meta data. */
+  private val MetaDataParallelism = 4
+
+  /** The number of parallel processor actors for medium info files. */
+  private val InfoParallelism = 2
 
   /**
     * A function for parsing JSON to a sequence of ''HttpMediumDesc'' objects.
@@ -173,8 +180,10 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
   override def preStart(): Unit = {
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
-    mediumInfoProcessor = createChildActor(Props[MediumInfoResponseProcessingActor])
-    metaDataProcessor = createChildActor(Props[MetaDataResponseProcessingActor])
+    mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
+      .props(Props[MediumInfoResponseProcessingActor]))
+    metaDataProcessor = createChildActor(SmallestMailboxPool(MetaDataParallelism)
+      .props(Props[MetaDataResponseProcessingActor]))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))
@@ -261,7 +270,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
       sink = sink, mediaSource = resp.entity.dataBytes.via(parseStage),
-      seqNo = curSeqNo)
+      seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
+      infoParallelism = InfoParallelism)
   }
 
   /**

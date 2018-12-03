@@ -147,8 +147,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     val filterDesc = Flow[HttpMediumDesc].filter(isFullyDefined)
     val infoReq = Flow[HttpMediumDesc].map(createMediumInfoRequest(req, _))
     val metaReq = Flow[HttpMediumDesc].map(createMetaDataRequest(req, _))
-    val processInfo = processFlow(req)(createUndefinedInfoResult)
-    val processMeta = processFlow(req)(createUndefinedMetaResult)
+    val processInfo = processFlow(req, req.infoParallelism)(createUndefinedInfoResult)
+    val processMeta = processFlow(req, req.metaDataParallelism)(createUndefinedMetaResult)
     val combine = new ProcessingResultCombiningStage
     val filterUndef = Flow[MediumProcessingResult].filter(isValidResult)
     val sinkDone = Sink.ignore
@@ -173,21 +173,24 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   /**
     * Creates a flow stage that invokes a processing actor to obtain a partial
     * result. This is basically an ask invocation of an actor mapped to the
-    * expect result type. If the future for the invocation fails, a special
+    * expected result type. If the future for the invocation fails, a special
     * undefined result is returned that is created by the function provided.
     * This seems to be necessary, otherwise the zip stage combines wrong
-    * elements.
+    * elements. It is possible to define the degree of parallelism if there is
+    * a pool of processor actors.
     *
     * @param req   the request to process the archive
+    * @param parallelism the degree of parallelism
     * @param fUndef the undefined result to return in case of an error
     * @param tag   the class tag
     * @tparam T the type of the result
     * @return the processing flow stage
     */
-  private def processFlow[T](req: ProcessHttpArchiveRequest)(fUndef: MediumID => T)
+  private def processFlow[T](req: ProcessHttpArchiveRequest, parallelism: Int)
+                            (fUndef: MediumID => T)
                             (implicit tag: ClassTag[T])
   : Flow[(Try[HttpResponse], RequestData), T, NotUsed] =
-    Flow[(Try[HttpResponse], RequestData)].mapAsync(1) { t =>
+    Flow[(Try[HttpResponse], RequestData)].mapAsync(parallelism) { t =>
       processHttpResponse(req, t).mapTo[T].fallbackTo(Future {
         val mid = createMediumID(req, t._2.mediumDesc)
         fUndef(mid)

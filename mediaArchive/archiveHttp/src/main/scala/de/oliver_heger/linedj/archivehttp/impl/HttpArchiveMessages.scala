@@ -165,6 +165,8 @@ case class MediumPropagated(seqNo: Int)
   * @param archiveConfig          the configuration for the HTTP archive
   * @param settingsProcessorActor the actor to process settings requests
   * @param metaDataProcessorActor the actor to process meta data requests
+  * @param metaDataParallelism    the parallelism when processing meta data
+  * @param infoParallelism        the parallelism when processing medium info
   * @param sink                   the sink where to pass processing results
   * @param seqNo                  the sequence number of the current scan operation
   */
@@ -174,6 +176,8 @@ case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      archiveConfig: HttpArchiveConfig,
                                      settingsProcessorActor: ActorRef,
                                      metaDataProcessorActor: ActorRef,
+                                     metaDataParallelism: Int,
+                                     infoParallelism: Int,
                                      sink: Sink[MediumProcessingResult, Any],
                                      seqNo: Int)
 

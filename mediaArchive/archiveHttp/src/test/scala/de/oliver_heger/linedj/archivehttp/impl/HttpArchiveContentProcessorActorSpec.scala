@@ -386,7 +386,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
         clientFlow = createRequestFlow(responseMapping),
         archiveConfig = config, settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
-        seqNo = SeqNo)
+        seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)
 
     /**
       * Expects that the given number of processing results has been sent to
