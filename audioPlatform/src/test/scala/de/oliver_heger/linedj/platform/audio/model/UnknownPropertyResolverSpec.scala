@@ -70,4 +70,21 @@ class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
 
     resolver.resolveTitle(createSongID("")) should be("")
   }
+
+  it should "URL-decode the title from an URI" in {
+    val uri = "/test/music/My%20test%20song%20%28nice%29%2A%2b%2C%2d%2E%2F.mp3"
+    val expTitle = "My test song (nice)*+,-./"
+    val resolver = createResolver()
+
+    resolver.resolveTitle(createSongID(uri)) should be(expTitle)
+  }
+
+  it should "only apply URL encoding if necessary" in {
+    val uris = List("Song + Test = 80 %", "%xy", "% 100", "%20Test%20%%30", "%1")
+    val resolver = createResolver()
+
+    uris foreach { uri =>
+      resolver.resolveTitle(createSongID(uri)) should be(uri)
+    }
+  }
 }

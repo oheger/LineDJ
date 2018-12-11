@@ -16,7 +16,12 @@
 
 package de.oliver_heger.linedj.platform.audio.model
 
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
+
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+
+import scala.annotation.tailrec
 
 object UnknownPropertyResolver {
   /** A separator character for URIs. */
@@ -85,6 +90,32 @@ trait UnknownPropertyResolver {
   protected def extractFileName(songID: MediaFileID): String = {
     val name = songID.uri.replace(BackSlash, UriSeparator).split(UriSeparator).last
     val extPos = name lastIndexOf Ext
-    if (extPos > 0) name take extPos else name
+    val nameNoExt = if (extPos > 0) name take extPos else name
+    if (isUrlEncoded(nameNoExt))
+      URLDecoder.decode(nameNoExt, StandardCharsets.UTF_8.name())
+    else nameNoExt
+  }
+
+  /**
+    * Checks if the given string is URL encoded.
+    *
+    * @param s the string to be tested
+    * @return a flag whether this string is URL encoded
+    */
+  private def isUrlEncoded(s: String): Boolean = {
+    def illegalEncoding(c: Char): Boolean = {
+      val digit = c.toLower
+      (digit < '0' || digit > '9') && (digit < 'a' || digit > 'f')
+    }
+
+    @tailrec def checkEncoding(index: Int): Boolean = {
+      val nextPos = s.indexOf('%', index)
+      if (nextPos < 0) true
+      else if (nextPos >= s.length - 2 || illegalEncoding(s.charAt(nextPos + 1)) ||
+        illegalEncoding(s.charAt(nextPos + 2))) false
+      else checkEncoding(nextPos + 3)
+    }
+
+    checkEncoding(0)
   }
 }
