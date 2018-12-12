@@ -16,23 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio.model
 
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
-
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-
-import scala.annotation.tailrec
-
-object UnknownPropertyResolver {
-  /** A separator character for URIs. */
-  private val UriSeparator = '/'
-
-  /** The backslash character. */
-  private val BackSlash = '\\'
-
-  /** Constant for the extension character. */
-  private val Ext = '.'
-}
 
 /**
   * A trait for resolving unknown meta data properties when creating
@@ -52,9 +36,6 @@ object UnknownPropertyResolver {
   * extract the song name from the URI.
   */
 trait UnknownPropertyResolver {
-
-  import UnknownPropertyResolver._
-
   /**
     * Resolves the title from the given song ID. This implementation tries to
     * resolve the title from the file name of the song's URI.
@@ -62,7 +43,7 @@ trait UnknownPropertyResolver {
     * @param songID the ID of the song in question
     * @return the title for this song
     */
-  def resolveTitle(songID: MediaFileID): String = extractFileName(songID)
+  def resolveTitle(songID: MediaFileID): String = generateTitle(songID)
 
   /**
     * Resolves the name of a missing artist.
@@ -81,41 +62,27 @@ trait UnknownPropertyResolver {
   def resolveAlbumName(songID: MediaFileID): String
 
   /**
-    * Extracts the file name (without extension) from the song's URI. This can
-    * be used to derive some information from it.
+    * Returns a list with ''SongTitleProcessor'' objects that are applied on a
+    * generated song title. Per default, a song title is resolved by the song's
+    * URI. Then all processors in the list returned by this method are
+    * invoked in order to come to the final title. The default implementation
+    * returns an empty list. This can be overridden to allow a fine-grained and
+    * flexible song title generation.
     *
-    * @param songID the ID of the song in question
-    * @return the file name from the song's URI
+    * @return a list with ''SongTitleProcessor'' objects
     */
-  protected def extractFileName(songID: MediaFileID): String = {
-    val name = songID.uri.replace(BackSlash, UriSeparator).split(UriSeparator).last
-    val extPos = name lastIndexOf Ext
-    val nameNoExt = if (extPos > 0) name take extPos else name
-    if (isUrlEncoded(nameNoExt))
-      URLDecoder.decode(nameNoExt, StandardCharsets.UTF_8.name())
-    else nameNoExt
-  }
+  def titleProcessors: List[SongTitleProcessor] = Nil
 
   /**
-    * Checks if the given string is URL encoded.
+    * Generates the song title from the given ID. This method starts with the
+    * song's URI and applies all [[SongTitleProcessor]] objects defined one by
+    * one.
     *
-    * @param s the string to be tested
-    * @return a flag whether this string is URL encoded
+    * @param songID the ID of the song in question
+    * @return the generated title for this song
     */
-  private def isUrlEncoded(s: String): Boolean = {
-    def illegalEncoding(c: Char): Boolean = {
-      val digit = c.toLower
-      (digit < '0' || digit > '9') && (digit < 'a' || digit > 'f')
+  protected def generateTitle(songID: MediaFileID): String =
+    titleProcessors.foldLeft(songID.uri) { (title, proc) =>
+      proc.processTitle(title)
     }
-
-    @tailrec def checkEncoding(index: Int): Boolean = {
-      val nextPos = s.indexOf('%', index)
-      if (nextPos < 0) true
-      else if (nextPos >= s.length - 2 || illegalEncoding(s.charAt(nextPos + 1)) ||
-        illegalEncoding(s.charAt(nextPos + 2))) false
-      else checkEncoding(nextPos + 3)
-    }
-
-    checkEncoding(0)
-  }
 }

@@ -20,19 +20,27 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
-  * Test class for ''UnknownPropertyResolver''.
+  * Test class for ''UnknownPropertyResolver'' and concrete
+  * ''SongTitleProcessor'' implementations.
   */
 class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
   /**
-    * Creates a test resolver instance.
+    * Creates a test resolver instance. It is possible to specify a list of
+    * song title processors. If defined, the processors are injected into the
+    * trait. Otherwise, the default processors (i.e. none) are used.
     *
+    * @param processors an optional list of title processors
     * @return the test instance
     */
-  private def createResolver(): UnknownPropertyResolver =
+  private def createResolver(processors: Option[List[SongTitleProcessor]] = None):
+  UnknownPropertyResolver =
     new UnknownPropertyResolver {
       override def resolveAlbumName(songID: MediaFileID): String = "Album " + songID
 
       override def resolveArtistName(songID: MediaFileID): String = "Artist " + songID
+
+      override def titleProcessors: List[SongTitleProcessor] =
+        processors getOrElse super.titleProcessors
     }
 
   /**
@@ -44,47 +52,74 @@ class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
   private def createSongID(uri: String): MediaFileID =
     MediaFileID(MediumID("someMedium", None), uri)
 
-  "An UnknownPropertyResolver" should "return the last part of the URI as title" in {
+  "An UnknownPropertyResolver" should "return the URI as title" in {
     val uri = "C:\\music\\song.mp3"
-    val resolver = createResolver()
-
-    resolver.resolveTitle(createSongID(uri)) should be("song")
-  }
-
-  it should "extract the title from a very simple URI" in {
-    val uri = "OnlyAName"
     val resolver = createResolver()
 
     resolver.resolveTitle(createSongID(uri)) should be(uri)
   }
 
-  it should "extract the title from an URI with prefix" in {
-    val uri = "song://TestSong.mp3"
-    val resolver = createResolver()
+  it should "apply all title processors" in {
+    def processor(index: Int): SongTitleProcessor =
+      new SongTitleProcessor {
+        override def processTitle(title: String): String =
+          title + "," + index
+      }
 
-    resolver.resolveTitle(createSongID(uri)) should be("TestSong")
+    val processors = List(processor(1), processor(2), processor(3))
+    val uri = "uri"
+    val resolver = createResolver(processors = Some(processors))
+
+    resolver.resolveTitle(createSongID(uri)) should be(uri + ",1,2,3")
+  }
+
+  "SongTitlePathProcessor" should "extract the title from a very simple URI" in {
+    val uri = "OnlyAName"
+
+    SongTitlePathProcessor.processTitle(uri) should be(uri)
+  }
+
+  it should "extract the title from an URI with prefix" in {
+    val uri = "song://TestSong"
+
+    SongTitlePathProcessor.processTitle(uri) should be("TestSong")
   }
 
   it should "handle an empty URI when extracting the title" in {
-    val resolver = createResolver()
-
-    resolver.resolveTitle(createSongID("")) should be("")
+    SongTitlePathProcessor.processTitle("") should be("")
   }
 
-  it should "URL-decode the title from an URI" in {
-    val uri = "/test/music/My%20test%20song%20%28nice%29%2A%2b%2C%2d%2E%2F.mp3"
-    val expTitle = "My test song (nice)*+,-./"
-    val resolver = createResolver()
+  it should "support backslash as path separator" in {
+    val uri = "C:\\Temp\\test\\song.mp3"
 
-    resolver.resolveTitle(createSongID(uri)) should be(expTitle)
+    SongTitlePathProcessor.processTitle(uri) should be("song.mp3")
+  }
+
+  "SongTitleExtensionProcessor" should "handle a title without extension" in {
+    val title = "Title without extension"
+
+    SongTitleExtensionProcessor.processTitle(title) should be(title)
+  }
+
+  it should "remove an existing file extension" in {
+    val ext = ".mp3"
+    val title = "1. Song"
+
+    SongTitleExtensionProcessor.processTitle(title + ext) should be(title)
+  }
+
+  "SongTitleDecodeProcessor" should "URL-decode the title" in {
+    val title = "My%20test%20song%20%28nice%29%2A%2b%2C%2d%2E%2F.mp3"
+    val expTitle = "My test song (nice)*+,-./.mp3"
+
+    SongTitleDecodeProcessor.processTitle(title) should be(expTitle)
   }
 
   it should "only apply URL encoding if necessary" in {
     val uris = List("Song + Test = 80 %", "%xy", "% 100", "%20Test%20%%30", "%1")
-    val resolver = createResolver()
 
     uris foreach { uri =>
-      resolver.resolveTitle(createSongID(uri)) should be(uri)
+      SongTitleDecodeProcessor.processTitle(uri) should be(uri)
     }
   }
 }
