@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object UnknownPropertyResourceResolverSpec {
@@ -49,13 +49,15 @@ class UnknownPropertyResourceResolverSpec extends FlatSpec with Matchers with Mo
   /**
     * Creates a test resolver instance.
     *
+    * @param titleProcessors a list with song title processors
     * @return the test instance
     */
-  private def createResolver(): UnknownPropertyResourceResolver = {
+  private def createResolver(titleProcessors: List[SongTitleProcessor] = Nil):
+  UnknownPropertyResourceResolver = {
     val ctx = mock[ApplicationContext]
     when(ctx.getResourceText(ResUnknownArtist)).thenReturn(UnknownArtistName)
     when(ctx.getResourceText(ResUnknownAlbum)).thenReturn(UnknownAlbumName)
-    new UnknownPropertyResourceResolver(ctx, ResUnknownArtist, ResUnknownAlbum)
+    new UnknownPropertyResourceResolver(ctx, ResUnknownArtist, ResUnknownAlbum, titleProcessors)
   }
 
   "An UnknownPropertyResourceResolver" should "resolve an unknown artist" in {
@@ -79,5 +81,24 @@ class UnknownPropertyResourceResolverSpec extends FlatSpec with Matchers with Mo
     resolver resolveAlbumName TestID
     verify(resolver.appCtx).getResourceText(ResUnknownArtist)
     verify(resolver.appCtx).getResourceText(ResUnknownAlbum)
+  }
+
+  it should "correctly apply song title processors" in {
+    val fileName = "mySong"
+    val songId = MediaFileID(uri = fileName + ".test", mediumID = null)
+    val processors = List(SongTitleExtensionProcessor)
+    val resolver = createResolver(titleProcessors = processors)
+
+    resolver resolveTitle songId should be(fileName)
+  }
+
+  it should "support the initialization of title processors from a Java collection" in {
+    val proc1 = mock[SongTitleProcessor]
+    val proc2 = mock[SongTitleProcessor]
+    val processors = java.util.Arrays.asList(proc1, proc2)
+
+    val resolver = new UnknownPropertyResourceResolver(mock[ApplicationContext], ResUnknownArtist,
+      ResUnknownAlbum, processors)
+    resolver.titleProcessors should contain theSameElementsInOrderAs List(proc1, proc2)
   }
 }

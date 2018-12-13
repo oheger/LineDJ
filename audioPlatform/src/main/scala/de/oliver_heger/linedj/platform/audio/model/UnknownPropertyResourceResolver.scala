@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
+import scala.collection.JavaConverters
+
 /**
   * A specialized implementation of an ''UnknownPropertyResolver'' that
   * fetches the names of unknown artists or albums from resource constants.
@@ -29,11 +31,30 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
   * @param appCtx           the ''ApplicationContext''
   * @param resUnknownArtist resource ID for the unknown artist name
   * @param resUnknownAlbum  resource ID for the unknown album name
+  * @param titleProcessors  the processors for generating a song title
   */
 class UnknownPropertyResourceResolver(val appCtx: ApplicationContext,
                                       val resUnknownArtist: String,
-                                      val resUnknownAlbum: String)
+                                      val resUnknownAlbum: String,
+                                      override val titleProcessors: List[SongTitleProcessor])
   extends UnknownPropertyResolver {
+  /**
+    * Creates a new instance with the specified properties. This constructor is
+    * intended to be called from Java code. The processors are provided as a
+    * Java collection rather than a List.
+    *
+    * @param appCtx           the ''ApplicationContext''
+    * @param resUnknownArtist resource ID for the unknown artist name
+    * @param resUnknownAlbum  resource ID for the unknown album name
+    * @param titleProcessors  the processors for generating a song title
+    * @return the new instance
+    */
+  def this(appCtx: ApplicationContext, resUnknownArtist: String, resUnknownAlbum: String,
+           titleProcessors: java.util.Collection[SongTitleProcessor]) = {
+    this(appCtx, resUnknownArtist, resUnknownAlbum,
+      JavaConverters.collectionAsScalaIterable(titleProcessors).toList)
+  }
+
   /** The resolved name for an unknown artist. */
   lazy val unknownArtistName: String = appCtx getResourceText resUnknownArtist
 
