@@ -122,4 +122,37 @@ class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
       SongTitleDecodeProcessor.processTitle(uri) should be(uri)
     }
   }
+
+  "SongTitleRemoveTrackProcessor" should "remove a leading track number" in {
+    val title = "The title"
+    val prefixes = List("01 ", "2-", "03 - ", "04   -   ", "5.", "06. ")
+    val processor = new SongTitleRemoveTrackProcessor(100)
+
+    prefixes foreach { p =>
+      processor.processTitle(p + title) should be(title)
+    }
+  }
+
+  it should "not modify other titles" in {
+    val titles = List("A title", "CD1 - 02 - song", "My 100 favorites", "3Steps", "88")
+    val processor = new SongTitleRemoveTrackProcessor(100)
+
+    titles foreach { t =>
+      processor.processTitle(t) should be(t)
+    }
+  }
+
+  it should "take the maximum track number into account" in {
+    val title = "99 Air Balloons"
+    val processor = new SongTitleRemoveTrackProcessor(98)
+
+    processor.processTitle(title) should be(title)
+  }
+
+  it should "handle number conversion errors" in {
+    val title = "999999999999999999 Air Balloons"
+    val processor = new SongTitleRemoveTrackProcessor(98)
+
+    processor.processTitle(title) should be(title)
+  }
 }

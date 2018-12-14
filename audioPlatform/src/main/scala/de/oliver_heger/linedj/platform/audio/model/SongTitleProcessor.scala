@@ -125,3 +125,52 @@ object SongTitleDecodeProcessor extends SongTitleProcessor {
     checkEncoding(0)
   }
 }
+
+object SongTitleRemoveTrackProcessor {
+  /** RegEx to parse for numbers at the beginning of the title. */
+  private val RegExTrackNumber =
+    """((\d+)[\s.-]+).+""".r
+
+  /**
+    * Converts a string with the track number to an integer. Handles overflows
+    * and number format exceptions by returning the maximum integer number;
+    * this should prevent that this number is removed from the song title.
+    *
+    * @param no the number as string
+    * @return the numeric track number
+    */
+  private def trackNoToInt(no: String): Int = try {
+    no.toInt
+  } catch {
+    case _: NumberFormatException => Integer.MAX_VALUE
+  }
+}
+
+/**
+  * A ''SongTitleProcessor'' implementation that tries to remove a leading
+  * track number from a song title.
+  *
+  * The class checks whether the song title starts with a number and an
+  * optional separator character. If so, this part is removed from the title.
+  * It is possible to configure a maximum track number; this can be used to
+  * prevent that ''99 Air balloons'' gets modified.
+  *
+  * @param maxTrack the maximum track number
+  */
+class SongTitleRemoveTrackProcessor(val maxTrack: Int) extends SongTitleProcessor {
+
+  import SongTitleRemoveTrackProcessor._
+
+  /**
+    * Processes the title of a song.
+    *
+    * @param title the original title
+    * @return the new title
+    */
+  override def processTitle(title: String): String =
+    title match {
+      case RegExTrackNumber(trackPrefix, trackNo) if trackNoToInt(trackNo) <= maxTrack =>
+        title drop trackPrefix.length
+      case _ => title
+    }
+}
