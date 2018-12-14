@@ -37,6 +37,29 @@
     </di:constructor>
   </di:bean>
 
+  <!-- List with song title processors for the unknown property resolver. -->
+  <di:list name="titleProcessors">
+    <di:element>
+      <di:const targetClassName="de.oliver_heger.linedj.platform.audio.model.SongTitlePathProcessor$"
+                field="MODULE$"/>
+    </di:element>
+    <di:element>
+      <di:const targetClassName="de.oliver_heger.linedj.platform.audio.model.SongTitleExtensionProcessor$"
+                field="MODULE$"/>
+    </di:element>
+    <di:element>
+      <di:const targetClassName="de.oliver_heger.linedj.platform.audio.model.SongTitleDecodeProcessor$"
+                field="MODULE$"/>
+    </di:element>
+    <di:element>
+      <di:bean beanClassName="de.oliver_heger.linedj.platform.audio.model.SongTitleRemoveTrackProcessor">
+        <di:constructor>
+          <di:param value="30"/>
+        </di:constructor>
+      </di:bean>
+    </di:element>
+  </di:list>
+
   <!-- The resolver for unknown meta data properties -->
   <di:bean name="unknownPropertyResolver"
            beanClassName="de.oliver_heger.linedj.platform.audio.model.UnknownPropertyResourceResolver">
@@ -44,6 +67,7 @@
       <di:param refName="jguiraffe.applicationContext"/>
       <di:param value="unknownArtist"/>
       <di:param value="unknownAlbum"/>
+      <di:param refName="titleProcessors"/>
     </di:constructor>
   </di:bean>
 
