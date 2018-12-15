@@ -20,12 +20,12 @@ import com.typesafe.sbt.osgi.SbtOsgi.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.5.17"
+lazy val AkkaVersion = "2.5.19"
 lazy val AkkaHttpVersion = "10.1.5"
 lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.12.6"
-lazy val VersionScalaz = "7.2.20"
-lazy val VersionScalaTest = "3.0.4"
+lazy val VersionScala = "2.12.8"
+lazy val VersionScalaz = "7.2.27"
+lazy val VersionScalaTest = "3.0.5"
 lazy val VersionJetty = "9.4.2.v20170220"
 
 lazy val akkaDependencies = Seq(
@@ -37,9 +37,9 @@ lazy val akkaDependencies = Seq(
 )
 
 lazy val testDependencies = Seq(
-  "org.scalatest" %% "scalatest" % VersionScalaTest % "test",
-  "junit" % "junit" % "4.12" % "test",
-  "org.mockito" % "mockito-core" % "1.9.5" % "test"
+  "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
+  "junit" % "junit" % "4.12" % Test,
+  "org.mockito" % "mockito-core" % "1.9.5" % Test
 )
 
 lazy val jguiraffeDependencies = Seq(
@@ -55,7 +55,7 @@ lazy val osgiDependencies = Seq(
 
 lazy val logDependencies = Seq(
   "org.slf4j" % "slf4j-api" % "1.7.10",
-  "org.slf4j" % "slf4j-simple" % "1.7.10" % "test"
+  "org.slf4j" % "slf4j-simple" % "1.7.10" % Test
 )
 
 val defaultSettings = Seq(
@@ -188,9 +188,9 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
-    libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % "test",
-    libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % "test",
-    libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % "test",
+    libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % Test,
+    libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % Test,
+    libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
