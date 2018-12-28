@@ -61,12 +61,22 @@
     </di:constructor>
   </di:bean>
 
+  <!-- Handler for the choose export directory button -->
+  <di:bean name="chooseExportDirHandler"
+    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.export.ChooseExportDirectoryHandler">
+    <di:constructor>
+      <di:param refName="controller"/>
+      <di:param refName="jguiraffe.fileChooserService"/>
+      <di:param refName="comp:targetDirectory"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The dialog window -->
   <w:dialog titleres="exp_settings_title" center="true">
     <f:borderlayout/>
     <f:panel>
       <f:borderconstr name="CENTER"/>
-      <f:percentlayout columns="4dlu end/preferred 3dlu start/preferred 4dlu"
+      <f:percentlayout columns="4dlu end/preferred 3dlu start/preferred 3dlu start/preferred 4dlu"
         rows="4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
       <f:label textres="exp_lab_target">
         <f:percentconstr col="1" row="1"/>
@@ -76,6 +86,9 @@
         <f:percentconstr col="3" row="1"/>
         <f:validator beanName="requiredValidator"/>
       </f:textfield>
+      <f:button name="btnChooseDir" textres="exp_btn_choose">
+        <f:percentconstr col="5" row="1"/>
+      </f:button>
 
       <f:radioGroup name="clearMode">
         <f:radio name="clearModeNone" textres="exp_rad_clear_none">
@@ -107,9 +120,11 @@
     </w:formController>
   </w:dialog>
 
-  <!-- Register the listener for the set defaults button -->
+  <!-- Register the listeners for the command buttons -->
   <a:eventListener component="btnDefaults" eventType="ACTION"
     beanName="setDefaultsHandler"/>
+  <a:eventListener component="btnChooseDir" eventType="ACTION"
+    beanName="chooseExportDirHandler"/>
 
 </j:jelly>
 
