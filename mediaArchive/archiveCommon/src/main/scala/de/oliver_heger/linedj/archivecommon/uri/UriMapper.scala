@@ -32,11 +32,11 @@ object UriMapper {
     * Calculates the medium path based on the settings file of the given
     * medium ID. Can also handle an undefined settings file.
     *
-    * @param mid the medium ID
+    * @param mediumDescPath the path to the medium description file
     * @return the path to this medium
     */
-  private def mediumPath(mid: MediumID): String =
-    mid.mediumDescriptionPath map { d =>
+  private def mediumPath(mediumDescPath: Option[String]): String =
+    mediumDescPath map { d =>
       val filePos = d.lastIndexOf('/')
       if (filePos >= 0) d.substring(0, filePos) else EmptyMediumPath
     } getOrElse EmptyMediumPath
@@ -45,14 +45,14 @@ object UriMapper {
     * Applies the URI template from the given configuration to the specified
     * parameters.
     *
-    * @param config      the mapping config
-    * @param mid         the medium ID
-    * @param strippedUri the URI with the prefix already removed
+    * @param config         the mapping config
+    * @param mediumDescPath the path to the medium description file
+    * @param strippedUri    the URI with the prefix already removed
     * @return the resulting URI
     */
-  private def applyUriTemplate(config: UriMappingSpec, mid: MediumID, strippedUri: String):
-  String =
-    config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mid))
+  private def applyUriTemplate(config: UriMappingSpec, mediumDescPath: Option[String],
+                               strippedUri: String): String =
+    config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mediumDescPath))
       .replace(UriMappingSpec.VarUri,
         removePrefixComponents(config, urlEncode(config, strippedUri)))
 
@@ -132,7 +132,7 @@ class UriMapper {
   import UriMapper._
 
   /**
-    * Applies URI mapping to the specified URI.
+    * Applies URI mapping to the specified URI of the given medium.
     *
     * @param config the mapping configuration
     * @param mid    the medium ID
@@ -140,6 +140,18 @@ class UriMapper {
     * @return an option for the processed URI
     */
   def mapUri(config: UriMappingSpec, mid: MediumID, uriOrg: String): Option[String] =
+    mapUri(config, mid.mediumDescriptionPath, uriOrg)
+
+  /**
+    * Applies URI mapping to the specified URI.
+    *
+    * @param config         the mapping configuration
+    * @param mediumDescPath the optional path to the medium description file
+    * @param uriOrg         the original URI to be processed
+    * @return an option for the processed URI
+    */
+  def mapUri(config: UriMappingSpec, mediumDescPath: Option[String], uriOrg: String):
+  Option[String] =
     Option(uriOrg).flatMap(removePrefix(config.prefixToRemove, _))
-      .map(u => applyUriTemplate(config, mid, u))
+      .map(u => applyUriTemplate(config, mediumDescPath, u))
 }
