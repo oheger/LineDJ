@@ -29,6 +29,7 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStre
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.commons.configuration.PropertiesConfiguration
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -47,17 +48,21 @@ object HttpArchiveContentProcessorActorSpec {
   val SeqNo = 42
 
   /** Regular expression to parse the index from a setting path. */
-  val RegExSettings: Regex = raw"medium(\d+)/.+".r
+  val RegExSettings: Regex = raw".*medium(\d+)/.+".r
 
   /** Regular expression to parse the index from a meta data path. */
   val RegExMetaData: Regex = raw".*/data_(\d+).mdt".r
+
+  /** A default URI mapping configuration for the archive content file. */
+  private val ContentMappingConfig =
+    HttpArchiveConfig.extractMappingConfig(new PropertiesConfiguration, "")
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri), "Test",
     UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 2, 64,
     downloadConfig = null, downloadBufferSize = 512,
     downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
-    timeoutReadSize = 222, metaMappingConfig = null, contentMappingConfig = null)
+    timeoutReadSize = 222, metaMappingConfig = null, contentMappingConfig = ContentMappingConfig)
 
   /** Message indicating stream completion. */
   private val CompleteMessage = new Object
@@ -172,27 +177,29 @@ object HttpArchiveContentProcessorActorSpec {
   /**
     * Creates a result object for a processed settings request.
     *
-    * @param desc the description for the medium affected
+    * @param desc   the description for the medium affected
+    * @param reqUri the URI of the request
     * @return the result for this settings request
     */
-  def createSettingsProcessingResult(desc: HttpMediumDesc):
+  def createSettingsProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MediumInfoResponseProcessingResult = {
     val info = MediumInfo(mediumID = mediumID(desc), name = desc.mediumDescriptionPath,
-      description = "", orderMode = "", orderParams = "", checksum = "")
+      description = reqUri, orderMode = "", orderParams = "", checksum = "")
     MediumInfoResponseProcessingResult(info, SeqNo)
   }
 
   /**
     * Creates a result object for a processed meta data request.
     *
-    * @param desc the description for the medium affected
+    * @param desc   the description for the medium affected
+    * @param reqUri the URI of the request
     * @return the result for this meta data request
     */
-  def createMetaDataProcessingResult(desc: HttpMediumDesc):
+  def createMetaDataProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MetaDataResponseProcessingResult = {
     val mid = mediumID(desc)
     val data = List(MetaDataProcessingSuccess(mediumID = mid, uri = desc.metaDataPath,
-      path = desc.metaDataPath, metaData = MediaMetaData()))
+      path = desc.metaDataPath, metaData = MediaMetaData(title = Some(reqUri))))
     MetaDataResponseProcessingResult(mid, data, SeqNo)
   }
 }
@@ -222,8 +229,8 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
   private def expectResultsFor(results: List[MediumProcessingResult],
                                media: Iterable[HttpMediumDesc]): List[MediumProcessingResult] = {
     val expResults = media map { desc =>
-      val infoResult = createSettingsProcessingResult(desc)
-      val metaResult = createMetaDataProcessingResult(desc)
+      val infoResult = createSettingsProcessingResult(desc, desc.mediumDescriptionPath)
+      val metaResult = createMetaDataProcessingResult(desc, desc.metaDataPath)
       MediumProcessingResult(infoResult.mediumInfo, metaResult.metaData, SeqNo)
     }
     results should contain only (expResults.toSeq: _*)
@@ -242,10 +249,40 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     expectNoMessage(100.millis)
   }
 
+  it should "apply a content URI mapping" in {
+    val Prefix = "test/"
+    val config = DefaultArchiveConfig
+      .copy(contentMappingConfig = DefaultArchiveConfig.contentMappingConfig
+        .copy(uriTemplate = Prefix + HttpArchiveConfig.DefaultUriMappingTemplate))
+    val descriptions = createMediumDescriptions(4)
+    val mapping = createResponseMapping(descriptions.map { desc =>
+      HttpMediumDesc(Prefix + desc.mediumDescriptionPath, Prefix + desc.metaDataPath)
+    })
+    val helper = new ContentProcessorActorTestHelper(checkProcessingMessages = false)
+
+    val results = helper.processArchive(descriptions, mapping, config)
+      .expectProcessingResults(descriptions.size)
+    results foreach { res =>
+      res.mediumInfo.description should startWith(Prefix)
+    }
+  }
+
   it should "handle an empty source" in {
     val helper = new ContentProcessorActorTestHelper
 
     helper.processArchive(List.empty, Map.empty, DefaultArchiveConfig)
+      .expectProcessingComplete()
+  }
+
+  it should "filter out failures from the content URI mapping" in {
+    val config = DefaultArchiveConfig
+      .copy(contentMappingConfig = DefaultArchiveConfig.contentMappingConfig
+        .copy(removePrefix = "nonExistingPrefix"))
+    val descriptions = createMediumDescriptions(4)
+    val mapping = createResponseMapping(descriptions)
+    val helper = new ContentProcessorActorTestHelper
+
+    helper.processArchive(descriptions, mapping, config)
       .expectProcessingComplete()
   }
 
@@ -461,7 +498,7 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
           val optResponse = r.header[Location]
             .flatMap(loc => createMediumDescFromLocation(loc.uri.toString()))
             .filter(d => !checkMsg || (d == desc && mid == mediumID(desc)))
-            .map(createResult)
+            .map(desc => createResult(desc, r.header[Location].get.uri.toString()))
           optResponse foreach sender.!
         case _ => // ignore which leads to timeout
       }
@@ -470,10 +507,11 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
   /**
     * Creates the response to be returned for a successful request.
     *
-    * @param desc the medium description extracted from the response location
+    * @param desc   the medium description extracted from the response location
+    * @param reqUri the URI of the original request
     * @return the object to be returned
     */
-  protected def createResult(desc: HttpMediumDesc): AnyRef
+  protected def createResult(desc: HttpMediumDesc, reqUri: String): AnyRef
 
   /**
     * Extracts the index of the test medium from the given location URI.
@@ -499,8 +537,8 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
   */
 class TestMediumInfoProcessingActor(checkMsg: Boolean)
   extends AbstractTestProcessorActor(checkMsg) {
-  override protected def createResult(desc: HttpMediumDesc): AnyRef =
-    HttpArchiveContentProcessorActorSpec.createSettingsProcessingResult(desc)
+  override protected def createResult(desc: HttpMediumDesc, reqUri: String): AnyRef =
+    HttpArchiveContentProcessorActorSpec.createSettingsProcessingResult(desc, reqUri)
 
   override protected def extractLocationIndex(location: String): Option[Int] =
     location match {
@@ -516,8 +554,8 @@ class TestMediumInfoProcessingActor(checkMsg: Boolean)
   */
 class TestMetaDataProcessingActor(checkMsg: Boolean)
   extends AbstractTestProcessorActor(checkMsg) {
-  override protected def createResult(desc: HttpMediumDesc): AnyRef =
-    HttpArchiveContentProcessorActorSpec.createMetaDataProcessingResult(desc)
+  override protected def createResult(desc: HttpMediumDesc, reqUri: String): AnyRef =
+    HttpArchiveContentProcessorActorSpec.createMetaDataProcessingResult(desc, reqUri)
 
   override protected def extractLocationIndex(location: String): Option[Int] =
     location match {

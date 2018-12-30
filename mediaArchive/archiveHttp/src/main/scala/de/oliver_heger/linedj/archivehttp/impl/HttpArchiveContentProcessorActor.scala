@@ -23,7 +23,8 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
-import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivecommon.uri.UriMapper
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
@@ -95,6 +96,9 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
 
   import HttpArchiveContentProcessorActor._
 
+  /** A mapper for the content URI mapping. */
+  private val uriMapper = new UriMapper
+
   override def customReceive: Receive = {
     case req: ProcessHttpArchiveRequest =>
       val (killSwitch, futStream) = materializeStream(req)
@@ -145,8 +149,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   (KillSwitch, Future[Any]) = {
     val ks = KillSwitches.single[HttpMediumDesc]
     val filterDesc = Flow[HttpMediumDesc].filter(isFullyDefined)
-    val infoReq = Flow[HttpMediumDesc].map(createMediumInfoRequest(req, _))
-    val metaReq = Flow[HttpMediumDesc].map(createMetaDataRequest(req, _))
+    val infoReq = requestMappingFlow(req)(createMediumInfoRequest)
+    val metaReq = requestMappingFlow(req)(createMetaDataRequest)
     val processInfo = processFlow(req, req.infoParallelism)(createUndefinedInfoResult)
     val processMeta = processFlow(req, req.metaDataParallelism)(createUndefinedMetaResult)
     val combine = new ProcessingResultCombiningStage
@@ -171,6 +175,27 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   }
 
   /**
+    * Returns a flow that produces a tuple to be passed to a request flow based
+    * on a medium description and a mapping function. The mapping function
+    * produces a concrete request from the ''HttpMediumDesc'', which can fail
+    * because URI mapping is involved. Such failed requests are filtered out.
+    *
+    * @param req the request to process the archive
+    * @param f   the request mapping function
+    * @return a tuple of a request and a context data object
+    */
+  private def requestMappingFlow(req: ProcessHttpArchiveRequest)
+                                (f: (ProcessHttpArchiveRequest, HttpMediumDesc) =>
+                                  Option[(HttpRequest, RequestData)]):
+  Flow[HttpMediumDesc, (HttpRequest, RequestData), NotUsed] =
+    Flow[HttpMediumDesc].map(f(req, _))
+      .filter(_.isDefined)
+      .map { t =>
+        log.info("GET {}.", t.get._1.uri.toString())
+        t.get
+      }
+
+  /**
     * Creates a flow stage that invokes a processing actor to obtain a partial
     * result. This is basically an ask invocation of an actor mapped to the
     * expected result type. If the future for the invocation fails, a special
@@ -179,10 +204,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * elements. It is possible to define the degree of parallelism if there is
     * a pool of processor actors.
     *
-    * @param req   the request to process the archive
+    * @param req         the request to process the archive
     * @param parallelism the degree of parallelism
-    * @param fUndef the undefined result to return in case of an error
-    * @param tag   the class tag
+    * @param fUndef      the undefined result to return in case of an error
+    * @param tag         the class tag
     * @tparam T the type of the result
     * @return the processing flow stage
     */
@@ -198,16 +223,24 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     }
 
   /**
-    * Creates a HTTP request for the specified path.
+    * Creates a tuple with an HTTP request and request data for the specified
+    * path. URI mapping is applied to the path as defined in the archive's
+    * configuration. As this might fail, result is an ''Option''.
     *
+    * @param md          the description of the medium affected
+    * @param config      the config of the archive
     * @param path        the path for the request
     * @param credentials the credentials for the request
-    * @return the new request
+    * @param reqData     the ''RequestData''
+    * @return the tuple with new request and context data
     */
-  private def createRequest(path: String, credentials: UserCredentials): HttpRequest =
-    HttpRequest(uri = Uri(path),
-      headers = List(Authorization(BasicHttpCredentials(credentials.userName,
-        credentials.password))))
+  private def createRequest(md: HttpMediumDesc, config: HttpArchiveConfig, path: String,
+                            credentials: UserCredentials, reqData: RequestData):
+  Option[(HttpRequest, RequestData)] =
+    uriMapper.mapUri(config.contentMappingConfig, Some(md.mediumDescriptionPath), path)
+      .map(uri => (HttpRequest(uri = Uri(uri),
+        headers = List(Authorization(BasicHttpCredentials(credentials.userName,
+          credentials.password)))), reqData))
 
   /**
     * Generates a request for the medium info file of the specified medium
@@ -218,8 +251,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return the request for the medium info file
     */
   private def createMediumInfoRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
-  (HttpRequest, RequestData) =
-    (createRequest(md.mediumDescriptionPath, req.archiveConfig.credentials),
+  Option[(HttpRequest, RequestData)] =
+    createRequest(md, req.archiveConfig, md.mediumDescriptionPath, req.archiveConfig.credentials,
       RequestData(md, req.settingsProcessorActor))
 
   /**
@@ -231,8 +264,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return the request for the meta data file
     */
   private def createMetaDataRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
-  (HttpRequest, RequestData) =
-    (createRequest(md.metaDataPath, req.archiveConfig.credentials),
+  Option[(HttpRequest, RequestData)] =
+    createRequest(md, req.archiveConfig, md.metaDataPath, req.archiveConfig.credentials,
       RequestData(md, req.metaDataProcessorActor))
 
   /**
