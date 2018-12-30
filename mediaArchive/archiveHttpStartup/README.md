@@ -116,6 +116,10 @@ example configuration with all supported options:
         <urlEncoding>true</urlEncoding>
         <pathSeparator>/</pathSeparator>
       </uriMapping>
+      <contentUriMapping>
+        <removePrefix>/music/test-archive</removePrefix>
+        <uriTemplate>/Musik${uri}</uriTemplate>
+      </contentUriMapping>
     </archive>
   </archives>
   <downloadTempDir>c:\data\download\temp</downloadTempDir>
@@ -176,13 +180,20 @@ The details of this algorithm can be configured using the following settings:
 
 ### URI mapping
 
-The meta data files for the single media stored in an HTTP archive define the
-URIs of the single songs. As these URIs are typically created for local media
-archives, they can not necessarily be used directly to reference a file in the
-HTTP archive. Therefore, a mapping has to be applied to come to the final URI
-for a file to be downloaded. This is configured in a sub section named
-_uriMapping_. The basic idea is that the URI for a file is derived from the
-URI declared in the meta data file applying the following algorithm:
+When loading data from an HTTP archive URI references have to be resolved in
+multiple ways:
+* The content document of the archive refers to the medium description file and
+  the meta data file for each medium contained in the archive.
+* The meta data files list the (typically relative) URIs of the song files 
+  belonging to this medium.
+
+These references are typically generated for local media archives. Because of
+this they cannot necessarily be used directly to reference a file in the
+HTTP archive. Therefore, a mapping has to be applied to come to the final URIs
+for files to be downloaded. For this purpose, a _uriMapping_ configuration is
+supported. The basic idea here is that the URI for a file is derived from the
+URI declared in the content document or the meta data file applying the 
+following algorithm:
 
 * An optional prefix is removed from the original URI. This is useful for
   instance if the URI is actually an absolute path in a local file system, and
@@ -206,6 +217,14 @@ Details are defined using the following settings:
 | urlEncoding | A boolean flag that determines whether an URL encoding is to be applied to original URIs. | Yes, defaults to *false* |
 | pathSeparator | The separator character used to split path components in original URIs. This is needed if URL encoding is enabled to avoid that the path separator is encoded, too. It is typically a slash on Unix and a backslash on Windows. | Yes, if missing, path separator characters are ignored |
 | uriTemplate| The template to generate the actual URI. This is an arbitrary string that can contain variables using the _${}_ notation. Supported variables are _${medium}_ for the the root path to the medium the current file belongs to, and _${uri}_ for the processed URI of the file. | Yes, defaults to _${uri}_ |
+
+The configuration of an HTTP archive may contain two sections defining the 
+mapping of URIs: 
+* The _uriMapping_ element encloses the mapping configuration for meta data
+  files. It is evaluated when media files are downloaded from the archive.
+* The _contentUriMapping_ element contains the mapping configuration for the
+  archive's content document. It is applied when the medium description and
+  meta data files are retrieved from the archive.  
 
 ### Timeouts
 
