@@ -108,10 +108,16 @@ object HttpArchiveConfig {
   val PropTimeoutReadSize: String = "timeoutReadSize"
 
   /**
-    * The common prefix for all configuration properties related to the
-    * URI-mapping configuration.
+    * The prefix for all configuration properties related to the meta data
+    * URI mapping configuration.
     */
-  val PrefixUriMapping = "uriMapping."
+  val PrefixMetaUriMapping = "uriMapping."
+
+  /**
+    * The prefix for configuration properties related to the content URI
+    * mapping configuration.
+    */
+  val PrefixContentUriMapping = "contentUriMapping."
 
   /**
     * The configuration property for a prefix to be removed from a URI defined
@@ -121,7 +127,7 @@ object HttpArchiveConfig {
     * concatenated to the root path of the current medium. If this property is
     * undefined, no prefix is removed.
     */
-  val PropMappingRemovePrefix: String = PrefixUriMapping + "removePrefix"
+  val PropMappingRemovePrefix = "removePrefix"
 
   /**
     * The configuration property for the number of path components to be
@@ -130,7 +136,7 @@ object HttpArchiveConfig {
     * overlapping paths between the medium root path and the URIs pointing to
     * the files of this medium.
     */
-  val PropMappingRemoveComponents: String = PrefixUriMapping + "removePathComponents"
+  val PropMappingRemoveComponents = "removePathComponents"
 
   /**
     * The configuration property defining the template to be applied for URI
@@ -149,7 +155,7 @@ object HttpArchiveConfig {
     *
     * The default value is ''${uri}'', i.e. the URI is used as is.
     */
-  val PropMappingUriTemplate: String = PrefixUriMapping + "uriTemplate"
+  val PropMappingUriTemplate = "uriTemplate"
 
   /**
     * The configuration property that controls the URL encoding of URIs. If
@@ -157,7 +163,7 @@ object HttpArchiveConfig {
     * files are encoded. (As they might contain path separators, those
     * separators are not encoded.) The default value is '''false'''.
     */
-  val PropMappingEncoding: String = PrefixUriMapping + "urlEncoding"
+  val PropMappingEncoding = "urlEncoding"
 
   /**
     * The configuration property defining the path separator used within URIs
@@ -166,7 +172,7 @@ object HttpArchiveConfig {
     * are encoded. If no separator is provided, URL encoding is done on the
     * whole URI string.
     */
-  val PropMappingPathSeparator: String = PrefixUriMapping + "pathSeparator"
+  val PropMappingPathSeparator = "pathSeparator"
 
   /**
     * The default processor count value. This value is assumed if the
@@ -229,7 +235,7 @@ object HttpArchiveConfig {
     */
   def apply(c: Configuration, prefix: String, credentials: UserCredentials,
             downloadConfig: DownloadConfig): Try[HttpArchiveConfig] = Try {
-    val Path = if(prefix endsWith Separator) prefix else prefix + Separator
+    val Path = if (prefix endsWith Separator) prefix else prefix + Separator
     val uri = c.getString(Path + PropArchiveUri)
     if (uri == null) {
       throw new IllegalArgumentException("No URI for HTTP archive configured!")
@@ -248,14 +254,31 @@ object HttpArchiveConfig {
       c.getInt(Path + PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
       c.getInt(Path + PropTimeoutReadSize),
       downloadConfig,
-      extractMappingConfig(c, Path))
+      extractMappingConfig(c, Path + PrefixMetaUriMapping),
+      extractMappingConfig(c, Path + PrefixContentUriMapping))
   }
+
+  /**
+    * Extracts the properties for URI mapping from the given configuration.
+    *
+    * @param c      the configuration
+    * @param prefix the prefix for configuration keys (must end with a
+    *               separator)
+    * @return the URI mapping configuration
+    */
+  def extractMappingConfig(c: Configuration, prefix: String): UriMappingConfig =
+    UriMappingConfig(removePrefix = c.getString(prefix + PropMappingRemovePrefix),
+      uriTemplate = c.getString(prefix + PropMappingUriTemplate, DefaultUriMappingTemplate),
+      pathSeparator = c.getString(prefix + PropMappingPathSeparator),
+      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false),
+      removeComponents = c.getInt(prefix + PropMappingRemoveComponents,
+        DefaultPathComponentsToRemove))
 
   /**
     * Extracts the name for the archive from the configuration. If not
     * specified, the name is extracted from the URI.
     *
-    * @param c the configuration
+    * @param c      the configuration
     * @param prefix the prefix for configuration keys
     * @return the archive name
     */
@@ -270,21 +293,6 @@ object HttpArchiveConfig {
       if (posExt > 0) nameWithPath.substring(0, posExt) else nameWithPath
     }
   }
-
-  /**
-    * Extracts the properties for URI mapping from the given configuration.
-    *
-    * @param c      the configuration
-    * @param prefix the prefix for configuration keys
-    * @return the URI mapping configuration
-    */
-  private def extractMappingConfig(c: Configuration, prefix: String): UriMappingConfig =
-    UriMappingConfig(removePrefix = c.getString(prefix + PropMappingRemovePrefix),
-      uriTemplate = c.getString(prefix + PropMappingUriTemplate, DefaultUriMappingTemplate),
-      pathSeparator = c.getString(prefix + PropMappingPathSeparator),
-      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false),
-      removeComponents = c.getInt(prefix + PropMappingRemoveComponents,
-        DefaultPathComponentsToRemove))
 }
 
 /**
@@ -299,11 +307,11 @@ object HttpArchiveConfig {
   * The properties are all optional; default values are used if they are not
   * specified.
   *
-  * @param removePrefix a prefix to be removed from URIs
+  * @param removePrefix     a prefix to be removed from URIs
   * @param removeComponents the number of prefix path components to remove
-  * @param uriTemplate  a template to construct the resulting URI
-  * @param pathSeparator the path
-  * @param urlEncode    flag whether the URI needs to be encoded
+  * @param uriTemplate      a template to construct the resulting URI
+  * @param pathSeparator    the path
+  * @param urlEncode        flag whether the URI needs to be encoded
   */
 case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemplate: String,
                             pathSeparator: String, urlEncode: Boolean) extends UriMappingSpec {
@@ -342,7 +350,9 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param timeoutReadSize       the size of data to read from the source to avoid
   *                              a timeout
   * @param downloadConfig        configuration for standard download properties
-  * @param mappingConfig         configuration for URI mapping
+  * @param metaMappingConfig     configuration for URI mapping for meta data
+  * @param contentMappingConfig  configuration for URI mapping for the archive
+  *                              content file
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
@@ -356,7 +366,8 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              downloadReadChunkSize: Int,
                              timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
-                             mappingConfig: UriMappingConfig) {
+                             metaMappingConfig: UriMappingConfig,
+                             contentMappingConfig: UriMappingConfig) {
   /**
     * A sequence with the single components of the archive URI. This is needed
     * when constructing relative URIs for songs contained in the archive.

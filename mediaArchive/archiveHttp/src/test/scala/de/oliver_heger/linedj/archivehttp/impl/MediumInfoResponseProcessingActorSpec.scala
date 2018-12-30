@@ -71,7 +71,8 @@ object MediumInfoResponseProcessingActorSpec {
     "Test", UserCredentials("scott", "tiger"), processorCount = 3,
     processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
-    downloadReadChunkSize = 500, timeoutReadSize = 250, mappingConfig = null)
+    downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = null,
+    contentMappingConfig = null)
 
   /** A timeout value for waiting for async results. */
   private val WaitTimeout = 3.seconds

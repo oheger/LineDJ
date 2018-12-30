@@ -57,7 +57,7 @@ object HttpArchiveContentProcessorActorSpec {
     UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 2, 64,
     downloadConfig = null, downloadBufferSize = 512,
     downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
-    timeoutReadSize = 222, mappingConfig = null)
+    timeoutReadSize = 222, metaMappingConfig = null, contentMappingConfig = null)
 
   /** Message indicating stream completion. */
   private val CompleteMessage = new Object

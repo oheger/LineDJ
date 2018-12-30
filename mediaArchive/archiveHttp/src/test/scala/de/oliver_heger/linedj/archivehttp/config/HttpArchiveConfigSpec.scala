@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.archivecommon.uri.UriMapper
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -130,8 +132,9 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     * default properties.
     *
     * @param triedConfig a ''Try'' for the config to check
+    * @return the configuration
     */
-  private def checkConfig(triedConfig: Try[HttpArchiveConfig]): Unit = {
+  private def checkConfig(triedConfig: Try[HttpArchiveConfig]): HttpArchiveConfig = {
     triedConfig match {
       case Success(config) =>
         config.archiveURI should be(Uri(ArchiveUri))
@@ -144,11 +147,17 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.downloadReadChunkSize should be(DownloadReadChunkSize)
         config.downloadMaxInactivity should be(DownloadMaxInactivity)
         config.timeoutReadSize should be(TimeoutReadSize)
-        config.mappingConfig.removePrefix should be(RemovePrefix)
-        config.mappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
-        config.mappingConfig.uriTemplate should be(UriTemplate)
-        config.mappingConfig.pathSeparator should be(UriPathSeparator)
-        config.mappingConfig.urlEncode shouldBe true
+        config.metaMappingConfig.removePrefix should be(RemovePrefix)
+        config.metaMappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
+        config.metaMappingConfig.uriTemplate should be(UriTemplate)
+        config.metaMappingConfig.pathSeparator should be(UriPathSeparator)
+        config.metaMappingConfig.urlEncode shouldBe true
+        config.contentMappingConfig.removePrefix should be(null)
+        config.contentMappingConfig.pathComponentsToRemove should be(0)
+        config.contentMappingConfig.uriTemplate should be(HttpArchiveConfig
+          .DefaultUriMappingTemplate)
+        config.contentMappingConfig.urlEncode shouldBe false
+        config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
@@ -158,6 +167,27 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = createConfiguration()
 
     checkConfig(HttpArchiveConfig(c, Prefix, Credentials, DownloadData))
+  }
+
+  it should "initialize a content mapping configuration" in {
+    val c = createConfiguration()
+    val pref = Prefix + ".contentUriMapping."
+    c.addProperty(pref + "removePrefix", RemovePrefix)
+    c.addProperty(pref + "removePathComponents", RemoveComponentCount)
+    c.addProperty(pref + "uriTemplate", UriTemplate)
+    c.addProperty(pref + "pathSeparator", UriPathSeparator)
+    c.addProperty(pref + "urlEncoding", true)
+
+    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+      case Success(config) =>
+        config.contentMappingConfig.removePrefix should be(RemovePrefix)
+        config.contentMappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
+        config.contentMappingConfig.uriTemplate should be(UriTemplate)
+        config.contentMappingConfig.pathSeparator should be(UriPathSeparator)
+        config.contentMappingConfig.urlEncode shouldBe true
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
   }
 
   it should "initialize a correct download configuration" in {
@@ -290,25 +320,36 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "use defaults for the URI mapping config" in {
+    val p = HttpArchiveConfig.PrefixMetaUriMapping
     val c = clearProperty(
       clearProperty(
         clearProperty(
           clearProperty(
-            clearProperty(createConfiguration(), HttpArchiveConfig.PropMappingRemovePrefix),
-            HttpArchiveConfig.PropMappingUriTemplate),
-          HttpArchiveConfig.PropMappingPathSeparator),
-        HttpArchiveConfig.PropMappingEncoding),
-      HttpArchiveConfig.PropMappingRemoveComponents)
+            clearProperty(createConfiguration(), p + HttpArchiveConfig.PropMappingRemovePrefix),
+            p + HttpArchiveConfig.PropMappingUriTemplate),
+          p + HttpArchiveConfig.PropMappingPathSeparator),
+        p + HttpArchiveConfig.PropMappingEncoding),
+      p + HttpArchiveConfig.PropMappingRemoveComponents)
 
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
-        config.mappingConfig.removePrefix should be(null)
-        config.mappingConfig.pathComponentsToRemove should be(0)
-        config.mappingConfig.uriTemplate should be("${uri}")
-        config.mappingConfig.pathSeparator should be(null)
-        config.mappingConfig.urlEncode shouldBe false
+        config.metaMappingConfig.removePrefix should be(null)
+        config.metaMappingConfig.pathComponentsToRemove should be(0)
+        config.metaMappingConfig.uriTemplate should be("${uri}")
+        config.metaMappingConfig.pathSeparator should be(null)
+        config.metaMappingConfig.urlEncode shouldBe false
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
+  }
+
+  it should "use a default content URI mapping that does not manipulate URIs" in {
+    val Uri = "/music/test-archive/media/Madonna1/playlist.settings"
+    val mid = MediumID("someMedium", Some(Uri))
+    val mapper = new UriMapper
+    val config = checkConfig(HttpArchiveConfig(createConfiguration(), Prefix, Credentials,
+      DownloadData))
+
+    mapper.mapUri(config.contentMappingConfig, mid, Uri) should be(Some(Uri))
   }
 }
