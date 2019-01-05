@@ -18,6 +18,8 @@ package de.oliver_heger.linedj.extract.id3
 
 import akka.util.ByteString
 
+import scala.annotation.tailrec
+
 /**
   * The package object for the ''model'' package.
   *
@@ -25,6 +27,9 @@ import akka.util.ByteString
   * classes.
   */
 package object model {
+  /** Factor for shifting a byte position in an integer representing size. */
+  private val SizeByteShift = 7
+
   /**
     * Converts a byte to an unsigned integer.
     *
@@ -42,4 +47,24 @@ package object model {
     * @return the resulting unsigned integer
     */
   def extractByte(buf: ByteString, idx: Int): Int = toUnsignedInt(buf(idx))
+
+  /**
+    * Extracts an integer of the given size representing a tag or frame size
+    * from the given buffer. For such integers only 7 bits per byte are used;
+    * so the calculation of values consisting of multiple bytes is
+    * non-standard.
+    *
+    * @param buf    a buffer with the data to be processed
+    * @param ofs    the offset into the buffer
+    * @param length the length of the size integer (in bytes)
+    * @return the extracted size value
+    */
+  def extractSizeInt(buf: ByteString, ofs: Int, length: Int): Int = {
+    @tailrec def extractSizeByte(value: Int, pos: Int): Int =
+      if (pos >= length) value
+      else extractSizeByte((value << SizeByteShift) +
+        extractByte(buf, ofs + pos), pos + 1)
+
+    extractSizeByte(0, 0)
+  }
 }

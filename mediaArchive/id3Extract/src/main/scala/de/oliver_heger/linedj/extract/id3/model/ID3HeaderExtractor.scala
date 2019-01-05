@@ -30,20 +30,14 @@ object ID3HeaderExtractor {
   /** The string identifying an ID3 header. */
   private val HeaderID = "ID3".getBytes(StandardCharsets.UTF_8)
 
-  /** The factor for byte 1 of the header size. */
-  private val F1 = 21
-
-  /** The factor for byte 2 of the header size. */
-  private val F2 = 14
-
-  /** The factor for byte 3 of the header size. */
-  private val F3 = 7
-
   /** The index of the version number in the header. */
   private val IdxVersion = 3
 
   /** The index of the size information in the header. */
   private val IdxSize = 6
+
+  /** The length of the header size in bytes. */
+  private val SizeLength = 4
 
   /**
     * Tests whether the specified data contains an ID3 header. This method
@@ -74,12 +68,8 @@ object ID3HeaderExtractor {
     * @param header the array with the ID3 header
     * @return the size of the ID3 block (minus header size)
     */
-  private def id3Size(header: ByteString): Int = {
-    val f1 = header(IdxSize).toInt << F1
-    val f2 = header(IdxSize + 1).toInt << F2
-    val f3 = header(IdxSize + 2).toInt << F3
-    f1 + f2 + f3 + header(IdxSize + 3).toInt
-  }
+  private def id3Size(header: ByteString): Int =
+    extractSizeInt(header, IdxSize, SizeLength)
 }
 
 /**
