@@ -16,7 +16,6 @@
 
 import com.github.oheger.sbt.spifly.SbtSpiFly
 import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
-import com.typesafe.sbt.osgi.SbtOsgi.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
@@ -87,7 +86,7 @@ lazy val LineDJ = (project in file("."))
 lazy val shared = (project in file("shared"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-shared",
     libraryDependencies += "org.scalaz" %% "scalaz-core" % VersionScalaz,
@@ -103,7 +102,7 @@ lazy val shared = (project in file("shared"))
 lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
@@ -118,7 +117,7 @@ lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
 lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-id3extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
@@ -133,7 +132,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
 lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-common",
     libraryDependencies ++= logDependencies,
@@ -150,7 +149,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
 lazy val archive = (project in file("mediaArchive/archive"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
@@ -166,7 +165,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
 lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-union",
     libraryDependencies ++= logDependencies,
@@ -182,7 +181,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
 lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
@@ -203,7 +202,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
 lazy val platform = (project in file("platform"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-platform",
     libraryDependencies ++= jguiraffeDependencies,
@@ -223,7 +222,7 @@ lazy val platform = (project in file("platform"))
 lazy val actorSystem = (project in file("actorSystem"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
@@ -247,7 +246,7 @@ lazy val actorSystem = (project in file("actorSystem"))
 lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveStartup",
     libraryDependencies ++= osgiDependencies,
@@ -265,7 +264,7 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
 lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveLocalStartup",
     libraryDependencies ++= osgiDependencies,
@@ -283,7 +282,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
 lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveHttpStartup",
     libraryDependencies ++= osgiDependencies,
@@ -299,7 +298,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
 lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveAdmin",
     libraryDependencies ++= jguiraffeDependencies,
@@ -316,7 +315,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
 lazy val mediaBrowser = (project in file("browser"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-browser",
     libraryDependencies ++= jguiraffeDependencies,
@@ -341,7 +340,7 @@ lazy val mediaBrowser = (project in file("browser"))
 lazy val playlistEditor = (project in file("pleditor"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-pleditor",
     libraryDependencies ++= jguiraffeDependencies,
@@ -369,7 +368,7 @@ lazy val playlistEditor = (project in file("pleditor"))
 lazy val reorderMedium = (project in file("reorder/reorderMedium"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-medium",
     OsgiKeys.privatePackage := Seq(
@@ -387,7 +386,7 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
 lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-album",
     OsgiKeys.privatePackage := Seq(
@@ -405,7 +404,7 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
 lazy val reorderArtist = (project in file("reorder/reorderArtist"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-artist",
     OsgiKeys.privatePackage := Seq(
@@ -424,7 +423,7 @@ lazy val reorderArtist = (project in file("reorder/reorderArtist"))
 lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-songs",
     OsgiKeys.privatePackage := Seq(
@@ -443,7 +442,7 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
 lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-artists",
     OsgiKeys.privatePackage := Seq(
@@ -463,7 +462,7 @@ lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists")
 lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-albums",
     OsgiKeys.privatePackage := Seq(
@@ -479,7 +478,7 @@ lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
 lazy val playerEngine = (project in file("playerEngine"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-engine",
     libraryDependencies ++= logDependencies,
@@ -497,7 +496,7 @@ lazy val playerEngine = (project in file("playerEngine"))
 lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .enablePlugins(SbtOsgi, SbtSpiFly)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(spiFlySettings: _*)
   .settings(
     name := "linedj-mp3-playback-context-factory",
@@ -523,7 +522,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
 lazy val radioPlayer = (project in file("radioPlayer"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player",
     libraryDependencies ++= jguiraffeDependencies,
@@ -543,7 +542,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
 lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actors-MediaIfc",
     OsgiKeys.exportPackage := Seq(
@@ -562,7 +561,7 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
 lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-remote-MediaIfc",
     libraryDependencies ++= osgiDependencies,
@@ -580,7 +579,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
 lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-embedded-MediaIfc",
     libraryDependencies ++= osgiDependencies,
@@ -599,7 +598,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
 lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-disabled-MediaIfc",
     libraryDependencies ++= osgiDependencies,
@@ -619,7 +618,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
 lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-shutdownOneForAll",
     libraryDependencies ++= osgiDependencies,
@@ -640,7 +639,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
 lazy val appWindowHiding = (project in file("appWindowHiding"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-windowHiding",
     libraryDependencies ++= osgiDependencies,
@@ -659,7 +658,7 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
 lazy val trayWindowList = (project in file("trayWindowList"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-trayWindowList",
     libraryDependencies ++= osgiDependencies,
@@ -677,7 +676,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
 lazy val audioPlatform = (project in file("audioPlatform"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-platform",
     libraryDependencies ++= osgiDependencies,
@@ -700,7 +699,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
 lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-persistent-playlist-handler",
     libraryDependencies ++= osgiDependencies,
@@ -718,7 +717,7 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
 lazy val audioPlayerUI = (project in file("audioPlayerUI"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings: _*)
-  .settings(osgiSettings: _*)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-player-ui",
     libraryDependencies ++= jguiraffeDependencies,
