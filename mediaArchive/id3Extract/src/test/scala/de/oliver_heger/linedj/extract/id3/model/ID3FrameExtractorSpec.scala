@@ -23,8 +23,8 @@ object ID3FrameExtractorSpec {
     out.write(name.getBytes)
     val size = if (tagSize >= 0) tagSize else content.length + 1
     out.write(0)
-    out.write(size >> 8)
-    out.write(size & 0xFF)
+    out.write(size >> 7)
+    out.write(size & 0x7F)
     out.write(content.getBytes)
     out.write(0)
     size + 6
@@ -162,6 +162,13 @@ class ID3FrameExtractorSpec extends FlatSpec with Matchers {
     checkID3Tag(frame, "TRCK", "11")
     checkID3Tag(frame, "TCOM", "Harry Hirsch")
     checkID3Tag(frame, "TPE2", "Test Band")
+  }
+
+  it should "process an ID3v2.4 frame with a large tag" in {
+    val extractor = extractorFromResourceFile("testLongTitle.mp3")
+    val frame = extractor.createFrame()
+    checkID3Tag(frame, "TALB",
+      "Mozart: The Violin Sonatas [Mutter & Orkis], Disc 2")
   }
 
   it should "create an ID3TagProvider for an ID3v2.2 frame" in {

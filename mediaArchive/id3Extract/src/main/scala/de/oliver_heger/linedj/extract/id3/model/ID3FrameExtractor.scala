@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.extract.id3.model
 import akka.util.ByteString
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 
+import scala.annotation.tailrec
+
 object ID3FrameExtractor {
   /** An array with tag names for ID3v2.2 frames. */
   private val TagsV2 = Vector("TT2", "TP1", "TAL", "TYE", "TRK")
@@ -29,8 +31,8 @@ object ID3FrameExtractor {
   /** A map with version-specific data. */
   private val Versions = createVersionDataMap()
 
-  /** Factor for shifting a byte position in an integer. */
-  private val ByteShift = 8
+  /** Factor for shifting a byte position in an integer representing size. */
+  private val SizeByteShift = 7
 
   /**
     * A default ''FrameDataHandler'' implementation which is used initially and
@@ -47,24 +49,6 @@ object ID3FrameExtractor {
       * @inheritdoc This implementation always returns '''true'''.
       */
     override def canProcess(nextChunk: ByteString): Boolean = true
-  }
-
-  /**
-    * Extracts an integer value with the given number of bytes from the given
-    * byte string.
-    *
-    * @param buf the byte string
-    * @param ofs the start position of the integer number
-    * @param len the length of the integer (i.e. the number of bytes)
-    * @return the extracted integer value
-    */
-  private def extractInt(buf: ByteString, ofs: Int, len: Int): Int = {
-    var intVal = extractByte(buf, ofs)
-    for (i <- 1 until len) {
-      intVal <<= ByteShift
-      intVal |= extractByte(buf, ofs + i)
-    }
-    intVal
   }
 
   /**
@@ -169,8 +153,14 @@ object ID3FrameExtractor {
       * @param ofs    the offset into the array
       * @return the size of the tag's content
       */
-    def extractSize(header: ByteString, ofs: Int): Int =
-      extractInt(header, ofs + nameLength, sizeLength)
+    def extractSize(header: ByteString, ofs: Int): Int = {
+      @tailrec def extractSizeByte(value: Int, pos: Int): Int =
+        if (pos >= sizeLength) value
+        else extractSizeByte((value << SizeByteShift) +
+          extractByte(header, ofs + nameLength + pos), pos + 1)
+
+      extractSizeByte(0, 0)
+    }
 
     /**
       * Creates an ''ID3TagProvider'' for the specified frame.
