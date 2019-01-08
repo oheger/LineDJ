@@ -16,32 +16,31 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 
+import akka.Done
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.event.LoggingAdapter
-import akka.stream.{ActorMaterializer, IOResult}
-import akka.stream.scaladsl.{FileIO, Source}
+import akka.stream.IOResult
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
+import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.mockito.Mockito._
 import org.mockito.Matchers.{anyString, eq => eqArg}
+import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Await, Promise}
-import scala.concurrent.duration._
+import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
 object PersistentMetaDataWriterActorSpec {
@@ -201,37 +200,11 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     response.sender should be(actor)
   }
 
-  /**
-    * Creates an ''IOResult'' for a failed operation. Unfortunately,
-    * ''IOResult'' objects cannot be created directly nor mocked. Therefore, a
-    * real operation has to be executed.
-    *
-    * @return the ''IOResult''
-    */
-  private def createFailedIOResult(): IOResult = {
-    val path = createPathInDirectory("Some path").resolve("someFile.tst")
-    createIOResult(path)
-  }
-
-  /**
-    * Creates an ''IOResult'' for an operation on the given path.
-    * Unfortunately, ''IOResult'' objects cannot be created directly nor
-    * mocked. Therefore, a real operation has to be executed.
-    *
-    * @param path the path for the operation
-    * @return the ''IOResult''
-    */
-  private def createIOResult(path: Path): IOResult = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
-    val futureResult = Source.single(ByteString("Test")).runWith(FileIO.toPath(path))
-    Await.result(futureResult, 5.seconds)
-  }
-
   it should "use a result handler that logs failed IOResults" in {
     val log = mock[LoggingAdapter]
-    val ioResult = createFailedIOResult()
+    val exception = new IOException("Crash")
+    val ioResult = IOResult(42L, Failure(exception))
     val promise = Promise[IOResult]()
-    val ex = ioResult.status.asInstanceOf[Failure[IOResult]].exception
     val actor = createTestActorRef()
     val writerActor = actor.underlyingActor
 
@@ -239,12 +212,11 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       log, createMediumData())
     promise complete Success(ioResult)
     expectMsg(PersistentMetaDataWriterActor.StreamOperationComplete)
-    verify(log).error(eqArg(ex), anyString())
+    verify(log).error(eqArg(exception), anyString())
   }
 
   it should "use a result handler that notifies the sender about successful operations" in {
-    val file = createPathInDirectory("successfulIOOperation.tmp")
-    val ioResult = createIOResult(file)
+    val ioResult = IOResult(100L, Success(Done))
     val promise = Promise[IOResult]()
     val actor = createTestActorRef()
     val writerActor = actor.underlyingActor
