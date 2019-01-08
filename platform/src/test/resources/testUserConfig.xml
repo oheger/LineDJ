@@ -20,8 +20,5 @@
   Test configuration definition file for ClientApplicationSpec.
 -->
 <configuration>
-  <xml config-name="userConfig" fileName="testUserConfig.xml"/>
-  <additional>
-    <xml fileName="lineDJ-client-management-config.xml"/>
-  </additional>
+    <test>true</test>
 </configuration>
