@@ -15,8 +15,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqParam, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
@@ -128,7 +127,7 @@ with MockitoSugar with FileTestHelper {
     }
     closeWriter(writer)
 
-    readDataFile(file) should be(TestData.replace("\r\n", "  "))
+    readDataFile(file) should be(TestDataSingleLine)
   }
 
   it should "trigger a second write if there are remaining bytes" in {
@@ -151,13 +150,11 @@ with MockitoSugar with FileTestHelper {
     val file = createFileReference()
     val channel = mock[AsynchronousFileChannel]
     when(channel.write(any(classOf[ByteBuffer]), anyLong(), any(classOf[ActorRef]),
-      any(classOf[CompletionHandler[Integer, ActorRef]]))).thenAnswer(new Answer[Void] {
-      override def answer(invocation: InvocationOnMock): Void = {
-        val handler = invocation.getArguments()(3).asInstanceOf[CompletionHandler[Integer,
-          ActorRef]]
-        handler.failed(new Throwable, testActor)
-        null
-      }
+      any(classOf[CompletionHandler[Integer, ActorRef]]))).thenAnswer((invocation: InvocationOnMock) => {
+      val handler = invocation.getArguments()(3).asInstanceOf[CompletionHandler[Integer,
+        ActorRef]]
+      handler.failed(new Throwable, testActor)
+      null
     })
     val strategy = OneForOneStrategy() {
       case _: IOException => Stop
@@ -185,17 +182,15 @@ with MockitoSugar with FileTestHelper {
 
     val handler = fetchCompletionHandler(channel)
     handler.failed(new IOException, testActor)
-    expectNoMsg()
+    expectNoMessage()
   }
 
   it should "close the channel when it is stopped" in {
     val latch = new CountDownLatch(1)
     val channel = mock[AsynchronousFileChannel]
-    doAnswer(new Answer[AnyRef] {
-      override def answer(invocation: InvocationOnMock): AnyRef = {
-        latch.countDown()
-        null
-      }
+    doAnswer((_: InvocationOnMock) => {
+      latch.countDown()
+      null
     }).when(channel).close()
     val file = createFileReference()
     val writer = TestActorRef(propsForWriterActorWithChannel(channel))

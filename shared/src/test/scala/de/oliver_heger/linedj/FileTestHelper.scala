@@ -9,24 +9,34 @@ import scala.io.Source
 
 object FileTestHelper {
   /** A string with defined test data. */
-  val TestData = """|Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
-                   |eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
-                   |voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
-                   |kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
-                   |ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
-                   |tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
-                   |vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
-                   |gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
-                   |dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
-                   |invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
-                   |eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
-                   |sea takimata sanctus est Lorem ipsum dolor sit amet.""".stripMargin
+  val TestData: String = """|Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
+                            |eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
+                            |voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita
+                            |kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem
+                            |ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+                            |tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
+                            |vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
+                            |gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum
+                            |dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor
+                            |invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
+                            |eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no
+                            |sea takimata sanctus est Lorem ipsum dolor sit amet.""".stripMargin
 
   /** The prefix for temporary files created by this trait. */
   val TempFilePrefix = "FileTestHelper"
 
   /** The suffix for temporary files created by this trait. */
   val TempFileSuffix = ".tmp"
+
+  /** The platform-specific new-line string. */
+  val NL: String = System.getProperty("line.separator")
+
+  /**
+    * Constant for a test data string that does not contain new-line
+    * characters. Such characters can be problematic as they are
+    * platform-specific.
+    */
+  val TestDataSingleLine: String = TestData.replace(NL, " ")
 
   /**
    * Helper method for converting a string to a byte array.
@@ -39,7 +49,7 @@ object FileTestHelper {
    * Returns a byte array with the complete test data.
    * @return the test bytes
    */
-  def testBytes() = toBytes(TestData)
+  def testBytes(): Array[Byte] = toBytes(TestData)
 }
 
 /**
@@ -69,7 +79,7 @@ trait FileTestHelper {
    * Returns the path to the temporary directory managed by this trait.
    * @return the path to the managed directory
    */
-  def testDirectory = ensureTempDirectory()
+  def testDirectory: Path = ensureTempDirectory()
 
   /**
    * Creates a new temporary file reference with no content.
@@ -116,7 +126,7 @@ trait FileTestHelper {
    */
   def readDataFile(path: Path): String = {
     val source = Source.fromFile(path.toFile)
-    val result = source.getLines().mkString("\r\n")
+    val result = source.getLines().mkString(NL)
     source.close()
     result
   }
@@ -129,10 +139,10 @@ trait FileTestHelper {
   def listManagedDirectory(): collection.mutable.Set[Path] = {
     val result = collection.mutable.Set.empty[Path]
     Files.walkFileTree(testDirectory, new SimpleFileVisitor[Path] {
-      override def visitFile(file: Path, attrs: BasicFileAttributes) =
+      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult =
       visitPath(file)
 
-      override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes) =
+      override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult =
         visitPath(dir)
 
       private def visitPath(p: Path): FileVisitResult = {
