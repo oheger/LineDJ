@@ -17,52 +17,13 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import MetaDataValidator.ValidationErrorCode._
+import ValidationTestHelper._
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile, ValidationErrorCode}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.{Failure, NonEmptyList, Success}
 
 object MetaDataValidatorSpec {
-  /** A test medium ID. */
-  private val Medium = MediumID("testMedium", Some("testMedium.settings"))
-
-  /**
-    * Generates the URI of a test media file based on the given index.
-    *
-    * @param idx the index
-    * @return the test URI for this media file
-    */
-  private def fileUri(idx: Int): String = "testMediaFile" + idx
-
-  /**
-    * Generates test meta data based on the given indices. The meta data is
-    * fully defined.
-    *
-    * @param songIdx  the index of the song
-    * @param albumIdx the index of the album
-    * @return test meta data with this index
-    */
-  private def metaData(songIdx: Int, albumIdx: Int = 1): MediaMetaData =
-    MediaMetaData(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
-      inceptionYear = Some(2018 + albumIdx), trackNumber = Some(songIdx), duration = Some(60 + songIdx),
-      size = 1000 + songIdx)
-
-  /**
-    * Generates a test album with media files. The album contains the given
-    * number of songs with valid meta data plus songs with the given additional
-    * meta data (which may be inconsistent).
-    *
-    * @param idx            the index of the test album
-    * @param numberOfSongs  the number of songs on this album
-    * @param additionalData meta data for additional songs
-    * @return the test album
-    */
-  private def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetaData*): MediaAlbum = {
-    val songData = (1 to numberOfSongs) map (metaData(_, idx))
-    MediaAlbum(Medium, "album" + idx, additionalData.toList ::: songData.toList)
-  }
-
   /**
     * Convenience function to convert a NonEmptyList to a plain list.
     *
