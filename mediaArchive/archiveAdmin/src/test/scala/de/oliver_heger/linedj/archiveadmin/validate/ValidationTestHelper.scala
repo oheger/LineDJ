@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.MediaAlbum
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
@@ -27,6 +27,9 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * This object mainly provides functions to generate test data.
   */
 object ValidationTestHelper {
+  /** A prefix for the generation of URIs for media. */
+  private val MediumUriPrefix = "testMedium"
+
   /** A test medium ID. */
   val Medium: MediumID = testMedium(1)
 
@@ -37,7 +40,17 @@ object ValidationTestHelper {
     * @return the test medium ID
     */
   def testMedium(idx: Int): MediumID =
-    MediumID("testMedium" + idx, Some(s"testMedium$idx.settings"))
+    MediumID(MediumUriPrefix + idx, Some(s"testMedium$idx.settings"))
+
+  /**
+    * Returns the index of a test medium that was generated using
+    * ''testMedium()''.
+    *
+    * @param mid the medium ID
+    * @return the index of this test medium
+    */
+  def extractMediumIndex(mid: MediumID): Int =
+    mid.mediumURI.substring(MediumUriPrefix.length).toInt
 
   /**
     * Generates a test medium info object based on the given index.
@@ -93,6 +106,17 @@ object ValidationTestHelper {
     MediaMetaData(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
       inceptionYear = Some(2018 + albumIdx), trackNumber = Some(songIdx), duration = Some(60 + songIdx),
       size = 1000 + songIdx)
+
+  /**
+    * Generates a test media file based on the given indices.
+    *
+    * @param idx       the index of the song
+    * @param albumIdx  the index of the album
+    * @param mediumIdx the index of the medium
+    * @return the test file
+    */
+  def file(idx: Int, albumIdx: Int = 1, mediumIdx: Int = 1): MediaFile =
+    MediaFile(testMedium(mediumIdx), fileUri(idx, albumIdx, mediumIdx), metaData(idx, albumIdx))
 
   /**
     * Generates a test album with media files. The album contains the given
