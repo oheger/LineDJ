@@ -53,6 +53,11 @@
     <f:icon resource="meta_data_files.png"/>
   </a:action>
 
+  <a:action name="validateFilesAction" textres="act_validatefiles_text"
+            tooltipres="act_validatefiles_tip" mnemonicres="act_validatefiles_mnemo"
+            taskBean="validateFilesTask">
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -63,6 +68,8 @@
     </a:menu>
     <a:menu textres="menu_edit_text" mnemonicres="menu_edit_mnemo">
       <a:menuitem actionName="metaDataFilesAction"/>
+      <a:separator/>
+      <a:menuitem actionName="validateFilesAction"/>
     </a:menu>
   </a:menubar>
 
@@ -197,5 +204,20 @@
            beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="metaFilesDlgCommand"/>
     <di:setProperty property="beforeEnabler" value="action:metaDataFilesAction"/>
+  </di:bean>
+
+  <!-- Command and task for opening the validate files dialog -->
+  <di:bean name="validateFilesDlgCommand"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.validate.OpenFileValidationWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:validation.jelly"/>
+      <di:param refName="jguiraffe.application"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="validateFilesTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="validateFilesDlgCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:validateFilesAction"/>
   </di:bean>
 </j:jelly>

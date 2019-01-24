@@ -304,6 +304,9 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.mediaifc.service",
+      "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform, archive)

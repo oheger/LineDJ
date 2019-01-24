@@ -28,4 +28,10 @@
       <di:param refName="jguiraffe.styleSheetProvider"/>
     </di:constructor>
   </di:bean>
+
+  <!-- The meta data service -->
+  <di:const var="metaDataServiceVar"
+            targetClassName="de.oliver_heger.linedj.platform.mediaifc.service.MetaDataServiceImpl$"
+            field="MODULE$"/>
+  <di:contextBean var="metaDataServiceVar" name="metaDataService"/>
 </j:jelly>

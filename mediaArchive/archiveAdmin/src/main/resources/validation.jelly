@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2019 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the dialog that displays the results of meta
+     data validation.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+         xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+  <!-- Actions used within the dialog -->
+
+  <!-- The model of the files table. -->
+  <di:bean name="resultsTableModel" beanClassName="java.util.ArrayList"/>
+
+  <!-- Icons for the severity table column -->
+  <f:icon resource="validation_error.png" var="iconSeverityError"/>
+  <f:icon resource="validation_warning.png" var="iconSeverityWarning"/>
+
+  <!-- The converter for validation errors -->
+  <di:bean name="itemConverter"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.validate.ValidationItemConverter">
+    <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
+      <di:param value="val_error_"/>
+    </di:constructor>
+    <di:setProperty property="iconSeverityWarning" refName="iconSeverityWarning"/>
+    <di:setProperty property="iconSeverityError" refName="iconSeverityError"/>
+    <di:setProperty property="unknownMediumName">
+      <f:localized resid="validation_unknown_medium"/>
+    </di:setProperty>
+  </di:bean>
+
+  <!-- The dialog window -->
+  <w:dialog titleres="validation_dlg_title" center="true">
+    <f:borderlayout/>
+
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+                      bottomMargin="4" westGap="8" eastGap="8"/>
+      <f:table name="tableResults" model="resultsTableModel" scrollWidth="20cm">
+        <f:borderconstr name="CENTER"/>
+        <f:column name="severityIcon" columnClass="ICON" width="25" header=""/>
+        <f:column name="mediumName" percentWidth="30" headerres="validation_tcol_medium"
+                  columnClass="String"/>
+        <f:column name="name" percentWidth="30" headerres="validation_tcol_name"
+                  columnClass="String"/>
+        <f:column name="error" percentWidth="40" headerres="validation_tcol_error"
+                  columnClass="String"/>
+      </f:table>
+    </f:panel>
+
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+      <f:statictext name="statusLine">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <!-- The controller bean -->
+    <di:bean name="controller"
+             beanClassName="de.oliver_heger.linedj.archiveadmin.validate.ValidationController">
+      <di:constructor>
+        <di:param refName="metaDataService"/>
+        <di:param refName="jguiraffe.application"/>
+        <di:param refName="jguiraffe.guiSynchronizer"/>
+        <di:param refName="comp:tableResults"/>
+        <di:param refName="validationFlow"/>
+        <di:param refName="itemConverter"/>
+      </di:constructor>
+    </di:bean>
+
+    <w:controller beanName="controller"/>
+  </w:dialog>
+
+</j:jelly>
