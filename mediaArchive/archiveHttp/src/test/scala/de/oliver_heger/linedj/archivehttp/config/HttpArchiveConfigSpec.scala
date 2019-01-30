@@ -81,6 +81,9 @@ object HttpArchiveConfigSpec {
   /** The path separator for URIs. */
   private val UriPathSeparator = "\\"
 
+  /** The size of the request queue. */
+  private val RequestQueueSize = 64
+
   /**
     * Creates a configuration object with all test settings.
     *
@@ -104,6 +107,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".uriMapping.uriTemplate", UriTemplate)
     c.addProperty(at + ".uriMapping.pathSeparator", UriPathSeparator)
     c.addProperty(at + ".uriMapping.urlEncoding", true)
+    c.addProperty(at + ".requestQueueSize", RequestQueueSize)
     c
   }
 
@@ -157,6 +161,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.contentMappingConfig.uriTemplate should be(HttpArchiveConfig
           .DefaultUriMappingTemplate)
         config.contentMappingConfig.urlEncode shouldBe false
+        config.requestQueueSize should be(RequestQueueSize)
         config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
@@ -303,6 +308,17 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
         config.propagationBufSize should be(HttpArchiveConfig.DefaultPropagationBufSize)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default request queue size if unspecified" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropRequestQueueSize)
+
+    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+      case Success(config) =>
+        config.requestQueueSize should be(HttpArchiveConfig.DefaultRequestQueueSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }

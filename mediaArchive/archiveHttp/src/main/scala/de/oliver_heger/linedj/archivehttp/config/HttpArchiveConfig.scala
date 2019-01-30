@@ -175,6 +175,14 @@ object HttpArchiveConfig {
   val PropMappingPathSeparator = "pathSeparator"
 
   /**
+    * The configuration property defining the size of the request queue. This
+    * is the maximum number of requests to the archive (download requests and
+    * requests for meta data) waiting to be processed. If there are more
+    * requests, new ones will be rejected.
+    */
+  val PropRequestQueueSize = "requestQueueSize"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -212,6 +220,9 @@ object HttpArchiveConfig {
     * explicitly specified, no path components will be removed.
     */
   val DefaultPathComponentsToRemove = 0
+
+  /** * Default value for the request queue size property. */
+  val DefaultRequestQueueSize = 16
 
   /** The separator for property keys. */
   private val Separator = "."
@@ -255,7 +266,8 @@ object HttpArchiveConfig {
       c.getInt(Path + PropTimeoutReadSize),
       downloadConfig,
       extractMappingConfig(c, Path + PrefixMetaUriMapping),
-      extractMappingConfig(c, Path + PrefixContentUriMapping))
+      extractMappingConfig(c, Path + PrefixContentUriMapping),
+      c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize))
   }
 
   /**
@@ -353,6 +365,7 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param metaMappingConfig     configuration for URI mapping for meta data
   * @param contentMappingConfig  configuration for URI mapping for the archive
   *                              content file
+  * @param requestQueueSize      the size of the queue for pending requests
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
@@ -367,7 +380,8 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
                              metaMappingConfig: UriMappingConfig,
-                             contentMappingConfig: UriMappingConfig) {
+                             contentMappingConfig: UriMappingConfig,
+                             requestQueueSize: Int) {
   /**
     * A sequence with the single components of the archive URI. This is needed
     * when constructing relative URIs for songs contained in the archive.

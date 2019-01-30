@@ -99,7 +99,8 @@ object HttpArchiveManagementActorSpec {
       credentials = UserCredentials("scott", "tiger"), downloadConfig = null,
       downloadBufferSize = 1024, downloadMaxInactivity = 1.minute,
       downloadReadChunkSize = 4000, timeoutReadSize = 2222, archiveName = ArchiveName,
-      metaMappingConfig = null, contentMappingConfig = null, propagationBufSize = PropBufSize)
+      metaMappingConfig = null, contentMappingConfig = null, propagationBufSize = PropBufSize,
+      requestQueueSize = 16)
 
   /**
     * Checks that no further messages have been sent to the specified test
