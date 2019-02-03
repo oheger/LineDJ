@@ -162,6 +162,7 @@ case class MediumPropagated(seqNo: Int)
   *
   * @param mediaSource            the source for the content of the HTTP archive
   * @param clientFlow             a flow for requesting files from the archive
+  * @param requestActor           the actor for sending HTTP requests
   * @param archiveConfig          the configuration for the HTTP archive
   * @param settingsProcessorActor the actor to process settings requests
   * @param metaDataProcessorActor the actor to process meta data requests
@@ -173,6 +174,7 @@ case class MediumPropagated(seqNo: Int)
 case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      clientFlow: Flow[(HttpRequest, RequestData),
                                        (Try[HttpResponse], RequestData), _],
+                                     requestActor: ActorRef,
                                      archiveConfig: HttpArchiveConfig,
                                      settingsProcessorActor: ActorRef,
                                      metaDataProcessorActor: ActorRef,

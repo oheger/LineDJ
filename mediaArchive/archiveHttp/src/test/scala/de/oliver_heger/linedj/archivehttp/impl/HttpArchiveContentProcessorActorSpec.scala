@@ -421,7 +421,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
                                     sink: Sink[MediumProcessingResult, Any]):
     ProcessHttpArchiveRequest =
       ProcessHttpArchiveRequest(mediaSource = source,
-        clientFlow = createRequestFlow(responseMapping),
+        clientFlow = createRequestFlow(responseMapping), requestActor = null,
         archiveConfig = config, settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
         seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)

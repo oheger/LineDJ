@@ -19,16 +19,16 @@ package de.oliver_heger.linedj.archivehttp
 import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.pattern.ask
 import akka.routing.SmallestMailboxPool
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink}
-import akka.util.ByteString
+import akka.stream.scaladsl.Sink
+import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestActor, HttpRequestSupport}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -39,7 +39,7 @@ import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, Up
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
 
 import scala.concurrent.Future
-import scala.util.{Success, Try}
+import scala.util.Success
 
 object HttpArchiveManagementActor {
 
@@ -137,11 +137,11 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
   import HttpArchiveManagementActor._
 
-  /** An unused RequestData object; needed for stream handling. */
-  private val UnusedReqData = RequestData(null, null)
-
   /** Object for materializing streams. */
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
+
+  /** The actor for sending HTTP requests.*/
+  private var requestActor: ActorRef = _
 
   /** The archive content processor actor. */
   private var archiveContentProcessor: ActorRef = _
@@ -158,10 +158,6 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   /** The actor that propagates result to the union archive. */
   private var propagationActor: ActorRef = _
 
-  /** The flow for sending HTTP requests. */
-  private var httpFlow:
-    Flow[(HttpRequest, RequestData), (Try[HttpResponse], RequestData), Any] = _
-
   /** The archive processing state. */
   private var processingState = ContentProcessingUpdateServiceImpl.InitialState
 
@@ -176,9 +172,10 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private var pendingStateClients = Set.empty[ActorRef]
 
-  import context.{dispatcher, system}
+  import context.dispatcher
 
   override def preStart(): Unit = {
+    requestActor = createChildActor(HttpRequestActor(config))
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]))
@@ -189,7 +186,6 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       removeActor = removeActor))
     propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
       unionMetaDataManager, config.archiveURI.toString()))
-    httpFlow = createHttpFlow[RequestData](config.archiveURI)
     updateArchiveState(HttpArchiveStateDisconnected)
   }
 
@@ -242,7 +238,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       unionMetaDataManager ! UpdateOperationStarts(None)
       archiveStateResponse = None
       val currentSeqNo = processingState.seqNo
-      loadArchiveContent() map { resp => createProcessArchiveRequest(resp._1, currentSeqNo)
+      loadArchiveContent() map { resp => createProcessArchiveRequest(resp, currentSeqNo)
       } onComplete {
         case Success(req) =>
           archiveContentProcessor ! req
@@ -267,7 +263,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     val sink = Sink.actorRefWithAck(self, HttpArchiveProcessingInit,
       HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected))
-    ProcessHttpArchiveRequest(clientFlow = httpFlow, archiveConfig = config,
+    ProcessHttpArchiveRequest(clientFlow = null, requestActor = requestActor, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
       sink = sink, mediaSource = resp.entity.dataBytes.via(parseStage),
       seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
@@ -280,20 +276,21 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @return the request for the archive content
     */
   private def createArchiveContentRequest(): HttpRequest =
-    HttpRequest(uri = config.archiveURI,
-      headers = List(Authorization(BasicHttpCredentials(config.credentials.userName,
-        config.credentials.password))))
+    HttpRequest(uri = config.archiveURI)
 
   /**
-    * Loads the content document from the managed archive using the
-    * ''httpFlow'' created on construction time.
+    * Loads the content document from the managed archive using the request
+    * actor created on construction time.
     *
     * @return a ''Future'' with the result of the operation
     */
-  private def loadArchiveContent(): Future[(HttpResponse, RequestData)] = {
+  private def loadArchiveContent(): Future[HttpResponse] = {
+    implicit val requestTimeout: Timeout = config.processorTimeout
     val contentRequest = createArchiveContentRequest()
     log.info("Requesting content of archive {}.", contentRequest.uri)
-    sendRequest(contentRequest, UnusedReqData, httpFlow)
+    (requestActor ? HttpRequestActor.SendRequest(contentRequest, null))
+      .mapTo[HttpRequestActor.ResponseData]
+      .map(_.response)
   }
 
   /**
