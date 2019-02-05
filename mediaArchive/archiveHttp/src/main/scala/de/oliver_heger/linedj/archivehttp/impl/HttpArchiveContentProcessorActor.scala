@@ -25,12 +25,12 @@ import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
-import scala.util.Try
 
 object HttpArchiveContentProcessorActor {
   /** Sequence number used for undefined results. */
@@ -165,8 +165,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
         val broadcastSink = builder.add(Broadcast[MediumProcessingResult](2))
 
         req.mediaSource ~> ks ~> filterDesc ~> broadcast
-        broadcast ~> infoReq ~> req.clientFlow ~> processInfo ~> merge.in0
-        broadcast ~> metaReq ~> req.clientFlow ~> processMeta ~> merge.in1
+        broadcast ~> infoReq ~> processInfo ~> merge.in0
+        broadcast ~> metaReq ~> processMeta ~> merge.in1
         merge.out ~> combine ~> filterUndef ~> broadcastSink ~> req.sink
         broadcastSink ~> sink
         ClosedShape
@@ -190,10 +190,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   Flow[HttpMediumDesc, (HttpRequest, RequestData), NotUsed] =
     Flow[HttpMediumDesc].map(f(req, _))
       .filter(_.isDefined)
-      .map { t =>
-        log.info("GET {}.", t.get._1.uri.toString())
-        t.get
-      }
+      .map(_.get)
 
   /**
     * Creates a flow stage that invokes a processing actor to obtain a partial
@@ -214,12 +211,16 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   private def processFlow[T](req: ProcessHttpArchiveRequest, parallelism: Int)
                             (fUndef: MediumID => T)
                             (implicit tag: ClassTag[T])
-  : Flow[(Try[HttpResponse], RequestData), T, NotUsed] =
-    Flow[(Try[HttpResponse], RequestData)].mapAsync(parallelism) { t =>
-      processHttpResponse(req, t).mapTo[T].fallbackTo(Future {
-        val mid = createMediumID(req, t._2.mediumDesc)
-        fUndef(mid)
-      })
+  : Flow[(HttpRequest, RequestData), T, NotUsed] =
+    Flow[(HttpRequest, RequestData)].mapAsync(parallelism) { t =>
+      val futResp = req.requestActor.ask(HttpRequestActor.SendRequest(t._1, t._2))(req.archiveConfig.processorTimeout)
+        .mapTo[HttpRequestActor.ResponseData]
+      futResp.flatMap { resp =>
+        processHttpResponse(req, (resp.response, resp.data.asInstanceOf[RequestData])).mapTo[T].fallbackTo(Future {
+          val mid = createMediumID(req, t._2.mediumDesc)
+          fUndef(mid)
+        })
+      }
     }
 
   /**
@@ -277,7 +278,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return a future for the message expected from the processor actor
     */
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
-                                  t: (Try[HttpResponse], RequestData)): Future[Any] = {
+                                  t: (HttpResponse, RequestData)): Future[Any] = {
     val mediumID: MediumID = createMediumID(req, t._2.mediumDesc)
     val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)

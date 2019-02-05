@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-
 import akka.actor.{ActorSystem, Props, Status}
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
@@ -30,16 +28,12 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStre
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Success, Try}
 
 object MetaDataResponseProcessingActorSpec {
   /** Path prefix for the test online archive. */
@@ -155,50 +149,13 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     TestKit shutdownActorSystem system
   }
 
-  "A MetaDataResponseProcessingActor" should "directly react on a failed response" in {
-    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
-    val response = HttpResponse(status = StatusCodes.BadRequest)
-
-    actor ! ProcessResponse(TestMediumID, null, Success(response), DefaultArchiveConfig, SeqNo)
-    val errMsg = expectMsgType[Status.Failure]
-    errMsg.cause shouldBe a[IllegalStateException]
-    errMsg.cause.getMessage contains StatusCodes.BadRequest.toString() shouldBe true
-  }
-
-  it should "directly react on an exception when receiving the response" in {
-    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
-    val exception = new Exception("Failed response")
-    val triedResponse = Try[HttpResponse](throw exception)
-
-    actor ! ProcessResponse(TestMediumID, null, triedResponse, DefaultArchiveConfig, SeqNo)
-    val errMsg = expectMsgType[Status.Failure]
-    errMsg.cause should be(exception)
-  }
-
-  it should "discard the entity when receiving a failure response" in {
-    val latch = new CountDownLatch(1)
-    val entity = mock[ResponseEntity]
-    when(entity.discardBytes(any())).thenAnswer(new Answer[HttpMessage.DiscardedEntity] {
-      override def answer(invocation: InvocationOnMock): HttpMessage.DiscardedEntity = {
-        latch.countDown()
-        null
-      }
-    })
-    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
-    val response = HttpResponse(status = StatusCodes.BadRequest, entity = entity)
-
-    actor ! ProcessResponse(TestMediumID, null, Success(response), DefaultArchiveConfig, SeqNo)
-    expectMsgType[Status.Failure]
-    latch.await(3, TimeUnit.SECONDS) shouldBe true
-  }
-
-  it should "handle a successful response" in {
+  "A MetaDataResponseProcessingActor" should "handle a successful response" in {
     val metaDataResults = createProcessingResults(8, mapped = false)
     val mappedResults = createProcessingResults(8, mapped = true)
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, null, Try(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, response, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
     result.metaData should contain theSameElementsAs mappedResults
@@ -225,7 +182,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(metaDataResults))
     val actor = system.actorOf(Props(classOf[MetaDataResponseProcessingActor], mapper))
 
-    actor ! ProcessResponse(TestMediumID, null, Try(response), DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, response, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.metaData should contain theSameElementsAs mappedResults
   }
@@ -234,7 +191,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val response = createResponse(generateJson(createProcessingResults(32, mapped = false)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, null, Try(response),
+    actor ! ProcessResponse(TestMediumID, null, response,
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
     expectMsgType[Status.Failure]
   }
@@ -251,7 +208,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
       Source[ByteString, Any] = source
     }))
 
-    actor ! ProcessResponse(TestMediumID, null, Try(createResponse(responseData)),
+    actor ! ProcessResponse(TestMediumID, null, createResponse(responseData),
       DefaultArchiveConfig, SeqNo)
     actor ! CancelStreams
     expectMsgType[MetaDataResponseProcessingResult]
@@ -268,7 +225,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
     actor ! ProcessResponse(TestMediumID, null,
-      Try(createResponse(generateJson(createProcessingResults(2, mapped = false)))),
+      createResponse(generateJson(createProcessingResults(2, mapped = false))),
       DefaultArchiveConfig, SeqNo)
     expectMsg(Result)
 

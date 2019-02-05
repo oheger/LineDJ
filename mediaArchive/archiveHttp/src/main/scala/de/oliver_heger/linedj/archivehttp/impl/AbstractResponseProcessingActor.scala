@@ -26,7 +26,6 @@ import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, Cancelab
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
 
 /**
   * An abstract base actor class for processing responses for meta data or
@@ -82,33 +81,22 @@ abstract class AbstractResponseProcessingActor
       .via(new StreamSizeRestrictionStage(config.maxContentSize * 1024))
 
   /**
-    * Handle a HTTP response for a meta data file. Checks whether the response
-    * is successful. If so, its entity is parsed and converted. Otherwise, a
-    * failure message is sent to the sending actor.
+    * Handles an HTTP response for a meta data file. The response is assumed to
+    * be successful. (This is guaranteed by the processing stream.) Its entity
+    * is parsed and converted.
     *
-    * @param mid           the medium ID
-    * @param triedResponse a ''Try'' for the HTTP response
-    * @param config        the HTTP archive configuration
-    * @param seqNo         the current sequence number
+    * @param mid      the medium ID
+    * @param response the HTTP response
+    * @param config   the HTTP archive configuration
+    * @param seqNo    the current sequence number
     */
   private def handleHttpResponse(mid: MediumID, desc: HttpMediumDesc,
-                                 triedResponse: Try[HttpResponse], config: HttpArchiveConfig,
+                                 response: HttpResponse, config: HttpArchiveConfig,
                                  seqNo: Int): Unit = {
-    triedResponse match {
-      case Success(response) =>
-        if (response.status.isSuccess()) {
-          val (futureStream, killSwitch) = processSource(
-            createResponseDataSource(mid, response, config), mid, desc, config, seqNo)
-          processStreamResult(futureStream, killSwitch) { f =>
-            Status.Failure(f.exception)
-          }
-        } else {
-          sender() ! Status.Failure(
-            new IllegalStateException(s"Failed response: ${response.status}"))
-          response.discardEntityBytes()
-        }
-      case Failure(exception) =>
-        sender() ! Status.Failure(exception)
+    val (futureStream, killSwitch) = processSource(
+      createResponseDataSource(mid, response, config), mid, desc, config, seqNo)
+    processStreamResult(futureStream, killSwitch) { f =>
+      Status.Failure(f.exception)
     }
   }
 }

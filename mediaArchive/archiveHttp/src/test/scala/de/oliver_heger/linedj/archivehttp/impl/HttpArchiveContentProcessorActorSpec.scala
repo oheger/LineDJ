@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.NotUsed
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, Location}
 import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -34,16 +34,10 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
+import scala.util.Random
 import scala.util.matching.Regex
-import scala.util.{Random, Success, Try}
 
 object HttpArchiveContentProcessorActorSpec {
-  /** Constant for the root URI of the test archive. */
-  val ArchiveRootUri = "https://test.music.archive.org/"
-
-  /** Constant for the URI pointing to the content file of the test archive. */
-  val ArchiveUri: String = ArchiveRootUri + "content.json"
-
   /** The sequence number of the test scan operation. */
   val SeqNo = 42
 
@@ -58,12 +52,11 @@ object HttpArchiveContentProcessorActorSpec {
     HttpArchiveConfig.extractMappingConfig(new PropertiesConfiguration, "")
 
   /** A default configuration for the test archive. */
-  private val DefaultArchiveConfig = HttpArchiveConfig(Uri(ArchiveUri), "Test",
-    UserCredentials("scott", "tiger"), 2, Timeout(10.seconds), 2, 64,
-    downloadConfig = null, downloadBufferSize = 512,
-    downloadMaxInactivity = 1.minute, downloadReadChunkSize = 400,
-    timeoutReadSize = 222, metaMappingConfig = null, contentMappingConfig = ContentMappingConfig,
-    requestQueueSize = 10)
+  private val DefaultArchiveConfig = RequestActorTestImpl.createTestArchiveConfig()
+    .copy(contentMappingConfig = ContentMappingConfig)
+
+  /** Constant for the URI pointing to the content file of the test archive. */
+  val ArchiveUri: String = DefaultArchiveConfig.archiveURI.toString()
 
   /** Message indicating stream completion. */
   private val CompleteMessage = new Object
@@ -161,19 +154,6 @@ object HttpArchiveContentProcessorActorSpec {
   Map[HttpRequest, HttpResponse] =
     mediaList.foldLeft(Map.empty[HttpRequest, HttpResponse])((map, desc) =>
       appendResponseMapping(map, desc))
-
-  /**
-    * Creates a flow which simulates the HTTP request processing. Passed in
-    * requests are directly mapped to response objects.
-    *
-    * @param mapping the mapping of supported requests
-    * @return the request flow
-    */
-  private def createRequestFlow(mapping: Map[HttpRequest, HttpResponse]):
-  Flow[(HttpRequest, RequestData), (Try[HttpResponse], RequestData), NotUsed] =
-    Flow.fromFunction(i => (Try {
-      mapping(i._1)
-    }, i._2))
 
   /**
     * Creates a result object for a processed settings request.
@@ -421,7 +401,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
                                     sink: Sink[MediumProcessingResult, Any]):
     ProcessHttpArchiveRequest =
       ProcessHttpArchiveRequest(mediaSource = source,
-        clientFlow = createRequestFlow(responseMapping), requestActor = null,
+        clientFlow = null, requestActor = createRequestActor(responseMapping),
         archiveConfig = config, settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
         seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)
@@ -472,6 +452,19 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       contentProcessorActor ! CancelStreams
       this
     }
+
+    /**
+      * Creates a simulated request actor and initializes it with the given
+      * request-response mapping.
+      *
+      * @param mapping the mapping
+      * @return the request actor reference
+      */
+    private def createRequestActor(mapping: Map[HttpRequest, HttpResponse]): ActorRef = {
+      val requestActor = system.actorOf(Props[RequestActorTestImpl])
+      requestActor ! RequestActorTestImpl.InitRequestResponseMapping(mapping)
+      requestActor
+    }
   }
 
 }
@@ -492,17 +485,13 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
 
   override def receive: Receive = {
     case ProcessResponse(mid, desc, resp, config, seqNo)
-      if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo =>
-      resp match {
-        case Success(r) if r.status.isSuccess() &&
-          config.archiveURI == Uri(ArchiveUri) =>
-          val optResponse = r.header[Location]
-            .flatMap(loc => createMediumDescFromLocation(loc.uri.toString()))
-            .filter(d => !checkMsg || (d == desc && mid == mediumID(desc)))
-            .map(desc => createResult(desc, r.header[Location].get.uri.toString()))
-          optResponse foreach sender.!
-        case _ => // ignore which leads to timeout
-      }
+      if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo &&
+        resp.status.isSuccess() && config.archiveURI == Uri(ArchiveUri) =>
+      val optResponse = resp.header[Location]
+        .flatMap(loc => createMediumDescFromLocation(loc.uri.toString()))
+        .filter(d => !checkMsg || (d == desc && mid == mediumID(desc)))
+        .map(desc => createResult(desc, resp.header[Location].get.uri.toString()))
+      optResponse foreach sender.!
   }
 
   /**

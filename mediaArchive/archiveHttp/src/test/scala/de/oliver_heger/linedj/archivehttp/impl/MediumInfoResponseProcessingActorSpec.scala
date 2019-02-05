@@ -37,7 +37,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Success, Try}
+import scala.util.Success
 
 object MediumInfoResponseProcessingActorSpec {
   /** Test medium ID. */
@@ -197,7 +197,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
       eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
     val actor = createActor(parser)
-    val response = Try(HttpResponse(entity = MediumInfoContent))
+    val response = HttpResponse(entity = MediumInfoContent)
     val msg = ProcessResponse(TestMediumID, TestDesc, response, DefaultArchiveConfig, SeqNo)
 
     actor ! msg

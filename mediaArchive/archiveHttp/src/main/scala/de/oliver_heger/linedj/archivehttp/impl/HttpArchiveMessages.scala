@@ -71,7 +71,7 @@ case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
   * @param seqNo         the sequence number of the current scan operation
   */
 case class ProcessResponse(mediumID: MediumID, mediumDesc: HttpMediumDesc,
-                           response: Try[HttpResponse], archiveConfig: HttpArchiveConfig,
+                           response: HttpResponse, archiveConfig: HttpArchiveConfig,
                            seqNo: Int)
 
 /**
