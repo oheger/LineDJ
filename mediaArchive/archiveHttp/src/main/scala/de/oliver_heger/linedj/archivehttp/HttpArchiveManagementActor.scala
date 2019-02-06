@@ -28,7 +28,7 @@ import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestActor, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -36,7 +36,7 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStre
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
 import scala.util.Success
@@ -52,8 +52,7 @@ object HttpArchiveManagementActor {
                                                removeActor: ActorRef)
     extends HttpArchiveManagementActor(processingService, config, pathGenerator,
       unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
-      with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
-      with HttpRequestSupport[RequestData]
+      with ChildActorFactory
 
   /**
     * Returns creation ''Props'' for this actor class.
@@ -133,7 +132,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
                                  unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
                                  monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
   with ActorLogging {
-  this: ChildActorFactory with HttpFlowFactory with HttpRequestSupport[RequestData] =>
+  this: ChildActorFactory =>
 
   import HttpArchiveManagementActor._
 

@@ -22,20 +22,20 @@ import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Source}
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
@@ -168,8 +168,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       metaManager.ref, monitoringActor.ref, removeActor.ref)
     classOf[HttpArchiveManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    classOf[HttpRequestSupport[RequestData]].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ContentProcessingUpdateServiceImpl, ArchiveConfig, pathGenerator,
       mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref))
   }
@@ -461,9 +459,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Mock for the temp path generator. */
     private val pathGenerator = mock[TempPathGenerator]
 
-    /** Mock for the HTTP flow returned by the mock factory implementation. */
-    private val httpFlow = createTestHttpFlow[RequestData]()
-
     /** The actor simulating the download management actor. */
     private val downloadManagementActor = ForwardTestActor()
 
@@ -622,15 +617,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       Props(new HttpArchiveManagementActor(updateService, ArchiveConfig, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
         probeMonitoringActor.ref, probeRemoveActor.ref)
-        with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
-        with HttpRequestSupport[RequestData] {
-        override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
-        Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
-          uri should be(ArchiveConfig.archiveURI)
-          system should be(testSystem)
-          mat should not be null
-          httpFlow.asInstanceOf[Flow[(HttpRequest, T), (Try[HttpResponse], T), Any]]
-        }
+        with ChildActorFactory  {
 
         /**
           * @inheritdoc Checks creation properties and returns test probes for
