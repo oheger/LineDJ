@@ -92,6 +92,7 @@ example configuration with all supported options:
       <processorTimeout>60</processorTimeout>
       <propagationBufferSize>4</propagationBufferSize>
       <maxContentSize>128</maxContentSize>
+      <requestQueueSize>64</requestQueueSize>
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <downloadReadChunkSize>8192</downloadReadChunkSize>
@@ -149,9 +150,10 @@ archive, such as its URL or its name. The following properties are supported:
 | archiveName | A human-readable name for this archive. The name is displayed in the UI of the HTTP archive startup application. | No |
 | realm | The name of the realm the archive belongs to. Realms are plain strings which are not evaluated any further. Archives assigned to the same realm share their login credentials. | No |
 | processorCount | The number of processor actors to be used when reading the content of the archive during startup. This is roughly equivalent to the number of parallel HTTP requests sent to the server when processing the archive's content file. | Yes, defaults to 2. |
-| processorTimeout | A timeout (in seconds) for a request for a file referenced by the archive's content document. If no response is received within this time frame, this medium is ignored. | Yes, defaults to 60 seconds. |
+| processorTimeout | A timeout (in seconds) for a request for a file referenced by the archive's content document. If no response is received within this time frame, this medium is ignored. This timeout is also used in general for HTTP requests, e.g. when requesting a file to be downloaded. | Yes, defaults to 60 seconds. |
 | propagationBufferSize | The media contained in an HTTP archive are processed one by one to determine their content. This information then has to be propagated to the union archive. As propagation may take longer than processing of the next medium, the data to send to the union archive may pile up. This property defines the number of media that can be buffered. If more processed media become available, back-pressure is used to slow down stream processing. | Yes, defaults to 4. |
 | maxContentSize | The maximum size (in KBytes) of a file referenced by the archive's content document. This setting has the purpose to avoid unrestricted memory allocation when processing an HTTP archive. | Yes, defaults to 64 KByte. |
+| requestQueueSize | All HTTP requests to an archive are added to a queue and then executed via a connection pool. This property defines the maximum size of this request queue. As download requests can take some time and the HTTP connection pool is limited, requests may pile up; so the queue size should be dimensioned appropriately. | Yes, defaults to 16. |
 
 ### Download configuration
 
