@@ -140,7 +140,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   /** Object for materializing streams. */
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  /** The actor for sending HTTP requests.*/
+  /** The actor for sending HTTP requests. */
   private var requestActor: ActorRef = _
 
   /** The archive content processor actor. */
@@ -183,7 +183,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       .props(Props[MetaDataResponseProcessingActor]))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
-      removeActor = removeActor))
+      removeActor = removeActor, requestActor = requestActor))
     propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
       unionMetaDataManager, config.archiveURI.toString()))
     updateArchiveState(HttpArchiveStateDisconnected)

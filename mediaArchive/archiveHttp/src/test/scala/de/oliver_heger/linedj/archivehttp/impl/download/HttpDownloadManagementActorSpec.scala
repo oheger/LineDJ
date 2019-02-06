@@ -22,26 +22,18 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
-import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor.DownloadOperationRequest
-import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport}
+import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
-import org.mockito.Mockito._
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 object HttpDownloadManagementActorSpec {
   /** The URI of the test archive. */
@@ -55,8 +47,6 @@ object HttpDownloadManagementActorSpec {
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
-
-  private val Credentials = UserCredentials("foo", "bar")
 
   /**
     * A data class storing information about child actors created by the test
@@ -85,17 +75,15 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   "A HttpDownloadManagementActor" should "create correct Props" in {
     val config = mock[HttpArchiveConfig]
     val pathGen = mock[TempPathGenerator]
+    val requestActor = TestProbe()
     val monitoringActor = TestProbe()
     val removeActor = TestProbe()
 
-    val props = HttpDownloadManagementActor(config, pathGen, monitoringActor.ref,
+    val props = HttpDownloadManagementActor(config, pathGen, requestActor.ref, monitoringActor.ref,
       removeActor.ref)
     classOf[HttpDownloadManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    classOf[HttpRequestSupport[DownloadOperationRequest]].isAssignableFrom(
-      props.actorClass()) shouldBe true
-    props.args should be(List(config, pathGen, monitoringActor.ref, removeActor.ref))
+    props.args should be(List(config, pathGen, requestActor.ref, monitoringActor.ref, removeActor.ref))
   }
 
   it should "execute a download request successfully" in {
@@ -170,25 +158,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     checkDownloadIndex(request2, 2)
   }
 
-  it should "create an HTTP flow on demand" in {
-    val helper = new DownloadManagementTestHelper
-
-    helper.numberOfFlowsCreated should be(0)
-  }
-
-  it should "create only a single HTTP flow" in {
-    val request1 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
-    val request2 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
-    val response = HttpResponse()
-    val helper = new DownloadManagementTestHelper
-
-    helper.executeRequest(request1, response)
-    expectMsgType[MediumFileResponse]
-    helper.executeRequest(request2, response)
-    expectMsgType[MediumFileResponse]
-    helper.numberOfFlowsCreated should be(1)
-  }
-
   it should "handle a failed response from the HTTP archive" in {
     val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val helper = new DownloadManagementTestHelper
@@ -222,8 +191,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     /** Test probe for the remove files actor. */
     private val probeRemoveActor = TestProbe()
 
-    /** A mock for the HTTP flow returned by the factory implementation. */
-    private val httpFlow = createMockHttpFlow()
+    /** The mock request actor. */
+    private val requestActor = system.actorOf(Props[RequestActorTestImpl])
 
     /** Counter for the number of flow instances that have been created. */
     private val flowCreationCount = new AtomicInteger
@@ -233,9 +202,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     /** The test actor instance. */
     private val downloadManager = createTestActor()
-
-    /** A request for a medium file. */
-    private var expectedRequest: MediumFileRequest = _
 
     /**
       * An option with the response of a file request from the HTTP archive.
@@ -254,7 +220,10 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       */
     def executeRequest(request: MediumFileRequest, response: HttpResponse):
     DownloadManagementTestHelper = {
-      expectedRequest = request
+      val httpRequest = HttpRequest(uri = ResolvedDownloadUri)
+      if (response != null) RequestActorTestImpl.expectRequest(requestActor, httpRequest, response)
+      else RequestActorTestImpl.expectFailedRequest(requestActor, httpRequest,
+        new IOException("Error from HTTP archive!"))
       optArchiveResponse = Option(response)
       downloadManager ! request
       this
@@ -358,26 +327,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       *
       * @return the configuration
       */
-    private def createConfig(): HttpArchiveConfig = {
-      val config = mock[HttpArchiveConfig]
-      when(config.archiveURI).thenReturn(Uri(ArchiveUri))
-      when(config.credentials).thenReturn(Credentials)
-      config
-    }
-
-    /**
-      * Creates an HTTP flow object. What this flow does, is irrelevant. The
-      * object must only be defined, so that it can be checked against when
-      * sending a request.
-      *
-      * @return the flow object
-      */
-    private def createMockHttpFlow(): Flow[(HttpRequest, DownloadOperationRequest),
-      (Try[HttpResponse], DownloadOperationRequest), Any] =
-      Flow.fromFunction[(HttpRequest, DownloadOperationRequest),
-        (Try[HttpResponse], DownloadOperationRequest)] { req =>
-        (Try(HttpResponse()), req._2)
-      }
+    private def createConfig(): HttpArchiveConfig =
+      RequestActorTestImpl.createTestArchiveConfig().copy(archiveURI = ArchiveUri)
 
     /**
       * Creates a new test actor instance.
@@ -385,46 +336,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the test actor
       */
     private def createTestActor(): ActorRef =
-      system.actorOf(Props(new HttpDownloadManagementActor(config, pathGenerator,
-        probeMonitoringActor.ref, probeRemoveActor.ref) with ChildActorFactory
-        with HttpFlowFactory with SystemPropertyAccess
-        with HttpRequestSupport[DownloadOperationRequest] {
-        /**
-          * @inheritdoc This implementation does some parameter checks and
-          *             returns the mock HTTP flow.
-          */
-        override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, sys: ActorSystem)
-        : Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
-          uri should be(Uri(ArchiveUri))
-          sys should be(system)
-          mat should not be null
-          flowCreationCount.incrementAndGet()
-          httpFlow.asInstanceOf[Flow[(HttpRequest, T), (Try[HttpResponse], T), Any]]
-        }
-
-        /**
-          * @inheritdoc This implementation checks the request and returns the
-          *             predefined response. If no response is specified, a
-          *             failing ''Future'' is returned.
-          */
-        override def sendRequest(request: HttpRequest, data: DownloadOperationRequest, flow:
-        Flow[(HttpRequest, DownloadOperationRequest), (Try[HttpResponse],
-          DownloadOperationRequest), Any])(implicit mat: Materializer, ec: ExecutionContext):
-        Future[(HttpResponse, DownloadOperationRequest)] = {
-          mat should not be null
-          request.method should be(HttpMethods.GET)
-          request.headers should contain(Authorization(BasicHttpCredentials(Credentials.userName,
-            Credentials.password)))
-          data.request should be(expectedRequest)
-          data.client should be(testActor)
-          request.uri should be(ResolvedDownloadUri)
-          optArchiveResponse match {
-            case Some(response) =>
-              Future((response, data))
-            case None =>
-              Future.failed(new IOException("Error from HTTP archive!"))
-          }
-        }
+      system.actorOf(Props(new HttpDownloadManagementActor(config, pathGenerator, requestActor,
+        probeMonitoringActor.ref, probeRemoveActor.ref) with ChildActorFactory {
 
         /**
           * @inheritdoc This implementation stores information about the child

@@ -21,7 +21,6 @@ import java.nio.file.Paths
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{ActorMaterializer, Materializer}
@@ -80,7 +79,7 @@ object HttpArchiveManagementActorSpec {
 
   /** Class for the download management actor. */
   private val ClsDownloadManagementActor =
-    HttpDownloadManagementActor(null, null, null, null).actorClass()
+    HttpDownloadManagementActor(null, null, null, null, null).actorClass()
 
   /** A state indicating that a scan operation is in progress. */
   private val ProgressState = ContentProcessingUpdateServiceImpl.InitialState
@@ -456,7 +455,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the content propagation actor. */
     private val probeContentPropagationActor = TestProbe()
 
-    /** The actor for sending requests.*/
+    /** The actor for sending requests. */
     private val requestActor = system.actorOf(Props[RequestActorTestImpl])
 
     /** Mock for the temp path generator. */
@@ -496,7 +495,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /**
       * Sends a message to start a new scan to the test actor.
       *
-      * @param stubProcStarts flag whether processing start should be stubbed
+      * @param stubProcStarts      flag whether processing start should be stubbed
       * @param initSuccessResponse flag whether the test request actor should
       *                            be configured to expect a successful request
       * @return this test helper
@@ -506,7 +505,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       if (stubProcStarts) {
         stub(true, ProgressState) { svc => svc.processingStarts() }
       }
-      if(initSuccessResponse) {
+      if (initSuccessResponse) {
         initSuccessArchiveResponse()
       }
       send(ScanAllMedia)
@@ -549,6 +548,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /**
       * Prepares the mock request actor to return a successful response for a
       * request to the archive's content file.
+      *
       * @return this test helper
       */
     def initSuccessArchiveResponse(): HttpArchiveManagementActorTestHelper = {
@@ -559,6 +559,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /**
       * Prepares the mock request actor to return an exception response for a
       * request to the archive's content file.
+      *
       * @param exception the exception to be returned as response
       * @return this test helper
       */
@@ -650,7 +651,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeMetaDataProcessor.ref
 
             case ClsDownloadManagementActor =>
-              p.args should be(List(ArchiveConfig, pathGenerator, probeMonitoringActor.ref,
+              p.args should be(List(ArchiveConfig, pathGenerator, requestActor, probeMonitoringActor.ref,
                 probeRemoveActor.ref))
               downloadManagementActor
 

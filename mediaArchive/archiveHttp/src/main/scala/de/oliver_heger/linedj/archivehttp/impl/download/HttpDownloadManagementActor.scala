@@ -17,22 +17,21 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Flow
+import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor.DownloadOperationRequest
-import de.oliver_heger.linedj.archivehttp.impl.io.{HttpFlowFactory, HttpRequestSupport, UriUtils}
+import de.oliver_heger.linedj.archivehttp.impl.io.{HttpRequestActor, UriUtils}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SystemPropertyAccess}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object HttpDownloadManagementActor {
 
@@ -51,22 +50,23 @@ object HttpDownloadManagementActor {
     *
     * @param config          the configuration for the HTTP archive
     * @param pathGenerator   the object for generating temp paths
+    * @param requestActor    the actor for sending HTTP requests
     * @param monitoringActor the download monitoring actor
     * @param removeActor     the actor to remove temporary files
     * @return ''Props'' to create a new actor instance
     */
-  def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
+  def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator, requestActor: ActorRef,
             monitoringActor: ActorRef, removeActor: ActorRef): Props =
-    Props(classOf[HttpDownloadManagementActorImpl], config, pathGenerator, monitoringActor,
+    Props(classOf[HttpDownloadManagementActorImpl], config, pathGenerator, requestActor, monitoringActor,
       removeActor)
 
   private class HttpDownloadManagementActorImpl(config: HttpArchiveConfig,
                                                 pathGenerator: TempPathGenerator,
+                                                requestActor: ActorRef,
                                                 monitoringActor: ActorRef,
                                                 removeActor: ActorRef)
-    extends HttpDownloadManagementActor(config, pathGenerator, monitoringActor, removeActor)
-      with ChildActorFactory with HttpFlowFactory with SystemPropertyAccess
-      with HttpRequestSupport[DownloadOperationRequest]
+    extends HttpDownloadManagementActor(config, pathGenerator, requestActor, monitoringActor, removeActor)
+      with ChildActorFactory
 
   /**
     * A message class this actor sends to itself when a response for a download
@@ -118,25 +118,24 @@ object HttpDownloadManagementActor {
   *
   * @param config          the configuration for the HTTP archive
   * @param pathGenerator   an object to generate temporary paths
+  * @param requestActor    the actor for sending HTTP requests
   * @param monitoringActor the actor to monitor download operations
   * @param removeActor     the actor to remove temporary files
   */
 class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
-                                  monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
-  with ActorLogging {
-  this: ChildActorFactory with HttpFlowFactory
-    with HttpRequestSupport[DownloadOperationRequest] =>
+                                  requestActor: ActorRef, monitoringActor: ActorRef, removeActor: ActorRef)
+  extends Actor with ActorLogging {
+  this: ChildActorFactory =>
 
   import HttpDownloadManagementActor._
 
   /** The object to materialize streams. */
   implicit private val mat: ActorMaterializer = ActorMaterializer()
 
-  import context.{dispatcher, system}
+  /** The timeout when sending a download request. */
+  implicit private val requestTimeout: Timeout = config.processorTimeout
 
-  /** The flow for executing requests. */
-  private var httpFlow: Flow[(HttpRequest, DownloadOperationRequest),
-    (Try[HttpResponse], DownloadOperationRequest), Any] = _
+  import context.dispatcher
 
   /** A counter for download operations. */
   private var downloadIndex = 0
@@ -158,13 +157,12 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
   private def triggerFileDownload(req: MediumFileRequest): Unit = {
     log.info("Sending request for file {}.", req.fileID.uri)
     val downloadOp = DownloadOperationRequest(req, sender())
-    val flow = fetchHttpFlow()
 
     Future(createDownloadRequest(req)) flatMap { downloadRequest =>
-      sendRequest(downloadRequest, downloadOp, flow)
+      requestActor.ask(HttpRequestActor.SendRequest(downloadRequest, downloadOp)).mapTo[HttpRequestActor.ResponseData]
     } onComplete {
       case Success(t) =>
-        self ! ProcessDownloadRequest(request = t._2, response = t._1)
+        self ! ProcessDownloadRequest(request = t.data.asInstanceOf[DownloadOperationRequest], response = t.response)
       case Failure(exception) =>
         log.error(exception, "Download request for {} failed!", req.fileID.uri)
         downloadOp.client ! MediumFileResponse(req, None, -1)
@@ -178,9 +176,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @return the HTTP request to start the download operation
     */
   private def createDownloadRequest(req: MediumFileRequest): HttpRequest =
-    HttpRequest(uri = UriUtils.resolveUri(config.archiveURI, req.fileID.uri),
-      headers = List(Authorization(BasicHttpCredentials(config.credentials.userName,
-        config.credentials.password))))
+    HttpRequest(uri = UriUtils.resolveUri(config.archiveURI, req.fileID.uri))
 
   /**
     * Processes a successful response for a request to download a file.
@@ -201,18 +197,5 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     monitoringActor ! DownloadOperationStarted(downloadActor = timeoutActor,
       client = request.client)
     request.client ! MediumFileResponse(request.request, Some(timeoutActor), 0)
-  }
-
-  /**
-    * Obtains the HTTP flow. Creates it on the first invocation.
-    *
-    * @return the HTTP flow
-    */
-  private def fetchHttpFlow(): Flow[(HttpRequest, DownloadOperationRequest),
-    (Try[HttpResponse], DownloadOperationRequest), Any] = {
-    if (httpFlow == null) {
-      httpFlow = createHttpFlow[DownloadOperationRequest](config.archiveURI)
-    }
-    httpFlow
   }
 }
