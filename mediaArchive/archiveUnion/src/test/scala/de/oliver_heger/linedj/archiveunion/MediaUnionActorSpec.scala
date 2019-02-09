@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archiveunion
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.TestActor.KeepRunning
 import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
@@ -225,10 +224,10 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     ctrl2.expectMsg(request)
   }
 
-  it should "handle a ReaderActorAlive message" in {
+  it should "handle a DownloadActorAlive message" in {
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
-    val request = DownloadActorAlive(null, mid)
+    val request = DownloadActorAlive(null, MediaFileID(mid, "someUri"))
     val controller = ForwardTestActor()
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(mediaMap, 1, controller)
@@ -237,9 +236,23 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     expectMsg(ForwardTestActor.ForwardedMessage(request))
   }
 
-  it should "ignore a ReaderActorAlive message for an unknown component" in {
+  it should "evaluate the checksum when handling a DownloadActorAlive message" in {
+    val mediaMap1 = Map(mediaMapping(1, 1))
+    val mediaMap2 = Map(mediaMapping(2, 2))
+    val mid = mediumID(2, 1)
+    val request = DownloadActorAlive(null, MediaFileID(mid, "someFile", Some(checksum(2))))
+    val controller = ForwardTestActor()
     val helper = new MediaUnionActorTestHelper
-    val request = DownloadActorAlive(null, mediumID(42, 28))
+    helper.addMedia(mediaMap1, 1)
+    helper.addMedia(mediaMap2, 2, controller)
+
+    helper.manager ! request
+    expectMsg(ForwardTestActor.ForwardedMessage(request))
+  }
+
+  it should "ignore a DownloadActorAlive message for an unknown component" in {
+    val helper = new MediaUnionActorTestHelper
+    val request = DownloadActorAlive(null, MediaFileID(mediumID(42, 28), "file"))
 
     helper.manager receive request
   }
@@ -360,11 +373,9 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   it should "notify the meta data actor about a request to remove a component" in {
     val helper = new MediaUnionActorTestHelper
-    helper.metaDataActor.setAutoPilot(new TestActor.AutoPilot {
-      override def run(sender: ActorRef, msg: Any): KeepRunning.type = {
-        sender ! ForwardTestActor.ForwardedMessage(msg)
-        TestActor.KeepRunning
-      }
+    helper.metaDataActor.setAutoPilot((sender: ActorRef, msg: Any) => {
+      sender ! ForwardTestActor.ForwardedMessage(msg)
+      TestActor.KeepRunning
     })
     val msg = ArchiveComponentRemoved(componentID(1))
 

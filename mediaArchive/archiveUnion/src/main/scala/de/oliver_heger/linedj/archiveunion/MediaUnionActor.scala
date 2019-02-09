@@ -144,8 +144,10 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
         idMapping = mapMediaIDsInMetaDataRequest(files))
       metaDataUnionActor forward adaptedReq
 
-    case ral: DownloadActorAlive =>
-      controllerMap.get(ral.mediumID.archiveComponentID) foreach (_ forward ral)
+    case dal: DownloadActorAlive =>
+      log.info("Received download alive message for {}.", dal.fileID)
+      val mid = resolveMediumID(dal.fileID)
+      controllerMap.get(mid.archiveComponentID) foreach (_ forward dal)
 
     case ScanAllMedia =>
       metaDataUnionActor ! ScanAllMedia
