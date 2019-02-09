@@ -114,7 +114,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     this(path, chunkSize, trans, None)
 
   /** The object to materialize streams. */
-  private implicit val materializer = ActorMaterializer()
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   /** A message to notify the download manager when there is activity. */
   private var aliveMessage: Any = _
@@ -132,7 +132,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   private var complete = false
 
   override def preStart(): Unit = {
-    aliveMessage = DownloadActorAlive(self, MediumID.UndefinedMediumID)
+    aliveMessage = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     val source = createSource()
     val filterSource = applyTransformation(source)
     val sink = Sink.actorRefWithAck(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))

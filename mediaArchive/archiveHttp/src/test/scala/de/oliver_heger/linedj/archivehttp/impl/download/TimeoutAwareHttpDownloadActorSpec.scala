@@ -34,7 +34,6 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -319,12 +318,12 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val helper = new DownloadActorTestHelper
     val schedulerData1 = helper.expectAndCheckSchedule()
     helper.passData(generateDataChunk(1))
-        .expectAndCheckSchedule()
+      .expectAndCheckSchedule()
     schedulerData1.cancellable.cancelCount should be(1)
 
     val schedulerData2 = helper.passData(generateDataChunk(2))
-        .expectAndCheckSchedule()
-     helper.sendDataRequest()
+      .expectAndCheckSchedule()
+    helper.sendDataRequest()
     expectMsgType[DownloadDataResult]
     schedulerData2.cancellable.isCancelled shouldBe false
   }
@@ -673,7 +672,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def expectActorAliveNotification(): DownloadActorTestHelper = {
-      probeDownloadManager.expectMsg(DownloadActorAlive(downloadActor, MediumID.UndefinedMediumID))
+      val message = probeDownloadManager.expectMsgType[DownloadActorAlive]
+      message.reader should be(downloadActor)
+      message.fileID.mediumID should be(MediumID.UndefinedMediumID)
       this
     }
 
@@ -778,11 +779,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       */
     def enableTempManagerRequestProcessing(): DownloadActorTestHelper = {
       when(tempFileManager.initiateClientRequest(testActor, TestRequest))
-        .thenAnswer(new Answer[Boolean] {
-          override def answer(invocation: InvocationOnMock): Boolean = {
-            latchTempManagerRequest.countDown()
-            true
-          }
+        .thenAnswer((_: InvocationOnMock) => {
+          latchTempManagerRequest.countDown()
+          true
         })
       this
     }
@@ -926,10 +925,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     private def createPathGenerator(): TempPathGenerator = {
       val generator = mock[TempPathGenerator]
       when(generator.generateDownloadPath(eqArg(ArchiveName), eqArg(DownloadIndex), any()))
-        .thenAnswer(new Answer[Path] {
-          override def answer(invocation: InvocationOnMock): Path =
-            generateTempPath(invocation.getArguments()(2).asInstanceOf[Int])
-        })
+        .thenAnswer((invocation: InvocationOnMock) => generateTempPath(invocation.getArguments()(2).asInstanceOf[Int]))
       generator
     }
 

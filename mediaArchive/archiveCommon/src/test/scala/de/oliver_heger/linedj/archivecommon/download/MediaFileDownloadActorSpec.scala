@@ -43,7 +43,7 @@ object MediaFileDownloadActorSpec {
     * @return the transformation function
     */
   private def sourceWithDelay(delay: FiniteDuration = 25.millis):
-  (Source[ByteString, Any]) => Source[ByteString, Any] =
+  Source[ByteString, Any] => Source[ByteString, Any] =
     src => src.delay(delay, DelayOverflowStrategy.backpressure)
 
   /**
@@ -226,6 +226,8 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       MediaFileDownloadActor.IdentityTransform, Some(probeManager.ref)))
 
     actor ! DownloadData(ChunkSize)
-    probeManager.expectMsg(DownloadActorAlive(actor, MediumID.UndefinedMediumID))
+    val message = probeManager.expectMsgType[DownloadActorAlive]
+    message.reader should be(actor)
+    message.fileID.mediumID should be(MediumID.UndefinedMediumID)
   }
 }

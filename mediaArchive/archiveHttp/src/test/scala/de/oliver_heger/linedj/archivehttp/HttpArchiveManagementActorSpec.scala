@@ -18,18 +18,17 @@ package de.oliver_heger.linedj.archivehttp
 
 import java.nio.file.Paths
 
-import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpFlowFactory}
+import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -44,7 +43,6 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.Try
 
 object HttpArchiveManagementActorSpec {
   /** The value of the propagation buffer size config property. */
@@ -414,7 +412,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "forward a DownloadActorAlive notification to the monitoring actor" in {
     val aliveMsg = DownloadActorAlive(TestProbe().ref,
-      MediumID("testMediumURI", Some("settings.set")))
+      MediaFileID(MediumID("testMediumURI", Some("settings.set")), "someFileUri"))
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(aliveMsg)
@@ -652,18 +650,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               requestActor
           }
       })
-
-    /**
-      * Creates the test HTTP flow. This flow is not actually invoked; so only
-      * a dummy is returned.
-      *
-      * @return the test HTTP flow
-      */
-    private def createTestHttpFlow[T](): Flow[(HttpRequest, T), (Try[HttpResponse], T), NotUsed] = {
-      Flow.fromFunction[(HttpRequest, T), (Try[HttpResponse], T)] { req =>
-        (Try(HttpResponse()), req._2)
-      }
-    }
   }
 
 }
