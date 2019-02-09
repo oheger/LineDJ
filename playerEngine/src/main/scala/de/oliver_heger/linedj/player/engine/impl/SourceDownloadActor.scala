@@ -82,7 +82,7 @@ object SourceDownloadActor {
     * requests by returning a ''DownloadComplete'' message immediately.
     */
   private class DummyReaderActor extends Actor {
-    override def receive = {
+    override def receive: Receive = {
       case DownloadData(_) =>
         sender ! DownloadComplete
     }
@@ -218,7 +218,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
         downloadRequest <- downloadInProgress
       } {
         config.mediaManagerActor ! DownloadActorAlive(readerActor,
-          downloadRequest.fileID.mediumID)
+          downloadRequest.fileID)
       }
   }
 

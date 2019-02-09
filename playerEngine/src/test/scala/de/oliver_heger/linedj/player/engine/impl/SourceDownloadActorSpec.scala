@@ -319,10 +319,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val actor = createDownloadActorWithProbes(srcActor, bufActor, readActor)
     actor ! createPlaylistInfo(1)
     actor ! downloadResponse(1, contentActor.ref, SourceLength)
-    srcActor.expectMsgType[MediumFileRequest]
+    val fileID = srcActor.expectMsgType[MediumFileRequest].fileID
 
     actor ! SourceDownloadActor.ReportReaderActorAlive
-    srcActor.expectMsg(DownloadActorAlive(contentActor.ref, TestMediumID))
+    srcActor.expectMsg(DownloadActorAlive(contentActor.ref, fileID))
   }
 
   it should "deal with with an undefined reader when receiving a report reader alive message" in {

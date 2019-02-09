@@ -35,9 +35,9 @@ case object GetAvailableMedia
  * progress. If such messages are not received in a given time frame, the
  * affected reader actors are stopped.
  * @param reader the reader actor in question
- * @param mediumID the ID of the medium which is subject of the operation
+ * @param fileID the ID of the media file which is subject of the operation
  */
-case class DownloadActorAlive(reader: ActorRef, mediumID: MediumID)
+case class DownloadActorAlive(reader: ActorRef, fileID: MediaFileID)
 
 /**
  * A message processed by ''MediaManagerActor'' telling it to return a list
