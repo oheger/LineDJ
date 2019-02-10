@@ -109,7 +109,8 @@ object ValidationControllerSpec {
     */
   private def generateErrorItems(files: Map[MediaFile, ValidationErrorCode]): Map[String, ValidationErrorItem] =
     files.map { e =>
-      val errorItem = ValidationErrorItem(e._1.mediumID.mediumURI, e._1.uri, e._2.toString, null)
+      val errorItem = ValidationErrorItem(e._1.mediumID.mediumURI, e._1.uri, e._2.toString, null,
+        null)  //TODO set severity
       (e._1.uri, errorItem)
     }
 }
@@ -208,22 +209,22 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "compare error items by media names ignoring case" in {
-    val item1 = ValidationErrorItem("B-Medium", "foo", "error", null)
-    val item2 = ValidationErrorItem("a-Medium", "foo", "error", null)
+    val item1 = ValidationErrorItem("B-Medium", "foo", "error", null, null)
+    val item2 = ValidationErrorItem("a-Medium", "foo", "error", null, null)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be > 0
   }
 
   it should "compare error items by names ignoring case" in {
-    val item1 = ValidationErrorItem("medium", "a-file", "error", null)
-    val item2 = ValidationErrorItem("medium", "B-file", "error", null)
+    val item1 = ValidationErrorItem("medium", "a-file", "error", null, null)
+    val item2 = ValidationErrorItem("medium", "B-file", "error", null, null)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
   }
 
   it should "compare error items by error names ignoring case" in {
-    val item1 = ValidationErrorItem("medium", "file", "a-error", null)
-    val item2 = ValidationErrorItem("medium", "file", "B-error", null)
+    val item1 = ValidationErrorItem("medium", "file", "a-error", null, null)
+    val item2 = ValidationErrorItem("medium", "file", "B-error", null, null)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
   }

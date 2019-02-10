@@ -2,6 +2,7 @@ package de.oliver_heger.linedj.archiveadmin.validate
 
 import akka.stream.scaladsl.Flow
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.MediaFile
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.Severity.Severity
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import scalaz.ValidationNel
@@ -50,11 +51,13 @@ object ValidationModel {
     * @param name         the name for the element
     * @param error        the validation error
     * @param severityIcon an icon for the severity
+    * @param severity     the severity of this item
     */
   case class ValidationErrorItem(@BeanProperty mediumName: String,
                                  @BeanProperty name: String,
                                  @BeanProperty error: String,
-                                 @BeanProperty severityIcon: AnyRef)
+                                 @BeanProperty severityIcon: AnyRef,
+                                 severity: Severity)
 
   /**
     * The type of the flow that performs validation on items.

@@ -97,7 +97,7 @@ class ValidationItemConverterSpec extends FlatSpec with Matchers with MockitoSug
     val result = Failure(failures)
     val expItems = codes.zip(icons).map { c =>
       ValidationErrorItem(testMediumInfo(1).name, Uri + DisplaySuffix,
-        ResourcePrefix + c._1.toString + ResolvedSuffix, c._2)
+        ResourcePrefix + c._1.toString + ResolvedSuffix, c._2, MetaDataValidator.severity(c._1))
     }
     val helper = new ConverterTestHelper
 

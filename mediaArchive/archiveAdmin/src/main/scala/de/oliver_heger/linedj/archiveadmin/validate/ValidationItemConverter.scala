@@ -78,7 +78,8 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     ValidationErrorItem(mediumName = mediumName,
       error = applicationContext.getResourceText(resourcePrefix + code),
       name = valItem.displayFunc(valItem.uri),
-      severityIcon = severityIcon(code))
+      severityIcon = severityIcon(code),
+      severity = MetaDataValidator.severity(code))
 
   /**
     * Obtains the name of the medium for the given validated item.
