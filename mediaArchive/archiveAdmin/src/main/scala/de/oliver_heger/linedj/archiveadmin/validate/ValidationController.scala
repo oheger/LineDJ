@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import java.util.Comparator
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Supervision.Decider
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.stream.scaladsl.{Sink, Source}
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.MediaFile
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidationErrorItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -74,7 +75,10 @@ object ValidationController {
       if (r1 == 0) {
         val r2 = item1.name.compareToIgnoreCase(item2.name)
         if (r2 == 0) {
-          item1.error.compareToIgnoreCase(item2.error)
+          if (item1.severity != item2.severity) {
+            if (item1.severity == Severity.Error) -1
+            else 1
+          } else item1.error.compareToIgnoreCase(item2.error)
         } else r2
       } else r1
     }
@@ -97,18 +101,26 @@ object ValidationController {
   * @param tableHandler    the table handler component
   * @param validationFlow  the flow that does the actual validation
   * @param converter       the validation item converter
+  * @param statusHandler   the handler for the status line
   */
 class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[String, MediaMetaData]],
                            app: ClientApplication, sync: GUISynchronizer, tableHandler: TableHandler,
-                           validationFlow: ValidationFlow, converter: ValidationItemConverter) extends WindowListener {
+                           validationFlow: ValidationFlow, converter: ValidationItemConverter,
+                           statusHandler: StatusLineHandler) extends WindowListener {
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
   /** The EC for running futures. */
   private implicit val ec: ExecutionContext = app.clientApplicationContext.actorSystem.dispatcher
 
+  /** Stores a flag whether errors occurred during validation. */
+  private val processingErrors = new AtomicBoolean
+
   /** The window associated with this controller. */
   private var window: Window = _
+
+  /** A counter for validation results with severity Error. */
+  private var validationErrorCount = 0
 
   import ValidationController._
 
@@ -144,6 +156,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     implicit val mat: ActorMaterializer = createMaterializer()
     val updateChunkSize = app.clientApplicationContext.managementConfiguration
       .getInt(PropUIUpdateChunkSize, DefaultUIUpdateChunkSize)
+    statusHandler.fetchingMedia()
     metaDataService.fetchMedia()(messageBus) foreach { media =>
       val source = Source(media.media.keySet)
       val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
@@ -168,6 +181,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     val decider: Decider = {
       err =>
         log.error("Error during validation stream processing!", err)
+        processingErrors.set(true)
         Supervision.Resume
     }
     ActorMaterializer(ActorMaterializerSettings(system).withSupervisionStrategy(decider))
@@ -185,6 +199,9 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
       val modelSize = tableHandler.getModel.size()
       tableHandler.getModel.addAll(items.asJava)
       tableHandler.rowsInserted(modelSize, modelSize + items.size - 1)
+
+      validationErrorCount += items.count(_.severity == Severity.Error)
+      statusHandler.updateProgress(validationErrorCount, validationWarningCount)
     }
   }
 
@@ -196,6 +213,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
   private def completeStreamProcessing(): Unit = doSynced {
     java.util.Collections.sort(tableHandler.getModel, ErrorItemComparator)
     tableHandler.tableDataChanged()
+    statusHandler.validationResults(validationErrorCount, validationWarningCount, !processingErrors.get())
   }
 
   /**
@@ -208,6 +226,15 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
   private def doSynced(f: => Unit) {
     sync.asyncInvoke(() => f)
   }
+
+  /**
+    * Convenience function to calculate the number of validation warnings.
+    * This value can be derived from the number of errors.
+    *
+    * @return the number of validation results with severity Warning
+    */
+  private def validationWarningCount: Int =
+    tableHandler.getModel.size() - validationErrorCount
 
   /**
     * Convenience function to return the system message bus.

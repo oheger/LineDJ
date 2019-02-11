@@ -23,7 +23,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Flow
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode}
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity, ValidationErrorCode}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -68,6 +68,12 @@ object ValidationControllerSpec {
   /** A map with error items for invalid files. */
   private val ErrorItems = generateErrorItems(InvalidFiles)
 
+  /** The number of validation warnings in the test validation items. */
+  private val WarningCount = countValidationWarnings(ErrorItems.values)
+
+  /** The number of validation errors in the test validation items. */
+  private val ErrorCount = ErrorItems.size - WarningCount
+
   /**
     * Generates a map with test files contained on each medium.
     *
@@ -110,9 +116,19 @@ object ValidationControllerSpec {
   private def generateErrorItems(files: Map[MediaFile, ValidationErrorCode]): Map[String, ValidationErrorItem] =
     files.map { e =>
       val errorItem = ValidationErrorItem(e._1.mediumID.mediumURI, e._1.uri, e._2.toString, null,
-        null)  //TODO set severity
+        MetaDataValidator.severity(e._2))
       (e._1.uri, errorItem)
     }
+
+  /**
+    * Determines the number of validation warnings in the list of test error
+    * items.
+    *
+    * @param items the test error items
+    * @return the number of validation warnings in this list
+    */
+  private def countValidationWarnings(items: Iterable[ValidationErrorItem]): Int =
+    items.count(_.severity == Severity.Warning)
 }
 
 
@@ -222,9 +238,16 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
   }
 
+  it should "order validation errors before warnings" in {
+    val item1 = ValidationErrorItem("medium", "file", "a-error", null, Severity.Warning)
+    val item2 = ValidationErrorItem("medium", "file", "b-error", null, Severity.Error)
+
+    ValidationController.ErrorItemComparator.compare(item1, item2) should be > 0
+  }
+
   it should "compare error items by error names ignoring case" in {
-    val item1 = ValidationErrorItem("medium", "file", "a-error", null, null)
-    val item2 = ValidationErrorItem("medium", "file", "B-error", null, null)
+    val item1 = ValidationErrorItem("medium", "file", "a-error", null, Severity.Error)
+    val item2 = ValidationErrorItem("medium", "file", "B-error", null, Severity.Error)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
   }
@@ -244,6 +267,41 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.controller.closeWindow()
     helper.verifyWindowClosed()
+  }
+
+  it should "update the status line for fetching available media" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .validateStatusHandler(_.fetchingMedia())
+  }
+
+  it should "update the status line during stream processing" in {
+    val helper = new ControllerTestHelper
+    helper.openWindow()
+
+    helper.hasValidationErrors shouldBe false
+    helper.runSyncTasks(() => helper.hasValidationErrors && helper.hasValidationWarnings)
+  }
+
+  it should "set a successful status result if no errors occurred" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .runSyncTasksToPopulateTable()
+      .runNextSyncTask()
+      .checkValidationResults(ErrorCount, WarningCount, successful = true)
+  }
+
+  it should "set a failure status result if there were errors during processing" in {
+    val ErrorMedia = AvailableMedia(TestMedia.media +
+      (ValidationTestHelper.testMedium(42) -> ValidationTestHelper.testMediumInfo(42)))
+    val helper = new ControllerTestHelper(allMedia = ErrorMedia)
+
+    helper.openWindow()
+      .runSyncTasksToPopulateTable()
+      .runNextSyncTask()
+      .checkValidationResults(ErrorCount, WarningCount, successful = false)
   }
 
   /**
@@ -267,11 +325,29 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     /** Mock for the window associated with the controller. */
     private val window = mock[Window]
 
+    /** Mock for the status line handler. */
+    private val statusHandler = createStatusHandler()
+
     /** The configuration for the test application. */
     private val configuration = new PropertiesConfiguration
 
     /** The controller to be tested. */
     val controller: ValidationController = createController()
+
+    /**
+      * The current number of validation errors passed to the status line
+      * handler.
+      */
+    private var validationErrorCount = 0
+
+    /**
+      * The current number of validation warnings passed to the status line
+      * handler.
+      */
+    private var validationWarningCount = 0
+
+    /** The success flag passed to the status line handler. */
+    private var statusResult: Option[Boolean] = None
 
     /**
       * Invokes the given sender function with the controller as window
@@ -354,6 +430,49 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def updateConfiguration(key: String, value: Any): ControllerTestHelper = {
       configuration.setProperty(key, value)
+      this
+    }
+
+    /**
+      * Returns a flag whether validation errors are present.
+      *
+      * @return the flag whether validation errors are present
+      */
+    def hasValidationErrors: Boolean = validationErrorCount > 0
+
+    /**
+      * Returns a flag whether validation warnings are present.
+      *
+      * @return the flag whether validation warnings are present
+      */
+    def hasValidationWarnings: Boolean = validationWarningCount > 0
+
+    /**
+      * Checks whether the given numbers of validation errors and warnings have
+      * been detected and the operation completed in the expected way.
+      *
+      * @param errors     the expected number of errors
+      * @param warnings   the expected number of warnings
+      * @param successful the expected success flag
+      * @return this test helper
+      */
+    def checkValidationResults(errors: Int, warnings: Int, successful: Boolean): ControllerTestHelper = {
+      validationErrorCount should be(errors)
+      validationWarningCount should be(warnings)
+      statusResult.contains(successful) shouldBe true
+      this
+    }
+
+    /**
+      * Allows a custom validation on the status line handler. Invokes the
+      * given validation function on the handler mock with verification
+      * enabled.
+      *
+      * @param f the validation function
+      * @return this test helper
+      */
+    def validateStatusHandler(f: StatusLineHandler => Unit): ControllerTestHelper = {
+      f(verify(statusHandler))
       this
     }
 
@@ -461,6 +580,29 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
 
     /**
+      * Creates a mock for the status line handler. The mock updates the
+      * numbers of warnings and errors when it is invoked.
+      *
+      * @return the mock status line handler
+      */
+    private def createStatusHandler(): StatusLineHandler = {
+      val handler = mock[StatusLineHandler]
+      doAnswer((invocation: InvocationOnMock) => {
+        statusResult shouldBe 'empty
+        validationErrorCount = invocation.getArguments.head.asInstanceOf[Int]
+        validationWarningCount = invocation.getArguments()(1).asInstanceOf[Int]
+      }).when(handler).updateProgress(anyInt(), anyInt())
+
+      doAnswer((invocation: InvocationOnMock) => {
+        statusResult shouldBe 'empty
+        validationErrorCount = invocation.getArguments.head.asInstanceOf[Int]
+        validationWarningCount = invocation.getArguments()(1).asInstanceOf[Int]
+        statusResult = Some(invocation.getArguments()(2).asInstanceOf[Boolean])
+      }).when(handler).validationResults(anyInt(), anyInt(), anyBoolean())
+      handler
+    }
+
+    /**
       * Creates the test instance.
       *
       * @return the test instance
@@ -468,7 +610,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private def createController(): ValidationController =
       new ValidationController(app = createApplication(), metaDataService = createMetaDataService(),
         tableHandler = tableHandler, sync = createSynchronizer(), validationFlow = createValidationFlow(),
-        converter = createConverter())
+        converter = createConverter(), statusHandler = statusHandler)
   }
 
 }
