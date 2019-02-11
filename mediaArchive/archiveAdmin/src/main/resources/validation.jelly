@@ -30,6 +30,11 @@
   <f:icon resource="validation_error.png" var="iconSeverityError"/>
   <f:icon resource="validation_warning.png" var="iconSeverityWarning"/>
 
+  <!-- Icons for the status line. -->
+  <f:icon resource="progress.gif" var="iconProgress"/>
+  <f:icon resource="status_success.png" var="iconSuccess"/>
+  <f:icon resource="status_error.png" var="iconError"/>
+
   <!-- The converter for validation errors -->
   <di:bean name="itemConverter"
            beanClassName="de.oliver_heger.linedj.archiveadmin.validate.ValidationItemConverter">
@@ -72,6 +77,18 @@
       </f:statictext>
     </f:panel>
 
+    <!-- The status line handler. -->
+    <di:bean name="statusLineHandler"
+             beanClassName="de.oliver_heger.linedj.archiveadmin.validate.StatusLineHandler">
+      <di:constructor>
+        <di:param refName="jguiraffe.applicationContext"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param refName="iconProgress"/>
+        <di:param refName="iconSuccess"/>
+        <di:param refName="iconError"/>
+      </di:constructor>
+    </di:bean>
+
     <!-- The controller bean -->
     <di:bean name="controller"
              beanClassName="de.oliver_heger.linedj.archiveadmin.validate.ValidationController">
@@ -82,6 +99,7 @@
         <di:param refName="comp:tableResults"/>
         <di:param refName="validationFlow"/>
         <di:param refName="itemConverter"/>
+        <di:param refName="statusLineHandler"/>
       </di:constructor>
     </di:bean>
 
