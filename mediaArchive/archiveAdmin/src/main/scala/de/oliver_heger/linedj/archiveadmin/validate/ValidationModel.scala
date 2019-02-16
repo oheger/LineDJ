@@ -62,9 +62,10 @@ object ValidationModel {
   /**
     * The type of the flow that performs validation on items.
     *
-    * The flow is passed the single files of a medium as input. It can either
-    * validate them directly or aggregate them to larger items (e.g. albums).
-    * The output is the validation result for each item.
+    * The flow is passed a sequence with the files of a medium as input. It can
+    * either validate them file by file or aggregate them to larger items (e.g.
+    * albums). The output is the validation results for the files on the
+    * current medium.
     */
-  type ValidationFlow = Flow[MediaFile, ValidatedItem, Any]
+  type ValidationFlow = Flow[List[MediaFile], ValidatedItem, Any]
 }

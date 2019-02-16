@@ -691,14 +691,16 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return the validation flow
       */
     private def createValidationFlow(): ValidationFlow =
-      Flow[MediaFile].map { f =>
-        val result = InvalidFiles get f match {
-          case Some(code) =>
-            code.failureNel[Any]
-          case None =>
-            f.successNel[ValidationErrorCode]
+      Flow[List[MediaFile]].mapConcat { files =>
+        files map { f =>
+          val result = InvalidFiles get f match {
+            case Some(code) =>
+              code.failureNel[Any]
+            case None =>
+              f.successNel[ValidationErrorCode]
+          }
+          ValidatedItem(f.mediumID, f.uri, identity, result)
         }
-        ValidatedItem(f.mediumID, f.uri, identity, result)
       }
 
     /**

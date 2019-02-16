@@ -195,7 +195,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
     val (ks, futSink) = source.viaMat(KillSwitches.single)(Keep.right)
       .mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
-      .mapConcat(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
+      .map(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
       .via(validationFlow)
       .filter(_.result.isFailure)
       .mapConcat(converter.generateTableItems(media, _))
