@@ -19,16 +19,17 @@ package de.oliver_heger.linedj.archiveadmin.validate
 import java.util.Comparator
 import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Supervision.Decider
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream._
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidationErrorItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
-import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 object ValidationController {
   /** The prefix for all properties related to meta data validation. */
@@ -119,14 +121,32 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
   /** The window associated with this controller. */
   private var window: Window = _
 
+  /** The kill switch to cancel the validation stream. */
+  private var killSwitch: Option[KillSwitch] = None
+
   /** A counter for validation results with severity Error. */
   private var validationErrorCount = 0
+
+  /** A flag whether the dialog window has been closed. */
+  private var windowClosed = false
 
   import ValidationController._
 
   override def windowActivated(windowEvent: WindowEvent): Unit = {}
 
-  override def windowClosing(windowEvent: WindowEvent): Unit = {}
+  /**
+    * Notification that the window is closing. If the validation stream is
+    * still in progress, it is canceled now.
+    *
+    * @param windowEvent the window event (ignored)
+    */
+  override def windowClosing(windowEvent: WindowEvent): Unit = {
+    windowClosed = true
+    killSwitch foreach { ks =>
+      log.info("Canceling validation stream.")
+      ks.shutdown()
+    }
+  }
 
   override def windowClosed(windowEvent: WindowEvent): Unit = {}
 
@@ -150,26 +170,61 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
   }
 
   /**
-    * Initiates the stream that validates all media.
+    * Creates the source for the validation stream. The source emits all the
+    * IDs of all media which should be validated.
+    *
+    * @param media the currently available media
+    * @return the source for all media
     */
-  private def startValidationStream(): Unit = {
+  private[validate] def createSource(media: AvailableMedia): Source[MediumID, NotUsed] =
+    Source(media.media.keySet)
+
+  /**
+    * Runs the validation stream and returns a kill switch to interrupt it.
+    * This method actually starts the stream in which the media validation is
+    * performed.
+    *
+    * @param media the currently available media
+    * @return the kill switch to cancel the stream
+    */
+  private[validate] def materializeValidationStream(media: AvailableMedia): KillSwitch = {
     implicit val mat: ActorMaterializer = createMaterializer()
     val updateChunkSize = app.clientApplicationContext.managementConfiguration
       .getInt(PropUIUpdateChunkSize, DefaultUIUpdateChunkSize)
-    statusHandler.fetchingMedia()
-    metaDataService.fetchMedia()(messageBus) foreach { media =>
-      val source = Source(media.media.keySet)
-      val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
-      source.mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
-        .mapConcat(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
-        .via(validationFlow)
-        .filter(_.result.isFailure)
-        .mapConcat(converter.generateTableItems(media, _))
-        .groupedWithin(updateChunkSize, 10.seconds)
-        .runWith(sink) foreach (_ => completeStreamProcessing())
-    }
+    val source = createSource(media)
+    val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
+    val (ks, futSink) = source.viaMat(KillSwitches.single)(Keep.right)
+      .mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
+      .mapConcat(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
+      .via(validationFlow)
+      .filter(_.result.isFailure)
+      .mapConcat(converter.generateTableItems(media, _))
+      .groupedWithin(updateChunkSize, 10.seconds)
+      .toMat(sink)(Keep.both)
+      .run()
+
+    futSink foreach (_ => completeStreamProcessing())
+    ks
   }
 
+  /**
+    * Initiates the stream that validates all media.
+    */
+  private def startValidationStream(): Unit = {
+    statusHandler.fetchingMedia()
+    metaDataService.fetchMedia()(messageBus) onComplete {
+      case Success(media) =>
+        doSynced {
+          killSwitch = Some(materializeValidationStream(media))
+        }
+
+      case Failure(exception) =>
+        log.error("Could not retrieve available media!", exception)
+        doSynced {
+          statusHandler.validationResults(0, 0, successful = false)
+        }
+    }
+  }
 
   /**
     * Creates the object to materialize streams.
@@ -214,6 +269,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     java.util.Collections.sort(tableHandler.getModel, ErrorItemComparator)
     tableHandler.tableDataChanged()
     statusHandler.validationResults(validationErrorCount, validationWarningCount, !processingErrors.get())
+    killSwitch = None
   }
 
   /**
@@ -221,10 +277,10 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     * This function must be used whenever an interaction with the UI is done or
     * state of the controller is updated.
     *
-    * @param f the function to eecute on the UI thread
+    * @param f the function to execute on the UI thread
     */
   private def doSynced(f: => Unit) {
-    sync.asyncInvoke(() => f)
+    sync.asyncInvoke(() => if (!windowClosed) f)
   }
 
   /**
