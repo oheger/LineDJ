@@ -102,12 +102,13 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
     .getInt(PropFileValidationParallelism, DefaultFileValidationParallelism)
 
   override protected def createValidationFlow(): ValidationFlow =
-    Flow[MediaFile].mapAsyncUnordered(parallelism) { file =>
-      Future {
-        val valResult = MetaDataValidator.validateFile(file)
-        ValidatedItem(file.mediumID, file.uri, createDisplayFunc(file), valResult)
+    Flow[List[MediaFile]].mapConcat(identity)
+      .mapAsyncUnordered(parallelism) { file =>
+        Future {
+          val valResult = MetaDataValidator.validateFile(file)
+          ValidatedItem(file.mediumID, file.uri, createDisplayFunc(file), valResult)
+        }
       }
-    }
 
   /**
     * Generates the display function for the given media file. If the title is

@@ -79,15 +79,15 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     * @param files   the files to be used as input
     * @return the validated items
     */
-  private def checkValidationFlow(command: OpenValidationWindowCommand, files: List[MediaFile]):
+  private def checkValidationFlow(command: OpenValidationWindowCommand, files: List[MediaFile]*):
   List[ValidatedItem] = {
     implicit val mat: ActorMaterializer = ActorMaterializer()
     val builderData = mock[ApplicationBuilderData]
     command.prepareBuilderData(builderData)
-    val captor = ArgumentCaptor.forClass(classOf[Flow[MediaFile, ValidatedItem, Any]])
+    val captor = ArgumentCaptor.forClass(classOf[Flow[List[MediaFile], ValidatedItem, Any]])
     verify(builderData).addProperty(eqArg(OpenValidationWindowCommand.PropFlow), captor.capture())
 
-    val source = Source(files)
+    val source = Source(files.toList)
     val sink = Sink.fold[List[ValidatedItem], ValidatedItem](List.empty)((lst, item) => item :: lst)
     val flow = captor.getValue
     val futResult = source.via(flow).runWith(sink)
