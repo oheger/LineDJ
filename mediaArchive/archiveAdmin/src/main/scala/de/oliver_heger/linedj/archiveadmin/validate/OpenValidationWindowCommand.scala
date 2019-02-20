@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import akka.stream.scaladsl.Flow
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.MediaFile
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{DisplayFunc, ValidatedItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
@@ -62,6 +62,13 @@ abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientAp
 
   import OpenValidationWindowCommand._
 
+  /** The parallelism for validation during stream processing. */
+  lazy val parallelism: Int = app.clientApplicationContext.managementConfiguration
+    .getInt(PropFileValidationParallelism, DefaultFileValidationParallelism)
+
+  /* The execution context.*/
+  protected implicit def ec: ExecutionContext = app.clientApplicationContext.actorSystem.dispatcher
+
   /**
     * @inheritdoc This implementation invokes ''createValidationFlow()'' and
     *             stores the flow under a well-known key in the builder
@@ -90,16 +97,8 @@ abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientAp
   * @param scriptLocator the locator to the builder script to be executed
   * @param app           the current application
   */
-class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplication) extends OpenValidationWindowCommand(scriptLocator, app) {
-
-  import OpenValidationWindowCommand._
-
-  /* The execution context.*/
-  private implicit val ec: ExecutionContext = app.clientApplicationContext.actorSystem.dispatcher
-
-  /** The parallelism for validation during stream processing. */
-  lazy val parallelism: Int = app.clientApplicationContext.managementConfiguration
-    .getInt(PropFileValidationParallelism, DefaultFileValidationParallelism)
+class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
+  extends OpenValidationWindowCommand(scriptLocator, app) {
 
   override protected def createValidationFlow(): ValidationFlow =
     Flow[List[MediaFile]].mapConcat(identity)
@@ -133,6 +132,70 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
   private def fileNameFromUri(uri: String): String = {
     val lastSlash = uri.replace('\\', '/').lastIndexOf('/')
     if (lastSlash >= 0) uri.substring(lastSlash + 1)
+    else uri
+  }
+}
+
+/**
+  * A command implementation to open the validation dialog for an album-based
+  * validation.
+  *
+  * The validation flow created by this class groups files by their album URIs.
+  * Then each group is transformed to a ''MediaAlbum'' and passed to the
+  * ''MetaDataValidator''.
+  *
+  * @param scriptLocator the locator to the builder script to be executed
+  * @param app           the current application
+  */
+class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
+  extends OpenValidationWindowCommand(scriptLocator, app) {
+  override protected def createValidationFlow(): ValidationFlow =
+    Flow[List[MediaFile]].mapConcat(groupToAlbums)
+      .mapAsyncUnordered(parallelism) { album =>
+        Future {
+          val result = MetaDataValidator.validateAlbum(album)
+          ValidatedItem(album.mediumID, album.uri, displayFunc, result)
+        }
+      }
+
+  /**
+    * Generates ''MediaAlbum'' objects for the given list of media files. The
+    * files are grouped by their parent URI. It is expected that all files
+    * belong to the same medium.
+    *
+    * @param files a list with all media files of a medium
+    * @return a list with corresponding albums
+    */
+  private def groupToAlbums(files: List[MediaFile]): List[MediaAlbum] = {
+    lazy val mid = files.head.mediumID // only executed if there are files
+    val albumFiles = files.groupBy(f => parentUri(f.uri))
+    albumFiles.map(e => MediaAlbum(mid, e._1, e._2 map (_.metaData))).toList
+  }
+
+  /**
+    * Determines the parent URI of the given URI. The last component is split.
+    *
+    * @param uri the URI
+    * @return the parent URI
+    */
+  private def parentUri(uri: String): String = {
+    val normUri = uri.replace('\\', '/')
+    val lastSlash = normUri.lastIndexOf('/')
+    if (lastSlash >= 0) normUri.substring(0, lastSlash)
+    else ""
+  }
+
+  /**
+    * Implementation of the display function for albums. This function returns
+    * the parent component (typically the artist) plus the album name.
+    *
+    * @param uri the full URI of the album
+    * @return the string to be displayed for the album
+    */
+  private def displayFunc(uri: String): String = {
+    val components = uri.split("/")
+    if (components.length > 1)
+      components(components.length - 2) + "/" + components(components.length - 1)
     else uri
   }
 }

@@ -132,4 +132,16 @@ object ValidationTestHelper {
     val songData = (1 to numberOfSongs) map (metaData(_, idx))
     MediaAlbum(Medium, "album" + idx, additionalData.toList ::: songData.toList)
   }
+
+  /**
+    * Generates a list with the files of an album matching the criteria
+    * specified.
+    *
+    * @param albumIdx      the index of the test album
+    * @param numberOfSongs the number of songs on this album
+    * @param mediumIdx     the index of the medium
+    * @return a list with the files on this album
+    */
+  def albumFiles(albumIdx: Int, numberOfSongs: Int, mediumIdx: Int = 1): List[MediaFile] =
+    (1 to numberOfSongs).map(file(_, albumIdx, mediumIdx)).toList
 }
