@@ -58,6 +58,11 @@
             taskBean="validateFilesTask">
   </a:action>
 
+  <a:action name="validateAlbumsAction" textres="act_validatealbums_text"
+            tooltipres="act_validatealbums_tip" mnemonicres="act_validatealbums_mnemo"
+            taskBean="validateAlbumsTask">
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -70,6 +75,7 @@
       <a:menuitem actionName="metaDataFilesAction"/>
       <a:separator/>
       <a:menuitem actionName="validateFilesAction"/>
+      <a:menuitem actionName="validateAlbumsAction"/>
     </a:menu>
   </a:menubar>
 
@@ -219,5 +225,20 @@
            beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="validateFilesDlgCommand"/>
     <di:setProperty property="beforeEnabler" value="action:validateFilesAction"/>
+  </di:bean>
+
+  <!-- Command and task for opening the validate albums dialog -->
+  <di:bean name="validateAlbumsDlgCommand"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.validate.OpenAlbumValidationWindowCommand">
+    <di:constructor>
+      <di:param value="classpath:validation.jelly"/>
+      <di:param refName="jguiraffe.application"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="validateAlbumsTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="validateAlbumsDlgCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:validateAlbumsAction"/>
   </di:bean>
 </j:jelly>
