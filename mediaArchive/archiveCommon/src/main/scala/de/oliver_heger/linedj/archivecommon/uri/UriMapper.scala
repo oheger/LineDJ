@@ -16,11 +16,9 @@
 
 package de.oliver_heger.linedj.archivecommon.uri
 
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, UriHelper}
 
 import scala.annotation.tailrec
 
@@ -92,8 +90,7 @@ object UriMapper {
     * @param uri the URI string to be encoded
     * @return the encoded string
     */
-  private def encode(uri: String): String =
-    URLEncoder.encode(uri, StandardCharsets.UTF_8.name()).replace("+", "%20")
+  private def encode(uri: String): String = UriHelper urlEncode uri
 
   /**
     * Removes the configured number of path components from the beginning of

@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.shared.archive.union
 
-import java.net.{URLDecoder, URLEncoder}
+import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.regex.Pattern
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, UriHelper}
 
 /**
   * A data class representing an URI for the global undefined medium split
@@ -79,7 +79,7 @@ object MediaFileUriHandler {
     * @return the generated URI for this file
     */
   def generateMediaFileUri(mediumRoot: Path, path: Path): String =
-    urlEncode(mediumRoot.relativize(path).toString)
+    UriHelper.urlEncode(mediumRoot.relativize(path).toString)
       .replace("%2F", "/")
       .replace("%5C", "/")
 
@@ -204,7 +204,7 @@ object MediaFileUriHandler {
     * @return the encoded ''MediumID''
     */
   private def encodeMediumID(mid: MediumID): String =
-    mid.mediumURI + UriSeparator + urlEncode(mid.archiveComponentID)
+    mid.mediumURI + UriSeparator + UriHelper.urlEncode(mid.archiveComponentID)
 
   /**
     * Resolves a URI pointing to a file belonging to a defined medium. In this
@@ -219,18 +219,6 @@ object MediaFileUriHandler {
                              mediaData: Map[MediumID, Map[String, FileData]]):
   Option[FileData] =
     mediaData.get(mediumID).flatMap(_.get(uri))
-
-  /**
-    * Performs URL encoding on the specified URI string by handling special
-    * characters now allowed in URIs. Note that the '+' character produced by
-    * ''URLEncoder'' for whitespace is replaced by the code ''%20''.
-    *
-    * @param uri the URI string to be encoded
-    * @return the encoded URI
-    */
-  private def urlEncode(uri: String): String =
-    URLEncoder.encode(uri, StandardCharsets.UTF_8.name())
-      .replace("+", "%20")
 
   /**
     * Decodes an URI.
