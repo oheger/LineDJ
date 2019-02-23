@@ -19,8 +19,8 @@ import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.5.19"
-lazy val AkkaHttpVersion = "10.1.5"
+lazy val AkkaVersion = "2.5.21"
+lazy val AkkaHttpVersion = "10.1.7"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.8"
 lazy val VersionScalaz = "7.2.27"
