@@ -20,6 +20,7 @@ import akka.stream.scaladsl.Flow
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{DisplayFunc, ValidatedItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
+import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
 
@@ -44,6 +45,21 @@ object OpenValidationWindowCommand {
 
   /** The default value for the file validation parallelism property. */
   val DefaultFileValidationParallelism = 4
+
+  /**
+    * Generates a name by prefixing the parent name to the given name. This is
+    * used by the display function. An element name alone may be ambiguous, but
+    * together with the parent name, there is fewer chance for a name
+    * collision. In addition, URL-decoding is applied if necessary.
+    *
+    * @param uri  the element URI
+    * @param name the name of the element
+    * @return the resulting name with the parent prefix
+    */
+  def appendParent(uri: String, name: String): String = {
+    val parentName = UriHelper.extractName(UriHelper.extractParent(uri))
+    UriHelper.urlDecode(UriHelper.concat(parentName, name))
+  }
 }
 
 /**
@@ -118,22 +134,19 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
     * @return the display function for this file
     */
   private def createDisplayFunc(file: MediaFile): DisplayFunc = file.metaData.title match {
-    case Some(t) => _ => t
-    case None => uri => fileNameFromUri(uri)
+    case Some(t) => uri => OpenValidationWindowCommand.appendParent(uri, t)
+    case None => uri => displayNameFromUri(uri)
   }
 
   /**
-    * Generates a file name from the file URI. Tries to extract the last
-    * component of the URI.
+    * Generates a display name from the file URI. This name consists of the
+    * parent component (typically the album name) and the file name.
     *
     * @param uri the URI
-    * @return the file name
+    * @return the display name
     */
-  private def fileNameFromUri(uri: String): String = {
-    val lastSlash = uri.replace('\\', '/').lastIndexOf('/')
-    if (lastSlash >= 0) uri.substring(lastSlash + 1)
-    else uri
-  }
+  private def displayNameFromUri(uri: String): String =
+    OpenValidationWindowCommand.appendParent(uri, UriHelper extractName uri)
 }
 
 /**
@@ -178,12 +191,7 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
     * @param uri the URI
     * @return the parent URI
     */
-  private def parentUri(uri: String): String = {
-    val normUri = uri.replace('\\', '/')
-    val lastSlash = normUri.lastIndexOf('/')
-    if (lastSlash >= 0) normUri.substring(0, lastSlash)
-    else ""
-  }
+  private def parentUri(uri: String): String = UriHelper extractParent uri
 
   /**
     * Implementation of the display function for albums. This function returns
@@ -192,10 +200,6 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
     * @param uri the full URI of the album
     * @return the string to be displayed for the album
     */
-  private def displayFunc(uri: String): String = {
-    val components = uri.split("/")
-    if (components.length > 1)
-      components(components.length - 2) + "/" + components(components.length - 1)
-    else uri
-  }
+  private def displayFunc(uri: String): String =
+    OpenValidationWindowCommand.appendParent(uri, UriHelper extractName uri)
 }

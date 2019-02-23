@@ -86,13 +86,21 @@ object ValidationTestHelper {
     s"${albumUri(albumIdx, mediumIdx)}/testMediaFile$idx.mp3"
 
   /**
+    * Generates the name of a test album.
+    *
+    * @param idx the index
+    * @return the name of this test album
+    */
+  def albumName(idx: Int): String = "testAlbum" + idx
+
+  /**
     * Generates the URI of a test album based on the given index.
     *
     * @param idx       the index
     * @param mediumIdx the index of the medium
     * @return the URI for this test album
     */
-  def albumUri(idx: Int, mediumIdx: Int = 1): String = testMedium(mediumIdx).mediumURI + "/testAlbum" + idx
+  def albumUri(idx: Int, mediumIdx: Int = 1): String = testMedium(mediumIdx).mediumURI + "/" + albumName(idx)
 
   /**
     * Generates test meta data based on the given indices. The meta data is

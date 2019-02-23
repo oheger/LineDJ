@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, UriHelper}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import scalaz._
 import Scalaz._
@@ -34,20 +34,26 @@ object MetaDataValidator {
     * A data class representing a single media file to be validated.
     *
     * @param mediumID the ID of the medium
-    * @param uri      the URI identifying the file
+    * @param orgUri   the original URI identifying the file
     * @param metaData the meta data of the file
     */
-  case class MediaFile(mediumID: MediumID, uri: String, metaData: MediaMetaData)
+  case class MediaFile(mediumID: MediumID, orgUri: String, metaData: MediaMetaData) {
+    /** The (normalized) URI of this file. */
+    lazy val uri: String = UriHelper normalize orgUri
+  }
 
   /**
     * A data class representing an album to be validated. This is just a group
     * of files with meta data that is checked for certain criteria.
     *
     * @param mediumID the ID of the medium
-    * @param uri      the URI identifying the album
+    * @param orgUri   the original URI identifying the album
     * @param metaData a sequence with the meta data of the files of the album
     */
-  case class MediaAlbum(mediumID: MediumID, uri: String, metaData: Seq[MediaMetaData])
+  case class MediaAlbum(mediumID: MediumID, orgUri: String, metaData: Seq[MediaMetaData]) {
+    /** The (normalized) URI of this file. */
+    lazy val uri: String = UriHelper normalize orgUri
+  }
 
   /**
     * An enumeration class representing the supported validation error codes.

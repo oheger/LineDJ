@@ -211,10 +211,11 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
 
   it should "return the title in the display function if available" in {
     val file = ValidationTestHelper.file(1)
+    val ExpResult = ValidationTestHelper.albumName(1) + "/" + file.metaData.title.get
     val command = new OpenFileValidationWindowCommand(mock[Locator], createClientApp())
     val valItem = checkValidationFlow(command, List(file)).head
 
-    valItem.displayFunc("some uri") should be(file.metaData.title.get)
+    valItem.displayFunc(valItem.uri) should be(ExpResult)
   }
 
   /**
@@ -226,18 +227,19 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     */
   private def checkFileValidationDisplayFuncNoTitle(uri: String, expResult: String): Unit = {
     val data = ValidationTestHelper.metaData(1).copy(title = None)
-    val file = MediaFile(ValidationTestHelper.testMedium(1), ValidationTestHelper.fileUri(1), data)
+    val file = MediaFile(ValidationTestHelper.testMedium(1), uri, data)
     val command = new OpenFileValidationWindowCommand(mock[Locator], createClientApp())
     val valItem = checkValidationFlow(command, List(file)).head
 
-    valItem.displayFunc(uri) should be(expResult)
+    valItem.displayFunc(valItem.uri) should be(expResult)
   }
 
-  it should "return the last URI component in the display function if there is no title" in {
+  it should "return the album and title components in the display function if there is no title" in {
+    val AlbumComp = "my_album"
     val LastUriComp = "mySong.mp3"
-    val Uri = "https://testmusic.org/my_medium/my_album/" + LastUriComp
+    val Uri = s"https://testmusic.org/my_medium/$AlbumComp/$LastUriComp"
 
-    checkFileValidationDisplayFuncNoTitle(Uri, LastUriComp)
+    checkFileValidationDisplayFuncNoTitle(Uri, AlbumComp + "/" + LastUriComp)
   }
 
   it should "return the full URI in the display function if there are no components" in {
@@ -249,14 +251,15 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
   it should "handle a trailing slash in the URI in the display function" in {
     val Uri = "foo/"
 
-    checkFileValidationDisplayFuncNoTitle(Uri + "/", "")
+    checkFileValidationDisplayFuncNoTitle(Uri, Uri)
   }
 
   it should "handle URIs with backslash in the display function" in {
+    val AlbumComp = "album"
     val LastUriComp = "theSong.ogg"
-    val Uri = "C:\\data\\music\\medium\\album\\" + LastUriComp
+    val Uri = s"C:\\data\\music\\medium\\$AlbumComp\\$LastUriComp"
 
-    checkFileValidationDisplayFuncNoTitle(Uri, LastUriComp)
+    checkFileValidationDisplayFuncNoTitle(Uri, AlbumComp + "/" + LastUriComp)
   }
 
   "An OpenAlbumValidationWindowCommand" should "pass the script locator" in {
@@ -318,7 +321,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
 
   it should "handle file URIs using a backslash" in {
     val files = ValidationTestHelper.albumFiles(1, 4)
-      .map(f => f.copy(uri = f.uri.replace('/', '\\')))
+      .map(f => f.copy(orgUri = f.uri.replace('/', '\\')))
     val command = new OpenAlbumValidationWindowCommand(mock[Locator], createClientApp())
 
     val items = checkValidationFlow(command, files)
@@ -348,11 +351,11 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
 
     val items = checkValidationFlow(command, files)
     items should have size 1
-    items.head.displayFunc(albumUri) should be(expResult)
+    items.head.displayFunc(items.head.uri) should be(expResult)
   }
 
   it should "return the correct album URI by the display function" in {
-    val AlbumUri = "/music/test/artist/album/"
+    val AlbumUri = "/music/test/artist/album"
     val ExpUri = "artist/album"
 
     checkAlbumValidationDisplayFunc(AlbumUri, ExpUri)
@@ -362,5 +365,12 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     val AlbumUri = "theAlbum"
 
     checkAlbumValidationDisplayFunc(AlbumUri, AlbumUri)
+  }
+
+  it should "URL-decode URIs in the display function" in {
+    val AlbumUri = "/music/test/Artist%201%2FArtist%202/The%20Album"
+    val ExpUri = "Artist 1/Artist 2/The Album"
+
+    checkAlbumValidationDisplayFunc(AlbumUri, ExpUri)
   }
 }
