@@ -16,6 +16,7 @@
 
 import com.github.oheger.sbt.spifly.SbtSpiFly
 import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
+import OsgiImagePlugin.autoImport._ 
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
@@ -212,7 +213,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn (shared % "compile->compile;test->test", actorSystem)
 
 /**
   * A project providing the client-side actor system. This project uses the
@@ -271,7 +272,17 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", archive)
+  ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin)
+
+lazy val archiveOsgiImage = (project in file("images/archive"))
+  .enablePlugins(OsgiImagePlugin)
+  .settings(defaultSettings: _*)
+    .settings(
+      name := "linedj-archive-osgiImage",
+      excludedModules:= Seq(
+        module(name = "xalan"), module(organization="xerces")
+      )
+    ) dependsOn(archiveLocalStartup, archiveAdmin, appShutdownOneForAll, mediaIfcEmbedded)
 
 /**
   * A project which is responsible for starting up an HTTP media archive in
@@ -309,7 +320,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
       "*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, archive)
+  ) dependsOn(platform % "compile->compile;test->test", archive)
 
 /**
   * Project for the media browser client application. This application allows

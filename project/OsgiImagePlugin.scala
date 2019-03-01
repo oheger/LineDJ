@@ -16,6 +16,7 @@
 
 import com.typesafe.sbt.osgi.OsgiKeys
 import sbt.Keys._
+import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
 import sbt.{Def, _}
 
 /**
@@ -49,7 +50,32 @@ import sbt.{Def, _}
   */
 object OsgiImagePlugin extends AutoPlugin {
 
+  /**
+    * A data class describing a module. This is used to exclude specific 
+    * modules from the 3rd party dependencies. From the given organization and
+    * name specs a module filter is constructed.
+    *
+    * @param orgSpec  optional filter spec for organizations
+    * @param nameSpec optional filter spec for names
+    */
+  case class ModuleDesc(orgSpec: Option[String], nameSpec: Option[String]) {
+    def filter: ModuleFilter = {
+      (for {
+        org <- orgSpec
+        n <- nameSpec
+      } yield (org, n)) match {
+        case Some((orgFilter, nameFilter)) => moduleFilter(organization = orgFilter, name = nameFilter)
+        case None =>
+          orgSpec.map(org => moduleFilter(org))
+            .getOrElse(nameSpec.map(n => moduleFilter(name = n)).getOrElse(moduleFilter()))
+      }
+    }
+  }
+
   object autoImport {
+    /** Setting to exclude modules from 3rd party dependencies. */
+    lazy val excludedModules = settingKey[Seq[ModuleDesc]]("Defines the modules to be excluded")
+
     /**
       * The main task for creating an OSGi image. Call this task in a project
       * in order to generate an image for this application.
@@ -57,13 +83,27 @@ object OsgiImagePlugin extends AutoPlugin {
     lazy val osgiImage = taskKey[Unit]("Generates an OSGi image for the current project")
 
     lazy val baseOsgiImageSettings: Seq[Def.Setting[_]] = Seq(
+      excludedModules := Nil,
       osgiImage := {
-        val configs = configurationFilter("compile")
-        val artifacts = artifactFilter(`type` = "jar")
+        val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
         val projectFiles = fetchDependentProjectFiles().value
-        buildOsgiImage(update.value.matching(configs && artifacts), projectFiles)
+        buildOsgiImage(dependencies, projectFiles)
       }
     )
+
+    /**
+      * Convenience function to generate a ''ModuleDesc'' object.
+      *
+      * @param organization the organization filter of the module
+      * @param name         the name filter of the module
+      * @return the resulting ''ModuleDesc''
+      */
+    def module(organization: String = "", name: String = ""): ModuleDesc = {
+      def optString(s: String): Option[String] =
+        if (s.isEmpty) None else Some(s)
+
+      ModuleDesc(optString(organization), optString(name))
+    }
   }
 
   import autoImport._
@@ -73,6 +113,29 @@ object OsgiImagePlugin extends AutoPlugin {
   override def requires: Plugins = empty
 
   override def projectSettings: Seq[Def.Setting[_]] = baseOsgiImageSettings
+
+  /**
+    * Creates a filter for the 3rd party dependencies to be added to the
+    * generated OSGi image.
+    *
+    * @param exclusions the sequence with modules to be excluded
+    * @return the resulting dependencies filter
+    */
+  private def createDependenciesFilter(exclusions: Seq[ModuleDesc]): DependencyFilter = {
+    val configs = configurationFilter("compile")
+    val artifacts = artifactFilter(`type` = "jar")
+    val modules = createModuleFilter(exclusions)
+    configs && artifacts && modules
+  }
+
+  /**
+    * Creates a filter based on the modules to be excluded.
+    *
+    * @param exclusions the sequence with modules to be excluded
+    * @return the resulting module filter
+    */
+  private def createModuleFilter(exclusions: Seq[ModuleDesc]): ModuleFilter =
+    exclusions.foldLeft(moduleFilter()) { (filter, module) => filter - module.filter }
 
   /**
     * Creates a dynamic task to obtain the OSGi bundles for the projects the
