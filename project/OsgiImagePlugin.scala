@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import java.util.jar.{Attributes, JarFile}
+
 import com.typesafe.sbt.osgi.OsgiKeys
 import sbt.Keys._
 import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
@@ -49,6 +51,8 @@ import sbt.{Def, _}
   * by the ''osgi.image.rootPath'' system property.  
   */
 object OsgiImagePlugin extends AutoPlugin {
+  /** Constant for the bundle version manifest attribute. */
+  private val AttrBundleVersion = new Attributes.Name("Bundle-Version")
 
   /**
     * A data class describing a module. This is used to exclude specific 
@@ -153,6 +157,23 @@ object OsgiImagePlugin extends AutoPlugin {
   }
 
   /**
+    * Checks whether a file is a valid OSGi bundle. Only such files are copied 
+    * to the resulting image.
+    *
+    * @param file the file to be examined
+    * @return a flag whether this file is an OSGi bundle
+    */
+  private def isBundle(file: File): Boolean = {
+    val jarFile = new JarFile(file)
+    try {
+      val manifest = jarFile.getManifest
+      manifest.getMainAttributes.containsKey(AttrBundleVersion)
+    } finally {
+      jarFile.close()
+    }
+  }
+
+  /**
     * The main method for creating an OSGi image. The method is passed 
     * collections with the files to be added to the image. It then creates the
     * image structure in the output directory.
@@ -162,7 +183,7 @@ object OsgiImagePlugin extends AutoPlugin {
     */
   private def buildOsgiImage(dependencies: Seq[File], projects: Seq[File]): Unit = {
     //TODO implement image creation logic
-    println("Building OSGi image for dependencies: " + dependencies)
+    println("Building OSGi image for dependencies: " + dependencies.filter(isBundle))
     println("Project dependencies: " + projects)
   }
 }
