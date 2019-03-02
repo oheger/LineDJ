@@ -51,6 +51,18 @@ import sbt.{Def, _}
   * by the ''osgi.image.rootPath'' system property.  
   */
 object OsgiImagePlugin extends AutoPlugin {
+  /**
+    * Name of the directory in the project's target folder in which the image
+    * is generated.
+    */
+  val ImageTargetDirectory = "image"
+
+  /**
+    * Default name of the directory which stores OSGi bundles in the generated
+    * OSGi image.
+    */
+  val DefaultBundleDirectory = "bundle"
+
   /** Constant for the bundle version manifest attribute. */
   private val AttrBundleVersion = new Attributes.Name("Bundle-Version")
 
@@ -81,6 +93,12 @@ object OsgiImagePlugin extends AutoPlugin {
     lazy val excludedModules = settingKey[Seq[ModuleDesc]]("Defines the modules to be excluded")
 
     /**
+      * Setting with the relative path to the bundle directory in a generated
+      * OSGi image.
+      */
+    lazy val bundleDir = settingKey[String]("Path to the bundle directory in the OSGi image")
+
+    /**
       * The main task for creating an OSGi image. Call this task in a project
       * in order to generate an image for this application.
       */
@@ -88,10 +106,11 @@ object OsgiImagePlugin extends AutoPlugin {
 
     lazy val baseOsgiImageSettings: Seq[Def.Setting[_]] = Seq(
       excludedModules := Nil,
+      bundleDir := DefaultBundleDirectory,
       osgiImage := {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
         val projectFiles = fetchDependentProjectFiles().value
-        buildOsgiImage(dependencies, projectFiles)
+        buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value)
       }
     )
 
@@ -180,10 +199,16 @@ object OsgiImagePlugin extends AutoPlugin {
     *
     * @param dependencies the 3rd party dependencies to be included
     * @param projects     the inter-project dependencies to be included
+    * @param targetPath   the target directory of the current project
+    * @param bundlePath   the relative bundle directory in the image
     */
-  private def buildOsgiImage(dependencies: Seq[File], projects: Seq[File]): Unit = {
-    //TODO implement image creation logic
-    println("Building OSGi image for dependencies: " + dependencies.filter(isBundle))
-    println("Project dependencies: " + projects)
+  private def buildOsgiImage(dependencies: Seq[File], projects: Seq[File], targetPath: File,
+                             bundlePath: String): Unit = {
+    val imageDir = new File(targetPath, ImageTargetDirectory)
+    val bundleDir = new File(imageDir, bundlePath)
+    val bundleFiles = dependencies.filter(isBundle) ++ projects
+
+    val bundleMapping = bundleFiles pair Path.flat(bundleDir)
+    IO.copy(bundleMapping, CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = false))
   }
 }
