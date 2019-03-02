@@ -30,7 +30,7 @@ lazy val VersionJetty = "9.4.2.v20170220"
 
 lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-testkit" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-testkit" % AkkaVersion % Test,
   "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
   "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
   "org.scala-lang" % "scala-reflect" % VersionScala
@@ -273,16 +273,6 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin)
-
-lazy val archiveOsgiImage = (project in file("images/archive"))
-  .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
-    .settings(
-      name := "linedj-archive-osgiImage",
-      excludedModules:= Seq(
-        module(name = "xalan"), module(organization="xerces")
-      )
-    ) dependsOn(archiveLocalStartup, archiveAdmin, appShutdownOneForAll, mediaIfcEmbedded)
 
 /**
   * A project which is responsible for starting up an HTTP media archive in
@@ -747,3 +737,24 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+
+
+/* Projects for OSGi applications/images. */
+
+/**
+  * Project for the (local) archive application.
+  *
+  * This application starts a media archive populated from a local directory
+  * together with an admin app.
+  */
+lazy val archiveOsgiImage = (project in file("images/archive"))
+  .enablePlugins(OsgiImagePlugin)
+  .settings(defaultSettings: _*)
+  .settings(
+    name := "linedj-archive-osgiImage",
+    sourceImagePaths := Seq("base", "archive"),
+    excludedModules := Seq(
+      module(organization = "org.osgi")
+    )
+  ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
+  mediaIfcEmbedded)
