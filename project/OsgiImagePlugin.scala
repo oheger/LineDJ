@@ -44,10 +44,12 @@ import sbt.{Def, _}
   *
   * The plugin supports some configuration settings to fine-tune the creation
   * of OSGi images:
-  *  - Exclusions for dependencies not be added to the image can be specified.
+  *  - Exclusions for dependencies not to be added to the image can be
+  * specified.
   *  - The sub output directory in which to write the collected dependency
   * bundles can be provided.
-  *  - The sub folder to the OSGi image template can be specified.
+  *  - Sub folders to the OSGi image templates can be specified. These folders
+  * are copied into the generated image.
   *  - The root path in which all OSGi image templates are located is defined
   * by the ''osgi.image.rootPath'' system property.  
   */
@@ -103,12 +105,15 @@ object OsgiImagePlugin extends AutoPlugin {
     lazy val bundleDir = settingKey[String]("Path to the bundle directory in the OSGi image")
 
     /**
-      * Setting that defines the source image to be copied. This is a relative
-      * path to the root directory with OSGi images as defined by the
-      * ''osgi.image.rootPath'' system property. The directory structure below
-      * this path is copied into the target image directory.
+      * Setting that defines the source images to be copied. This is a sequence
+      * of relative paths to the root directory with OSGi images as defined by
+      * the ''osgi.image.rootPath'' system property. The directory structures
+      * below these paths are copied into the target image directory in the
+      * order they have been specified. This supports a hierarchical approach
+      * in defining OSGi images: a generic base image can contain all common
+      * files, specialized sub images have some more files.
       */
-    lazy val sourceImagePath = settingKey[String]("Path to the source image to be copied")
+    lazy val sourceImagePaths = settingKey[Seq[String]]("Paths to source images to be copied")
 
     /**
       * The main task for creating an OSGi image. Call this task in a project
@@ -119,11 +124,11 @@ object OsgiImagePlugin extends AutoPlugin {
     lazy val baseOsgiImageSettings: Seq[Def.Setting[_]] = Seq(
       excludedModules := Nil,
       bundleDir := DefaultBundleDirectory,
-      sourceImagePath := "",
+      sourceImagePaths := Nil,
       osgiImage := {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
         val projectFiles = fetchDependentProjectFiles().value
-        buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePath.value,
+        buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePaths.value,
           streams.value.log)
       }
     )
@@ -215,27 +220,53 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param projects     the inter-project dependencies to be included
     * @param targetPath   the target directory of the current project
     * @param bundlePath   the relative bundle directory in the image
-    * @param sourcePath   the path to the source OSGi image
-    * @param log          the logger                   
+    * @param sourcePaths  the paths to the source OSGi images
+    * @param log          the logger
     */
   private def buildOsgiImage(dependencies: Seq[File], projects: Seq[File], targetPath: File,
-                             bundlePath: String, sourcePath: String, log: ManagedLogger): Unit = {
+                             bundlePath: String, sourcePaths: Seq[String], log: ManagedLogger): Unit = {
     val imageDir = new File(targetPath, ImageTargetDirectory)
     log.info("Generating OSGi image under " + imageDir)
+
+    createBundleDir(dependencies, projects, bundlePath, imageDir)
+    copySourceImages(sourcePaths, imageDir, log)
+  }
+
+  /**
+    * Generates the directory containing all OSGi bundles.
+    *
+    * @param dependencies the 3rd party dependencies to be included
+    * @param projects     the inter-project dependencies to be included
+    * @param bundlePath   the relative bundle directory in the image
+    * @param imageDir     the path where to generate the image
+    */
+  private def createBundleDir(dependencies: Seq[File], projects: Seq[File], bundlePath: String,
+                              imageDir: File): Unit = {
     val bundleDir = new File(imageDir, bundlePath)
     val bundleFiles = dependencies.filter(isBundle) ++ projects
-
     val bundleMapping = bundleFiles pair Path.flat(bundleDir)
     IO.copy(bundleMapping, CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = false))
+  }
 
-    val imageRoot = file(System.getProperty(PropImageRoot, "."))
-    val sourceImage = if (sourcePath.isEmpty) imageRoot else new File(imageRoot, sourcePath)
-    if (sourceImage.isDirectory) {
-      log.info("Copying source image: " + sourceImage)
-      IO.copyDirectory(sourceImage, imageDir,
-        CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = true))
-    } else {
-      log.info("Skipping source image as it does not exist: " + sourceImage)
+  /**
+    * Copies all defined source OSGi images into the target image structure.
+    *
+    * @param sourcePaths the paths to the source OSGi images
+    * @param imageDir    the path where to generate the image
+    * @param log         the logger
+    */
+  private def copySourceImages(sourcePaths: Seq[String], imageDir: File, log: ManagedLogger): Unit = {
+    lazy val imageRoot = file(System.getProperty(PropImageRoot, "."))
+    lazy val copyOptions = CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = true)
+    sourcePaths foreach { sourcePath =>
+      val sourceImage = new File(imageRoot, sourcePath)
+      if (sourceImage.isDirectory) {
+        log.info("Copying source image: " + sourceImage)
+        IO.copyDirectory(sourceImage, imageDir,
+          copyOptions)
+      } else {
+        log.info("Skipping source image as it does not exist: " + sourceImage)
+      }
     }
   }
 }
