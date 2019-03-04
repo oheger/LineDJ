@@ -16,7 +16,7 @@
 
 import com.github.oheger.sbt.spifly.SbtSpiFly
 import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
-import OsgiImagePlugin.autoImport._ 
+import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
@@ -123,7 +123,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
     name := "linedj-archive-id3extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn (shared % "compile->compile;test->test", metaDataExtract)
+  ) dependsOn(shared % "compile->compile;test->test", metaDataExtract)
 
 /**
   * An utility project providing common functionality needed by multiple
@@ -156,8 +156,8 @@ lazy val archive = (project in file("mediaArchive/archive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
-  ) dependsOn (shared % "compile->compile;test->test", archiveCommon,
-      metaDataExtract, id3Extract)
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon,
+  metaDataExtract, id3Extract)
 
 /**
   * The media archive project. This contains code to manage the library with
@@ -194,7 +194,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
-  ) dependsOn (shared % "compile->compile;test->test", archiveCommon, id3Extract)
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
 /**
   * Project for the client platform. This project contains code shared by
@@ -213,7 +213,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
-  ) dependsOn (shared % "compile->compile;test->test", actorSystem)
+  ) dependsOn(shared % "compile->compile;test->test", actorSystem)
 
 /**
   * A project providing the client-side actor system. This project uses the
@@ -335,7 +335,7 @@ lazy val mediaBrowser = (project in file("browser"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test",
-      audioPlatform)
+  audioPlatform)
 
 /**
   * Project for the playlist editor client application. This application
@@ -362,7 +362,7 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test",
-      audioPlatform)
+  audioPlatform)
 
 /**
   * Project for the playlist medium reorder component. This is an
@@ -671,7 +671,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn (platform % "compile->compile;test->test", appWindowHiding)
+  ) dependsOn(platform % "compile->compile;test->test", appWindowHiding)
 
 /**
   * Project for the audio platform. This project provides basic services for
@@ -742,6 +742,15 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
 /* Projects for OSGi applications/images. */
 
 /**
+  * A sequence with module definitions that should be excluded from all OSGi
+  * images.
+  */
+lazy val DefaultExcludedModules = Seq(
+  module(organization = "org.osgi")
+)
+
+
+/**
   * Project for the (local) archive application.
   *
   * This application starts a media archive populated from a local directory
@@ -753,8 +762,23 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
   .settings(
     name := "linedj-archive-osgiImage",
     sourceImagePaths := Seq("base", "archive"),
-    excludedModules := Seq(
-      module(organization = "org.osgi")
-    )
+    excludedModules := DefaultExcludedModules,
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded)
+
+/**
+  * Project for the browser application.
+  *
+  * This application contains the media browser and the playlist editor 
+  * applications. They can connect to a media archive.
+  */
+lazy val browserOsgiImage = (project in file("images/browser"))
+  .enablePlugins(OsgiImagePlugin)
+  .settings(defaultSettings: _*)
+  .settings(
+    name := "linedj-browser-osgiImage",
+    sourceImagePaths := Seq("base", "baseAudioPlatform", "browser"),
+    excludedModules := DefaultExcludedModules
+  ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
+  reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
+  trayWindowList)
