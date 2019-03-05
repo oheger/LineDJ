@@ -749,7 +749,6 @@ lazy val DefaultExcludedModules = Seq(
   module(organization = "org.osgi")
 )
 
-
 /**
   * Project for the (local) archive application.
   *
@@ -818,3 +817,17 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
   archiveHttpStartup, mediaIfcEmbedded)
+
+/**
+  * Project for the radio application.
+  *
+  * This application is an internet radio player.
+  */
+lazy val radioOsgiImage = (project in file("images/radio"))
+  .enablePlugins(OsgiImagePlugin)
+  .settings(defaultSettings: _*)
+  .settings(
+    name := "linedj-radio-osgiImage",
+    sourceImagePaths := Seq("base", "baseAudioPlatform", "radio"),
+    excludedModules := DefaultExcludedModules,
+  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled)
