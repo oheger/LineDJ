@@ -800,3 +800,21 @@ lazy val playerOsgiImage = (project in file("images/player"))
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, persistentPlaylistHandler)
+
+/**
+  * Project for the advanced audio player application.
+  *
+  * This application is similar to the plain audio player, but it is connected 
+  * to an HTTP archive.
+  */
+lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
+  .enablePlugins(OsgiImagePlugin)
+  .settings(defaultSettings: _*)
+  .settings(
+    name := "linedj-player-advanced-osgiImage",
+    sourceImagePaths := Seq("base", "baseAudioPlatform", "player_advanced"),
+    excludedModules := DefaultExcludedModules
+  ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
+  reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
+  trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
+  archiveHttpStartup, mediaIfcEmbedded)
