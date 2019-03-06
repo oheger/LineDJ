@@ -80,7 +80,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
   private def createClientAppWithParallelismDisabled(): ClientApplication = {
     val app = createClientApp()
     app.clientApplicationContext.managementConfiguration
-      .addProperty(OpenValidationWindowCommand.PropFileValidationParallelism, 1)
+      .addProperty(OpenValidationWindowCommand.PropValidationParallelism, 1)
     app
   }
 

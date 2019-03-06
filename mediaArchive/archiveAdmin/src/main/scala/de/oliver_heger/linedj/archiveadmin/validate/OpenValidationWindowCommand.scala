@@ -38,10 +38,10 @@ object OpenValidationWindowCommand {
 
   /**
     * The configuration property that defines the parallelism for the
-    * validation of media files. The validation stream runs that many
+    * validation of archive items. The validation stream runs that many
     * validations in parallel.
     */
-  val PropFileValidationParallelism: String = PrefixValidationConfig + "fileValidationParallelism"
+  val PropValidationParallelism: String = PrefixValidationConfig + "validationParallelism"
 
   /** The default value for the file validation parallelism property. */
   val DefaultFileValidationParallelism = 4
@@ -80,7 +80,7 @@ abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientAp
 
   /** The parallelism for validation during stream processing. */
   lazy val parallelism: Int = app.clientApplicationContext.managementConfiguration
-    .getInt(PropFileValidationParallelism, DefaultFileValidationParallelism)
+    .getInt(PropValidationParallelism, DefaultFileValidationParallelism)
 
   /* The execution context.*/
   protected implicit def ec: ExecutionContext = app.clientApplicationContext.actorSystem.dispatcher

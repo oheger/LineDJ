@@ -21,3 +21,26 @@ The OSGi bundle produced by this project can be deployed into an OSGi framework
 hosting the LineDJ platform. The archive admin UI is then available;
 communication with the media archive happens via the same channel as used by
 other platform applications.
+
+## Configuration
+
+As usual, the configuration for the archive admin application is read from the
+configuration file of the LineDJ management application. It is placed in a
+section named _media.validation_ and supports a limited number of settings:
+
+```xml
+<configuration>
+  <media>
+    <validation>
+      <validationParallelism>4</validationParallelism>
+      <uiUpdateChunkSize>16</uiUpdateChunkSize>
+    </validation>
+  </media>
+</configuration>
+```
+The options available are explained in the table below:
+
+| Setting | Description | Default |
+| ------- | ----------- | ------- |
+| validationParallelism | Defines the degree of parallelism in which validation of archive entries is performed. This corresponds to the number of elements that are processed in parallel. | 4 |
+| uiUpdateChunkSize | Defines an update rate for the UI that displays validation results. Validation happens in background; the UI is updated when new results are available. With this property it can be specified that updates are not needed for every new result, but only when the given number of results is reached. If there are many validation errors, a larger chunk size can improve performance. | 16 |
