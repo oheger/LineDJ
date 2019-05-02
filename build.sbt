@@ -25,6 +25,7 @@ lazy val AkkaHttpVersion = "10.1.8"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.8"
 lazy val VersionScalaz = "7.2.27"
+lazy val VersionJavaFX = "11.0.2"
 lazy val VersionScalaTest = "3.0.5"
 lazy val VersionJetty = "9.4.2.v20170220"
 
@@ -42,11 +43,22 @@ lazy val testDependencies = Seq(
   "org.mockito" % "mockito-core" % "1.9.5" % Test
 )
 
+lazy val osName = System.getProperty("os.name")
+lazy val javaFxClassifier = 
+  if(osName.startsWith("Windows")) "windows"
+  else if(osName.startsWith("Mac")) "mac"
+  else "linux"
+lazy val javaFxDependencies = Seq(
+  "org.openjfx" % "javafx-controls" % VersionJavaFX classifier javaFxClassifier,
+  "org.openjfx" % "javafx-base" % VersionJavaFX classifier javaFxClassifier,
+  "org.openjfx" % "javafx-graphics" % VersionJavaFX classifier javaFxClassifier
+)
+
 lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" exclude
     ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.0"
-)
+) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
   "org.osgi" % "org.osgi.core" % OsgiVersion % "provided",
