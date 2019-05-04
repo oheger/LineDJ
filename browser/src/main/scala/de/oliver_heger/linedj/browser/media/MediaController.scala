@@ -463,8 +463,24 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    */
   private def fetchAllAlbumKeys(): Seq[AlbumKey] = {
     import collection.JavaConverters._
-    treeModel.getKeys.asScala.map(treeModel.getProperty(_).asInstanceOf[AlbumKey]).toSeq
+    treeModel.getKeys.asScala.flatMap(resolveAlbumKey).toSeq
   }
+
+  /**
+    * Resolves a configuration key pointing to an album and returns the
+    * corresponding ''AlbumKey'' objects. Note that the key can actually
+    * reference multiple albums; therefore, a special treatment is required.
+    *
+    * @param key the configuration key
+    * @return the sequence with associated album keys
+    */
+  private def resolveAlbumKey(key: String): Seq[AlbumKey] =
+    treeModel.getProperty(key) match {
+      case ak: AlbumKey => List(ak)
+      case col: java.util.Collection[_] =>
+        import collection.JavaConverters._
+        col.asScala.map(_.asInstanceOf[AlbumKey]).toSeq
+    }
 
   /**
    * Returns a sequence with the songs of all albums identified by the given

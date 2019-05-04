@@ -41,7 +41,6 @@ import org.mockito.Matchers.{any, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -760,6 +759,19 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     helper.controller.songsForSelectedMedium should be(songs.flatten)
   }
 
+  it should "handle a duplicate album when accessing songs" in {
+    val helper = new MediaControllerTestHelper
+    val songsAlbum1 = createSongData(Artist1, Album1, Songs1)
+    val songsAlbum3 = createSongData(Artist2, Album3, Songs3)
+    val songs = songsAlbum1 ++ songsAlbum3
+    val artist = toUpper(Artist1)
+    val album = toUpper(Album1)
+    helper selectMediumAndSendMeta createChunk(songs = songs)
+    helper.treeModel.addProperty(artist + "(-1)|" + album, AlbumKey(artist, album))
+
+    helper.controller.songsForSelectedMedium // must not throw
+  }
+
   it should "disable all actions in its initialize method" in {
     val helper = new MediaControllerTestHelper
 
@@ -833,40 +845,38 @@ class MediaControllerSpec extends FlatSpec with Matchers {
   private class MediaControllerTestHelper extends ActionTestHelper with MockitoSugar {
     import ConsumerRegistrationProviderTestHelper._
 
-    val songFactory = new SongDataFactory {
-      override def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData =
-        SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
-    }
+    val songFactory: SongDataFactory = (id: MediaFileID, metaData: MediaMetaData) =>
+      SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
 
     /** A mock for the message bus. */
-    val messageBus = createMessageBusMock()
+    val messageBus: MessageBus = createMessageBusMock()
 
     /** A mock for the media facade. */
-    val mediaFacade = createMediaFacade(messageBus)
+    val mediaFacade: MediaFacade = createMediaFacade(messageBus)
 
     /** The mock for the combo handler. */
-    val comboHandler = mock[ListComponentHandler]
+    val comboHandler: ListComponentHandler = mock[ListComponentHandler]
 
     /** The configuration acting as model for the tree view. */
-    val treeModel = createTreeModelConfig()
+    val treeModel: HierarchicalConfiguration = createTreeModelConfig()
 
     /** The handler for the tree view. */
-    val treeHandler = createTreeHandler(treeModel)
+    val treeHandler: TreeHandler = createTreeHandler(treeModel)
 
     /** The model for the table control. */
     val tableModel = new util.ArrayList[AnyRef]
 
     /** The handler for the table. */
-    val tableHandler = createTableHandler(tableModel)
+    val tableHandler: TableHandler = createTableHandler(tableModel)
 
     /** The in-progress widget. */
-    val labelInProgress = mock[WidgetHandler]
+    val labelInProgress: WidgetHandler = mock[WidgetHandler]
 
     /** The mock action store. */
-    val actionStore = initActions()
+    val actionStore: ActionStore = initActions()
 
     /** The controller test instance. */
-    val controller = createController()
+    val controller: MediaController = createController()
 
     /** Stores the messages published to the message bus. */
     private val publishedMessages = ListBuffer.empty[Any]
@@ -1067,11 +1077,9 @@ class MediaControllerSpec extends FlatSpec with Matchers {
      */
     private def createMessageBusMock(): MessageBus = {
       val bus = mock[MessageBus]
-      when(bus.publish(any())).thenAnswer(new Answer[Any] {
-        override def answer(invocationOnMock: InvocationOnMock): Any = {
-          publishedMessages += invocationOnMock.getArguments.head
-          null
-        }
+      when(bus.publish(any())).thenAnswer((invocationOnMock: InvocationOnMock) => {
+        publishedMessages += invocationOnMock.getArguments.head
+        null
       })
       bus
     }
