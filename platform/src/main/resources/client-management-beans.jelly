@@ -21,6 +21,16 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
+  <!-- Set a custom style sheet -->
+  <di:resource resource="modena_dark.css" var="styleSheets"/>
+
+  <di:bean name="jguiraffe.styleSheetProvider"
+           beanClassName="net.sf.jguiraffe.gui.platform.javafx.builder.window.StyleSheetProvider">
+    <di:constructor>
+      <di:param value="${styleSheets}"/>
+    </di:constructor>
+  </di:bean>
+
   <!-- The UI message bus -->
   <di:bean name="LineDJ_messageBus"
     beanClassName="de.oliver_heger.linedj.platform.bus.UIBus">
