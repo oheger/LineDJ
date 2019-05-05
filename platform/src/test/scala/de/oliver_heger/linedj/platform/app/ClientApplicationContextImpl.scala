@@ -19,35 +19,26 @@ package de.oliver_heger.linedj.platform.app
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.{DefaultStageFactory, StyleSheetProvider}
+import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.mock.MockitoSugar
-
-object ClientApplicationContextImpl {
-  /**
-    * A shared ''StageFactory'' which can be used by all tests that have to
-    * setup a UI. Using a shared ''DefaultStageFactory'' guarantees that a
-    * JavaFX application is launched exactly once.
-    */
-  private val SharedStageFactory = DefaultStageFactory(new StyleSheetProvider(""))
-}
+import org.scalatest.mockito.MockitoSugar
 
 /**
   * An implementation of ''ClientApplicationContext'' which stores a bunch of
   * mock objects.
   */
 class ClientApplicationContextImpl extends ClientApplicationContext with MockitoSugar {
-  override val actorSystem = mock[ActorSystem]
+  override val actorSystem: ActorSystem = mock[ActorSystem]
 
-  override val messageBus = mock[MessageBus]
+  override val messageBus: MessageBus = mock[MessageBus]
 
-  override val stageFactory = ClientApplicationContextImpl.SharedStageFactory
+  override val windowManager: WindowManager = new WindowManagerImpl
 
-  override val actorFactory = mock[ActorFactory]
+  override val actorFactory: ActorFactory = mock[ActorFactory]
 
-  override val mediaFacade = mock[MediaFacade]
+  override val mediaFacade: MediaFacade = mock[MediaFacade]
 
-  override val mediaIfcConfig = None
+  override val mediaIfcConfig: None.type = None
 
   override val managementConfiguration: Configuration = new PropertiesConfiguration
 }

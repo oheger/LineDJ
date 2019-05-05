@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import net.sf.jguiraffe.di.MutableBeanStore
+import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
@@ -223,13 +225,16 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     */
   override def createApplicationContext(): ApplicationContext = {
     val appCtx = super.createApplicationContext()
-    addBeanDuringApplicationStartup(JavaFxSharedWindowManager.BeanStageFactory,
-      clientApplicationContext.stageFactory)
     addBeanDuringApplicationStartup(BeanActorSystem, clientApplicationContext.actorSystem)
     addBeanDuringApplicationStartup(BeanActorFactory, clientApplicationContext.actorFactory)
     addBeanDuringApplicationStartup(BeanMessageBus, clientApplicationContext.messageBus)
     addBeanDuringApplicationStartup(BeanMediaFacade, clientApplicationContext.mediaFacade)
     addBeanDuringApplicationStartup(BeanClientApplicationContext, clientApplicationContext)
+
+    // needs to be added to the bean store with highest priority
+    val topBeanStore = appCtx.getBeanContext.getDefaultBeanStore.asInstanceOf[MutableBeanStore]
+    topBeanStore.addBeanProvider("jguiraffe.windowManager",
+      ConstantBeanProvider.getInstance(clientApplicationContext.windowManager))
     appCtx
   }
 
@@ -301,10 +306,8 @@ class ClientApplication(val appName: String) extends Application with ClientCont
       if (!mainWindowVisible) {
         val sync = getApplicationContext.getBeanContext
           .getBean(Application.BEAN_GUI_SYNCHRONIZER).asInstanceOf[GUISynchronizer]
-        sync.asyncInvoke(new Runnable {
-          override def run(): Unit = {
-            mainWindow setVisible false
-          }
+        sync.asyncInvoke(() => {
+          mainWindow setVisible false
         })
       }
     }

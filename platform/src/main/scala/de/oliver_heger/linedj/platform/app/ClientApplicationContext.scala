@@ -20,7 +20,7 @@ import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
+import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
 
 /**
@@ -61,11 +61,13 @@ trait ClientApplicationContext {
   def messageBus: MessageBus
 
   /**
-    * Returns the factory for creating stages. All client applications use a
-    * shared stage factory. It can be queried using this property.
-    * @return the ''StageFactory''
+    * Returns the shared window manager to be used by all client applications.
+    * As the window manager is related to the correct initialization of the UI
+    * platform (especially in case of JavaFX), it is important that all client
+    * applications running in a deployment use the same instance.
+    * @return the shared window manager
     */
-  def stageFactory: StageFactory
+  def windowManager: WindowManager
 
   /**
     * Returns the configuration of the management application. This

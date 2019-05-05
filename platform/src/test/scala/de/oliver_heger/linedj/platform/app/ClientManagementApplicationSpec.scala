@@ -28,12 +28,11 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtensio
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
+import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
@@ -340,26 +339,24 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     inOrder.verify(facade).activate(true)
   }
 
-  it should "provide access to the shared stage factory" in {
+  it should "provide access to the shared window manager" in {
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
     runApp(app)
 
-    app.stageFactory should be(app.mockStageFactory)
+    app.mockWindowManager should be(app.mockWindowManager)
   }
 
-  it should "correctly extract the stage factory from the bean context" in {
+  it should "correctly extract the window manager and stage factory from the bean context" in {
     val appCtx = mock[ApplicationContext]
     val beanCtx = mock[BeanContext]
-    val windowManager = mock[JavaFxWindowManager]
-    val stageFactory = mock[StageFactory]
+    val windowManager = mock[WindowManager]
     when(appCtx.getBeanContext).thenReturn(beanCtx)
     addBean(beanCtx, "jguiraffe.windowManager", windowManager)
-    when(windowManager.stageFactory).thenReturn(stageFactory)
 
     val app = new ClientManagementApplication
-    app extractStageFactory appCtx should be(stageFactory)
+    app extractWindowManager appCtx should be(windowManager)
   }
 
   /**
@@ -376,9 +373,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     val bundle = mock[Bundle]
     val latch = new CountDownLatch(1)
     when(bundleContext.getBundle(0)).thenReturn(bundle)
-    doAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock): Unit = latch.countDown()
-    }).when(bundle).stop()
+    doAnswer((_: InvocationOnMock) => latch.countDown()).when(bundle).stop()
     val app = new ClientManagementApplicationTestImpl
     app initActorSystem system
     runApp(app, Some(componentContext))
@@ -517,8 +512,8 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
                                                     mockShutdownHandling: Boolean = true,
                                                     mockOsgiSupport: Boolean = true)
     extends ClientManagementApplication {
-    /** A mock stage factory used per default by this object. */
-    val mockStageFactory: StageFactory = mock[StageFactory]
+    /** A mock for the window manager bean. */
+    val mockWindowManager: WindowManager = mock[WindowManager]
 
     /**
       * @inheritdoc This implementation either calls the super method or (if
@@ -530,9 +525,7 @@ class ClientManagementApplicationSpec extends FlatSpec with Matchers with Before
     if(mockExtensions) List.empty
     else super.createMediaIfcExtensions(appCtx, facade)
 
-    override private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
-      mockStageFactory
-    }
+    override private[app] def extractWindowManager(appCtx: ApplicationContext): WindowManager = mockWindowManager
 
     /**
       * @inheritdoc Calls the super method if mocking is disabled.

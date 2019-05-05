@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.{JavaFxWindowManager, StageFactory}
+import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
 import org.apache.commons.logging.Log
 import org.osgi.framework.BundleContext
@@ -71,16 +71,14 @@ object ClientManagementApplication {
     */
   private def createExitHandler(compContext: ComponentContext, actorSystem: ActorSystem,
                                 log: Log): Runnable = {
-    new Runnable {
-      override def run(): Unit = {
-        log.info("Exit handler called.")
-        log.info("Stopping actor system.")
-        implicit val ec: ExecutionContext = ExecutionContext.global
-        actorSystem.terminate() onComplete { _ =>
-          log.info("Stopping system bundle.")
+    () => {
+      log.info("Exit handler called.")
+      log.info("Stopping actor system.")
+      implicit val ec: ExecutionContext = ExecutionContext.global
+      actorSystem.terminate() onComplete { _ =>
+        log.info("Stopping system bundle.")
         val systemBundle = compContext.getBundleContext.getBundle(0)
         systemBundle.stop()
-        }
       }
     }
   }
@@ -153,8 +151,8 @@ ClientApplicationContext with ApplicationSyncStartup {
   /** Stores the media facade. */
   private var mediaFacadeField: MediaFacade = _
 
-  /** The central stage factory. */
-  private var beanStageFactory: StageFactory = _
+  /** The shared window manager. */
+  private var beanWindowManager: WindowManager = _
 
   /**
     * Holds the bundle context. Note: There is no need to synchronize this
@@ -171,7 +169,7 @@ ClientApplicationContext with ApplicationSyncStartup {
 
   override def actorFactory: ActorFactory = factory
 
-  override def stageFactory: StageFactory = beanStageFactory
+  override def windowManager: WindowManager = beanWindowManager
 
   override def mediaIfcConfig: Option[MediaIfcConfigData] = Option(refMediaIfcConfig.get())
 
@@ -243,7 +241,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     */
   override protected def createApplicationContext(): ApplicationContext = {
     val appCtx = super.createApplicationContext()
-    beanStageFactory = extractStageFactory(appCtx)
+    beanWindowManager = extractWindowManager(appCtx)
     mediaFacadeField = createMediaFacade(appCtx)
     installOsgiServiceSupport()
     initShutdownHandling(messageBus)
@@ -285,17 +283,14 @@ ClientApplicationContext with ApplicationSyncStartup {
       appCtx.getConfiguration.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize)))
 
   /**
-    * Extracts the stage factory bean from the application context. The stage
-    * factory is obtained from the window manager, which is expected to be of
-    * type ''JavaFxWindowManager''.
+    * Extracts the shared window manager from the application context. This
+    * window manager is then made available via the client application context,
+    * so that it can be used by all active application.
     * @param appCtx the application context
-    * @return the ''StageFactory''
+    * @return he window manager
     */
-  private[app] def extractStageFactory(appCtx: ApplicationContext): StageFactory = {
-    val windowManager = appCtx.getBeanContext.getBean("jguiraffe.windowManager")
-      .asInstanceOf[JavaFxWindowManager]
-    windowManager.stageFactory
-  }
+  private[app] def extractWindowManager(appCtx: ApplicationContext): WindowManager =
+    appCtx.getBeanContext.getBean("jguiraffe.windowManager").asInstanceOf[WindowManager]
 
   /**
     * Installs some special message bus listeners that implement the OSGi

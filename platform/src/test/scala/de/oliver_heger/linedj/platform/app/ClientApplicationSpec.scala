@@ -26,12 +26,11 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcesso
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
-import net.sf.jguiraffe.gui.builder.window.{Window, WindowListener}
-import net.sf.jguiraffe.gui.platform.javafx.builder.window.StageFactory
+import net.sf.jguiraffe.gui.builder.window.{Window, WindowListener, WindowManager}
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
@@ -89,11 +88,11 @@ ApplicationTestSupport {
     verifyZeroInteractions(context)
   }
 
-  it should "define a bean for the stage factory" in {
+  it should "define a bean for the window manager" in {
     val app = setUpApp()
 
-    queryBean[StageFactory](app, JavaFxSharedWindowManager.BeanStageFactory) should be
-    app.clientApplicationContext.stageFactory
+    queryBean[WindowManager](app,
+      "jguiraffe.windowManager") should be(app.clientApplicationContext.windowManager)
   }
 
   it should "define a bean for the actor system" in {
