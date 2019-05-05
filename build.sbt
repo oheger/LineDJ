@@ -26,6 +26,7 @@ lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.8"
 lazy val VersionScalaz = "7.2.27"
 lazy val VersionJavaFX = "11.0.2"
+lazy val VersionJguiraffe = "1.4-SNAPSHOT"
 lazy val VersionScalaTest = "3.0.5"
 lazy val VersionJetty = "9.4.2.v20170220"
 
@@ -55,8 +56,9 @@ lazy val javaFxDependencies = Seq(
 )
 
 lazy val jguiraffeDependencies = Seq(
-  "net.sf.jguiraffe" % "jguiraffe-java-fx" % "1.4-SNAPSHOT" exclude
-    ("commons-discovery", "commons-discovery") exclude("jdom", "jdom"),
+  "net.sf.jguiraffe" % "jguiraffe-java-fx" % VersionJguiraffe,
+  "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe,
+  "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test classifier "tests",
   "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.0"
 ) ++ javaFxDependencies
 
