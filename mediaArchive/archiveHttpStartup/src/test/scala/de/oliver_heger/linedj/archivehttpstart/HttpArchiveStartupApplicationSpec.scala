@@ -26,19 +26,18 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.{ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, anyBoolean, anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.{Answer, OngoingStubbing}
+import org.mockito.stubbing.OngoingStubbing
 import org.osgi.service.component.ComponentContext
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -164,9 +163,10 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "remove the message bus registration on deactivation" in {
-    val helper = new StartupTestHelper
+    val helper = new StartupTestHelper(skipUI = true)
 
-    helper.startupApplication().deactivateApplication()
+    helper.startupApplication()
+      .deactivateApplication()
     helper.messageBus.busListeners should have size 0
   }
 
@@ -496,7 +496,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "setup the main window" in {
-    val helper = new StartupTestHelper(skipUI = false)
+    val helper = new StartupTestHelper
 
     helper.startupApplication(handleAvailabilityReg = false)
     helper.queryBean[HttpArchiveOverviewController](helper.app.getMainWindowBeanContext,
@@ -511,15 +511,10 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     */
   private class HttpArchiveStartupApplicationTestImpl(starter: HttpArchiveStarter,
                                                       skipUI: Boolean)
-    extends HttpArchiveStartupApplication(starter) with ApplicationSyncStartup {
+    extends HttpArchiveStartupApplication(starter) with ApplicationSyncStartup with AppWithTestPlatform {
     override def initGUI(appCtx: ApplicationContext): Unit = {
       if (!skipUI) super.initGUI(appCtx)
     }
-
-    /**
-      * @inheritdoc Never shows the main window.
-      */
-    override def showMainWindow(window: Window): Unit = {}
   }
 
   /**
@@ -527,7 +522,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     *
     * @param skipUI flag whether UI creation is to be skipped
     */
-  private class StartupTestHelper(skipUI: Boolean = true) extends ApplicationTestSupport {
+  private class StartupTestHelper(skipUI: Boolean = false) extends ApplicationTestSupport {
     /** A test message bus. */
     val messageBus = new MessageBusTestImpl
 
@@ -670,11 +665,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     def initArchiveStartupResult(actors: Map[String, ActorRef], archiveIdx: Int,
                                  realmIdx: Int): StartupTestHelper = {
       expectStarterInvocation(archiveIdx, realmIdx)
-        .thenAnswer(new Answer[Map[String, ActorRef]] {
-          override def answer(invocation: InvocationOnMock): Map[String, ActorRef] = {
-            archiveStartupCount.incrementAndGet()
-            adaptActorNames(actors, invocation.getArguments()(5).asInstanceOf[Int])
-          }
+        .thenAnswer((invocation: InvocationOnMock) => {
+          archiveStartupCount.incrementAndGet()
+          adaptActorNames(actors, invocation.getArguments()(5).asInstanceOf[Int])
         })
       this
     }
