@@ -19,9 +19,7 @@ package de.oliver_heger.linedj.player.ui
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
-import net.sf.jguiraffe.gui.builder.window.Window
 import org.scalatest.{FlatSpec, Matchers}
 
 object AudioPlayerAppSpec {
@@ -65,7 +63,7 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
   }
 
   it should "define a correct consumer registration bean" in {
-    val application = activateApp(new AudioPlayerAppTestImpl(mockInitUI = false))
+    val application = activateApp(new AudioPlayerAppTestImpl)
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
@@ -74,7 +72,7 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
   }
 
   it should "define a message bus registration bean" in {
-    val application = activateApp(new AudioPlayerAppTestImpl(mockInitUI = false))
+    val application = activateApp(new AudioPlayerAppTestImpl)
 
     val busReg = queryBean[MessageBusRegistration](application.getMainWindowBeanContext,
       ClientApplication.BeanMessageBusRegistration)
@@ -83,7 +81,7 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
   }
 
   it should "disable all player actions on startup" in {
-    val application = activateApp(new AudioPlayerAppTestImpl(mockInitUI = false))
+    val application = activateApp(new AudioPlayerAppTestImpl)
 
     val actionStore = queryBean[ActionStore](application.getMainWindowBeanContext, "ACTION_STORE")
     import collection.JavaConverters._
@@ -94,7 +92,7 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
   }
 
   it should "create a bean for the configuration in the application context" in {
-    val application = activateApp(new AudioPlayerAppTestImpl(mockInitUI = true))
+    val application = activateApp(new AudioPlayerAppTestImpl)
 
     val config = queryBean[AudioPlayerConfig](application, AudioPlayerApp.BeanPlayerConfig)
     config.rotationSpeed should be(RotationSpeed)
@@ -102,20 +100,6 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
 
   /**
     * A test application implementation that starts up synchronously.
-    *
-    * @param mockInitUI flag whether the UI should be mocked
     */
-  private class AudioPlayerAppTestImpl(mockInitUI: Boolean)
-    extends AudioPlayerApp with ApplicationSyncStartup {
-    override def initGUI(appCtx: ApplicationContext): Unit = {
-      if (!mockInitUI) {
-        super.initGUI(appCtx)
-      }
-    }
-
-    override def showMainWindow(window: Window): Unit = {
-      // Do not show a window here
-    }
-  }
-
+  private class AudioPlayerAppTestImpl extends AudioPlayerApp with ApplicationSyncStartup with AppWithTestPlatform
 }

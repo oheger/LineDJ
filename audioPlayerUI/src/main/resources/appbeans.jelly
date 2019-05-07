@@ -21,14 +21,6 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
-  <!-- The specialized window manager -->
-  <di:bean name="jguiraffe.windowManager"
-           beanClassName="de.oliver_heger.linedj.platform.app.JavaFxSharedWindowManager">
-    <di:constructor>
-      <di:param refName="jguiraffe.styleSheetProvider"/>
-    </di:constructor>
-  </di:bean>
-
   <!-- List with song title processors for the unknown property resolver. -->
   <di:list name="titleProcessors">
     <di:element>
