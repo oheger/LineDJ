@@ -21,14 +21,6 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
-  <!-- The specialized window manager -->
-  <di:bean name="jguiraffe.windowManager"
-           beanClassName="de.oliver_heger.linedj.platform.app.JavaFxSharedWindowManager">
-    <di:constructor>
-      <di:param refName="jguiraffe.styleSheetProvider"/>
-    </di:constructor>
-  </di:bean>
-
   <!-- The meta data service -->
   <di:const var="metaDataServiceVar"
             targetClassName="de.oliver_heger.linedj.platform.mediaifc.service.MetaDataServiceImpl$"

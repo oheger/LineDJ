@@ -18,8 +18,6 @@ package de.oliver_heger.linedj.archiveadmin
 
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.window.Window
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -34,7 +32,7 @@ class ArchiveAdminAppSpec extends FlatSpec with Matchers with ApplicationTestSup
   }
 
   it should "define a correct consumer registration bean" in {
-    val application = activateApp(new ArchiveAdminAppTestImpl(mockInitUI = false))
+    val application = activateApp(new ArchiveAdminAppTestImpl)
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
@@ -45,20 +43,6 @@ class ArchiveAdminAppSpec extends FlatSpec with Matchers with ApplicationTestSup
 
   /**
     * A test application implementation that starts up synchronously.
-    *
-    * @param mockInitUI flag whether the UI should be mocked
     */
-  private class ArchiveAdminAppTestImpl(mockInitUI: Boolean)
-    extends ArchiveAdminApp with ApplicationSyncStartup {
-    override def initGUI(appCtx: ApplicationContext): Unit = {
-      if (!mockInitUI) {
-        super.initGUI(appCtx)
-      }
-    }
-
-    override def showMainWindow(window: Window): Unit = {
-      // Do not show a window here
-    }
-  }
-
+  private class ArchiveAdminAppTestImpl extends ArchiveAdminApp with ApplicationSyncStartup with AppWithTestPlatform
 }
