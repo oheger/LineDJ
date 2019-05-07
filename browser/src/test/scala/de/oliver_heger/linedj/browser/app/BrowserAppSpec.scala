@@ -21,11 +21,9 @@ import de.oliver_heger.linedj.browser.media.MediaController
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.window.Window
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
@@ -35,11 +33,10 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
-   * @param mockInitUI flag whether initialization of the UI should be mocked
    * @return the instance of the application
    */
-  private def createApp(mockInitUI: Boolean = true): BrowserAppTestImpl = {
-    activateApp(new BrowserAppTestImpl(mockInitUI))
+  private def createApp(): BrowserAppTestImpl = {
+    activateApp(new BrowserAppTestImpl)
   }
 
   /**
@@ -56,7 +53,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
   }
 
   it should "register message bus listeners correctly" in {
-    val application = createApp(mockInitUI = false)
+    val application = createApp()
 
     withApplication(activateApp(application)) { app =>
       val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
@@ -65,7 +62,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
   }
 
   it should "define a correct consumer registration bean" in {
-    val application = createApp(mockInitUI = false)
+    val application = createApp()
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
@@ -85,22 +82,7 @@ class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with Appli
 }
 
 /**
- * A test implementation of the main application class. This class does not
- * show the main window. It can be used to test whether the application has
- * been correctly initialized. Note that initialization of the UI is possible
- * only once; otherwise, JavaFX complains that it is already initialized.
- *
- * @param mockInitUI flag whether initialization of the UI should be mocked
- */
-private class BrowserAppTestImpl(mockInitUI: Boolean)
-  extends BrowserApp with ApplicationSyncStartup {
-  override def initGUI(appCtx: ApplicationContext): Unit = {
-    if (!mockInitUI) {
-      super.initGUI(appCtx)
-    }
-  }
-
-  override def showMainWindow(window: Window): Unit = {
-    // Do not show a window here
-  }
-}
+  * A test implementation of the main application class that can be used to
+  * check the UI declaration files.
+  */
+private class BrowserAppTestImpl extends BrowserApp with ApplicationSyncStartup with AppWithTestPlatform
