@@ -108,11 +108,9 @@ trait ApplicationTestSupport {
   def activateApp[T <: ClientApplication](app: T): T = {
     app initClientContext createClientApplicationContext()
     app initApplicationManager Mockito.mock(classOf[ApplicationManager])
-    app setExitHandler new Runnable {
-      override def run(): Unit = {
-        // do nothing
-      }
-    }
+    app setExitHandler (() => {
+      // do nothing
+    })
     app activate Mockito.mock(classOf[ComponentContext])
     app
   }
