@@ -23,7 +23,7 @@ import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito.{verify, verifyZeroInteractions, when, doReturn}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.duration._
 
@@ -45,7 +45,7 @@ class HttpArchiveLoginDlgControllerSpec extends FlatSpec with Matchers with Mock
 
   import HttpArchiveLoginDlgControllerSpec._
 
-  "An HttpArchiveLoginController" should "have dummy window listener implementations" in {
+  "An HttpArchiveLoginDlgController" should "have dummy window listener implementations" in {
     val helper = new LoginControllerTestHelper
 
     helper.checkWindowEvents()

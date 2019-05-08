@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveStat
 /**
   * A message indicating the change of the login state for a realm.
   *
-  * Messages of this type are sent by the [[HttpArchiveLoginController]] when
+  * Messages of this type are sent by the [[HttpArchiveLoginDlgController]] when
   * the user entered new login credentials or pressed the ''Logout'' button.
   * In the latter case, no credentials are available, and the ''Option'' is
   * ''None''.
