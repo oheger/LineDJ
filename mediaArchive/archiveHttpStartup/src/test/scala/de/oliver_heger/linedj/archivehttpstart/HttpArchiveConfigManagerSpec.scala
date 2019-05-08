@@ -41,7 +41,9 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
     manager.archives.keySet should contain theSameElementsInOrderAs names
     names.zipWithIndex.foreach { t =>
       val expUri = StartupConfigTestHelper.archiveUri(t._2 + 1)
-      manager.archives(t._1).config.archiveURI.toString() should be(expUri)
+      val archiveData = manager.archives(t._1)
+      archiveData.config.archiveURI.toString() should be(expUri)
+      archiveData.encrypted shouldBe false
     }
   }
 
@@ -86,7 +88,7 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
     val ShortName = "Arc"
     val config = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration, 1)
     config.setProperty(StartupConfigTestHelper.KeyArchives + "." +
-      HttpArchiveConfig.PropArchiveName,  ShortName)
+      HttpArchiveConfig.PropArchiveName, ShortName)
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(ShortName).shortName should be(ShortName)
@@ -111,5 +113,16 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
 
     manager.archivesForRealm(Realm)
       .map(_.config.archiveName) should contain theSameElementsAs expNames
+  }
+
+  it should "evaluate the encrypted flag for archives" in {
+    val Count = 4
+    val config = StartupConfigTestHelper.addArchiveToConfig(
+      StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count - 1),
+      Count, Some("someRealm"), encrypted = true)
+    val archiveName = StartupConfigTestHelper.archiveName(Count)
+    val manager = HttpArchiveConfigManager(config)
+
+    manager.archives(archiveName).encrypted shouldBe true
   }
 }

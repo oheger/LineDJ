@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.security.Key
 
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -33,9 +34,12 @@ import scala.collection.immutable.{SortedMap, TreeMap}
   * @param config    the configuration of the archive
   * @param realm     the realm to be used for login
   * @param shortName a unique short name for this archive
+  * @param encrypted flag whether this archive is encrypted
   */
-private case class HttpArchiveData(config: HttpArchiveConfig, realm: String,
-                                   shortName: String)
+private case class HttpArchiveData(config: HttpArchiveConfig,
+                                   realm: String,
+                                   shortName: String,
+                                   encrypted: Boolean = false)
 
 private object HttpArchiveConfigManager {
   /** The base key for accessing archives from the configuration. */
@@ -46,6 +50,9 @@ private object HttpArchiveConfigManager {
 
   /** The key for querying the realm of an archive. */
   private val KeyRealm = ".realm"
+
+  /** The key for the encrypted flag of an archive. */
+  private val KeyEncrypted = ".encrypted"
 
   /** The maximum length of a short name for an archive. */
   private val LengthShortName = 16
@@ -78,14 +85,14 @@ private object HttpArchiveConfigManager {
   @tailrec private def addArchive(c: Configuration, downloadConfig: DownloadConfig, idx: Int,
                                   data: SortedMap[String, HttpArchiveData], names: Set[String]):
   SortedMap[String, HttpArchiveData] =
-  if (idx < 0) data
-  else {
-    val currentKey = KeyArchives + s"($idx)"
-    val optNextData = createArchiveData(c, downloadConfig, currentKey, names) map (d =>
-      (data + (d.config.archiveName -> d), names + d.shortName))
-    val nextData = optNextData getOrElse(data, names)
-    addArchive(c, downloadConfig, idx - 1, nextData._1, nextData._2)
-  }
+    if (idx < 0) data
+    else {
+      val currentKey = KeyArchives + s"($idx)"
+      val optNextData = createArchiveData(c, downloadConfig, currentKey, names) map (d =>
+        (data + (d.config.archiveName -> d), names + d.shortName))
+      val nextData = optNextData getOrElse(data, names)
+      addArchive(c, downloadConfig, idx - 1, nextData._1, nextData._2)
+    }
 
   /**
     * Tries to create an ''HttpArchiveData'' object for a specific HTTP
@@ -103,7 +110,8 @@ private object HttpArchiveConfigManager {
   Option[HttpArchiveData] =
     for {config <- HttpArchiveConfig(c, currentKey, null, downloadConfig).toOption
          realm <- Option(c.getString(currentKey + KeyRealm))
-    } yield HttpArchiveData(config, realm, generateShortName(config, names))
+    } yield HttpArchiveData(config, realm, generateShortName(config, names),
+      encrypted = c.getBoolean(currentKey + KeyEncrypted, false))
 
   /**
     * Generates a short name for an archive. Makes sure that the name is unique
