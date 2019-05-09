@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2019 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- Jelly script for the dialog to enter the password to unlock an HTTP
+     archive.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+         xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+  <!-- Unlock controller -->
+  <di:bean name="unlockController"
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveUnlockDlgController">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:txtPassword"/>
+      <di:param refName="comp:btnUnlock"/>
+      <di:param refName="comp:btnCancel"/>
+      <di:param refName="comp:txtArchiveName"/>
+      <di:param value="${archiveName}"/>
+      <!--TODO set correct key generator bean reference -->
+      <di:param><di:null/></di:param>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Dialog window -->
+  <w:dialog titleres="unlock_title">
+    <f:borderlayout/>
+      <f:panel>
+        <f:borderconstr name="CENTER"/>
+        <f:percentlayout columns="4dlu end/preferred 3dlu full/minimum(3cm) 4dlu"
+                         rows="4dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+        <f:label textres="lab_unlock_prompt">
+          <f:percentconstr col="1" row="1" spanx="3"/>
+        </f:label>
+        <f:label textres="lab_unlock_archive">
+          <f:percentconstr col="1" row="3"/>
+        </f:label>
+        <f:statictext name="txtArchiveName">
+          <f:percentconstr col="3" row="3"/>
+        </f:statictext>
+        <f:label textres="lab_unlock_password">
+          <f:percentconstr col="1" row="5"/>
+        </f:label>
+        <f:password name="txtPassword" tooltipres="txt_unlock_password_tip">
+          <f:percentconstr col="3" row="5"/>
+        </f:password>
+      </f:panel>
+
+      <!-- The button bar -->
+      <f:panel>
+        <f:borderconstr name="SOUTH"/>
+        <f:buttonlayout/>
+        <f:button name="btnUnlock" textres="btn_unlock"
+          mnemonicres="btn_unlock_mnemo" default="true"/>
+        <f:button name="btnCancel" textres="btn_log_cancel"
+          mnemonicres="btn_log_cancel_mnemo" cancel="true"/>
+      </f:panel>
+
+    <w:controller beanName="unlockController"/>
+  </w:dialog>
+
+  <!--Listener registrations for the buttons -->
+  <a:eventListener component="btnUnlock" eventType="ACTION"
+    beanName="unlockController"/>
+  <a:eventListener component="btnCancel" eventType="ACTION"
+    beanName="unlockController"/>
+
+</j:jelly>
