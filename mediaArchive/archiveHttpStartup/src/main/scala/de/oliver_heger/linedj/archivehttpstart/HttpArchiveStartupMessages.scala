@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.security.Key
+
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 
@@ -31,6 +33,17 @@ import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveStat
   * @param credentials the credentials for login into the HTTP archive
   */
 case class LoginStateChanged(realm: String, credentials: Option[UserCredentials])
+
+/**
+  * A message indicating the change of the lock state of an archive.
+  *
+  * Messages of this type are sent for encrypted archives when the user has
+  * entered a password to unlock the archive or locks it again.
+  *
+  * @param archive the name of the archive affected
+  * @param optKey  an option with the key to unlock the archive
+  */
+case class LockStateChanged(archive: String, optKey: Option[Key])
 
 /**
   * An object defining the possible states of an HTTP archive.
