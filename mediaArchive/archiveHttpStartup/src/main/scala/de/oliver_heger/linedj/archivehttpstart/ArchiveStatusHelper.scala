@@ -40,10 +40,13 @@ import net.sf.jguiraffe.resources.Message
   * @param iconInactive      icon for the inactive state
   * @param iconActive        icon for the active state
   * @param iconPending       icon for the pending state (initializing)
+  * @param iconLocked        icon to indicated that an encrypted archive is locked
+  * @param iconUnlocked      icon to indicate that an encrypted archive is unlocked
   */
 class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: StaticTextHandler,
                           val iconInactive: AnyRef, val iconActive: AnyRef,
-                          val iconPending: AnyRef) {
+                          val iconPending: AnyRef, val iconLocked: AnyRef,
+                          val iconUnlocked: AnyRef) {
   /**
     * Displays a text in the status line that corresponds to the specified
     * archive state. This method is called when the user selects an archive in
@@ -81,6 +84,8 @@ class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: Sta
         new Message("state_no_archive")
       case HttpArchiveStateNotLoggedIn =>
         new Message("state_no_login")
+      case HttpArchiveStateLocked =>
+        new Message("state_locked")
       case HttpArchiveErrorState(HttpArchiveStateFailedRequest(status)) =>
         new Message(null, "state_failed_request", status.toString())
       case HttpArchiveErrorState(HttpArchiveStateServerError(ex)) =>

@@ -23,7 +23,7 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.resources.Message
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object ArchiveStatusHelperSpec {
@@ -38,6 +38,12 @@ object ArchiveStatusHelperSpec {
 
   /** An icon for the pending state. */
   private val IconPending = new Object
+
+  /** An icon for the locked state. */
+  private val IconLocked = new Object
+
+  /** An icon for the unlocked state. */
+  private val IconUnlocked = new Object
 }
 
 /**
@@ -57,6 +63,12 @@ class ArchiveStatusHelperSpec extends FlatSpec with Matchers with MockitoSugar {
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateNotLoggedIn, new Message("state_no_login"))
+  }
+
+  it should "handle the locked state" in {
+    val helper = new ArchiveStatusTestHelper
+
+    helper.checkStatusLineText(HttpArchiveStateLocked, new Message("state_locked"))
   }
 
   it should "handle the available state" in {
@@ -142,7 +154,8 @@ class ArchiveStatusHelperSpec extends FlatSpec with Matchers with MockitoSugar {
       * @return the test instance
       */
     private def createHandler(): ArchiveStatusHelper =
-      new ArchiveStatusHelper(appContext, staticHandler, IconInactive, IconActive, IconPending)
+      new ArchiveStatusHelper(appContext, staticHandler, IconInactive, IconActive, IconPending,
+        IconLocked, IconUnlocked)
   }
 
 }

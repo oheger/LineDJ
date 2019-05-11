@@ -61,6 +61,8 @@
   <f:icon resource="state_unavail.png" var="iconUnavailable"/>
   <f:icon resource="state_avail.png" var="iconAvailable"/>
   <f:icon resource="state_init.png" var="iconPending"/>
+  <f:icon resource="state_locked.png" var="iconLocked"/>
+  <f:icon resource="state_unlocked.png" var="iconUnlocked"/>
 
   <!-- Status line helper -->
   <di:bean name="statusHelper"
@@ -71,6 +73,8 @@
       <di:param refName="iconUnavailable"/>
       <di:param refName="iconAvailable"/>
       <di:param refName="iconPending"/>
+      <di:param refName="iconLocked"/>
+      <di:param refName="iconUnlocked"/>
     </di:constructor>
   </di:bean>
 
