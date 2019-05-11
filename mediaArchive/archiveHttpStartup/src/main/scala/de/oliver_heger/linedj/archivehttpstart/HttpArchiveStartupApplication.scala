@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.Actor.Receive
@@ -69,7 +70,7 @@ object HttpArchiveStartupApplication {
     * change in preconditions.
     */
   private val StatesNotStarted: Set[HttpArchiveState] = Set(HttpArchiveStateNotLoggedIn,
-    HttpArchiveStateNoUnionArchive)
+    HttpArchiveStateNoUnionArchive, HttpArchiveStateLocked)
 
   /**
     * An internally used data class that stores state information about a
@@ -78,10 +79,12 @@ object HttpArchiveStartupApplication {
     * @param state        the current state of this archive
     * @param actors       a map with the actors created for this archive
     * @param archiveIndex the index used for the archive when it was started
+    * @param optKey       an optional key to decrypt this archive
     */
   private case class ArchiveStateData(state: HttpArchiveStateChanged,
                                       actors: Map[String, ActorRef],
-                                      archiveIndex: Int) {
+                                      archiveIndex: Int,
+                                      optKey: Option[Key]) {
     /**
       * Tries to resolve the current management actor for the represented
       * archive. If the archive has not yet been created, result is ''None''.
@@ -215,7 +218,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     configManager.archives.keySet.foldLeft(
       Map.empty[String, ArchiveStateData]) { (m, n) =>
       val state = HttpArchiveStateChanged(n, HttpArchiveStateNoUnionArchive)
-      m + (n -> ArchiveStateData(state, Map.empty, 0))
+      m + (n -> ArchiveStateData(state, Map.empty, 0, None))
     }
 
   /**
@@ -247,13 +250,35 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     case LoginStateChanged(realm, Some(creds)) =>
       removeRealmCredentials(realm)
       realms += realm -> creds
+      configManager.archivesForRealm(realm) foreach (data => updateArchiveState(data.config.archiveName))
       triggerArchiveStartIfPossible()
 
     case LoginStateChanged(realm, None) =>
       removeRealmCredentials(realm)
 
+    case LockStateChanged(archive, optKey@Some(_)) =>
+      val currentState = archiveStates(archive)
+      archiveStates += archive -> currentState.copy(optKey = optKey)
+      updateArchiveState(archive)
+      triggerArchiveStartIfPossible()
+
+    case LockStateChanged(archive, None) =>
+      val currentState = archiveStates(archive)
+      archiveStates += archive -> currentState.copy(optKey = None, actors = Map.empty, archiveIndex = 0)
+      updateArchiveState(archive)
+      stopArchiveActors(currentState)
+
     case not@HttpArchiveStateChanged(_, HttpArchiveStateInitializing) =>
       queryAndPublishArchiveState(not)
+  }
+
+  /**
+    * Stops all actors that have been created for the given archive.
+    *
+    * @param archiveData the data of the archive affected
+    */
+  private def stopArchiveActors(archiveData: ArchiveStateData): Unit = {
+    archiveData.actors.keys foreach unregisterAndStopActor
   }
 
   /**
@@ -340,7 +365,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       realms.contains(e._2.realm)
     } foreach { e =>
       val stateData = ArchiveStateData(HttpArchiveStateChanged(e._1,
-        HttpArchiveStateNotLoggedIn), Map.empty, 0)
+        HttpArchiveStateNotLoggedIn), Map.empty, 0, None)
       archiveStates += (e._1 -> stateData)
       publish(stateData.state)
     }
@@ -352,7 +377,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * login credentials are available are now started.
     */
   private def triggerArchiveStartIfPossible(): Unit = {
-    if (canStartHttpArchives && archivesToBeStarted.nonEmpty) {
+    if (isMediaArchiveAvailable && archivesToBeStarted.nonEmpty) {
       triggerArchiveStart()
     }
   }
@@ -385,17 +410,17 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * @param mediaActors the object with the actors of the union archive
     */
   private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit = {
-    if (canStartHttpArchives) {
+    if (isMediaArchiveAvailable) {
       archivesToBeStarted foreach { e =>
         archiveIndexCounter += 1
         val actors = archiveStarter.startup(mediaActors, e._2,
-          clientApplicationContext.managementConfiguration, realms(e._2.realm),
+          clientApplicationContext.managementConfiguration, realms(e._2.realm), archiveStates(e._1).optKey,
           clientApplicationContext.actorFactory, archiveIndexCounter,
           clearTemp = archiveIndexCounter == 1)
         actors foreach (e => registerActor(e._1, e._2))
         val arcState = ArchiveStateData(actors = actors,
           state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing),
-          archiveIndex = archiveIndexCounter)
+          archiveIndex = archiveIndexCounter, optKey = None)
         publish(arcState.state)
         archiveStates += e._1 -> arcState
       }
@@ -403,12 +428,13 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   }
 
   /**
-    * Checks the conditions whether an HTTP archive can be started.
+    * Checks whether the media archive is currently available. This is the
+    * precondition whether an HTTP archive can be started.
     *
-    * @return '''true''' if all conditions are fulfilled; '''false'''
+    * @return '''true''' if the archive is available; '''false'''
     *         otherwise
     */
-  private def canStartHttpArchives: Boolean =
+  private def isMediaArchiveAvailable: Boolean =
     unionArchiveAvailability == MediaFacade.MediaArchiveAvailable
 
   /**
@@ -420,7 +446,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def archivesToBeStarted: Map[String, HttpArchiveData] =
     configManager.archives filter { e =>
       StatesNotStarted.contains(archiveStates(e._1).state.state) &&
-        realms.contains(e._2.realm)
+        realms.contains(e._2.realm) && (!e._2.encrypted || archiveStates(e._1).optKey.isDefined)
     }
 
   /**
@@ -431,7 +457,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     */
   private def removeRealmCredentials(realm: String): Unit = {
     realms -= realm
-    if (canStartHttpArchives) {
+    if (isMediaArchiveAvailable) {
       logoutArchives(realm)
     }
   }
@@ -444,12 +470,49 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def logoutArchives(realm: String): Unit = {
     configManager.archivesForRealm(realm) foreach { arc =>
       val name = arc.config.archiveName
-      archiveStates(name).actors.keys foreach unregisterAndStopActor
-      val newState = ArchiveStateData(actors = Map.empty, archiveIndex = 0,
+      val currentState = archiveStates(name)
+      stopArchiveActors(currentState)
+      val newState = currentState.copy(actors = Map.empty, archiveIndex = 0,
         state = HttpArchiveStateChanged(name, HttpArchiveStateNotLoggedIn))
       if (archiveStates(name) != newState) {
         archiveStates += name -> newState
         publish(newState.state)
+      }
+    }
+  }
+
+  /**
+    * Determines the state of an archive before it can be started based on the
+    * currently available information. Result is ''None'' if the archive is
+    * ready to be started.
+    *
+    * @param name the name of the archive affected
+    * @return an option with the updated state
+    */
+  private def computeInactiveArchiveState(name: String): Option[HttpArchiveStateChanged] = {
+    val state = if (!isMediaArchiveAvailable) Some(HttpArchiveStateNoUnionArchive)
+    else {
+      val configData = configManager.archives(name)
+      if (!realms.contains(configData.realm)) Some(HttpArchiveStateNotLoggedIn)
+      else if (configData.encrypted && archiveStates(name).optKey.isEmpty) Some(HttpArchiveStateLocked)
+      else None
+    }
+    state map (st => HttpArchiveStateChanged(name, st))
+  }
+
+  /**
+    * Updates the state of the given archive after new information has arrived.
+    * If there is a state transition, a message is published on the message
+    * bus.
+    *
+    * @param name the name of the archive affected
+    */
+  private def updateArchiveState(name: String): Unit = {
+    computeInactiveArchiveState(name) foreach { state =>
+      val lastData = archiveStates(name)
+      if (state != lastData.state) {
+        archiveStates += name -> lastData.copy(state = state)
+        publish(state)
       }
     }
   }

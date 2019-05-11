@@ -203,7 +203,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, actorFactory, index,
+      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, None, actorFactory, index,
         clearTemp)
 
     /**

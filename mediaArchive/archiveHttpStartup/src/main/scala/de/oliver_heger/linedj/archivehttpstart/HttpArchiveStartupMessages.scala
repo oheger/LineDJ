@@ -79,6 +79,14 @@ object HttpArchiveStates {
     extends HttpArchiveState("NotLoggedIn", isActive = false)
 
   /**
+    * An object representing the HTTP archive state that an encrypted HTTP
+    * archive has not yet been unlocked. This means that the password to
+    * decrypt the archive's content has not yet been entered.
+    */
+  case object HttpArchiveStateLocked
+    extends HttpArchiveState("Locked", isActive = false)
+
+  /**
     * An object representing the HTTP archive state that the archive is
     * currently initializing itself. This is the state after the archive's
     * actors have been created. When initialization is complete a final state

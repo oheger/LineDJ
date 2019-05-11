@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import java.nio.file.Paths
+import java.security.Key
 
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
@@ -104,6 +105,7 @@ class HttpArchiveStarter {
     * @param archiveData        data for the archive to be started
     * @param config             the configuration
     * @param credentials        the user credentials for reading data from the archive
+    * @param optKey             option for the decryption key of an encrypted archive
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
     * @param clearTemp          flag whether the temp directory should be cleared
@@ -111,8 +113,8 @@ class HttpArchiveStarter {
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, credentials: UserCredentials, actorFactory: ActorFactory,
-              index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
+              config: Configuration, credentials: UserCredentials, optKey: Option[Key],
+              actorFactory: ActorFactory, index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
     val archiveConfig = archiveData.config.copy(credentials = credentials)
     createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
       archiveData.shortName, index, clearTemp)
