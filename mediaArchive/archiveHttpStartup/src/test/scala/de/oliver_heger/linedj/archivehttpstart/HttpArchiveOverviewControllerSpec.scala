@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.security.Key
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState,
-HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
+import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
@@ -31,8 +31,7 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object HttpArchiveOverviewControllerSpec {
@@ -51,16 +50,23 @@ object HttpArchiveOverviewControllerSpec {
   /** Icon for the pending state. */
   private val IconPending = new Object
 
+  /** Icon for the locked state. */
+  private val IconLocked = new Object
+
+  /** Icon for the unlocked state. */
+  private val IconUnlocked = new Object
+
   /**
     * Creates a config manager object that is initialized with a number of test
-    * archives and associated realms.
+    * archives and associated realms. The last archive is also encrypted.
     *
     * @return the test configuration manager
     */
   private def createConfigManager(): HttpArchiveConfigManager = {
     val config = StartupConfigTestHelper.addArchiveToConfig(
-      StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 2, ArchiveCount),
-      1, Some(StartupConfigTestHelper.realmName(ArchiveCount - 1)))
+      StartupConfigTestHelper.addArchiveToConfig(
+        StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 2, ArchiveCount - 1),
+        1, Some(StartupConfigTestHelper.realmName(ArchiveCount - 1))), ArchiveCount, encrypted = true)
     HttpArchiveConfigManager(config)
   }
 
@@ -95,6 +101,16 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
   import HttpArchiveOverviewControllerSpec._
 
+  /**
+    * Generates a lock state changed message for the encrypted test archive.
+    *
+    * @param locked flag whether the archive is locked
+    * @return the message
+    */
+  private def lockStateChanged(locked: Boolean): LockStateChanged =
+    LockStateChanged(StartupConfigTestHelper.archiveName(ArchiveCount),
+      if (locked) None else Some(mock[Key]))
+
   "An HttpArchiveOverController" should "implement window listener methods" in {
     val helper = new ControllerTestHelper
 
@@ -103,7 +119,8 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
   it should "populate the table with archives" in {
     val expArchives = (1 to ArchiveCount) map { i =>
-      TableElement(StartupConfigTestHelper.archiveName(i), IconInactive)
+      TableElement(StartupConfigTestHelper.archiveName(i), IconInactive,
+        if (i == ArchiveCount) IconLocked else null)
     }
     val helper = new ControllerTestHelper
 
@@ -112,7 +129,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
   it should "populate the table realms" in {
     val expRealms = (2 to ArchiveCount) map { i =>
-      TableElement(StartupConfigTestHelper.realmName(i), IconInactive)
+      TableElement(StartupConfigTestHelper.realmName(i), IconInactive, null)
     }
     val helper = new ControllerTestHelper
 
@@ -124,6 +141,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
     helper.openWindow()
       .checkActionEnabled("actionLogin", enabled = false)
+      .checkActionEnabled("actionUnlock", enabled = false)
       .checkActionEnabled("actionLogout", enabled = false)
       .checkActionEnabled("actionLogoutAll", enabled = false)
   }
@@ -292,6 +310,23 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       .checkCurrentRealmName(-1)
   }
 
+  it should "update the current archive name if the selection changes" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(1)
+      .checkCurrentArchiveName(2)
+  }
+
+  it should "update the current archive name if the selection is cleared" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(2)
+      .sendArchiveTableSelectionChange(-1)
+      .checkCurrentArchiveName(-1)
+  }
+
   it should "send a logout message to logout the current realm" in {
     val helper = new ControllerTestHelper
 
@@ -312,11 +347,122 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
     helper.openWindow()
       .sendMessage(realmLoginState(2, loggedIn = true))
-      .sendMessage(realmLoginState(ArchiveCount, loggedIn = true))
+      .sendMessage(realmLoginState(ArchiveCount - 1, loggedIn = true))
       .invokeLogoutAll()
       .expectMessageOnBus(realmLoginState(2, loggedIn = false))
-      .expectMessageOnBus(realmLoginState(ArchiveCount, loggedIn = false))
+      .expectMessageOnBus(realmLoginState(ArchiveCount - 1, loggedIn = false))
+      .expectMessageOnBus(lockStateChanged(locked = true))
       .expectNoMoreMessagesOnBus()
+  }
+
+  it should "indicate that an encrypted archive has been unlocked" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(lockStateChanged(locked = false))
+      .checkArchiveUpdated(ArchiveCount, IconInactive, IconUnlocked)
+  }
+
+  it should "indicate that an encrypted archive has been locked again" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(lockStateChanged(locked = false))
+      .sendMessage(lockStateChanged(locked = true))
+      .checkArchiveUpdated(ArchiveCount, IconInactive, IconLocked)
+  }
+
+  it should "ignore lock state change messages for non-encrypted archives" in {
+    val ArcIdx = 1
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(LockStateChanged(StartupConfigTestHelper.archiveName(ArcIdx), Some(mock[Key])))
+      .checkArchiveData(ArcIdx, IconInactive, null)
+  }
+
+  it should "lock archives when a logout for a realm is performed" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(realmLoginState(ArchiveCount, loggedIn = true))
+      .sendMessage(lockStateChanged(locked = false))
+      .sendRealmTableSelectionChange(ArchiveCount - 2)
+      .invokeLogout()
+      .expectMessageOnBus(realmLoginState(ArchiveCount, loggedIn = false))
+      .expectMessageOnBus(lockStateChanged(locked = true))
+  }
+
+  it should "enable the logout all action if there is an unlocked archive" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(lockStateChanged(locked = false))
+      .checkActionEnabled("actionLogoutAll", enabled = true)
+  }
+
+  it should "disable the logout all action if the last unlocked archive is locked" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(lockStateChanged(locked = false))
+      .sendMessage(lockStateChanged(locked = true))
+      .checkActionEnabled("actionLogoutAll", enabled = false)
+  }
+
+  it should "update the enabled state of logout all action based on logged in realms and unlocked archives" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(realmLoginState(2, loggedIn = true))
+      .sendMessage(lockStateChanged(locked = false))
+      .sendMessage(realmLoginState(2, loggedIn = false))
+      .checkActionEnabled("actionLogoutAll", enabled = true)
+  }
+
+  it should "enable the unlock action if a locked, encrypted archive is selected" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(ArchiveCount - 1)
+      .checkActionEnabled("actionUnlock", enabled = true)
+  }
+
+  it should "disable the unlock action if no archive is selected" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(ArchiveCount - 1)
+      .sendArchiveTableSelectionChange(-1)
+      .checkActionEnabled("actionUnlock", enabled = false)
+  }
+
+  it should "disable the unlock action if a non-encrypted archive is selected" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(1)
+      .checkActionEnabled("actionUnlock", enabled = false)
+  }
+
+  it should "disable the unlock action if an already unlocked archive is selected" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendMessage(lockStateChanged(locked = false))
+      .sendArchiveTableSelectionChange(ArchiveCount - 1)
+      .checkActionEnabled("actionUnlock", enabled = false)
+  }
+
+  it should "update the state of the unlock action when the currently selected archive is changed" in {
+    val helper = new ControllerTestHelper
+
+    helper.openWindow()
+      .sendArchiveTableSelectionChange(ArchiveCount - 1)
+      .sendMessage(lockStateChanged(locked = false))
+      .checkActionEnabled("actionUnlock", enabled = false)
+      .sendMessage(lockStateChanged(locked = true))
+      .checkActionEnabled("actionUnlock", enabled = true)
   }
 
   /**
@@ -348,6 +494,9 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
     /** The reference for the current realm. */
     private val refRealm = new AtomicReference[String]
+
+    /** The reference for the currently selected archive. */
+    private val refArchive = new AtomicReference[String]
 
     /** The controller to be tested. */
     private val controller = createController()
@@ -436,16 +585,31 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
     }
 
     /**
-      * Checks that the table model data for an archive has been updated.
+      * Checks that the table model data for an archive has the expected
+      * content.
       *
-      * @param idx  the index of the archive (1-based)
-      * @param icon the expected icon
+      * @param idx       the index of the archive (1-based)
+      * @param stateIcon the expected state icon
+      * @param cryptIcon the expected crypt state icon
       * @return this test helper
       */
-    def checkArchiveUpdated(idx: Int, icon: AnyRef): ControllerTestHelper = {
-      val elem = TableElement(StartupConfigTestHelper.archiveName(idx), icon)
+    def checkArchiveData(idx: Int, stateIcon: AnyRef, cryptIcon: AnyRef = null): ControllerTestHelper = {
+      val elem = TableElement(StartupConfigTestHelper.archiveName(idx), stateIcon, cryptIcon)
       modelArchives.get(idx - 1) should be(elem)
-      verify(handlerArchives).rowsUpdated(idx - 1, idx - 1)
+      this
+    }
+
+    /**
+      * Checks that the table model data for an archive has been updated.
+      *
+      * @param idx       the index of the archive (1-based)
+      * @param stateIcon the expected state icon
+      * @param cryptIcon the expected crypt state icon
+      * @return this test helper
+      */
+    def checkArchiveUpdated(idx: Int, stateIcon: AnyRef, cryptIcon: AnyRef = null): ControllerTestHelper = {
+      checkArchiveData(idx, stateIcon, cryptIcon)
+      verify(handlerArchives, atLeastOnce()).rowsUpdated(idx - 1, idx - 1)
       this
     }
 
@@ -470,7 +634,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       */
     def checkRealmUpdated(idx: Int, icon: AnyRef): ControllerTestHelper = {
       val tabIdx = idx - 2
-      val elem = TableElement(StartupConfigTestHelper.realmName(idx), icon)
+      val elem = TableElement(StartupConfigTestHelper.realmName(idx), icon, null)
       modelRealms.get(tabIdx) should be(elem)
       verify(handlerRealms).rowsUpdated(tabIdx, tabIdx)
       this
@@ -545,6 +709,21 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       val expName = if (realmIdx >= 0) StartupConfigTestHelper.realmName(realmIdx)
       else null
       refRealm.get() should be(expName)
+      this
+    }
+
+    /**
+      * Checks that the name of the currently selected archive has been updated
+      * correctly.
+      *
+      * @param arcIdx the expected current archive index (1-based) or -1 for no
+      *               selection
+      * @return this test helper
+      */
+    def checkCurrentArchiveName(arcIdx: Int): ControllerTestHelper = {
+      val expName = if (arcIdx >= 0) StartupConfigTestHelper.archiveName(arcIdx)
+      else null
+      refArchive.get() should be(expName)
       this
     }
 
@@ -639,12 +818,10 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       */
     private def createAction(name: String, store: ActionStore): FormAction = {
       val action = mock[FormAction]
-      when(action.setEnabled(anyBoolean())).thenAnswer(new Answer[Void] {
-        override def answer(invocation: InvocationOnMock): Void = {
-          val state = invocation.getArguments.head.asInstanceOf[Boolean]
-          actionStates += name -> state
-          null
-        }
+      when(action.setEnabled(anyBoolean())).thenAnswer((invocation: InvocationOnMock) => {
+        val state = invocation.getArguments.head.asInstanceOf[Boolean]
+        actionStates += name -> state
+        null
       })
       when(store.getAction(name)).thenReturn(action)
       action
@@ -660,6 +837,8 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       doReturn(IconActive).when(helper).iconActive
       doReturn(IconInactive).when(helper).iconInactive
       doReturn(IconPending).when(helper).iconPending
+      doReturn(IconLocked).when(helper).iconLocked
+      doReturn(IconUnlocked).when(helper).iconUnlocked
       helper
     }
 
@@ -673,8 +852,9 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
       createAction("actionLogout", actionStore)
       createAction("actionLogoutAll", actionStore)
       createAction("actionLogin", actionStore)
+      createAction("actionUnlock", actionStore)
       new HttpArchiveOverviewController(messageBus, ConfigManager, actionStore,
-        handlerArchives, handlerRealms, statusHelper, refRealm)
+        handlerArchives, handlerRealms, statusHelper, refRealm, refArchive)
     }
   }
 

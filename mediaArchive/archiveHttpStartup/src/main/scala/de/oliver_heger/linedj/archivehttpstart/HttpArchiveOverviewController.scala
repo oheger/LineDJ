@@ -19,8 +19,10 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState,
-HttpArchiveStateInitializing, HttpArchiveStateNoUnionArchive}
+import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{
+  HttpArchiveState,
+  HttpArchiveStateInitializing, HttpArchiveStateNoUnionArchive
+}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
@@ -39,6 +41,9 @@ object HttpArchiveOverviewController {
 
   /** Name of the logout all action. */
   private val ActionLogoutAll = "actionLogoutAll"
+
+  /** Name of the action to unlock an archive. */
+  private val ActionUnlock = "actionUnlock"
 }
 
 /**
@@ -56,18 +61,20 @@ object HttpArchiveOverviewController {
   * [[HttpArchiveStartupApplication]] class. Notifications about status updates
   * are propagated via the message bus.
   *
-  * @param messageBus      the message bus
-  * @param configManager   the object managing the archive configuration
-  * @param actionStore     the action manager
-  * @param tabArchives     the handler for the table of archives
-  * @param tabRealms       the handler for the table of realms
-  * @param statusHelper    the helper object for archive states
-  * @param refCurrentRealm holds the name of the current realm
+  * @param messageBus        the message bus
+  * @param configManager     the object managing the archive configuration
+  * @param actionStore       the action manager
+  * @param tabArchives       the handler for the table of archives
+  * @param tabRealms         the handler for the table of realms
+  * @param statusHelper      the helper object for archive states
+  * @param refCurrentRealm   holds the name of the current realm
+  * @param refCurrentArchive holds the name of the current archive
   */
 class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpArchiveConfigManager,
                                     actionStore: ActionStore, tabArchives: TableHandler,
                                     tabRealms: TableHandler, statusHelper: ArchiveStatusHelper,
-                                    refCurrentRealm: AtomicReference[String])
+                                    refCurrentRealm: AtomicReference[String],
+                                    refCurrentArchive: AtomicReference[String])
   extends WindowListener with MessageBusListener with FormChangeListener {
 
   import HttpArchiveOverviewController._
@@ -78,6 +85,9 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     * realm names.
     */
   private var loggedInRealms = Map.empty[Int, String]
+
+  /** Stores the names of the archives that have been unlocked. */
+  private var unlockedArchives = Set.empty[String]
 
   /** An array with state information for the managed archives. */
   private var archiveStates: Array[HttpArchiveState] = _
@@ -101,18 +111,20 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     */
   override def windowOpened(windowEvent: WindowEvent): Unit = {
     archiveStates = Array.fill(configManager.archives.size)(HttpArchiveStateNoUnionArchive)
-    configManager.archives.keys foreach { n =>
-      tabArchives.getModel.add(TableElement(n, statusHelper.iconInactive))
+    configManager.archives foreach { e =>
+      tabArchives.getModel.add(TableElement(e._1, statusHelper.iconInactive,
+        if (e._2.encrypted) statusHelper.iconLocked else null))
     }
     val realms = configManager.archives.values.map(_.realm).toSet.toSeq.sorted
     realms foreach { r =>
-      tabRealms.getModel.add(TableElement(r, statusHelper.iconInactive))
+      tabRealms.getModel.add(TableElement(r, statusHelper.iconInactive, null))
     }
 
     tabArchives.tableDataChanged()
     tabRealms.tableDataChanged()
 
     enableAction(ActionLogin, enabled = false)
+    enableAction(ActionUnlock, enabled = false)
     enableAction(ActionLogout, enabled = false)
     enableAction(ActionLogoutAll, enabled = false)
 
@@ -129,7 +141,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
       val (elem, idx) = findArchiveIndex(name)
       if (idx >= 0) {
         archiveStates(idx) = state
-        tabArchives.getModel.set(idx, elem.copy(icon = iconForState(state)))
+        tabArchives.getModel.set(idx, elem.copy(iconState = iconForState(state)))
         tabArchives.rowsUpdated(idx, idx)
         if (tabArchives.getSelectedIndex == idx) {
           statusHelper updateStatusLine state
@@ -137,17 +149,31 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
       }
 
     case LoginStateChanged(realm, optCred) =>
-      val (elem, idx) = findRealIndex(realm)
+      val (elem, idx) = findRealmIndex(realm)
       if (idx >= 0) {
         val icon = if (optCred.isDefined) statusHelper.iconActive
         else statusHelper.iconInactive
         loggedInRealms = if (optCred.isDefined) loggedInRealms + (idx -> realm)
         else loggedInRealms - idx
-        tabRealms.getModel.set(idx, elem.copy(icon = icon))
+        tabRealms.getModel.set(idx, elem.copy(iconState = icon))
         tabRealms.rowsUpdated(idx, idx)
-        enableAction(ActionLogoutAll, enabled = loggedInRealms.nonEmpty)
+        enableLogoutAllAction()
         if (idx == tabRealms.getSelectedIndex) {
           enableAction(ActionLogout, enabled = loggedInRealms.contains(idx))
+        }
+      }
+
+    case LockStateChanged(name, optKey) =>
+      if (isEncryptedArchive(name)) {
+        val (elem, idx) = findArchiveIndex(name)
+        unlockedArchives = if (optKey.isDefined) unlockedArchives + name
+        else unlockedArchives - name
+        val lockIcon = if (optKey.isDefined) statusHelper.iconUnlocked else statusHelper.iconLocked
+        tabArchives.getModel.set(idx, elem.copy(iconCrypt = lockIcon))
+        tabArchives.rowsUpdated(idx, idx)
+        enableLogoutAllAction()
+        if (idx == tabArchives.getSelectedIndex) {
+          archiveTableStateChanged()
         }
       }
   }
@@ -162,9 +188,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
   override def elementChanged(event: FormChangeEvent): Unit = {
     event.getHandler match {
       case `tabArchives` =>
-        val index = tabArchives.getSelectedIndex
-        if (index >= 0) statusHelper.updateStatusLine(archiveStates(index))
-        else statusHelper.clearStatusLine()
+        archiveTableStateChanged()
 
       case `tabRealms` =>
         val index = tabRealms.getSelectedIndex
@@ -181,7 +205,9 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     * application to discard the credentials associated with this realm.
     */
   def logoutCurrentRealm(): Unit = {
-    sendLogoutsForRealms(Option(refCurrentRealm.get()))
+    val realmName = refCurrentRealm.get()
+    sendLogoutsForRealms(Option(realmName))
+    sendLocksForArchives(configManager.archivesForRealm(realmName))
   }
 
   /**
@@ -191,6 +217,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     */
   def logoutAllRealms(): Unit = {
     sendLogoutsForRealms(loggedInRealms.values)
+    sendLocksForArchives(configManager.archives.values)
   }
 
   /**
@@ -200,6 +227,46 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     */
   private def sendLogoutsForRealms(realmNames: Iterable[String]): Unit = {
     realmNames.map(LoginStateChanged(_, None)) foreach messageBus.publish
+  }
+
+  /**
+    * Sends lock messages for all encrypted archives in the given sequence.
+    *
+    * @param archives the sequence of archives
+    */
+  private def sendLocksForArchives(archives: Iterable[HttpArchiveData]): Unit = {
+    archives.filter(_.encrypted)
+      .foreach { data =>
+        messageBus publish LockStateChanged(data.config.archiveName, None)
+      }
+  }
+
+  /**
+    * Sets the enabled state of the logout all action based on the current
+    * state of logged in realms and unlocked archives.
+    */
+  private def enableLogoutAllAction(): Unit = {
+    enableAction(ActionLogoutAll, unlockedArchives.nonEmpty || loggedInRealms.nonEmpty)
+  }
+
+  /**
+    * Reacts on a change related to the table with archives. If necessary,
+    * action states or the status line are updated.
+    */
+  private def archiveTableStateChanged(): Unit = {
+    val index = tabArchives.getSelectedIndex
+    if (index >= 0) {
+      statusHelper.updateStatusLine(archiveStates(index))
+      val archiveName = tabArchives.getModel.get(index).asInstanceOf[TableElement].name
+      refCurrentArchive.set(archiveName)
+      enableAction(ActionUnlock,
+        enabled = isEncryptedArchive(archiveName) && !unlockedArchives.contains(archiveName))
+    }
+    else {
+      statusHelper.clearStatusLine()
+      refCurrentArchive.set(null)
+      enableAction(ActionUnlock, enabled = false)
+    }
   }
 
   /**
@@ -229,7 +296,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     * @return a tuple with the element representing the realm and its index;
     *         the index is -1 if the name could not be resolved
     */
-  private def findRealIndex(name: String): (TableElement, Int) =
+  private def findRealmIndex(name: String): (TableElement, Int) =
     findElementIndex(name, tabRealms.getModel, 0)
 
   /**
@@ -243,11 +310,11 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     */
   @tailrec private def findElementIndex(name: String, model: java.util.List[_],
                                         idx: Int): (TableElement, Int) =
-  if (idx >= model.size()) (null, -1)
-  else model.get(idx) match {
-    case e@TableElement(n, _) if name == n => (e, idx)
-    case _ => findElementIndex(name, model, idx + 1)
-  }
+    if (idx >= model.size()) (null, -1)
+    else model.get(idx) match {
+      case e@TableElement(n, _, _) if name == n => (e, idx)
+      case _ => findElementIndex(name, model, idx + 1)
+    }
 
   /**
     * Obtains the icon to represent the specified archive state.
@@ -271,12 +338,24 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
   private def currentRealmName(index: Int): String =
     if (index < 0) null
     else tabRealms.getModel.get(index).asInstanceOf[TableElement].name
+
+  /**
+    * Checks whether the archive with the given name is encrypted.
+    *
+    * @param name the name of the archive in question
+    * @return a flag whether this archive is encrypted
+    */
+  private def isEncryptedArchive(name: String): Boolean =
+    configManager.archives(name).encrypted
 }
 
 /**
   * Data class that represents an element in a table model.
   *
-  * @param name the name to be displayed
-  * @param icon the icon for this element
+  * @param name      the name to be displayed
+  * @param iconState the state icon for this element
+  * @param iconCrypt the icon indicating the encryption state
   */
-private case class TableElement(@BeanProperty name: String, @BeanProperty icon: AnyRef)
+private case class TableElement(@BeanProperty name: String,
+                                @BeanProperty iconState: AnyRef,
+                                @BeanProperty iconCrypt: AnyRef)
