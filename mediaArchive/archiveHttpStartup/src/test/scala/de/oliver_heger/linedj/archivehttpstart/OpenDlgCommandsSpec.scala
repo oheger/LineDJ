@@ -21,13 +21,13 @@ import java.util.concurrent.atomic.AtomicReference
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
-  * Test class for ''OpenLoginDlgCommand''.
+  * Test class for the commands that open dialogs related to archives.
   */
-class OpenLoginDlgCommandSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenDlgCommandsSpec extends FlatSpec with Matchers with MockitoSugar {
   "An OpenLoginDlgCommand" should "pass the locator to the super class" in {
     val locator = mock[Locator]
     val command = new OpenLoginDlgCommand(locator, new AtomicReference[String])
@@ -42,6 +42,23 @@ class OpenLoginDlgCommandSpec extends FlatSpec with Matchers with MockitoSugar {
     val command = new OpenLoginDlgCommand(mock[Locator], realmRef)
 
     command.prepareBuilderData(builderData)
-    verify(builderData).addProperty(OpenLoginDlgCommand.PropertyRealmName, Realm)
+    verify(builderData).addProperty(OpenDlgCommand.PropertyRealmName, Realm)
+  }
+
+  "An OpenUnlockDlgCommand" should "pass the locator to the super class" in {
+    val locator = mock[Locator]
+    val command = new OpenUnlockDlgCommand(locator, new AtomicReference[String])
+
+    command.getLocator should be(locator)
+  }
+
+  it should "store the current archive name in the builder data" in {
+    val Archive = "MyTestArchive"
+    val builderData = mock[ApplicationBuilderData]
+    val archiveRef = new AtomicReference(Archive)
+    val command = new OpenUnlockDlgCommand(mock[Locator], archiveRef)
+
+    command.prepareBuilderData(builderData)
+    verify(builderData).addProperty(OpenDlgCommand.PropertyArchiveName, Archive)
   }
 }
