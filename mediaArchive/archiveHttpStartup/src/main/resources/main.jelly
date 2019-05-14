@@ -29,10 +29,15 @@
             tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
             resgrp="application" taskBean="exitTask"/>
 
-  <!-- Actions for changing the login state of realms -->
+  <!-- Actions for changing the login/lock state of realms -->
   <a:action name="actionLogin" textres="act_login_text" tooltipres="act_login_tip"
             mnemonicres="act_login_mnemo" taskBean="loginTask">
     <f:icon resource="login.png"/>
+  </a:action>
+
+  <a:action name="actionUnlock" textres="act_unlock_text" tooltipres="act_unlock_tip"
+            mnemonicres="act_unlock_mnemo" taskBean="unlockTask">
+    <f:icon resource="unlock.png"/>
   </a:action>
 
   <a:action name="actionLogout" textres="act_logout_text" tooltipres="act_logout_tip"
@@ -52,6 +57,8 @@
     </a:menu>
     <a:menu textres="menu_realms_text" mnemonicres="menu_realms_mnemo">
       <a:menuitem actionName="actionLogin"/>
+      <a:menuitem actionName="actionUnlock"/>
+      <a:separator/>
       <a:menuitem actionName="actionLogout"/>
       <a:menuitem actionName="actionLogoutAll"/>
     </a:menu>
@@ -85,6 +92,9 @@
   <!-- Reference to the currently selected realm -->
   <di:bean name="refCurrentRealm" beanClassName="java.util.concurrent.atomic.AtomicReference"/>
 
+  <!-- Reference to the currently selected archive -->
+  <di:bean name="refCurrentArchive" beanClassName="java.util.concurrent.atomic.AtomicReference"/>
+
   <!-- Message bus registration -->
   <di:bean name="LineDJ_messageBusRegistration"
            beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
@@ -112,6 +122,7 @@
       <di:param refName="comp:tabRealms"/>
       <di:param refName="statusHelper"/>
       <di:param refName="refCurrentRealm"/>
+      <di:param refName="refCurrentArchive"/>
     </di:constructor>
   </di:bean>
 
@@ -123,6 +134,7 @@
     <a:toolbar>
       <f:borderconstr name="NORTH"/>
       <a:toolbutton actionName="actionLogin"/>
+      <a:toolbutton actionName="actionUnlock"/>
       <a:separator/>
       <a:toolbutton actionName="actionLogout"/>
       <a:toolbutton actionName="actionLogoutAll"/>
@@ -134,17 +146,18 @@
       <!-- Table for archives -->
       <f:table name="tabArchives" model="archivesTableModel" multiSelection="false"
         scrollHeight="200">
-        <f:column name="icon" percentWidth="20" headerres="tcol_state"
+        <f:column name="iconState" percentWidth="10" headerres="tcol_state"
                   columnClass="Icon"/>
         <f:column name="name" percentWidth="80" headerres="tcol_archive"
-                  columnClass="String">
-        </f:column>
+                  columnClass="String"/>
+        <f:column name="iconCrypt" percentWidth="10" headerres="tcol_lock"
+                  columnClass="Icon"/>
       </f:table>
 
       <!-- Table for realms -->
       <f:table name="tabRealms" model="realmsTableModel" multiSelection="false"
         scrollHeight="200">
-        <f:column name="icon" percentWidth="20" headerres="tcol_state"
+        <f:column name="iconState" percentWidth="20" headerres="tcol_state"
                   columnClass="Icon"/>
         <f:column name="name" percentWidth="80" headerres="tcol_realm"
                   columnClass="String">
@@ -190,6 +203,21 @@
            beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
     <di:setProperty property="commandBeanName" value="openLoginDialogCommand"/>
     <di:setProperty property="beforeEnabler" value="action:actionLogin"/>
+  </di:bean>
+
+  <!-- Command and task for the archive unlock dialog -->
+  <di:bean name="openUnlockDialogCommand"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenUnlockDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:unlock.jelly"/>
+      <di:param refName="refCurrentArchive"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="unlockTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openUnlockDialogCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:actionUnlock"/>
   </di:bean>
 
   <!-- Logout tasks -->
