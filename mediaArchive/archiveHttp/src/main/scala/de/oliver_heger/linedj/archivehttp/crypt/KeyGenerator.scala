@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp
+package de.oliver_heger.linedj.archivehttp.crypt
 
 import java.security.Key
 

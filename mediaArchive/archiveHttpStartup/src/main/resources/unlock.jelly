@@ -21,6 +21,10 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
          xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+  <!-- The key generator -->
+  <di:bean name="keyGenerator"
+           beanClassName="de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator"/>
+
   <!-- Unlock controller -->
   <di:bean name="unlockController"
     beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveUnlockDlgController">
@@ -31,8 +35,7 @@
       <di:param refName="comp:btnCancel"/>
       <di:param refName="comp:txtArchiveName"/>
       <di:param value="${archiveName}"/>
-      <!--TODO set correct key generator bean reference -->
-      <di:param><di:null/></di:param>
+      <di:param refName="keyGenerator"/>
     </di:constructor>
   </di:bean>
 
