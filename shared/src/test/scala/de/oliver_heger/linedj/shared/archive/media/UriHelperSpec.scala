@@ -53,6 +53,30 @@ class UriHelperSpec extends FlatSpec with Matchers {
     UriHelper removeExtension Uri should be(Uri)
   }
 
+  it should "not modify a URI that already ends with a separator" in {
+    val Uri = "/my/test/uri/"
+
+    UriHelper.withTrailingSeparator(Uri) should be theSameInstanceAs Uri
+  }
+
+  it should "add a separator character to a URI if necessary" in {
+    val Uri = "/not/ending/with/separator"
+
+    UriHelper.withTrailingSeparator(Uri) should be(Uri + "/")
+  }
+
+  it should "remove trailing characters from a string" in {
+    val Path = "/test-uri"
+
+    UriHelper.removeTrailing(Path + "////", "/") should be(Path)
+  }
+
+  it should "not modify a string if no trailing characters are removed" in {
+    val Uri = "/noTrailingSlash"
+
+    UriHelper.removeTrailing(Uri, "/") should be theSameInstanceAs Uri
+  }
+
   it should "handle a URI without a trailing slash when removing the trailing separator" in {
     val Uri = "http://music.org/test"
 
@@ -67,6 +91,85 @@ class UriHelperSpec extends FlatSpec with Matchers {
 
   it should "handle a URI consisting only of a separator when removing a trailing separator" in {
     UriHelper removeTrailingSeparator "/" should be("")
+  }
+
+  it should "not modify a string if no prefix can be removed" in {
+    val Uri = "foo"
+
+    UriHelper.removeLeading(Uri, "bar") should be(Uri)
+  }
+
+  it should "remove an existing prefix from a string" in {
+    val Prefix = "https://"
+    val Host = "test.org"
+
+    UriHelper.removeLeading(Prefix + Host, Prefix) should be(Host)
+  }
+
+  it should "not change a URI that does not start with a leading separator" in {
+    val Uri = "uri/without/leading/separator"
+
+    UriHelper removeLeadingSeparator Uri should be(Uri)
+  }
+
+  it should "remove leading separators from a URI" in {
+    val Uri = "uri/with/removed/separators"
+
+    UriHelper removeLeadingSeparator "////" + Uri should be(Uri)
+  }
+
+  it should "report that a URI has a parent element" in {
+    UriHelper hasParent "/foo/bar" shouldBe true
+  }
+
+  it should "detect a top-level URI without a slash" in {
+    UriHelper hasParent "foo" shouldBe false
+  }
+
+  it should "detect a top-level URI with a leading slash" in {
+    UriHelper hasParent "/foo" shouldBe false
+  }
+
+  it should "split a URI in a parent and a name component" in {
+    val Parent = "/the/parent/uri"
+    val Name = "name.txt"
+
+    val (p, n) = UriHelper splitParent Parent + "/" + Name
+    p should be(Parent)
+    n should be(Name)
+  }
+
+  it should "handle a split operation for a top-level URI starting with a slash" in {
+    val Name = "justAName"
+
+    val (p, n) = UriHelper splitParent "/" + Name
+    p should be("")
+    n should be(Name)
+  }
+
+  it should "handle a split operation for a top-level URI without a slash" in {
+    val Name = "nameOnly"
+
+    val (p, n) = UriHelper splitParent Name
+    p should be("")
+    n should be(Name)
+  }
+
+  it should "handle a split operation if the URI ends with a separator" in {
+    val Parent = "/parent"
+    val Name = "child"
+
+    val (p, n) = UriHelper splitParent Parent + "/" + Name + "/"
+    p should be(Parent)
+    n should be(Name)
+  }
+
+  it should "handle a split operation for a top-level URI ending with a slash" in {
+    val Name = "top-level"
+
+    val (p, n) = UriHelper splitParent Name + "/"
+    p should be("")
+    n should be(Name)
   }
 
   it should "return the name component of an URI" in {
