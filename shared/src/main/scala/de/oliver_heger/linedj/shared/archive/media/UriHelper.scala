@@ -31,10 +31,10 @@ import scala.annotation.tailrec
   */
 object UriHelper {
   /** A separator character for URIs. */
-  private val UriSeparatorChar = '/'
+  val UriSeparatorChar = '/'
 
   /** The URI separator as string. */
-  private val UriSeparator = UriSeparatorChar.toString
+  val UriSeparator: String = UriSeparatorChar.toString
 
   /** The backslash character. */
   private val BackSlash = '\\'
