@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.crypt
 
-import java.nio.file.Paths
 import java.security.SecureRandom
 import java.util.Base64
 
@@ -44,7 +43,8 @@ object CryptServiceSpec {
 /**
   * Test class for ''CryptService''.
   */
-class CryptServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class CryptServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfterAll
+  with Matchers with FileTestHelper {
   def this() = this(ActorSystem("CryptServiceSpec"))
 
   override protected def afterAll(): Unit = {
@@ -96,7 +96,7 @@ class CryptServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   }
 
   it should "decrypt a source" in {
-    val path = Paths.get(getClass.getResource("/encrypted.dat").toURI)
+    val path = resolveResourceFile("encrypted.dat")
     val source = FileIO.fromPath(path)
 
     val decrypted = decryptAndReadSource(source).utf8String

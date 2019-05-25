@@ -3,7 +3,7 @@ package de.oliver_heger.linedj
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
+import java.nio.file.{FileVisitResult, Files, Path, Paths, SimpleFileVisitor}
 
 import scala.io.Source
 
@@ -188,6 +188,32 @@ trait FileTestHelper {
       else Files delete path
     }
   }
+
+  /**
+    * Resolves a file with the given name from the test resources and returns a
+    * corresponding ''Path'' object. Throws an exception if the path cannot be
+    * resolved.
+    *
+    * @param name the name of the file to be resolved (without leading slash)
+    * @return a ''Path'' pointing to this file
+    */
+  def resolveResourceFile(name: String): Path = {
+    val path = Paths.get(getClass.getResource("/" + name).toURI)
+    if (!Files.exists(path))
+      throw new IOException(s"Cannot resolve '$name' from test resources!")
+    path
+  }
+
+  /**
+    * Reads the content of the resource file specified and returns it as
+    * string. The passed in name is resolved first using
+    * ''resolveResourceFile()''.
+    *
+    * @param name the name of the resource file
+    * @return the content of this resource file as string
+    */
+  def readResourceFile(name: String): String =
+    readDataFile(resolveResourceFile(name))
 
   /**
    * Checks whether the temporary directory has been created. If not, it is
