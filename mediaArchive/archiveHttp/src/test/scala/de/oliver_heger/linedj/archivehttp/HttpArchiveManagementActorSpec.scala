@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp
 
+import java.io.IOException
 import java.nio.file.Paths
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -389,7 +390,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "return a server error state if the server could not be contacted" in {
     val helper = new HttpArchiveManagementActorTestHelper
-    val exception = new Exception("Server not reachable!")
+    val exception = FailedRequestException(message = "Server not reachable!", response = None,
+      cause = new IOException("Crashed"), data = 42)
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
       .initFailedArchiveResponse(exception)
@@ -404,7 +406,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     val response = HttpResponse(status = status)
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
-      .initFailedArchiveResponse(FailedRequestException(response))
+      .initFailedArchiveResponse(FailedRequestException(response = Some(response), message = "Failure",
+        cause = null, data = "some data"))
       .triggerScan(initSuccessResponse = false)
       .checkArchiveState(HttpArchiveStateFailedRequest(status))
     verify(helper.updateService).processingDone()
@@ -615,7 +618,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       Props(new HttpArchiveManagementActor(updateService, ArchiveConfig, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
         probeMonitoringActor.ref, probeRemoveActor.ref)
-        with ChildActorFactory  {
+        with ChildActorFactory {
 
         /**
           * @inheritdoc Checks creation properties and returns test probes for

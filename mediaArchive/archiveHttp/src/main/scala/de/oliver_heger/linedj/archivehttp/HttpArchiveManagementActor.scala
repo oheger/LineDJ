@@ -102,7 +102,7 @@ object HttpArchiveManagementActor {
     */
   private def stateFromException(ex: Throwable): HttpArchiveState =
     ex match {
-      case FailedRequestException(response) =>
+      case FailedRequestException(_, _, Some(response), _) =>
         HttpArchiveStateFailedRequest(response.status)
       case _ =>
         HttpArchiveStateServerError(ex)

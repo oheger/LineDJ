@@ -162,8 +162,11 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val exception = new IOException("Failed request")
     val helper = new RequestActorTestHelper
 
-    helper.expectFailedRequest(authorized(TestRequest), exception)
-      .sendRequestAndExpectFailure[IOException] should be(exception)
+    val responseException = helper.expectFailedRequest(authorized(TestRequest), exception)
+      .sendRequestAndExpectFailure[FailedRequestException]
+    responseException.cause should be(exception)
+    responseException.response shouldBe 'empty
+    responseException.data should be(Data)
   }
 
   it should "fail the response future for a non-success response" in {
@@ -172,7 +175,9 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     val exception = helper.expectRequest(authorized(TestRequest), response)
       .sendRequestAndExpectFailure[FailedRequestException]
-    exception.response should be(response)
+    exception.response should be(Some(response))
+    exception.data should be(Data)
+    exception.cause should be(null)
   }
 
   it should "discard the entity bytes of a non-success response" in {
@@ -184,9 +189,10 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val response = HttpResponse(status = StatusCodes.Unauthorized, entity = entity)
     val helper = new RequestActorTestHelper
 
-    helper.expectRequest(authorized(TestRequest), response)
+    val exception = helper.expectRequest(authorized(TestRequest), response)
       .sendRequestAndExpectFailure[FailedRequestException]
     verify(entity).discardBytes()(any())
+    exception.data should be(Data)
   }
 
   it should "retry an unauthorized request if there is a cookie from the server" in {
@@ -203,17 +209,20 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val response = HttpResponse(status = StatusCodes.Unauthorized, headers = setCookieHeaders())
     val helper = new RequestActorTestHelper
 
-    helper.expectRequest(authorized(TestRequest), response)
+    val exception = helper.expectRequest(authorized(TestRequest), response)
       .expectRequest(authorized(withCookie(TestRequest)), response)
-      .sendRequestAndExpectFailure[FailedRequestException].response should be(response)
+      .sendRequestAndExpectFailure[FailedRequestException]
+    exception.response should be(Some(response))
+    exception.data should be(Data)
   }
 
   it should "only retry unauthorized requests" in {
     val response = HttpResponse(status = StatusCodes.Forbidden, headers = setCookieHeaders())
     val helper = new RequestActorTestHelper
 
-    helper.expectRequest(authorized(TestRequest), response)
-      .sendRequestAndExpectFailure[FailedRequestException].response should be(response)
+    val exception = helper.expectRequest(authorized(TestRequest), response)
+      .sendRequestAndExpectFailure[FailedRequestException]
+    exception.response should be(Some(response))
   }
 
   it should "store a cookie used for authorization" in {

@@ -234,7 +234,8 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
       case Success((response, d)) =>
         handleResponse(request, d, response, client)
       case Failure(exception) =>
-        sendException(client, exception)
+        sendException(client, FailedRequestException(cause = exception, data = data, response = None,
+          message = "Server request caused an exception"))
     }
   }
 
@@ -273,9 +274,9 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   private def handleResponse(request: HttpRequest, data: Any, response: HttpResponse, client: ActorRef): Unit = {
     log.info("{} {} - {} {}", request.method.value, request.uri, response.status.intValue(),
       response.status.reason())
-    verifyResponse(response) onComplete {
+    verifyResponse(response, data) onComplete {
       case Success(_) => client ! ResponseData(response, data)
-      case Failure(FailedRequestException(failedResponse)) if canRetry(failedResponse) =>
+      case Failure(FailedRequestException(_, _, Some(failedResponse), _)) if canRetry(failedResponse) =>
         self ! RetryRequest(request, data, failedResponse, client)
       case Failure(exception) => sendException(client, exception)
     }
@@ -288,11 +289,14 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * discarded.
     *
     * @param response the response
+    * @param data     additional request data
     * @return a future with the verified response
     */
-  private def verifyResponse(response: HttpResponse): Future[HttpResponse] =
+  private def verifyResponse(response: HttpResponse, data: Any): Future[HttpResponse] =
     if (response.status.isSuccess()) Future.successful(response)
-    else response.discardEntityBytes().future() flatMap (_ => Future.failed(FailedRequestException(response)))
+    else response.discardEntityBytes().future() flatMap (_ =>
+      Future.failed(FailedRequestException("Non success response", response = Some(response),
+        data = data, cause = null)))
 
   /**
     * Retries a request if possible. It is checked whether the original failed
@@ -305,7 +309,8 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   private def retryRequest(retryData: RetryRequest): Unit = {
     val newCookies = extractCookies(retryData.response)
     if (cookieHeader.exists(_.cookies == newCookies))
-      sendException(retryData.client, FailedRequestException(retryData.response))
+      sendException(retryData.client, FailedRequestException(response = Some(retryData.response),
+        message = "Non success response and no retry possible", data = retryData.data, cause = null))
     else {
       val cookie = Cookie(newCookies)
       log.info("Updated cookies to {}.", newCookies)

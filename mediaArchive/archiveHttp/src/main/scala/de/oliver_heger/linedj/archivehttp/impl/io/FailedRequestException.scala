@@ -21,10 +21,19 @@ import akka.http.scaladsl.model.HttpResponse
 /**
   * A special exception class indicating a failed HTTP request.
   *
-  * The exception stores the original response, so that further information
-  * about the failure can be obtained.
+  * A request sent to the [[HttpRequestActor]] can fail for different reasons.
+  * This exception class collects the information available. The fields that
+  * are actually defined depend on the type of the failure; for instance, the
+  * HTTP response is available only if a response from the server has been
+  * received.
   *
-  * @param response the response indicating the failed request
+  * @param message  an error message
+  * @param cause    the cause of this exception
+  * @param response optional server response indicating the failed request
+  * @param data     the data object from the original request
   */
-case class FailedRequestException(response: HttpResponse)
-  extends Exception(response.status.value)
+case class FailedRequestException(message: String,
+                                  cause: Throwable,
+                                  response: Option[HttpResponse],
+                                  data: Any)
+  extends Exception(message, cause)
