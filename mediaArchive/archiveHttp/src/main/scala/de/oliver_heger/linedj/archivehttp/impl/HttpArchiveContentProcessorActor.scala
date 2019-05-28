@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
+import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
@@ -103,20 +104,6 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     case req: ProcessHttpArchiveRequest =>
       val (killSwitch, futStream) = materializeStream(req)
       processStreamResult(futStream, killSwitch)(identity)
-  }
-
-  /**
-    * @inheritdoc This implementation creates a materializer with a supervision
-    *             strategy that resumes the stream in case of an error.
-    */
-  protected override def createMaterializer(): ActorMaterializer = {
-    val decider: Supervision.Decider = {
-      e =>
-        log.error(e, "Exception during stream processing!")
-        Supervision.Resume
-    }
-    ActorMaterializer(ActorMaterializerSettings(context.system)
-      .withSupervisionStrategy(decider))
   }
 
   /**
@@ -213,13 +200,13 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
                             (implicit tag: ClassTag[T])
   : Flow[(HttpRequest, RequestData), T, NotUsed] =
     Flow[(HttpRequest, RequestData)].mapAsync(parallelism) { t =>
-      val futResp = req.requestActor.ask(HttpRequestActor.SendRequest(t._1, t._2))(req.archiveConfig.processorTimeout)
+      implicit val timeout: Timeout = req.archiveConfig.processorTimeout
+      (for {resp <- req.requestActor.ask(HttpRequestActor.SendRequest(t._1, t._2))
         .mapTo[HttpRequestActor.ResponseData]
-      futResp.flatMap { resp =>
-        processHttpResponse(req, (resp.response, resp.data.asInstanceOf[RequestData])).mapTo[T].fallbackTo(Future {
-          val mid = createMediumID(req, t._2.mediumDesc)
-          fUndef(mid)
-        })
+            procResp <- processHttpResponse(req, (resp.response, resp.data.asInstanceOf[RequestData])).mapTo[T]
+      } yield procResp) fallbackTo Future {
+        val mid = createMediumID(req, t._2.mediumDesc)
+        fUndef(mid)
       }
     }
 
@@ -279,7 +266,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     */
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
                                   t: (HttpResponse, RequestData)): Future[Any] = {
-    val mediumID: MediumID = createMediumID(req, t._2.mediumDesc)
+    val mediumID = createMediumID(req, t._2.mediumDesc)
     val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)
   }
@@ -291,12 +278,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @param md  the medium description
     * @return the ''MediumID''
     */
-  private def createMediumID(req: ProcessHttpArchiveRequest, md: HttpMediumDesc)
-  : MediumID = {
+  private def createMediumID(req: ProcessHttpArchiveRequest, md: HttpMediumDesc): MediumID = {
     val pos = md.mediumDescriptionPath.lastIndexOf('/')
     val mediumURI = md.mediumDescriptionPath.substring(0, pos)
-    val mediumID = MediumID(mediumURI, Some(md.mediumDescriptionPath),
+    MediumID(mediumURI, Some(md.mediumDescriptionPath),
       req.archiveConfig.archiveURI.toString())
-    mediumID
   }
 }

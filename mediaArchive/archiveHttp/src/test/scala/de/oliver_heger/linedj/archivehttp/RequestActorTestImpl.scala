@@ -21,7 +21,6 @@ import java.io.IOException
 import akka.actor.{Actor, ActorRef}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl.{ExpectRequest, InitRequestResponseMapping}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
@@ -52,6 +51,15 @@ object RequestActorTestImpl {
     * @param mapping the map with expected requests and their responses
     */
   case class InitRequestResponseMapping(mapping: Map[HttpRequest, HttpResponse])
+
+  /**
+    * A message processed by [[RequestActorTestImpl]] that initializes the
+    * whole request-response mapping and also supports error requests. If a
+    * response is a failure, a corresponding exception is sent to the caller.
+    *
+    * @param mapping the map with expected requests and their responses
+    */
+  case class InitRequestResponseMappingWithFailures(mapping: Map[HttpRequest, Try[HttpResponse]])
 
   /**
     * Configures the given request actor to expect a successful request.
@@ -87,6 +95,16 @@ object RequestActorTestImpl {
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = null, requestQueueSize = 100)
 
+  /**
+    * Transforms the given mapping with only successful requests to an enhanced
+    * mapping that supports failure responses. Of course, all responses are
+    * mapped to ''Success'' objects.
+    *
+    * @param mapping the mapping to be converted
+    * @return the enhanced response mapping
+    */
+  def toMappingWithFailures(mapping: Map[HttpRequest, HttpResponse]): Map[HttpRequest, Try[HttpResponse]] =
+    mapping map { e => (e._1, Success(e._2)) }
 
   /**
     * Returns the class of the request actor.
@@ -111,36 +129,53 @@ object RequestActorTestImpl {
   * expected requests.
   */
 class RequestActorTestImpl extends Actor with Matchers {
+
+  import RequestActorTestImpl._
+
   /** A queue with expected requests and their responses. */
   private var expectedRequests = Queue.empty[ExpectRequest]
 
   /** A map with requests and their responses. */
-  private var requestResponseMapping = Map.empty[HttpRequest, HttpResponse]
+  private var requestResponseMapping = Map.empty[HttpRequest, Try[HttpResponse]]
 
   override def receive: Receive = {
     case er: ExpectRequest =>
       expectedRequests = expectedRequests.enqueue(er)
 
     case InitRequestResponseMapping(mapping) =>
+      requestResponseMapping = toMappingWithFailures(mapping)
+
+    case InitRequestResponseMappingWithFailures(mapping) =>
       requestResponseMapping = mapping
 
     case SendRequest(request, data) if expectedRequests.nonEmpty =>
       val (reqData, q) = expectedRequests.dequeue
       expectedRequests = q
       request should be(reqData.request)
-      reqData.response match {
-        case Success(resp) =>
-          sender() ! ResponseData(resp, data)
-        case Failure(exception) =>
-          sender() ! akka.actor.Status.Failure(exception)
-      }
+      sendTriedResponse(reqData.response, data)
 
     case SendRequest(request, data) if expectedRequests.isEmpty =>
       requestResponseMapping get request match {
         case Some(response) =>
-          sender() ! ResponseData(response, data)
+          sendTriedResponse(response, data)
         case None =>
           sender() ! akka.actor.Status.Failure(new IOException("Failed request to " + request.uri))
       }
+  }
+
+  /**
+    * Sends a response back to the caller which can be either successful or a
+    * failure.
+    *
+    * @param response the ''Try'' with the response to send
+    * @param data     additional data
+    */
+  private def sendTriedResponse(response: Try[HttpResponse], data: Any): Unit = {
+    response match {
+      case Success(resp) =>
+        sender() ! ResponseData(resp, data)
+      case Failure(exception) =>
+        sender() ! akka.actor.Status.Failure(exception)
+    }
   }
 }
