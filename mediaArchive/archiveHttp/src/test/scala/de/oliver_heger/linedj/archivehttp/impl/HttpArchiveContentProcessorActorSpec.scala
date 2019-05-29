@@ -521,7 +521,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * @return the request actor reference
       */
     private def createRequestActor(mapping: Map[HttpRequest, Try[HttpResponse]]): ActorRef = {
-      val requestActor = system.actorOf(Props[RequestActorTestImpl])
+      val requestActor = system.actorOf(RequestActorTestImpl())
       requestActor ! RequestActorTestImpl.InitRequestResponseMappingWithFailures(mapping)
       requestActor
     }

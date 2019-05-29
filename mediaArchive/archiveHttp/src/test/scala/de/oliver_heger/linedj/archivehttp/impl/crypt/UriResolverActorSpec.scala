@@ -16,15 +16,19 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.crypt
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Accept
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
+import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl.ExpectRequest
 import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.util.{Failure, Success}
 
 object UriResolverActorSpec {
   /** The password for decrypting file names. */
@@ -46,6 +50,14 @@ object UriResolverActorSpec {
   private val FolderContent = "folder_encrypted.xml"
 
   /**
+    * The accept header that must be present for all requests. Note that custom
+    * header can obviously not be compared with equals; therefore, the header
+    * has to be referenced directly.
+    */
+  private val ExpHeaders = List(Accept(MediaRange(MediaType.text("xml"))),
+    UriResolverActor.HeaderDepth)
+
+  /**
     * Determines the full path of a path relative to the encrypted archive.
     * Prepends the base path to the given path (which must start with a "/").
     *
@@ -61,6 +73,37 @@ object UriResolverActorSpec {
     * @return the request to resolve this URI
     */
   private def createRequest(path: String): ResolveUri = ResolveUri(Uri(serverPath(path)))
+
+  /**
+    * Generates a HTTP request for a folder with the given path on a DAV
+    * server.
+    *
+    * @param path the requested path
+    * @return the full folder request for this path
+    */
+  private def folderRequest(path: String): HttpRequest =
+    HttpRequest(uri = path, method = HttpMethod.custom("PROPFIND"), headers = ExpHeaders)
+
+  /**
+    * Generates the response from a DAV server for a folder request returning
+    * the specified content.
+    *
+    * @param content the content of the response
+    * @return the full response
+    */
+  private def folderResponse(content: String): HttpResponse =
+    HttpResponse(entity = HttpEntity(content))
+
+  /**
+    * Generates a message for the test HTTP request actor to expect a folder
+    * request and return the given response.
+    *
+    * @param path     the path of the requested folder
+    * @param response the content of the response
+    * @return the message to stub this request
+    */
+  private def stubFolderRequest(path: String, response: String): ExpectRequest =
+    ExpectRequest(folderRequest(path), Success(folderResponse(response)))
 }
 
 /**
@@ -88,20 +131,30 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     system.actorOf(props)
   }
 
-  "A UriResolverActor" should "handle a failure response from the request actor" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
-    reqActor ! StubRequest(serverPath("/"), null, error = true)
+  "A UriResolverActor" should "use a correct Depth header" in {
+    UriResolverActor.HeaderDepth.value() should be("1")
+  }
+
+  it should "handle a failure response from the request actor" in {
+    val exception = new Exception("FAILURE")
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    reqActor ! ExpectRequest(folderRequest(serverPath("/")), Failure(exception))
     val resolver = createResolverActor(reqActor)
 
     resolver ! createRequest("/sub/subFile.txt")
     val response = expectMsgType[akka.actor.Status.Failure]
-    response.cause.getMessage should be("FAILURE")
+    response.cause match {
+      case ex: FailedRequestException =>
+        ex.cause should be(exception)
+      case ex => fail("Unexpected failure: " + ex)
+    }
   }
 
   it should "handle a part that cannot be resolved" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
-    reqActor ! StubRequest(serverPath("/"), readResourceFile(RootContent))
-    reqActor ! StubRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    reqActor ! stubFolderRequest(serverPath("/"), readResourceFile(RootContent))
+    reqActor ! stubFolderRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"),
+      readResourceFile(FolderContent))
     val resolveRequest = createRequest("/sub/nonExisting.txt")
     val resolver = createResolverActor(reqActor)
 
@@ -112,9 +165,9 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   }
 
   it should "resolve a URI" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
-    reqActor ! StubRequest(serverPath("/"), readResourceFile(RootContent))
-    reqActor ! StubRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    reqActor ! stubFolderRequest(serverPath("/"), readResourceFile(RootContent))
+    reqActor ! stubFolderRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
     val resolver = createResolverActor(reqActor)
     val resolveRequest = createRequest("/sub/subFile.txt")
 
@@ -124,9 +177,10 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   }
 
   it should "cache URIs that have already been resolved" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
-    reqActor ! StubRequest(serverPath("/"), readResourceFile(RootContent))
-    reqActor ! StubRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    reqActor ! stubFolderRequest(serverPath("/"), readResourceFile(RootContent))
+    reqActor ! stubFolderRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"),
+      readResourceFile(FolderContent))
     val resolver = createResolverActor(reqActor)
     val resolveRequest1 = createRequest("/bar.txt")
     resolver ! resolveRequest1
@@ -139,24 +193,26 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   }
 
   it should "combine requests to the same folder" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
-    reqActor ! StubRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
+    val reqActor = system.actorOf(RequestActorTestImpl(failOnUnmatchedRequest = false))
     val resolver = createResolverActor(reqActor)
     val resolveRequest1 = createRequest("/bar.txt")
     val resolveRequest2 = createRequest("/sub/subFile.txt")
     val expResult1 = ResolvedUri(serverPath("/uBQQYWockOWLuCROIHviFhU2XayMtps="), resolveRequest1.uri)
-    val expResult2 = ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
+    val expResult2 = ResolvedUri(
+      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
       resolveRequest2.uri)
 
     resolver ! resolveRequest1
     resolver ! resolveRequest2
-    reqActor ! StubRequest(serverPath("/"), readResourceFile(RootContent))
+    reqActor ! stubFolderRequest(serverPath("/"), readResourceFile(RootContent))
+    reqActor ! stubFolderRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"),
+      readResourceFile(FolderContent))
     val results = List(expectMsgType[ResolvedUri], expectMsgType[ResolvedUri])
     results should contain only(expResult1, expResult2)
   }
 
   it should "handle a request with an invalid base path" in {
-    val reqActor = system.actorOf(Props[StubRequestActor])
+    val reqActor = system.actorOf(RequestActorTestImpl())
     val resolver = createResolverActor(reqActor)
     val path = "/invalid/path/foo.txt"
 
@@ -166,106 +222,3 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   }
 }
 
-/**
-  * A message class to add a stub request to the stub request actor.
-  *
-  * @param path     the path to be stubbed
-  * @param response the response string to be returned for this path
-  * @param error    flag whether an error response should be generated
-  */
-case class StubRequest(path: String, response: String, error: Boolean = false)
-
-/**
-  * A data class for storing information about a request that cannot be
-  * processed directly because no stub is available.
-  *
-  * @param request the actual request
-  * @param client  the sender of this request
-  */
-case class PendingRequest(request: SendRequest, client: ActorRef)
-
-/**
-  * An actor simulating the HTTP request actor.
-  *
-  * This actor processes ''SendRequest'' messages. For each request it checks
-  * whether it had received a [[StubRequest]] message previously that defines
-  * how to handle this request. If so, a response with the corresponding result
-  * string is returned. (Otherwise, the request times out.) A once processed
-  * request is removed from the stubbing data; so if it is expected again, it
-  * has to be stubbed anew.
-  *
-  * If a request arrives for which no stub is defined yet, it is recorded. On
-  * receiving a stub message later on, it is answered accordingly. That way the
-  * timing of requests can be controlled in a better way.
-  */
-class StubRequestActor extends Actor {
-  /** The accept header that must be present for all requests. */
-  private val ExpAccept = Accept(MediaRange(MediaType.text("xml")))
-
-  /** The map with requests this actor can handle. */
-  private var expectedRequests = Map.empty[String, StubRequest]
-
-  /** A map to store requests for which no stub information is available yet. */
-  private var pendingRequests = Map.empty[String, PendingRequest]
-
-  override def receive: Receive = {
-    case stub@StubRequest(path, _, _) =>
-      println("Received StubRequest for " + path)
-      pendingRequests.get(path) match {
-        case Some(req) => sendResponse(stub, req)
-        case None => expectedRequests = expectedRequests + (path -> stub)
-      }
-
-    case req@SendRequest(request, _) if checkRequest(request) =>
-      val path = request.uri.path.toString()
-      println(s"Received request for $path, stubs are ${expectedRequests.keys}.")
-      val pendingRequest = PendingRequest(req, sender())
-      expectedRequests.get(path) match {
-        case Some(stub) =>
-          sendResponse(stub, pendingRequest)
-          expectedRequests -= path
-        case None => pendingRequests += path -> pendingRequest
-      }
-  }
-
-  /**
-    * Sends a response for a pending request.
-    *
-    * @param stubRequest    the stub that defines the response
-    * @param pendingRequest data about the request to be answered
-    */
-  private def sendResponse(stubRequest: StubRequest, pendingRequest: PendingRequest): Unit = {
-    val message = if (stubRequest.error) akka.actor.Status.Failure(new Exception("FAILURE"))
-    else {
-      val response = HttpResponse(entity = HttpEntity(stubRequest.response))
-      ResponseData(response, pendingRequest.request.data)
-    }
-    pendingRequest.client ! message
-  }
-
-  /**
-    * Checks whether the given request meets all criteria to query a DAV
-    * folder on the server.
-    *
-    * @param request the request
-    * @return a flag whether this request is accepted
-    */
-  private def checkRequest(request: HttpRequest): Boolean = {
-    println("Checking request " + request)
-    checkHeader(request, ExpAccept) && checkDepthHeader(request) &&
-      request.method.value == "PROPFIND"
-  }
-
-  /**
-    * Checks whether a specific header is contained in the given request.
-    *
-    * @param request the request
-    * @param header  the expected header
-    * @return a flag whether this header was found
-    */
-  private def checkHeader(request: HttpRequest, header: HttpHeader): Boolean =
-    request.headers.contains(header)
-
-  private def checkDepthHeader(request: HttpRequest): Boolean =
-    request.headers.exists(h => h.name() == "Depth" && h.value() == "1")
-}

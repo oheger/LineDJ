@@ -192,7 +192,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val probeRemoveActor = TestProbe()
 
     /** The mock request actor. */
-    private val requestActor = system.actorOf(Props[RequestActorTestImpl])
+    private val requestActor = system.actorOf(RequestActorTestImpl())
 
     /** Counter for the number of flow instances that have been created. */
     private val flowCreationCount = new AtomicInteger

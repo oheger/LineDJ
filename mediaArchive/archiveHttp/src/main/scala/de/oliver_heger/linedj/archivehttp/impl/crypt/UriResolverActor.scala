@@ -144,7 +144,7 @@ object UriResolverActor {
   private val HeaderAccept = Accept(MediaXML)
 
   /** The Depth header to be used by all requests. */
-  private val HeaderDepth = DepthHeader("1")
+  val HeaderDepth: DepthHeader = DepthHeader("1")
 
   /** The list of headers to include into a folder request. */
   private val FolderRequestHeaders = List(HeaderAccept, HeaderDepth)

@@ -18,11 +18,11 @@ package de.oliver_heger.linedj.archivehttp
 
 import java.io.IOException
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
 import org.scalatest.Matchers
 
@@ -60,6 +60,24 @@ object RequestActorTestImpl {
     * @param mapping the map with expected requests and their responses
     */
   case class InitRequestResponseMappingWithFailures(mapping: Map[HttpRequest, Try[HttpResponse]])
+
+  /**
+    * A data class for storing information about a request that cannot be
+    * processed directly because no expected request is available.
+    *
+    * @param request the actual request
+    * @param client  the sender of this request
+    */
+  private case class PendingRequest(request: SendRequest, client: ActorRef)
+
+  /**
+    * Returns a ''Props'' object to create a new actor instance.
+    *
+    * @param failOnUnmatchedRequest the flag to fail for unmatched requests
+    * @return the ''Props'' to create a new actor instance
+    */
+  def apply(failOnUnmatchedRequest: Boolean = true): Props =
+    Props(classOf[RequestActorTestImpl], failOnUnmatchedRequest)
 
   /**
     * Configures the given request actor to expect a successful request.
@@ -123,12 +141,23 @@ object RequestActorTestImpl {
   * simulates an ''HttpRequestActor'' by comparing expected requests and
   * sending the configured responses.
   *
-  * In addition to a sequence of requests and responses, an instance can also
-  * be configured with a map. Then the order in which requests arrive does not
-  * matter. A map with requests is evaluated only if there are no (more)
-  * expected requests.
+  * An instance can be configured with both an ordered queue of expected
+  * requests and a map with expected requests. When a request arrives it is
+  * first checked whether it is contained in the map; if so, the associated
+  * response is sent. Otherwise, the queue is consulted. Here the top request
+  * must match exactly the received request.
+  *
+  * If a request arrives that cannot be matched against the map and the queue
+  * is empty, depending on the constructor parameter either an error is sent
+  * back or the request is stored. In the latter case, it is processed when a
+  * new expected request is added to the queue. This is useful to make tests
+  * more flexible regarding timing.
+  *
+  * @param failOnUnmatchedRequest if '''true''', every unmatched request causes
+  *                               an error; if '''false''', the request is
+  *                               stored an can later be processed
   */
-class RequestActorTestImpl extends Actor with Matchers {
+class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with Matchers {
 
   import RequestActorTestImpl._
 
@@ -138,9 +167,16 @@ class RequestActorTestImpl extends Actor with Matchers {
   /** A map with requests and their responses. */
   private var requestResponseMapping = Map.empty[HttpRequest, Try[HttpResponse]]
 
+  /** A queue storing the pending requests that could not be processed. */
+  private var pendingRequests = Queue.empty[PendingRequest]
+
   override def receive: Receive = {
     case er: ExpectRequest =>
       expectedRequests = expectedRequests.enqueue(er)
+      pendingRequests.dequeueOption foreach { d =>
+        pendingRequests = d._2
+        checkExpectedRequest(d._1.request.request, d._1.request.data, d._1.client)
+      }
 
     case InitRequestResponseMapping(mapping) =>
       requestResponseMapping = toMappingWithFailures(mapping)
@@ -148,19 +184,36 @@ class RequestActorTestImpl extends Actor with Matchers {
     case InitRequestResponseMappingWithFailures(mapping) =>
       requestResponseMapping = mapping
 
-    case SendRequest(request, data) if expectedRequests.nonEmpty =>
-      val (reqData, q) = expectedRequests.dequeue
-      expectedRequests = q
-      request should be(reqData.request)
-      sendTriedResponse(reqData.response, data)
-
-    case SendRequest(request, data) if expectedRequests.isEmpty =>
+    case req@SendRequest(request, data) =>
       requestResponseMapping get request match {
         case Some(response) =>
-          sendTriedResponse(response, data)
+          sendTriedResponse(response, data, sender())
         case None =>
-          sender() ! akka.actor.Status.Failure(new IOException("Failed request to " + request.uri))
+          if (expectedRequests.isEmpty) {
+            if (failOnUnmatchedRequest) {
+              sender() ! akka.actor.Status.Failure(new IOException("Failed request to " + request.uri))
+            } else {
+              pendingRequests = pendingRequests enqueue PendingRequest(req, sender())
+            }
+          } else {
+            checkExpectedRequest(request, data, sender())
+          }
       }
+  }
+
+  /**
+    * Checks the given request against the first expected request and sends a
+    * corresponding response to the client.
+    *
+    * @param request the request
+    * @param data    the data
+    * @param client  the caller
+    */
+  private def checkExpectedRequest(request: HttpRequest, data: Any, client: ActorRef): Unit = {
+    val (reqData, q) = expectedRequests.dequeue
+    expectedRequests = q
+    request should be(reqData.request)
+    sendTriedResponse(reqData.response, data, client)
   }
 
   /**
@@ -169,13 +222,18 @@ class RequestActorTestImpl extends Actor with Matchers {
     *
     * @param response the ''Try'' with the response to send
     * @param data     additional data
+    * @param client   the receiver of the message to send
     */
-  private def sendTriedResponse(response: Try[HttpResponse], data: Any): Unit = {
+  private def sendTriedResponse(response: Try[HttpResponse], data: Any, client: ActorRef): Unit = {
     response match {
       case Success(resp) =>
-        sender() ! ResponseData(resp, data)
+        client ! ResponseData(resp, data)
       case Failure(exception) =>
-        sender() ! akka.actor.Status.Failure(exception)
+        val wrappedEx = exception match {
+          case reqEx: FailedRequestException => reqEx
+          case ex => FailedRequestException("Test exception", ex, None, data)
+        }
+        client ! akka.actor.Status.Failure(wrappedEx)
     }
   }
 }

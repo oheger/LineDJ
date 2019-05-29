@@ -455,7 +455,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private val probeContentPropagationActor = TestProbe()
 
     /** The actor for sending requests. */
-    private val requestActor = system.actorOf(Props[RequestActorTestImpl])
+    private val requestActor = system.actorOf(RequestActorTestImpl())
 
     /** Mock for the temp path generator. */
     private val pathGenerator = mock[TempPathGenerator]
