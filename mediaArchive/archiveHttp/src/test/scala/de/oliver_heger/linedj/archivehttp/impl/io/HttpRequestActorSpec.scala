@@ -64,7 +64,8 @@ object HttpRequestActorSpec {
     requestQueueSize = QueueSize, archiveName = "MyTestArchive", processorCount = 1,
     processorTimeout = Timeout(1.minute), propagationBufSize = 128, maxContentSize = 10000,
     downloadBufferSize = 65536, downloadMaxInactivity = 30.seconds, downloadReadChunkSize = 100,
-    timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null)
+    timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
+    cryptUriCacheSize = 1024)
 
   /** The expected authorization header. */
   private val AuthHeader = Authorization(BasicHttpCredentials(Credentials.userName, Credentials.password))

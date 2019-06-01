@@ -84,6 +84,9 @@ object HttpArchiveConfigSpec {
   /** The size of the request queue. */
   private val RequestQueueSize = 64
 
+  /** The size of the cache for encrypted URIs. */
+  private val CryptCacheSize = 2222
+
   /**
     * Creates a configuration object with all test settings.
     *
@@ -108,6 +111,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".uriMapping.pathSeparator", UriPathSeparator)
     c.addProperty(at + ".uriMapping.urlEncoding", true)
     c.addProperty(at + ".requestQueueSize", RequestQueueSize)
+    c.addProperty(at + ".cryptUriCacheSize", CryptCacheSize)
     c
   }
 
@@ -162,6 +166,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
           .DefaultUriMappingTemplate)
         config.contentMappingConfig.urlEncode shouldBe false
         config.requestQueueSize should be(RequestQueueSize)
+        config.cryptUriCacheSize should be(CryptCacheSize)
         config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
@@ -319,6 +324,17 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
       case Success(config) =>
         config.requestQueueSize should be(HttpArchiveConfig.DefaultRequestQueueSize)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default size for the cache for encrypted URIs if unspecified" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropCryptUriCacheSize)
+
+    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+      case Success(config) =>
+        config.cryptUriCacheSize should be(HttpArchiveConfig.DefaultCryptUriCacheSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }

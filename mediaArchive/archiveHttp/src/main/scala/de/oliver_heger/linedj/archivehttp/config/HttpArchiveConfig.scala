@@ -183,6 +183,18 @@ object HttpArchiveConfig {
   val PropRequestQueueSize = "requestQueueSize"
 
   /**
+    * The configuration property defining the size of the cache for encrypted
+    * URIs. This property is evaluated for encrypted archives. In this case,
+    * URIs reference plain directory and file names and have to be resolved
+    * first before the execution of a request. Because URI resolving can  be
+    * expensive a cache is maintained which stores already resolved URIs. With
+    * this property the size of this cache can be determined. As this cache
+    * only stores strings representing URIs, it does not consume that much
+    * memory; so it should be safe to set a larger number.
+    */
+  val PropCryptUriCacheSize = "cryptUriCacheSize"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -221,8 +233,11 @@ object HttpArchiveConfig {
     */
   val DefaultPathComponentsToRemove = 0
 
-  /** * Default value for the request queue size property. */
+  /** Default value for the request queue size property. */
   val DefaultRequestQueueSize = 16
+
+  /** Default value for the crypt URI cache size property. */
+  val DefaultCryptUriCacheSize = 1024
 
   /** The separator for property keys. */
   private val Separator = "."
@@ -267,7 +282,8 @@ object HttpArchiveConfig {
       downloadConfig,
       extractMappingConfig(c, Path + PrefixMetaUriMapping),
       extractMappingConfig(c, Path + PrefixContentUriMapping),
-      c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize))
+      c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize),
+      c.getInt(Path + PropCryptUriCacheSize, DefaultCryptUriCacheSize))
   }
 
   /**
@@ -366,6 +382,7 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param contentMappingConfig  configuration for URI mapping for the archive
   *                              content file
   * @param requestQueueSize      the size of the queue for pending requests
+  * @param cryptUriCacheSize     the size of the cache for decrypted URIs
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
@@ -381,7 +398,8 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              downloadConfig: DownloadConfig,
                              metaMappingConfig: UriMappingConfig,
                              contentMappingConfig: UriMappingConfig,
-                             requestQueueSize: Int) {
+                             requestQueueSize: Int,
+                             cryptUriCacheSize: Int) {
   /**
     * A sequence with the single components of the archive URI. This is needed
     * when constructing relative URIs for songs contained in the archive.
