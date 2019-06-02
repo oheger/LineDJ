@@ -17,12 +17,14 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import java.nio.file.{Files, Paths}
+import java.security.Key
 import java.time.Instant
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
@@ -48,6 +50,9 @@ object HttpArchiveStarterSpec {
   /** A default numeric index to be passed to the starter. */
   private val ArcIndex = 28
 
+  /** A key for testing the handling of encrypted archives. */
+  private val CryptKey = new AESKeyGenerator().generateKey("keyForMyArchive")
+
   /**
     * Creates a configuration object with the properties defining the test
     * HTTP archive.
@@ -65,7 +70,7 @@ object HttpArchiveStarterSpec {
     *
     * @param probe the test probe
     */
-  private def expectNoMessageToProble(probe: TestProbe): Unit = {
+  private def expectNoMessageToProbe(probe: TestProbe): Unit = {
     val Ping = new Object
     probe.ref ! Ping
     probe.expectMsg(Ping)
@@ -100,6 +105,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   "A HttpArchiveStarter" should "create correct actors for the archive" in {
     val helper = new StarterTestHelper
+
+    helper.startArchiveAndCheckActors()
+      .checkActorProps()
+  }
+
+  it should "create correct actors for an encrypted archive" in {
+    val helper = new StarterTestHelper(encryptedArchive = true)
 
     helper.startArchiveAndCheckActors()
       .checkActorProps()
@@ -158,16 +170,18 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new StarterTestHelper(clearTemp = false)
 
     helper.startArchiveAndCheckActors()
-        .expectNoClearTempDirectory()
+      .expectNoClearTempDirectory()
   }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     *
-    * @param index     the numeric index to be passed to the starter
-    * @param clearTemp flag whether the temp directory is to be cleared
+    * @param index            the numeric index to be passed to the starter
+    * @param clearTemp        flag whether the temp directory is to be cleared
+    * @param encryptedArchive flag whether the archive should be encrypted
     */
-  private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true) {
+  private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true,
+                                  encryptedArchive: Boolean = false) {
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -203,8 +217,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, None, actorFactory, index,
-        clearTemp)
+      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, cryptKeyParam,
+        actorFactory, index, clearTemp)
 
     /**
       * Invokes the test instance to start the archive and checks whether the
@@ -240,12 +254,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
       classOf[ChildActorFactory].isAssignableFrom(propsManager.actorClass()) shouldBe true
-      propsManager.args should have size 7
+      propsManager.args should have size 8
       propsManager.args(1) should be(archiveData.config)
       propsManager.args(3) should be(unionArchiveActors.mediaManager)
       propsManager.args(4) should be(unionArchiveActors.metaDataManager)
       propsManager.args(5) should be(probeMonitoringActor.ref)
       propsManager.args(6) should be(probeRemoveActor.ref)
+      propsManager.args(7) should be(cryptKeyParam)
 
       val propsMonitor = actorCreationProps(actorName(
         HttpArchiveStarter.DownloadMonitoringActorName))
@@ -289,7 +304,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return this test helper
       */
     def expectNoClearTempDirectory(): StarterTestHelper = {
-      expectNoMessageToProble(probeRemoveActor)
+      expectNoMessageToProbe(probeRemoveActor)
       this
     }
 
@@ -321,6 +336,15 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       */
     private def createUnionArchiveActors(): MediaFacadeActors =
       MediaFacadeActors(TestProbe().ref, TestProbe().ref)
+
+    /**
+      * Determines the parameter for the decryption key to be used based on
+      * the flag whether the archive should be encrypted.
+      *
+      * @return the parameter for the decryption key
+      */
+    private def cryptKeyParam: Option[Key] =
+      if (encryptedArchive) Some(CryptKey) else None
 
     /**
       * Creates an actor factory object that returns the predefined test

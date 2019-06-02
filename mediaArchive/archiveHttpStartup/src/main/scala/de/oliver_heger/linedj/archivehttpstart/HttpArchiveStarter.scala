@@ -117,7 +117,7 @@ class HttpArchiveStarter {
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
     val archiveConfig = archiveData.config.copy(credentials = credentials)
     createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-      archiveData.shortName, index, clearTemp)
+      optKey, archiveData.shortName, index, clearTemp)
   }
 
   /**
@@ -128,6 +128,7 @@ class HttpArchiveStarter {
     * @param actorFactory       the actor factory
     * @param archiveConfig      the config of the archive to be created
     * @param config             the original configuration
+    * @param optKey             option for the decryption key of an encrypted archive
     * @param shortName          the short name of the archive to be created
     * @param index              an index for unique actor name generation
     * @param clearTemp          the clear temp directory flag
@@ -135,8 +136,8 @@ class HttpArchiveStarter {
     */
   private def createArchiveActors(unionArchiveActors: MediaFacadeActors,
                                   actorFactory: ActorFactory, archiveConfig: HttpArchiveConfig,
-                                  config: Configuration, shortName: String, index: Int,
-                                  clearTemp: Boolean): Map[String, ActorRef] = {
+                                  config: Configuration, optKey: Option[Key], shortName: String,
+                                  index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
     def actorName(n: String): String = archiveActorName(shortName, n, index)
 
     val managerName = actorName(ManagementActorName)
@@ -149,7 +150,7 @@ class HttpArchiveStarter {
       DownloadMonitoringActor(archiveConfig.downloadConfig), monitorName)
     val managerActor = actorFactory.createActor(HttpArchiveManagementActor(archiveConfig,
       pathGenerator, unionArchiveActors.mediaManager, unionArchiveActors.metaDataManager,
-      monitoringActor, removeActor), managerName)
+      monitoringActor, removeActor, optKey), managerName)
 
     managerActor ! ScanAllMedia
     if (clearTemp) {
