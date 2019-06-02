@@ -27,7 +27,9 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
@@ -64,6 +66,9 @@ object HttpArchiveManagementActorSpec {
   /** The request to the test archive. */
   private val ArchiveRequest = createRequest()
 
+  /** A key used by tests that simulate an encrypted archive. */
+  private val CryptKey = new AESKeyGenerator().generateKey("MySecretArchive")
+
   /** Class for the content processor actor. */
   private val ClsContentProcessor = classOf[HttpArchiveContentProcessorActor]
 
@@ -79,6 +84,12 @@ object HttpArchiveManagementActorSpec {
   /** Class for the download management actor. */
   private val ClsDownloadManagementActor =
     HttpDownloadManagementActor(null, null, null, null, null).actorClass()
+
+  /** Class for the actor that resolves encrypted URIs. */
+  private val ClsUriResolverActor = classOf[UriResolverActor]
+
+  /** Class for the actor that executes requests against encrypted archives. */
+  private val ClsCryptRequestActor = classOf[CryptHttpRequestActor]
 
   /** A state indicating that a scan operation is in progress. */
   private val ProgressState = ContentProcessingUpdateServiceImpl.InitialState
@@ -164,16 +175,19 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     val removeActor = TestProbe()
     val pathGenerator = new TempPathGenerator(Paths get "temp")
     val props = HttpArchiveManagementActor(ArchiveConfig, pathGenerator, mediaManager.ref,
-      metaManager.ref, monitoringActor.ref, removeActor.ref)
+      metaManager.ref, monitoringActor.ref, removeActor.ref, Some(CryptKey))
     classOf[HttpArchiveManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ContentProcessingUpdateServiceImpl, ArchiveConfig, pathGenerator,
-      mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref))
+      mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref, Some(CryptKey)))
   }
 
-  it should "pass a process request to the content processor actor" in {
-    val helper = new HttpArchiveManagementActorTestHelper
-
+  /**
+    * Checks a processing operation on a test archive.
+    *
+    * @param helper the prepared helper
+    */
+  private def checkProcessing(helper: HttpArchiveManagementActorTestHelper): Unit = {
     val request = helper.stub((), ProgressState)(_.processingDone())
       .triggerScan().expectProcessingRequest()
     request.archiveConfig should be(ArchiveConfig)
@@ -196,6 +210,15 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.expectStateUpdate(ContentProcessingUpdateServiceImpl.InitialState)
       .expectStateUpdate(ProgressState)
     verify(helper.updateService).handleResultAvailable(argEq(result), any(), argEq(PropBufSize))
+  }
+
+  it should "pass a process request to the content processor actor" in {
+    checkProcessing(new HttpArchiveManagementActorTestHelper)
+  }
+
+  it should "correctly deal with encrypted archives" in {
+    val helper = new HttpArchiveManagementActorTestHelper(cryptArchive = true)
+    checkProcessing(helper)
   }
 
   it should "notify the union archive about a started scan operation" in {
@@ -424,8 +447,10 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   /**
     * A test helper class managing all dependencies of a test actor instance.
+    *
+    * @param cryptArchive flag whether the test archive should be encrypted
     */
-  private class HttpArchiveManagementActorTestHelper
+  private class HttpArchiveManagementActorTestHelper(cryptArchive: Boolean = false)
     extends StateTestHelper[ContentProcessingState, ContentProcessingUpdateService] {
     /** Mock for the update service. */
     override val updateService: ContentProcessingUpdateService = mock[ContentProcessingUpdateService]
@@ -454,8 +479,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the content propagation actor. */
     private val probeContentPropagationActor = TestProbe()
 
+    /** Test probe for the URI resolver actor. */
+    private val probeUriResolverActor = TestProbe()
+
     /** The actor for sending requests. */
-    private val requestActor = system.actorOf(RequestActorTestImpl())
+    private val plainRequestActor = system.actorOf(RequestActorTestImpl())
+
+    /** The actor for sending encrypted requests. */
+    private val cryptRequestActor = system.actorOf(RequestActorTestImpl())
 
     /** Mock for the temp path generator. */
     private val pathGenerator = mock[TempPathGenerator]
@@ -602,6 +633,15 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     }
 
     /**
+      * Returns the actor to be used for sending HTTP requests. This actor
+      * depends on the encryption state of the archive.
+      *
+      * @return the actor for sending HTTP requests
+      */
+    private def requestActor: ActorRef =
+      if (cryptArchive) cryptRequestActor else plainRequestActor
+
+    /**
       * Creates the test actor.
       *
       * @return the test actor
@@ -617,7 +657,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private def createProps(): Props =
       Props(new HttpArchiveManagementActor(updateService, ArchiveConfig, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
-        probeMonitoringActor.ref, probeRemoveActor.ref)
+        probeMonitoringActor.ref, probeRemoveActor.ref,
+        if (cryptArchive) Some(CryptKey) else None)
         with ChildActorFactory {
 
         /**
@@ -648,9 +689,19 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
                 ArchiveURIStr))
               probeContentPropagationActor.ref
 
+            case ClsUriResolverActor if cryptArchive =>
+              p.args should be(List(plainRequestActor, CryptKey, RequestActorTestImpl.TestArchiveBasePath,
+                ArchiveConfig.cryptUriCacheSize))
+              probeUriResolverActor.ref
+
             case RequestActorTestImpl.ClsRequestActor =>
               p.args should contain only ArchiveConfig
-              requestActor
+              plainRequestActor
+
+            case ClsCryptRequestActor if cryptArchive =>
+              p.args should be(List(probeUriResolverActor.ref, plainRequestActor, CryptKey,
+                ArchiveConfig.processorTimeout))
+              cryptRequestActor
           }
       })
   }

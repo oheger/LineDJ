@@ -35,6 +35,24 @@ object RequestActorTestImpl {
   val ClsRequestActor: Class[_] = requestActorClass()
 
   /**
+    * The URI with the host where the test archive is located (used in the
+    * configuration for the HTTP archive).
+    */
+  val TestArchiveHost = "https://some.archive.org"
+
+  /**
+    * The base path of the test archive (used in the configuration for the HTTP
+    * archive).
+    */
+  val TestArchiveBasePath = "/data"
+
+  /**
+    * Name of the content file for the test archive (used in the configuration
+    * for the HTTP archive).
+    */
+  val TestArchiveContentFile = "archiveContent.json"
+
+  /**
     * A message processed by [[RequestActorTestImpl]] that configures an
     * expected request and its response.
     *
@@ -107,10 +125,11 @@ object RequestActorTestImpl {
     * @return the test config
     */
   def createTestArchiveConfig(): HttpArchiveConfig =
-    HttpArchiveConfig(archiveURI = "https://some.archive.org/data", archiveName = "test",
-      credentials = UserCredentials("scott", "tiger"), processorCount = 1, processorTimeout = Timeout(1.minute),
-      propagationBufSize = 100, maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
+    HttpArchiveConfig(archiveURI = TestArchiveHost + TestArchiveBasePath + "/" + TestArchiveContentFile,
+      archiveName = "test", credentials = UserCredentials("scott", "tiger"), processorCount = 1,
+      processorTimeout = Timeout(1.minute), propagationBufSize = 100, maxContentSize = 1024,
+      downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds, downloadReadChunkSize = 8192,
+      timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = null, requestQueueSize = 100, cryptUriCacheSize = 1000)
 
   /**

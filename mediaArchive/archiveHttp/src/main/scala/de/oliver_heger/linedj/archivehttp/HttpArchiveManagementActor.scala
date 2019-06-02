@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttp
 
 import java.nio.charset.StandardCharsets
+import java.security.Key
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
@@ -27,6 +28,7 @@ import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
@@ -49,9 +51,10 @@ object HttpArchiveManagementActor {
                                                unionMediaManager: ActorRef,
                                                unionMetaDataManager: ActorRef,
                                                monitoringActor: ActorRef,
-                                               removeActor: ActorRef)
+                                               removeActor: ActorRef,
+                                               optCryptKey: Option[Key])
     extends HttpArchiveManagementActor(processingService, config, pathGenerator,
-      unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
+      unionMediaManager, unionMetaDataManager, monitoringActor, removeActor, optCryptKey)
       with ChildActorFactory
 
   /**
@@ -63,13 +66,14 @@ object HttpArchiveManagementActor {
     * @param unionMetaDataManager the union meta data manager actor
     * @param monitoringActor      the download monitoring actor
     * @param removeActor          the actor for removing temp files
+    * @param optCryptKey          an option for a key for decryption
     * @return ''Props'' for creating a new actor instance
     */
   def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
             unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
-            monitoringActor: ActorRef, removeActor: ActorRef): Props =
+            monitoringActor: ActorRef, removeActor: ActorRef, optCryptKey: Option[Key] = None): Props =
     Props(classOf[HttpArchiveManagementActorImpl], ContentProcessingUpdateServiceImpl, config,
-      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
+      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor, optCryptKey)
 
   /** The object for parsing medium descriptions in JSON. */
   private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
@@ -119,6 +123,11 @@ object HttpArchiveManagementActor {
   * single media available. The data is collected and then propagated to a
   * union media archive.
   *
+  * The actor can deal with plain and encrypted HTTP archives. In the latter
+  * case, both file names and file content are encrypted. The key for
+  * decryption is passed to the constructor. If it is defined, the actor
+  * switches to decryption mode.
+  *
   * @param processingService    the content processing update service
   * @param config               the configuration for the HTTP archive
   * @param pathGenerator        the generator for paths for temp files
@@ -126,11 +135,13 @@ object HttpArchiveManagementActor {
   * @param unionMetaDataManager the union meta data manager actor
   * @param monitoringActor      the download monitoring actor
   * @param removeActor          the actor for removing temp files
+  * @param optCryptKey          an option with the decryption key
   */
 class HttpArchiveManagementActor(processingService: ContentProcessingUpdateService,
                                  config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
                                  unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
-                                 monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
+                                 monitoringActor: ActorRef, removeActor: ActorRef,
+                                 optCryptKey: Option[Key]) extends Actor
   with ActorLogging {
   this: ChildActorFactory =>
 
@@ -174,7 +185,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   import context.dispatcher
 
   override def preStart(): Unit = {
-    requestActor = createChildActor(HttpRequestActor(config))
+    requestActor = createRequestActor()
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]))
@@ -334,5 +345,26 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
     pendingStateClients foreach (_ ! response)
     pendingStateClients = Set.empty
+  }
+
+  /**
+    * Creates the actor to be used for HTTP requests. This actor depends on the
+    * encrypted flag of the current archive.
+    *
+    * @return the actor to execute HTTP requests
+    */
+  private def createRequestActor(): ActorRef = {
+    val plainRequestActor = createChildActor(HttpRequestActor(config))
+    optCryptKey match {
+      case Some(key) =>
+        val archiveBasePath = UriHelper.extractParent(config.archiveURI.path.toString())
+        log.info("Creating request actor for encrypted archive, base path is {}.", archiveBasePath)
+        val resolverActor =
+          createChildActor(Props(classOf[UriResolverActor], plainRequestActor, key, archiveBasePath,
+            config.cryptUriCacheSize))
+        createChildActor(Props(classOf[CryptHttpRequestActor], resolverActor, plainRequestActor, key,
+          config.processorTimeout))
+      case None => plainRequestActor
+    }
   }
 }
