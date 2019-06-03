@@ -161,7 +161,7 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     resolver ! resolveRequest
     val response = expectMsgType[akka.actor.Status.Failure]
     response.cause.getMessage should be("Cannot resolve nonExisting.txt in " +
-      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw=="))
+      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw%3d%3d"))
   }
 
   it should "resolve a URI" in {

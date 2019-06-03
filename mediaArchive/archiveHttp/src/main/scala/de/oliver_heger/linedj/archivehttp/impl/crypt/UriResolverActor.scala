@@ -437,7 +437,7 @@ class UriResolverActor(requestActor: ActorRef, decryptKey: Key, basePath: String
     * @return a ''Future'' with the decrypted name
     */
   private def decryptName(name: String): Future[String] = Future {
-    CryptService.decryptName(decryptKey, name)
+    CryptService.decryptName(decryptKey, UriHelper.urlDecode(name))
   }
 }
 
