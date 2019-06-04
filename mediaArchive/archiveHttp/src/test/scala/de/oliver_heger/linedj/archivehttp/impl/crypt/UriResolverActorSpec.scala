@@ -164,16 +164,29 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw%3d%3d"))
   }
 
-  it should "resolve a URI" in {
+  /**
+    * Checks a successful resolve operation using the URI specified.
+    *
+    * @param uri the URI to be resolved
+    */
+  private def checkResolveSuccessful(uri: String): Unit = {
     val reqActor = system.actorOf(RequestActorTestImpl())
     reqActor ! stubFolderRequest(serverPath("/"), readResourceFile(RootContent))
     reqActor ! stubFolderRequest(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"), readResourceFile(FolderContent))
     val resolver = createResolverActor(reqActor)
-    val resolveRequest = createRequest("/sub/subFile.txt")
+    val resolveRequest = createRequest(uri)
 
     resolver ! resolveRequest
     expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
       resolveRequest.uri))
+  }
+
+  it should "resolve a URI" in {
+    checkResolveSuccessful("/sub/subFile.txt")
+  }
+
+  it should "decode a URI before resolving it" in {
+    checkResolveSuccessful("/%73ub/%73ub%46ile.txt")
   }
 
   it should "cache URIs that have already been resolved" in {
@@ -190,6 +203,12 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     resolver ! resolveRequest2
     expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
       resolveRequest2.uri))
+
+    val resolveRequest3 = createRequest("/%73ub/anotherSubFile.dat")
+    resolver ! resolveRequest3
+    expectMsg(ResolvedUri(
+      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Z3BDvmY89rQwUqJ3XzMUWgtBE9bcOCYxiTq-Zfo-sNlIGA=="),
+      resolveRequest3.uri))
   }
 
   it should "combine requests to the same folder" in {

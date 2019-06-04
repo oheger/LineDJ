@@ -358,7 +358,8 @@ class UriResolverActor(requestActor: ActorRef, decryptKey: Key, basePath: String
         calcUnresolvedComponents(parent, part :: unresolvedParts)
       }
 
-    val (resolved, org, unresolved) = calcUnresolvedComponents(request.uri.path.toString(), Nil)
+    val uri = UriHelper decodeComponents request.uri.path.toString()
+    val (resolved, org, unresolved) = calcUnresolvedComponents(uri, Nil)
     ResolveData(sender(), resolved, org, unresolved, request)
   }
 
