@@ -109,6 +109,8 @@ example configuration with all supported options:
       <realm>Server2</realm>
       <archiveUri>https://www.more-music.org/test/content.json</archiveUri>
       <archiveName>Another Archive</archiveName>
+      <encrypted>true</encrypted>
+      <cryptUriCacheSize>2048</cryptUriCacheSize>
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <uriMapping>
@@ -237,6 +239,22 @@ realm have become available - some timeouts are applied:
 | ------- | ----------- | -------- |
 | initTimeout | The timeout (in seconds) for requesting the actors for the central union archive. (These actors are needed to add the data about the media files hosted by the HTTP archive to the central union archive.) If the actors of the union archive cannot be obtained in this time interval, startup of the HTTP archive fails, and the union archive is considered unavailable. | Yes, defaults to 10 seconds |
 | stateRequestTimeout | After an HTTP archive is started, it is queried for its state to find out whether the startup has been successful. The archive will only answer this request after it has processed the content document of the server. This property defines a timeout (in seconds) to wait for a response. If no response is received within this time, another request for the current state is sent. | Yes, defaults to 60 seconds |
+
+### Encrypted archives
+
+Archives can contain files whose names and content are encrypted using AES.
+This is useful for instance if the media files are stored on a public cloud
+storage. When creating the actor to manage the archive the key to decrypt the
+data must be provided. URIs (specified as plain text) are then first resolved
+to find the corresponding encrypted paths. The media data that is downloaded is
+also decrypted, so that it can be processed in the usual way.
+
+A few configuration options are available for encrypted archives:
+
+| Setting | Description | Optional |
+| ------- | ----------- | -------- |
+| encrypted | A boolean flag that marks an archive as encrypted. | Yes, defaults to *false* |
+| cryptUriCacheSize | The resolving of URIs in an encrypted archive is an expensive process. Therefore, parts of URIs that have already been resolved are stored in a cache, so that they can be reused when similar URIs need to be processed. This property defines the number of URIs that can be cached. | Yes, defaults to 1024 |
 
 ### Proxy configuration
 
