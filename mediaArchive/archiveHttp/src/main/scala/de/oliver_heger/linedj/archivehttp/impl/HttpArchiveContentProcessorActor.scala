@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.NotUsed
 import akka.actor.{ActorLogging, ActorRef}
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.pattern.ask
 import akka.stream._
@@ -226,9 +225,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
                             credentials: UserCredentials, reqData: RequestData):
   Option[(HttpRequest, RequestData)] =
     uriMapper.mapUri(config.contentMappingConfig, Some(md.mediumDescriptionPath), path)
-      .map(uri => (HttpRequest(uri = Uri(uri),
-        headers = List(Authorization(BasicHttpCredentials(credentials.userName,
-          credentials.password)))), reqData))
+      .map(uri => (HttpRequest(uri = Uri(uri)), reqData))
 
   /**
     * Generates a request for the medium info file of the specified medium

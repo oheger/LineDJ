@@ -20,7 +20,7 @@ import java.io.IOException
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, Cookie, Location}
+import akka.http.scaladsl.model.headers.{Cookie, Location}
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -36,8 +36,8 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Random, Success, Try}
 import scala.util.matching.Regex
+import scala.util.{Failure, Random, Success, Try}
 
 object HttpArchiveContentProcessorActorSpec {
   /** The sequence number of the test scan operation. */
@@ -119,9 +119,7 @@ object HttpArchiveContentProcessorActorSpec {
     * @return the corresponding request
     */
   private def createRequest(path: String): HttpRequest =
-    HttpRequest(uri = Uri(path),
-      headers = List(Authorization(BasicHttpCredentials(DefaultArchiveConfig.credentials.userName,
-        DefaultArchiveConfig.credentials.password))))
+    HttpRequest(uri = Uri(path))
 
   /**
     * Creates a response for the specified path.

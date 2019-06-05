@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl.crypt
 
 import java.security.{Key, SecureRandom}
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -65,7 +65,7 @@ object CryptHttpRequestActor {
   * @param resolveTimeout timeout for resolve operations
   */
 class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key: Key, resolveTimeout: Timeout)
-  extends Actor {
+  extends Actor with ActorLogging {
   /** Implicit timeout for invocations of the resolve actor. */
   private implicit val timeout: Timeout = resolveTimeout
 
@@ -98,6 +98,7 @@ class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key
         val resolvedRequest = msg.request.copy(uri = result.resolvedUri)
         requestActor ! SendRequest(resolvedRequest, requestData)
       case Failure(exception) =>
+        log.error(exception, "Failed to resolve URI " + msg.request.uri)
         val reqException = FailedRequestException("Could not resolve URI", exception, None,
           requestData.orgRequest.data)
         sendErrorResponse(requestData.caller, reqException)
