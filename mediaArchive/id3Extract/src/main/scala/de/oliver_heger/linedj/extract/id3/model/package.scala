@@ -28,7 +28,7 @@ import scala.annotation.tailrec
   */
 package object model {
   /** Factor for shifting a byte position in an integer representing size. */
-  private val SizeByteShift = 7
+  val SizeByteShift = 7
 
   /**
     * Converts a byte to an unsigned integer.
@@ -50,19 +50,20 @@ package object model {
 
   /**
     * Extracts an integer of the given size representing a tag or frame size
-    * from the given buffer. For such integers only 7 bits per byte are used;
-    * so the calculation of values consisting of multiple bytes is
-    * non-standard.
+    * from the given buffer. The number of bits used in the single bytes
+    * depends on the format and the frame the size is for; therefore, the
+    * shift factor is passed to this function.
     *
     * @param buf    a buffer with the data to be processed
     * @param ofs    the offset into the buffer
     * @param length the length of the size integer (in bytes)
+    * @param shift  the factor for shifting bytes
     * @return the extracted size value
     */
-  def extractSizeInt(buf: ByteString, ofs: Int, length: Int): Int = {
+  def extractSizeInt(buf: ByteString, ofs: Int, length: Int, shift: Int = SizeByteShift): Int = {
     @tailrec def extractSizeByte(value: Int, pos: Int): Int =
       if (pos >= length) value
-      else extractSizeByte((value << SizeByteShift) +
+      else extractSizeByte((value << shift) +
         extractByte(buf, ofs + pos), pos + 1)
 
     extractSizeByte(0, 0)

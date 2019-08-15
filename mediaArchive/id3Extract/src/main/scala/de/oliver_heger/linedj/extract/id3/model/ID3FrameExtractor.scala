@@ -109,9 +109,9 @@ object ID3FrameExtractor {
     */
   private def createVersionDataMap(): Map[Int, VersionData] =
     Map(2 -> VersionData(nameLength = 3, sizeLength = 3, headerLength = 6,
-      tagNames = TagsV2),
+      tagNames = TagsV2, sizeShift = 8),
       3 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10,
-        tagNames = TagsV3),
+        tagNames = TagsV3, sizeShift = 8),
       4 -> VersionData(nameLength = 4, sizeLength = 4, headerLength = 10,
         tagNames = TagsV3))
 
@@ -127,9 +127,11 @@ object ID3FrameExtractor {
     * @param headerLength the total length of a tag header in bytes
     * @param tagNames     an array with the names of the tags exposed through the
     *                     ''ID3TagProvider'' trait
+    * @param sizeShift    the shift factor when calculating the tag size
     */
   private case class VersionData(nameLength: Int, sizeLength: Int,
-                                 headerLength: Int, tagNames: IndexedSeq[String]) {
+                                 headerLength: Int, tagNames: IndexedSeq[String],
+                                 sizeShift: Int = SizeByteShift) {
     /**
       * Extracts the tag name from the given header buffer.
       *
@@ -149,7 +151,7 @@ object ID3FrameExtractor {
       * @return the size of the tag's content
       */
     def extractSize(header: ByteString, ofs: Int): Int =
-      extractSizeInt(header, ofs + nameLength, sizeLength)
+      extractSizeInt(header, ofs + nameLength, sizeLength, sizeShift)
 
     /**
       * Creates an ''ID3TagProvider'' for the specified frame.
