@@ -21,8 +21,10 @@ import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError,
-MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{
+  MetaDataProcessingError,
+  MetaDataProcessingSuccess
+}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object Mp3FileProcessorActor {
@@ -142,6 +144,7 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     case procMsg: ProcessID3FrameData =>
       val id3Actor = optID3ProcessorActor getOrElse createID3ProcessorActor(procMsg)
       id3Actor ! procMsg
+      collector.expectID3Data(procMsg.frameHeader.version)
       optID3ProcessorActor = if (procMsg.lastChunk) None else Some(id3Actor)
 
     case id3Inc: IncompleteID3Frame if optID3ProcessorActor.isDefined =>

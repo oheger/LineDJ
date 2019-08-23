@@ -26,13 +26,12 @@ import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError,
-MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 
@@ -146,7 +145,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     helper.postMessage(msg1).postMessage(msg2)
     expectMsg(Mp3ChunkAck)
-    expectNoMsg(1.second)
+    expectNoMessage(1.second)
   }
 
   it should "send an ACK message when MP3 processing completes" in {
@@ -159,7 +158,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     helper.postMessage(Mp3DataProcessed)
     expectMsg(Mp3ChunkAck)
     helper.postMessage(Mp3DataProcessed)
-    expectNoMsg(1.second)
+    expectNoMessage(1.second)
   }
 
   it should "request MP3 meta data when the stream completes" in {
@@ -209,6 +208,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     val frameProcessor = helper.sendMessage(msg).expectID3ProcessorActorCreation(msg)
     frameProcessor.expectMsg(msg)
+    verify(helper.collector).expectID3Data(2)
   }
 
   it should "handle ID3 frames with multiple chunks" in {
@@ -220,6 +220,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     helper.sendMessage(msg2).expectNoChildCreation()
     frameProcessor.expectMsg(msg2)
+    verify(helper.collector, times(2)).expectID3Data(2)
   }
 
   it should "handle multiple ID3 frames" in {
@@ -228,9 +229,11 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val helper = new Mp3FileProcessorTestHelper
     val id3Proc1 = helper.sendMessage(msg1).expectID3ProcessorActorCreation(msg1)
     id3Proc1.expectMsg(msg1)
+    verify(helper.collector).expectID3Data(2)
 
     val id3Proc2 = helper.sendMessage(msg2).expectID3ProcessorActorCreation(msg2)
     id3Proc2.expectMsg(msg2)
+    verify(helper.collector).expectID3Data(3)
   }
 
   it should "handle an incomplete ID3 frame message if there is a processing actor" in {
