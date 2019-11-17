@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{GetAvailableMedia, MediumID}
 import org.apache.commons.configuration.Configuration
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.Await

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.mediaifc.remote
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

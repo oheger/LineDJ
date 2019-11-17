@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object UnknownPropertyResourceResolverSpec {

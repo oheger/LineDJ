@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec

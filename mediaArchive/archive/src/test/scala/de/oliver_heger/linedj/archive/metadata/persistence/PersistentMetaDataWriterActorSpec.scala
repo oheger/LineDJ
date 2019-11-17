@@ -37,7 +37,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaDat
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Promise

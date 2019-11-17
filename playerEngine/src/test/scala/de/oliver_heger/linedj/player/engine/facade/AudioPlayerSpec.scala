@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

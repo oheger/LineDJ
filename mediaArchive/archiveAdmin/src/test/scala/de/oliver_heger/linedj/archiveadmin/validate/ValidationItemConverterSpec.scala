@@ -25,7 +25,7 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.Scalaz._
 import scalaz._

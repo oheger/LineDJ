@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for the action tasks that append songs to the playlist.

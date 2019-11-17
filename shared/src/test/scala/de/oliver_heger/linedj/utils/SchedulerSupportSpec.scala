@@ -3,7 +3,7 @@ package de.oliver_heger.linedj.utils
 import akka.actor._
 import akka.testkit.{TestKit, TestProbe}
 import org.mockito.Matchers.{eq => argEq}
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

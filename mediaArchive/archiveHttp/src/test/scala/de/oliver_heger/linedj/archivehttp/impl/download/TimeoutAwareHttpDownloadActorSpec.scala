@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await

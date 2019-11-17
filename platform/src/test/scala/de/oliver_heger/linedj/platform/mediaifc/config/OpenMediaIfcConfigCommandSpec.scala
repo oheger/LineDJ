@@ -22,7 +22,7 @@ import net.sf.jguiraffe.locators.{ClassPathLocator, Locator}
 import net.sf.jguiraffe.resources.ResourceManager
 import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

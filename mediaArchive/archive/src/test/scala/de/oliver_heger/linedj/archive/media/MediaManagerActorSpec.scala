@@ -36,7 +36,7 @@ import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, Removed
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

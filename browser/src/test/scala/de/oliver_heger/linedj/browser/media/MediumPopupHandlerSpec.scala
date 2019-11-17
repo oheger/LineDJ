@@ -22,7 +22,7 @@ import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

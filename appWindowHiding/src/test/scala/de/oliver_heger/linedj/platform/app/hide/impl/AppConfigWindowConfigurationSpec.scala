@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.app.hide.ApplicationWindowConfiguration
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration,
 PropertiesConfiguration}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object AppConfigWindowConfigurationSpec {

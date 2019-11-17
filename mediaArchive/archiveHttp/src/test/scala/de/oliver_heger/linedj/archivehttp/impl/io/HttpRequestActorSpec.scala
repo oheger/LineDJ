@@ -32,8 +32,8 @@ import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredent
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
@@ -133,7 +133,8 @@ object HttpRequestActorSpec {
 /**
   * Test class for ''HttpRequestActor''.
   */
-class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("HttpRequestActorSpec"))
 
   override protected def afterAll(): Unit = {

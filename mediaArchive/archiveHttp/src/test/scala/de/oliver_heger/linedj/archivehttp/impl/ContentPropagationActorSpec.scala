@@ -21,7 +21,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ContentPropagationActorSpec {

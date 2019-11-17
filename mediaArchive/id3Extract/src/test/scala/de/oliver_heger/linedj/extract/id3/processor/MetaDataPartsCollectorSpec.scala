@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataPartsCollectorSpec {

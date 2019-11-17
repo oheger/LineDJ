@@ -28,7 +28,7 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.osgi.framework.{BundleContext, ServiceRegistration}
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

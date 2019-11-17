@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.StateListenerUnregistration
 import de.oliver_heger.linedj.shared.archive.metadata._
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object StateListenerExtensionSpec {

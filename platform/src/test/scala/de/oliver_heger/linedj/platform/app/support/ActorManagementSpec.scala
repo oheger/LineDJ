@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.io.FileReaderActor
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ActorManagementSpec {

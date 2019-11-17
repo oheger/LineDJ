@@ -31,7 +31,7 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

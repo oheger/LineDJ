@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object OpenExportProgressDlgCommandSpec {

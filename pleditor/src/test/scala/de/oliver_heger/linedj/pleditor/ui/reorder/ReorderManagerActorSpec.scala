@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ReorderManagerActorSpec {

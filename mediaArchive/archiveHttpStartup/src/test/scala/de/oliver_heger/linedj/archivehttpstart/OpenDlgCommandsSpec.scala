@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

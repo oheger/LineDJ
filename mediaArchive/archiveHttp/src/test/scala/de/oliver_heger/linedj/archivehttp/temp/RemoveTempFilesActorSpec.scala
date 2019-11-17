@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.RemoveFileActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object RemoveTempFilesActorSpec {

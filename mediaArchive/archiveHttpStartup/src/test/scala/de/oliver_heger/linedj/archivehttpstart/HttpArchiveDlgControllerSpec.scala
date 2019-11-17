@@ -26,7 +26,7 @@ import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito.{doReturn, verify, verifyZeroInteractions, when}
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._

@@ -24,7 +24,7 @@ ServiceDependency, UnregisterService}
 import org.mockito.Mockito._
 import org.osgi.framework.{BundleContext, ServiceRegistration}
 import org.scalatest.FlatSpec
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 object ServiceDependenciesManagerSpec {
   /** A test dependency instance used by test cases. */

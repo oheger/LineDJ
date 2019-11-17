@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailable
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

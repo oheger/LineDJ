@@ -20,7 +20,7 @@ import java.nio.file.{Files, Paths}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object ID3v1ExtractorSpec {

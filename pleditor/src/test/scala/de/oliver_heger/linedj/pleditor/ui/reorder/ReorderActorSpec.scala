@@ -21,7 +21,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
 
 /**

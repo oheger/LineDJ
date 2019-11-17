@@ -21,7 +21,7 @@ import org.mockito.Matchers.{anyBoolean, anyString}
 import org.mockito.Mockito.{doAnswer, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * A test helper trait that simplifies usage of of ''FormAction'' objects.

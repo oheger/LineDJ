@@ -22,7 +22,7 @@ import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.ctrl.{FormController, FormControllerFormEvent}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

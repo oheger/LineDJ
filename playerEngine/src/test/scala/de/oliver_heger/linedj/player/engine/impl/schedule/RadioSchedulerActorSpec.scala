@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
 .EvaluateReplacementSources
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._

@@ -20,7 +20,7 @@ import java.util.Collections
 
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 
 /**

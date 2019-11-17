@@ -22,7 +22,7 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ManagementActorSpec {

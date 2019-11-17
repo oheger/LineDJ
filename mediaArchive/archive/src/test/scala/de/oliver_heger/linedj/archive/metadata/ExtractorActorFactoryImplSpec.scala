@@ -21,7 +21,7 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ExtractorActorFactoryImplSpec {

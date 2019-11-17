@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
 import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''ReorderResultHandler''.

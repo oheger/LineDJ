@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await

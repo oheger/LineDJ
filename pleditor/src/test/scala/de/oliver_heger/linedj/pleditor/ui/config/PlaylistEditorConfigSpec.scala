@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
 import org.apache.commons.configuration.{PropertiesConfiguration, Configuration}
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 
 object PlaylistEditorConfigSpec {

@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanA
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec

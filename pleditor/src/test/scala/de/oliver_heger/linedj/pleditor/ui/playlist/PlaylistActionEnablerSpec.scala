@@ -23,7 +23,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''PlaylistActionEnabler''.

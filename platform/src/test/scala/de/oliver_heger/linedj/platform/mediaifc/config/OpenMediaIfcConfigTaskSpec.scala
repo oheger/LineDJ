@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplicatio
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 /**

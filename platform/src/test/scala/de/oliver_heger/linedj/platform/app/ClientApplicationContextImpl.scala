@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * An implementation of ''ClientApplicationContext'' which stores a bunch of

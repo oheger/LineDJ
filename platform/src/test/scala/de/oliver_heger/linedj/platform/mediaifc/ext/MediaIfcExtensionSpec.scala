@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 object MediaIfcExtensionSpec {

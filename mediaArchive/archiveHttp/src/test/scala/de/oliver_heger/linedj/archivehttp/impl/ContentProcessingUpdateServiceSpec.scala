@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ContentProcessingUpdateServiceSpec {

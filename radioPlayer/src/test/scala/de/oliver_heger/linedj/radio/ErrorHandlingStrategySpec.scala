@@ -24,7 +24,7 @@ import org.apache.commons.configuration.{Configuration, HierarchicalConfiguratio
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.Matchers.any
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._

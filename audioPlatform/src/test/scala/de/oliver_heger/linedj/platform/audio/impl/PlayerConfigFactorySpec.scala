@@ -21,7 +21,7 @@ import java.nio.file.Paths
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.mock.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._

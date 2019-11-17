@@ -8,7 +8,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object SourceReaderActorSpec {
