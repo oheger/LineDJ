@@ -19,8 +19,10 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
+import akka.pattern.ask
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, OverflowStrategy, QueueOfferResult}
+import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 
@@ -62,6 +64,18 @@ object HttpRequestActor {
     */
   def apply(config: HttpArchiveConfig): Props =
     Props(classOf[HttpRequestActorImpl], config)
+
+  /**
+    * Convenience function to send a request to an HTTP request actor and map
+    * the response future accordingly.
+    *
+    * @param httpActor the HTTP request actor
+    * @param request   the request to be sent
+    * @param timeout   the timeout for the request execution
+    * @return a ''Future'' with the response
+    */
+  def sendRequest(httpActor: ActorRef, request: SendRequest)(implicit timeout: Timeout): Future[ResponseData] =
+    (httpActor ? request).mapTo[ResponseData]
 
   private class HttpRequestActorImpl(config: HttpArchiveConfig) extends HttpRequestActor(config)
     with HttpFlowFactory with SystemPropertyAccess
