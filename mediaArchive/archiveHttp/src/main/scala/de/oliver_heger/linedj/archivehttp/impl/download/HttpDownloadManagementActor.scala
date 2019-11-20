@@ -24,7 +24,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.{HttpRequestActor, UriUtils}
+import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}

@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
-import de.oliver_heger.linedj.archivehttp.impl.io.UriUtils
+import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._

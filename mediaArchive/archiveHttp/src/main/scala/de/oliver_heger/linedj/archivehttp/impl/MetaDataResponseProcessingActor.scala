@@ -22,7 +22,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.UriUtils
+import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 

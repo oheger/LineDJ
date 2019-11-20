@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl.io
+package de.oliver_heger.linedj.archivehttp.impl.uri
 
 import akka.http.scaladsl.model.Uri
 import org.scalatest.{FlatSpec, Matchers}
