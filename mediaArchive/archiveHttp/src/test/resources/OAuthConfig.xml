@@ -1,0 +1,17 @@
+<oauth-config>
+      <client-id>
+        my-client
+      </client-id>
+      <authorization-endpoint>
+        https://test-idp.org/auth
+      </authorization-endpoint>
+      <token-endpoint>
+        https://test.idp.org/token
+      </token-endpoint>
+      <scope>
+        foo bar baz
+      </scope>
+      <redirect-uri>
+        http://my-endpoint/get_code
+      </redirect-uri>
+    </oauth-config>
