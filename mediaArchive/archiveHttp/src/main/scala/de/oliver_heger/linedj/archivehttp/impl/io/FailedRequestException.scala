@@ -30,10 +30,10 @@ import akka.http.scaladsl.model.HttpResponse
   * @param message  an error message
   * @param cause    the cause of this exception
   * @param response optional server response indicating the failed request
-  * @param data     the data object from the original request
+  * @param request  the original failed request
   */
 case class FailedRequestException(message: String,
                                   cause: Throwable,
                                   response: Option[HttpResponse],
-                                  data: Any)
+                                  request: HttpRequestActor.SendRequest)
   extends Exception(message, cause)

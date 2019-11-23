@@ -174,7 +174,7 @@ class HttpCookieManagementActor(override val httpActor: ActorRef) extends Actor 
     println("retryRequest(), cookies are " + newCookies + ", cookie header is " + cookieHeader)
     if (cookieHeader.exists(_.cookies == newCookies))
       sendException(retryData.client, FailedRequestException(response = Some(retryData.response),
-        message = "Non success response and no retry possible", data = retryData.request.data, cause = null))
+        message = "Non success response and no retry possible", request = retryData.request, cause = null))
     else {
       val cookie = Cookie(newCookies)
       log.info("Updated cookies to {}.", newCookies)

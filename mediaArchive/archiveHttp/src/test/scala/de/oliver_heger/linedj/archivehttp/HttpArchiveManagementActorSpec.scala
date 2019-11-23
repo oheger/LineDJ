@@ -31,7 +31,7 @@ import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -94,6 +94,9 @@ object HttpArchiveManagementActorSpec {
   /** A state indicating that a scan operation is in progress. */
   private val ProgressState = ContentProcessingUpdateServiceImpl.InitialState
     .copy(scanInProgress = true)
+
+  /** A dummy request that it is used where it is needed. */
+  private val TestSendRequest = HttpRequestActor.SendRequest(HttpRequest(), 42)
 
   /**
     * Checks that no further messages have been sent to the specified test
@@ -414,7 +417,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   it should "return a server error state if the server could not be contacted" in {
     val helper = new HttpArchiveManagementActorTestHelper
     val exception = FailedRequestException(message = "Server not reachable!", response = None,
-      cause = new IOException("Crashed"), data = 42)
+      cause = new IOException("Crashed"), request = TestSendRequest)
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
       .initFailedArchiveResponse(exception)
@@ -430,7 +433,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
       .initFailedArchiveResponse(FailedRequestException(response = Some(response), message = "Failure",
-        cause = null, data = "some data"))
+        cause = null, request = TestSendRequest))
       .triggerScan(initSuccessResponse = false)
       .checkArchiveState(HttpArchiveStateFailedRequest(status))
     verify(helper.updateService).processingDone()

@@ -20,13 +20,12 @@ import java.io.IOException
 import java.util.concurrent.LinkedBlockingQueue
 
 import akka.Done
-import akka.actor.{ActorSystem, Props, Terminated}
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
-import akka.pattern.ask
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source, SourceQueueWithComplete}
-import akka.testkit.{TestActorRef, TestKit, TestProbe}
+import akka.testkit.{TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
@@ -67,20 +66,14 @@ object HttpRequestActorSpec {
     timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
     cryptUriCacheSize = 1024)
 
-  /** The expected authorization header. */
-  private val AuthHeader = Authorization(BasicHttpCredentials(Credentials.userName, Credentials.password))
-
-  /** A test cookie. */
-  private val Cookie1 = HttpCookie(name = "cuckoo", value = "beep")
-
-  /** Another test cookie. */
-  private val Cookie2 = HttpCookie(name = "foo", value = "bar", path = Some("/"))
-
   /** A list with default headers of the test request. */
   private val DefaultHeaders = List(ETag("some_tag"))
 
   /** A test request. */
   private val TestRequest = HttpRequest(uri = RequestPath, headers = DefaultHeaders)
+
+  /** Test message to send the test request. */
+  private val TestSendRequest = HttpRequestActor.SendRequest(TestRequest, Data)
 
   /**
     * A case class storing data about an expected request.
@@ -90,44 +83,6 @@ object HttpRequestActorSpec {
     */
   private case class ExpectedRequest(request: HttpRequest, response: Try[HttpResponse])
 
-  /**
-    * Adds the authorized header to the given request.
-    *
-    * @param request the request
-    * @return the request with the test authorized header
-    */
-  private def authorized(request: HttpRequest): HttpRequest =
-    withHeader(request, AuthHeader)
-
-  /**
-    * Adds the expected cookie header to the given request.
-    *
-    * @param request the request
-    * @return the request with a cookie header
-    */
-  private def withCookie(request: HttpRequest): HttpRequest = {
-    val cookieHeader = Cookie(List(HttpCookiePair(Cookie2.name, Cookie2.value),
-      HttpCookiePair(Cookie1.name, Cookie1.value)))
-    withHeader(request, cookieHeader)
-  }
-
-  /**
-    * Adds the given header to the headers of the passed in request.
-    *
-    * @param request the request
-    * @param header  the header to be added
-    * @return the updated request
-    */
-  private def withHeader(request: HttpRequest, header: HttpHeader): HttpRequest =
-    request.copy(headers = header :: request.headers.toList)
-
-  /**
-    * Returns a list with headers to set the test cookies.
-    *
-    * @return the list with set-cookie headers
-    */
-  private def setCookieHeaders(): List[HttpHeader] =
-    List(Cookie1, Cookie2).map(`Set-Cookie`(_))
 }
 
 /**
@@ -155,7 +110,7 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val expResponse = HttpResponse()
     val helper = new RequestActorTestHelper
 
-    val response = helper.expectRequest(authorized(TestRequest), expResponse)
+    val response = helper.expectRequest(TestRequest, expResponse)
       .sendRequest()
     response should be(expResponse)
   }
@@ -164,21 +119,21 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val exception = new IOException("Failed request")
     val helper = new RequestActorTestHelper
 
-    val responseException = helper.expectFailedRequest(authorized(TestRequest), exception)
+    val responseException = helper.expectFailedRequest(TestRequest, exception)
       .sendRequestAndExpectFailure[FailedRequestException]
     responseException.cause should be(exception)
     responseException.response shouldBe 'empty
-    responseException.data should be(Data)
+    responseException.request should be(TestSendRequest)
   }
 
   it should "fail the response future for a non-success response" in {
     val response = HttpResponse(status = StatusCodes.BadRequest)
     val helper = new RequestActorTestHelper
 
-    val exception = helper.expectRequest(authorized(TestRequest), response)
+    val exception = helper.expectRequest(TestRequest, response)
       .sendRequestAndExpectFailure[FailedRequestException]
     exception.response should be(Some(response))
-    exception.data should be(Data)
+    exception.request should be(TestSendRequest)
     exception.cause should be(null)
   }
 
@@ -191,72 +146,10 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val response = HttpResponse(status = StatusCodes.Unauthorized, entity = entity)
     val helper = new RequestActorTestHelper
 
-    val exception = helper.expectRequest(authorized(TestRequest), response)
+    val exception = helper.expectRequest(TestRequest, response)
       .sendRequestAndExpectFailure[FailedRequestException]
     verify(entity).discardBytes()(any())
-    exception.data should be(Data)
-  }
-
-  it should "retry an unauthorized request if there is a cookie from the server" in {
-    val response1 = HttpResponse(status = StatusCodes.Unauthorized, headers = setCookieHeaders())
-    val response2 = HttpResponse()
-    val helper = new RequestActorTestHelper
-
-    helper.expectRequest(authorized(TestRequest), response1)
-      .expectRequest(authorized(withCookie(TestRequest)), response2)
-      .sendRequest() should be(response2)
-  }
-
-  it should "only retry an unauthorized request once" in {
-    val response = HttpResponse(status = StatusCodes.Unauthorized, headers = setCookieHeaders())
-    val helper = new RequestActorTestHelper
-
-    val exception = helper.expectRequest(authorized(TestRequest), response)
-      .expectRequest(authorized(withCookie(TestRequest)), response)
-      .sendRequestAndExpectFailure[FailedRequestException]
-    exception.response should be(Some(response))
-    exception.data should be(Data)
-  }
-
-  it should "only retry unauthorized requests" in {
-    val response = HttpResponse(status = StatusCodes.Forbidden, headers = setCookieHeaders())
-    val helper = new RequestActorTestHelper
-
-    val exception = helper.expectRequest(authorized(TestRequest), response)
-      .sendRequestAndExpectFailure[FailedRequestException]
-    exception.response should be(Some(response))
-  }
-
-  it should "store a cookie used for authorization" in {
-    val response1 = HttpResponse(status = StatusCodes.Unauthorized, headers = setCookieHeaders())
-    val response2 = HttpResponse()
-    val response3 = HttpResponse(status = StatusCodes.Accepted)
-    val otherReq = HttpRequest(method = HttpMethods.POST, uri = "/someEndpoint")
-    val helper = new RequestActorTestHelper
-    helper.expectRequest(authorized(TestRequest), response1)
-      .expectRequest(authorized(withCookie(TestRequest)), response2)
-      .expectRequest(authorized(withCookie(otherReq)), response3)
-      .sendRequest()
-
-    helper.sendRequest(otherReq) should be(response3)
-  }
-
-  it should "update the authorization cookie when it becomes invalid" in {
-    val pair = HttpCookiePair("update", "recent")
-    val newCookie = Cookie(pair)
-    val response1 = HttpResponse(status = StatusCodes.Unauthorized, headers = setCookieHeaders())
-    val response2 = HttpResponse()
-    val response3 = HttpResponse(status = StatusCodes.Unauthorized,
-      headers = List(`Set-Cookie`(HttpCookie(pair.name, pair.value))))
-    val otherReq = HttpRequest(method = HttpMethods.POST, uri = "/someEndpoint")
-    val helper = new RequestActorTestHelper
-
-    helper.expectRequest(authorized(TestRequest), response1)
-      .expectRequest(authorized(withCookie(TestRequest)), response2)
-      .expectRequest(authorized(withCookie(otherReq)), response3)
-      .expectRequest(authorized(withHeader(otherReq, newCookie)), response2)
-      .sendRequest()
-    helper.sendRequest(otherReq) should be(response2)
+    exception.request should be(TestSendRequest)
   }
 
   it should "close the request queue when it is stopped" in {
@@ -265,10 +158,9 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       override def requestQueue: SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])] = queue
     }))
 
-    val watcher = TestProbe()
-    watcher watch requestActor
     system stop requestActor
-    watcher.expectMsgType[Terminated]
+    watch(requestActor)
+    expectTerminated(requestActor)
     verify(queue).complete()
   }
 
@@ -318,9 +210,9 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @param request the test request to be sent
       * @return the response from the test actor
       */
-    def sendRequest(request: HttpRequest = TestRequest): HttpResponse = {
-      val futResponse = requestActor ? HttpRequestActor.SendRequest(request, Data)
-      val responseData = Await.result(futResponse.mapTo[HttpRequestActor.ResponseData], RequestTimeout.duration)
+    def sendRequest(request: HttpRequestActor.SendRequest = TestSendRequest): HttpResponse = {
+      val futResponse = HttpRequestActor.sendRequest(requestActor, request)
+      val responseData = Await.result(futResponse, RequestTimeout.duration)
       responseData.data should be(Data)
       responseData.response
     }

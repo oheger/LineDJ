@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers._
 import akka.pattern.ask
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, OverflowStrategy, QueueOfferResult}
@@ -30,8 +29,6 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 object HttpRequestActor {
-  /** The name of the header to set cookies. */
-  private val SetCookieHeader = "set-cookie"
 
   /**
     * A message triggering [[HttpRequestActor]] to send an HTTP request.
@@ -80,72 +77,10 @@ object HttpRequestActor {
   private class HttpRequestActorImpl(config: HttpArchiveConfig) extends HttpRequestActor(config)
     with HttpFlowFactory with SystemPropertyAccess
 
-  /**
-    * An internally data class to store information about requests that may be
-    * retried.
-    *
-    * @param request  the request to be executed
-    * @param data     additional data about the request
-    * @param response the original (failed) response
-    * @param client   the client that sent this request
-    */
-  private case class RetryRequest(request: HttpRequest, data: Any, response: HttpResponse, client: ActorRef)
-
-  /**
-    * Checks whether a failed response can be retried. This is the case for
-    * certain status codes and if it contains cookies.
-    *
-    * @param response the response
-    * @return a flag whether this response can be retried
-    */
-  private def canRetry(response: HttpResponse): Boolean =
-    response.status == StatusCodes.Unauthorized && hasCookies(response)
-
-  /**
-    * Checks whether the given response contains at least one header to set a
-    * cookie.
-    *
-    * @param response the response
-    * @return a flag whether a set-cookie header was found
-    */
-  private def hasCookies(response: HttpResponse): Boolean =
-    response.headers.exists(_.is(SetCookieHeader))
-
-  /**
-    * Returns a sequence with all the cookie information defined by the given
-    * response.
-    *
-    * @param response the response
-    * @return a list of all cookies
-    */
-  private def extractCookies(response: HttpResponse): List[HttpCookiePair] = {
-    val cookies = response.headers.foldLeft(List.empty[HttpCookie]) { (lst, h) =>
-      h match {
-        case `Set-Cookie`(cookie) => cookie :: lst
-        case _ => lst
-      }
-    }
-    cookies.map(c => HttpCookiePair(c.name, c.value))
-  }
-
-  /**
-    * Returns a sequence with the headers of the given request that are not
-    * managed by this actor class.
-    *
-    * @param request the request
-    * @return the filtered headers of this request
-    */
-  private def filterHeaders(request: HttpRequest): Seq[HttpHeader] =
-    request.headers.filter {
-      case Authorization(_) => false
-      case Cookie(_) => false
-      case _ => true
-    }
 }
 
 /**
-  * An actor that sends HTTP requests to a specific server and also handles
-  * authorization cookies.
+  * An actor that sends HTTP requests to a specific server.
   *
   * This actor can handle ''SendRequest'' messages by sending the requests
   * specified to the associated server. This is done via an HTTP flow that is
@@ -154,12 +89,6 @@ object HttpRequestActor {
   * The responses returned by this flow are then sent back to the sender. In
   * case they have not been successful, their entity is discarded, and a future
   * that failed with a [[FailedRequestException]] is returned.
-  *
-  * If a request fails with the status UNAUTHORIZED, the actor checks whether
-  * the response contains a ''Set-Cookie'' header. If so, the corresponding
-  * cookie is added the request, and the request is retried. This is done for
-  * all following requests. This behavior seems to be necessary to deal with
-  * certain proxies.
   *
   * @param config the configuration of the HTTP archive
   */
@@ -174,16 +103,9 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   /** The object to materialize streams. */
   implicit private val mat: ActorMaterializer = ActorMaterializer()
 
-  /** The authorization header to be added to each request. */
-  private val authHeader = Authorization(BasicHttpCredentials(config.credentials.userName,
-    config.credentials.password))
-
   /** The flow for executing requests. */
   private var httpFlow: Flow[(HttpRequest, Promise[HttpResponse]),
     (Try[HttpResponse], Promise[HttpResponse]), Any] = _
-
-  /** Stores the cookies to be added to requests. */
-  private var cookieHeader: Option[Cookie] = None
 
   /** The queue acting as source for the stream of requests and a kill switch. */
   private var queue: SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])] = _
@@ -196,14 +118,8 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   }
 
   override def receive: Receive = {
-    case SendRequest(request, data) =>
-      val headers = request.headers.toList
-      val headersWithCookie = cookieHeader.map(_ :: headers).getOrElse(headers)
-      val extendedHeaders = authHeader :: headersWithCookie
-      handleRequest(request.copy(headers = extendedHeaders), data, sender())
-
-    case rd: RetryRequest =>
-      retryRequest(rd)
+    case reqMsg: SendRequest =>
+      handleRequest(reqMsg, sender())
   }
 
   override def postStop(): Unit = {
@@ -235,20 +151,19 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
 
   /**
     * Handles the execution of a request. The request is added to the request
-    * queue, and the resulting future is evaluated. If possible, the result is
-    * sent to the caller directly. Otherwise, a retry may be necessary.
+    * queue, and the resulting future is evaluated.
     *
-    * @param request the request
-    * @param data    the additional request data
+    * @param requestMsg the message with the request
     * @param client  the sender of this request
     */
-  private def handleRequest(request: HttpRequest, data: Any, client: ActorRef): Unit = {
+  private def handleRequest(requestMsg: SendRequest, client: ActorRef): Unit = {
+    val request = requestMsg.request
     log.info("{} {}", request.method.value, request.uri)
-    enqueueRequest(request, data) onComplete {
-      case Success((response, d)) =>
-        handleResponse(request, d, response, client)
+    enqueueRequest(request, requestMsg.data) onComplete {
+      case Success((response, _)) =>
+        handleResponse(requestMsg, response, client)
       case Failure(exception) =>
-        sendException(client, FailedRequestException(cause = exception, data = data, response = None,
+        sendException(client, FailedRequestException(cause = exception, request = requestMsg, response = None,
           message = "Server request caused an exception"))
     }
   }
@@ -278,20 +193,17 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   /**
     * Handles a response received from the server. Evaluates the response's
     * status code and transforms it to a failure result if it is not
-    * successful. If possible, a failed response is retried.
+    * successful.
     *
-    * @param request  the request
-    * @param data     additional request data
+    * @param requestMsg  the message with the request
     * @param response the response
     * @param client   the sender of the request
     */
-  private def handleResponse(request: HttpRequest, data: Any, response: HttpResponse, client: ActorRef): Unit = {
-    log.info("{} {} - {} {}", request.method.value, request.uri, response.status.intValue(),
-      response.status.reason())
-    verifyResponse(response, data) onComplete {
-      case Success(_) => client ! ResponseData(response, data)
-      case Failure(FailedRequestException(_, _, Some(failedResponse), _)) if canRetry(failedResponse) =>
-        self ! RetryRequest(request, data, failedResponse, client)
+  private def handleResponse(requestMsg: SendRequest, response: HttpResponse, client: ActorRef): Unit = {
+    log.info("{} {} - {} {}", requestMsg.request.method.value, requestMsg.request.uri,
+      response.status.intValue(), response.status.reason())
+    verifyResponse(response, requestMsg) onComplete {
+      case Success(_) => client ! ResponseData(response, requestMsg.data)
       case Failure(exception) => sendException(client, exception)
     }
   }
@@ -303,37 +215,14 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * discarded.
     *
     * @param response the response
-    * @param data     additional request data
+    * @param requestMsg the message with the original request
     * @return a future with the verified response
     */
-  private def verifyResponse(response: HttpResponse, data: Any): Future[HttpResponse] =
+  private def verifyResponse(response: HttpResponse, requestMsg: SendRequest): Future[HttpResponse] =
     if (response.status.isSuccess()) Future.successful(response)
     else response.discardEntityBytes().future() flatMap (_ =>
       Future.failed(FailedRequestException("Non success response", response = Some(response),
-        data = data, cause = null)))
-
-  /**
-    * Retries a request if possible. It is checked whether the original failed
-    * response contained a different cookie header than the cookies managed
-    * currently. If this is the case, the cookies are updated, and the request
-    * is sent again.
-    *
-    * @param retryData the data about the request to be retried
-    */
-  private def retryRequest(retryData: RetryRequest): Unit = {
-    val newCookies = extractCookies(retryData.response)
-    if (cookieHeader.exists(_.cookies == newCookies))
-      sendException(retryData.client, FailedRequestException(response = Some(retryData.response),
-        message = "Non success response and no retry possible", data = retryData.data, cause = null))
-    else {
-      val cookie = Cookie(newCookies)
-      log.info("Updated cookies to {}.", newCookies)
-      val nextHeaders = authHeader :: cookie :: filterHeaders(retryData.request).toList
-      val nextRequest = retryData.request.copy(headers = nextHeaders)
-      handleRequest(nextRequest, retryData.data, retryData.client)
-      cookieHeader = Some(cookie)
-    }
-  }
+        request = requestMsg, cause = null)))
 
   /**
     * Sends an exception to the given client as a response for a failed

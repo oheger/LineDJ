@@ -81,8 +81,9 @@ class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key
     case ResponseData(response, data@CryptRequestData(_, _)) =>
       handleHttpResponse(response, data)
 
-    case akka.actor.Status.Failure(cause@FailedRequestException(_, _, _, CryptRequestData(caller, orgRequest))) =>
-      sendErrorResponse(caller, cause.copy(data = orgRequest.data))
+    case akka.actor.Status.Failure(cause@FailedRequestException(_, _, _,
+     SendRequest(_, CryptRequestData(caller, orgRequest)))) =>
+      sendErrorResponse(caller, cause.copy(request = orgRequest))
   }
 
   /**
@@ -100,7 +101,7 @@ class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key
       case Failure(exception) =>
         log.error(exception, "Failed to resolve URI " + msg.request.uri)
         val reqException = FailedRequestException("Could not resolve URI", exception, None,
-          requestData.orgRequest.data)
+          requestData.orgRequest)
         sendErrorResponse(requestData.caller, reqException)
     }
   }

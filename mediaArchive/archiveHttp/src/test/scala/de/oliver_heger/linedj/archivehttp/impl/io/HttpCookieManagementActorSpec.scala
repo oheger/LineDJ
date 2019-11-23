@@ -113,7 +113,8 @@ class HttpCookieManagementActorSpec(testSystem: ActorSystem) extends TestKit(tes
       .expectRequest(withCookie(TestRequest), response)
       .sendRequestAndExpectFailure[FailedRequestException]
     exception.response should be(Some(response))
-    exception.data should be(Data)
+    exception.request.request should be(withCookie(TestRequest))
+    exception.request.data should be(Data)
   }
 
   it should "only retry unauthorized requests" in {
@@ -182,7 +183,8 @@ class HttpCookieManagementActorSpec(testSystem: ActorSystem) extends TestKit(tes
         RequestActorTestImpl.expectRequest(requestActor, request, response)
       } else {
         RequestActorTestImpl.expectFailedRequest(requestActor, request,
-          FailedRequestException("Failure", cause = null, response = Some(response), data = Data))
+          FailedRequestException("Failure", cause = null, response = Some(response),
+            request = HttpRequestActor.SendRequest(request, Data)))
       }
       this
     }

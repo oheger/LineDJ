@@ -198,7 +198,7 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       */
     def receiveErrorResponse(): FailedRequestException =
       expectMsgType[Status.Failure].cause match {
-        case ex: FailedRequestException if ex.data == RequestData => ex
+        case ex: FailedRequestException if ex.request.data == RequestData => ex
         case m => fail("Unexpected response: " + m)
       }
 

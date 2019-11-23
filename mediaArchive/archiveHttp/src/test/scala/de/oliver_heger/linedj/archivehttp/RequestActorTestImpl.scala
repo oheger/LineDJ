@@ -194,7 +194,7 @@ class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with M
       expectedRequests = expectedRequests.enqueue(er)
       pendingRequests.dequeueOption foreach { d =>
         pendingRequests = d._2
-        checkExpectedRequest(d._1.request.request, d._1.request.data, d._1.client)
+        checkExpectedRequest(d._1.request, d._1.client)
       }
 
     case InitRequestResponseMapping(mapping) =>
@@ -203,10 +203,10 @@ class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with M
     case InitRequestResponseMappingWithFailures(mapping) =>
       requestResponseMapping = mapping
 
-    case req@SendRequest(request, data) =>
+    case req@SendRequest(request, _) =>
       requestResponseMapping get request match {
         case Some(response) =>
-          sendTriedResponse(response, data, sender())
+          sendTriedResponse(response, req, sender())
         case None =>
           if (expectedRequests.isEmpty) {
             if (failOnUnmatchedRequest) {
@@ -215,7 +215,7 @@ class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with M
               pendingRequests = pendingRequests enqueue PendingRequest(req, sender())
             }
           } else {
-            checkExpectedRequest(request, data, sender())
+            checkExpectedRequest(req, sender())
           }
       }
   }
@@ -224,15 +224,14 @@ class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with M
     * Checks the given request against the first expected request and sends a
     * corresponding response to the client.
     *
-    * @param request the request
-    * @param data    the data
-    * @param client  the caller
+    * @param reqMsg the message with the request
+    * @param client the caller
     */
-  private def checkExpectedRequest(request: HttpRequest, data: Any, client: ActorRef): Unit = {
+  private def checkExpectedRequest(reqMsg: SendRequest, client: ActorRef): Unit = {
     val (reqData, q) = expectedRequests.dequeue
     expectedRequests = q
-    request should be(reqData.request)
-    sendTriedResponse(reqData.response, data, client)
+    reqMsg.request should be(reqData.request)
+    sendTriedResponse(reqData.response, reqMsg, client)
   }
 
   /**
@@ -240,17 +239,17 @@ class RequestActorTestImpl(failOnUnmatchedRequest: Boolean) extends Actor with M
     * failure.
     *
     * @param response the ''Try'' with the response to send
-    * @param data     additional data
+    * @param request  the original request
     * @param client   the receiver of the message to send
     */
-  private def sendTriedResponse(response: Try[HttpResponse], data: Any, client: ActorRef): Unit = {
+  private def sendTriedResponse(response: Try[HttpResponse], request: SendRequest, client: ActorRef): Unit = {
     response match {
       case Success(resp) =>
-        client ! ResponseData(resp, data)
+        client ! ResponseData(resp, request.data)
       case Failure(exception) =>
         val wrappedEx = exception match {
           case reqEx: FailedRequestException => reqEx
-          case ex => FailedRequestException("Test exception", ex, None, data)
+          case ex => FailedRequestException("Test exception", ex, None, request)
         }
         client ! akka.actor.Status.Failure(wrappedEx)
     }
