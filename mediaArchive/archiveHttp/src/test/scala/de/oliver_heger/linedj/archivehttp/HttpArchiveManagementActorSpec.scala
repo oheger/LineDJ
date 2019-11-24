@@ -698,7 +698,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeUriResolverActor.ref
 
             case RequestActorTestImpl.ClsRequestActor =>
-              p.args should contain only ArchiveConfig
+              p.args should contain only (ArchiveConfig.archiveURI, ArchiveConfig.requestQueueSize)
               plainRequestActor
 
             case ClsCryptRequestActor if cryptArchive =>

@@ -54,13 +54,25 @@ object HttpRequestActor {
   case class ResponseData(response: HttpResponse, data: Any)
 
   /**
-    * Returns an object with properties to create a new actor instance.
+    * Returns an object with properties to create a new actor instance that is
+    * initialized based on the given configuration.
     *
     * @param config the configuration of the HTTP archive
     * @return the properties to create a new actor instance
     */
   def apply(config: HttpArchiveConfig): Props =
-    Props(classOf[HttpRequestActorImpl], config)
+    apply(config.archiveURI, config.requestQueueSize)
+
+  /**
+    * Returns an object with properties to create a new actor instance that is
+    * initialized based on the given parameters.
+    *
+    * @param host             the URI of the host to send requests to
+    * @param requestQueueSize the size of the request queue
+    * @return the properties to create a new actor instance
+    */
+  def apply(host: Uri, requestQueueSize: Int): Props =
+    Props(classOf[HttpRequestActorImpl], host, requestQueueSize)
 
   /**
     * Convenience function to send a request to an HTTP request actor and map
@@ -74,7 +86,7 @@ object HttpRequestActor {
   def sendRequest(httpActor: ActorRef, request: SendRequest)(implicit timeout: Timeout): Future[ResponseData] =
     (httpActor ? request).mapTo[ResponseData]
 
-  private class HttpRequestActorImpl(config: HttpArchiveConfig) extends HttpRequestActor(config)
+  private class HttpRequestActorImpl(uri: Uri, requestQueueSize: Int) extends HttpRequestActor(uri, requestQueueSize)
     with HttpFlowFactory with SystemPropertyAccess
 
 }
@@ -90,9 +102,10 @@ object HttpRequestActor {
   * case they have not been successful, their entity is discarded, and a future
   * that failed with a [[FailedRequestException]] is returned.
   *
-  * @param config the configuration of the HTTP archive
+  * @param uri              the URI of the host to which requests are sent
+  * @param requestQueueSize the size of the request queue
   */
-class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLogging {
+class HttpRequestActor(uri: Uri, requestQueueSize: Int) extends Actor with ActorLogging {
   this: HttpFlowFactory =>
 
   import HttpRequestActor._
@@ -113,7 +126,7 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
   override def preStart(): Unit = {
     super.preStart()
     implicit val actorSystem: ActorSystem = context.system
-    httpFlow = createHttpFlow[Promise[HttpResponse]](config.archiveURI)
+    httpFlow = createHttpFlow[Promise[HttpResponse]](uri)
     queue = createRequestQueue()
   }
 
@@ -141,7 +154,7 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * @return the source for sending requests
     */
   private def createRequestQueue(): SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])] =
-    Source.queue[(HttpRequest, Promise[HttpResponse])](config.requestQueueSize, OverflowStrategy.dropNew)
+    Source.queue[(HttpRequest, Promise[HttpResponse])](requestQueueSize, OverflowStrategy.dropNew)
       .via(httpFlow)
       .toMat(Sink.foreach({
         case (Success(resp), p) => p.success(resp)
@@ -154,7 +167,7 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * queue, and the resulting future is evaluated.
     *
     * @param requestMsg the message with the request
-    * @param client  the sender of this request
+    * @param client     the sender of this request
     */
   private def handleRequest(requestMsg: SendRequest, client: ActorRef): Unit = {
     val request = requestMsg.request
@@ -195,9 +208,9 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * status code and transforms it to a failure result if it is not
     * successful.
     *
-    * @param requestMsg  the message with the request
-    * @param response the response
-    * @param client   the sender of the request
+    * @param requestMsg the message with the request
+    * @param response   the response
+    * @param client     the sender of the request
     */
   private def handleResponse(requestMsg: SendRequest, response: HttpResponse, client: ActorRef): Unit = {
     log.info("{} {} - {} {}", requestMsg.request.method.value, requestMsg.request.uri,
@@ -214,7 +227,7 @@ class HttpRequestActor(config: HttpArchiveConfig) extends Actor with ActorLoggin
     * [[FailedRequestException]] exception, and the response's entity is
     * discarded.
     *
-    * @param response the response
+    * @param response   the response
     * @param requestMsg the message with the original request
     * @return a future with the verified response
     */

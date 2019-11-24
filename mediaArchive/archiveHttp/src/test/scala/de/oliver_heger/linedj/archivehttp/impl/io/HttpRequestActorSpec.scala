@@ -98,12 +98,22 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   import HttpRequestActorSpec._
 
-  "A HttpRequestActor" should "create correct properties" in {
+  "A HttpRequestActor" should "create correct properties from a configuration" in {
     val props = HttpRequestActor(TestConfig)
 
     classOf[HttpRequestActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(TestConfig))
+    props.args should be(List(TestConfig.archiveURI, TestConfig.requestQueueSize))
+  }
+
+  it should "create correct properties from single parameters" in {
+    val uri = TestConfig.archiveURI
+    val queueSize = TestConfig.requestQueueSize
+
+    val props = HttpRequestActor(uri, queueSize)
+    classOf[HttpRequestActor].isAssignableFrom(props.actorClass()) shouldBe true
+    classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    props.args should be(List(TestConfig.archiveURI, TestConfig.requestQueueSize))
   }
 
   it should "handle a successful request" in {
@@ -154,7 +164,8 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   it should "close the request queue when it is stopped" in {
     val queue = mock[SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])]]
-    val requestActor = system.actorOf(Props(new HttpRequestActor(TestConfig) with HttpFlowFactory with SystemPropertyAccess {
+    val requestActor = system.actorOf(Props(new HttpRequestActor(TestConfig.archiveURI, TestConfig.requestQueueSize)
+      with HttpFlowFactory with SystemPropertyAccess {
       override def requestQueue: SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])] = queue
     }))
 
@@ -244,7 +255,8 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return the ''Props'' for a test actor instance
       */
     private def createTestActorProps(): Props =
-      Props(new HttpRequestActor(TestConfig) with HttpFlowFactory with SystemPropertyAccess {
+      Props(new HttpRequestActor(TestConfig.archiveURI, TestConfig.requestQueueSize) with HttpFlowFactory
+        with SystemPropertyAccess {
         override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
           uri should be(TestConfig.archiveURI)
