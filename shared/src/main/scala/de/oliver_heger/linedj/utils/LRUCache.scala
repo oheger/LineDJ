@@ -163,6 +163,20 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
   def contains(k: A): Boolean = items contains k
 
   /**
+    * Returns a set with all keys that are currently contained in this cache.
+    *
+    * @return the key set of this cache
+    */
+  def keySet: Set[A] = items.keySet
+
+  /**
+    * Returns a map with the current content of this cache.
+    *
+    * @return a map view of this cache
+    */
+  def toMap: Map[A, B] = items.map(e => e._1 -> e._2.value)
+
+  /**
     * Adds the specified key-value pair to the cache. This method assumes that
     * the key is not yet contained in the cache. Callers are responsible to
     * ensure this; otherwise, the cache may become inconsistent. The key is

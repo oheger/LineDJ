@@ -86,6 +86,8 @@ class LRUCacheSpec extends FlatSpec with Matchers {
     val cache = addEntries(new LRUCache[String, Int](pairs.size)(), pairs)
     cache.size should be(pairs.size)
     assertContains(cache, pairs: _*)
+    cache.keySet should contain theSameElementsAs pairs.map(_._1)
+    cache.toMap should contain theSameElementsAs pairs
   }
 
   it should "remove older entries to keep its maximum capacity" in {
@@ -96,6 +98,8 @@ class LRUCacheSpec extends FlatSpec with Matchers {
     cache contains pairs.head._1 shouldBe false
     cache get pairs.head._1 shouldBe 'empty
     assertContains(cache, pairs.tail: _*)
+    cache.keySet should contain theSameElementsAs pairs.tail.map(_._1)
+    cache.toMap should contain theSameElementsAs pairs.tail
   }
 
   it should "move an entry to the front when it is accessed" in {
