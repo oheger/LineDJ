@@ -21,9 +21,9 @@ import java.io.IOException
 import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import org.scalatest.Matchers
 
 import scala.collection.immutable.Queue
@@ -126,11 +126,11 @@ object RequestActorTestImpl {
     */
   def createTestArchiveConfig(): HttpArchiveConfig =
     HttpArchiveConfig(archiveURI = TestArchiveHost + TestArchiveBasePath + "/" + TestArchiveContentFile,
-      archiveName = "test", credentials = UserCredentials("scott", "tiger"), processorCount = 1,
-      processorTimeout = Timeout(1.minute), propagationBufSize = 100, maxContentSize = 1024,
-      downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds, downloadReadChunkSize = 8192,
-      timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-      contentMappingConfig = null, requestQueueSize = 100, cryptUriCacheSize = 1000)
+      archiveName = "test",  processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
+      maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
+      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
+      contentMappingConfig = null, requestQueueSize = 100, cryptUriCacheSize = 1000,
+      needsCookieManagement = false, protocol = null, authFunc = null)
 
   /**
     * Transforms the given mapping with only successful requests to an enhanced

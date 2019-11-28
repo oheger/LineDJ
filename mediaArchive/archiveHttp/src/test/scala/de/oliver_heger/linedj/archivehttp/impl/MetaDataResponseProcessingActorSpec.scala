@@ -23,14 +23,14 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.uri.{UriMapper, UriMappingSpec}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -56,11 +56,11 @@ object MetaDataResponseProcessingActorSpec {
 
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc" + ArchivePath),
-    "Test", UserCredentials("scott", "tiger"), processorCount = 3,
-    processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
+    "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = MappingConfig,
-    contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 512)
+    contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 512,
+    needsCookieManagement = false, protocol = null, authFunc = null)
 
   /** The sequence number used for requests. */
   private val SeqNo = 42

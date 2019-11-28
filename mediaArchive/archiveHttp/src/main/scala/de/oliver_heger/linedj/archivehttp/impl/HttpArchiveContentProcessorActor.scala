@@ -24,7 +24,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
@@ -217,12 +217,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @param md          the description of the medium affected
     * @param config      the config of the archive
     * @param path        the path for the request
-    * @param credentials the credentials for the request
     * @param reqData     the ''RequestData''
     * @return the tuple with new request and context data
     */
-  private def createRequest(md: HttpMediumDesc, config: HttpArchiveConfig, path: String,
-                            credentials: UserCredentials, reqData: RequestData):
+  private def createRequest(md: HttpMediumDesc, config: HttpArchiveConfig, path: String, reqData: RequestData):
   Option[(HttpRequest, RequestData)] =
     uriMapper.mapUri(config.contentMappingConfig, Some(md.mediumDescriptionPath), path)
       .map(uri => (HttpRequest(uri = Uri(uri)), reqData))
@@ -237,7 +235,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     */
   private def createMediumInfoRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
   Option[(HttpRequest, RequestData)] =
-    createRequest(md, req.archiveConfig, md.mediumDescriptionPath, req.archiveConfig.credentials,
+    createRequest(md, req.archiveConfig, md.mediumDescriptionPath,
       RequestData(md, req.settingsProcessorActor))
 
   /**
@@ -250,7 +248,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     */
   private def createMetaDataRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
   Option[(HttpRequest, RequestData)] =
-    createRequest(md, req.archiveConfig, md.metaDataPath, req.archiveConfig.credentials,
+    createRequest(md, req.archiveConfig, md.metaDataPath,
       RequestData(md, req.metaDataProcessorActor))
 
   /**

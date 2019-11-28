@@ -26,14 +26,14 @@ import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, anyString, eq => eqArg}
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -68,11 +68,11 @@ object MediumInfoResponseProcessingActorSpec {
 
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
-    "Test", UserCredentials("scott", "tiger"), processorCount = 3,
-    processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
+    "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = null,
-    contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 1024)
+    contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 1024,
+    needsCookieManagement = false, protocol = null, authFunc = null)
 
   /** A timeout value for waiting for async results. */
   private val WaitTimeout = 3.seconds

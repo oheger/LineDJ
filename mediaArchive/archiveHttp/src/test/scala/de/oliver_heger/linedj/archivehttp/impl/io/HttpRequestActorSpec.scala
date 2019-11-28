@@ -27,7 +27,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source, SourceQueueWithComplete}
 import akka.testkit.{TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
@@ -55,16 +55,13 @@ object HttpRequestActorSpec {
   /** The size of the request queue. */
   private val QueueSize = 42
 
-  /** An object with test user credentials. */
-  private val Credentials = UserCredentials("scott", "tiger")
-
   /** A test configuration for an HTTP archive. */
-  private val TestConfig = HttpArchiveConfig(archiveURI = ServerUri, credentials = Credentials,
+  private val TestConfig = HttpArchiveConfig(archiveURI = ServerUri,
     requestQueueSize = QueueSize, archiveName = "MyTestArchive", processorCount = 1,
     processorTimeout = Timeout(1.minute), propagationBufSize = 128, maxContentSize = 10000,
     downloadBufferSize = 65536, downloadMaxInactivity = 30.seconds, downloadReadChunkSize = 100,
     timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
-    cryptUriCacheSize = 1024)
+    cryptUriCacheSize = 1024, needsCookieManagement = false, protocol = null, authFunc = null)
 
   /** A list with default headers of the test request. */
   private val DefaultHeaders = List(ETag("some_tag"))

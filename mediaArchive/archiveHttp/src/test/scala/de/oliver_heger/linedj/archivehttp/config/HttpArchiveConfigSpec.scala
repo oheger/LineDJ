@@ -22,9 +22,12 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -32,9 +35,6 @@ import scala.util.{Failure, Success, Try}
 object HttpArchiveConfigSpec {
   /** The URI to the HTTP archive. */
   private val ArchiveUri = "https://music.archive.org/music/test/content.json"
-
-  /** An object with test user credentials. */
-  private val Credentials = UserCredentials("scott", "tiger")
 
   /** A test download configuration. */
   private val DownloadData = DownloadConfig(1.hour, 10.minutes, 8192)
@@ -87,6 +87,9 @@ object HttpArchiveConfigSpec {
   /** The size of the cache for encrypted URIs. */
   private val CryptCacheSize = 2222
 
+  /** A test authentication function. */
+  private val TestAuthFunc: AuthConfigureFunc = (actor, _) => actor
+
   /**
     * Creates a configuration object with all test settings.
     *
@@ -112,6 +115,7 @@ object HttpArchiveConfigSpec {
     c.addProperty(at + ".uriMapping.urlEncoding", true)
     c.addProperty(at + ".requestQueueSize", RequestQueueSize)
     c.addProperty(at + ".cryptUriCacheSize", CryptCacheSize)
+    c.addProperty(at + ".needCookies", true)
     c
   }
 
@@ -131,7 +135,7 @@ object HttpArchiveConfigSpec {
 /**
   * Test class for ''HttpArchiveConfig''.
   */
-class HttpArchiveConfigSpec extends FlatSpec with Matchers {
+class HttpArchiveConfigSpec extends FlatSpec with Matchers with MockitoSugar {
 
   import HttpArchiveConfigSpec._
 
@@ -167,16 +171,28 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         config.contentMappingConfig.urlEncode shouldBe false
         config.requestQueueSize should be(RequestQueueSize)
         config.cryptUriCacheSize should be(CryptCacheSize)
+        config.needsCookieManagement shouldBe true
         config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
   }
 
+  /**
+    * Creates a test archive configuration with default properties.
+    * @param c the underlying configuration object
+    * @return the test archive configuration
+    */
+  private def createArchiveConfig(c: Configuration): Try[HttpArchiveConfig] =
+    HttpArchiveConfig(c, Prefix, DownloadData, mock[HttpArchiveProtocol], TestAuthFunc)
+
   "An HttpArchiveConfig" should "process a valid configuration" in {
     val c = createConfiguration()
+    val protocol = mock[HttpArchiveProtocol]
 
-    checkConfig(HttpArchiveConfig(c, Prefix, Credentials, DownloadData))
+    val config = checkConfig(HttpArchiveConfig(c, Prefix, DownloadData, protocol, TestAuthFunc))
+    config.authFunc should be(TestAuthFunc)
+    config.protocol should be(protocol)
   }
 
   it should "initialize a content mapping configuration" in {
@@ -188,7 +204,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     c.addProperty(pref + "pathSeparator", UriPathSeparator)
     c.addProperty(pref + "urlEncoding", true)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.contentMappingConfig.removePrefix should be(RemovePrefix)
         config.contentMappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
@@ -203,7 +219,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "initialize a correct download configuration" in {
     val c = createConfiguration()
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.downloadConfig should be(DownloadData)
       case Failure(e) =>
@@ -215,13 +231,13 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val Key = "an.alternative.path"
     val c = createConfiguration(Key)
 
-    checkConfig(HttpArchiveConfig(c, Key, Credentials, DownloadData))
+    checkConfig(HttpArchiveConfig(c, Key, DownloadData, mock[HttpArchiveProtocol], TestAuthFunc))
   }
 
   it should "handle a prefix key that ends with a separator" in {
     val c = createConfiguration()
 
-    checkConfig(HttpArchiveConfig(c, Prefix + '.', Credentials, DownloadData))
+    checkConfig(HttpArchiveConfig(c, Prefix + '.', DownloadData, mock[HttpArchiveProtocol], TestAuthFunc))
   }
 
   /**
@@ -235,7 +251,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropArchiveName)
     c.setProperty(Prefix + "." + HttpArchiveConfig.PropArchiveUri, uri)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.archiveName should be(expName)
       case Failure(e) =>
@@ -253,7 +269,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "return a sequence with the components of the archive URI" in {
-    val config = HttpArchiveConfig(createConfiguration(), Prefix, Credentials, DownloadData)
+    val config = createArchiveConfig(createConfiguration())
     config match {
       case Success(c) =>
         c.archiveUriComponents should contain theSameElementsInOrderAs Seq("music", "test",
@@ -266,7 +282,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default processor count if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropProcessorCount)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.processorCount should be(HttpArchiveConfig.DefaultProcessorCount)
       case Failure(e) =>
@@ -277,7 +293,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default processor timeout if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropProcessorTimeout)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.processorTimeout should be(HttpArchiveConfig.DefaultProcessorTimeout)
       case Failure(e) =>
@@ -288,7 +304,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default maximum content size if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropMaxContentSize)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.maxContentSize should be(HttpArchiveConfig.DefaultMaxContentSize)
       case Failure(e) =>
@@ -299,7 +315,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default download read chunk size if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropDownloadReadChunkSize)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.downloadReadChunkSize should be(HttpArchiveConfig.DefaultDownloadReadChunkSize)
       case Failure(e) =>
@@ -310,7 +326,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default propagation buffer size if none is specified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropPropagationBufSize)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.propagationBufSize should be(HttpArchiveConfig.DefaultPropagationBufSize)
       case Failure(e) =>
@@ -321,7 +337,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default request queue size if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropRequestQueueSize)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.requestQueueSize should be(HttpArchiveConfig.DefaultRequestQueueSize)
       case Failure(e) =>
@@ -332,7 +348,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "set a default size for the cache for encrypted URIs if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropCryptUriCacheSize)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.cryptUriCacheSize should be(HttpArchiveConfig.DefaultCryptUriCacheSize)
       case Failure(e) =>
@@ -343,7 +359,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
   it should "fail for an undefined archive URI" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropArchiveUri)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(_) =>
         fail("Could read invalid config!")
       case Failure(e) =>
@@ -363,7 +379,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
         p + HttpArchiveConfig.PropMappingEncoding),
       p + HttpArchiveConfig.PropMappingRemoveComponents)
 
-    HttpArchiveConfig(c, Prefix, Credentials, DownloadData) match {
+    createArchiveConfig(c) match {
       case Success(config) =>
         config.metaMappingConfig.removePrefix should be(null)
         config.metaMappingConfig.pathComponentsToRemove should be(0)
@@ -379,9 +395,20 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers {
     val Uri = "/music/test-archive/media/Madonna1/playlist.settings"
     val mid = MediumID("someMedium", Some(Uri))
     val mapper = new UriMapper
-    val config = checkConfig(HttpArchiveConfig(createConfiguration(), Prefix, Credentials,
-      DownloadData))
+    val config = checkConfig(HttpArchiveConfig(createConfiguration(), Prefix, DownloadData,
+      mock[HttpArchiveProtocol], TestAuthFunc))
 
     mapper.mapUri(config.contentMappingConfig, mid, Uri) should be(Some(Uri))
+  }
+
+  it should "use a default value for the cookie management flag" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropNeedsCookieManagement)
+
+    createArchiveConfig(c) match {
+      case Success(config) =>
+        config.needsCookieManagement shouldBe false
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
   }
 }

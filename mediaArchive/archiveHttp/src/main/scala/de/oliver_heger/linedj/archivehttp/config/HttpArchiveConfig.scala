@@ -19,12 +19,16 @@ package de.oliver_heger.linedj.archivehttp.config
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
+import akka.actor.ActorRef
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
@@ -229,6 +233,14 @@ object HttpArchiveConfig {
   val PropCryptUriCacheSize = "cryptUriCacheSize"
 
   /**
+    * The configuration property that determines whether for this archive a
+    * special cookie management needs to be installed. This is a boolean
+    * property; if set to '''true''', the request actor used by the archive is
+    * decorated in a special way.
+    */
+  val PropNeedsCookieManagement = "needCookies"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -277,24 +289,37 @@ object HttpArchiveConfig {
   private val Separator = "."
 
   /**
+    * Definition of a function that can configure the authentication to be used
+    * by an HTTP archive. The basic idea is that the plain request actor
+    * created for the archive is decorated to handle the required
+    * authentication scheme transparently. Therefore, the function is passed
+    * the original request actor and a factory to create additional extension
+    * actors as needed.
+    */
+  type AuthConfigureFunc = (ActorRef, ChildActorFactory) => ActorRef
+
+  /**
     * Tries to obtain a ''HttpArchiveConfig'' from the passed in
     * ''Configuration'' object. Properties are resolved in a relative way from
     * the given prefix key. If mandatory parameters are missing, the
     * operation fails. Otherwise, a ''Success'' object is returned wrapping
-    * the extracted ''HttpArchiveConfig'' instance. Note that user credentials
-    * have to be provided separately; it is typically not an option to store
-    * credentials as plain text in a configuration file. The configuration for
-    * download operations has to be provided separately as well; it may be
-    * defined in a different configuration source.
+    * the extracted ''HttpArchiveConfig'' instance. Note that the
+    * authentication mechanism has to be provided separately; it is typically
+    * not an option to store credentials as plain text in a configuration file.
+    * The configuration for download operations has to be provided separately
+    * as well; it may be defined in a different configuration source. Finally,
+    * the HTTP-based protocol used by the archive is required; this is an
+    * active object which must be created by the caller.
     *
     * @param c              the ''Configuration''
     * @param prefix         the prefix path for all keys
-    * @param credentials    user credentials
     * @param downloadConfig the download configuration
+    *                       @param protocol the protocol to access the archive
+    * @param authFunc the function to setup authentication
     * @return a ''Try'' with the extracted archive configuration
     */
-  def apply(c: Configuration, prefix: String, credentials: UserCredentials,
-            downloadConfig: DownloadConfig): Try[HttpArchiveConfig] = Try {
+  def apply(c: Configuration, prefix: String, downloadConfig: DownloadConfig,
+            protocol: HttpArchiveProtocol, authFunc: AuthConfigureFunc): Try[HttpArchiveConfig] = Try {
     val Path = if (prefix endsWith Separator) prefix else prefix + Separator
     val uri = c.getString(Path + PropArchiveUri)
     if (uri == null) {
@@ -302,7 +327,6 @@ object HttpArchiveConfig {
     }
     HttpArchiveConfig(c.getString(Path + PropArchiveUri),
       extractArchiveName(c, Path),
-      credentials,
       c.getInt(Path + PropProcessorCount, DefaultProcessorCount),
       if (c.containsKey(Path + PropProcessorTimeout))
         Timeout(c.getInt(Path + PropProcessorTimeout), TimeUnit.SECONDS)
@@ -317,7 +341,10 @@ object HttpArchiveConfig {
       extractMappingConfig(c, Path + PrefixMetaUriMapping),
       extractMappingConfig(c, Path + PrefixContentUriMapping),
       c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize),
-      c.getInt(Path + PropCryptUriCacheSize, DefaultCryptUriCacheSize))
+      c.getInt(Path + PropCryptUriCacheSize, DefaultCryptUriCacheSize),
+      c.getBoolean(Path + PropNeedsCookieManagement, false),
+      protocol,
+      authFunc)
   }
 
   /**
@@ -392,7 +419,6 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   *
   * @param archiveURI            the URI of the HTTP media archive
   * @param archiveName           a name for the HTTP media archive
-  * @param credentials           credentials to connect to the archive
   * @param processorCount        the number of parallel processor actors to be used
   *                              when downloading meta data from the archive
   * @param processorTimeout      the timeout for calls to processor actors
@@ -417,10 +443,14 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   *                              content file
   * @param requestQueueSize      the size of the queue for pending requests
   * @param cryptUriCacheSize     the size of the cache for decrypted URIs
+  * @param needsCookieManagement flag whether the archive requires cookies to
+  *                              be set; this causes a special decoration of
+  *                              the request actor
+  * @param protocol the HTTP-based protocol for the archive
+  *                 @param authFunc the func to setup authentication
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
-                             credentials: UserCredentials,
                              processorCount: Int,
                              processorTimeout: Timeout,
                              propagationBufSize: Int,
@@ -433,7 +463,10 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              metaMappingConfig: UriMappingConfig,
                              contentMappingConfig: UriMappingConfig,
                              requestQueueSize: Int,
-                             cryptUriCacheSize: Int) {
+                             cryptUriCacheSize: Int,
+                             needsCookieManagement: Boolean,
+                             protocol: HttpArchiveProtocol,
+                             authFunc: AuthConfigureFunc) {
   /**
     * A sequence with the single components of the archive URI. This is needed
     * when constructing relative URIs for songs contained in the archive.
