@@ -24,6 +24,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import org.scalatest.Matchers
 
 import scala.collection.immutable.Queue
@@ -122,15 +123,16 @@ object RequestActorTestImpl {
   /**
     * Creates a test config for an HTTP archive with dummy values.
     *
+    * @param protocol the HTTP protocol to set for the config
     * @return the test config
     */
-  def createTestArchiveConfig(): HttpArchiveConfig =
+  def createTestArchiveConfig(protocol: HttpArchiveProtocol = null): HttpArchiveConfig =
     HttpArchiveConfig(archiveURI = TestArchiveHost + TestArchiveBasePath + "/" + TestArchiveContentFile,
-      archiveName = "test",  processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
+      archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = null, requestQueueSize = 100, cryptUriCacheSize = 1000,
-      needsCookieManagement = false, protocol = null, authFunc = null)
+      needsCookieManagement = false, protocol = protocol, authFunc = null)
 
   /**
     * Transforms the given mapping with only successful requests to an enhanced

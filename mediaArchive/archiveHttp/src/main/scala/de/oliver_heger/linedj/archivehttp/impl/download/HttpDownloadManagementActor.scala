@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
-import akka.pattern.ask
+import akka.http.scaladsl.model.{HttpResponse, Uri}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
@@ -32,7 +31,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFil
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object HttpDownloadManagementActor {
 
@@ -108,11 +107,12 @@ object HttpDownloadManagementActor {
   * An actor class that manages download operations from an HTTP archive.
   *
   * This actor class processes download requests for files hosted by the
-  * archive. When such a request arrives it sends an HTTP GET request to the
-  * archive for the media file in question. On receiving a success response, it
-  * creates an [[HttpFileDownloadActor]] to read the data from the archive and
-  * wraps it in a [[TimeoutAwareHttpDownloadActor]]. This actor is then passed
-  * to the requesting client.
+  * archive. When such a request arrives it delegates to the HTTP protocol to
+  * actually send a request to the archive for the media file in question.
+  * On receiving a success response, it creates an [[HttpFileDownloadActor]] to
+  * read the data from the archive and wraps it in a
+  * [[TimeoutAwareHttpDownloadActor]]. This actor is then passed to the
+  * requesting client.
   *
   * Ongoing download operations are monitored by a monitoring actor, so that
   * pending actor references will eventually be stopped.
@@ -159,11 +159,11 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     log.info("Sending request for file {}.", req.fileID.uri)
     val downloadOp = DownloadOperationRequest(req, sender())
 
-    Future(createDownloadRequest(req)) flatMap { downloadRequest =>
-      requestActor.ask(HttpRequestActor.SendRequest(downloadRequest, downloadOp)).mapTo[HttpRequestActor.ResponseData]
-    } onComplete {
+    (for {fileUri <- resolveDownloadUri(req)
+          response <- sendDownloadRequest(fileUri)
+          } yield response) onComplete {
       case Success(t) =>
-        self ! ProcessDownloadRequest(request = t.data.asInstanceOf[DownloadOperationRequest], response = t.response)
+        self ! ProcessDownloadRequest(request = downloadOp, response = t.response)
       case Failure(exception) =>
         log.error(exception, "Download request for {} failed!", req.fileID.uri)
         downloadOp.client ! MediumFileResponse(req, None, -1)
@@ -171,13 +171,23 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
   }
 
   /**
-    * Creates the request to download the requested file.
+    * Generates the URI for the media file referenced by the given request.
     *
     * @param req the ''MediumFileRequest''
-    * @return the HTTP request to start the download operation
+    * @return a ''Future'' with the resolved URI to the file to be downloaded
     */
-  private def createDownloadRequest(req: MediumFileRequest): HttpRequest =
-    HttpRequest(uri = UriUtils.resolveUri(config.archiveURI, req.fileID.uri))
+  private def resolveDownloadUri(req: MediumFileRequest): Future[Uri] =
+    Future.fromTry(Try(UriUtils.resolveUri(config.archiveURI, req.fileID.uri)))
+
+  /**
+    * Invokes the HTTP protocol to send the request for downloading the file
+    * specified and returns a ''Future'' with the result.
+    *
+    * @param fileUri the URI of the media file to be downloaded
+    * @return a ''Future'' with the response of the download request
+    */
+  private def sendDownloadRequest(fileUri: Uri): Future[HttpRequestActor.ResponseData] =
+    config.protocol.downloadMediaFile(requestActor, fileUri)
 
   /**
     * Processes a successful response for a request to download a file.

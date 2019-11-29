@@ -28,12 +28,18 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.mockito.Mockito._
+import org.mockito.Matchers.{any, eq => argEq}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.concurrent.Future
 
 object HttpDownloadManagementActorSpec {
   /** The URI of the test archive. */
@@ -179,6 +185,9 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     * A test helper class managing a test actor and its dependencies.
     */
   private class DownloadManagementTestHelper {
+    /** Mock for the HTTP protocol. */
+    private val protocol = mock[HttpArchiveProtocol]
+
     /** The configuration for the HTTP archive. */
     private val config = createConfig()
 
@@ -192,7 +201,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val probeRemoveActor = TestProbe()
 
     /** The mock request actor. */
-    private val requestActor = system.actorOf(RequestActorTestImpl())
+    private val requestActor = TestProbe().ref
 
     /** Counter for the number of flow instances that have been created. */
     private val flowCreationCount = new AtomicInteger
@@ -220,10 +229,11 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       */
     def executeRequest(request: MediumFileRequest, response: HttpResponse):
     DownloadManagementTestHelper = {
-      val httpRequest = HttpRequest(uri = ResolvedDownloadUri)
-      if (response != null) RequestActorTestImpl.expectRequest(requestActor, httpRequest, response)
-      else RequestActorTestImpl.expectFailedRequest(requestActor, httpRequest,
-        new IOException("Error from HTTP archive!"))
+      when(protocol.downloadMediaFile(argEq(requestActor), argEq(ResolvedDownloadUri))
+      (any(), argEq(config.processorTimeout)))
+        .thenReturn(if (response != null)
+          Future.successful(HttpRequestActor.ResponseData(response, null))
+        else Future.failed(new IOException("Error from HTTP archive!")))
       optArchiveResponse = Option(response)
       downloadManager ! request
       this
@@ -328,7 +338,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the configuration
       */
     private def createConfig(): HttpArchiveConfig =
-      RequestActorTestImpl.createTestArchiveConfig().copy(archiveURI = ArchiveUri)
+      RequestActorTestImpl.createTestArchiveConfig(protocol).copy(archiveURI = ArchiveUri)
 
     /**
       * Creates a new test actor instance.
