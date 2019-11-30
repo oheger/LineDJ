@@ -360,7 +360,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
         val archiveBasePath = UriHelper.extractParent(config.archiveURI.path.toString())
         log.info("Creating request actor for encrypted archive, base path is {}.", archiveBasePath)
         val resolverActor =
-          createChildActor(Props(classOf[UriResolverActor], plainRequestActor, key, archiveBasePath,
+          createChildActor(Props(classOf[UriResolverActor], plainRequestActor, config.protocol, key, archiveBasePath,
             config.cryptUriCacheSize))
         createChildActor(Props(classOf[CryptHttpRequestActor], resolverActor, plainRequestActor, key,
           config.processorTimeout))

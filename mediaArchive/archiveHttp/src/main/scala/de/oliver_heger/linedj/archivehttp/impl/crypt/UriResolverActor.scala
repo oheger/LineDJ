@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.crypt
 
-import java.io.{ByteArrayInputStream, IOException}
+import java.io.IOException
 import java.security.{Key, SecureRandom}
 
 import akka.actor.{Actor, ActorRef}
-import akka.http.scaladsl.model.headers.{Accept, ModeledCustomHeader, ModeledCustomHeaderCompanion}
 import akka.http.scaladsl.model._
-import akka.pattern.ask
+import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeaderCompanion}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
-import akka.util.{ByteString, Timeout}
+import akka.util.Timeout
+import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.LRUCache
 
@@ -34,7 +34,6 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
-import scala.xml.{Elem, Node, NodeSeq, XML}
 
 object UriResolverActor {
 
@@ -137,101 +136,6 @@ object UriResolverActor {
 
   }
 
-  /** Media type of the data that is expected from the server. */
-  private val MediaXML = MediaRange(MediaType.text("xml"))
-
-  /** The Accept header to be used by all requests. */
-  private val HeaderAccept = Accept(MediaXML)
-
-  /** The Depth header to be used by all requests. */
-  val HeaderDepth: DepthHeader = DepthHeader("1")
-
-  /** The list of headers to include into a folder request. */
-  private val FolderRequestHeaders = List(HeaderAccept, HeaderDepth)
-
-  /** Constant for the custom HTTP method used to query folders. */
-  private val MethodPropFind = HttpMethod.custom("PROPFIND")
-
-  /** Name of the XML response element. */
-  private val ElemResponse = "response"
-
-  /** Name of the XML href element. */
-  private val ElemHref = "href"
-
-  /**
-    * Creates a request to query the content of the specified folder.
-    *
-    * @param path the path to the folder to be queried
-    * @return the message to the request actor
-    */
-  private def createFolderRequest(path: String): SendRequest = {
-    val request = HttpRequest(method = MethodPropFind, headers = FolderRequestHeaders,
-      uri = UriHelper.withTrailingSeparator(path))
-    SendRequest(request, 0)
-  }
-
-  /**
-    * Processes an XML document for the content of a WebDav folder and extracts
-    * all the names for files and sub folders from it.
-    *
-    * @param elem the XML root element for the folder document
-    * @return a list with all extracted element names
-    */
-  private def extractNamesInFolder(elem: Elem): Seq[String] =
-    (elem \ ElemResponse).drop(1) // first element is the folder itself
-      .map(extractElementName)
-
-  /**
-    * Extracts the name of an element contained in a folder from the given XML
-    * node. The text content of the node consists of the full path of the
-    * element. Here the last path component (the name) is extracted.
-    *
-    * @param node the current XML node
-    * @return the element name extracted
-    */
-  private def extractElementName(node: Node): String = {
-    val path = UriHelper.removeTrailingSeparator(elemText(node, ElemHref))
-    UriHelper.extractName(path)
-  }
-
-  /**
-    * Extracts the text of a sub element of the given XML node. Handles line
-    * breaks in the element.
-    *
-    * @param node     the node representing the parent element
-    * @param elemName the name of the element to be obtained
-    * @return the text of this element
-    */
-  private def elemText(node: NodeSeq, elemName: String): String =
-    removeLF((node \ elemName).text)
-
-  /**
-    * Removes new line and special characters from the given string. Also
-    * handles the case that indention after a new line will add additional
-    * whitespace; this is collapsed to a single space.
-    *
-    * @param s the string to be processed
-    * @return the string with removed line breaks
-    */
-  private def removeLF(s: String): String =
-    trimMultipleSpaces(s.map(c => if (c < ' ') ' ' else c)).trim
-
-  /**
-    * Replaces multiple space characters in a sequence in the given string by a
-    * single one.
-    *
-    * @param s the string to be processed
-    * @return the processed string
-    */
-  @tailrec private def trimMultipleSpaces(s: String): String = {
-    val pos = s.indexOf("  ")
-    if (pos < 0) s
-    else {
-      val s1 = s.substring(0, pos + 1)
-      val s2 = s.substring(pos).dropWhile(_ == ' ')
-      trimMultipleSpaces(s1 + s2)
-    }
-  }
 }
 
 /**
@@ -255,12 +159,18 @@ object UriResolverActor {
   * repeated requests to the server, a cache of URIs already resolved is
   * managed; the size of this cache is configurable.
   *
+  * The requests to fetch the content of folders on the server and the parsing
+  * of their results are delegated to the [[HttpArchiveProtocol]] used for the
+  * current archive.
+  *
   * @param requestActor the actor for sending requests to the archive
+  * @param protocol     the HTTP-based protocol used by the archive
   * @param decryptKey   the key to be used for decryption
   * @param basePath     the base path after which names are encrypted
   * @param uriCacheSize the size of the cache for URIs already resolved
   */
-class UriResolverActor(requestActor: ActorRef, decryptKey: Key, basePath: String, uriCacheSize: Int) extends Actor {
+class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, decryptKey: Key,
+                       basePath: String, uriCacheSize: Int) extends Actor {
 
   import UriResolverActor._
   import context.dispatcher
@@ -377,10 +287,9 @@ class UriResolverActor(requestActor: ActorRef, decryptKey: Key, basePath: String
       pendingRequests += resolveData.resolvedPath -> (resolveData :: folderRequests)
       if (folderRequests.isEmpty) {
         (for {resp <- sendFolderRequest(resolveData)
-              parsedResp <- parseFolderResponse(resp)
-              names = extractNamesInFolder(parsedResp)
+              names <- parseFolderResponse(resp)
               nameMapping <- decryptElementNames(names)
-        } yield nameMapping) onComplete {
+              } yield nameMapping) onComplete {
           case Success(value) =>
             self ! FolderResultArrived(value, resolveData.resolvedPath, resolveData.orgPath)
           case Failure(exception) =>
@@ -397,24 +306,22 @@ class UriResolverActor(requestActor: ActorRef, decryptKey: Key, basePath: String
     * @param data the data object for the current resolve operation
     * @return a future with the response
     */
-  private def sendFolderRequest(data: ResolveData): Future[HttpResponse] =
-    (requestActor ? createFolderRequest(data.resolvedPath)).mapTo[ResponseData]
+  private def sendFolderRequest(data: ResolveData): Future[HttpResponse] = {
+    val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
+    val request = SendRequest(protocol.createFolderRequest(uri), 0)
+    HttpRequestActor.sendRequest(requestActor, request).mapTo[ResponseData]
       .map(_.response)
+  }
 
   /**
-    * Processes a response for a folder request. The entity is read and parsed
-    * to an XML element.
+    * Processes a response for a folder request and extracts the names of the
+    * elements contained in the folder.
     *
     * @param response the response
-    * @return a future with the XML root element
+    * @return a future with list of element names that were extracted
     */
-  private def parseFolderResponse(response: HttpResponse): Future[Elem] = {
-    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-    response.entity.dataBytes.runWith(sink).map { body =>
-      val stream = new ByteArrayInputStream(body.toArray)
-      XML.load(stream)
-    }
-  }
+  private def parseFolderResponse(response: HttpResponse): Future[Seq[String]] =
+    protocol.extractNamesFromFolderResponse(response)
 
   /**
     * Generates a map that associates decrypted element names with the original

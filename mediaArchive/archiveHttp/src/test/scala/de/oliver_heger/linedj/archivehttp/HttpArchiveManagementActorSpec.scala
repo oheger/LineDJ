@@ -27,11 +27,13 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -193,7 +195,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   private def checkProcessing(helper: HttpArchiveManagementActorTestHelper): Unit = {
     val request = helper.stub((), ProgressState)(_.processingDone())
       .triggerScan().expectProcessingRequest()
-    request.archiveConfig should be(ArchiveConfig)
+    request.archiveConfig should be(helper.config)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
     request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
     implicit val mat: ActorMaterializer = ActorMaterializer()
@@ -459,19 +461,19 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     override val updateService: ContentProcessingUpdateService = mock[ContentProcessingUpdateService]
 
     /** Test probe for the union media manager actor. */
-    val probeUnionMediaManager = TestProbe()
+    val probeUnionMediaManager: TestProbe = TestProbe()
 
     /** Test probe for the union meta data manager actor. */
-    val probeUnionMetaDataManager = TestProbe()
+    val probeUnionMetaDataManager: TestProbe = TestProbe()
 
     /** Test probe for the content processor actor. */
-    val probeContentProcessor = TestProbe()
+    val probeContentProcessor: TestProbe = TestProbe()
 
     /** Test probe for the meta data processor actor. */
-    val probeMetaDataProcessor = TestProbe()
+    val probeMetaDataProcessor: TestProbe = TestProbe()
 
     /** Test probe for the medium info processor actor. */
-    val probeMediumInfoProcessor = TestProbe()
+    val probeMediumInfoProcessor: TestProbe = TestProbe()
 
     /** Test probe for the monitoring actor. */
     private val probeMonitoringActor = TestProbe()
@@ -496,6 +498,12 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     /** The actor simulating the download management actor. */
     private val downloadManagementActor = ForwardTestActor()
+
+    /** The mock for the archive protocol. */
+    private val httpProtocol = mock[HttpArchiveProtocol]
+
+    /** The final configuration for the archive. */
+    val config: HttpArchiveConfig = ArchiveConfig.copy(protocol = httpProtocol)
 
     /** The actor to be tested. */
     val manager: TestActorRef[HttpArchiveManagementActor] = createTestActor()
@@ -658,7 +666,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return creation Props for the test actor
       */
     private def createProps(): Props =
-      Props(new HttpArchiveManagementActor(updateService, ArchiveConfig, pathGenerator,
+      Props(new HttpArchiveManagementActor(updateService, config, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
         probeMonitoringActor.ref, probeRemoveActor.ref,
         if (cryptArchive) Some(CryptKey) else None)
@@ -683,7 +691,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeMetaDataProcessor.ref
 
             case ClsDownloadManagementActor =>
-              p.args should be(List(ArchiveConfig, pathGenerator, requestActor, probeMonitoringActor.ref,
+              p.args should be(List(config, pathGenerator, requestActor, probeMonitoringActor.ref,
                 probeRemoveActor.ref))
               downloadManagementActor
 
@@ -693,8 +701,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeContentPropagationActor.ref
 
             case ClsUriResolverActor if cryptArchive =>
-              p.args should be(List(plainRequestActor, CryptKey, RequestActorTestImpl.TestArchiveBasePath,
-                ArchiveConfig.cryptUriCacheSize))
+              p.args should be(List(plainRequestActor, httpProtocol, CryptKey,
+                RequestActorTestImpl.TestArchiveBasePath, ArchiveConfig.cryptUriCacheSize))
               probeUriResolverActor.ref
 
             case RequestActorTestImpl.ClsRequestActor =>
