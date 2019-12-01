@@ -26,11 +26,12 @@ import akka.routing.SmallestMailboxPool
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -83,6 +84,17 @@ object HttpArchiveManagementActor {
 
   /** The number of parallel processor actors for medium info files. */
   private val InfoParallelism = 2
+
+  /**
+    * Returns a function to configure authentication that implements the basic
+    * auth scheme.
+    *
+    * @param credentials the credentials to be applied
+    * @return the basic auth configure function
+    */
+  def basicAuthConfigureFunc(credentials: UserCredentials): AuthConfigureFunc =
+    (requestActor, factory) =>
+      factory.createChildActor(Props(classOf[HttpBasicAuthRequestActor], credentials, requestActor))
 
   /**
     * A function for parsing JSON to a sequence of ''HttpMediumDesc'' objects.
@@ -355,16 +367,19 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private def createRequestActor(): ActorRef = {
     val plainRequestActor = createChildActor(HttpRequestActor(config))
+    val cookieActor = if (config.needsCookieManagement) createChildActor(HttpCookieManagementActor(plainRequestActor))
+    else plainRequestActor
+    val decoratedRequestActor = config.authFunc(cookieActor, this)
     optCryptKey match {
       case Some(key) =>
         val archiveBasePath = UriHelper.extractParent(config.archiveURI.path.toString())
         log.info("Creating request actor for encrypted archive, base path is {}.", archiveBasePath)
         val resolverActor =
-          createChildActor(Props(classOf[UriResolverActor], plainRequestActor, config.protocol, key, archiveBasePath,
-            config.cryptUriCacheSize))
-        createChildActor(Props(classOf[CryptHttpRequestActor], resolverActor, plainRequestActor, key,
+          createChildActor(Props(classOf[UriResolverActor], decoratedRequestActor, config.protocol, key,
+            archiveBasePath, config.cryptUriCacheSize))
+        createChildActor(Props(classOf[CryptHttpRequestActor], resolverActor, decoratedRequestActor, key,
           config.processorTimeout))
-      case None => plainRequestActor
+      case None => decoratedRequestActor
     }
   }
 }
