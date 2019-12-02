@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import java.security.Key
 
-import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
@@ -26,8 +25,8 @@ import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito.{doReturn, verify, verifyZeroInteractions, when}
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 
@@ -72,9 +71,10 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
       .prepareCredentials()
       .okClicked()
       .verifyWindowClosed()
-    helper.messageBus.expectMessageType[LoginStateChanged] should be(LoginStateChanged(
-      Realm, Some(UserCredentials(UserName, Password))
-    ))
+    val msg = helper.messageBus.expectMessageType[LoginStateChanged]
+    msg.realm should be(Realm)
+    msg.credentials.get.userName should be(UserName)
+    msg.credentials.get.password.secret should be(Password)
   }
 
   it should "handle a click on the cancel button" in {

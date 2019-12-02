@@ -17,16 +17,17 @@
 package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, MediaRanges, StatusCodes}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, MediaRanges, StatusCodes}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object HttpBasicAuthRequestActorSpec {
   /** An object with test user credentials. */
-  private val Credentials = UserCredentials("scott", "tiger")
+  private val Credentials = UserCredentials("scott", Secret("tiger"))
 }
 
 /**
@@ -47,7 +48,7 @@ class HttpBasicAuthRequestActorSpec(testSystem: ActorSystem) extends TestKit(tes
     val request = HttpRequest(uri = "http://request.test.org/foo",
       headers = List(Accept(MediaRanges.`text/*`)))
     val expRequest = request.copy(headers = Authorization(BasicHttpCredentials(Credentials.userName,
-      Credentials.password)) :: request.headers.toList)
+      Credentials.password.secret)) :: request.headers.toList)
     val response = HttpResponse(status = StatusCodes.Accepted)
     val Data = new Object
     val requestActor = system.actorOf(RequestActorTestImpl())

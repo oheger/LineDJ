@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
 class HttpBasicAuthRequestActor(credentials: UserCredentials, override val httpActor: ActorRef) extends Actor
   with HttpExtensionActor {
   /** The authorization header that is added to requests. */
-  private val authHeader = Authorization(BasicHttpCredentials(credentials.userName, credentials.password))
+  private val authHeader = Authorization(BasicHttpCredentials(credentials.userName, credentials.password.secret))
 
   override def receive: Receive = {
     case req: SendRequest =>

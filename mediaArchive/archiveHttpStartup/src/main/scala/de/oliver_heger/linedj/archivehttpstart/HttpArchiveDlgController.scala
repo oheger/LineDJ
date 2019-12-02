@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.crypt.KeyGenerator
+import de.oliver_heger.linedj.archivehttp.crypt.{KeyGenerator, Secret}
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}
@@ -161,7 +161,7 @@ class HttpArchiveLoginDlgController(bus: UIBus, txtUser: ComponentHandler[String
     *             with the credentials entered in this dialog.
     */
   override protected def generateOkMessage(): Any = {
-    val credentials = UserCredentials(txtUser.getData, txtPassword.getData)
+    val credentials = UserCredentials(txtUser.getData, Secret(txtPassword.getData))
     LoginStateChanged(realmName, Some(credentials))
   }
 }

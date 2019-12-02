@@ -41,9 +41,9 @@ import scala.util.Try
   * HTTP archive.
   *
   * @param userName the user name
-  * @param password the password
+  * @param password the password as a ''Secret''
   */
-case class UserCredentials(userName: String, password: String)
+case class UserCredentials(userName: String, password: Secret)
 
 /**
   * A data class with information required to access the persistent information
@@ -250,7 +250,7 @@ object HttpArchiveConfig {
     * The default processor timeout value. This value is used if the
     * ''PropProcessorTimeout'' property is not specified
     */
-  val DefaultProcessorTimeout = Timeout(1.minute)
+  val DefaultProcessorTimeout: Timeout = Timeout(1.minute)
 
   /**
     * The default number of processed media that can be in the buffer for
@@ -314,8 +314,8 @@ object HttpArchiveConfig {
     * @param c              the ''Configuration''
     * @param prefix         the prefix path for all keys
     * @param downloadConfig the download configuration
-    *                       @param protocol the protocol to access the archive
-    * @param authFunc the function to setup authentication
+    * @param protocol       the protocol to access the archive
+    * @param authFunc       the function to setup authentication
     * @return a ''Try'' with the extracted archive configuration
     */
   def apply(c: Configuration, prefix: String, downloadConfig: DownloadConfig,
@@ -446,8 +446,8 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param needsCookieManagement flag whether the archive requires cookies to
   *                              be set; this causes a special decoration of
   *                              the request actor
-  * @param protocol the HTTP-based protocol for the archive
-  *                 @param authFunc the func to setup authentication
+  * @param protocol              the HTTP-based protocol for the archive
+  * @param authFunc              the func to setup authentication
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,

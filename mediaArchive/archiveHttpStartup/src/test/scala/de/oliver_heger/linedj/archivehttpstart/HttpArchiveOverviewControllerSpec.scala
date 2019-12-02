@@ -21,6 +21,7 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
@@ -88,7 +89,7 @@ object HttpArchiveOverviewControllerSpec {
     * @return the change notification
     */
   private def realmLoginState(idx: Int, loggedIn: Boolean): LoginStateChanged = {
-    val credentials = if (loggedIn) Some(UserCredentials("foo", "bar"))
+    val credentials = if (loggedIn) Some(UserCredentials("foo", Secret("bar")))
     else None
     LoginStateChanged(StartupConfigTestHelper.realmName(idx), credentials)
   }
@@ -224,7 +225,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
     helper.openWindow()
       .sendMessage(LoginStateChanged("unknownRealm",
-        Some(UserCredentials("foo", "bar"))))
+        Some(UserCredentials("foo", Secret("bar")))))
       .checkActionEnabled("actionLogoutAll", enabled = false)
   }
 

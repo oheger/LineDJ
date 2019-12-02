@@ -31,7 +31,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
+import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
@@ -287,7 +287,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "create a correct request actor for basic auth" in {
-    val credentials = UserCredentials("scott", "tiger")
+    val credentials = UserCredentials("scott", Secret("tiger"))
     val config = ArchiveConfig.copy(authFunc = HttpArchiveManagementActor.basicAuthConfigureFunc(credentials))
     val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config)
     checkProcessing(helper)
@@ -310,7 +310,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "correctly combine multiple aspects when creating the request actor" in {
     val config = ArchiveConfig.copy(needsCookieManagement = true,
-      authFunc = HttpArchiveManagementActor.basicAuthConfigureFunc(UserCredentials("scott", "tiger")))
+      authFunc = HttpArchiveManagementActor.basicAuthConfigureFunc(UserCredentials("scott", Secret("tiger"))))
     val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config, cryptArchive = true)
     checkProcessing(helper)
 

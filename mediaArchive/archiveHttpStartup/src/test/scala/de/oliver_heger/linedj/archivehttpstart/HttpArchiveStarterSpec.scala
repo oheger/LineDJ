@@ -24,7 +24,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
+import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
@@ -42,7 +42,7 @@ object HttpArchiveStarterSpec {
   private val Password = "tiger"
 
   /** Test credentials for the archive. */
-  private val ArchiveCredentials = UserCredentials(UserName, Password)
+  private val ArchiveCredentials = UserCredentials(UserName, Secret(Password))
 
   /** The test path for temporary files. */
   private val PathTempDir = Paths get "tempDir"

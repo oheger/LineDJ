@@ -24,6 +24,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -34,8 +35,8 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailab
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, anyBoolean, anyInt, eq => argEq}
+import org.mockito.{ArgumentCaptor, ArgumentMatcher}
+import org.mockito.Matchers.{any, anyBoolean, anyInt, argThat, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.OngoingStubbing
@@ -76,7 +77,7 @@ object HttpArchiveStartupApplicationSpec {
     * @return the credentials for this realm
     */
   private def credentials(realmIdx: Int): UserCredentials =
-    UserCredentials(UserName + realmIdx, Password + realmIdx)
+    UserCredentials(UserName + realmIdx, Secret(Password + realmIdx))
 
   /**
     * Generates a state changed notification for a test archive.
@@ -117,6 +118,15 @@ object HttpArchiveStartupApplicationSpec {
     */
   private def adaptActorNames(actors: Map[String, ActorRef], index: Int): Map[String, ActorRef] =
     actors.map(e => (e._1.replace(ArcIndex + "_", index + "_"), e._2))
+
+  /**
+    * Returns a custom matcher for ''UserCredentials''.
+    *
+    * @param credentials the expected credentials
+    * @return the matcher for these credentials
+    */
+  private def credentialsEq(credentials: UserCredentials): UserCredentials =
+    argThat(new CredentialsMatcher(credentials))
 }
 
 /**
@@ -853,7 +863,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val creds = credentials(realmIdx)
       when(archiveStarter.startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
         probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig),
-        argEq(creds), argEq(optKey), argEq(actorFactory), anyInt(), anyBoolean()))
+        credentialsEq(creds), argEq(optKey), argEq(actorFactory), anyInt(), anyBoolean()))
     }
   }
 
@@ -870,5 +880,20 @@ class ArchiveStateActor(stateResponse: HttpArchiveStateResponse) extends Actor {
   override def receive: Receive = {
     case de.oliver_heger.linedj.archivehttp.HttpArchiveStateRequest =>
       sender ! stateResponse
+  }
+}
+
+/**
+  * A custom matcher implementation for ''UserCredentials''. As ''Secret''
+  * objects do not define an ''equals()'' method, a custom matcher is required
+  * to deal with such objects.
+  *
+  * @param expCredentials the expected credentials
+  */
+class CredentialsMatcher(expCredentials: UserCredentials) extends ArgumentMatcher[UserCredentials] {
+  override def matches(argument: Any): Boolean = {
+    val actualCredentials = argument.asInstanceOf[UserCredentials]
+    expCredentials.userName == actualCredentials.userName &&
+      expCredentials.password.secret == actualCredentials.password.secret
   }
 }
