@@ -115,7 +115,8 @@ class HttpArchiveStarter {
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
-    val archiveConfig = archiveData.config.copy(credentials = credentials)
+    //TODO Correctly initialize configuration
+    val archiveConfig = archiveData.config//.copy(credentials = credentials)
     createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
       optKey, archiveData.shortName, index, clearTemp)
   }

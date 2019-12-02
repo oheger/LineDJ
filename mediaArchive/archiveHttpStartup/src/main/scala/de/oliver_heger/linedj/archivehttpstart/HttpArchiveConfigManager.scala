@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.security.Key
 
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -108,7 +107,7 @@ private object HttpArchiveConfigManager {
   private def createArchiveData(c: Configuration, downloadConfig: DownloadConfig,
                                 currentKey: String, names: Set[String]):
   Option[HttpArchiveData] =
-    for {config <- HttpArchiveConfig(c, currentKey, null, downloadConfig).toOption
+    for {config <- HttpArchiveConfig(c, currentKey, downloadConfig, null, null).toOption
          realm <- Option(c.getString(currentKey + KeyRealm))
     } yield HttpArchiveData(config, realm, generateShortName(config, names),
       encrypted = c.getBoolean(currentKey + KeyEncrypted, false))

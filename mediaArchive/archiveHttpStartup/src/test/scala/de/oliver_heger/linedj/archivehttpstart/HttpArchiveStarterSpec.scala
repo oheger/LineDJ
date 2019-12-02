@@ -326,7 +326,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     private def createArchiveData(): HttpArchiveData = {
       val manager = HttpArchiveConfigManager(sourceConfig)
       val data = manager.archives(StartupConfigTestHelper.archiveName(1))
-      data.copy(config = data.config.copy(credentials = ArchiveCredentials))
+      //TODO check correct configuration
+      data//.copy(config = data.config.copy(credentials = ArchiveCredentials))
     }
 
     /**
