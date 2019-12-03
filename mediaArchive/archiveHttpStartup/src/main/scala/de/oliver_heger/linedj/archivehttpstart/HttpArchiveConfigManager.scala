@@ -33,14 +33,23 @@ import scala.collection.immutable.{SortedMap, TreeMap}
   * @param config    the configuration of the archive
   * @param realm     the realm to be used for login
   * @param shortName a unique short name for this archive
+  * @param protocol  the HTTP protocol for this archive
   * @param encrypted flag whether this archive is encrypted
   */
 private case class HttpArchiveData(config: HttpArchiveConfig,
                                    realm: String,
                                    shortName: String,
+                                   protocol: String,
                                    encrypted: Boolean = false)
 
 private object HttpArchiveConfigManager {
+  /**
+    * The default name of the HTTP protocol associated with an archive. This
+    * name is used for the protocol if the configuration of an archive does not
+    * explicitly specify a protocol.
+    */
+  val DefaultProtocolName = "webdav"
+
   /** The base key for accessing archives from the configuration. */
   private val KeyArchives = "media.archives.archive"
 
@@ -49,6 +58,9 @@ private object HttpArchiveConfigManager {
 
   /** The key for querying the realm of an archive. */
   private val KeyRealm = ".realm"
+
+  /** The key for querying the protocol of an archive. */
+  private val KeyProtocol = ".protocol"
 
   /** The key for the encrypted flag of an archive. */
   private val KeyEncrypted = ".encrypted"
@@ -109,8 +121,9 @@ private object HttpArchiveConfigManager {
   Option[HttpArchiveData] =
     for {config <- HttpArchiveConfig(c, currentKey, downloadConfig, null, null).toOption
          realm <- Option(c.getString(currentKey + KeyRealm))
-    } yield HttpArchiveData(config, realm, generateShortName(config, names),
-      encrypted = c.getBoolean(currentKey + KeyEncrypted, false))
+         } yield HttpArchiveData(config, realm, generateShortName(config, names),
+      encrypted = c.getBoolean(currentKey + KeyEncrypted, false),
+      protocol = c.getString(currentKey + KeyProtocol, DefaultProtocolName))
 
   /**
     * Generates a short name for an archive. Makes sure that the name is unique

@@ -78,10 +78,12 @@ object StartupConfigTestHelper {
     * @param c         the configuration
     * @param idx       the index of the test archive
     * @param realm     option for the name of the realm
+    * @param protocol  option for the HTTP protocol of the archive
     * @param encrypted the encrypted flag for the archive
     * @return the updated configuration
     */
-  def addArchiveToConfig(c: Configuration, idx: Int, realm: Option[String] = None, encrypted: Boolean = false):
+  def addArchiveToConfig(c: Configuration, idx: Int, realm: Option[String] = None,
+                         protocol: Option[String] = None, encrypted: Boolean = false):
   Configuration = {
     c.addProperty(KeyArchives + "(-1)." + HttpArchiveConfig.PropArchiveName, archiveName(idx))
     c.addProperty(KeyPrefix + HttpArchiveConfig.PropArchiveUri, archiveUri(idx))
@@ -90,6 +92,7 @@ object StartupConfigTestHelper {
     c.addProperty(KeyPrefix + HttpArchiveConfig.PropTimeoutReadSize, 128 * 1024)
     c.addProperty(DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
     c.addProperty(KeyPrefix + "realm", realm.getOrElse(realmName(idx)))
+    protocol foreach (p => c.addProperty(KeyPrefix + "protocol", p))
     if (encrypted) {
       c.addProperty(KeyPrefix + "encrypted", true)
     }

@@ -44,6 +44,7 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
       val archiveData = manager.archives(t._1)
       archiveData.config.archiveURI.toString() should be(expUri)
       archiveData.encrypted shouldBe false
+      archiveData.protocol should be(HttpArchiveConfigManager.DefaultProtocolName)
     }
   }
 
@@ -124,5 +125,17 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(archiveName).encrypted shouldBe true
+  }
+
+  it should "evaluate the protocol property for archives" in {
+    val Index = 42
+    val TestProtocol = "test"
+    val config = StartupConfigTestHelper.addArchiveToConfig(
+      StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, 1),
+      Index, Some("someRealm"), protocol = Some(TestProtocol))
+    val archiveName = StartupConfigTestHelper.archiveName(Index)
+    val manager = HttpArchiveConfigManager(config)
+
+    manager.archives(archiveName).protocol should be(TestProtocol)
   }
 }
