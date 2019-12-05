@@ -217,7 +217,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-      starter.startup(unionArchiveActors, archiveData, c, ArchiveCredentials, cryptKeyParam,
+    //TODO set a meaningful protocol
+      starter.startup(unionArchiveActors, archiveData, c, null, ArchiveCredentials, cryptKeyParam,
         actorFactory, index, clearTemp)
 
     /**

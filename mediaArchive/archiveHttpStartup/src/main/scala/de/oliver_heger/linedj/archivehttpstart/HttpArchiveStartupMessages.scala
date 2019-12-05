@@ -54,13 +54,15 @@ object HttpArchiveStates {
     * Representation of the state of an HTTP archive.
     *
     * The different states determine whether an HTTP archive is currently
-    * active (i.e. contributing to the central union archive). If not, from the
-    * state name, a reason can be obtained.
+    * started or active. (The difference is that an active archive is started
+    * successfully and already contributes to the central union archive). If
+    * not, from the state name, a reason can be obtained.
     *
     * @param name     a unique name of this state
     * @param isActive a flag whether the archive is currently active
+    *                 @param isStarted flag whether the archive has been started
     */
-  sealed abstract class HttpArchiveState(val name: String, val isActive: Boolean)
+  sealed abstract class HttpArchiveState(val name: String, val isActive: Boolean, val isStarted: Boolean)
 
   /**
     * An object representing the HTTP archive state that the union archive is
@@ -68,7 +70,15 @@ object HttpArchiveStates {
     * nothing it can contribute to.
     */
   case object HttpArchiveStateNoUnionArchive
-    extends HttpArchiveState("NoUnionArchive", isActive = false)
+    extends HttpArchiveState("NoUnionArchive", isActive = false, isStarted = false)
+
+  /**
+    * An object representing the HTTP archive state that the HTTP protocol
+    * required for an archive is not available. The archive cannot be started,
+    * as it cannot connect to the server.
+    */
+  case object HttpArchiveStateNoProtocol
+    extends HttpArchiveState("NoProtocol", isActive = false, isStarted = false)
 
   /**
     * An object representing the HTTP archive state that no user credentials
@@ -76,7 +86,7 @@ object HttpArchiveStates {
     * this reason because no data can be loaded from it.
     */
   case object HttpArchiveStateNotLoggedIn
-    extends HttpArchiveState("NotLoggedIn", isActive = false)
+    extends HttpArchiveState("NotLoggedIn", isActive = false, isStarted = false)
 
   /**
     * An object representing the HTTP archive state that an encrypted HTTP
@@ -84,7 +94,7 @@ object HttpArchiveStates {
     * decrypt the archive's content has not yet been entered.
     */
   case object HttpArchiveStateLocked
-    extends HttpArchiveState("Locked", isActive = false)
+    extends HttpArchiveState("Locked", isActive = false, isStarted = false)
 
   /**
     * An object representing the HTTP archive state that the archive is
@@ -93,7 +103,7 @@ object HttpArchiveStates {
     * will be entered.
     */
   case object HttpArchiveStateInitializing
-    extends HttpArchiveState("Initializing", isActive = false)
+    extends HttpArchiveState("Initializing", isActive = false, isStarted = true)
 
   /**
     * An object representing the HTTP archive state ''available''. In this
@@ -101,7 +111,7 @@ object HttpArchiveStates {
     * contributed to the central union archive.
     */
   case object HttpArchiveStateAvailable
-    extends HttpArchiveState("Available", isActive = true)
+    extends HttpArchiveState("Available", isActive = true, isStarted = true)
 
   /**
     * A class representing an error state of an HTTP archive. This state is
@@ -110,7 +120,8 @@ object HttpArchiveStates {
     * @param state the state of the archive
     */
   case class HttpArchiveErrorState(state: de.oliver_heger.linedj.archivehttp.HttpArchiveState)
-    extends HttpArchiveState("Error", isActive = false)
+    extends HttpArchiveState("Error", isActive = false, isStarted = true)
+
 }
 
 /**

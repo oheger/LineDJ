@@ -23,6 +23,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
@@ -104,6 +105,7 @@ class HttpArchiveStarter {
     * @param unionArchiveActors an object with the actors for the union archive
     * @param archiveData        data for the archive to be started
     * @param config             the configuration
+    * @param protocol           the HTTP protocol for the archive
     * @param credentials        the user credentials for reading data from the archive
     * @param optKey             option for the decryption key of an encrypted archive
     * @param actorFactory       the actor factory
@@ -113,10 +115,10 @@ class HttpArchiveStarter {
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, credentials: UserCredentials, optKey: Option[Key],
+              config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
     //TODO Correctly initialize configuration
-    val archiveConfig = archiveData.config//.copy(credentials = credentials)
+    val archiveConfig = archiveData.config //.copy(credentials = credentials)
     createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
       optKey, archiveData.shortName, index, clearTemp)
   }
