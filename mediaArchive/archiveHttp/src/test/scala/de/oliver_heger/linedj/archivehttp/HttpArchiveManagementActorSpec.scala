@@ -43,7 +43,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
+import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar
@@ -211,7 +211,7 @@ object HttpArchiveManagementActorSpec {
   * Test class for ''HttpArchiveManagementActor''.
   */
 class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
 
   import HttpArchiveManagementActorSpec._
 
@@ -288,7 +288,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "create a correct request actor for basic auth" in {
     val credentials = UserCredentials("scott", Secret("tiger"))
-    val config = ArchiveConfig.copy(authFunc = HttpArchiveManagementActor.basicAuthConfigureFunc(credentials))
+    val authFunc = futureResult(HttpArchiveManagementActor.basicAuthConfigureFunc(credentials))
+    val config = ArchiveConfig.copy(authFunc = authFunc)
     val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config)
     checkProcessing(helper)
 
@@ -309,8 +310,10 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   }
 
   it should "correctly combine multiple aspects when creating the request actor" in {
+    val authFunc = futureResult(HttpArchiveManagementActor.basicAuthConfigureFunc(
+      UserCredentials("scott", Secret("tiger"))))
     val config = ArchiveConfig.copy(needsCookieManagement = true,
-      authFunc = HttpArchiveManagementActor.basicAuthConfigureFunc(UserCredentials("scott", Secret("tiger"))))
+      authFunc = authFunc)
     val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config, cryptArchive = true)
     checkProcessing(helper)
 

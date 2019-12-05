@@ -46,7 +46,7 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-object HttpArchiveManagementActor {
+object HttpArchiveManagementActor extends HttpAuthFactory {
 
   private class HttpArchiveManagementActorImpl(processingService: ContentProcessingUpdateService,
                                                config: HttpArchiveConfig,
@@ -94,9 +94,11 @@ object HttpArchiveManagementActor {
     * @param credentials the credentials to be applied
     * @return the basic auth configure function
     */
-  def basicAuthConfigureFunc(credentials: UserCredentials): AuthConfigureFunc =
-    (requestActor, factory) =>
-      factory.createChildActor(Props(classOf[HttpBasicAuthRequestActor], credentials, requestActor))
+  override def basicAuthConfigureFunc(credentials: UserCredentials): Future[AuthConfigureFunc] =
+    Future.successful {
+      (requestActor, factory) =>
+        factory.createChildActor(Props(classOf[HttpBasicAuthRequestActor], credentials, requestActor))
+    }
 
   /**
     * Returns a ''Future'' with a function to configure authentication based on
@@ -111,8 +113,8 @@ object HttpArchiveManagementActor {
     * @param mat           the object to materialize streams
     * @return a ''Future'' with the OAuth configure function
     */
-  def oauthConfigureFunc(storageConfig: OAuthStorageConfig)(implicit ec: ExecutionContext, mat: ActorMaterializer):
-  Future[AuthConfigureFunc] =
+  override def oauthConfigureFunc(storageConfig: OAuthStorageConfig)
+                                 (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[AuthConfigureFunc] =
     for {config <- OAuthStorageServiceImpl.loadConfig(storageConfig)
          secret <- OAuthStorageServiceImpl.loadClientSecret(storageConfig)
          tokens <- OAuthStorageServiceImpl.loadTokens(storageConfig)
