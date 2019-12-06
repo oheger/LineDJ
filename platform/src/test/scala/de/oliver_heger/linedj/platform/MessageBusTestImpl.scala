@@ -51,19 +51,30 @@ object MessageBusTestImpl {
   *
   * There are two operation modes: messages published via the bus can either
   * be directly propagated to registered listeners or they can be queued,
-  * inspected, and delivered on demand. The initial mode is determined via a
-  * constructor parameter, but it can be changed later on at any time.
+  * inspected, and delivered on demand. In addition, a flag can be set whether
+  * callbacks to complete futures on the UI thread should be handled directly.
+  * The initial flag values are determined via  constructor parameters, but
+  * they can be changed later on at any time.
   *
-  * @param initDirectProcessing the initial direct processing mode
-  * @param timeout              a timeout when waiting for messages (in seconds)
+  * @param initDirectProcessing   the initial direct processing mode
+  * @param initUIFutureProcessing the initial UI future processing mode
+  * @param timeout                a timeout when waiting for messages (in seconds)
   */
-class MessageBusTestImpl(initDirectProcessing: Boolean = false, timeout: Int = 3)
+class MessageBusTestImpl(initDirectProcessing: Boolean = false,
+                         initUIFutureProcessing: Boolean = false,
+                         timeout: Int = 3)
   extends UIBus(new DirectCallGUISynchronizer) {
   /**
     * A flag whether messages published to the bus should be delivered
     * directly. If set to '''false''', messages are only queued.
     */
   var directProcessing: Boolean = initDirectProcessing
+
+  /**
+    * A flag whether callbacks for UI future processing are directly forwarded
+    * by the message bus.
+    */
+  var uiFutureProcessing: Boolean = initUIFutureProcessing
 
   /** A queue for recording messages. */
   private val messageQueue = new LinkedBlockingQueue[Any]
@@ -76,7 +87,7 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false, timeout: Int = 3
     *             account.
     */
   override def publish(msg: Any): Unit = {
-    if (directProcessing) super.publish(msg)
+    if (shouldForward(msg)) super.publish(msg)
     else messageQueue offer msg
   }
 
@@ -183,4 +194,14 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false, timeout: Int = 3
     publishDirectly(msg)
     msg
   }
+
+  /**
+    * Checks whether the given message should be forwarded directly on the bus.
+    * This depends on some flags.
+    *
+    * @param msg the message
+    * @return a flag whether this message should be handled directly
+    */
+  private def shouldForward(msg: Any): Boolean =
+    directProcessing || (uiFutureProcessing && msg.getClass.getName.endsWith("FutureUICallback"))
 }
