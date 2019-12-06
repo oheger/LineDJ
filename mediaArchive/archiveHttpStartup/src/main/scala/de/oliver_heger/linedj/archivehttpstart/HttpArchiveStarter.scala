@@ -22,7 +22,7 @@ import java.security.Key
 import akka.actor.ActorRef
 import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
-import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
@@ -97,8 +97,15 @@ object HttpArchiveStarter {
   * actors is an asynchronous operation, it can happen that the creation of new
   * actors fail because names are already in use. The numeric index integrated
   * into generated actor names prevents this.
+  *
+  * @param authFactory the factory for creating the auth configuration
   */
-class HttpArchiveStarter {
+class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
+  /**
+    * Creates a new instance of ''HttpArchiveStarter'' with a default
+    * ''HttpAuthFactory''.
+    */
+  def this() = this(HttpArchiveManagementActor)
 
   import HttpArchiveStarter._
 
@@ -115,20 +122,20 @@ class HttpArchiveStarter {
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
     * @param clearTemp          flag whether the temp directory should be cleared
-    *                           @param ec the execution context
-    *                                     @param mat the object to materialize streams
+    * @param ec                 the execution context
+    * @param mat                the object to materialize streams
     * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
-             (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] = {
-    //TODO Correctly initialize configuration
-    val archiveConfig = archiveData.config //.copy(credentials = credentials)
-    Future.successful(createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-      optKey, archiveData.shortName, index, clearTemp))
-  }
+             (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] =
+    authFactory.basicAuthConfigureFunc(credentials) map { authFunc =>
+      val archiveConfig = archiveData.config.copy(protocol = protocol, authFunc = authFunc)
+      createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+        optKey, archiveData.shortName, index, clearTemp)
+    }
 
   /**
     * Creates the actors for the HTTP archive and ensures that anything is

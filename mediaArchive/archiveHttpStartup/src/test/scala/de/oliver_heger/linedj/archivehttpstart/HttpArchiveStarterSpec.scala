@@ -24,9 +24,11 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
-import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
@@ -34,7 +36,11 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
+
+import scala.concurrent.Future
 
 object HttpArchiveStarterSpec {
   /** Test user name. */
@@ -83,7 +89,7 @@ object HttpArchiveStarterSpec {
   * Test class for ''HttpArchiveStarter''.
   */
 class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with AsyncTestHelper {
+  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
   import HttpArchiveStarterSpec._
@@ -105,7 +111,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .args(2).asInstanceOf[TempPathGenerator]
   }
 
-  "A HttpArchiveStarter" should "create correct actors for the archive" in {
+  "A HttpArchiveStarter" should "use a correct default HttpAuthFactory" in {
+    val starter = new HttpArchiveStarter
+
+    starter.authFactory should be(HttpArchiveManagementActor)
+  }
+
+  it should "create correct actors for the archive" in {
     val helper = new StarterTestHelper
 
     helper.startArchiveAndCheckActors()
@@ -199,14 +211,23 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     /** The default test configuration. */
     private val sourceConfig = createArchiveSourceConfig()
 
+    /** Mock for the protocol to be used. */
+    private val protocol = mock[HttpArchiveProtocol]
+
     /** The data object for the archive to be started. */
     private val archiveData = createArchiveData()
 
     /** The factory for creating child actors. */
     private val actorFactory = createActorFactory()
 
+    /** Mock for the function to configure authentication. */
+    private val authConfigureFunc = mock[AuthConfigureFunc]
+
+    /** Mock for the factory to create authentication functions. */
+    private val authFactory = createAuthFactory()
+
     /** The object to be tested. */
-    private val starter = new HttpArchiveStarter
+    private val starter = new HttpArchiveStarter(authFactory)
 
     /** A map that stores information about actor creations. */
     private var creationProps = Map.empty[String, Props]
@@ -224,8 +245,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the result of the starter
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
-    //TODO set a meaningful protocol
-      futureResult(starter.startup(unionArchiveActors, archiveData, c, null, ArchiveCredentials,
+      futureResult(starter.startup(unionArchiveActors, archiveData, c, protocol, ArchiveCredentials,
         cryptKeyParam, actorFactory, index, clearTemp))
 
     /**
@@ -259,11 +279,12 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return this test helper
       */
     def checkActorProps(): StarterTestHelper = {
+      val expConfig = expectedArchiveConfig()
       val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
       classOf[ChildActorFactory].isAssignableFrom(propsManager.actorClass()) shouldBe true
       propsManager.args should have size 8
-      propsManager.args(1) should be(archiveData.config)
+      propsManager.args(1) should be(expConfig)
       propsManager.args(3) should be(unionArchiveActors.mediaManager)
       propsManager.args(4) should be(unionArchiveActors.metaDataManager)
       propsManager.args(5) should be(probeMonitoringActor.ref)
@@ -333,10 +354,17 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       */
     private def createArchiveData(): HttpArchiveData = {
       val manager = HttpArchiveConfigManager(sourceConfig)
-      val data = manager.archives(StartupConfigTestHelper.archiveName(1))
-      //TODO check correct configuration
-      data//.copy(config = data.config.copy(credentials = ArchiveCredentials))
+      manager.archives(StartupConfigTestHelper.archiveName(1))
     }
+
+    /**
+      * Returns the expected final configuration that should be passed to the
+      * actors created for the archive.
+      *
+      * @return the expected archive configuration
+      */
+    private def expectedArchiveConfig(): HttpArchiveConfig =
+      archiveData.config.copy(protocol = protocol, authFunc = authConfigureFunc)
 
     /**
       * Creates an object with test actors for the union archive.
@@ -373,6 +401,18 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
           probes(name)
         }
       }
+    }
+
+    /**
+      * Creates the mock for the auth factory. It is prepared for a basic auth
+      * invocation.
+      *
+      * @return the mock for the auth factory
+      */
+    private def createAuthFactory(): HttpAuthFactory = {
+      val factory = mock[HttpAuthFactory]
+      when(factory.basicAuthConfigureFunc(ArchiveCredentials)).thenReturn(Future.successful(authConfigureFunc))
+      factory
     }
   }
 
