@@ -21,7 +21,9 @@ import java.security.Key
 import java.time.Instant
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
@@ -81,7 +83,7 @@ object HttpArchiveStarterSpec {
   * Test class for ''HttpArchiveStarter''.
   */
 class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+  FlatSpecLike with BeforeAndAfterAll with Matchers with AsyncTestHelper {
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
   import HttpArchiveStarterSpec._
@@ -209,6 +211,11 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     /** A map that stores information about actor creations. */
     private var creationProps = Map.empty[String, Props]
 
+    /** An object to materialize streams in implicit scope. */
+    private implicit val mat: ActorMaterializer = ActorMaterializer()
+
+    import system.dispatcher
+
     /**
       * Invokes the test instance with the passed in configuration and
       * returns the result.
@@ -218,8 +225,8 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       */
     def startArchive(c: Configuration): Map[String, ActorRef] =
     //TODO set a meaningful protocol
-      starter.startup(unionArchiveActors, archiveData, c, null, ArchiveCredentials, cryptKeyParam,
-        actorFactory, index, clearTemp)
+      futureResult(starter.startup(unionArchiveActors, archiveData, c, null, ArchiveCredentials,
+        cryptKeyParam, actorFactory, index, clearTemp))
 
     /**
       * Invokes the test instance to start the archive and checks whether the

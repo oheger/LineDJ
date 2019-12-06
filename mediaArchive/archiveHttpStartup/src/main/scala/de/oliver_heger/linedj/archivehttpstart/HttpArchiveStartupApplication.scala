@@ -20,12 +20,13 @@ import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.Actor.Receive
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse}
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
@@ -38,7 +39,7 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupApplication {
   /** Property for the initialization timeout of the local archive. */
@@ -179,6 +180,8 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   def this() = this(new HttpArchiveStarter)
 
   import HttpArchiveStartupApplication._
+
+  private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Stores the ID for the message bus registration. Note: The registration
@@ -463,19 +466,41 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     if (isMediaArchiveAvailable) {
       archivesToBeStarted foreach { e =>
         archiveIndexCounter += 1
+        val currentArchiveIndex = archiveIndexCounter
         val protocol = protocols(e._2.protocol)
-        val actors = archiveStarter.startup(mediaActors, e._2,
+        val futActors = archiveStarter.startup(mediaActors, e._2,
           clientApplicationContext.managementConfiguration, protocol, realms(e._2.realm), archiveStates(e._1).optKey,
-          clientApplicationContext.actorFactory, archiveIndexCounter,
-          clearTemp = archiveIndexCounter == 1)
-        actors foreach (e => registerActor(e._1, e._2))
-        val arcState = ArchiveStateData(actors = actors,
-          state = HttpArchiveStateChanged(e._1, HttpArchiveStateInitializing),
-          archiveIndex = archiveIndexCounter, optKey = None)
-        publish(arcState.state)
-        archiveStates += e._1 -> arcState
+          clientApplicationContext.actorFactory, currentArchiveIndex, clearTemp = currentArchiveIndex == 1)
+        futActors onCompleteUIThread { triedResult =>
+          handleArchiveStartupResult(e._1, currentArchiveIndex, triedResult)
+        }
       }
     }
+  }
+
+  /**
+    * Evaluates the result of starting up an archive. In case of success,
+    * actors for the archive have been created and are now available as a map;
+    * the data of the archive is updated accordingly, and its state is set to
+    * initializing. Otherwise, the archive switches to an error state.
+    *
+    * @param name        the name of the archive affected
+    * @param index       the index to be added to the actor names
+    * @param triedResult the result of the startup operation
+    */
+  private def handleArchiveStartupResult(name: String, index: Int, triedResult: Try[Map[String, ActorRef]]): Unit = {
+    val nextData = triedResult match {
+      case Success(actors) =>
+        actors foreach (e => registerActor(e._1, e._2))
+        ArchiveStateData(actors = actors,
+          state = HttpArchiveStateChanged(name, HttpArchiveStateInitializing),
+          archiveIndex = index, optKey = None)
+      case Failure(exception) =>
+        val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
+        archiveStates(name).deactivate(HttpArchiveStateChanged(name, state))
+    }
+    publish(nextData.state)
+    archiveStates += name -> nextData
   }
 
   /**
@@ -588,4 +613,12 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def publish(msg: Any): Unit = {
     messageBus publish msg
   }
+
+  /**
+    * Returns the actor system in implicit scope. This is needed by the object
+    * to materialize streams.
+    *
+    * @return the implicit actor system
+    */
+  private implicit def actorSystem: ActorSystem = clientApplicationContext.actorSystem
 }

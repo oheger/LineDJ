@@ -20,6 +20,7 @@ import java.nio.file.Paths
 import java.security.Key
 
 import akka.actor.ActorRef
+import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
@@ -30,6 +31,8 @@ import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.Configuration
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object HttpArchiveStarter {
   /** The name of the HTTP archive management actor. */
@@ -100,7 +103,8 @@ class HttpArchiveStarter {
   import HttpArchiveStarter._
 
   /**
-    * Starts up the HTTP archive with the specified settings.
+    * Starts up the HTTP archive with the specified settings and returns a
+    * ''Future'' with the actors that have been created.
     *
     * @param unionArchiveActors an object with the actors for the union archive
     * @param archiveData        data for the archive to be started
@@ -111,16 +115,19 @@ class HttpArchiveStarter {
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
     * @param clearTemp          flag whether the temp directory should be cleared
+    *                           @param ec the execution context
+    *                                     @param mat the object to materialize streams
     * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
-              actorFactory: ActorFactory, index: Int, clearTemp: Boolean): Map[String, ActorRef] = {
+              actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
+             (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] = {
     //TODO Correctly initialize configuration
     val archiveConfig = archiveData.config //.copy(credentials = credentials)
-    createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-      optKey, archiveData.shortName, index, clearTemp)
+    Future.successful(createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+      optKey, archiveData.shortName, index, clearTemp))
   }
 
   /**

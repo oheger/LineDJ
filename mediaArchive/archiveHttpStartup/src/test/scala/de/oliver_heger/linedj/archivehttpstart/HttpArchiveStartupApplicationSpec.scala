@@ -46,7 +46,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object HttpArchiveStartupApplicationSpec {
   /** Test user name. */
@@ -244,7 +244,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(1)
-      .processUIFuture()
   }
 
   /**
@@ -322,7 +321,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(2)
-      .processUIFuture()
       .expectArchiveCreation()
   }
 
@@ -335,7 +333,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(2)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateNoUnionArchive, 1, 2, 3, 4)
   }
 
@@ -349,7 +346,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
-      .processUIFuture()
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
       .expectArchiveCreation()
   }
@@ -364,11 +360,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(2)
-      .processUIFuture()
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
       .sendLoginForRealm(2)
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateNotLoggedIn))
-      .processUIFuture()
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
 
     val (indices, clears) = helper.fetchStarterParameters()
@@ -381,6 +375,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
   it should "check preconditions again after facade actors have been fetched" in {
     val helper = new StartupTestHelper
+    helper.messageBus.uiFutureProcessing = false
     helper.startupApplication()
       .prepareMediaFacadeActorsRequest()
       .sendLoginForRealm(2)
@@ -473,8 +468,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     * @param expNotificationState the state expected in the notification
     */
   private def checkArchiveStartupNotification(archiveState: de.oliver_heger.linedj.archivehttp
-  .HttpArchiveState,
-                                              expNotificationState: HttpArchiveState): Unit = {
+  .HttpArchiveState, expNotificationState: HttpArchiveState): Unit = {
     val helper = new StartupTestHelper
     prepareMultiRealmLogin(helper, Some(createStateActor(archiveState)))
     triggerArchiveCreation(helper)
@@ -572,7 +566,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .sendLoginForRealm(EncArchiveIndex)
       .expectArchiveStateNotification(stateNotification(4, HttpArchiveStateLocked))
       .sendLockStateChangeNotification(EncArchiveIndex, optKey)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, EncArchiveIndex)
       .expectArchiveCreation()
   }
@@ -589,7 +582,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLockStateChangeNotification(EncArchiveIndex, optKey)
       .sendLoginForRealm(EncArchiveIndex)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, EncArchiveIndex)
       .expectArchiveCreation()
   }
@@ -608,7 +600,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .sendLoginForRealm(EncArchiveIndex)
       .expectArchiveStateNotification(stateNotification(4, HttpArchiveStateLocked))
       .sendLockStateChangeNotification(EncArchiveIndex, optKey)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, EncArchiveIndex)
       .expectArchiveCreation()
       .sendLockStateChangeNotification(EncArchiveIndex, None)
@@ -630,7 +621,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .addProtocol(protocol)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNotLoggedIn))
       .sendLoginForRealm(ProtocolArchiveIndex)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, ProtocolArchiveIndex)
       .expectArchiveCreation()
   }
@@ -648,12 +638,28 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(ProtocolArchiveIndex)
       .addProtocol(protocol)
-      .processUIFuture()
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, ProtocolArchiveIndex)
       .expectArchiveCreation()
       .removeProtocol(protocol)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
     actors.values foreach expectTermination
+  }
+
+  it should "handle a failed future from the archive starter" in {
+    val Index = 2
+    val exception = new IllegalStateException("Could not startup archive :-(")
+    val errState = HttpArchiveStateServerError(exception)
+    val expState = HttpArchiveErrorState(errState)
+    val helper = new StartupTestHelper
+
+    helper.startupApplication()
+      .initFailedArchiveStartupResult(exception)
+      .prepareMediaFacadeActorsRequest()
+      .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
+      .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
+      .sendLoginForRealm(Index)
+      .expectArchiveStateNotification(stateNotification(Index, expState))
   }
 
   /**
@@ -677,7 +683,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     */
   private class StartupTestHelper(skipUI: Boolean = false) extends ApplicationTestSupport {
     /** A test message bus. */
-    val messageBus = new MessageBusTestImpl
+    val messageBus = new MessageBusTestImpl(initUIFutureProcessing = true)
 
     /** A mock for the actor factory. */
     val actorFactory: ActorFactory = mock[ActorFactory]
@@ -863,8 +869,21 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       expectStarterInvocation(archiveIdx, optProtocol getOrElse webDavProtocol, realmIdx, optKey)
         .thenAnswer((invocation: InvocationOnMock) => {
           archiveStartupCount.incrementAndGet()
-          adaptActorNames(actors, invocation.getArguments()(7).asInstanceOf[Int])
+          Future.successful(adaptActorNames(actors, invocation.getArguments()(7).asInstanceOf[Int]))
         })
+      this
+    }
+
+    /**
+      * Prepares the mock archive starter to return a failed ''Future'' when
+      * invoked to start an archive.
+      *
+      * @param exception the exception to fail the future
+      * @return this test helper
+      */
+    def initFailedArchiveStartupResult(exception: Throwable): StartupTestHelper = {
+      when(archiveStarter.startup(any(), any(), any(), any(), any(), any(), any(), anyInt(),
+        anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
       this
     }
 
@@ -898,17 +917,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
-      * Expects a message for processing a future in the UI thread on the
-      * message bus and delivers it.
-      *
-      * @return this test helper
-      */
-    def processUIFuture(): StartupTestHelper = {
-      messageBus.processNextMessage[Any]
-      this
-    }
-
-    /**
       * Returns the variable parameters that have been passed to the starter
       * object. These consist of the archive indices and the flags to clear
       * the temporary directory.
@@ -923,7 +931,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
           probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig), any(),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
-          captorClear.capture())
+          captorClear.capture())(any(), any())
       (captorIdx.getAllValues.asScala, captorClear.getAllValues.asScala)
     }
 
@@ -963,13 +971,13 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       *         method
       */
     private def expectStarterInvocation(archiveIdx: Int, protocol: HttpArchiveProtocol, realmIdx: Int,
-                                        optKey: Option[Key]): OngoingStubbing[Map[String, ActorRef]] = {
+                                        optKey: Option[Key]): OngoingStubbing[Future[Map[String, ActorRef]]] = {
       val archiveData = archiveConfigManager.archives(
         StartupConfigTestHelper.archiveName(archiveIdx))
       val creds = credentials(realmIdx)
       when(archiveStarter.startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
         probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig), argEq(protocol),
-        credentialsEq(creds), argEq(optKey), argEq(actorFactory), anyInt(), anyBoolean()))
+        credentialsEq(creds), argEq(optKey), argEq(actorFactory), anyInt(), anyBoolean())(any(), any()))
     }
   }
 
