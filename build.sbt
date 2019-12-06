@@ -207,7 +207,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
-      "de.oliver_heger.linedj.archivehttp.crypt"),
+      "de.oliver_heger.linedj.archivehttp.crypt, de.oliver_heger.linedj.archivehttp.spi"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
@@ -222,7 +222,10 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   .settings(
     name := "linedj-protocol-webdav",
     libraryDependencies ++= logDependencies,
-    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*")
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
+    OsgiKeys.importPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl.io", "*"),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml")
   ) dependsOn(shared % "compile->compile;test->test", archiveHttp % "compile->compile;test->test")
 
 /**
@@ -845,7 +848,7 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
-  archiveHttpStartup, mediaIfcEmbedded)
+  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav)
 
 /**
   * Project for the radio application.
