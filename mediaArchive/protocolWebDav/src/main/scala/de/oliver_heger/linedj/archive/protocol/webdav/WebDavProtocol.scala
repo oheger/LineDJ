@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 
 import java.io.ByteArrayInputStream
 
-import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.Accept
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.ElemHref
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 
