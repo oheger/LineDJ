@@ -17,7 +17,7 @@
 
 -->
 <!--
-  Declarative Services declaration of LineDJ client Browser application
+  Declarative Services declaration of LineDJ HTTP archive startup application
   component.
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
@@ -32,4 +32,7 @@
              name="clientContext" bind="initClientContext"/>
   <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
              name="applicationManager" bind="initApplicationManager"/>
+  <reference interface="de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol"
+             name="protocols" bind="addProtocol" unbind="removeProtocol"
+             policy="dynamic" cardinality="0..n"/>
 </component>
