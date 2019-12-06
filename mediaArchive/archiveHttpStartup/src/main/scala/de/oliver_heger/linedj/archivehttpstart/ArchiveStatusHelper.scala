@@ -86,6 +86,8 @@ class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: Sta
         new Message("state_no_login")
       case HttpArchiveStateLocked =>
         new Message("state_locked")
+      case HttpArchiveStateNoProtocol =>
+        new Message("state_no_protocol")
       case HttpArchiveErrorState(HttpArchiveStateFailedRequest(status)) =>
         new Message(null, "state_failed_request", status.toString())
       case HttpArchiveErrorState(HttpArchiveStateServerError(ex)) =>

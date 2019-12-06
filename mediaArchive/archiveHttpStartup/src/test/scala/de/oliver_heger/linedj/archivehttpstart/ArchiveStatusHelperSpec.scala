@@ -71,6 +71,12 @@ class ArchiveStatusHelperSpec extends FlatSpec with Matchers with MockitoSugar {
     helper.checkStatusLineText(HttpArchiveStateLocked, new Message("state_locked"))
   }
 
+  it should "handle the protocol unavailable state" in {
+    val helper = new ArchiveStatusTestHelper
+
+    helper.checkStatusLineText(HttpArchiveStateNoProtocol, new Message("state_no_protocol"))
+  }
+
   it should "handle the available state" in {
     val helper = new ArchiveStatusTestHelper
 
