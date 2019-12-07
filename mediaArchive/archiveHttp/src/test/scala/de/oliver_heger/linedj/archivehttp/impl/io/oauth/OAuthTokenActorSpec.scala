@@ -21,8 +21,9 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.DepthHeader
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -127,7 +128,7 @@ object OAuthTokenActorSpec {
     */
   private def failedResponse(response: HttpResponse): Failure[HttpResponse] =
     Failure(FailedRequestException("Failed response", cause = null, response = Some(response),
-      request = HttpRequestActor.SendRequest(TestRequestWithAuth, RequestData)))
+      request = HttpRequests.SendRequest(TestRequestWithAuth, RequestData)))
 
   /**
     * An actor implementation that simulates an HTTP actor. This actor expects
@@ -146,11 +147,11 @@ object OAuthTokenActorSpec {
       case StubResponses(stubResponses) =>
         responses = stubResponses
 
-      case req: HttpRequestActor.SendRequest if checkRequest(req.request) =>
+      case req: HttpRequests.SendRequest if checkRequest(req.request) =>
         val result = responses.head.triedResponse match {
           case Success(response) =>
             authHeaders = req.request.header[Authorization].get :: authHeaders
-            HttpRequestActor.ResponseData(response, req.data)
+            HttpRequests.ResponseData(response, req.data)
           case Failure(exception) =>
             Status.Failure(exception)
         }
@@ -189,7 +190,7 @@ class OAuthTokenActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.initResponses(List(StubResponse(Success(response))))
       .sendTestRequest()
-    val result = expectMsgType[HttpRequestActor.ResponseData]
+    val result = expectMsgType[HttpRequests.ResponseData]
     result.response should be(response)
     helper.checkAuthorization()
   }
@@ -215,7 +216,7 @@ class OAuthTokenActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.initResponses(responses)
       .expectTokenRequest(Future.successful(RefreshedTokens))
       .sendTestRequest()
-    val result = expectMsgType[HttpRequestActor.ResponseData]
+    val result = expectMsgType[HttpRequests.ResponseData]
     result.response should be(response2)
     helper.checkAuthorization(RefreshedTokens.accessToken)
   }
@@ -228,7 +229,7 @@ class OAuthTokenActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * @param expResponses the expected responses
     */
   private def expectResponses(helper: TokenActorTestHelper, expResponses: HttpResponse*): Unit = {
-    val results = (1 to expResponses.size) map (_ => expectMsgType[HttpRequestActor.ResponseData])
+    val results = (1 to expResponses.size) map (_ => expectMsgType[HttpRequests.ResponseData])
     results.map(_.response) should contain only (expResponses: _*)
     helper.checkAuthorization(RefreshedTokens.accessToken)
   }
@@ -335,7 +336,7 @@ class OAuthTokenActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def sendTestRequest(): TokenActorTestHelper = {
-      tokenActor ! HttpRequestActor.SendRequest(TestRequest, RequestData)
+      tokenActor ! HttpRequests.SendRequest(TestRequest, RequestData)
       this
     }
 

@@ -25,7 +25,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -78,9 +78,9 @@ object OAuthTokenRetrieverServiceImpl extends OAuthTokenRetrieverService[OAuthCo
     */
   private def sendTokenRequest(httpActor: ActorRef, config: OAuthConfig, params: Map[String, String])
                               (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[OAuthTokenData] = {
-    val request = HttpRequestActor.SendRequest(request = HttpRequest(uri = config.tokenEndpoint,
+    val request = HttpRequests.SendRequest(request = HttpRequest(uri = config.tokenEndpoint,
       entity = FormData(params).toEntity, method = HttpMethods.POST), null)
-    for {result <- HttpRequestActor.sendRequest(httpActor, request)
+    for {result <- HttpRequests.sendRequest(httpActor, request)
          content <- responseBody(result)
          tokenData <- extractTokenData(content)
          } yield tokenData
@@ -94,7 +94,7 @@ object OAuthTokenRetrieverServiceImpl extends OAuthTokenRetrieverService[OAuthCo
     * @param mat    the object to materialize streams
     * @return the text content of the response
     */
-  private def responseBody(result: HttpRequestActor.ResponseData)
+  private def responseBody(result: HttpRequests.ResponseData)
                           (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[String] = {
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     result.response.entity.dataBytes.runWith(sink).map(_.utf8String)

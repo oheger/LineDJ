@@ -23,6 +23,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object HttpBasicAuthRequestActorSpec {
@@ -55,8 +56,8 @@ class HttpBasicAuthRequestActorSpec(testSystem: ActorSystem) extends TestKit(tes
     RequestActorTestImpl.expectRequest(requestActor, expRequest, response)
     val authActor = system.actorOf(Props(classOf[HttpBasicAuthRequestActor], Credentials, requestActor))
 
-    authActor ! HttpRequestActor.SendRequest(request, Data)
-    expectMsg(HttpRequestActor.ResponseData(response, Data))
+    authActor ! HttpRequests.SendRequest(request, Data)
+    expectMsg(HttpRequests.ResponseData(response, Data))
   }
 
   it should "stop the underlying request actor when it is stopped" in {

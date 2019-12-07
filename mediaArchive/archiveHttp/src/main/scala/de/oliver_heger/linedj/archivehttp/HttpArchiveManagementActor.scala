@@ -29,6 +29,7 @@ import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
@@ -352,8 +353,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     implicit val requestTimeout: Timeout = config.processorTimeout
     val contentRequest = createArchiveContentRequest()
     log.info("Requesting content of archive {}.", contentRequest.uri)
-    (requestActor ? HttpRequestActor.SendRequest(contentRequest, null))
-      .mapTo[HttpRequestActor.ResponseData]
+    (requestActor ? HttpRequests.SendRequest(contentRequest, null))
+      .mapTo[HttpRequests.ResponseData]
       .map(_.response)
   }
 

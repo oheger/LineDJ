@@ -20,7 +20,8 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.headers.{Cookie, HttpCookiePair, `Set-Cookie`}
 import akka.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse, StatusCodes}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -152,7 +153,7 @@ class HttpCookieManagementActor(override val httpActor: ActorRef) extends Actor 
   private def handleRequest(request: SendRequest, client: ActorRef): Unit = {
     // large timeout, as timeouts are handled by the caller
     implicit val timeout: Timeout = Timeout(1.day)
-    HttpRequestActor.sendRequest(httpActor, request) onComplete {
+    HttpRequests.sendRequest(httpActor, request) onComplete {
       case Success(responseData) =>
         client ! responseData
       case Failure(FailedRequestException(_, _, Some(failedResponse), _)) if canRetry(failedResponse) =>

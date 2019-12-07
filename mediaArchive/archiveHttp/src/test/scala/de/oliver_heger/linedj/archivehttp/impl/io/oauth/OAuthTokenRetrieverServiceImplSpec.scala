@@ -29,7 +29,7 @@ import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,9 +44,6 @@ object OAuthTokenRetrieverServiceImplSpec {
 
   /** The path of the token endpoint. */
   private val TokenPath = "/tokens"
-
-  /** Constant simulating an authorization code. */
-  private val AuthCode = "test_authorization_code"
 
   /** The client secret used by tests. */
   private val ClientSecret = "test_client_secret"
@@ -154,7 +151,7 @@ object OAuthTokenRetrieverServiceImplSpec {
     private implicit val mat: ActorMaterializer = ActorMaterializer()
 
     override def receive: Receive = {
-      case req: HttpRequestActor.SendRequest =>
+      case req: HttpRequests.SendRequest =>
         implicit val ec: ExecutionContext = context.dispatcher
         val caller = sender()
         (for {_ <- validateRequest(req.request, expPath, expParams)
@@ -175,10 +172,10 @@ object OAuthTokenRetrieverServiceImplSpec {
       * @param content the content of the response
       * @return the result object
       */
-    private def createResponse(req: HttpRequestActor.SendRequest, content: String):
-    Future[HttpRequestActor.ResponseData] = {
+    private def createResponse(req: HttpRequests.SendRequest, content: String):
+    Future[HttpRequests.ResponseData] = {
       val response = HttpResponse(entity = content)
-      Future.successful(HttpRequestActor.ResponseData(response, req.data))
+      Future.successful(HttpRequests.ResponseData(response, req.data))
     }
   }
 

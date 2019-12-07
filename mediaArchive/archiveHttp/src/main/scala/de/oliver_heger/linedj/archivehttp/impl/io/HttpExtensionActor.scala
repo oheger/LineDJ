@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.actor.{Actor, ActorRef, PoisonPill}
 import akka.http.scaladsl.model.HttpRequest
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 
 /**
   * A trait that provides functionality for actors that extend the mechanism to

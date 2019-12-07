@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.http.scaladsl.model.HttpResponse
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 
 /**
   * A special exception class indicating a failed HTTP request.
@@ -35,5 +36,5 @@ import akka.http.scaladsl.model.HttpResponse
 case class FailedRequestException(message: String,
                                   cause: Throwable,
                                   response: Option[HttpResponse],
-                                  request: HttpRequestActor.SendRequest)
+                                  request: HttpRequests.SendRequest)
   extends Exception(message, cause)

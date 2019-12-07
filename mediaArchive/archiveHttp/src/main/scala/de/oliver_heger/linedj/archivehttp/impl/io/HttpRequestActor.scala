@@ -18,40 +18,16 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
-import akka.pattern.ask
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, OverflowStrategy, QueueOfferResult}
-import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 object HttpRequestActor {
-
-  /**
-    * A message triggering [[HttpRequestActor]] to send an HTTP request.
-    *
-    * The actor sends the given request to the target server. It then returns a
-    * [[ResponseData]] object to the sender. When called via the ''ask''
-    * pattern the future fails if the request was not successful.
-    *
-    * @param request the request to be executed
-    * @param data    additional request data that is included in the response
-    */
-  case class SendRequest(request: HttpRequest, data: Any)
-
-  /**
-    * A data class representing the response of a request.
-    *
-    * This class is used by [[HttpRequestActor]] to send the result of a
-    * request execution back to the sender.
-    *
-    * @param response the response from the server
-    * @param data     additional request data
-    */
-  case class ResponseData(response: HttpResponse, data: Any)
 
   /**
     * Returns an object with properties to create a new actor instance that is
@@ -74,18 +50,6 @@ object HttpRequestActor {
   def apply(host: Uri, requestQueueSize: Int): Props =
     Props(classOf[HttpRequestActorImpl], host, requestQueueSize)
 
-  /**
-    * Convenience function to send a request to an HTTP request actor and map
-    * the response future accordingly.
-    *
-    * @param httpActor the HTTP request actor
-    * @param request   the request to be sent
-    * @param timeout   the timeout for the request execution
-    * @return a ''Future'' with the response
-    */
-  def sendRequest(httpActor: ActorRef, request: SendRequest)(implicit timeout: Timeout): Future[ResponseData] =
-    (httpActor ? request).mapTo[ResponseData]
-
   private class HttpRequestActorImpl(uri: Uri, requestQueueSize: Int) extends HttpRequestActor(uri, requestQueueSize)
     with HttpFlowFactory with SystemPropertyAccess
 
@@ -107,8 +71,6 @@ object HttpRequestActor {
   */
 class HttpRequestActor(uri: Uri, requestQueueSize: Int) extends Actor with ActorLogging {
   this: HttpFlowFactory =>
-
-  import HttpRequestActor._
 
   /** The execution context. */
   implicit private val ec: ExecutionContext = context.system.dispatcher

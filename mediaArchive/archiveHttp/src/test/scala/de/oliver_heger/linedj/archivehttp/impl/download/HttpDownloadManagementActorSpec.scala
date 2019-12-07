@@ -28,16 +28,16 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
-import org.scalatestplus.mockito.MockitoSugar
+import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
 
@@ -232,7 +232,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       when(protocol.downloadMediaFile(argEq(requestActor), argEq(ResolvedDownloadUri))
       (any(), argEq(config.processorTimeout)))
         .thenReturn(if (response != null)
-          Future.successful(HttpRequestActor.ResponseData(response, null))
+          Future.successful(HttpRequests.ResponseData(response, null))
         else Future.failed(new IOException("Error from HTTP archive!")))
       optArchiveResponse = Option(response)
       downloadManager ! request

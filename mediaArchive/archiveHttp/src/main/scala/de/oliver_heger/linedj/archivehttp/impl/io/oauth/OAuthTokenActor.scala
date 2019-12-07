@@ -22,9 +22,10 @@ import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthTokenActor.{DoRefresh, PendingRequestData, RefreshFailure, TokensRefreshed}
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpExtensionActor, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpExtensionActor}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -154,7 +155,7 @@ class OAuthTokenActor(override val httpActor: ActorRef,
   private def tokensAvailable: Receive = {
     case req: SendRequest =>
       val caller = sender()
-      HttpRequestActor.sendRequest(httpActor, addAuthorization(req)) onComplete {
+      HttpRequests.sendRequest(httpActor, addAuthorization(req)) onComplete {
         case Success(result) =>
           caller ! result
 

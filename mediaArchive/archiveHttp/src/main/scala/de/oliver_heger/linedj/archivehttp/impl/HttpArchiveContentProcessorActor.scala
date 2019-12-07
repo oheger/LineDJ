@@ -25,7 +25,7 @@ import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
@@ -200,8 +200,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   : Flow[(HttpRequest, RequestData), T, NotUsed] =
     Flow[(HttpRequest, RequestData)].mapAsync(parallelism) { t =>
       implicit val timeout: Timeout = req.archiveConfig.processorTimeout
-      (for {resp <- req.requestActor.ask(HttpRequestActor.SendRequest(t._1, t._2))
-        .mapTo[HttpRequestActor.ResponseData]
+      (for {resp <- req.requestActor.ask(HttpRequests.SendRequest(t._1, t._2))
+        .mapTo[HttpRequests.ResponseData]
             procResp <- processHttpResponse(req, (resp.response, resp.data.asInstanceOf[RequestData])).mapTo[T]
       } yield procResp) fallbackTo Future {
         val mid = createMediumID(req, t._2.mediumDesc)

@@ -23,7 +23,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -186,7 +186,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @param fileUri the URI of the media file to be downloaded
     * @return a ''Future'' with the response of the download request
     */
-  private def sendDownloadRequest(fileUri: Uri): Future[HttpRequestActor.ResponseData] =
+  private def sendDownloadRequest(fileUri: Uri): Future[HttpRequests.ResponseData] =
     config.protocol.downloadMediaFile(requestActor, fileUri)
 
   /**

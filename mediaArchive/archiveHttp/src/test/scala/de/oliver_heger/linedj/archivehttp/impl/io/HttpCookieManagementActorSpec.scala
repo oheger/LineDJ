@@ -22,6 +22,7 @@ import akka.http.scaladsl.model._
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
@@ -184,7 +185,7 @@ class HttpCookieManagementActorSpec(testSystem: ActorSystem) extends TestKit(tes
       } else {
         RequestActorTestImpl.expectFailedRequest(requestActor, request,
           FailedRequestException("Failure", cause = null, response = Some(response),
-            request = HttpRequestActor.SendRequest(request, Data)))
+            request = HttpRequests.SendRequest(request, Data)))
       }
       this
     }
@@ -198,8 +199,8 @@ class HttpCookieManagementActorSpec(testSystem: ActorSystem) extends TestKit(tes
       */
     def sendRequest(request: HttpRequest = TestRequest): HttpResponse = {
       implicit val timeout: Timeout = RequestTimeout
-      val testReq = HttpRequestActor.SendRequest(request, Data)
-      val responseData = Await.result(HttpRequestActor.sendRequest(cookieActor, testReq), RequestTimeout)
+      val testReq = HttpRequests.SendRequest(request, Data)
+      val responseData = Await.result(HttpRequests.sendRequest(cookieActor, testReq), RequestTimeout)
       responseData.data should be(Data)
       responseData.response
     }

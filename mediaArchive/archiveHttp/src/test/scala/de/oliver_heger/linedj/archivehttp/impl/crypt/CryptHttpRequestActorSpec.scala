@@ -29,9 +29,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl.ExpectRequest
 import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.{Await, TimeoutException}

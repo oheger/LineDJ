@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 import akka.actor.{Actor, ActorRef}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 
 /**
   * An extension actor that adds support for basic auth to an HTTP request

@@ -22,6 +22,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.testkit.{ImplicitSender, TestKit}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object HttpMultiHostRequestActorSpec {
@@ -54,9 +55,9 @@ object HttpMultiHostRequestActorSpec {
     * @param path the path for the request
     * @return the request to this host
     */
-  private def testRequest(idx: Int, path: String = RequestPath): HttpRequestActor.SendRequest = {
+  private def testRequest(idx: Int, path: String = RequestPath): HttpRequests.SendRequest = {
     val request = HttpRequest(uri = requestUri(idx, path))
-    HttpRequestActor.SendRequest(request, RequestData)
+    HttpRequests.SendRequest(request, RequestData)
   }
 
   /**
@@ -65,9 +66,9 @@ object HttpMultiHostRequestActorSpec {
     * @param request the expected request
     * @return the corresponding result
     */
-  private def testResult(request: HttpRequestActor.SendRequest): HttpRequestActor.ResponseData = {
+  private def testResult(request: HttpRequests.SendRequest): HttpRequests.ResponseData = {
     val response = HttpResponse(headers = List(Location(request.request.uri)))
-    HttpRequestActor.ResponseData(response, request.data)
+    HttpRequests.ResponseData(response, request.data)
   }
 
   /**
@@ -77,7 +78,7 @@ object HttpMultiHostRequestActorSpec {
     * @param requests the requests supported by the actor
     * @return ''Props'' for creating this test actor
     */
-  private def requestActorProps(requests: Set[HttpRequestActor.SendRequest]): Props =
+  private def requestActorProps(requests: Set[HttpRequests.SendRequest]): Props =
     Props(classOf[StubRequestActor], requests)
 
   /**
@@ -87,7 +88,7 @@ object HttpMultiHostRequestActorSpec {
     * @param singleRequest the only supported request
     * @return ''Props'' for creating this test actor
     */
-  private def requestActorProps(singleRequest: HttpRequestActor.SendRequest): Props =
+  private def requestActorProps(singleRequest: HttpRequests.SendRequest): Props =
     requestActorProps(Set(singleRequest))
 
   /**
@@ -100,9 +101,9 @@ object HttpMultiHostRequestActorSpec {
     *
     * @param expRequests a set with expected requests
     */
-  class StubRequestActor(expRequests: Set[HttpRequestActor.SendRequest]) extends Actor {
+  class StubRequestActor(expRequests: Set[HttpRequests.SendRequest]) extends Actor {
     override def receive: Receive = {
-      case req: HttpRequestActor.SendRequest if expRequests.contains(req) =>
+      case req: HttpRequests.SendRequest if expRequests.contains(req) =>
         sender() ! testResult(req)
     }
   }
@@ -172,7 +173,7 @@ class HttpMultiHostRequestActorSpec(testSystem: ActorSystem) extends TestKit(tes
     * @param multiActor the test actor
     * @param requests   the requests to be sent
     */
-  private def executeRequests(multiActor: ActorRef, requests: Iterable[HttpRequestActor.SendRequest]): Unit = {
+  private def executeRequests(multiActor: ActorRef, requests: Iterable[HttpRequests.SendRequest]): Unit = {
     requests foreach { req =>
       multiActor ! req
       expectMsg(testResult(req))

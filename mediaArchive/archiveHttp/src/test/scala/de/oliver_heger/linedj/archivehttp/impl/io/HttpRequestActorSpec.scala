@@ -28,6 +28,7 @@ import akka.stream.scaladsl.{Flow, Source, SourceQueueWithComplete}
 import akka.testkit.{TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
@@ -70,7 +71,7 @@ object HttpRequestActorSpec {
   private val TestRequest = HttpRequest(uri = RequestPath, headers = DefaultHeaders)
 
   /** Test message to send the test request. */
-  private val TestSendRequest = HttpRequestActor.SendRequest(TestRequest, Data)
+  private val TestSendRequest = HttpRequests.SendRequest(TestRequest, Data)
 
   /**
     * A case class storing data about an expected request.
@@ -218,8 +219,8 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @param request the test request to be sent
       * @return the response from the test actor
       */
-    def sendRequest(request: HttpRequestActor.SendRequest = TestSendRequest): HttpResponse = {
-      val futResponse = HttpRequestActor.sendRequest(requestActor, request)
+    def sendRequest(request: HttpRequests.SendRequest = TestSendRequest): HttpResponse = {
+      val futResponse = HttpRequests.sendRequest(requestActor, request)
       val responseData = Await.result(futResponse, RequestTimeout.duration)
       responseData.data should be(Data)
       responseData.response

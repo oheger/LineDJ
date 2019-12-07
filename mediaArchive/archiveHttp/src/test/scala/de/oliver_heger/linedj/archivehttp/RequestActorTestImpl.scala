@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import org.scalatest.Matchers

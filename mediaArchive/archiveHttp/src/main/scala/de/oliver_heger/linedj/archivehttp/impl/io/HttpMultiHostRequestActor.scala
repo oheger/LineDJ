@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.http.scaladsl.model.Uri
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.SendRequest
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.utils.LRUCache
 
 

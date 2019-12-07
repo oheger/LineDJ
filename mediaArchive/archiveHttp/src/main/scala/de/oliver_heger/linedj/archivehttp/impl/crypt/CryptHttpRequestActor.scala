@@ -22,10 +22,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.pattern.ask
 import akka.util.Timeout
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.impl.crypt.CryptHttpRequestActor.CryptRequestData
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
 
 import scala.util.{Failure, Success}
 

@@ -24,8 +24,8 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeaderCompanion}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
-import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.LRUCache
@@ -309,7 +309,7 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
   private def sendFolderRequest(data: ResolveData): Future[HttpResponse] = {
     val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
     val request = SendRequest(protocol.createFolderRequest(uri), 0)
-    HttpRequestActor.sendRequest(requestActor, request).mapTo[ResponseData]
+    HttpRequests.sendRequest(requestActor, request).mapTo[ResponseData]
       .map(_.response)
   }
 
