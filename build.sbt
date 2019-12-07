@@ -45,9 +45,9 @@ lazy val testDependencies = Seq(
 )
 
 lazy val osName = System.getProperty("os.name")
-lazy val javaFxClassifier = 
-  if(osName.startsWith("Windows")) "windows"
-  else if(osName.startsWith("Mac")) "mac"
+lazy val javaFxClassifier =
+  if (osName.startsWith("Windows")) "windows"
+  else if (osName.startsWith("Mac")) "mac"
   else "linux"
 lazy val javaFxDependencies = Seq(
   "org.openjfx" % "javafx-controls" % VersionJavaFX classifier javaFxClassifier,
@@ -207,7 +207,8 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
-      "de.oliver_heger.linedj.archivehttp.crypt, de.oliver_heger.linedj.archivehttp.spi"),
+      "de.oliver_heger.linedj.archivehttp.crypt, de.oliver_heger.linedj.archivehttp.spi",
+      "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
