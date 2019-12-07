@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -256,6 +256,17 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   }
 
   /**
+    * @inheritdoc This implementation directly registers a listener at the
+    *             message bus. This is necessary to make sure that no protocol
+    *             added events are missed (which can arrive as soon as
+    *             ''activate()'' is invoked).
+    */
+  override def initClientContext(context: ClientApplicationContext): Unit = {
+    super.initClientContext(context)
+    messageBusRegistrationID.set(messageBus registerListener messageBusReceive)
+  }
+
+  /**
     * @inheritdoc This implementation reads information from the application's
     *             configuration about the HTTP archives to be managed.
     */
@@ -264,7 +275,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     configManager = HttpArchiveConfigManager(clientApplicationContext.managementConfiguration)
     archiveStates = createInitialArchiveState()
     addBeanDuringApplicationStartup(BeanConfigManager, configManager)
-    addRegistrations()
+    publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
     context
   }
 
@@ -280,14 +291,6 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
       val state = HttpArchiveStateChanged(n, HttpArchiveStateNoUnionArchive)
       m + (n -> ArchiveStateData(state, Map.empty, 0, None))
     }
-
-  /**
-    * Adds the required registrations for message bus listeners and consumers.
-    */
-  private def addRegistrations(): Unit = {
-    publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
-    messageBusRegistrationID.set(messageBus registerListener messageBusReceive)
-  }
 
   /**
     * Removes the registrations for message bus listeners and consumers. This
@@ -309,8 +312,11 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
 
     case ProtocolAdded(protocol) =>
       protocols += (protocol.name -> protocol)
-      updateArchiveStates()
-      triggerArchiveStartIfPossible()
+      // the notification may come in before the application is fully initialized
+      if (configManager != null) {
+        updateArchiveStates()
+        triggerArchiveStartIfPossible()
+      }
 
     case ProtocolRemoved(protocol) =>
       protocols -= protocol.name

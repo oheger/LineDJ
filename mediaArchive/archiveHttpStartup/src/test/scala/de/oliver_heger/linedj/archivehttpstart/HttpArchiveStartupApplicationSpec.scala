@@ -165,6 +165,16 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     app.archiveStarter shouldBe a[HttpArchiveStarter]
   }
 
+  it should "register itself as message bus listener as early as possible" in {
+    val context = mock[ClientApplicationContext]
+    val bus = new MessageBusTestImpl
+    when(context.messageBus).thenReturn(bus)
+    val app = new HttpArchiveStartupApplication
+
+    app initClientContext context
+    bus.currentListeners should have size 1
+  }
+
   it should "register itself for the archive available extension" in {
     val helper = new StartupTestHelper
 
@@ -643,6 +653,18 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .removeProtocol(protocol)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
     actors.values foreach expectTermination
+  }
+
+  it should "handle a protocol added event before being fully started up" in {
+    val protocol = createProtocolMock(SpecialProtocol)
+    val context = mock[ClientApplicationContext]
+    val bus = new MessageBusTestImpl
+    when(context.messageBus).thenReturn(bus)
+    val app = new HttpArchiveStartupApplication
+    app.initClientContext(context)
+
+    app.addProtocol(protocol)
+    bus.processNextMessage[AnyRef]()
   }
 
   it should "handle a failed future from the archive starter" in {
