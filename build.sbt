@@ -229,6 +229,24 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   ) dependsOn(shared % "compile->compile;test->test", archiveHttp % "compile->compile;test->test")
 
 /**
+  * The OneDrive protocol project. This is a module adding support for OneDrive
+  * servers as HTTP archives.
+  */
+lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-protocol-onedrive",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
+    OsgiKeys.importPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl.io", "*"),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
+  ) dependsOn(shared % "compile->compile;test->test", archiveHttp % "compile->compile;test->test")
+
+/**
   * Project for the client platform. This project contains code shared by
   * all visual applications.
   */
