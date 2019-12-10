@@ -230,7 +230,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     def executeRequest(request: MediumFileRequest, response: HttpResponse):
     DownloadManagementTestHelper = {
       when(protocol.downloadMediaFile(argEq(requestActor), argEq(ResolvedDownloadUri))
-      (any(), argEq(config.processorTimeout)))
+      (any(), any(), argEq(config.processorTimeout)))
         .thenReturn(if (response != null)
           Future.successful(HttpRequests.ResponseData(response, null))
         else Future.failed(new IOException("Error from HTTP archive!")))

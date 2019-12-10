@@ -308,7 +308,7 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
     */
   private def sendFolderRequest(data: ResolveData): Future[HttpResponse] = {
     val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
-    val request = SendRequest(protocol.createFolderRequest(uri), 0)
+    val request = SendRequest(protocol.createFolderRequest(data.resolveRequest.uri, uri), 0)
     HttpRequests.sendRequest(requestActor, request).mapTo[ResponseData]
       .map(_.response)
   }

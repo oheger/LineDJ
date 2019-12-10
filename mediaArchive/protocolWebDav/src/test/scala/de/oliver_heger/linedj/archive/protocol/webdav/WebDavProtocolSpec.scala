@@ -61,6 +61,14 @@ class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     protocol.requiresMultiHostSupport shouldBe false
   }
 
+  it should "generate a default archive URI" in {
+    val SourceUri = "https://test.archive.org/my/media"
+    val protocol = new WebDavProtocol
+
+    val archiveUri = protocol generateArchiveUri SourceUri
+    archiveUri.get.toString() should be(SourceUri)
+  }
+
   /**
     * Helper function to check the creation of a folder request.
     *
@@ -73,7 +81,7 @@ class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val ExpRequest = HttpRequest(uri = expUri, method = HttpMethod.custom("PROPFIND"), headers = ExpHeaders)
     val protocol = new WebDavProtocol
 
-    protocol.createFolderRequest(path) should be(ExpRequest)
+    protocol.createFolderRequest(Uri("/some-uri"), path) should be(ExpRequest)
   }
 
   it should "create a correct folder request" in {

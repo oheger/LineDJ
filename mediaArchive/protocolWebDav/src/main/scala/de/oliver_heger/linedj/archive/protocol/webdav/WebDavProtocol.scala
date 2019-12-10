@@ -158,7 +158,7 @@ class WebDavProtocol extends HttpArchiveProtocol {
     * @inheritdoc This implementation uses the custom ''PROPFIND'' method to
     *             obtain the content of a WebDav folder.
     */
-  override def createFolderRequest(path: String): HttpRequest =
+  override def createFolderRequest(baseUri: Uri, path: String): HttpRequest =
     HttpRequest(method = MethodPropFind, headers = FolderRequestHeaders,
       uri = UriHelper.withTrailingSeparator(path))
 
