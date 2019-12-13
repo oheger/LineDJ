@@ -24,6 +24,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 
 import scala.annotation.tailrec
@@ -169,6 +170,9 @@ class WebDavProtocol extends HttpArchiveProtocol {
     */
   override def extractNamesFromFolderResponse(response: HttpResponse)
                                              (implicit ec: ExecutionContext, mat: ActorMaterializer):
-  Future[Seq[String]] =
-    parseFolderResponse(response) map extractNamesInFolder
+  Future[ParseFolderResult] = {
+    parseFolderResponse(response) map extractNamesInFolder map { elems =>
+      ParseFolderResult(elems.toList, None)
+    }
+  }
 }

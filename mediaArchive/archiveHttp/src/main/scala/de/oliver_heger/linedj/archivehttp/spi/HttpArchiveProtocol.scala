@@ -21,9 +21,31 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
+
+object HttpArchiveProtocol {
+
+  /**
+    * A data class representing the result of a an operation to parse the
+    * content of a folder.
+    *
+    * An instance of this class is returned by the function that interprets the
+    * response of a folder request. Here the primary data is the list of name
+    * with the elements contained in this folder. For some folders, however, a
+    * paging mechanism is used for large folders. Then a single response does
+    * not contain the full listing of the folder, but another request has to be
+    * sent to fetch the next page. To support this, this class supports an
+    * option with a next request that has to be sent.
+    *
+    * @param elements    a list with the element names contained in the folder
+    * @param nextRequest an ''Option'' with the next request to be sent
+    */
+  case class ParseFolderResult(elements: List[String], nextRequest: Option[HttpRequests.SendRequest])
+
+}
 
 /**
   * A trait defining an SPI to plug in different HTTP-based protocols to be
@@ -111,9 +133,11 @@ trait HttpArchiveProtocol {
 
   /**
     * Processes the given response of a request to query the content of a
-    * folder and returns a sequence with the names of the elements contained in
-    * this folder. The resulting strings should be the pure element names
-    * without parent paths.
+    * folder and returns an object with the result. The object contains the
+    * sequence with the names of the elements contained in this folder. The
+    * resulting strings should be the pure element names without parent paths.
+    * If the protocol supports paging, an ''Option'' with the request to
+    * retrieve the next page can be provided.
     *
     * @param response the response to be processed
     * @param ec       the execution context
@@ -121,5 +145,5 @@ trait HttpArchiveProtocol {
     * @return a ''Future'' with the sequence of the element names in the folder
     */
   def extractNamesFromFolderResponse(response: HttpResponse)(implicit ec: ExecutionContext, mat: ActorMaterializer):
-  Future[Seq[String]]
+  Future[ParseFolderResult]
 }

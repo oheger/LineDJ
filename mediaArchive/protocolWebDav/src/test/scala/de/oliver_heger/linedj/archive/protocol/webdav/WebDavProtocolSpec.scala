@@ -111,8 +111,9 @@ class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val response = createFolderResponse(readResourceFile("webDavFolder.xml"))
     val protocol = new WebDavProtocol
 
-    val names = futureResult(protocol.extractNamesFromFolderResponse(response))
-    names should contain only("testMediaFile.mp3", "fileToBeTrimmed.mp3", "childFolder")
+    val result = futureResult(protocol.extractNamesFromFolderResponse(response))
+    result.elements should contain only("testMediaFile.mp3", "fileToBeTrimmed.mp3", "childFolder")
+    result.nextRequest should be(None)
   }
 
   it should "handle an unexpected response" in {

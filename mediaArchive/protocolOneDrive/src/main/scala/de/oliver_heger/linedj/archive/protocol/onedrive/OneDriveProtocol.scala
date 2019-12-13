@@ -23,6 +23,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -156,7 +157,9 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     * @param mat      the object to materialize streams
     * @return a ''Future'' with the sequence of the element names in the folder
     */
-  override def extractNamesFromFolderResponse(response: HttpResponse)(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Seq[String]] = ???
+  override def extractNamesFromFolderResponse(response: HttpResponse)
+                                             (implicit ec: ExecutionContext, mat: ActorMaterializer):
+  Future[ParseFolderResult] = ???
 
   /**
     * Sends the actual download request for a file. The download URI is

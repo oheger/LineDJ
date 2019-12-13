@@ -320,8 +320,9 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
     * @param response the response
     * @return a future with list of element names that were extracted
     */
+    //TODO handle optional next request
   private def parseFolderResponse(response: HttpResponse): Future[Seq[String]] =
-    protocol.extractNamesFromFolderResponse(response)
+    protocol.extractNamesFromFolderResponse(response).map(_.elements)
 
   /**
     * Generates a map that associates decrypted element names with the original
