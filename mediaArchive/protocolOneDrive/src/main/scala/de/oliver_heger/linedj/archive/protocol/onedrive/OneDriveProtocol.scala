@@ -17,11 +17,15 @@
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.headers.Location
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model.headers.{Accept, Location}
+import akka.http.scaladsl.model.{HttpCharsets, HttpRequest, HttpResponse, MediaRange, MediaType, Uri}
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
@@ -41,6 +45,18 @@ object OneDriveProtocol {
 
   /** The suffix to be appended to request the content of a file. */
   private val SuffixContent = ":/content"
+
+  /** The suffix required to obtain the child elements of a folder path. */
+  private val SuffixChildren = ":/children"
+
+  /** Media type of the data that is expected from the server. */
+  private val MediaJson = MediaRange(MediaType.applicationWithFixedCharset("json", HttpCharsets.`UTF-8`))
+
+  /** The Accept header to be used by all requests. */
+  private val HeaderAccept = Accept(MediaJson)
+
+  /** List with the headers sent for each folder request. */
+  private val FolderRequestHeaders = List(HeaderAccept)
 
   /**
     * Generates the request to query the content URI of a file to be
@@ -67,6 +83,36 @@ object OneDriveProtocol {
     */
   private def generateItemsUri(srcUri: String): Uri =
     srcUri.replace("/root:", "/items/root:")
+
+  /**
+    * Transforms the JSON representation of a folder listing to the result
+    * object that is expected from the protocol.
+    *
+    * @param model the JSON model of the folder listing
+    * @return the corresponding ''ParseFolderResult''
+    */
+  private def createParseResultFor(model: OneDriveModel): ParseFolderResult =
+    ParseFolderResult(elements = model.value.map(_.name),
+      nextRequest = model.nextLink map createFolderSendRequestForUri)
+
+  /**
+    * Creates a ''SendRequest'' object to query the content of the folder
+    * defined by the given URI.
+    *
+    * @param uri hte URI pointing to the folder
+    * @return the ''SendRequest'' to query the content of this folder
+    */
+  private def createFolderSendRequestForUri(uri: String): SendRequest =
+    SendRequest(createFolderRequestForUri(uri), null)
+
+  /**
+    * Creates a request for the content of the folder defined by the given URI.
+    *
+    * @param uri the URI pointing to the folder
+    * @return the request to query the content of this folder
+    */
+  private def createFolderRequestForUri(uri: Uri): HttpRequest =
+    HttpRequest(uri = uri, headers = FolderRequestHeaders)
 }
 
 /**
@@ -144,7 +190,10 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     * @param path the relative path to the folder to be looked up
     * @return a request to query the content of this folder
     */
-  override def createFolderRequest(baseUri: Uri, path: String): HttpRequest = ???
+  override def createFolderRequest(baseUri: Uri, path: String): HttpRequest = {
+    val uri = baseUri.withPath(Path(UriHelper.removeTrailingSeparator(path) + SuffixChildren))
+    createFolderRequestForUri(uri)
+  }
 
   /**
     * Processes the given response of a request to query the content of a
@@ -159,7 +208,11 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     */
   override def extractNamesFromFolderResponse(response: HttpResponse)
                                              (implicit ec: ExecutionContext, mat: ActorMaterializer):
-  Future[ParseFolderResult] = ???
+  Future[ParseFolderResult] = {
+    import OneDriveJsonProtocol._
+    val model = Unmarshal(response).to[OneDriveModel]
+    model map createParseResultFor
+  }
 
   /**
     * Sends the actual download request for a file. The download URI is

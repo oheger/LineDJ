@@ -19,39 +19,12 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 /**
-  * A data class representing the ''file'' element in a OneDrive JSON response
-  * for a folder request. Note that the content of this element is not
-  * evaluated; it is just used to distinguish between items representing files
-  * or folders.
-  *
-  * @param mimeType the mime type of the file
-  */
-case class OneDriveFile(mimeType: String)
-
-/**
-  * A data class representing the ''fileSystemInfo'' element in a OneDrive JSON
-  * response for a folder request. Here some additional information about files
-  * is contained that is needed to populate ''FsFile'' objects.
-  *
-  * @param lastModifiedDateTime the timestamp of the file's last modification
-  */
-case class OneDriveFileSystemInfo(lastModifiedDateTime: String)
-
-/**
   * A data class representing an item in a OneDrive JSON response for a folder
-  * request. An item can represent both a file or a folder, which is a child
-  * of the current folder. The class defines the sub set of information
-  * relevant for sync processes.
+  * request. Here we are only interested in a minimum set of properties.
   *
-  * @param name           the name of the item
-  * @param size           the size of the item
-  * @param file           file-related information (available only for files)
-  * @param fileSystemInfo reference to a [[OneDriveFileSystemInfo]]
+  * @param name the name of the item
   */
-case class OneDriveItem(name: String,
-                        size: Long,
-                        file: Option[OneDriveFile],
-                        fileSystemInfo: Option[OneDriveFileSystemInfo])
+case class OneDriveItem(name: String)
 
 /**
   * A data class representing the OneDrive JSON response for a folder request.
@@ -72,9 +45,7 @@ case class OneDriveModel(value: List[OneDriveItem], nextLink: Option[String])
   * in order to deserialize JSON responses to the corresponding object model.
   */
 object OneDriveJsonProtocol extends DefaultJsonProtocol {
-  implicit val fileFormat: RootJsonFormat[OneDriveFile] = jsonFormat1(OneDriveFile)
-  implicit val fileSystemFormat: RootJsonFormat[OneDriveFileSystemInfo] = jsonFormat1(OneDriveFileSystemInfo)
-  implicit val itemFormat: RootJsonFormat[OneDriveItem] = jsonFormat4(OneDriveItem)
+  implicit val itemFormat: RootJsonFormat[OneDriveItem] = jsonFormat1(OneDriveItem)
   implicit val modelFormat: RootJsonFormat[OneDriveModel] =
     jsonFormat(OneDriveModel.apply, "value", "@odata.nextLink")
 }
