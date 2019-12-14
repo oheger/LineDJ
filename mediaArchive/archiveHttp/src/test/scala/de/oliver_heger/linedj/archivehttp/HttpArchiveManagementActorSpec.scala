@@ -36,7 +36,7 @@ import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpMultiHostRequestActor}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
@@ -110,6 +110,9 @@ object HttpArchiveManagementActorSpec {
 
   /** Class for the actor that implements cookie management. */
   private val ClsCookieManagementActor = classOf[HttpCookieManagementActor]
+
+  /** Class for the multi host request actor. */
+  private val ClsMultiHostActor = classOf[HttpMultiHostRequestActor]
 
   /** A state indicating that a scan operation is in progress. */
   private val ProgressState = ContentProcessingUpdateServiceImpl.InitialState
@@ -308,6 +311,13 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     checkProcessing(helper)
 
     childActorsOfType[HttpCookieManagementActor](helper.childActorCreations) should have size 1
+  }
+
+  it should "create a correct request actor if multi-host support is needed" in {
+    val helper = new HttpArchiveManagementActorTestHelper(multiHost = true)
+    checkProcessing(helper)
+
+    childActorsOfType[HttpMultiHostRequestActor](helper.childActorCreations) should have size 1
   }
 
   it should "correctly combine multiple aspects when creating the request actor" in {
@@ -550,9 +560,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     * A test helper class managing all dependencies of a test actor instance.
     *
     * @param cryptArchive  flag whether the test archive should be encrypted
+    * @param multiHost     flag whether the protocol needs multiple hosts
     * @param archiveConfig the archive configuration to be used
     */
   private class HttpArchiveManagementActorTestHelper(cryptArchive: Boolean = false,
+                                                     multiHost: Boolean = false,
                                                      archiveConfig: HttpArchiveConfig = ArchiveConfig)
     extends StateTestHelper[ContentProcessingState, ContentProcessingUpdateService] {
     /** Mock for the update service. */
@@ -597,6 +609,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** The actor for sending encrypted requests. */
     private val cryptRequestActor = system.actorOf(RequestActorTestImpl())
 
+    private val multiHostRequestActor = system.actorOf(RequestActorTestImpl())
+
     /** Mock for the temp path generator. */
     private val pathGenerator = mock[TempPathGenerator]
 
@@ -604,7 +618,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private val downloadManagementActor = ForwardTestActor()
 
     /** The mock for the archive protocol. */
-    private val httpProtocol = mock[HttpArchiveProtocol]
+    private val httpProtocol = createProtocol()
 
     /** A queue for recording the child actors that have been created. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
@@ -783,6 +797,18 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private def requestActor: ActorRef = refRequestActor.get()
 
     /**
+      * Creates the mock for the HTTP protocol and configures it according to
+      * the parameters passed to the constructor.
+      *
+      * @return the mock protocol
+      */
+    private def createProtocol(): HttpArchiveProtocol = {
+      val protocol = mock[HttpArchiveProtocol]
+      when(protocol.requiresMultiHostSupport).thenReturn(multiHost)
+      protocol
+    }
+
+    /**
       * Creates the test actor.
       *
       * @return the test actor
@@ -836,6 +862,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeUriResolverActor.ref
 
             case RequestActorTestImpl.ClsRequestActor =>
+              refRequestActor.get() should be(null)
               p.args should contain only(ArchiveConfig.archiveURI, ArchiveConfig.requestQueueSize)
               refRequestActor.set(plainRequestActor)
               plainRequestActor
@@ -854,6 +881,12 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               p.args should contain only requestActor
               refRequestActor.set(cookieManagementActor)
               cookieManagementActor
+
+            case ClsMultiHostActor =>
+              refRequestActor.get() should be(null)
+              refRequestActor.set(multiHostRequestActor)
+              p.args should be(List(HttpArchiveManagementActor.MultiHostCacheSize, config.requestQueueSize))
+              multiHostRequestActor
           }
           childCreationQueue offer ChildActorCreation(p, child)
           child

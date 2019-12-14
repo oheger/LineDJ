@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageServiceImpl, OAuthTokenActor, OAuthTokenData, OAuthTokenRetrieverServiceImpl}
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpMultiHostRequestActor, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -48,6 +48,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 object HttpArchiveManagementActor extends HttpAuthFactory {
+  /** The size of the cache for request actors with multi-host support. */
+  val MultiHostCacheSize = 32
 
   private class HttpArchiveManagementActorImpl(processingService: ContentProcessingUpdateService,
                                                config: HttpArchiveConfig,
@@ -409,7 +411,11 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @return the actor to execute HTTP requests
     */
   private def createRequestActor(): ActorRef = {
-    val plainRequestActor = createChildActor(HttpRequestActor(config))
+    val requestActorProps = if (config.protocol.requiresMultiHostSupport)
+      HttpMultiHostRequestActor(MultiHostCacheSize, config.requestQueueSize)
+    else HttpRequestActor(config)
+    val plainRequestActor = createChildActor(requestActorProps)
+
     val cookieActor = if (config.needsCookieManagement) createChildActor(HttpCookieManagementActor(plainRequestActor))
     else plainRequestActor
     val decoratedRequestActor = config.authFunc(cookieActor, this)
