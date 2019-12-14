@@ -25,8 +25,9 @@ import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeade
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.LRUCache
 
@@ -286,8 +287,8 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
       val folderRequests = pendingRequests.getOrElse(resolveData.resolvedPath, List.empty)
       pendingRequests += resolveData.resolvedPath -> (resolveData :: folderRequests)
       if (folderRequests.isEmpty) {
-        (for {resp <- sendFolderRequest(resolveData)
-              names <- parseFolderResponse(resp)
+        val request = createFolderRequest(resolveData)
+        (for {names <- processFolderRequest(request, Nil)
               nameMapping <- decryptElementNames(names)
               } yield nameMapping) onComplete {
           case Success(value) =>
@@ -300,29 +301,57 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
   }
 
   /**
-    * Sends a request for the content of a folder to the request actor. The
-    * folder is determined by the current state of the given resolve operation.
+    * Sends the request for the content of the current folder in the resolve
+    * operation and processes the result. The names of the elements contained
+    * in the folder are extracted. If another request needs to be sent (if the
+    * protocol supports paging), this is done, and the results are aggregated.
     *
-    * @param data the data object for the current resolve operation
-    * @return a future with the response
+    * @param request the request to be sent
+    * @param content the list of element names extracted so far
+    * @return a list with the names of all elements contained in the folder
     */
-  private def sendFolderRequest(data: ResolveData): Future[HttpResponse] = {
-    val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
-    val request = SendRequest(protocol.createFolderRequest(data.resolveRequest.uri, uri), 0)
-    HttpRequests.sendRequest(requestActor, request).mapTo[ResponseData]
-      .map(_.response)
+  private def processFolderRequest(request: SendRequest, content: List[String]):
+  Future[List[String]] = {
+    sendFolderRequest(request) flatMap parseFolderResponse flatMap { parseResult =>
+      val nextContent = parseResult.elements ::: content
+      parseResult.nextRequest.fold(Future.successful(nextContent)) { nextReq =>
+        processFolderRequest(nextReq, nextContent)
+      }
+    }
   }
 
   /**
-    * Processes a response for a folder request and extracts the names of the
-    * elements contained in the folder.
+    * Sends a single request for the content of a folder and returns the
+    * response from the server.
+    *
+    * @param request the request
+    * @return a ''Future'' with the response
+    */
+  private def sendFolderRequest(request: SendRequest): Future[HttpResponse] =
+    HttpRequests.sendRequest(requestActor, request).map(_.response)
+
+  /**
+    * Generates the request for the content of the folder to be resolved. The
+    * folder is determined by the current state of the given resolve operation.
+    *
+    * @param data the data object for the current resolve operation
+    * @return the request to read the content of the current folder
+    */
+  private def createFolderRequest(data: ResolveData): SendRequest = {
+    val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
+    SendRequest(protocol.createFolderRequest(data.resolveRequest.uri, uri), 0)
+  }
+
+  /**
+    * Parses the response of a folder request and returns a corresponding
+    * result object. The parsing is delegated to the protocol. The protocol
+    * also determines whether another request needs to be sent.
     *
     * @param response the response
-    * @return a future with list of element names that were extracted
+    * @return a future with the result of the parse operation
     */
-    //TODO handle optional next request
-  private def parseFolderResponse(response: HttpResponse): Future[Seq[String]] =
-    protocol.extractNamesFromFolderResponse(response).map(_.elements)
+  private def parseFolderResponse(response: HttpResponse): Future[ParseFolderResult] =
+    protocol.extractNamesFromFolderResponse(response)
 
   /**
     * Generates a map that associates decrypted element names with the original

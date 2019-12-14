@@ -22,6 +22,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
@@ -47,12 +48,18 @@ object UriResolverActorSpec {
   private val CacheSize = 8
 
   /** A list with the names of elements contained in the root folder. */
-  private val RootFolderNames = Future.successful(ParseFolderResult(List("Q8Xcluxx2ADWaUAtUHLurqSmvw==",
-    "HLL2gCNjWKvwRnp4my1U2ex0QLKWpZs=", "uBQQYWockOWLuCROIHviFhU2XayMtps="), None))
+  private val RootFolderNamesList = List("Q8Xcluxx2ADWaUAtUHLurqSmvw==",
+    "HLL2gCNjWKvwRnp4my1U2ex0QLKWpZs=", "uBQQYWockOWLuCROIHviFhU2XayMtps=")
 
   /** A list with the names of elements contained in the sub folder. */
-  private val SubFolderNames = Future.successful(ParseFolderResult(List("Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN",
-    "Z3BDvmY89rQwUqJ3XzMUWgtBE9bcOCYxiTq-Zfo-sNlIGA=="), None))
+  private val SubFolderNamesList = List("Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN",
+    "Z3BDvmY89rQwUqJ3XzMUWgtBE9bcOCYxiTq-Zfo-sNlIGA==")
+
+  /** The result when querying the root folder. */
+  private val RootFolderNames = Future.successful(ParseFolderResult(RootFolderNamesList, None))
+
+  /** The result when querying the sub folder. */
+  private val SubFolderNames = Future.successful(ParseFolderResult(SubFolderNamesList, None))
 
   /**
     * Determines the full path of a path relative to the encrypted archive.
@@ -110,7 +117,7 @@ object UriResolverActorSpec {
   private def stubServerContent(reqActor: Option[ActorRef], protocol: HttpArchiveProtocol, baseUris: Uri*):
   List[(HttpRequest, HttpResponse)] = {
     stubFolderRequest(reqActor, protocol, serverPath("/"), RootFolderNames, baseUris: _*) ::
-      stubFolderRequest(reqActor, protocol, serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/"),
+      stubFolderRequest(reqActor, protocol, serverPath("/" + RootFolderNamesList.head + "/"),
         SubFolderNames, baseUris: _*) :: Nil
   }
 
@@ -261,6 +268,29 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     resolver ! ResolveUri(path)
     val errResponse = expectMsgType[akka.actor.Status.Failure]
     errResponse.cause.getMessage should include(path)
+  }
+
+  it should "handle paging correctly" in {
+    val protocol = mock[HttpArchiveProtocol]
+    val reqActor = system.actorOf(RequestActorTestImpl(failOnUnmatchedRequest = false))
+    val resolveRequest = createRequest("/sub/subFile.txt")
+    val (request1, response1) = stubFolderRequest(None, protocol, serverPath("/path2"),
+      Future.successful(ParseFolderResult(List(RootFolderNamesList.head), None)), resolveRequest.uri)
+    val (request2, response2) = stubFolderRequest(None, protocol, serverPath("/path1"),
+      Future.successful(ParseFolderResult(List(RootFolderNamesList(1)),
+        Some(HttpRequests.SendRequest(request1, null)))))
+    stubFolderRequest(Some(reqActor), protocol, serverPath("/"),
+      Future.successful(ParseFolderResult(RootFolderNamesList.drop(2),
+        Some(HttpRequests.SendRequest(request2, null)))), resolveRequest.uri)
+    RequestActorTestImpl.expectRequest(reqActor, request2, response2)
+    RequestActorTestImpl.expectRequest(reqActor, request1, response1)
+    stubFolderRequest(Some(reqActor), protocol, serverPath("/" + RootFolderNamesList.head + "/"),
+      SubFolderNames, resolveRequest.uri)
+    val resolver = createResolverActor(reqActor, protocol)
+
+    resolver ! resolveRequest
+    expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
+      resolveRequest.uri))
   }
 }
 
