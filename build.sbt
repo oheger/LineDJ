@@ -20,8 +20,8 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.5.25"
-lazy val AkkaHttpVersion = "10.1.9"
+lazy val AkkaVersion = "2.5.26"
+lazy val AkkaHttpVersion = "10.1.11"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.9"
 lazy val VersionScalaz = "7.2.28"
@@ -92,7 +92,7 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav)
+  audioPlayerUI, protocolWebDav, protocolOneDrive)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -867,7 +867,7 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
-  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav)
+  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive)
 
 /**
   * Project for the radio application.
