@@ -26,22 +26,6 @@ import org.apache.commons.configuration.Configuration
 import scala.annotation.tailrec
 import scala.collection.immutable.{SortedMap, TreeMap}
 
-/**
-  * A data class collecting information about a single HTTP archive to be
-  * started up.
-  *
-  * @param config    the configuration of the archive
-  * @param realm     the realm to be used for login
-  * @param shortName a unique short name for this archive
-  * @param protocol  the HTTP protocol for this archive
-  * @param encrypted flag whether this archive is encrypted
-  */
-private case class HttpArchiveData(config: HttpArchiveConfig,
-                                   realm: String,
-                                   shortName: String,
-                                   protocol: String,
-                                   encrypted: Boolean = false)
-
 private object HttpArchiveConfigManager {
   /**
     * The default name of the HTTP protocol associated with an archive. This
@@ -121,7 +105,7 @@ private object HttpArchiveConfigManager {
   Option[HttpArchiveData] =
     for {config <- HttpArchiveConfig(c, currentKey, downloadConfig, null, null).toOption
          realm <- Option(c.getString(currentKey + KeyRealm))
-         } yield HttpArchiveData(config, realm, generateShortName(config, names),
+         } yield HttpArchiveData(config, BasicAuthRealm(realm), generateShortName(config, names),
       encrypted = c.getBoolean(currentKey + KeyEncrypted, false),
       protocol = c.getString(currentKey + KeyProtocol, DefaultProtocolName))
 

@@ -475,7 +475,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
         val currentArchiveIndex = archiveIndexCounter
         val protocol = protocols(e._2.protocol)
         val futActors = archiveStarter.startup(mediaActors, e._2,
-          clientApplicationContext.managementConfiguration, protocol, realms(e._2.realm), archiveStates(e._1).optKey,
+          clientApplicationContext.managementConfiguration, protocol, realms(e._2.realm.name), archiveStates(e._1).optKey,
           clientApplicationContext.actorFactory, currentArchiveIndex, clearTemp = currentArchiveIndex == 1)
         futActors onCompleteUIThread { triedResult =>
           handleArchiveStartupResult(e._1, currentArchiveIndex, triedResult)
@@ -552,7 +552,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def archiveState(name: String, data: HttpArchiveData): HttpArchiveState =
     if (!isMediaArchiveAvailable) HttpArchiveStateNoUnionArchive
     else if (!protocols.contains(data.protocol)) HttpArchiveStateNoProtocol
-    else if (!realms.contains(data.realm)) HttpArchiveStateNotLoggedIn
+    else if (!realms.contains(data.realm.name)) HttpArchiveStateNotLoggedIn
     else if (data.encrypted && archiveStates(name).optKey.isEmpty) HttpArchiveStateLocked
     else HttpArchiveStateAvailable
 

@@ -115,7 +115,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
       tabArchives.getModel.add(TableElement(e._1, statusHelper.iconInactive,
         if (e._2.encrypted) statusHelper.iconLocked else null))
     }
-    val realms = configManager.archives.values.map(_.realm).toSet.toSeq.sorted
+    val realms = configManager.archives.values.map(_.realm.name).toSet.toSeq.sorted
     realms foreach { r =>
       tabRealms.getModel.add(TableElement(r, statusHelper.iconInactive, null))
     }
