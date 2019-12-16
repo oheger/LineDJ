@@ -31,9 +31,6 @@ object StartupConfigTestHelper {
   /** The prefix key for configuration settings about archives. */
   val KeyArchives = "media.archives.archive"
 
-  /** Convenience constant for generate config key prefixes. */
-  private val KeyPrefix = KeyArchives + "."
-
   /** The test chunk size for download operations. */
   val DownloadChunkSize = 8888
 
@@ -73,6 +70,25 @@ object StartupConfigTestHelper {
   }
 
   /**
+    * Allows adding a complex structure to the given configuration.
+    *
+    * @param c         the configuration
+    * @param keyPrefix the key prefix for all properties
+    * @param props     a map with key-value pairs to be added
+    * @return the configuration
+    */
+  def addToConfig(c: Configuration, keyPrefix: String, props: Map[String, Any]): Configuration = {
+    val propsList = props.toList
+    val pair1 = propsList.head
+    val prefix = keyPrefix + "."
+    c.addProperty(keyPrefix + "(-1)." + pair1._1, pair1._2)
+    propsList.tail foreach { p =>
+      c.addProperty(prefix + p._1, p._2)
+    }
+    c
+  }
+
+  /**
     * Adds properties for a test HTTP archive to the specified configuration.
     *
     * @param c         the configuration
@@ -85,18 +101,16 @@ object StartupConfigTestHelper {
   def addArchiveToConfig(c: Configuration, idx: Int, realm: Option[String] = None,
                          protocol: Option[String] = None, encrypted: Boolean = false):
   Configuration = {
-    c.addProperty(KeyArchives + "(-1)." + HttpArchiveConfig.PropArchiveName, archiveName(idx))
-    c.addProperty(KeyPrefix + HttpArchiveConfig.PropArchiveUri, archiveUri(idx))
-    c.addProperty(KeyPrefix + HttpArchiveConfig.PropDownloadBufferSize, 16384)
-    c.addProperty(KeyPrefix + HttpArchiveConfig.PropDownloadMaxInactivity, 5 * 60)
-    c.addProperty(KeyPrefix + HttpArchiveConfig.PropTimeoutReadSize, 128 * 1024)
     c.addProperty(DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
-    c.addProperty(KeyPrefix + "realm", realm.getOrElse(realmName(idx)))
-    protocol foreach (p => c.addProperty(KeyPrefix + "protocol", p))
-    if (encrypted) {
-      c.addProperty(KeyPrefix + "encrypted", true)
-    }
-    c
+    val propsBase = Map(HttpArchiveConfig.PropArchiveName -> archiveName(idx),
+      HttpArchiveConfig.PropArchiveUri -> archiveUri(idx),
+      HttpArchiveConfig.PropDownloadBufferSize -> 16384,
+      HttpArchiveConfig.PropDownloadMaxInactivity -> 5 * 60,
+      HttpArchiveConfig.PropTimeoutReadSize -> 128 * 1024,
+      "realm" -> realm.getOrElse(realmName(idx)))
+    val propsProto = protocol.fold(propsBase)(p => propsBase + ("protocol" -> p))
+    val propsEnc = if (encrypted) propsProto + ("encrypted" -> true) else propsProto
+    addToConfig(c, KeyArchives, propsEnc)
   }
 
   /**

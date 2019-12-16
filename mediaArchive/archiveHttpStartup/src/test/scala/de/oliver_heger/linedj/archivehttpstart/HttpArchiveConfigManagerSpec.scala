@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.nio.file.Paths
+
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.{FlatSpec, Matchers}
@@ -57,14 +59,14 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(2)
   }
 
-  it should "extract the realm from the configuration" in {
+  it should "generate default realms from the configuration" in {
     val Count = 2
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count)
     val manager = HttpArchiveConfigManager(config)
 
     (1 to Count) foreach { i =>
       val data = manager.archives(StartupConfigTestHelper.archiveName(i))
-      data.realm should be(StartupConfigTestHelper.realmName(i))
+      data.realm should be(BasicAuthRealm(StartupConfigTestHelper.realmName(i)))
     }
   }
 
@@ -74,6 +76,64 @@ class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(1)
+  }
+
+  it should "extract realm data from the configuration" in {
+    val OAuthPath = Paths get "/oauth/data"
+    val ProviderName = "TestIDP"
+    val OAuthRealmName = "oauthRealm"
+    val BasicAuthRealmName = "basicAuthRealm"
+    val oauthProps = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "name" -> OAuthRealmName,
+      "path" -> OAuthPath.toString, "idp" -> ProviderName)
+    val basicProps = Map("type" -> HttpArchiveConfigManager.RealmTypeBasicAuth,
+      "name" -> BasicAuthRealmName)
+    val config = new HierarchicalConfiguration
+    StartupConfigTestHelper.addArchiveToConfig(config, idx = 1, realm = Some(BasicAuthRealmName))
+    StartupConfigTestHelper.addArchiveToConfig(config, idx = 2, realm = Some(OAuthRealmName))
+    StartupConfigTestHelper.addToConfig(config, "media.realms.realm", basicProps)
+    StartupConfigTestHelper.addToConfig(config, "media.realms.realm", oauthProps)
+    val manager = HttpArchiveConfigManager(config)
+
+    val basicData = manager.archives(StartupConfigTestHelper.archiveName(1))
+    basicData.realm should be(BasicAuthRealm(BasicAuthRealmName))
+    val oauthData = manager.archives(StartupConfigTestHelper.archiveName(2))
+    oauthData.realm should be(OAuthRealm(OAuthRealmName, OAuthPath, ProviderName))
+  }
+
+  /**
+    * Checks the handling of invalid realm data and that archives linked to an
+    * invalid realm are filtered out.
+    *
+    * @param realmProps the properties of the realm
+    */
+  private def checkArchiveIsFilteredOutForInvalidRealmData(realmProps: Map[String, Any]): Unit = {
+    val RealmName = "InvalidTestRealm"
+    val fullProps = realmProps + ("name" -> RealmName)
+    val config = new HierarchicalConfiguration
+    StartupConfigTestHelper.addArchiveToConfig(config, idx = 1, realm = Some(RealmName))
+    StartupConfigTestHelper.addArchiveToConfig(config, idx = 2)
+    StartupConfigTestHelper.addToConfig(config, "media.realms.realm", fullProps)
+    val manager = HttpArchiveConfigManager(config)
+
+    manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(2)
+  }
+
+  it should "detect an invalid realm type" in {
+    val props = Map("path" -> "/my/data", "idp" -> "myIdp", "type" -> "unknownType")
+
+    checkArchiveIsFilteredOutForInvalidRealmData(props)
+  }
+
+  it should "detect an OAuth realm with a missing path" in {
+    val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "idp" -> "IDPName")
+
+    checkArchiveIsFilteredOutForInvalidRealmData(props)
+  }
+
+  it should "detect an OAuth realm with a missing IDP name" in {
+    val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "path" -> "testPath")
+
+    checkArchiveIsFilteredOutForInvalidRealmData(props)
   }
 
   it should "generate unique short names for archives" in {
