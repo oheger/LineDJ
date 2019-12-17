@@ -26,7 +26,7 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
@@ -37,6 +37,7 @@ import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.Mockito._
+import org.mockito.Matchers.{eq => argEq, any}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
@@ -187,15 +188,24 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .expectNoClearTempDirectory()
   }
 
+  it should "support an OAuth realm" in {
+    val oauthRealm = mock[OAuthRealm]
+    val helper = new StarterTestHelper(optRealm = Some(oauthRealm))
+
+    helper.initOAuthRealm(oauthRealm)
+      .startArchiveAndCheckActors()
+  }
+
   /**
     * A test helper class managing a test instance and its dependencies.
     *
     * @param index            the numeric index to be passed to the starter
     * @param clearTemp        flag whether the temp directory is to be cleared
     * @param encryptedArchive flag whether the archive should be encrypted
+    * @param optRealm         an optional realm for the archive
     */
   private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true,
-                                  encryptedArchive: Boolean = false) {
+                                  encryptedArchive: Boolean = false, optRealm: Option[ArchiveRealm] = None) {
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -338,6 +348,24 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     /**
+      * Configures this helper to handle an OAuth realm. For this purpose, the
+      * given mock realm (which must be the one assigned to the archive) is
+      * prepared to return a correct storage configuration.
+      *
+      * @param mockRealm the mock realm
+      * @return this test helper
+      */
+    def initOAuthRealm(mockRealm: OAuthRealm): StarterTestHelper = {
+      reset(authFactory)
+      val storageConfig = OAuthStorageConfig(Paths.get("somePath"), "someIDP",
+        Secret("secret!"))
+      when(authFactory.oauthConfigureFunc(argEq(storageConfig))(any(), any()))
+        .thenReturn(Future.successful(authConfigureFunc))
+      when(mockRealm.createIdpConfig(ArchiveCredentials.password)).thenReturn(storageConfig)
+      this
+    }
+
+    /**
       * Generates a full actor name based on its suffix.
       *
       * @param n the name suffix for the actor
@@ -348,13 +376,14 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     /**
       * Creates the test archive data from the configuration passed to this
-      * object.
+      * object. If a realm has been provided, it is set.
       *
       * @return the test archive data
       */
     private def createArchiveData(): HttpArchiveData = {
       val manager = HttpArchiveConfigManager(sourceConfig)
-      manager.archives(StartupConfigTestHelper.archiveName(1))
+      val data = manager.archives(StartupConfigTestHelper.archiveName(1))
+      optRealm map (realm => data.copy(realm = realm)) getOrElse data
     }
 
     /**

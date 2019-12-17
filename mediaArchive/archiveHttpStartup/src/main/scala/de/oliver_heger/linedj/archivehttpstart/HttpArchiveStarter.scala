@@ -22,6 +22,7 @@ import java.security.Key
 import akka.actor.ActorRef
 import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
@@ -117,7 +118,7 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
     * @param archiveData        data for the archive to be started
     * @param config             the configuration
     * @param protocol           the HTTP protocol for the archive
-    * @param credentials        the user credentials for reading data from the archive
+    * @param credentials        the user credentials for the current realm
     * @param optKey             option for the decryption key of an encrypted archive
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
@@ -131,7 +132,7 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
              (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] =
-    authFactory.basicAuthConfigureFunc(credentials) map { authFunc =>
+    fetchAuthFunc(archiveData.realm, credentials) map { authFunc =>
       val archiveConfig = archiveData.config.copy(protocol = protocol, authFunc = authFunc)
       createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
         optKey, archiveData.shortName, index, clearTemp)
@@ -178,4 +179,23 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
       monitorName -> monitoringActor,
       removeName -> removeActor)
   }
+
+  /**
+    * Obtains the correct function to configure the authentication mechanism
+    * based on the realm associated with the current archive.
+    *
+    * @param realm       the realm
+    * @param credentials the credentials of the realm
+    * @param ec          the execution context
+    * @param mat         the object to materialize streams
+    * @return a ''Future'' with the function to configure authentication
+    */
+  private def fetchAuthFunc(realm: ArchiveRealm, credentials: UserCredentials)
+                           (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[AuthConfigureFunc] =
+    realm match {
+      case _: BasicAuthRealm =>
+        authFactory.basicAuthConfigureFunc(credentials)
+      case oauthRealm: OAuthRealm =>
+        authFactory.oauthConfigureFunc(oauthRealm.createIdpConfig(credentials.password))
+    }
 }
