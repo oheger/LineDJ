@@ -146,15 +146,24 @@ abstract class HttpArchiveDlgController(bus: UIBus,
   * @param btnLogin    the component for the login button
   * @param btnCancel   the component for the cancel button
   * @param txtRealm    the component handler for the realm text field
-  * @param realmName   the name of the realm to log in
+  * @param realm       the realm to log in
   */
 class HttpArchiveLoginDlgController(bus: UIBus, txtUser: ComponentHandler[String],
                                     txtPassword: ComponentHandler[String],
                                     btnLogin: ComponentHandler[_],
                                     btnCancel: ComponentHandler[_],
                                     txtRealm: StaticTextHandler,
-                                    realmName: String)
-  extends HttpArchiveDlgController(bus, btnLogin, btnCancel, txtRealm, realmName) {
+                                    realm: ArchiveRealm)
+  extends HttpArchiveDlgController(bus, btnLogin, btnCancel, txtRealm, realm.name) {
+
+  /**
+    * @inheritdoc This implementation does some more initializations on input
+    *             components.
+    */
+  override def windowOpened(event: WindowEvent): Unit = {
+    super.windowOpened(event)
+    txtUser setEnabled realm.needsUserID
+  }
 
   /**
     * @inheritdoc This implementation produces a ''LoginStateChanged'' message
@@ -162,7 +171,7 @@ class HttpArchiveLoginDlgController(bus: UIBus, txtUser: ComponentHandler[String
     */
   override protected def generateOkMessage(): Any = {
     val credentials = UserCredentials(txtUser.getData, Secret(txtPassword.getData))
-    LoginStateChanged(realmName, Some(credentials))
+    LoginStateChanged(realm.name, Some(credentials))
   }
 }
 

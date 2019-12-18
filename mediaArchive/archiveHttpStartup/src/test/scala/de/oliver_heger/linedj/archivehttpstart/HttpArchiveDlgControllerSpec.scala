@@ -62,6 +62,14 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
 
     helper.openWindow()
       .verifyPromptTextInitialized(Realm)
+      .verifyUserNameEnabledState()
+  }
+
+  it should "support disabling the user input field" in {
+    val helper = new LoginControllerTestHelper(withUserName = false)
+
+    helper.openWindow()
+      .verifyUserNameEnabledState()
   }
 
   it should "handle a click on the login button" in {
@@ -177,6 +185,7 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
 
     /**
       * Checks that the text field for the name has been initialized.
+      *
       * @param name the expected name
       * @return this test helper
       */
@@ -218,8 +227,9 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
       * Creates the test controller instance using the given parameters.
       * Concrete sub classes must define this method to create a test instance
       * of the correct type.
-      * @param btnOk the OK button handler
-      *              @param btnCancel the cancel button handler
+      *
+      * @param btnOk     the OK button handler
+      * @param btnCancel the cancel button handler
       * @param txtPrompt the prompt text handler
       * @return the test controller
       */
@@ -253,8 +263,10 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
 
   /**
     * A concrete test helper class for ''HttpArchiveLoginDlgController''.
+    *
+    * @param withUserName flag whether the user name needs to be entered
     */
-  private class LoginControllerTestHelper extends DlgControllerTestHelper {
+  private class LoginControllerTestHelper(withUserName: Boolean = true) extends DlgControllerTestHelper {
     /** Mock for the user input field. */
     private val txtUser = mock[ComponentHandler[String]]
 
@@ -272,26 +284,50 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
       this
     }
 
+    /**
+      * Verifies that the correct enabled state has been set for the user input
+      * field.
+      *
+      * @return this test helper
+      */
+    def verifyUserNameEnabledState(): LoginControllerTestHelper = {
+      verify(txtUser).setEnabled(withUserName)
+      this
+    }
+
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
       new HttpArchiveLoginDlgController(messageBus, txtUser, txtPassword, btnOk, btnCancel,
-        txtPrompt, Realm)
+        txtPrompt, createRealm())
+
+    /**
+      * Creates a mock representing the realm to be logged in.
+      *
+      * @return the mock realm
+      */
+    private def createRealm(): ArchiveRealm = {
+      val realm = mock[ArchiveRealm]
+      when(realm.name).thenReturn(Realm)
+      when(realm.needsUserID).thenReturn(withUserName)
+      realm
+    }
   }
 
   /**
     * A concrete test helper class for ''HttpArchiveUnlockDlgController''.
     */
   private class UnlockControllerTestHelper extends DlgControllerTestHelper {
-    /** Mock for the password input field.*/
+    /** Mock for the password input field. */
     private val txtPassword = mock[ComponentHandler[String]]
 
-    /** Mock for the key generator.*/
+    /** Mock for the key generator. */
     private val keyGen = mock[KeyGenerator]
 
     /**
       * Prepares the mock text field for the password to return the test
       * password and generates a mock key that is returned by the key
       * generator.
+      *
       * @return the mock key that corresponds to the test password
       */
     def preparePassword(): UnlockControllerTestHelper = {
@@ -304,6 +340,7 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
     /**
       * Returns the key for crypt operations that is used by the mock key
       * generator.
+      *
       * @return the crypt key
       */
     def key: Key = keyGen.generateKey(Password)
@@ -312,4 +349,5 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
       new HttpArchiveUnlockDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, Archive, keyGen)
   }
+
 }
