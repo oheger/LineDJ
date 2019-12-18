@@ -32,7 +32,7 @@
       <di:param refName="comp:btnLogin"/>
       <di:param refName="comp:btnCancel"/>
       <di:param refName="comp:txtRealm"/>
-      <di:param value="${realmName}"/>
+      <di:param value="${realm}"/>
     </di:constructor>
   </di:bean>
 

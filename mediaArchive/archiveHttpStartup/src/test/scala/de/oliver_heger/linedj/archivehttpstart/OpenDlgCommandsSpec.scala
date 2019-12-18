@@ -30,19 +30,19 @@ import org.scalatest.{FlatSpec, Matchers}
 class OpenDlgCommandsSpec extends FlatSpec with Matchers with MockitoSugar {
   "An OpenLoginDlgCommand" should "pass the locator to the super class" in {
     val locator = mock[Locator]
-    val command = new OpenLoginDlgCommand(locator, new AtomicReference[String])
+    val command = new OpenLoginDlgCommand(locator, new AtomicReference[ArchiveRealm])
 
     command.getLocator should be(locator)
   }
 
-  it should "store the current realm name in the builder data" in {
-    val Realm = "MyTestRealm"
+  it should "store the current realm in the builder data" in {
+    val Realm = mock[ArchiveRealm]
     val builderData = mock[ApplicationBuilderData]
     val realmRef = new AtomicReference(Realm)
     val command = new OpenLoginDlgCommand(mock[Locator], realmRef)
 
     command.prepareBuilderData(builderData)
-    verify(builderData).addProperty(OpenDlgCommand.PropertyRealmName, Realm)
+    verify(builderData).addProperty(OpenDlgCommand.PropertyRealm, Realm)
   }
 
   "An OpenUnlockDlgCommand" should "pass the locator to the super class" in {

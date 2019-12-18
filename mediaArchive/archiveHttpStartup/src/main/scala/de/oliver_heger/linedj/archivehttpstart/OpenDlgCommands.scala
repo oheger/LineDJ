@@ -22,8 +22,8 @@ import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
 
 object OpenDlgCommand {
-  /** The name of the Jelly property with the name of the current realm. */
-  val PropertyRealmName = "realmName"
+  /** The name of the Jelly property with the current realm. */
+  val PropertyRealm = "realm"
 
   /** The name of the Jelly property with the name of the current archive. */
   val PropertyArchiveName = "archiveName"
@@ -43,7 +43,7 @@ object OpenDlgCommand {
   * @param refName  the reference containing the name of the current element
   * @param property the name of the property to be added to the Jelly context
   */
-abstract class OpenDlgCommand(locator: Locator, refName: AtomicReference[String], property: String)
+abstract class OpenDlgCommand(locator: Locator, refName: AtomicReference[_], property: String)
   extends OpenWindowCommand(locator) {
   override def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
     super.prepareBuilderData(builderData)
@@ -60,10 +60,10 @@ abstract class OpenDlgCommand(locator: Locator, refName: AtomicReference[String]
   * command's constructor.
   *
   * @param locator         the locator to the Jelly script to be executed
-  * @param refCurrentRealm the reference containing the current realm name
+  * @param refCurrentRealm the reference containing the current realm
   */
-class OpenLoginDlgCommand(locator: Locator, refCurrentRealm: AtomicReference[String])
-  extends OpenDlgCommand(locator, refCurrentRealm, OpenDlgCommand.PropertyRealmName)
+class OpenLoginDlgCommand(locator: Locator, refCurrentRealm: AtomicReference[ArchiveRealm])
+  extends OpenDlgCommand(locator, refCurrentRealm, OpenDlgCommand.PropertyRealm)
 
 /**
   * A command for opening the dialog to unlock a specific archive.
