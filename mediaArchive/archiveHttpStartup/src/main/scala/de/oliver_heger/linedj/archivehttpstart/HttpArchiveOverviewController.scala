@@ -67,17 +67,20 @@ object HttpArchiveOverviewController {
   * @param tabArchives       the handler for the table of archives
   * @param tabRealms         the handler for the table of realms
   * @param statusHelper      the helper object for archive states
-  * @param refCurrentRealm   holds the name of the current realm
+  * @param refCurrentRealm   holds the current realm
   * @param refCurrentArchive holds the name of the current archive
   */
 class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpArchiveConfigManager,
                                     actionStore: ActionStore, tabArchives: TableHandler,
                                     tabRealms: TableHandler, statusHelper: ArchiveStatusHelper,
-                                    refCurrentRealm: AtomicReference[String],
+                                    refCurrentRealm: AtomicReference[ArchiveRealm],
                                     refCurrentArchive: AtomicReference[String])
   extends WindowListener with MessageBusListener with FormChangeListener {
 
   import HttpArchiveOverviewController._
+
+  /** A mapping from realm names to the concrete objects. */
+  private var realms: Map[String, ArchiveRealm] = _
 
   /**
     * Stores the realms for which credentials are available. Keys of the map
@@ -115,8 +118,11 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
       tabArchives.getModel.add(TableElement(e._1, statusHelper.iconInactive,
         if (e._2.encrypted) statusHelper.iconLocked else null))
     }
-    val realms = configManager.archives.values.map(_.realm.name).toSet.toSeq.sorted
-    realms foreach { r =>
+    realms = configManager.archives.values
+      .map(archive => (archive.realm.name, archive.realm))
+      .toMap
+    val realmNames = realms.keys.toSet.toSeq.sorted
+    realmNames foreach { r =>
       tabRealms.getModel.add(TableElement(r, statusHelper.iconInactive, null))
     }
 
@@ -194,7 +200,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
         val index = tabRealms.getSelectedIndex
         enableAction(ActionLogin, enabled = index != -1)
         enableAction(ActionLogout, enabled = loggedInRealms contains index)
-        refCurrentRealm.set(loggedInRealms.getOrElse(index, currentRealmName(index)))
+        refCurrentRealm.set(safeRealmByName(loggedInRealms.getOrElse(index, currentRealmName(index))))
     }
   }
 
@@ -205,9 +211,11 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
     * application to discard the credentials associated with this realm.
     */
   def logoutCurrentRealm(): Unit = {
-    val realmName = refCurrentRealm.get()
-    sendLogoutsForRealms(Option(realmName))
-    sendLocksForArchives(configManager.archivesForRealm(realmName))
+    val realm = refCurrentRealm.get()
+    if (realm != null) {
+      sendLogoutsForRealms(realm.name :: Nil)
+      sendLocksForArchives(configManager.archivesForRealm(realm.name))
+    }
   }
 
   /**
@@ -338,6 +346,17 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
   private def currentRealmName(index: Int): String =
     if (index < 0) null
     else tabRealms.getModel.get(index).asInstanceOf[TableElement].name
+
+  /**
+    * Returns the realm for the given name handling '''null''' names
+    * gracefully.
+    *
+    * @param name the realm name
+    * @return the object representing this realm
+    */
+  private def safeRealmByName(name: String): ArchiveRealm =
+    if (name == null) null
+    else realms(name)
 
   /**
     * Checks whether the archive with the given name is encrypted.

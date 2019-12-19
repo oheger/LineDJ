@@ -299,7 +299,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
 
     helper.openWindow()
       .sendRealmTableSelectionChange(1)
-      .checkCurrentRealmName(3)
+      .checkCurrentRealm(3)
   }
 
   it should "update the current realm name if the selection is cleared" in {
@@ -308,7 +308,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
     helper.openWindow()
       .sendRealmTableSelectionChange(1)
       .sendRealmTableSelectionChange(-1)
-      .checkCurrentRealmName(-1)
+      .checkCurrentRealm(-1)
   }
 
   it should "update the current archive name if the selection changes" in {
@@ -494,7 +494,7 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
     private val statusHelper = createStatusHelper()
 
     /** The reference for the current realm. */
-    private val refRealm = new AtomicReference[String]
+    private val refRealm = new AtomicReference[ArchiveRealm]
 
     /** The reference for the currently selected archive. */
     private val refArchive = new AtomicReference[String]
@@ -700,16 +700,17 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
     }
 
     /**
-      * Checks that the name of the current realm has been updated correctly.
+      * Checks that the reference to the current realm has been updated
+      * correctly.
       *
       * @param realmIdx the expected current realm index (1-based) or -1 for
       *                 no selection
       * @return this test helper
       */
-    def checkCurrentRealmName(realmIdx: Int): ControllerTestHelper = {
-      val expName = if (realmIdx >= 0) StartupConfigTestHelper.realmName(realmIdx)
+    def checkCurrentRealm(realmIdx: Int): ControllerTestHelper = {
+      val expRealm = if (realmIdx >= 0) findRealmByIndex(realmIdx)
       else null
-      refRealm.get() should be(expName)
+      refRealm.get() should be(expRealm)
       this
     }
 
@@ -767,6 +768,20 @@ class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with Mock
     def invokeLogoutAll(): ControllerTestHelper = {
       controller.logoutAllRealms()
       this
+    }
+
+    /**
+      * Determines the realm object to the given realm index.
+      *
+      * @param realmIdx the realm index
+      * @return the realm with this index
+      */
+    private def findRealmByIndex(realmIdx: Int): ArchiveRealm = {
+      val realmName = StartupConfigTestHelper.realmName(realmIdx)
+      ConfigManager.archives.values
+        .find(_.realm.name == realmName)
+        .map(_.realm)
+        .get
     }
 
     /**
