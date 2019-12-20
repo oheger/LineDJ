@@ -50,7 +50,7 @@ import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -76,9 +76,6 @@ object HttpArchiveManagementActorSpec {
 
   /** Constant for a sequence number. */
   private val SeqNo = 20180621
-
-  /** The request to the test archive. */
-  private val ArchiveRequest = createRequest()
 
   /** A key used by tests that simulate an encrypted archive. */
   private val CryptKey = new AESKeyGenerator().generateKey("MySecretArchive")
@@ -169,14 +166,6 @@ object HttpArchiveManagementActorSpec {
   private def createMediumDescriptionsJson(): String =
     createMediumDescriptions().map(md => createMediumDescriptionJson(md))
       .mkString("[", ", ", "]")
-
-  /**
-    * Creates a request to the content file of the test archive.
-    *
-    * @return the request to the test archive
-    */
-  private def createRequest(): HttpRequest =
-    HttpRequest(uri = ArchiveConfig.archiveURI)
 
   /**
     * Creates a response object for a successful request to the content
@@ -716,10 +705,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       *
       * @return this test helper
       */
-    def initSuccessArchiveResponse(): HttpArchiveManagementActorTestHelper = {
-      RequestActorTestImpl.expectRequest(requestActor, ArchiveRequest, createSuccessResponse())
-      this
-    }
+    def initSuccessArchiveResponse(): HttpArchiveManagementActorTestHelper =
+      initArchiveContentResponse(Future.successful(HttpRequests.ResponseData(createSuccessResponse(), null)))
 
     /**
       * Prepares the mock request actor to return an exception response for a
@@ -728,10 +715,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param exception the exception to be returned as response
       * @return this test helper
       */
-    def initFailedArchiveResponse(exception: Throwable): HttpArchiveManagementActorTestHelper = {
-      RequestActorTestImpl.expectFailedRequest(requestActor, ArchiveRequest, exception)
-      this
-    }
+    def initFailedArchiveResponse(exception: Throwable): HttpArchiveManagementActorTestHelper =
+      initArchiveContentResponse(Future.failed(exception))
 
     /**
       * Queries the current state from the test archive and compares it with
@@ -806,6 +791,20 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       val protocol = mock[HttpArchiveProtocol]
       when(protocol.requiresMultiHostSupport).thenReturn(multiHost)
       protocol
+    }
+
+    /**
+      * Prepares the mock for the HTTP protocol to handle a download request
+      * for the archive's main content file.
+      *
+      * @param result the result to answer the request
+      * @return
+      */
+    private def initArchiveContentResponse(result: Future[HttpRequests.ResponseData]):
+    HttpArchiveManagementActorTestHelper = {
+      when(httpProtocol.downloadMediaFile(argEq(requestActor), argEq(config.archiveURI))(any(), any(),
+        argEq(config.processorTimeout))).thenReturn(result)
+      this
     }
 
     /**

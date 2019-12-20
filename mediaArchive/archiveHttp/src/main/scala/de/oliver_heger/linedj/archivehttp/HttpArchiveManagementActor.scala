@@ -20,8 +20,7 @@ import java.nio.charset.StandardCharsets
 import java.security.Key
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.pattern.ask
+import akka.http.scaladsl.model.HttpResponse
 import akka.routing.SmallestMailboxPool
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -29,12 +28,11 @@ import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageServiceImpl, OAuthTokenActor, OAuthTokenData, OAuthTokenRetrieverServiceImpl}
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpMultiHostRequestActor, HttpRequestActor}
+import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
+import de.oliver_heger.linedj.archivehttp.impl.io._
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -338,14 +336,6 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   }
 
   /**
-    * Creates the request for the content document of the HTTP archive.
-    *
-    * @return the request for the archive content
-    */
-  private def createArchiveContentRequest(): HttpRequest =
-    HttpRequest(uri = config.archiveURI)
-
-  /**
     * Loads the content document from the managed archive using the request
     * actor created on construction time.
     *
@@ -353,11 +343,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private def loadArchiveContent(): Future[HttpResponse] = {
     implicit val requestTimeout: Timeout = config.processorTimeout
-    val contentRequest = createArchiveContentRequest()
-    log.info("Requesting content of archive {}.", contentRequest.uri)
-    (requestActor ? HttpRequests.SendRequest(contentRequest, null))
-      .mapTo[HttpRequests.ResponseData]
-      .map(_.response)
+    log.info("Requesting content of archive {}.", config.archiveURI)
+    config.protocol.downloadMediaFile(requestActor, config.archiveURI) map (_.response)
   }
 
   /**
