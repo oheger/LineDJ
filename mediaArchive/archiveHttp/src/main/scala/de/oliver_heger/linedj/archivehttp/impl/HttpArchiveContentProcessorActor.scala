@@ -200,10 +200,9 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   : Flow[(HttpRequest, RequestData), T, NotUsed] =
     Flow[(HttpRequest, RequestData)].mapAsync(parallelism) { t =>
       implicit val timeout: Timeout = req.archiveConfig.processorTimeout
-      (for {resp <- req.requestActor.ask(HttpRequests.SendRequest(t._1, t._2))
-        .mapTo[HttpRequests.ResponseData]
-            procResp <- processHttpResponse(req, (resp.response, resp.data.asInstanceOf[RequestData])).mapTo[T]
-      } yield procResp) fallbackTo Future {
+      (for {resp <- req.archiveConfig.protocol.downloadMediaFile(req.requestActor, t._1.uri)
+            procResp <- processHttpResponse(req, (resp.response, t._2)).mapTo[T]
+            } yield procResp) fallbackTo Future {
         val mid = createMediumID(req, t._2.mediumDesc)
         fUndef(mid)
       }
@@ -214,10 +213,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * path. URI mapping is applied to the path as defined in the archive's
     * configuration. As this might fail, result is an ''Option''.
     *
-    * @param md          the description of the medium affected
-    * @param config      the config of the archive
-    * @param path        the path for the request
-    * @param reqData     the ''RequestData''
+    * @param md      the description of the medium affected
+    * @param config  the config of the archive
+    * @param path    the path for the request
+    * @param reqData the ''RequestData''
     * @return the tuple with new request and context data
     */
   private def createRequest(md: HttpMediumDesc, config: HttpArchiveConfig, path: String, reqData: RequestData):

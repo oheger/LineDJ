@@ -27,14 +27,19 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.Mockito._
+import org.mockito.Matchers.{any, eq => argEq}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.matching.Regex
 import scala.util.{Failure, Random, Success, Try}
@@ -457,12 +462,15 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
                                     responseMapping: Map[HttpRequest, Try[HttpResponse]],
                                     config: HttpArchiveConfig = DefaultArchiveConfig,
                                     sink: Sink[MediumProcessingResult, Any]):
-    ProcessHttpArchiveRequest =
+    ProcessHttpArchiveRequest = {
+      val protocol = mock[HttpArchiveProtocol]
       ProcessHttpArchiveRequest(mediaSource = source,
-        clientFlow = null, requestActor = createRequestActor(responseMapping),
-        archiveConfig = config, settingsProcessorActor = settingsProcessor,
+        clientFlow = null,
+        requestActor = createRequestActorAndInitProtocol(responseMapping, protocol, config.processorTimeout),
+        archiveConfig = config.copy(protocol = protocol), settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
         seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)
+    }
 
     /**
       * Expects that the given number of processing results has been sent to
@@ -515,12 +523,18 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * Creates a simulated request actor and initializes it with the given
       * request-response mapping.
       *
-      * @param mapping the mapping
+      * @param mapping  the mapping
+      * @param protocol the mock for the protocol to be initialized
       * @return the request actor reference
       */
-    private def createRequestActor(mapping: Map[HttpRequest, Try[HttpResponse]]): ActorRef = {
+    private def createRequestActorAndInitProtocol(mapping: Map[HttpRequest, Try[HttpResponse]],
+                                                  protocol: HttpArchiveProtocol, timeout: Timeout): ActorRef = {
       val requestActor = system.actorOf(RequestActorTestImpl())
-      requestActor ! RequestActorTestImpl.InitRequestResponseMappingWithFailures(mapping)
+      mapping foreach { e =>
+        when(protocol.downloadMediaFile(argEq(requestActor), argEq(e._1.uri))(any(), any(),
+          argEq(timeout)))
+          .thenReturn(Future.fromTry(e._2.map(resp => HttpRequests.ResponseData(resp, null))))
+      }
       requestActor
     }
   }
