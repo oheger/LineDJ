@@ -16,32 +16,35 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.io.IOException
 import java.nio.file.{Files, Paths}
 import java.security.Key
 import java.time.Instant
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.model.Uri
 import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.crypt.{AESKeyGenerator, Secret}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.mockito.Matchers.{eq => argEq, any}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStarterSpec {
   /** Test user name. */
@@ -55,6 +58,9 @@ object HttpArchiveStarterSpec {
 
   /** The test path for temporary files. */
   private val PathTempDir = Paths get "tempDir"
+
+  /** The archive URI to be returned by the protocol. */
+  private val ArchiveUri = "https://my-archive.org/cool/music"
 
   /** A default numeric index to be passed to the starter. */
   private val ArcIndex = 28
@@ -132,6 +138,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .checkActorProps()
   }
 
+  it should "return a failure if the archive URI cannot be constructed" in {
+    val exception = new IOException("Invalid archive URI")
+    val helper = new StarterTestHelper(triedArchiveUri = Failure(exception))
+
+    expectFailedFuture[IOException](helper.invokeStartup())
+  }
+
   it should "generate unique actor names based on the numeric index" in {
     val OtherIndex = ArcIndex + 1
     val helper = new StarterTestHelper(OtherIndex)
@@ -203,9 +216,12 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param clearTemp        flag whether the temp directory is to be cleared
     * @param encryptedArchive flag whether the archive should be encrypted
     * @param optRealm         an optional realm for the archive
+    * @param triedArchiveUri  the archive URI returned by the protocol
     */
   private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true,
-                                  encryptedArchive: Boolean = false, optRealm: Option[ArchiveRealm] = None) {
+                                  encryptedArchive: Boolean = false,
+                                  optRealm: Option[ArchiveRealm] = None,
+                                  triedArchiveUri: Try[Uri] = Success(ArchiveUri)) {
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -222,7 +238,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     private val sourceConfig = createArchiveSourceConfig()
 
     /** Mock for the protocol to be used. */
-    private val protocol = mock[HttpArchiveProtocol]
+    private val protocol = createProtocol()
 
     /** The data object for the archive to be started. */
     private val archiveData = createArchiveData()
@@ -248,15 +264,25 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     import system.dispatcher
 
     /**
+      * Calls the startup method of the test instance and returns the
+      * resulting ''Future''.
+      *
+      * @param c the configuration to be used
+      * @return the ''Future'' with the result
+      */
+    def invokeStartup(c: Configuration = sourceConfig): Future[Map[String, ActorRef]] =
+      starter.startup(unionArchiveActors, archiveData, c, protocol, ArchiveCredentials,
+        cryptKeyParam, actorFactory, index, clearTemp)
+
+    /**
       * Invokes the test instance with the passed in configuration and
       * returns the result.
       *
       * @param c the configuration to be used
       * @return the result of the starter
       */
-    def startArchive(c: Configuration): Map[String, ActorRef] =
-      futureResult(starter.startup(unionArchiveActors, archiveData, c, protocol, ArchiveCredentials,
-        cryptKeyParam, actorFactory, index, clearTemp))
+    def startArchive(c: Configuration = sourceConfig): Map[String, ActorRef] =
+      futureResult(invokeStartup(c))
 
     /**
       * Invokes the test instance to start the archive and checks whether the
@@ -393,7 +419,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the expected archive configuration
       */
     private def expectedArchiveConfig(): HttpArchiveConfig =
-      archiveData.config.copy(protocol = protocol, authFunc = authConfigureFunc)
+      archiveData.config.copy(protocol = protocol, authFunc = authConfigureFunc, archiveURI = ArchiveUri)
 
     /**
       * Creates an object with test actors for the union archive.
@@ -402,6 +428,19 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       */
     private def createUnionArchiveActors(): MediaFacadeActors =
       MediaFacadeActors(TestProbe().ref, TestProbe().ref)
+
+    /**
+      * Creates the mock for the archive protocol. The mock is prepared to
+      * generate the full archive URI.
+      *
+      * @return the mock for the protocol
+      */
+    private def createProtocol(): HttpArchiveProtocol = {
+      val protocol = mock[HttpArchiveProtocol]
+      doReturn(triedArchiveUri)
+        .when(protocol).generateArchiveUri(StartupConfigTestHelper.archiveUri(1))
+      protocol
+    }
 
     /**
       * Determines the parameter for the decryption key to be used based on

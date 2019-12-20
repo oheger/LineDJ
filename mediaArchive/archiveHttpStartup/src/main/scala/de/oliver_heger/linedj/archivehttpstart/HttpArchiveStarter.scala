@@ -132,8 +132,11 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
              (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] =
-    fetchAuthFunc(archiveData.realm, credentials) map { authFunc =>
-      val archiveConfig = archiveData.config.copy(protocol = protocol, authFunc = authFunc)
+    for {
+      archiveUri <- Future.fromTry(protocol.generateArchiveUri(archiveData.config.archiveURI.toString()))
+      authFunc <- fetchAuthFunc(archiveData.realm, credentials)
+    } yield {
+      val archiveConfig = archiveData.config.copy(archiveURI = archiveUri, protocol = protocol, authFunc = authFunc)
       createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
         optKey, archiveData.shortName, index, clearTemp)
     }
