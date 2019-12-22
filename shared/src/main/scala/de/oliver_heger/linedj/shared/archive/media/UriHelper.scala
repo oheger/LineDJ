@@ -136,6 +136,27 @@ object UriHelper {
   def hasTrailingSeparator(uri: String): Boolean = uri.endsWith(UriSeparator)
 
   /**
+    * Makes sure that the passed in URI starts with a separator. A separator is
+    * added if and only if the passed in string does not already start with
+    * one.
+    *
+    * @param uri the URI to be checked
+    * @return the URI starting with a separator
+    */
+  def withLeadingSeparator(uri: String): String =
+    if (hasLeadingSeparator(uri)) uri else UriSeparator + uri
+
+  /**
+    * Returns a flag whether the passed in URI string starts with a separator
+    * character.
+    *
+    * @param uri the URI to be checked
+    * @return '''true''' if the URI starts with a separator; '''false'''
+    *         otherwise
+    */
+  def hasLeadingSeparator(uri: String): Boolean = uri.startsWith(UriSeparator)
+
+  /**
     * Checks whether the given URI has a parent element. If this function
     * returns '''false''' the URI points to a top-level element in the
     * iteration.
