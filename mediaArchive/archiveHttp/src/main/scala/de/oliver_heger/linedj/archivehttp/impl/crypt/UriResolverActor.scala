@@ -26,8 +26,8 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
+import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
+import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverController}
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.LRUCache
 
@@ -71,12 +71,14 @@ object UriResolverActor {
     * A data class that stores information about a resolve operation.
     *
     * @param client         the client of the request
+    * @param controller     the resolve controller
     * @param resolvedPath   the part of the path that is already resolved
     * @param orgPath        the current original path (as plain text)
     * @param pathsToResolve the remaining parts that need to be resolved
     * @param resolveRequest the original request
     */
   private case class ResolveData(client: ActorRef,
+                                 controller: UriResolverController,
                                  resolvedPath: String,
                                  orgPath: String,
                                  pathsToResolve: List[String],
@@ -106,7 +108,7 @@ object UriResolverActor {
       * returns '''true'''.
       */
     def sendResponse(): Unit = {
-      client ! ResolvedUri(Uri(resolvedPath), resolveRequest.uri)
+      client ! ResolvedUri(controller.constructResultUri(resolvedPath), resolveRequest.uri)
     }
 
     /**
@@ -130,7 +132,8 @@ object UriResolverActor {
       */
     def updateWithFolderResponse(content: Map[String, String]): Try[ResolveData] =
       if (content.contains(pathsToResolve.head))
-        Success(copy(resolvedPath = UriHelper.concat(resolvedPath, content(pathsToResolve.head)),
+        Success(copy(resolvedPath = UriHelper.withLeadingSeparator(
+          UriHelper.concat(resolvedPath, content(pathsToResolve.head))),
           orgPath = UriHelper.concat(orgPath, pathsToResolve.head),
           pathsToResolve = pathsToResolve.tail))
       else Failure(new IOException(s"Cannot resolve ${pathsToResolve.head} in $resolvedPath"))
@@ -201,13 +204,16 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
 
   override def receive: Receive = {
     case req: ResolveUri =>
-      val resolvePath = req.uri.path.toString()
-      if (!resolvePath.startsWith(basePath + UriHelper.UriSeparator)) {
-        sender() ! akka.actor.Status.Failure(
-          new IOException(s"Invalid path to resolve! $resolvePath does not start with $basePath/."))
-      } else {
-        continueResolveOperation(createResolveData(req))
-      }
+      val resolveController = protocol.resolveController(req.uri, basePath)
+      if (resolveController.skipResolve)
+        sender() ! ResolvedUri(req.uri, req.uri)
+      else
+        resolveController.extractPathToResolve() match {
+          case Success(resolvePath) =>
+            continueResolveOperation(createResolveData(resolveController, req, resolvePath))
+          case Failure(exception) =>
+            sender() ! akka.actor.Status.Failure(exception)
+        }
 
     case FolderResultArrived(content, folderPath, orgPath) =>
       updateResolvedCache(content, folderPath, orgPath)
@@ -252,13 +258,16 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
   }
 
   /**
-    * Creates an initial ''ResolveData'' object for the passed in request.
+    * Creates an initial ''ResolveData'' object for the passed in parameters.
     * Determines which parts of the requested URI need to be resolved.
     *
-    * @param request the current resolve request
+    * @param controller  the resolve controller
+    * @param request     the current resolve request
+    * @param resolvePath the path to be resolved
     * @return the ''ResolveData'' object for this request
     */
-  private def createResolveData(request: ResolveUri): ResolveData = {
+  private def createResolveData(controller: UriResolverController, request: ResolveUri, resolvePath: String):
+  ResolveData = {
     @tailrec def calcUnresolvedComponents(path: String, unresolvedParts: List[String]):
     (String, String, List[String]) =
       if (path == basePath) (path, path, unresolvedParts)
@@ -269,9 +278,10 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
         calcUnresolvedComponents(parent, part :: unresolvedParts)
       }
 
-    val uri = UriHelper decodeComponents request.uri.path.toString()
-    val (resolved, org, unresolved) = calcUnresolvedComponents(uri, Nil)
-    ResolveData(sender(), resolved, org, unresolved, request)
+    val uri = UriHelper decodeComponents resolvePath
+    val (resolved, org, unresolved) = calcUnresolvedComponents(basePath + uri, Nil)
+    val resolvedPath = UriHelper.removeLeading(resolved, basePath)
+    ResolveData(sender(), controller, resolvedPath, org, unresolved, request)
   }
 
   /**
@@ -288,7 +298,7 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
       pendingRequests += resolveData.resolvedPath -> (resolveData :: folderRequests)
       if (folderRequests.isEmpty) {
         val request = createFolderRequest(resolveData)
-        (for {names <- processFolderRequest(request, Nil)
+        (for {names <- processFolderRequest(resolveData.controller, request, Nil)
               nameMapping <- decryptElementNames(names)
               } yield nameMapping) onComplete {
           case Success(value) =>
@@ -306,16 +316,17 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
     * in the folder are extracted. If another request needs to be sent (if the
     * protocol supports paging), this is done, and the results are aggregated.
     *
-    * @param request the request to be sent
-    * @param content the list of element names extracted so far
+    * @param controller the resolve controller
+    * @param request    the request to be sent
+    * @param content    the list of element names extracted so far
     * @return a list with the names of all elements contained in the folder
     */
-  private def processFolderRequest(request: SendRequest, content: List[String]):
+  private def processFolderRequest(controller: UriResolverController, request: SendRequest, content: List[String]):
   Future[List[String]] = {
-    sendFolderRequest(request) flatMap parseFolderResponse flatMap { parseResult =>
+    sendFolderRequest(request) flatMap (parseFolderResponse(controller, _)) flatMap { parseResult =>
       val nextContent = parseResult.elements ::: content
       parseResult.nextRequest.fold(Future.successful(nextContent)) { nextReq =>
-        processFolderRequest(nextReq, nextContent)
+        processFolderRequest(controller, nextReq, nextContent)
       }
     }
   }
@@ -339,7 +350,7 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
     */
   private def createFolderRequest(data: ResolveData): SendRequest = {
     val uri = UriHelper.withTrailingSeparator(data.resolvedPath)
-    SendRequest(protocol.createFolderRequest(data.resolveRequest.uri, uri), 0)
+    SendRequest(data.controller.createFolderRequest(uri), 0)
   }
 
   /**
@@ -347,11 +358,13 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
     * result object. The parsing is delegated to the protocol. The protocol
     * also determines whether another request needs to be sent.
     *
-    * @param response the response
+    * @param controller the resolve controller
+    * @param response   the response
     * @return a future with the result of the parse operation
     */
-  private def parseFolderResponse(response: HttpResponse): Future[ParseFolderResult] =
-    protocol.extractNamesFromFolderResponse(response)
+  private def parseFolderResponse(controller: UriResolverController, response: HttpResponse):
+  Future[ParseFolderResult] =
+    controller.extractNamesFromFolderResponse(response)
 
   /**
     * Generates a map that associates decrypted element names with the original

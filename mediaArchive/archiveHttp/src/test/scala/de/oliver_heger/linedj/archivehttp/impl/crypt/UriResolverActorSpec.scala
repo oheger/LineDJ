@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.crypt
 
+import java.io.IOException
+
 import akka.actor.{ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model._
 import akka.testkit.{ImplicitSender, TestKit}
@@ -25,14 +27,15 @@ import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
+import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverController}
+import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object UriResolverActorSpec {
   /** The password for decrypting file names. */
@@ -79,46 +82,72 @@ object UriResolverActorSpec {
   private def createRequest(path: String): ResolveUri = ResolveUri(Uri(serverPath(path)))
 
   /**
-    * Prepares the given mock for the HTTP protocol to return a result object
-    * with the list of names for a request to a specific folder. If specified,
-    * the request actor is also configured to return the correct response for
-    * the request. Note: For some test cases requests can be executed in a
-    * random order. To deal with this, multiple request URIs can be provided;
-    * the mock is prepared to answer all of them.
+    * Creates a request to resolve the URI with the specified relative path and
+    * prepares the mock for the controller to return this relative path as path
+    * to be resolved.
+    *
+    * @param path       the relative path
+    * @param controller the mock controller
+    * @return the request to resolve this path
+    */
+  private def createRequestAndPreparePath(path: String, controller: UriResolverController): ResolveUri = {
+    when(controller.extractPathToResolve()).thenReturn(Success(path))
+    createRequest(path)
+  }
+
+  /**
+    * Prepares the mock controller to return a final result URI for the given
+    * resolved path. The URI is returned.
+    *
+    * @param resolvedPath the resolved path
+    * @param controller   the mock controller
+    * @return the final URI returned by the controller
+    */
+  private def prepareFinalUri(resolvedPath: String, controller: UriResolverController): Uri = {
+    val resultUri = Uri(serverPath(resolvedPath))
+    when(controller.constructResultUri(resolvedPath)).thenReturn(resultUri)
+    resultUri
+  }
+
+  /**
+    * Prepares the given mock for the resolver controller to return a result
+    * object with the list of names for a request to a specific folder. If
+    * specified, the request actor is also configured to return the correct
+    * response for the request.
     *
     * @param requestActor an ''Option'' for the HTTP request actor
-    * @param protocol     the mock for the protocol
-    * @param baseUris     the expected base URIs of the request
+    * @param controller   the mock for the resolver controller
+    * @param mockRequest  flag whether the request creation should be mocked
     * @param path         the path of the requested folder
     * @param futResult    a ''Future'' with the element names to be returned
     * @return a tuple with the generated folder request and response objects
     */
-  private def stubFolderRequest(requestActor: Option[ActorRef], protocol: HttpArchiveProtocol, path: String,
-                                futResult: Future[ParseFolderResult], baseUris: Uri*): (HttpRequest, HttpResponse) = {
+  private def stubFolderRequest(requestActor: Option[ActorRef], controller: UriResolverController, path: String,
+                                futResult: Future[ParseFolderResult], mockRequest: Boolean):
+  (HttpRequest, HttpResponse) = {
     val request = HttpRequest(uri = path)
     val response = HttpResponse(entity = HttpEntity(path))
     requestActor foreach (RequestActorTestImpl.expectRequest(_, request, response))
-    when(protocol.extractNamesFromFolderResponse(argEq(response))(any(), any())).thenReturn(futResult)
-    baseUris foreach { baseUri =>
-      when(protocol.createFolderRequest(baseUri, path)).thenReturn(request)
+    when(controller.extractNamesFromFolderResponse(argEq(response))(any(), any())).thenReturn(futResult)
+    if (mockRequest) {
+      when(controller.createFolderRequest(path)).thenReturn(request)
     }
     (request, response)
   }
 
   /**
-    * Prepares the given request actor and protocol mock to handle requests
+    * Prepares the given request actor and controller mock to handle requests
     * for the content of the simulated archive.
     *
-    * @param reqActor an option for the request actor
-    * @param protocol the mock for the protocol
-    * @param baseUris the expected base URIs of the request
+    * @param reqActor   an option for the request actor
+    * @param controller the mock for the resolve controller
     * @return a list with the generated folder requests and responses
     */
-  private def stubServerContent(reqActor: Option[ActorRef], protocol: HttpArchiveProtocol, baseUris: Uri*):
+  private def stubServerContent(reqActor: Option[ActorRef], controller: UriResolverController):
   List[(HttpRequest, HttpResponse)] = {
-    stubFolderRequest(reqActor, protocol, serverPath("/"), RootFolderNames, baseUris: _*) ::
-      stubFolderRequest(reqActor, protocol, serverPath("/" + RootFolderNamesList.head + "/"),
-        SubFolderNames, baseUris: _*) :: Nil
+    stubFolderRequest(reqActor, controller, "/", RootFolderNames, mockRequest = true) ::
+      stubFolderRequest(reqActor, controller, "/" + RootFolderNamesList.head + "/",
+        SubFolderNames, mockRequest = true) :: Nil
   }
 
 }
@@ -154,9 +183,10 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val request = HttpRequest(uri = "/failure")
     val reqActor = system.actorOf(RequestActorTestImpl())
     val protocol = mock[HttpArchiveProtocol]
-    val resolveRequest = createRequest("/sub/subFile.txt")
-    val path = serverPath("/")
-    when(protocol.createFolderRequest(resolveRequest.uri, path)).thenReturn(request)
+    val controller = mock[UriResolverController]
+    val resolveRequest = createRequestAndPreparePath("/sub/subFile.txt", controller)
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
+    when(controller.createFolderRequest("/")).thenReturn(request)
     RequestActorTestImpl.expectFailedRequest(reqActor, request, exception)
     val resolver = createResolverActor(reqActor, protocol)
 
@@ -169,12 +199,14 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     }
   }
 
-  it should "handle a failure from the protocol when parsing a folder response" in {
+  it should "handle a failure from the controller when parsing a folder response" in {
     val exception = new Exception("Protocol failure")
     val protocol = mock[HttpArchiveProtocol]
-    val resolveRequest = createRequest("/sub/subFile.txt")
+    val controller = mock[UriResolverController]
+    val resolveRequest = createRequestAndPreparePath("/sub/subFile.txt", controller)
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
     val reqActor = system.actorOf(RequestActorTestImpl())
-    stubFolderRequest(Some(reqActor), protocol, serverPath("/"), Future.failed(exception), resolveRequest.uri)
+    stubFolderRequest(Some(reqActor), controller, "/", Future.failed(exception), mockRequest = true)
     val resolver = createResolverActor(reqActor, protocol)
 
     resolver ! resolveRequest
@@ -184,15 +216,16 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   it should "handle a part that cannot be resolved" in {
     val protocol = mock[HttpArchiveProtocol]
+    val controller = mock[UriResolverController]
     val reqActor = system.actorOf(RequestActorTestImpl())
-    val resolveRequest = createRequest("/sub/nonExisting.txt")
-    stubServerContent(Some(reqActor), protocol, resolveRequest.uri)
+    val resolveRequest = createRequestAndPreparePath("/sub/nonExisting.txt", controller)
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
+    stubServerContent(Some(reqActor), controller)
     val resolver = createResolverActor(reqActor, protocol)
 
     resolver ! resolveRequest
     val response = expectMsgType[Status.Failure]
-    response.cause.getMessage should be("Cannot resolve nonExisting.txt in " +
-      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw=="))
+    response.cause.getMessage should be("Cannot resolve nonExisting.txt in /Q8Xcluxx2ADWaUAtUHLurqSmvw==")
   }
 
   /**
@@ -202,14 +235,17 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     */
   private def checkResolveSuccessful(uri: String): Unit = {
     val protocol = mock[HttpArchiveProtocol]
-    val resolveRequest = createRequest(uri)
+    val controller = mock[UriResolverController]
+    val resolveRequest = createRequestAndPreparePath(uri, controller)
+    val ResultUri =
+      prepareFinalUri("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN", controller)
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
     val reqActor = system.actorOf(RequestActorTestImpl())
-    stubServerContent(Some(reqActor), protocol, resolveRequest.uri)
+    stubServerContent(Some(reqActor), controller)
     val resolver = createResolverActor(reqActor, protocol)
 
     resolver ! resolveRequest
-    expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
-      resolveRequest.uri))
+    expectMsg(ResolvedUri(ResultUri, resolveRequest.uri))
   }
 
   it should "resolve a URI" in {
@@ -222,36 +258,53 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   it should "cache URIs that have already been resolved" in {
     val protocol = mock[HttpArchiveProtocol]
-    val resolveRequest1 = createRequest("/bar.txt")
-    val resolveRequest2 = createRequest("/sub/subFile.txt")
-    val resolveRequest3 = createRequest("/%73ub/anotherSubFile.dat")
+    val controller1 = mock[UriResolverController]
+    val controller2 = mock[UriResolverController]
+    val controller3 = mock[UriResolverController]
+    val resolveRequest1 = createRequestAndPreparePath("/bar.txt", controller1)
+    val resolveRequest2 = createRequestAndPreparePath("/sub/subFile.txt", controller2)
+    val resolveRequest3 = createRequestAndPreparePath("/%73ub/anotherSubFile.dat", controller3)
+    when(protocol.resolveController(resolveRequest1.uri, BasePath)).thenReturn(controller1)
+    when(protocol.resolveController(resolveRequest2.uri, BasePath)).thenReturn(controller2)
+    when(protocol.resolveController(resolveRequest3.uri, BasePath)).thenReturn(controller3)
+    val ResultUri1 = prepareFinalUri("/uBQQYWockOWLuCROIHviFhU2XayMtps=", controller1)
+    val ResultUri2 = prepareFinalUri("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN",
+      controller2)
+    val ResultUri3 =
+      prepareFinalUri("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Z3BDvmY89rQwUqJ3XzMUWgtBE9bcOCYxiTq-Zfo-sNlIGA==",
+        controller3)
     val reqActor = system.actorOf(RequestActorTestImpl())
-    stubServerContent(Some(reqActor), protocol, resolveRequest1.uri, resolveRequest2.uri, resolveRequest3.uri)
+    stubFolderRequest(Some(reqActor), controller1, "/", RootFolderNames, mockRequest = true)
+    stubFolderRequest(Some(reqActor), controller2, "/" + RootFolderNamesList.head + "/",
+      SubFolderNames, mockRequest = true)
     val resolver = createResolverActor(reqActor, protocol)
     resolver ! resolveRequest1
-    expectMsg(ResolvedUri(serverPath("/uBQQYWockOWLuCROIHviFhU2XayMtps="), resolveRequest1.uri))
+    expectMsg(ResolvedUri(ResultUri1, resolveRequest1.uri))
 
     resolver ! resolveRequest2
-    expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
-      resolveRequest2.uri))
+    expectMsg(ResolvedUri(ResultUri2, resolveRequest2.uri))
 
     resolver ! resolveRequest3
-    expectMsg(ResolvedUri(
-      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Z3BDvmY89rQwUqJ3XzMUWgtBE9bcOCYxiTq-Zfo-sNlIGA=="),
-      resolveRequest3.uri))
+    expectMsg(ResolvedUri(ResultUri3, resolveRequest3.uri))
   }
 
   it should "combine requests to the same folder" in {
     val protocol = mock[HttpArchiveProtocol]
+    val controller1 = mock[UriResolverController]
+    val controller2 = mock[UriResolverController]
     val reqActor = system.actorOf(RequestActorTestImpl(failOnUnmatchedRequest = false))
     val resolver = createResolverActor(reqActor, protocol)
-    val resolveRequest1 = createRequest("/bar.txt")
-    val resolveRequest2 = createRequest("/sub/subFile.txt")
-    val expResult1 = ResolvedUri(serverPath("/uBQQYWockOWLuCROIHviFhU2XayMtps="), resolveRequest1.uri)
-    val expResult2 = ResolvedUri(
-      serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
-      resolveRequest2.uri)
-    val stubRequests = stubServerContent(None, protocol, resolveRequest1.uri, resolveRequest2.uri)
+    val resolveRequest1 = createRequestAndPreparePath("/bar.txt", controller1)
+    val resolveRequest2 = createRequestAndPreparePath("/sub/subFile.txt", controller2)
+    when(protocol.resolveController(resolveRequest1.uri, BasePath)).thenReturn(controller1)
+    when(protocol.resolveController(resolveRequest2.uri, BasePath)).thenReturn(controller2)
+    val ResultUri1 = prepareFinalUri("/uBQQYWockOWLuCROIHviFhU2XayMtps=", controller1)
+    val ResultUri2 =
+      prepareFinalUri("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN", controller2)
+    val expResult1 = ResolvedUri(ResultUri1, resolveRequest1.uri)
+    val expResult2 = ResolvedUri(ResultUri2, resolveRequest2.uri)
+    val stubRequests = stubServerContent(None, controller1)
+    stubServerContent(None, controller2)
 
     resolver ! resolveRequest1
     resolver ! resolveRequest2
@@ -260,37 +313,59 @@ class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     results should contain only(expResult1, expResult2)
   }
 
-  it should "handle a request with an invalid base path" in {
-    val reqActor = system.actorOf(RequestActorTestImpl())
-    val resolver = createResolverActor(reqActor, mock[HttpArchiveProtocol])
+  it should "handle a URI that is rejected by the resolve controller" in {
+    val protocol = mock[HttpArchiveProtocol]
+    val controller = mock[UriResolverController]
     val path = "/invalid/path/foo.txt"
+    val resolveRequest = ResolveUri(path)
+    val exception = new IOException("Rejected")
+    when(controller.extractPathToResolve()).thenReturn(Failure(exception))
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    val resolver = createResolverActor(reqActor, protocol)
 
-    resolver ! ResolveUri(path)
+    resolver ! resolveRequest
     val errResponse = expectMsgType[akka.actor.Status.Failure]
-    errResponse.cause.getMessage should include(path)
+    errResponse.cause should be(exception)
   }
 
   it should "handle paging correctly" in {
     val protocol = mock[HttpArchiveProtocol]
+    val controller = mock[UriResolverController]
     val reqActor = system.actorOf(RequestActorTestImpl(failOnUnmatchedRequest = false))
-    val resolveRequest = createRequest("/sub/subFile.txt")
-    val (request1, response1) = stubFolderRequest(None, protocol, serverPath("/path2"),
-      Future.successful(ParseFolderResult(List(RootFolderNamesList.head), None)), resolveRequest.uri)
-    val (request2, response2) = stubFolderRequest(None, protocol, serverPath("/path1"),
+    val resolveRequest = createRequestAndPreparePath("/sub/subFile.txt", controller)
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
+    val (request1, response1) = stubFolderRequest(None, controller, "/path2",
+      Future.successful(ParseFolderResult(List(RootFolderNamesList.head), None)), mockRequest = false)
+    val (request2, response2) = stubFolderRequest(None, controller, "/path1",
       Future.successful(ParseFolderResult(List(RootFolderNamesList(1)),
-        Some(HttpRequests.SendRequest(request1, null)))))
-    stubFolderRequest(Some(reqActor), protocol, serverPath("/"),
+        Some(HttpRequests.SendRequest(request1, null)))), mockRequest = false)
+    stubFolderRequest(Some(reqActor), controller, "/",
       Future.successful(ParseFolderResult(RootFolderNamesList.drop(2),
-        Some(HttpRequests.SendRequest(request2, null)))), resolveRequest.uri)
+        Some(HttpRequests.SendRequest(request2, null)))), mockRequest = true)
     RequestActorTestImpl.expectRequest(reqActor, request2, response2)
     RequestActorTestImpl.expectRequest(reqActor, request1, response1)
-    stubFolderRequest(Some(reqActor), protocol, serverPath("/" + RootFolderNamesList.head + "/"),
-      SubFolderNames, resolveRequest.uri)
+    stubFolderRequest(Some(reqActor), controller, "/" + RootFolderNamesList.head + "/",
+      SubFolderNames, mockRequest = true)
+    val ResultUri =
+      prepareFinalUri("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN", controller)
     val resolver = createResolverActor(reqActor, protocol)
 
     resolver ! resolveRequest
-    expectMsg(ResolvedUri(serverPath("/Q8Xcluxx2ADWaUAtUHLurqSmvw==/Oe3_2W9y1fFSrTj15xaGdt9_rovvGSLPY7NN"),
-      resolveRequest.uri))
+    expectMsg(ResolvedUri(ResultUri, resolveRequest.uri))
+  }
+
+  it should "return the URI unchanged if the resolve operation is to be skipped" in {
+    val protocol = mock[HttpArchiveProtocol]
+    val controller = mock[UriResolverController]
+    when(controller.skipResolve).thenReturn(true)
+    val resolveRequest = createRequest("/path/to/be/used/directly.txt")
+    when(protocol.resolveController(resolveRequest.uri, BasePath)).thenReturn(controller)
+    val reqActor = system.actorOf(RequestActorTestImpl())
+    val resolver = createResolverActor(reqActor, protocol)
+
+    resolver ! resolveRequest
+    expectMsg(ResolvedUri(resolveRequest.uri, resolveRequest.uri))
   }
 }
 
