@@ -16,13 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.spi
 
+import java.io.IOException
+
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object UriResolverController {
 
@@ -83,7 +85,8 @@ trait UriResolverController {
   /**
     * Returns the relative path whose components need to be resolved. This
     * may fail if an unexpected URI to be resolved has been passed, e.g. one
-    * that does not belong to the current archive.
+    * that does not belong to the current archive. Note that the resulting path
+    * MUST start with a slash.
     *
     * @return a ''Try'' with the relative path to be resolved
     */
@@ -128,4 +131,30 @@ trait UriResolverController {
     * @return the final URI to the referenced media file
     */
   def constructResultUri(path: String): Uri
+
+  /**
+    * Checks whether the URI to be resolved starts with the expected base path.
+    * If this is the case, a success result with the URI is returned;
+    * otherwise, result is a failure with a corresponding exception.
+    *
+    * @param resolveUri the URI to be resolved
+    * @param basePath   the base path
+    * @return a ''Try'' with the checked URI
+    */
+  protected def checkBasePath(resolveUri: Uri, basePath: String): Try[Uri] =
+    if (resolveUri.path.toString() startsWith basePath) Success(resolveUri)
+    else Failure(new IOException(s"Invalid URI to resolve: $resolveUri does not start with base path $basePath."))
+
+  /**
+    * Converts the given URI to be resolved to a string and removes the base
+    * path prefix. The result is the relative path which needs to be resolved.
+    * Note that this function does not check whether the URI actually starts
+    * with the base path; this has to be done manually using other functions.
+    *
+    * @param resolveUri the URI to be resolved
+    * @param basePath   the base path
+    * @return the relative path string with the base path removed
+    */
+  protected def removeBasePath(resolveUri: Uri, basePath: String): String =
+    resolveUri.path.toString().substring(basePath.length)
 }

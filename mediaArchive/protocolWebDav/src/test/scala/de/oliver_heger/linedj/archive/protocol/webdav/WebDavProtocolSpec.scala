@@ -17,26 +17,23 @@
 package de.oliver_heger.linedj.archive.protocol.webdav
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.model._
 import akka.pattern.AskTimeoutException
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
 import akka.testkit.{TestKit, TestProbe}
-import akka.util.{ByteString, Timeout}
+import akka.util.Timeout
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.xml.SAXParseException
 
 /**
   * Test class for ''WebDavProtocol''. This class also tests some functionality
   * from the base trait for protocols.
   */
 class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
-  with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with AsyncTestHelper {
   def this() = this(ActorSystem("WebDavProtocolSpec"))
 
   override protected def afterAll(): Unit = {
@@ -69,58 +66,19 @@ class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     archiveUri.get.toString() should be(SourceUri)
   }
 
-  /**
-    * Helper function to check the creation of a folder request.
-    *
-    * @param path   the path to be requested
-    * @param expUri the expected resulting URI
-    */
-  private def checkFolderRequest(path: String, expUri: Uri): Unit = {
-    val ExpHeaders = List(Accept(MediaRange(MediaType.text("xml"))),
-      DepthHeader.DefaultDepthHeader)
-    val ExpRequest = HttpRequest(uri = expUri, method = HttpMethod.custom("PROPFIND"), headers = ExpHeaders)
+  it should "return a correct resolver controller" in {
+    val ResolveUri = Uri("https://my-archive.com/cool/media/file.mp5")
+    val BasePath = "/relative/archive/base/path"
     val protocol = new WebDavProtocol
 
-    protocol.createFolderRequest(Uri("/some-uri"), path) should be(ExpRequest)
-  }
-
-  it should "create a correct folder request" in {
-    val FilePath = "/my/test/folder/"
-
-    checkFolderRequest(FilePath, FilePath)
-  }
-
-  it should "append a slash to the URI of a folder request" in {
-    val FilePath = "/path/with/no/slash"
-
-    checkFolderRequest(FilePath, FilePath + "/")
-  }
-
-  /**
-    * Returns a response object with an entity with the given content.
-    *
-    * @param content the body content
-    * @return the response with this entity
-    */
-  private def createFolderResponse(content: String): HttpResponse = {
-    val bodySource = Source(ByteString(content).grouped(32).toList)
-    HttpResponse(entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, bodySource))
-  }
-
-  it should "extract the element names from a folder response" in {
-    val response = createFolderResponse(readResourceFile("webDavFolder.xml"))
-    val protocol = new WebDavProtocol
-
-    val result = futureResult(protocol.extractNamesFromFolderResponse(response))
-    result.elements should contain only("testMediaFile.mp3", "fileToBeTrimmed.mp3", "childFolder")
-    result.nextRequest should be(None)
-  }
-
-  it should "handle an unexpected response" in {
-    val response = createFolderResponse("<invalid> XML")
-    val protocol = new WebDavProtocol
-
-    expectFailedFuture[SAXParseException](protocol.extractNamesFromFolderResponse(response))
+    val controller = protocol.resolveController(ResolveUri, BasePath)
+    controller match {
+      case c: WebDavResolverController =>
+        c.uriToResolve should be(ResolveUri)
+        c.basePath should be(BasePath)
+      case c =>
+        fail("Unexpected controller: " + c)
+    }
   }
 
   it should "execute a download request" in {
