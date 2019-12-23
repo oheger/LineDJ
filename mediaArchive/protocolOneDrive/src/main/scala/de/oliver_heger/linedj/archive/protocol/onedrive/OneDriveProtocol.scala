@@ -17,17 +17,12 @@
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.headers.{Accept, Location}
-import akka.http.scaladsl.model.{HttpCharsets, HttpRequest, HttpResponse, MediaRange, MediaType, Uri}
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.Location
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
+import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverController}
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,76 +38,18 @@ object OneDriveProtocol {
   /** The base path of the OneDrive API. */
   val OneDriveApiPath = "/v1.0/me/drives/"
 
-  /** The suffix to be appended to request the content of a file. */
-  private val SuffixContent = ":/content"
-
-  /** The suffix required to obtain the child elements of a folder path. */
-  private val SuffixChildren = ":/children"
-
-  /** Media type of the data that is expected from the server. */
-  private val MediaJson = MediaRange(MediaType.applicationWithFixedCharset("json", HttpCharsets.`UTF-8`))
-
-  /** The Accept header to be used by all requests. */
-  private val HeaderAccept = Accept(MediaJson)
-
-  /** List with the headers sent for each folder request. */
-  private val FolderRequestHeaders = List(HeaderAccept)
-
   /**
     * Generates the request to query the content URI of a file to be
     * downloaded.
     *
-    * @param uri the URI of the file in question
+    * @param uri the absolute URI of the file in question
     * @return the request
     */
   private def createContentRequest(uri: Uri): HttpRequests.SendRequest = {
-    println("Content request for " + uri)
-    val contentUri = generateItemsUri(uri + SuffixContent)
-    println("Content URI is " + contentUri)
-    val request = HttpRequest(uri = contentUri.resolvedAgainst(OneDriveServerUri))
+    val request = HttpRequest(uri = uri + OneDriveResolverController.SuffixContent)
     HttpRequests.SendRequest(request, null)
   }
 
-  /**
-    * Generates an URI to access the items resource from the passed in source
-    * URI. Here the ''items'' keyword has to be added before the path starting
-    * with ''/root''.
-    *
-    * @param srcUri the source URI
-    * @return the resulting items URI
-    */
-  private def generateItemsUri(srcUri: String): Uri =
-    srcUri.replace("/root:", "/items/root:")
-
-  /**
-    * Transforms the JSON representation of a folder listing to the result
-    * object that is expected from the protocol.
-    *
-    * @param model the JSON model of the folder listing
-    * @return the corresponding ''ParseFolderResult''
-    */
-  private def createParseResultFor(model: OneDriveModel): ParseFolderResult =
-    ParseFolderResult(elements = model.value.map(_.name),
-      nextRequest = model.nextLink map createFolderSendRequestForUri)
-
-  /**
-    * Creates a ''SendRequest'' object to query the content of the folder
-    * defined by the given URI.
-    *
-    * @param uri hte URI pointing to the folder
-    * @return the ''SendRequest'' to query the content of this folder
-    */
-  private def createFolderSendRequestForUri(uri: String): SendRequest =
-    SendRequest(createFolderRequestForUri(uri), null)
-
-  /**
-    * Creates a request for the content of the folder defined by the given URI.
-    *
-    * @param uri the URI pointing to the folder
-    * @return the request to query the content of this folder
-    */
-  private def createFolderRequestForUri(uri: Uri): HttpRequest =
-    HttpRequest(uri = uri, headers = FolderRequestHeaders)
 }
 
 /**
@@ -152,25 +89,16 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     else {
       val driveID = sourceUri.substring(0, posSeparator)
       val path = sourceUri.substring(posSeparator)
-      val relArchiveUri = Uri(OneDriveApiPath + driveID + "/root:" + UriHelper.removeTrailingSeparator(path))
+      val relArchiveUri = Uri(OneDriveApiPath + driveID + OneDriveResolverController.PrefixItems +
+        OneDriveResolverController.PrefixRoot + UriHelper.removeTrailingSeparator(path))
       Success(relArchiveUri.resolvedAgainst(OneDriveServerUri))
     }
   }
 
   /**
-    * Handles a request to download a specific media file. The passed in HTTP
-    * actor can be used to send the request. This base implementation sends a
-    * direct GET request for the given URI. If a concrete protocol requires
-    * some extra steps (e.g. obtaining the download URI first), these have to
-    * be implemented here. In order to actually download the file, the entity
-    * in the response is processed.
-    *
-    * @param httpActor the HTTP request actor for sending requests
-    * @param uri       the URI pointing to the media file
-    * @param ec        the execution context
-    * @param mat       the object to materialize streams
-    * @param timeout   a timeout for sending the request
-    * @return a ''Future'' with the response of the download request
+    * @inheritdoc This function implements the 2-step download process required
+    *             by OneDrive: requesting the download URI of the file in
+    *             question, and then executing the download.
     */
   override def downloadMediaFile(httpActor: ActorRef, uri: Uri)
                                 (implicit ec: ExecutionContext, mat: ActorMaterializer, timeout: Timeout):
@@ -180,39 +108,6 @@ class OneDriveProtocol extends HttpArchiveProtocol {
         createContentRequest(uri)))
       downloadResponse <- sendDownloadRequest(httpActor, contentResult)
     } yield downloadResponse
-
-  /**
-    * Returns a request to query the content of a specific folder on the
-    * server. This function is needed to list the names of files on the server.
-    * The caller is responsible of the execution of the request. It will later
-    * delegate to this object again to parse the response.
-    *
-    * @param path the relative path to the folder to be looked up
-    * @return a request to query the content of this folder
-    */
-  override def createFolderRequest(baseUri: Uri, path: String): HttpRequest = {
-    val uri = baseUri.withPath(Path(UriHelper.removeTrailingSeparator(path) + SuffixChildren))
-    createFolderRequestForUri(uri)
-  }
-
-  /**
-    * Processes the given response of a request to query the content of a
-    * folder and returns a sequence with the names of the elements contained in
-    * this folder. The resulting strings should be the pure element names
-    * without parent paths.
-    *
-    * @param response the response to be processed
-    * @param ec       the execution context
-    * @param mat      the object to materialize streams
-    * @return a ''Future'' with the sequence of the element names in the folder
-    */
-  override def extractNamesFromFolderResponse(response: HttpResponse)
-                                             (implicit ec: ExecutionContext, mat: ActorMaterializer):
-  Future[ParseFolderResult] = {
-    import OneDriveJsonProtocol._
-    val model = Unmarshal(response).to[OneDriveModel]
-    model map createParseResultFor
-  }
 
   /**
     * Sends the actual download request for a file. The download URI is
@@ -229,4 +124,11 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     val request = HttpRequest(uri = location.get.uri)
     HttpRequests.sendRequest(httpActor, HttpRequests.SendRequest(request, null))
   }
+
+  /**
+    * @inheritdoc This implementation returns an instance of a
+    *             OneDrive-specific controller class.
+    */
+  override def resolveController(requestUri: Uri, basePath: String): UriResolverController =
+    new OneDriveResolverController(requestUri, basePath)
 }

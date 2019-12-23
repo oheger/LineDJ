@@ -18,15 +18,13 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.headers.{Accept, Location}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.Location
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.FileIO
 import akka.testkit.TestKit
 import akka.util.Timeout
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol.ParseFolderResult
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
@@ -72,7 +70,7 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val ArchivePath = "/foo/bar"
     val protocol = new OneDriveProtocol
     val ExpectedUri = OneDriveProtocol.OneDriveServerUri.toString() + OneDriveProtocol.OneDriveApiPath +
-      DriveID + "/root:" + ArchivePath
+      DriveID + "/items/root:" + ArchivePath
 
     val archiveUri = protocol.generateArchiveUri(DriveID + ArchivePath).get
     archiveUri.toString() should be(ExpectedUri)
@@ -82,7 +80,7 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val DriveID = "abcdefg"
     val protocol = new OneDriveProtocol
     val ExpectedUri = OneDriveProtocol.OneDriveServerUri.toString() + OneDriveProtocol.OneDriveApiPath +
-      DriveID + "/root:"
+      DriveID + "/items/root:"
 
     val archiveUri = protocol.generateArchiveUri(DriveID + "/").get
     archiveUri.toString() should be(ExpectedUri)
@@ -104,7 +102,7 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val ArchivePath = "/foo/bar"
     val protocol = new OneDriveProtocol
     val ExpectedUri = OneDriveProtocol.OneDriveServerUri.toString() + OneDriveProtocol.OneDriveApiPath +
-      DriveID + "/root:" + ArchivePath
+      DriveID + "/items/root:" + ArchivePath
 
     val archiveUri = protocol.generateArchiveUri(DriveID + ArchivePath + "/").get
     archiveUri.toString() should be(ExpectedUri)
@@ -121,6 +119,7 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     */
   private def checkDownloadRequest(fileUri: Uri, expContentUri: String, contentResponse: HttpResponse): Unit = {
     val DownloadUri = Uri("https://downloads.com/my/download/file.mp3")
+    val absoluteFileUri = fileUri.resolvedAgainst(OneDriveProtocol.OneDriveServerUri)
     val ContentRequest = HttpRequest(uri = expContentUri)
     val finalContentResponse = contentResponse.copy(headers = List(Location(DownloadUri)))
     val DownloadRequest = HttpRequest(uri = DownloadUri)
@@ -130,17 +129,16 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     RequestActorTestImpl.expectRequest(requestActor, DownloadRequest, DownloadResponse)
     val protocol = new OneDriveProtocol
 
-    val responseData = futureResult(protocol.downloadMediaFile(requestActor, fileUri))
+    val responseData = futureResult(protocol.downloadMediaFile(requestActor, absoluteFileUri))
     responseData.response should be(DownloadResponse)
   }
 
   it should "handle a download request" in {
-    val BasePath = "/v1.0/me/drives/drive-id"
-    val FilePath = "/root:/my/data/file.mp3"
-    val FileUri = Uri(BasePath + FilePath)
+    val FilePath = "/v1.0/me/drives/drive-id/items/root:/my/data/file.mp3"
+    val FileUri = Uri(FilePath)
 
-    checkDownloadRequest(FileUri, OneDriveProtocol.OneDriveServerUri.toString() + BasePath +
-      "/items" + FilePath + ":/content", HttpResponse(status = StatusCodes.MovedPermanently))
+    checkDownloadRequest(FileUri, OneDriveProtocol.OneDriveServerUri.toString() +
+      FilePath + ":/content", HttpResponse(status = StatusCodes.MovedPermanently))
   }
 
   it should "discard the entity bytes of the content response" in {
@@ -155,86 +153,13 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     verify(entity).discardBytes()(mat)
   }
 
-  /**
-    * Helper function to test the request for a folder.
-    *
-    * @param filePath   the requested file path
-    * @param expUriPath the expected path in the URI (without :/children)
-    */
-  private def checkFolderRequest(filePath: String, expUriPath: String): Unit = {
-    val ServerUri = "https://my-drive-server.com:8081"
-    val BaseUri = Uri(ServerUri + "/base/path")
-    val ExpectedUri = Uri(ServerUri + expUriPath + ":/children")
+  it should "create a correct resolve controller" in {
+    val UriToResolve = Uri("https://resolve.me.org/correctly/ok.txt")
+    val BasePath = "/a/base/path"
     val protocol = new OneDriveProtocol
 
-    val request = protocol.createFolderRequest(BaseUri, filePath)
-    request.method should be(HttpMethods.GET)
-    request.uri should be(ExpectedUri)
-    checkAcceptHeader(request)
-  }
-
-  /**
-    * Checks whether a request contains the expected Accept header.
-    *
-    * @param request the request to e checked
-    */
-  private def checkAcceptHeader(request: HttpRequest): Unit = {
-    val headerAccept = request.header[Accept].get
-    headerAccept.mediaRanges.head.value should include("json")
-  }
-
-  it should "create a correct folder request" in {
-    val FilePath = "/some/path/my/desired/folder"
-
-    checkFolderRequest(FilePath, FilePath)
-  }
-
-  it should "create a correct folder request for paths ending on a slash" in {
-    val FilePath = "/some/path/my/desired/folder"
-
-    checkFolderRequest(FilePath + "/", FilePath)
-  }
-
-  /**
-    * Creates a response object with an entity that is read from the resource
-    * file specified.
-    *
-    * @param resource the name of the resource file
-    * @return the response object with this entity
-    */
-  private def createResponseWithResourceEntity(resource: String): HttpResponse = {
-    val path = resolveResourceFile(resource)
-    val source = FileIO.fromPath(path)
-    val entity = HttpEntity(ContentTypes.`application/json`, source)
-    HttpResponse(entity = entity)
-  }
-
-  /**
-    * Invokes the test protocol to parse a response with a folder listing. The
-    * result from the protocol is returned.
-    *
-    * @param resource the resource file with the folder listing
-    * @return the result produced by the protocol
-    */
-  private def parseFolderResponse(resource: String): ParseFolderResult = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
-    val protocol = new OneDriveProtocol
-    futureResult(protocol.extractNamesFromFolderResponse(createResponseWithResourceEntity(resource)))
-  }
-
-  it should "extract the element names from the response of a folder request" in {
-    val result = parseFolderResponse("oneDriveFolder.json")
-
-    result.elements should contain only("folder (1)", "folder (2)")
-    result.nextRequest should be(None)
-  }
-
-  it should "handle a folder response that requires a follow-up request" in {
-    val result = parseFolderResponse("oneDriveFolderWithNextLink.json")
-
-    result.elements should contain only("file (1).mp3", "file (2).mp3")
-    val nextRequest = result.nextRequest.get.request
-    nextRequest.uri.toString() should be("http://www.data.com/next-folder.json")
-    checkAcceptHeader(nextRequest)
+    val controller = protocol.resolveController(UriToResolve, BasePath).asInstanceOf[OneDriveResolverController]
+    controller.uriToResolve should be(UriToResolve)
+    controller.basePath should be(BasePath)
   }
 }
