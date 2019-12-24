@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import java.io.IOException
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location}
 import akka.stream.DelayOverflowStrategy
@@ -30,7 +31,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, UriHelper}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.commons.configuration.PropertiesConfiguration
@@ -67,6 +68,9 @@ object HttpArchiveContentProcessorActorSpec {
 
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = DefaultArchiveConfig.archiveURI.toString()
+
+  /** The base path of the archive against relative URIs need to be resolved. */
+  private val ArchiveBasePath = UriHelper.extractParent(ArchiveUri)
 
   /** Message indicating stream completion. */
   private val CompleteMessage = new Object
@@ -123,8 +127,10 @@ object HttpArchiveContentProcessorActorSpec {
     * @param path the path
     * @return the corresponding request
     */
-  private def createRequest(path: String): HttpRequest =
-    HttpRequest(uri = Uri(path))
+  private def createRequest(path: String): HttpRequest = {
+    val requestUri = Uri(ArchiveBasePath + path)
+    HttpRequest(uri = requestUri)
+  }
 
   /**
     * Creates a response for the specified path.
