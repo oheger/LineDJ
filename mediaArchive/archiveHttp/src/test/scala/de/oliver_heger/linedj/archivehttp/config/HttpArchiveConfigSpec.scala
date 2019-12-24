@@ -180,6 +180,7 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers with MockitoSugar {
 
   /**
     * Creates a test archive configuration with default properties.
+    *
     * @param c the underlying configuration object
     * @return the test archive configuration
     */
@@ -410,5 +411,14 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers with MockitoSugar {
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
+  }
+
+  it should "resolve a relative path" in {
+    val FilePath = "/rock/song.mp3"
+    val config = HttpArchiveConfig(createConfiguration(), Prefix, DownloadData, mock[HttpArchiveProtocol],
+      TestAuthFunc).get
+
+    val uri = config.resolvePath(FilePath)
+    uri should be(Uri("https://music.archive.org/music/test" + FilePath))
   }
 }

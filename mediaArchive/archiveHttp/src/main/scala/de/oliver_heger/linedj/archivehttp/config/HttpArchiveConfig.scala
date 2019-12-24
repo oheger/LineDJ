@@ -28,6 +28,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigure
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.Configuration
 
@@ -472,4 +473,19 @@ case class HttpArchiveConfig(archiveURI: Uri,
     * when constructing relative URIs for songs contained in the archive.
     */
   val archiveUriComponents: Seq[String] = UriUtils.uriComponents(archiveURI.toString())
+
+  /**
+    * The base URI of the represented archive. All relative paths to media
+    * files need to be resolved against this URI.
+    */
+  val archiveBaseUri: String = UriHelper.extractParent(archiveURI.toString())
+
+  /**
+    * Resolves the given (relative) path against the base URI of the
+    * represented archive. The path MUST start with a slash.
+    *
+    * @param path the relative path to be resolved
+    * @return the resulting absolute URI
+    */
+  def resolvePath(path: String): Uri = archiveBaseUri + path
 }
