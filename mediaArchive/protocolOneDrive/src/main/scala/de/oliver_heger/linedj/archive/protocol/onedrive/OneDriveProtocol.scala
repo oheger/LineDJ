@@ -22,6 +22,7 @@ import akka.http.scaladsl.model.headers.Location
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.XRequestPropsHeader
 import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverController}
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 
@@ -38,15 +39,19 @@ object OneDriveProtocol {
   /** The base path of the OneDrive API. */
   val OneDriveApiPath = "/v1.0/me/drives/"
 
+  /** The list of headers to be added to the content request. */
+  val ContentHeaders = List(XRequestPropsHeader.withProperties(HttpRequests.HeaderPropNoDecrypt))
+
   /**
     * Generates the request to query the content URI of a file to be
-    * downloaded.
+    * downloaded. Here a special request property needs to be set to avoid that
+    * the response is decrypted (which would cause an error).
     *
     * @param uri the absolute URI of the file in question
     * @return the request
     */
   private def createContentRequest(uri: Uri): HttpRequests.SendRequest = {
-    val request = HttpRequest(uri = uri + OneDriveResolverController.SuffixContent)
+    val request = HttpRequest(uri = uri + OneDriveResolverController.SuffixContent, headers = ContentHeaders)
     HttpRequests.SendRequest(request, null)
   }
 

@@ -120,7 +120,8 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   private def checkDownloadRequest(fileUri: Uri, expContentUri: String, contentResponse: HttpResponse): Unit = {
     val DownloadUri = Uri("https://downloads.com/my/download/file.mp3")
     val absoluteFileUri = fileUri.resolvedAgainst(OneDriveProtocol.OneDriveServerUri)
-    val ContentRequest = HttpRequest(uri = expContentUri)
+    val ContentRequest = HttpRequest(uri = expContentUri,
+      headers = OneDriveProtocol.ContentHeaders)
     val finalContentResponse = contentResponse.copy(headers = List(Location(DownloadUri)))
     val DownloadRequest = HttpRequest(uri = DownloadUri)
     val DownloadResponse = HttpResponse(status = StatusCodes.Accepted)
