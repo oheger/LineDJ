@@ -24,10 +24,9 @@ import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.Dow
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, UriHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
@@ -177,7 +176,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @return a ''Future'' with the resolved URI to the file to be downloaded
     */
   private def resolveDownloadUri(req: MediumFileRequest): Future[Uri] =
-    Future.fromTry(Try(UriUtils.resolveUri(config.archiveURI, req.fileID.uri)))
+    Future.fromTry(Try(config.resolvePath(UriHelper.withLeadingSeparator(req.fileID.uri))))
 
   /**
     * Invokes the HTTP protocol to send the request for downloading the file

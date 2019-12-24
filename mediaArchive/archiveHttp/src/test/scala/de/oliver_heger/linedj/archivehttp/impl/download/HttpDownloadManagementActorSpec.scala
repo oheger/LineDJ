@@ -42,14 +42,17 @@ import org.scalatestplus.mockito.MockitoSugar
 import scala.concurrent.Future
 
 object HttpDownloadManagementActorSpec {
-  /** The URI of the test archive. */
-  private val ArchiveUri = "https://my.cool.music.archive.io/cool/music.json"
+  /** The base URI of the test archive. */
+  private val BaseUri = "https://my.cool.music.archive.io/cool"
+
+  /** The URI of the test archive (pointing to the content file). */
+  private val ArchiveUri = BaseUri + "/music.json"
 
   /** The URI of a test file to be downloaded. */
   private val DownloadUri = "medium/song.mp3"
 
   /** The expected resolved URI for downloading a test song. */
-  private val ResolvedDownloadUri = Uri("/cool/medium/song.mp3")
+  private val ResolvedDownloadUri = Uri(BaseUri + "/" + DownloadUri)
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
