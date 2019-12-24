@@ -17,12 +17,14 @@
 package de.oliver_heger.linedj.archivehttp.http
 
 import akka.actor.ActorRef
+import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeaderCompanion}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /**
   * A module defining representations and functionality for sending HTTP
@@ -33,6 +35,11 @@ import scala.concurrent.{ExecutionContext, Future}
   * the interactions with HTTP actors.
   */
 object HttpRequests {
+  /**
+    * Header property that indicates that no decryption should be done on the
+    * response entity.
+    */
+  val HeaderPropNoDecrypt = "no-decrypt"
 
   /**
     * A message triggering the sending of an HTTP request.
@@ -97,4 +104,53 @@ object HttpRequests {
   def discardEntityBytes(futResult: Future[ResponseData])
                         (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[ResponseData] =
     futResult flatMap discardEntityBytes
+
+  /**
+    * Class representing a special header defining properties for the request
+    * processing actors.
+    *
+    * The value of this header is a string that consists of an arbitrary number
+    * of flag values. The actors processing the request check for the presence
+    * or absence of specific flag values and adapt their behavior accordingly.
+    *
+    * @param valueStr the value of the header
+    */
+  class XRequestPropsHeader(valueStr: String) extends ModeledCustomHeader[XRequestPropsHeader] {
+    override val companion: ModeledCustomHeaderCompanion[XRequestPropsHeader] = XRequestPropsHeader
+
+    override def value(): String = valueStr
+
+    override def renderInRequests(): Boolean = true
+
+    override def renderInResponses(): Boolean = true
+  }
+
+  object XRequestPropsHeader extends ModeledCustomHeaderCompanion[XRequestPropsHeader] {
+    override val name: String = "X-Request-Props"
+
+    /**
+      * Creates an instance of ''XRequestPropsHeader'' whose value consists of
+      * the given properties.
+      *
+      * @param props the property values to construct the header value
+      * @return the initialized header instance
+      */
+    def withProperties(props: String*): XRequestPropsHeader =
+      new XRequestPropsHeader(props.mkString(";"))
+
+    /**
+      * Convenience function to check whether a header of this class exists in
+      * the request that has the given property.
+      *
+      * @param request  the request
+      * @param property the property to check for
+      * @return a flag whether this request property exists
+      */
+    def hasRequestProperty(request: HttpRequest, property: String): Boolean =
+      request.header[XRequestPropsHeader].exists(_.value().contains(property))
+
+    override def parse(value: String): Try[XRequestPropsHeader] =
+      Try(new XRequestPropsHeader(value))
+  }
+
 }
