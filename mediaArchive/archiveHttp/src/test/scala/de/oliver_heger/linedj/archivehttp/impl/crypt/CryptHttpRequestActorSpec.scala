@@ -20,21 +20,22 @@ import java.io.IOException
 import java.nio.file.Files
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Status}
-import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl.ExpectRequest
 import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest, XRequestPropsHeader}
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.{Await, TimeoutException}
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -71,7 +72,7 @@ object CryptHttpRequestActorSpec {
   * Test class for ''CryptHttpRequestActor''.
   */
 class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
   def this() = this(ActorSystem("CryptHttpRequestActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -94,8 +95,26 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     implicit val mat: ActorMaterializer = ActorMaterializer()
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-    val futContent = response.entity.dataBytes.runWith(sink)
-    Await.result(futContent, 3.seconds).utf8String should be(FileTestHelper.TestData)
+    val content = futureResult(response.entity.dataBytes.runWith(sink))
+    content.utf8String should be(FileTestHelper.TestData)
+  }
+
+  it should "handle a successful request with a no-decrypt header" in {
+    val entity = HttpEntity(FileTestHelper.TestData)
+    val request = HttpRequest(uri = PlainUri, headers =
+      List(XRequestPropsHeader.withProperties(HttpRequests.HeaderPropNoDecrypt)))
+    val helper = new RequestActorTestHelper
+
+    helper.prepareHttpRequest(Success(HttpResponse(entity = entity)), request.copy(uri = CryptUri))
+      .prepareSuccessfulResolveOperation()
+      .send(TestRequestMessage.copy(request = request))
+    val responseMsg = expectMsgType[ResponseData]
+    val response = responseMsg.response
+
+    implicit val mat: ActorMaterializer = ActorMaterializer()
+    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+    val content = futureResult(response.entity.dataBytes.runWith(sink))
+    content.utf8String should be(FileTestHelper.TestData)
   }
 
   it should "handle a failed resolve operation" in {
@@ -162,6 +181,20 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       prepareHttpRequest(Failure(cause))
 
     /**
+      * Prepares the stub HTTP request actor to answer the resolved test
+      * request with the given response.
+      *
+      * @param response a ''Try'' with the response
+      * @param request  the expected request
+      * @return this test helper
+      */
+    def prepareHttpRequest(response: Try[HttpResponse],
+                           request: HttpRequest = HttpRequest(uri = CryptUri)): RequestActorTestHelper = {
+      requestActor ! ExpectRequest(request, response)
+      this
+    }
+
+    /**
       * Prepares the stub resolver actor to correctly resolve the test URI.
       *
       * @return this test helper
@@ -224,19 +257,6 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       */
     private def prepareResolveOperation(result: Try[Uri]): RequestActorTestHelper = {
       resolverActor ! PrepareResolveOperation(PlainUri, result)
-      this
-    }
-
-    /**
-      * Prepares the stub HTTP request actor to answer the resolved test
-      * request with the given response.
-      *
-      * @param response a ''Try'' with the response
-      * @return this test helper
-      */
-    private def prepareHttpRequest(response: Try[HttpResponse]): RequestActorTestHelper = {
-      val request = HttpRequest(uri = CryptUri)
-      requestActor ! ExpectRequest(request, response)
       this
     }
 

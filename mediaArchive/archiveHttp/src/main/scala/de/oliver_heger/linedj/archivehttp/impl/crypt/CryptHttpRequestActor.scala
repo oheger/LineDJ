@@ -22,7 +22,8 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.pattern.ask
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest, XRequestPropsHeader}
 import de.oliver_heger.linedj.archivehttp.impl.crypt.CryptHttpRequestActor.CryptRequestData
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
@@ -82,7 +83,7 @@ class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key
       handleHttpResponse(response, data)
 
     case akka.actor.Status.Failure(cause@FailedRequestException(_, _, _,
-     SendRequest(_, CryptRequestData(caller, orgRequest)))) =>
+    SendRequest(_, CryptRequestData(caller, orgRequest)))) =>
       sendErrorResponse(caller, cause.copy(request = orgRequest))
   }
 
@@ -115,10 +116,15 @@ class CryptHttpRequestActor(resolverActor: ActorRef, requestActor: ActorRef, key
     * @param data     the data object describing the operation
     */
   private def handleHttpResponse(response: HttpResponse, data: CryptRequestData): Unit = {
-    val plainEntity = HttpEntity(response.entity.contentType,
-      CryptService.decryptSource(key, response.entity.dataBytes))
-    val plainResponse = response.copy(entity = plainEntity)
-    data.caller ! ResponseData(plainResponse, data.orgRequest.data)
+    val resultResponse =
+      if (XRequestPropsHeader.hasRequestProperty(data.orgRequest.request, HttpRequests.HeaderPropNoDecrypt))
+        response
+      else {
+        val plainEntity = HttpEntity(response.entity.contentType,
+          CryptService.decryptSource(key, response.entity.dataBytes))
+        response.copy(entity = plainEntity)
+      }
+    data.caller ! ResponseData(resultResponse, data.orgRequest.data)
   }
 
   /**
