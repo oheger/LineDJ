@@ -269,17 +269,6 @@ class HttpArchiveConfigSpec extends FlatSpec with Matchers with MockitoSugar {
       expName = "archive_org_foo_bar_index")
   }
 
-  it should "return a sequence with the components of the archive URI" in {
-    val config = createArchiveConfig(createConfiguration())
-    config match {
-      case Success(c) =>
-        c.archiveUriComponents should contain theSameElementsInOrderAs Seq("music", "test",
-          "content.json")
-      case Failure(e) =>
-        fail("Unexpected exception: " + e)
-    }
-  }
-
   it should "set a default processor count if unspecified" in {
     val c = clearProperty(createConfiguration(), HttpArchiveConfig.PropProcessorCount)
 

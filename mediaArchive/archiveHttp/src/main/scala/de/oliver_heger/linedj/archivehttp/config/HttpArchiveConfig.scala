@@ -26,7 +26,6 @@ import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -468,12 +467,6 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              needsCookieManagement: Boolean,
                              protocol: HttpArchiveProtocol,
                              authFunc: AuthConfigureFunc) {
-  /**
-    * A sequence with the single components of the archive URI. This is needed
-    * when constructing relative URIs for songs contained in the archive.
-    */
-  val archiveUriComponents: Seq[String] = UriUtils.uriComponents(archiveURI.toString())
-
   /**
     * The base URI of the represented archive. All relative paths to media
     * files need to be resolved against this URI.
