@@ -22,7 +22,6 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl.uri.UriUtils
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
@@ -57,7 +56,7 @@ class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
       .viaMat(KillSwitches.single)(Keep.right)
       .map(r => (r, uriMapper.mapUri(config.metaMappingConfig, mid, r.uri)))
       .filter(_._2.isDefined)
-      .map(t => t._1.copy(uri = UriUtils.relativeUri(config.archiveUriComponents,  t._2.get)))
+      .map(t => t._1.copy(uri = t._2.get))
       .toMat(sink)(Keep.both)
       .run
     (futStream.map(MetaDataResponseProcessingResult(mid, _, seqNo)), killSwitch)

@@ -51,8 +51,8 @@ object MetaDataResponseProcessingActorSpec {
 
   /** A test mapping configuration. */
   private val MappingConfig = UriMappingConfig(removePrefix = "audio://",
-    pathSeparator = null, urlEncode = false, uriTemplate = "${medium}/${uri}",
-    removeComponents = 1)
+    pathSeparator = null, urlEncode = false, uriTemplate = "${uri}",
+    removeComponents = 0)
 
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc" + ArchivePath),
@@ -74,7 +74,7 @@ object MetaDataResponseProcessingActorSpec {
     */
   private def createUri(idx: Int, mapped: Boolean): String =
     if (mapped) s"$MediumPath$SongPath/song$idx.mp3"
-    else s"audio://test$SongPath/song$idx.mp3"
+    else s"audio://$MediumPath$SongPath/song$idx.mp3"
 
   /**
     * Creates a meta data processing result object for the specified index.
