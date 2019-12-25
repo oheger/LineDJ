@@ -49,10 +49,12 @@ object UriMapper {
     * @return the resulting URI
     */
   private def applyUriTemplate(config: UriMappingSpec, mediumDescPath: Option[String],
-                               strippedUri: String): String =
-    config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mediumDescPath))
+                               strippedUri: String): String = {
+    val result = config.uriTemplate.replace(UriMappingSpec.VarMediumPath, mediumPath(mediumDescPath))
       .replace(UriMappingSpec.VarUri,
         removePrefixComponents(config, urlEncode(config, strippedUri)))
+    result
+  }
 
   /**
     * Removes the prefix from the URI if possible. If a prefix is defined, but
@@ -110,7 +112,12 @@ object UriMapper {
         else currentUri
       }
 
-    removeComponent(uri, config.pathComponentsToRemove)
+    val leadingSeparator = UriHelper.hasLeadingSeparator(uri)
+    val uriToProcess = if (leadingSeparator) UriHelper.removeLeadingSeparator(uri)
+    else uri
+    val processedUri = removeComponent(uriToProcess, config.pathComponentsToRemove)
+    if (leadingSeparator) UriHelper.withLeadingSeparator(processedUri)
+    else processedUri
   }
 }
 

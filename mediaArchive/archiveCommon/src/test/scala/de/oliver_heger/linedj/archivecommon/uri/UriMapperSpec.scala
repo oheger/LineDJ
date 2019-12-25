@@ -82,6 +82,14 @@ class UriMapperSpec extends FlatSpec with Matchers {
     mapUri(uri).get should be(exp)
   }
 
+  it should "apply a template correctly if the URI path starts with a slash" in {
+    val uri = UriPrefix + "/" + PrefixComponents + "Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
+    val exp = MediumPath + "/songs/Prince - (1988) - Lovesexy/03 - Glam Slam.mp3"
+    val mapConfig = MappingConfig.copy(uriTemplate = "${medium}/songs${uri}")
+
+    mapUri(uri, config = mapConfig).get should be(exp)
+  }
+
   it should "handle a medium ID without a settings path gracefully" in {
     val uri = PrefixWithPaths + "song.mp3"
     val exp = "/songs/song.mp3"
