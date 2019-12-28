@@ -23,17 +23,14 @@ import org.apache.commons.configuration.Configuration
 import scala.concurrent.duration._
 
 object DownloadConfig {
-  /** Constant for the prefix for options in a configuration object. */
-  private val ConfigPrefix = "media."
-
   /** The configuration property for the reader timeout. */
-  val PropDownloadActorTimeout: String = ConfigPrefix + "downloadTimeout"
+  val PropDownloadActorTimeout: String = "downloadTimeout"
 
   /** The configuration property for the interval for reader timeout checks. */
-  val PropDownloadCheckInterval: String = ConfigPrefix + "downloadCheckInterval"
+  val PropDownloadCheckInterval: String = "downloadCheckInterval"
 
   /** The configuration property for the download chunk size. */
-  val PropDownloadChunkSize: String = ConfigPrefix + "downloadChunkSize"
+  val PropDownloadChunkSize: String = "downloadChunkSize"
 
   /** The default timeout for download actors. */
   val DefaultDownloadActorTimeout: FiniteDuration = 1.hour
@@ -45,19 +42,28 @@ object DownloadConfig {
   val DefaultDownloadChunkSize = 16384
 
   /**
+    * Constant for a ''DownloadConfig'' instance that is initialized only with
+    * default values.
+    */
+  val DefaultDownloadConfig: DownloadConfig = new DownloadConfig(DefaultDownloadActorTimeout,
+    DefaultDownloadCheckInterval, DefaultDownloadChunkSize)
+
+  /**
     * Creates a new instance of ''DownloadConfig'' based on the passed in
-    * configuration object.
+    * configuration object. It is expected that the properties supported by
+    * this class are on the top-level of the passed in configuration.
     *
-    * @param config the ''Configuration''
+    * @param config    the ''Configuration''
+    * @param defConfig an object with default values for missing properties
     * @return the new ''DownloadConfig'' instance
     */
-  def apply(config: Configuration): DownloadConfig =
+  def apply(config: Configuration, defConfig: DownloadConfig = DefaultDownloadConfig): DownloadConfig =
     new DownloadConfig(
       downloadTimeout = durationProperty(config, PropDownloadActorTimeout,
-        DefaultDownloadActorTimeout.toSeconds),
+        defConfig.downloadTimeout.toSeconds),
       downloadCheckInterval = durationProperty(config, PropDownloadCheckInterval,
-        DefaultDownloadCheckInterval.toSeconds),
-      downloadChunkSize = config.getInt(PropDownloadChunkSize, DefaultDownloadChunkSize))
+        defConfig.downloadCheckInterval.toSeconds),
+      downloadChunkSize = config.getInt(PropDownloadChunkSize, defConfig.downloadChunkSize))
 
   /**
     * Reads a property from the given configuration object and converts it to a
