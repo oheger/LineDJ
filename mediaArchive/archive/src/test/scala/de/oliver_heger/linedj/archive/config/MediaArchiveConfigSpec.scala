@@ -102,172 +102,155 @@ object MediaArchiveConfigSpec {
   private def staticArchiveName: String = ArchiveName
 
   /**
-    * Creates a test (commons) configuration with the settings used by this
-    * test class.
+    * Adds test data for a local media archive to the given commons
+    * configuration object under a specific key.
     *
-    * @return the test configuration
+    * @param config the configuration to add the data
+    * @param key    the key of the archive
+    * @param index  the index to generate unique test data
+    * @return the modified configuration
     */
-  private def createHierarchicalConfig(): HierarchicalConfiguration = {
-    val config = new HierarchicalConfiguration
-    config.addProperty("media.infoSizeLimit", InfoSizeLimit)
-    config.addProperty("media.downloadTimeout", 60)
-    config.addProperty("media.downloadCheckInterval", ReaderCheckInterval.toSeconds)
-    config.addProperty("media.downloadChunkSize", DownloadChunkSize)
-    config.addProperty("media.rootPath", RootPath.toString)
-    config.addProperty("media.processorCount", ProcessorCount)
-    config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
-    config.addProperty("media.includedExtensions", Array("MP3", "WAV"))
-    config.addProperty("media.metaDataExtraction.readChunkSize", ReadChunkSize)
-    config.addProperty("media.metaDataExtraction.tagSizeLimit", TagSizeLimit)
-    config.addProperty("media.metaDataExtraction.processingTimeout",
-      ProcessingTimeout.duration.toSeconds)
-    config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize)
-    config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize)
-    config.addProperty("media.metaDataExtraction.metaDataMediaBufferSize", MetaDataMediaBufSize)
-    config.addProperty("media.metaDataPersistence.path", MetaDataPersistencePath.toString)
-    config.addProperty("media.metaDataPersistence.chunkSize", MetaDataPersistenceChunkSize)
-    config.addProperty("media.metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount)
-    config.addProperty("media.metaDataPersistence.writeBlockSize",
-      MetaDataPersistenceWriteBlockSize)
-    config.addProperty("media.toc.file", TocFile)
-    config.addProperty("media.toc.descRemovePrefix", TocRemoveDescPrefix)
-    config.addProperty("media.toc.descRemovePathComponents", TocRemovePathComponents)
-    config.addProperty("media.toc.descPathSeparator", "\\")
-    config.addProperty("media.toc.descUrlEncoding", true)
-    config.addProperty("media.toc.rootPrefix", TocRootPrefix)
-    config.addProperty("media.toc.metaDataPrefix", TocMetaDataPrefix)
-    config.addProperty("media.scan.parseInfoTimeout", InfoParserTimeout.duration.toSeconds)
-    config.addProperty("media.scan.mediaBufferSize", ScanMediaBufferSize)
+  private def addTestDataToConfig(config: HierarchicalConfiguration, key: String, index: Int):
+  HierarchicalConfiguration = {
+    config.addProperty(key + ".infoSizeLimit", InfoSizeLimit + index)
+    config.addProperty(key + ".downloadTimeout", 60 + index)
+    config.addProperty(key + ".downloadCheckInterval", ReaderCheckInterval.toSeconds + index)
+    config.addProperty(key + ".downloadChunkSize", DownloadChunkSize + index)
+    config.addProperty(key + ".rootPath", RootPath.toString + index)
+    config.addProperty(key + ".processorCount", ProcessorCount + index)
+    config.addProperty(key + ".excludedExtensions", Array("JPG", "pdf", "te" + index))
+    config.addProperty(key + ".includedExtensions", Array("MP3", "WAV" + index))
+    config.addProperty(key + ".metaDataExtraction.readChunkSize", ReadChunkSize + index)
+    config.addProperty(key + ".metaDataExtraction.tagSizeLimit", TagSizeLimit + index)
+    config.addProperty(key + ".metaDataExtraction.processingTimeout",
+      ProcessingTimeout.duration.toSeconds + index)
+    config.addProperty(key + ".metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize + index)
+    config.addProperty(key + ".metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize + index)
+    config.addProperty(key + ".metaDataExtraction.metaDataMediaBufferSize", MetaDataMediaBufSize + index)
+    config.addProperty(key + ".metaDataPersistence.path", MetaDataPersistencePath.toString + index)
+    config.addProperty(key + ".metaDataPersistence.chunkSize", MetaDataPersistenceChunkSize + index)
+    config.addProperty(key + ".metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount + index)
+    config.addProperty(key + ".metaDataPersistence.writeBlockSize",
+      MetaDataPersistenceWriteBlockSize + index)
+    config.addProperty(key + ".toc.file", TocFile + index)
+    config.addProperty(key + ".toc.descRemovePrefix", TocRemoveDescPrefix + index)
+    config.addProperty(key + ".toc.descRemovePathComponents", TocRemovePathComponents + index)
+    config.addProperty(key + ".toc.descPathSeparator", "\\" + index)
+    config.addProperty(key + ".toc.descUrlEncoding", true)
+    config.addProperty(key + ".toc.rootPrefix", TocRootPrefix + index)
+    config.addProperty(key + ".toc.metaDataPrefix", TocMetaDataPrefix + index)
+    config.addProperty(key + ".scan.parseInfoTimeout", InfoParserTimeout.duration.toSeconds + index)
+    config.addProperty(key + ".scan.mediaBufferSize", ScanMediaBufferSize + index)
 
     config
   }
 
   /**
-    * Creates a ''MediaArchiveConfig'' object from a hierarchical configuration.
+    * Adds a new local archive element with test data to the given
+    * configuration. The data is generated based on the index.
     *
-    * @param c the underlying hierarchical configuration
-    * @return the config object
+    * @param config the configuration to add the data
+    * @param index  the index to generate unique test data
+    * @return the modified configuration
     */
-  private def createArchiveConfig(c: HierarchicalConfiguration = createHierarchicalConfig()):
-  MediaArchiveConfig = MediaArchiveConfig(c, staticArchiveName)
+  private def addArchiveToConfig(config: HierarchicalConfiguration, index: Int): HierarchicalConfiguration = {
+    config.addProperty("media.localArchives.localArchive(-1).archiveName", ArchiveName + index)
+    addTestDataToConfig(config, "media.localArchives.localArchive", index)
+  }
+
+  /**
+    * Creates a hierarchical configuration with default test settings declaring
+    * a single local media archive.
+    *
+    * @return the hierarchical configuration
+    */
+  private def createDefaultHierarchicalConfig(): HierarchicalConfiguration =
+    addArchiveToConfig(new HierarchicalConfiguration, 0)
 }
 
 /**
- * Test class for ''MediaArchiveConfig''.
- */
+  * Test class for ''MediaArchiveConfig''.
+  */
 class MediaArchiveConfigSpec extends FlatSpec with Matchers {
 
   import MediaArchiveConfigSpec._
 
-  "A MediaArchiveConfig" should "return the timeout for reader actors" in {
-    createArchiveConfig().downloadConfig.downloadTimeout should be(60.seconds)
+  /**
+    * Convenience function to create a configuration for a media archive from
+    * the given hierarchical configuration. It is expected that the
+    * configuration declares a single archive only.
+    *
+    * @param c the underlying hierarchical configuration
+    * @return the config object
+    */
+  private def createArchiveConfig(c: HierarchicalConfiguration = createDefaultHierarchicalConfig()):
+  MediaArchiveConfig = {
+    val configs = MediaArchiveConfig(c, staticArchiveName)
+    configs should have size 1
+    configs.head
   }
 
-  it should "return the reader check interval" in {
-    createArchiveConfig().downloadConfig.downloadCheckInterval should be(ReaderCheckInterval)
+  /**
+    * Checks whether the passed in configuration is equivalent to a test
+    * configuration with the given index.
+    *
+    * @param config the configuration to check
+    * @param index  the index determining the expected values
+    */
+  private def checkArchiveConfig(config: MediaArchiveConfig, index: Int): Unit = {
+    config.downloadConfig.downloadCheckInterval should be(ReaderCheckInterval + index.seconds)
+    config.downloadConfig.downloadTimeout should be((60 + index).seconds)
+    config.downloadConfig.downloadChunkSize should be(DownloadChunkSize + index)
+    config.metaDataReadChunkSize should be(ReadChunkSize + index)
+    config.infoSizeLimit should be(InfoSizeLimit + index)
+    config.tagSizeLimit should be(TagSizeLimit + index)
+    config.processingTimeout.duration should be(ProcessingTimeout.duration + index.seconds)
+    config.metaDataUpdateChunkSize should be(MetaDataChunkSize + index)
+    config.metaDataMediaBufferSize should be(MetaDataMediaBufSize + index)
+    config.metaDataPersistencePath.toString should be(MetaDataPersistencePath.toString + index)
+    config.metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize + index)
+    config.metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount + index)
+    config.metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize + index)
+    config.excludedFileExtensions should contain only("JPG", "TE" + index, "PDF")
+    config.includedFileExtensions should contain only("MP3", "WAV" + index)
+    config.rootPath.toString should be(RootPath.toString + index)
+    config.processorCount should be(ProcessorCount + index)
+    config.infoParserTimeout.duration should be(InfoParserTimeout.duration + index.seconds)
+    config.scanMediaBufferSize should be(ScanMediaBufferSize + index)
+
+    val tocConfig = config.contentTableConfig
+    tocConfig.contentFile should be(Some(Paths.get(TocFile + index)))
+    tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix + index)
+    tocConfig.descriptionRemovePathComponents should be(TocRemovePathComponents + index)
+    tocConfig.descriptionPathSeparator should be("\\" + index)
+    tocConfig.rootPrefix should be(Some(TocRootPrefix + index))
+    tocConfig.metaDataPrefix should be(Some(TocMetaDataPrefix + index))
+    tocConfig.descriptionUrlEncoding shouldBe true
   }
 
-  it should "return the download chunk size" in {
-    createArchiveConfig().downloadConfig.downloadChunkSize should be(DownloadChunkSize)
-  }
-
-  it should "return the read chunk size" in {
-    createArchiveConfig().metaDataReadChunkSize should be(ReadChunkSize)
-  }
-
-  it should "return the info size limit" in {
-    createArchiveConfig().infoSizeLimit should be(InfoSizeLimit)
-  }
-
-  it should "return the tag size limit" in {
-    createArchiveConfig().tagSizeLimit should be(TagSizeLimit)
-  }
-
-  it should "return the processing timeout" in {
-    createArchiveConfig().processingTimeout should be(ProcessingTimeout)
-  }
-
-  it should "return the meta data chunk size" in {
-    createArchiveConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
-  }
-
-  it should "return the maximum meta data message size" in {
-    createArchiveConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
-  }
-
-  it should "return the media buffer size for meta data extraction" in {
-    createArchiveConfig().metaDataMediaBufferSize should be(MetaDataMediaBufSize)
+  "A MediaArchiveConfig" should "create an instance from the application config" in {
+    checkArchiveConfig(createArchiveConfig(), 0)
   }
 
   it should "use a default value for the media buffer size for meta data extraction" in {
-    val c = createHierarchicalConfig()
-    c clearProperty MediaArchiveConfig.PropMetaDataBufferSize
+    val c = createDefaultHierarchicalConfig()
+    c clearProperty "media.localArchives.localArchive.metaDataExtraction.metaDataMediaBufferSize"
 
     createArchiveConfig(c).metaDataMediaBufferSize should be(MediaArchiveConfig
       .DefaultMetaDataMediaBufferSize)
   }
 
-  it should "return the path for meta data persistence" in {
-    createArchiveConfig().metaDataPersistencePath should be(MetaDataPersistencePath)
-  }
-
-  it should "return the meta data persistence chunk size" in {
-    createArchiveConfig().metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize)
-  }
-
-  it should "return the meta data persistence parallel count" in {
-    createArchiveConfig().metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount)
-  }
-
-  it should "return the meta data persistence write block size" in {
-    createArchiveConfig().metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize)
-  }
-
-  it should "return the file extensions to be excluded" in {
-    createArchiveConfig().excludedFileExtensions should contain only("JPG", "TEX", "PDF")
-  }
-
-  it should "return the file extensions to be included" in {
-    createArchiveConfig().includedFileExtensions should contain only ("MP3", "WAV")
-  }
-
-  it should "return the root path of the archive" in {
-    createArchiveConfig().rootPath should be(RootPath)
-  }
-
-  it should "return the processor count" in {
-    createArchiveConfig().processorCount should be(ProcessorCount)
-  }
-
   it should "use a default processor count if undefined" in {
-    val c = createHierarchicalConfig()
-    c.clearProperty("media.processorCount")
+    val c = createDefaultHierarchicalConfig()
+    c.clearProperty("media.localArchives.localArchive.processorCount")
 
     createArchiveConfig(c).processorCount should be(MediaArchiveConfig.DefaultProcessorCount)
   }
 
-  it should "contain a config for the archive's ToC" in {
-    val tocConfig = createArchiveConfig().contentTableConfig
-
-    tocConfig.contentFile should be(Some(Paths.get(TocFile)))
-    tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix)
-    tocConfig.descriptionRemovePathComponents should be(TocRemovePathComponents)
-    tocConfig.descriptionPathSeparator should be("\\")
-    tocConfig.rootPrefix should be(Some(TocRootPrefix))
-    tocConfig.metaDataPrefix should be(Some(TocMetaDataPrefix))
-    tocConfig.descriptionUrlEncoding shouldBe true
-  }
-
   it should "use default values for the ToC config" in {
-    val config = createHierarchicalConfig()
-    config.clearProperty("media.toc.file")
-    config.clearProperty("media.toc.descRemovePrefix")
-    config.clearProperty("media.toc.descRemovePathComponents")
-    config.clearProperty("media.toc.descPathSeparator")
-    config.clearProperty("media.toc.descUrlEncoding")
-    config.clearProperty("media.toc.rootPrefix")
-    config.clearProperty("media.toc.metaDataPrefix")
-    val tocConfig = MediaArchiveConfig(config, staticArchiveName).contentTableConfig
+    val config = createDefaultHierarchicalConfig()
+    config.clearTree("media.localArchives.localArchive.toc")
+    val tocConfig = createArchiveConfig(config).contentTableConfig
 
     tocConfig.contentFile shouldBe 'empty
     tocConfig.descriptionRemovePrefix should be(null)
@@ -279,53 +262,85 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "generate a default archive name using the resolver function" in {
-    val config = createArchiveConfig()
+    val appConfig = createDefaultHierarchicalConfig()
+    appConfig.clearProperty("media.localArchives.localArchive.archiveName")
+    val config = createArchiveConfig(appConfig)
 
     config.archiveName should be(ArchiveName + MediaArchiveConfig.DefaultNameSuffix)
   }
 
   it should "support a static name pattern without calling the resolver function" in {
     val count = new AtomicInteger
-    val appConfig = createHierarchicalConfig()
-    appConfig.addProperty(MediaArchiveConfig.PropArchiveName, ArchiveName)
-    val config = MediaArchiveConfig(appConfig, "test" + count.incrementAndGet())
+    val appConfig = createDefaultHierarchicalConfig()
+    val config = MediaArchiveConfig(appConfig, "test" + count.incrementAndGet()).head
 
-    config.archiveName should be(ArchiveName)
+    config.archiveName should be(ArchiveName + 0)
     count.get() should be(0)
   }
 
   it should "handle exceptions thrown by the name resolver" in {
     def nameCrashed: String = throw new IllegalStateException("No name")
 
-    val config = MediaArchiveConfig(createHierarchicalConfig(), nameCrashed)
+    val appConfig = createDefaultHierarchicalConfig()
+    appConfig.clearProperty("media.localArchives.localArchive.archiveName")
+
+    val config = MediaArchiveConfig(appConfig, nameCrashed).head
     config.archiveName should be(MediaArchiveConfig.DefaultNamePattern)
   }
 
-  it should "return the info parser timeout" in {
-    val config = createArchiveConfig()
-
-    config.infoParserTimeout should be(InfoParserTimeout)
-  }
-
   it should "use a correct default value for the info parser timeout" in {
-    val c = createHierarchicalConfig()
-    c.clearProperty("media.scan.parseInfoTimeout")
+    val c = createDefaultHierarchicalConfig()
+    c.clearProperty("media.localArchives.localArchive.scan.parseInfoTimeout")
     val config = createArchiveConfig(c)
 
     config.infoParserTimeout should be(MediaArchiveConfig.DefaultInfoParserTimeout)
   }
 
-  it should "return the media buffer size" in {
-    val config = createArchiveConfig()
-
-    config.scanMediaBufferSize should be(ScanMediaBufferSize)
-  }
-
   it should "use a correct default value for the media buffer size" in {
-    val c = createHierarchicalConfig()
-    c.clearProperty("media.scan.mediaBufferSize")
+    val c = createDefaultHierarchicalConfig()
+    c.clearProperty("media.localArchives.localArchive.scan.mediaBufferSize")
     val config = createArchiveConfig(c)
 
     config.scanMediaBufferSize should be(MediaArchiveConfig.DefaultScanMediaBufferSize)
+  }
+
+  it should "read multiple archive configurations" in {
+    val appConfig = addArchiveToConfig(addArchiveToConfig(createDefaultHierarchicalConfig(), 1), 2)
+    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
+
+    configs should have size 3
+    configs.zipWithIndex foreach { t =>
+      checkArchiveConfig(t._1, t._2)
+    }
+  }
+
+  it should "support default values for all archive configurations" in {
+    val appConfig = new HierarchicalConfiguration
+    addTestDataToConfig(appConfig, "media.localArchives", 42)
+    appConfig.addProperty("media.localArchives.localArchive.rootPath", RootPath.toString)
+    appConfig.addProperty("media.localArchives.localArchive.archiveName", ArchiveName)
+    addArchiveToConfig(appConfig, 2)
+
+    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
+    configs should have size 2
+    val config1 = configs.head
+    config1.archiveName should be(ArchiveName)
+    config1.rootPath should be(RootPath)
+    checkArchiveConfig(config1.copy(archiveName = ArchiveName + 42,
+      rootPath = Paths.get(RootPath.toString + 42)), 42)
+    checkArchiveConfig(configs(1), 2)
+  }
+
+  it should "correctly round the meta data update chunk size" in {
+    val appConfig = addArchiveToConfig(
+      addArchiveToConfig(addArchiveToConfig(
+        createDefaultHierarchicalConfig(),
+        1), 2), 3)
+    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
+
+    configs.head.metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+    configs(1).metaDataMaxMessageSize should be(154)
+    configs(2).metaDataMaxMessageSize should be(156)
+    configs(3).metaDataMaxMessageSize should be(156)
   }
 }
