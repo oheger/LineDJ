@@ -43,8 +43,11 @@ private object HttpArchiveConfigManager {
   /** Constant for the realm type ''OAuth''. */
   val RealmTypeOAuth = "oauth"
 
+  /** Name of the section that contains all relevant properties. */
+  private val SectionMedia = "media"
+
   /** The base key for accessing archives from the configuration. */
-  private val KeyArchives = "media.archives.archive"
+  private val KeyArchives = SectionMedia + ".archives.archive"
 
   /** The key for querying archive names. */
   private val KeyArchiveNames = KeyArchives + ".archiveName"
@@ -98,7 +101,7 @@ private object HttpArchiveConfigManager {
     val realmNames = c.getList(KeyRealms + KeyRealmName)
     val realms = extractRealms(c, realmNames.size() - 1, Map.empty)
     val archiveNames = c.getList(KeyArchiveNames)
-    val downloadConfig = DownloadConfig(c)
+    val downloadConfig = DownloadConfig(c.subset(SectionMedia))
     new HttpArchiveConfigManager(addArchive(c, downloadConfig, realms, archiveNames.size() - 1,
       TreeMap.empty, Set.empty))
   }

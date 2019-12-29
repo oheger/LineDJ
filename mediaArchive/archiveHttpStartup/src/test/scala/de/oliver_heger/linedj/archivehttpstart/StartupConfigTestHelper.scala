@@ -101,7 +101,7 @@ object StartupConfigTestHelper {
   def addArchiveToConfig(c: Configuration, idx: Int, realm: Option[String] = None,
                          protocol: Option[String] = None, encrypted: Boolean = false):
   Configuration = {
-    c.addProperty(DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
+    c.addProperty("media." + DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
     val propsBase = Map(HttpArchiveConfig.PropArchiveName -> archiveName(idx),
       HttpArchiveConfig.PropArchiveUri -> archiveUri(idx),
       HttpArchiveConfig.PropDownloadBufferSize -> 16384,
