@@ -227,14 +227,14 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a message to start a new scan operation" in {
-    val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanInProgress = true)
+    val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg = MediaScannerActor.ScanPath(RootPath, state1.seqNo)
     val initMsg = ScanStateTransitionMessages(unionArchiveMessage = Some("union"),
       metaManagerMessage = Some("meta"))
     val helper = new MediaManagerTestHelper
 
     helper.stub(Option(scanMsg), state1) {
-      _.triggerStartScan(RootPath)
+      _.triggerStartScan(RootPath, testActor)
     }
       .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
         _.startScanMessages(ArchiveName)
@@ -248,12 +248,12 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a message to start a new scan operation if one is ongoing" in {
-    val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanInProgress = true)
+    val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg: Option[MediaScannerActor.ScanPath] = None
     val helper = new MediaManagerTestHelper
 
     helper.stub(scanMsg, state) {
-      _.triggerStartScan(RootPath)
+      _.triggerStartScan(RootPath, testActor)
     }
       .send(ScanAllMedia)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)

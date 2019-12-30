@@ -47,7 +47,8 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
 /**
   * A class representing the state of a media scan operation.
   *
-  * @param scanInProgress     flag whether a scan is in progress
+  * @param scanClient         an ''Option'' with the client actor that
+  *                           triggered the current scan operation
   * @param removeState        the state of the remove request from the union
   *                           archive
   * @param startAnnounced     flag whether an event about a new scan operation
@@ -63,8 +64,9 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
   * @param currentResults     current results to be sent to the meta data
   *                           manager
   * @param currentMediaData   current media to be sent to the union archive
+  * @param completeMsg        reference to an actor to send a complete message
   */
-private case class MediaScanState(scanInProgress: Boolean,
+private case class MediaScanState(scanClient: Option[ActorRef],
                                   removeState: UnionArchiveRemoveState,
                                   startAnnounced: Boolean,
                                   availableMediaSent: Boolean,
@@ -74,23 +76,34 @@ private case class MediaScanState(scanInProgress: Boolean,
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
                                   currentResults: List[EnhancedMediaScanResult],
-                                  currentMediaData: Map[MediumID, MediumInfo])
+                                  currentMediaData: Map[MediumID, MediumInfo],
+                                  completeMsg: Option[ActorRef]) {
+  /**
+    * Returns a flag whether currently a scan is in progress.
+    *
+    * @return '''true''' if a scan is in progress, '''false''' otherwise
+    */
+  def scanInProgress: Boolean = scanClient.isDefined
+}
 
 /**
   * A case class defining messages to different components that need to be
   * sent after a state transition.
   *
-  * When starting a scan operation or when new results arrive it is typically
-  * necessary to send messages to other actors involved in the operation. This
-  * class determines which messages need to be sent to which actor.
+  * When starting or completing a scan operation or when new results arrive it
+  * is typically necessary to send messages to other actors involved in the
+  * operation. This class determines which messages need to be sent to which
+  * actor.
   *
   * @param unionArchiveMessage optional message to the union archive
   * @param metaManagerMessage  optional message to the meta data manager
   * @param ack                 optional actor to receive an ACK message
+  * @param completeNotify      optional actor to receive a complete message
   */
 private case class ScanStateTransitionMessages(unionArchiveMessage: Option[Any] = None,
                                                metaManagerMessage: Option[Any] = None,
-                                               ack: Option[ActorRef] = None)
+                                               ack: Option[ActorRef] = None,
+                                               completeNotify: Option[ActorRef] = None)
 
 /**
   * Interface of a service that updates the state while scanning the directory
@@ -118,11 +131,12 @@ private trait MediaScanStateUpdateService {
     * started now. As additional result, a message to be sent to the media
     * scanner actor to initiate a new scan stream is returned.
     *
-    * @param root the root path to be scanned
+    * @param root   the root path to be scanned
+    * @param client the client that triggered the operation
     * @return the updated ''State'' and an option with a message for the
     *         scanner actor
     */
-  def triggerStartScan(root: Path): StateUpdate[Option[MediaScannerActor.ScanPath]]
+  def triggerStartScan(root: Path, client: ActorRef): StateUpdate[Option[MediaScannerActor.ScanPath]]
 
   /**
     * Updates the state at the beginning of a new scan operation and returns an
@@ -174,6 +188,15 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and an actor to ACK
     */
   def actorToAck(): StateUpdate[Option[ActorRef]]
+
+  /**
+    * Updates the state for sending a notification about a completed scan
+    * operation and returns an ''Option'' with the actor to receive such a
+    * notification.
+    *
+    * @return the updated ''State'' and an actor to notify
+    */
+  def completeNotify(): StateUpdate[Option[ActorRef]]
 
   /**
     * Updates the state for a message to be sent to the meta data manager
@@ -264,7 +287,7 @@ private trait MediaScanStateUpdateService {
     * an object with messages to be sent now. Typically, at this point of time
     * a message with available media will have to be sent.
     *
-    * @param seqNo the sequence number of this scan operation
+    * @param seqNo       the sequence number of this scan operation
     * @param archiveName the name of the archive component
     * @return the updated ''State'' and messages to be sent
     */
@@ -299,7 +322,8 @@ private trait MediaScanStateUpdateService {
     unionMsg <- unionArchiveMessage(archiveName)
     metaMsg <- metaDataMessage()
     ack <- actorToAck()
-  } yield ScanStateTransitionMessages(unionMsg, metaMsg, ack)
+    complete <- completeNotify()
+  } yield ScanStateTransitionMessages(unionMsg, metaMsg, ack, complete)
 }
 
 /**
@@ -311,7 +335,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * actor this state is used.
     */
   val InitialState: MediaScanState =
-    MediaScanState(scanInProgress = false,
+    MediaScanState(scanClient = None,
       removeState = Removed,
       startAnnounced = false,
       seqNo = 0,
@@ -321,7 +345,8 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
       ackMetaManager = true,
       currentResults = Nil,
       currentMediaData = Map.empty,
-      availableMediaSent = true)
+      availableMediaSent = true,
+      completeMsg = None)
 
   /** Constant for an undefined checksum. */
   val UndefinedChecksum = ""
@@ -329,11 +354,11 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
   /** Constant for empty transition messages. */
   private val NoTransitionMessages = ScanStateTransitionMessages()
 
-  override def triggerStartScan(root: Path):
+  override def triggerStartScan(root: Path, client: ActorRef):
   StateUpdate[Option[MediaScannerActor.ScanPath]] = State { s =>
     if (s.scanInProgress) (s, None)
     else {
-      val next = s.copy(scanInProgress = true, fileData = Map.empty, mediaData = Map.empty,
+      val next = s.copy(scanClient = Some(client), fileData = Map.empty, mediaData = Map.empty,
         removeState = initRemoveState(s))
       (next, Some(MediaScannerActor.ScanPath(root, s.seqNo)))
     }
@@ -383,6 +408,11 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else (s.copy(ackPending = None), s.ackPending)
   }
 
+  override def completeNotify(): StateUpdate[Option[ActorRef]] = State { s =>
+    (if (s.completeMsg.isDefined) s.copy(completeMsg = None)
+    else s, s.completeMsg)
+  }
+
   override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
     if (!s.availableMediaSent) // clear media state, it is not needed by actor
       (s.copy(availableMediaSent = true, mediaData = Map.empty),
@@ -400,7 +430,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def scanComplete(seqNo: Int): StateUpdate[Unit] = modify { s =>
     if (seqNo == s.seqNo)
-      s.copy(scanInProgress = false, availableMediaSent = false, seqNo = s.seqNo + 1)
+      s.copy(scanClient = None, completeMsg = s.scanClient, availableMediaSent = false, seqNo = s.seqNo + 1)
     else s
   }
 

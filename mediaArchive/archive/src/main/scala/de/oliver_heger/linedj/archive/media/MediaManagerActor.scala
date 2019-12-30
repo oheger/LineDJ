@@ -218,7 +218,8 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * Handles a request to start a new scan operation.
     */
   private def handleScanRequest(): Unit = {
-    val scanMsg = updateState(scanStateUpdateService.triggerStartScan(config.rootPath))
+    //TODO adapt to change in method signature
+    val scanMsg = updateState(scanStateUpdateService.triggerStartScan(config.rootPath, null))
     scanMsg foreach { m =>
       mediaScannerActor ! m
       updateStateAndSendMessages(scanStateUpdateService.startScanMessages(config.archiveName))
