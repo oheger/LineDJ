@@ -48,9 +48,24 @@ object MediaManagerActor {
   private val NonExistingFile = FileData(path = null, size = -1)
 
   private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef,
-                                      mediaUnionActor: ActorRef)
-    extends MediaManagerActor(config, metaDataManager, mediaUnionActor) with ChildActorFactory
+                                      mediaUnionActor: ActorRef, groupManager: ActorRef)
+    extends MediaManagerActor(config, metaDataManager, mediaUnionActor, groupManager) with ChildActorFactory
       with SchedulerSupport with CloseSupport
+
+  /**
+    * A message processed by [[MediaManagerActor]] that actually triggers a
+    * media scan.
+    *
+    * This message is sent by the group manager actor when a media scan can be
+    * executed.
+    */
+  case object StartMediaScan
+
+  /**
+    * A message sent by [[MediaManagerActor]] as a notification when a media
+    * scan is complete.
+    */
+  case object MediaScanCompleted
 
   /**
     * Creates a ''Props'' object for creating new actor instances of this class.
@@ -60,11 +75,12 @@ object MediaManagerActor {
     * @param config          the configuration object
     * @param metaDataManager a reference to the meta data manager actor
     * @param mediaUnionActor reference to the media union actor
+    * @param groupManager    a reference to the group manager actor
     * @return a ''Props'' object for creating actor instances
     */
   def apply(config: MediaArchiveConfig, metaDataManager: ActorRef,
-            mediaUnionActor: ActorRef): Props =
-    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor)
+            mediaUnionActor: ActorRef, groupManager: ActorRef): Props =
+    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, groupManager)
 
   /**
     * The transformation function to remove meta data from a file to be
@@ -97,10 +113,11 @@ object MediaManagerActor {
   * @param config                 the configuration object
   * @param metaDataManager        a reference to the meta data manager actor
   * @param mediaUnionActor        a reference to the media union actor
+  * @param groupManager           a reference to the group manager actor
   * @param scanStateUpdateService the service to update the scan state
   */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
-                        mediaUnionActor: ActorRef,
+                        mediaUnionActor: ActorRef, groupManager: ActorRef,
                         private[media] val scanStateUpdateService: MediaScanStateUpdateService)
   extends Actor with ActorLogging {
   me: ChildActorFactory with CloseSupport =>
@@ -113,10 +130,11 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @param config          the configuration object
     * @param metaDataManager a reference to the meta data manager actor
     * @param mediaUnionActor a reference to the media union actor
+    * @param groupManager    a reference to the group manager actor
     */
   def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
-           mediaUnionActor: ActorRef) =
-    this(config, metaDataManager, mediaUnionActor, MediaScanStateUpdateServiceImpl)
+           mediaUnionActor: ActorRef, groupManager: ActorRef) =
+    this(config, metaDataManager, mediaUnionActor, groupManager, MediaScanStateUpdateServiceImpl)
 
   import MediaManagerActor._
 
@@ -150,6 +168,9 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
   override def receive: Receive = {
     case ScanAllMedia =>
+      groupManager ! ScanAllMedia
+
+    case StartMediaScan =>
       handleScanRequest()
 
     case GetMediumFiles(mediumID) =>
@@ -206,20 +227,19 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     *
     * @param state the state monad for the update operation
     */
-  private def updateStateAndSendMessages(state: State[MediaScanState,
-    ScanStateTransitionMessages]): Unit = {
+  private def updateStateAndSendMessages(state: State[MediaScanState, ScanStateTransitionMessages]): Unit = {
     val messages = updateState(state)
     messages.unionArchiveMessage foreach mediaUnionActor.!
     messages.metaManagerMessage foreach metaDataManager.!
     messages.ack foreach (_ ! ScanSinkActor.Ack)
+    messages.completeNotify foreach (_ ! MediaScanCompleted)
   }
 
   /**
     * Handles a request to start a new scan operation.
     */
   private def handleScanRequest(): Unit = {
-    //TODO adapt to change in method signature
-    val scanMsg = updateState(scanStateUpdateService.triggerStartScan(config.rootPath, null))
+    val scanMsg = updateState(scanStateUpdateService.triggerStartScan(config.rootPath, sender()))
     scanMsg foreach { m =>
       mediaScannerActor ! m
       updateStateAndSendMessages(scanStateUpdateService.startScanMessages(config.archiveName))

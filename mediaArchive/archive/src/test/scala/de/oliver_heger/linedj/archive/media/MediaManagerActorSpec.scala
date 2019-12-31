@@ -189,8 +189,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "A MediaManagerActor" should "create a correct Props object" in {
     val config = createConfiguration()
     val unionActor = TestProbe()
-    val props = MediaManagerActor(config, testActor, unionActor.ref)
-    props.args should be(List(config, testActor, unionActor.ref))
+    val groupManager = TestProbe()
+    val props = MediaManagerActor(config, testActor, unionActor.ref, groupManager.ref)
+    props.args should be(List(config, testActor, unionActor.ref, groupManager.ref))
 
     classOf[MediaManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
@@ -199,7 +200,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "use a default state update service" in {
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
-      testActor, TestProbe().ref))
+      testActor, TestProbe().ref, TestProbe().ref))
 
     manager.underlyingActor.scanStateUpdateService should be(MediaScanStateUpdateServiceImpl)
   }
@@ -226,6 +227,13 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     probeAck.expectMsg(ScanSinkActor.Ack)
   }
 
+  it should "forward a scan request to the group manager" in {
+    val helper = new MediaManagerTestHelper
+
+    helper.post(ScanAllMedia)
+      .expectGroupManagerMessage(ScanAllMedia)
+  }
+
   it should "handle a message to start a new scan operation" in {
     val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg = MediaScannerActor.ScanPath(RootPath, state1.seqNo)
@@ -239,7 +247,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
         _.startScanMessages(ArchiveName)
       }
-      .post(ScanAllMedia)
+      .post(MediaManagerActor.StartMediaScan)
       .expectMediaScannerMessage(scanMsg)
       .expectUnionArchiveMessage(initMsg.unionArchiveMessage.get)
       .expectMetaDataMessage(initMsg.metaManagerMessage.get)
@@ -255,7 +263,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.stub(scanMsg, state) {
       _.triggerStartScan(RootPath, testActor)
     }
-      .send(ScanAllMedia)
+      .post(MediaManagerActor.StartMediaScan)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectNoScannerMessage()
       .expectNoUnionArchiveMessage()
@@ -322,9 +330,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val completeMsg = MediaScannerActor.PathScanCompleted(
       MediaScannerActor.ScanPath(RootPath, 30))
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
-    val messages = ScanStateTransitionMessages(metaManagerMessage = Some("availableMedia"))
-    val result = mock[ScanSinkActor.CombinedResults]
     val helper = new MediaManagerTestHelper
+    val messages = helper.transitionMessagesWithNotify().copy(metaManagerMessage = Some("availableMedia"))
+    val result = mock[ScanSinkActor.CombinedResults]
 
     helper.stub(messages, state) {
       _.handleScanComplete(completeMsg.request.seqNo, ArchiveName)
@@ -335,6 +343,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
+      .expectGroupManagerMessage(MediaManagerActor.MediaScanCompleted)
       .post(result)
       .expectStateUpdate(state)
   }
@@ -449,7 +458,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   private class MediaManagerTestHelper
     extends StateTestHelper[MediaScanState, MediaScanStateUpdateService] {
     /** Mock for the state update service. */
-    override val updateService = mock[MediaScanStateUpdateService]
+    override val updateService: MediaScanStateUpdateService = mock[MediaScanStateUpdateService]
 
     /** Test probe for the medium info parser actor. */
     private val probeInfoParser = TestProbe()
@@ -465,6 +474,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     /** Test probe for the union media manager actor. */
     private val probeUnionMediaActor = TestProbe()
+
+    /** Test probe for the group manager actor. */
+    private val probeGroupManager = TestProbe()
 
     /** Counter for close request handling. */
     private val closeRequestCount = new AtomicInteger
@@ -588,6 +600,16 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       expectProbeMessage(probeDownloadManager, msg)
 
     /**
+      * Expects that the specified message has been sent to the group
+      * manager actor.
+      *
+      * @param msg the expected message
+      * @return this test helper
+      */
+    def expectGroupManagerMessage(msg: Any): MediaManagerTestHelper =
+      expectProbeMessage(probeGroupManager, msg)
+
+    /**
       * Expects that a close request has been handled.
       *
       * @return this test helper
@@ -661,6 +683,16 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     /**
+      * Returns a ''ScanStateTransitionMessages'' object whose complete notify
+      * field is initialized with the group manager probe. This is used to test
+      * whether complete notifications are sent correctly.
+      *
+      * @return the object with transition messages
+      */
+    def transitionMessagesWithNotify(): ScanStateTransitionMessages =
+      ScanStateTransitionMessages(completeNotify = Some(probeGroupManager.ref))
+
+    /**
       * Helper method to check whether the specified message was sent to the
       * given test probe.
       *
@@ -693,7 +725,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       TestActorRef[MediaManagerActor](Props(
         new MediaManagerActor(actorConfig, probeMetaDataManager.ref,
-          probeUnionMediaActor.ref, updateService)
+          probeUnionMediaActor.ref, probeGroupManager.ref, updateService)
           with ChildActorFactory with CloseSupport {
           override def createChildActor(p: Props): ActorRef = {
             p.actorClass() match {
