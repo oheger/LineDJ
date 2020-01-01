@@ -745,17 +745,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     }
 
     /**
-      * Expects that the given state was passed to the update service.
-      *
-      * @param state the expected state
-      * @return this test helper
-      */
-    def expectStateUpdate(state: ContentProcessingState): HttpArchiveManagementActorTestHelper = {
-      nextUpdatedState().get should be(state)
-      this
-    }
-
-    /**
       * Returns a list with information about child actors that have been
       * created by the management actor.
       *

@@ -20,6 +20,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.when
+import org.mockito.invocation.InvocationOnMock
 import scalaz.State
 
 /**
@@ -57,7 +58,7 @@ trait StateTestHelper[ServiceState, UpdateService] {
     */
   def stub[A](data: A, state: ServiceState)
              (f: UpdateService => State[ServiceState, A]): this.type = {
-    when(f(updateService)).thenReturn(createState(state, data))
+    when(f(updateService)).thenAnswer((_: InvocationOnMock) => createState(state, data))
     this
   }
 
@@ -80,6 +81,19 @@ trait StateTestHelper[ServiceState, UpdateService] {
     */
   def nextUpdatedState(): Option[ServiceState] =
     Option(stateQueue.poll(3, TimeUnit.SECONDS))
+
+  /**
+    * Expects a state transition from the passed in state.
+    *
+    * @param state the expected (original) state
+    * @return this test helper
+    */
+  def expectStateUpdate(state: ServiceState): this.type = {
+    val optState = nextUpdatedState()
+    if (!optState.contains(state))
+      throw new AssertionError(s"Wrong state update. Expected $state, was $optState")
+    this
+  }
 
   /**
     * Creates a ''State'' object that records the passed in former state and

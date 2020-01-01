@@ -630,17 +630,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     /**
-      * Expects a state transition from the passed in state.
-      *
-      * @param state the expected (original) state
-      * @return this test helper
-      */
-    def expectStateUpdate(state: MediaScanState): MediaManagerTestHelper = {
-      nextUpdatedState().get should be(state)
-      this
-    }
-
-    /**
       * Checks that no state update was performed. This can be used together
       * with a (synchronous) ''send'' call to verify that a message does not
       * cause an interaction with the state update service.

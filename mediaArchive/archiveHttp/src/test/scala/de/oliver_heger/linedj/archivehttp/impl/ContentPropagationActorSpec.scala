@@ -131,13 +131,13 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
   private class PropagationActorTestHelper
     extends StateTestHelper[ContentPropagationState, ContentPropagationUpdateService] {
     /** The mock for the state update service to be used by tests. */
-    override val updateService = mock[ContentPropagationUpdateService]
+    override val updateService: ContentPropagationUpdateService = mock[ContentPropagationUpdateService]
 
     /** Test probe for the media manager. */
-    val probeMediaManager = TestProbe()
+    val probeMediaManager: TestProbe = TestProbe()
 
     /** Test probe for the meta data manager. */
-    val probeMetaManager = TestProbe()
+    val probeMetaManager: TestProbe = TestProbe()
 
     /** The actor to be tested. */
     private val propagationActor = createTestActor()
@@ -156,18 +156,6 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     def send(msg: Any): PropagationActorTestHelper = {
       propagationActor ! msg
-      this
-    }
-
-    /**
-      * Expects that the given state has been passed to a state update
-      * function.
-      *
-      * @param state the expected state
-      * @return this test helper
-      */
-    def expectStateUpdate(state: ContentPropagationState): PropagationActorTestHelper = {
-      nextUpdatedState().get should be(state)
       this
     }
 

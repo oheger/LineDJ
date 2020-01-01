@@ -329,17 +329,6 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     }
 
     /**
-      * Expects a state transition from the passed in state.
-      *
-      * @param state the expected (original) state
-      * @return this test helper
-      */
-    def expectStateUpdate(state: ScanSinkState): SinkActorTestHelper = {
-      nextUpdatedState().get should be(state)
-      this
-    }
-
-    /**
       * Simulates an ACK message from the management actor.
       *
       * @return this test helper
