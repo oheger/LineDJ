@@ -18,26 +18,16 @@ package de.oliver_heger.linedj.archivelocalstart
 
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
-import org.apache.commons.configuration.HierarchicalConfiguration
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
 object LocalArchiveStartup {
-  /** Name for the persistence manager actor. */
-  val NamePersistenceManager = "persistentMetaDataManager"
-
-  /** Name for the local meta data manager actor. */
-  val NameMetaDataManager = "localMetaDataManager"
-
-  /** Name for the local media manager actor. */
-  val NameMediaManager = "localMediaManager"
+  /** Name for the archive group actor. */
+  val NameGroupActor = "archiveGroupActor"
 }
 
 /**
@@ -90,15 +80,8 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     * @param metaDataUnionActor the union meta data actor
     */
   private def startLocalArchive(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef): Unit = {
-    val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration
-      .asInstanceOf[HierarchicalConfiguration])
-    val persistentMetaDataManager = createAndRegisterActor(
-      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor), NamePersistenceManager)
-    val metaDataManager = createAndRegisterActor(MetaDataManagerActor(archiveConfig,
-      persistentMetaDataManager, metaDataUnionActor), NameMetaDataManager)
-    val mediaManager = createAndRegisterActor(MediaManagerActor(archiveConfig,
-      metaDataManager, mediaUnionActor), NameMediaManager)
-    mediaManager ! ScanAllMedia
+    val archiveConfigs = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
+    createAndRegisterActor(ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs), NameGroupActor)
     log.info("Local archive started.")
   }
 }

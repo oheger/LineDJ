@@ -16,30 +16,26 @@
 
 package de.oliver_heger.linedj.archivelocalstart
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 object LocalArchiveStartupSpec {
-  /** The reference configuration for the media archive. */
-  private val ArchiveConfig = MediaArchiveConfig(createArchiveConfiguration())
+  /** The configurations for the media archives to start. */
+  private val ArchiveConfigs = MediaArchiveConfig(createArchiveConfiguration())
 
   /**
     * Creates a configuration object that can be used to initialize the config
@@ -49,23 +45,27 @@ object LocalArchiveStartupSpec {
     */
   private def createArchiveConfiguration(): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
-    config.addProperty("media.readerTimeout", 60)
-    config.addProperty("media.readerCheckInterval", 180)
-    config.addProperty("media.readerCheckInitialDelay", 240)
-    config.addProperty("media.downloadChunkSize", 16384)
-    config.addProperty("media.infoSizeLimit", 16384)
-    config.addProperty("media.rootPath", "myMusic")
-    config.addProperty("media.processorCount", 2)
-    config.addProperty("media.excludedExtensions", Array("JPG", "pdf", "tex"))
-    config.addProperty("media.metaDataExtraction.readChunkSize", 4096)
-    config.addProperty("media.metaDataExtraction.tagSizeLimit", 16384)
-    config.addProperty("media.metaDataExtraction.processingTimeout", 30)
-    config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", 8192)
-    config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", 32768)
-    config.addProperty("media.metaDataPersistence.path", "data")
-    config.addProperty("media.metaDataPersistence.chunkSize", 1024)
-    config.addProperty("media.metaDataPersistence.parallelCount", 4)
-    config.addProperty("media.metaDataPersistence.writeBlockSize", 64)
+    config.addProperty("media.localArchives.readerTimeout", 60)
+    config.addProperty("media.localArchives.readerCheckInterval", 180)
+    config.addProperty("media.localArchives.readerCheckInitialDelay", 240)
+    config.addProperty("media.localArchives.downloadChunkSize", 16384)
+    config.addProperty("media.localArchives.infoSizeLimit", 16384)
+    config.addProperty("media.localArchives.rootPath", "myMusic")
+    config.addProperty("media.localArchives.processorCount", 2)
+    config.addProperty("media.localArchives.excludedExtensions", Array("JPG", "pdf", "tex"))
+    config.addProperty("media.localArchives.metaDataExtraction.readChunkSize", 4096)
+    config.addProperty("media.localArchives.metaDataExtraction.tagSizeLimit", 16384)
+    config.addProperty("media.localArchives.metaDataExtraction.processingTimeout", 30)
+    config.addProperty("media.localArchives.metaDataExtraction.metaDataUpdateChunkSize", 8192)
+    config.addProperty("media.localArchives.metaDataExtraction.metaDataMaxMessageSize", 32768)
+    config.addProperty("media.localArchives.metaDataPersistence.path", "data")
+    config.addProperty("media.localArchives.metaDataPersistence.chunkSize", 1024)
+    config.addProperty("media.localArchives.metaDataPersistence.parallelCount", 4)
+    config.addProperty("media.localArchives.metaDataPersistence.writeBlockSize", 64)
+    config.addProperty("media.localArchives.localArchive(-1).rootPath", "myMusic")
+    config.addProperty("media.localArchives.localArchive.archiveName", "Archive1")
+    config.addProperty("media.localArchives.localArchive(-1).rootPath", "myOtherMusic")
+    config.addProperty("media.localArchives.localArchive.archiveName", "Archive2")
 
     config
   }
@@ -85,18 +85,11 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     TestKit shutdownActorSystem system
   }
 
-  "A LocalArchiveStartup" should "create local archive actors" in {
+  "A LocalArchiveStartup" should "create actors for the local archive" in {
     val helper = new LocalArchiveStartupTestHelper
 
     helper.activate()
       .verifyActorsCreated()
-  }
-
-  it should "start a media scan after creating the local archive" in {
-    val helper = new LocalArchiveStartupTestHelper
-
-    helper.activate()
-      .probeMediaManager.expectMsg(ScanAllMedia)
   }
 
   it should "stop actors of the local archive on deactivation" in {
@@ -110,20 +103,14 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     * Test helper class managing a test instance and required dependencies.
     */
   private class LocalArchiveStartupTestHelper {
-    /** Test probe for the media manager actor. */
-    val probeMediaManager = TestProbe()
-
-    /** Test probe for the meta data manager actor. */
-    val probeMetaDataManager = TestProbe()
-
-    /** Test probe for the persistent meta data manager. */
-    val probePersistentManager = TestProbe()
+    /** Test probe for the archive group manager. */
+    private val probeGroupActor = TestProbe()
 
     /** Test probe for the media union actor. */
-    val probeUnionMediaManager = TestProbe()
+    private val probeUnionMediaManager = TestProbe()
 
     /** Test probe for the meta data union actor. */
-    val probeUnionMetaDataManager = TestProbe()
+    private val probeUnionMetaDataManager = TestProbe()
 
     /** The startup instance to be tested. */
     val startup = new LocalArchiveStartup
@@ -167,7 +154,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def verifyActorsCreated(): LocalArchiveStartupTestHelper = {
-      createdActors should have size 3
+      createdActors should have size 1
       this
     }
 
@@ -177,12 +164,8 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def verifyActorsStopped(): LocalArchiveStartupTestHelper = {
-      val probe = TestProbe()
-      (probePersistentManager :: probeMediaManager :: probeMetaDataManager
-        :: Nil) foreach { p =>
-        probe watch p.ref
-        probe.expectMsgType[Terminated].actor should be(p.ref)
-      }
+      watch(probeGroupActor.ref)
+      expectTerminated(probeGroupActor.ref)
       this
     }
 
@@ -203,37 +186,23 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     }
 
     /**
-      * Creates an actor factory mock that allows and checks the creation of
-      * the actors comprising the media archive.
+      * Creates an actor factory mock that checks the creation of the actors
+      * comprising the media archive and injects test probes.
       *
       * @return the actor factory mock
       */
     private def createActorFactory(): ActorFactory = {
       val factory = mock[ActorFactory]
       when(factory.createActor(any(classOf[Props]), anyString()))
-        .thenAnswer(new Answer[ActorRef] {
-          override def answer(invocation: InvocationOnMock): ActorRef = {
-            val props = invocation.getArguments.head.asInstanceOf[Props]
-            val name = invocation.getArguments()(1).asInstanceOf[String]
-            name match {
-              case "persistentMetaDataManager" =>
-                val refProps = PersistentMetaDataManagerActor(ArchiveConfig,
-                  probeUnionMetaDataManager.ref)
-                props.actorClass() should be(refProps.actorClass())
-                props.args.head should be(refProps.args.head)
-                props.args(1) should be(refProps.args(1))
-                actorCreation(probePersistentManager)
-
-              case "localMetaDataManager" =>
-                props should be(MetaDataManagerActor(ArchiveConfig, probePersistentManager.ref,
-                  probeUnionMetaDataManager.ref))
-                actorCreation(probeMetaDataManager)
-
-              case "localMediaManager" =>
-                props should be(MediaManagerActor(ArchiveConfig, probeMetaDataManager.ref,
-                  probeUnionMediaManager.ref))
-                actorCreation(probeMediaManager)
-            }
+        .thenAnswer((invocation: InvocationOnMock) => {
+          val props = invocation.getArguments.head.asInstanceOf[Props]
+          val name = invocation.getArguments()(1).asInstanceOf[String]
+          name match {
+            case "archiveGroupActor" =>
+              val refProps = ArchiveGroupActor(probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
+                ArchiveConfigs)
+              props should be(refProps)
+              actorCreation(probeGroupActor)
           }
         })
       factory
