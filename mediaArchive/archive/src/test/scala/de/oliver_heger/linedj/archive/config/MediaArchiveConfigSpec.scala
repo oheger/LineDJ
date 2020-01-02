@@ -49,12 +49,6 @@ object MediaArchiveConfigSpec {
   /** Test value for the processing timeout. */
   private val ProcessingTimeout = Timeout(128.seconds)
 
-  /** Test value for the chunk size of a meta data notification. */
-  private val MetaDataChunkSize = 10
-
-  /** Test value for the maximum message size of meta data chunk messages. */
-  private val MetaDataMaxMsgSize = 150
-
   /** Test value for the buffer size during meta data extraction. */
   private val MetaDataMediaBufSize = 16
 
@@ -124,8 +118,6 @@ object MediaArchiveConfigSpec {
     config.addProperty(key + ".metaDataExtraction.tagSizeLimit", TagSizeLimit + index)
     config.addProperty(key + ".metaDataExtraction.processingTimeout",
       ProcessingTimeout.duration.toSeconds + index)
-    config.addProperty(key + ".metaDataExtraction.metaDataUpdateChunkSize", MetaDataChunkSize + index)
-    config.addProperty(key + ".metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize + index)
     config.addProperty(key + ".metaDataExtraction.metaDataMediaBufferSize", MetaDataMediaBufSize + index)
     config.addProperty(key + ".metaDataPersistence.path", MetaDataPersistencePath.toString + index)
     config.addProperty(key + ".metaDataPersistence.chunkSize", MetaDataPersistenceChunkSize + index)
@@ -205,7 +197,6 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
     config.infoSizeLimit should be(InfoSizeLimit + index)
     config.tagSizeLimit should be(TagSizeLimit + index)
     config.processingTimeout.duration should be(ProcessingTimeout.duration + index.seconds)
-    config.metaDataUpdateChunkSize should be(MetaDataChunkSize + index)
     config.metaDataMediaBufferSize should be(MetaDataMediaBufSize + index)
     config.metaDataPersistencePath.toString should be(MetaDataPersistencePath.toString + index)
     config.metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize + index)
@@ -329,18 +320,5 @@ class MediaArchiveConfigSpec extends FlatSpec with Matchers {
     checkArchiveConfig(config1.copy(archiveName = ArchiveName + 42,
       rootPath = Paths.get(RootPath.toString + 42)), 42)
     checkArchiveConfig(configs(1), 2)
-  }
-
-  it should "correctly round the meta data update chunk size" in {
-    val appConfig = addArchiveToConfig(
-      addArchiveToConfig(addArchiveToConfig(
-        createDefaultHierarchicalConfig(),
-        1), 2), 3)
-    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
-
-    configs.head.metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
-    configs(1).metaDataMaxMessageSize should be(154)
-    configs(2).metaDataMaxMessageSize should be(156)
-    configs(3).metaDataMaxMessageSize should be(156)
   }
 }

@@ -40,9 +40,6 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
-  /** The maximum message size. */
-  private val MaxMessageSize = 24
-
   /** The number of parallel processors for the test root. */
   private val AsyncCount = 3
 
@@ -691,10 +688,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     /**
       * A test probe that simulates the persistence manager actor.
       */
-    val persistenceManager = TestProbe()
+    val persistenceManager: TestProbe = TestProbe()
 
     /** Test probe for the meta data union actor. */
-    val metaDataUnionActor = TestProbe()
+    val metaDataUnionActor: TestProbe = TestProbe()
 
     /** The configuration. */
     val config: MediaArchiveConfig = createConfig()
@@ -977,8 +974,6 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
      */
     private def createConfig(): MediaArchiveConfig = {
       val config = mock[MediaArchiveConfig]
-      when(config.metaDataUpdateChunkSize).thenReturn(2)
-      when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
       when(config.rootPath).thenReturn(EnhancedScanResult.scanResult.root)
       when(config.processorCount).thenReturn(AsyncCount)
       when(config.processingTimeout).thenReturn(ProcessingTimeout)

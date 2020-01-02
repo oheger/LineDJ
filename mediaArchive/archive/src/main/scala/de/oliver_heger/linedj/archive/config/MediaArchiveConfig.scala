@@ -65,12 +65,6 @@ object MediaArchiveConfig {
   /** The configuration property for the processing timeout. */
   val PropProcessingTimeout: String = MetaExtractionPrefix + "processingTimeout"
 
-  /** The configuration property for the size of meta data update chunks. */
-  val PropMetaDataUpdateChunkSize: String = MetaExtractionPrefix + "metaDataUpdateChunkSize"
-
-  /** The configuration property for the maximum meta data message size. */
-  val PropMetaDataMaxMessageSize: String = MetaExtractionPrefix + "metaDataMaxMessageSize"
-
   /**
     * The configuration property defining a maximum buffer size for the
     * processing of media during meta data extraction. When the content of a
@@ -273,8 +267,6 @@ object MediaArchiveConfig {
       infoSizeLimit = intProperty(config, subConfig, PropInfoSizeLimit),
       tagSizeLimit = intProperty(config, subConfig, PropTagSizeLimit),
       processingTimeout = durationProperty(config, subConfig, PropProcessingTimeout),
-      metaDataUpdateChunkSize = intProperty(config, subConfig, PropMetaDataUpdateChunkSize),
-      initMetaDataMaxMsgSize = intProperty(config, subConfig, PropMetaDataMaxMessageSize),
       metaDataMediaBufferSize = intProperty(config, subConfig, PropMetaDataBufferSize,
         Some(DefaultMetaDataMediaBufferSize)),
       metaDataPersistencePath = Paths.get(stringProperty(config, subConfig, PropMetaDataPersistencePath)),
@@ -459,18 +451,6 @@ object MediaArchiveConfig {
   * @param tagSizeLimit                      the size limit for ID3 tags
   * @param processingTimeout                 a timeout for the processing of a single media
   *                                          file
-  * @param metaDataUpdateChunkSize           the size of a chunk of meta data sent to a
-  *                                          registered meta data listener as an update
-  *                                          notification; this property determines how
-  *                                          often a meta data listener receives update
-  *                                          notifications when new meta data becomes
-  *                                          available
-  * @param initMetaDataMaxMsgSize            the maximum number of entries in a meta data
-  *                                          chunk message; there is a limit in the size
-  *                                          of remoting messages; therefore, this
-  *                                          parameter is important to not exceed this
-  *                                          limit; this value should be a multiple of the
-  *                                          update chunk size
   * @param metaDataMediaBufferSize           the buffer for meta data extraction
   * @param metaDataPersistencePath           the path used by meta data persistence; here
   *                                          extracted meta data is stored in files
@@ -502,8 +482,6 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               infoSizeLimit: Int,
                                               tagSizeLimit: Int,
                                               processingTimeout: Timeout,
-                                              metaDataUpdateChunkSize: Int,
-                                              initMetaDataMaxMsgSize: Int,
                                               metaDataMediaBufferSize: Int,
                                               metaDataPersistencePath: Path,
                                               metaDataPersistenceChunkSize: Int,
@@ -516,22 +494,7 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               contentTableConfig: ArchiveContentTableConfig,
                                               archiveName: String,
                                               infoParserTimeout: Timeout,
-                                              scanMediaBufferSize: Int) {
-  /** The maximum size of meta data chunk messages. */
-  val metaDataMaxMessageSize: Int = calcMaxMessageSize()
-
-  /**
-    * Calculates the maximum message size based on constructor parameters. This
-    * method ensures that the maximum message size is always a multiple of the
-    * update chunk size. If necessary, the value is rounded upwards.
-    *
-    * @return the maximum meta data chunk message size
-    */
-  private def calcMaxMessageSize(): Int = {
-    if (initMetaDataMaxMsgSize % metaDataUpdateChunkSize == 0) initMetaDataMaxMsgSize
-    else (initMetaDataMaxMsgSize / metaDataUpdateChunkSize + 1) * metaDataUpdateChunkSize
-  }
-}
+                                              scanMediaBufferSize: Int)
 
 /**
   * A class defining configuration options for the "table of content" of a
