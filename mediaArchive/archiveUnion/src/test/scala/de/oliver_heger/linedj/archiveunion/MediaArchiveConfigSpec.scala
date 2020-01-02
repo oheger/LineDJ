@@ -35,8 +35,8 @@ object MediaArchiveConfigSpec {
     */
   private def createConfiguration(updateChunkSize: Int = MetaDataChunkSize): Configuration = {
     val config = new PropertiesConfiguration
-    config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", updateChunkSize)
-    config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", MetaDataMaxMsgSize)
+    config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", updateChunkSize)
+    config.addProperty("media.mediaArchive.metaDataMaxMessageSize", MetaDataMaxMsgSize)
     config
   }
 

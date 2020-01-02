@@ -46,6 +46,9 @@ private object HttpArchiveConfigManager {
   /** Name of the section that contains all relevant properties. */
   private val SectionMedia = "media"
 
+  /** Name of the section with properties for the media archive. */
+  private val SectionMediaArchive = SectionMedia + ".mediaArchive"
+
   /** The base key for accessing archives from the configuration. */
   private val KeyArchives = SectionMedia + ".archives.archive"
 
@@ -101,7 +104,7 @@ private object HttpArchiveConfigManager {
     val realmNames = c.getList(KeyRealms + KeyRealmName)
     val realms = extractRealms(c, realmNames.size() - 1, Map.empty)
     val archiveNames = c.getList(KeyArchiveNames)
-    val downloadConfig = DownloadConfig(c.subset(SectionMedia))
+    val downloadConfig = DownloadConfig(c.subset(SectionMediaArchive))
     new HttpArchiveConfigManager(addArchive(c, downloadConfig, realms, archiveNames.size() - 1,
       TreeMap.empty, Set.empty))
   }

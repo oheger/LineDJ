@@ -22,14 +22,14 @@ object MediaArchiveConfig {
   /** Constant for the common prefix for configuration options. */
   private val ConfigPrefix = "media."
 
-  /** Constant for the prefix for the meta data extraction configuration. */
-  private val MetaExtractionPrefix = ConfigPrefix + "metaDataExtraction."
+  /** Constant for the prefix for the media archive configuration. */
+  private val MediaArchivePrefix = ConfigPrefix + "mediaArchive."
 
   /** The configuration property for the size of meta data update chunks. */
-  private val PropMetaDataUpdateChunkSize = MetaExtractionPrefix + "metaDataUpdateChunkSize"
+  private val PropMetaDataUpdateChunkSize = MediaArchivePrefix + "metaDataUpdateChunkSize"
 
   /** The configuration property for the maximum meta data message size. */
-  private val PropMetaDataMaxMessageSize = MetaExtractionPrefix + "metaDataMaxMessageSize"
+  private val PropMetaDataMaxMessageSize = MediaArchivePrefix + "metaDataMaxMessageSize"
 
   /**
     * Creates a new instance of ''MediaArchiveConfig'' based on the passed in
