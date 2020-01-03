@@ -120,9 +120,9 @@ sealed trait MetaDataProcessingResult {
   * media file has been processed successfully. The message contains the meta
   * data that could be extracted.
   *
-  * @param path the path to the media file
+  * @param path     the path to the media file
   * @param mediumID the ID of the medium this file belongs to
-  * @param uri the URI of the file
+  * @param uri      the URI of the file
   * @param metaData an object with the meta data that could be extracted
   */
 case class MetaDataProcessingSuccess(override val path: String, override val mediumID: MediumID,
@@ -202,3 +202,14 @@ case class ArchiveComponentRemoved(archiveCompID: String)
   * @param archiveCompID the archive component ID
   */
 case class RemovedArchiveComponentProcessed(archiveCompID: String)
+
+/**
+  * A message processed by ''MediaUnionActor'' that requests information about
+  * the meta data files of a specific archive.
+  *
+  * The message is forwarded to the controller actor of the selected archive.
+  * It returns a ''MetaDataFileInfo'' message as response.
+  *
+  * @param archiveCompID the archive component ID
+  */
+case class GetArchiveMetaDataFileInfo(archiveCompID: String)

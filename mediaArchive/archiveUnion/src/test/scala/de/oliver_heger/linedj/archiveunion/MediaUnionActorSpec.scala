@@ -18,13 +18,13 @@ package de.oliver_heger.linedj.archiveunion
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
 import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.metadata.GetFilesMetaData
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -406,12 +406,32 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     fwdMsg.idMapping should be(expMapping)
   }
 
+  it should "forward a GetArchiveMetaDataFileInfo message to the archive controller actor" in {
+    val mediaMap = Map(mediaMapping(1, 1))
+    val controller = ForwardTestActor()
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(mediaMap, 1, controller)
+
+    helper.manager ! GetArchiveMetaDataFileInfo(componentID(1))
+    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
+  }
+
+  it should "handle a GetArchiveMEtaDataFileInfo request for an unknown archive" in {
+    val helper = new MediaUnionActorTestHelper
+    helper.addMedia(Map(mediaMapping(1, 1)), 1)
+
+    helper.manager ! GetArchiveMetaDataFileInfo(componentID(42))
+    val response = expectMsgType[Status.Failure]
+    response.cause shouldBe a[NoSuchElementException]
+    response.cause.getMessage should include(componentID(42))
+  }
+
   /**
     * A test helper class managing all dependencies of the test actor.
     */
   private class MediaUnionActorTestHelper {
     /** Test probe for the meta data manager actor. */
-    val metaDataActor = TestProbe()
+    val metaDataActor: TestProbe = TestProbe()
 
     /** The actor to be tested. */
     val manager: TestActorRef[MediaUnionActor] = createTestActor()

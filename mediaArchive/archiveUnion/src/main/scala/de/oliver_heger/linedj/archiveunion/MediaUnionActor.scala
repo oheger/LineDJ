@@ -16,13 +16,15 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.metadata.GetFilesMetaData
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+
+import scala.util.{Failure, Success, Try}
 
 object MediaUnionActor {
 
@@ -77,6 +79,8 @@ object MediaUnionActor {
   * when starting a new scan), the controller has to send an
   * [[ArchiveComponentRemoved]] message to make sure that existing data for
   * this component is removed.
+  *  - [[GetMetaDataFileInfo]] messages must be handled and answered with a
+  * corresponding ''MetaDataFileInfo'' message.
   *  - Close requests are forwarded to all currently available controller
   * actors. On receiving such a request, a controller has to cancel an ongoing
   * scan operation (if any) and then ack the request. Only after all
@@ -152,6 +156,14 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     case ScanAllMedia =>
       metaDataUnionActor ! ScanAllMedia
       controllerMap.values foreach (_ ! ScanAllMedia)
+
+    case GetArchiveMetaDataFileInfo(archiveCompID) =>
+      Try(controllerMap(archiveCompID)) match {
+        case Success(controller) =>
+          controller forward GetMetaDataFileInfo
+        case Failure(exception) =>
+          sender() ! Status.Failure(exception)
+      }
 
     case Terminated(actor) =>
       val optMapping = controllerMap.find(t => t._2 == actor)
