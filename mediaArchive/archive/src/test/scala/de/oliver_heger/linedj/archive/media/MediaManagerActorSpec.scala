@@ -23,7 +23,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import de.oliver_heger.linedj.StateTestHelper
+import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
@@ -32,6 +32,7 @@ import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
@@ -450,6 +451,15 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectMsgType[MediumFileResponse]
     helper.expectDownloadMonitorMessage(DownloadMonitoringActor.DownloadOperationStarted(
       creation.probe.ref, testActor))
+  }
+
+  it should "forward a request for meta file info to the meta data manager" in {
+    val metaDataManager = ForwardTestActor()
+    val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
+      TestProbe().ref, TestProbe().ref))
+
+    manager ! GetMetaDataFileInfo
+    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
   }
 
   /**

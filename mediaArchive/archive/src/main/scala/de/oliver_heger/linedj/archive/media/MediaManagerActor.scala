@@ -28,6 +28,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import scalaz.State
@@ -197,6 +198,9 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     case MediaScannerActor.PathScanCompleted(request) =>
       updateStateAndSendMessages(scanStateUpdateService.handleScanComplete(request.seqNo,
         config.archiveName))
+
+    case GetMetaDataFileInfo =>
+      metaDataManager forward GetMetaDataFileInfo
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)
