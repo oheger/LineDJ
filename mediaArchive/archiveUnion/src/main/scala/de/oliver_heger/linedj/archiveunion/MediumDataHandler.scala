@@ -105,7 +105,7 @@ private class MediumDataHandler(mediumID: MediumID) {
   def calculateStatistics(): MetaDataState = {
     val allMetaData = currentData flatMap (_.data.values)
     val initState = MetaDataState(mediaCount = 1, songCount = 0, size = 0,
-      duration = 0, scanInProgress = false, updateInProgress = false)
+      duration = 0, scanInProgress = false, updateInProgress = false, archiveCompIDs = Set.empty)
 
     allMetaData.foldLeft(initState)((s, d) => s + d)
   }

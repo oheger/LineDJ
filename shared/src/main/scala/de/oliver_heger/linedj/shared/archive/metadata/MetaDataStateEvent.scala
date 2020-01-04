@@ -117,9 +117,12 @@ case class MediumMetaDataCompleted(mediumID: MediumID) extends MetaDataStateEven
   * @param scanInProgress   a flag whether currently a scan is in progress
   * @param updateInProgress a flag whether currently an update operation is in
   *                         progress (which can consist of multiple scans)
+  * @param archiveCompIDs   a set with the names of the known archive component
+  *                         IDs
   */
 case class MetaDataState(mediaCount: Int, songCount: Int, size: Long, duration: Long,
-                         scanInProgress: Boolean, updateInProgress: Boolean) {
+                         scanInProgress: Boolean, updateInProgress: Boolean,
+                         archiveCompIDs: Set[String]) {
   /**
     * Returns a new ''MetaDataState'' object which represents the sum of this
     * object and the specified meta data. This is useful to calculate

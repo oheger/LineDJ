@@ -142,6 +142,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private var removedComponentData = List.empty[RemovedComponentData]
 
+  /** Stores the currently known archive component IDs. */
+  private var archiveComponentIDs = Set.empty[String]
+
   /** The special handler for the undefined medium. */
   private val undefinedMediumHandler = new UndefinedMediumDataHandler
 
@@ -310,6 +313,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     currentSongCount = 0
     completedMedia = Set.empty
     undefinedMediumHandler.reset()
+    archiveComponentIDs = Set.empty
   }
 
   /**
@@ -395,6 +399,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         currentSongCount += 1
         currentDuration += metaData.duration getOrElse 0
         currentSize += metaData.size
+        archiveComponentIDs += result.mediumID.archiveComponentID
       case _ =>
     }
 
@@ -460,6 +465,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       mediaMap.remove(mid)
       completedMedia -= mid
     }
+    archiveComponentIDs -= archiveCompID
 
     removedComponentData = RemovedComponentData(archiveCompID, sender(),
       media._2) :: removedComponentData
@@ -526,7 +532,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private def createStateUpdatedEvent(): MetaDataStateUpdated =
     MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount =
       currentSongCount, duration = currentDuration, size = currentSize,
-      scanInProgress = scanInProgress, updateInProgress = processorActors.nonEmpty))
+      scanInProgress = scanInProgress, updateInProgress = processorActors.nonEmpty,
+      archiveCompIDs = archiveComponentIDs))
 
   /**
     * Sends the specified event to all registered state listeners.
