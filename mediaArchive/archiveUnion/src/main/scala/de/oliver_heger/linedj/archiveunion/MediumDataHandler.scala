@@ -95,22 +95,6 @@ private class MediumDataHandler(mediumID: MediumID) {
   def metaData: Seq[MetaDataChunk] = currentData
 
   /**
-    * Returns a ''MetaDataState'' object with statistical information about
-    * the songs managed by this object. This is used for instance when the
-    * medium is removed and the statistics of the archive has to be updated
-    * accordingly.
-    *
-    * @return an object with statistics about the represented medium
-    */
-  def calculateStatistics(): MetaDataState = {
-    val allMetaData = currentData flatMap (_.data.values)
-    val initState = MetaDataState(mediaCount = 1, songCount = 0, size = 0,
-      duration = 0, scanInProgress = false, updateInProgress = false, archiveCompIDs = Set.empty)
-
-    allMetaData.foldLeft(initState)((s, d) => s + d)
-  }
-
-  /**
     * Resets the data of this handler. This method can be called at the start
     * of another scan operation.
     */

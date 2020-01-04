@@ -48,20 +48,20 @@ case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean,
                        registrationID: Int)
 
 /**
- * A message sent as payload in a response for a ''GetMetaData'' request.
- *
- * This message contains either complete meta data of an medium (if it is
- * already available at request time) or a chunk which was recently updated.
- * The ''complete'' property defines whether the meta data has already been
- * fully fetched.
- *
- * @param mediumID the ID of the medium
- * @param data actual meta data; the map contains the URIs of media files as
- *             keys and the associated meta data as values
- * @param complete a flag whether now complete meta data is available for
- *                 this medium (even if this chunk may not contain the full
- *                 data)
- */
+  * A message sent as payload in a response for a ''GetMetaData'' request.
+  *
+  * This message contains either complete meta data of an medium (if it is
+  * already available at request time) or a chunk which was recently updated.
+  * The ''complete'' property defines whether the meta data has already been
+  * fully fetched.
+  *
+  * @param mediumID the ID of the medium
+  * @param data     actual meta data; the map contains the URIs of media files as
+  *                 keys and the associated meta data as values
+  * @param complete a flag whether now complete meta data is available for
+  *                 this medium (even if this chunk may not contain the full
+  *                 data)
+  */
 case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], complete: Boolean)
 
 /**
@@ -76,32 +76,33 @@ case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], c
 case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int)
 
 /**
- * A message sent as answer for a ''GetMetaData'' request if the specified
- * medium is not known.
- *
- * This actor should be in sync with the media manager actor. So all media
- * returned from there can be queried here. If the medium ID passed with a
- * ''GetMetaData'' cannot be resolved, an instance of this message is
- * returned.
- * @param mediumID the ID of the medium in question
- */
+  * A message sent as answer for a ''GetMetaData'' request if the specified
+  * medium is not known.
+  *
+  * This actor should be in sync with the media manager actor. So all media
+  * returned from there can be queried here. If the medium ID passed with a
+  * ''GetMetaData'' cannot be resolved, an instance of this message is
+  * returned.
+  *
+  * @param mediumID the ID of the medium in question
+  */
 case class UnknownMedium(mediumID: MediumID)
 
 /**
- * Tells the meta data manager actor to remove a listener for the specified
- * medium.
- *
- * With this message a listener that has been registered via a
- * ''GetMetaData'' message can be explicitly removed. This is normally not
- * necessary because medium listeners are removed automatically when the
- * meta data for a medium is complete. However, if a client application is
- * about to terminate, it is good practice to remove listeners for media that
- * are still processed. If the specified listener is not registered for this
- * medium, the processing of this message has no effect.
- *
- * @param mediumID the ID of the medium
- * @param listener the listener to be removed
- */
+  * Tells the meta data manager actor to remove a listener for the specified
+  * medium.
+  *
+  * With this message a listener that has been registered via a
+  * ''GetMetaData'' message can be explicitly removed. This is normally not
+  * necessary because medium listeners are removed automatically when the
+  * meta data for a medium is complete. However, if a client application is
+  * about to terminate, it is good practice to remove listeners for media that
+  * are still processed. If the specified listener is not registered for this
+  * medium, the processing of this message has no effect.
+  *
+  * @param mediumID the ID of the medium
+  * @param listener the listener to be removed
+  */
 case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
 
 /**
@@ -220,3 +221,40 @@ case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0)
   */
 case class FilesMetaDataResponse(request: GetFilesMetaData,
                                  data: Map[MediaFileID, MediaMetaData])
+
+/**
+  * A message processed by the meta data manager actor that requests statistics
+  * for a select archive component.
+  *
+  * @param archiveComponentID the ID of the archive component
+  */
+case class GetArchiveComponentStatistics(archiveComponentID: String)
+
+/**
+  * A message sent as response of a [[GetArchiveComponentStatistics]] request.
+  *
+  * From an instance statistical information about a specific archive component
+  * can be obtained. If the requested archive component could not be resolved,
+  * the fields have negative values.
+  *
+  * @param archiveComponentID the ID of the archive component
+  * @param mediaCount         the number of media in this component
+  * @param songCount          the number of songs in this component
+  * @param size               the size of audio files (in bytes)
+  * @param duration           the duration of audio files (in milliseconds)
+  */
+case class ArchiveComponentStatistics(archiveComponentID: String,
+                                      mediaCount: Int,
+                                      songCount: Int,
+                                      size: Long,
+                                      duration: Long) {
+  /**
+    * Returns a flag whether this is a valid statistics instance. This function
+    * can be used to check whether the archive component could be resolved.
+    * Requests for non-existing archive components are answered with instances
+    * for which ''isValid'' yields '''false'''.
+    *
+    * @return a flag whether this is a valid instance
+    */
+  def isValid: Boolean = mediaCount >= 0 && songCount >= 0 && size >= 0 && duration >= 0
+}

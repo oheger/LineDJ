@@ -1035,6 +1035,27 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     listener2.expectMsgType[MetaDataStateUpdated].state.updateInProgress shouldBe false
   }
 
+  it should "support querying statistics for archive components" in {
+    val expStats = ArchiveComponentStatistics(archiveComponentID = ArchiveCompID, mediaCount = 3,
+      songCount = 15, size = 5200, duration = 520)
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(Contribution)
+
+    helper.actor ! GetArchiveComponentStatistics(ArchiveCompID)
+    expectMsg(expStats)
+    expStats.isValid shouldBe true
+  }
+
+  it should "handle a statistics request for an unknown archive component" in {
+    val helper = new MetaDataUnionActorTestHelper
+    helper.processContribution(Contribution)
+
+    helper.actor ! GetArchiveComponentStatistics(OtherArchiveCompID)
+    val stats = expectMsgType[ArchiveComponentStatistics]
+    stats should be(ArchiveComponentStatistics(OtherArchiveCompID, -1, -1, -1, -1))
+    stats.isValid shouldBe false
+  }
+
   /**
     * Test helper class which manages a test actor instance and offers some
     * convenience methods for test cases.

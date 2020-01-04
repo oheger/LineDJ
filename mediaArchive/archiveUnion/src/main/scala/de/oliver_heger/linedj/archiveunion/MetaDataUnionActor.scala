@@ -45,10 +45,52 @@ object MetaDataUnionActor {
     *
     * @param componentID the archive component ID
     * @param sender      the sending actor (for sending a confirmation)
-    * @param handlers    the handlers affected by this operation
+    * @param counters    the stats of the component affected
     */
   private case class RemovedComponentData(componentID: String, sender: ActorRef,
-                                          handlers: Iterable[MediumDataHandler])
+                                          counters: ComponentCounters)
+
+  /**
+    * An internally used data class for calculating statistics for single
+    * archive components.
+    *
+    * During processing of results, for each archive component an instance of
+    * this class is managed; the counters are increased accordingly.
+    *
+    * @param mediumCount the number of media in this component
+    * @param songCount   the number of songs
+    * @param size        the size of the media files in bytes
+    * @param duration    the accumulated playback duration in milliseconds
+    */
+  private case class ComponentCounters(mediumCount: Int,
+                                       songCount: Int,
+                                       size: Long,
+                                       duration: Long) {
+    /**
+      * Updates the counters in this instance based on the passed in result
+      * object. For a success result, the counters are incremented accordingly.
+      *
+      * @param result the result object
+      * @return the updated ''ComponentCounters'' instance
+      */
+    def update(result: MetaDataProcessingResult): ComponentCounters =
+      result match {
+        case success: MetaDataProcessingSuccess =>
+          copy(songCount = songCount + 1, size = size + success.metaData.size,
+            duration = duration + success.metaData.duration.getOrElse(0))
+        case _ => this
+      }
+
+    /**
+      * Returns an updated instance with an incremented counter for the media.
+      *
+      * @return the updated ''ComponentCounters'' instance
+      */
+    def mediumCompleted(): ComponentCounters = copy(mediumCount = mediumCount + 1)
+  }
+
+  /** Constant for an initial counters object. */
+  private val InitialComponentCounters = ComponentCounters(0, 0, 0, 0)
 
   /**
     * Returns a flag whether the specified medium ID refers to files not
@@ -142,8 +184,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private var removedComponentData = List.empty[RemovedComponentData]
 
-  /** Stores the currently known archive component IDs. */
-  private var archiveComponentIDs = Set.empty[String]
+  /** A map with statistics about the currently known archive component IDs. */
+  private var archiveComponentStats = Map.empty[String, ComponentCounters]
 
   /** The special handler for the undefined medium. */
   private val undefinedMediumHandler = new UndefinedMediumDataHandler
@@ -151,14 +193,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
 
-  /** The number of currently processed songs. */
-  private var currentSongCount = 0
-
-  /** The current duration of all processed songs. */
-  private var currentDuration = 0L
-
-  /** The current size of all processed songs. */
-  private var currentSize = 0L
+  /** A counters object for the whole union archive. */
+  private var totalCounters = InitialComponentCounters
 
   override def receive: Receive = {
     case UpdateOperationStarts(processor) =>
@@ -244,6 +280,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       handleRemovedArchiveComponent(archiveCompID)
       log.info(s"Archive component removed: $archiveCompID.")
 
+    case GetArchiveComponentStatistics(archiveComponentID) =>
+      handleStatsRequest(archiveComponentID)
+
     case CloseRequest =>
       if (scanInProgress) {
         fireStateEvent(MetaDataScanCanceled)
@@ -308,12 +347,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     fireStateEvent(MetaDataScanStarted)
     mediaMap.clear()
     scanInProgress = true
-    currentSize = 0
-    currentDuration = 0
-    currentSongCount = 0
+    totalCounters = InitialComponentCounters
     completedMedia = Set.empty
     undefinedMediumHandler.reset()
-    archiveComponentIDs = Set.empty
+    archiveComponentStats = Map.empty
   }
 
   /**
@@ -367,6 +404,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       if (mediumID != MediumID.UndefinedMediumID) {
         // the undefined medium is handled at the very end of the scan
         completedMedia += mediumID
+        totalCounters = totalCounters.mediumCompleted()
+        updateComponentStats(mediumID.archiveComponentID)(_.mediumCompleted())
         fireStateEvent(MediumMetaDataCompleted(mediumID))
         fireStateEvent(createStateUpdatedEvent())
       }
@@ -392,16 +431,34 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param result the processing result
     */
-  private def updateStatistics(result: MetaDataProcessingResult): Unit =
-    result match {
-      case success: MetaDataProcessingSuccess =>
-        val metaData = success.metaData
-        currentSongCount += 1
-        currentDuration += metaData.duration getOrElse 0
-        currentSize += metaData.size
-        archiveComponentIDs += result.mediumID.archiveComponentID
-      case _ =>
-    }
+  private def updateStatistics(result: MetaDataProcessingResult): Unit = {
+    totalCounters = totalCounters.update(result)
+    updateComponentStats(result.mediumID.archiveComponentID)(_.update(result))
+  }
+
+  /**
+    * Obtains the ''ComponentCounters'' object for the given component ID. On
+    * first access, a new instance is created.
+    *
+    * @param componentID the component ID
+    * @return the ''ComponentCounters'' for this component
+    */
+  private def fetchComponentStats(componentID: String): ComponentCounters =
+    archiveComponentStats.getOrElse(componentID, InitialComponentCounters)
+
+  /**
+    * Updates a ''ComponentCounters'' object for a specific component. This
+    * function retrieves the current counters (creating a new instance if
+    * necessary), applies the given update function, and stores the resulting
+    * instance again in the data structure for counters.
+    *
+    * @param componentID the component ID
+    * @param f           the function to update the counters
+    */
+  private def updateComponentStats(componentID: String)(f: ComponentCounters => ComponentCounters): Unit = {
+    val counters = fetchComponentStats(componentID)
+    archiveComponentStats += componentID -> f(counters)
+  }
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the
@@ -460,15 +517,14 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param archiveCompID the ID of the removed component
     */
   private def handleRemovedArchiveComponent(archiveCompID: String): Unit = {
-    val media = mediaMap.filter(e => e._1.archiveComponentID == archiveCompID).unzip
-    media._1 foreach { mid =>
-      mediaMap.remove(mid)
-      completedMedia -= mid
-    }
-    archiveComponentIDs -= archiveCompID
+    val media = mediaMap.keys.filter(_.archiveComponentID == archiveCompID)
+    media foreach mediaMap.remove
+    completedMedia --= media
 
-    removedComponentData = RemovedComponentData(archiveCompID, sender(),
-      media._2) :: removedComponentData
+    val counter = fetchComponentStats(archiveCompID)
+    archiveComponentStats -= archiveCompID
+
+    removedComponentData = RemovedComponentData(archiveCompID, sender(), counter) :: removedComponentData
     if (!scanInProgress) {
       updateForRemovedArchiveComponent()
     } else {
@@ -484,12 +540,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def updateForRemovedArchiveComponent(): Unit = {
     removedComponentData foreach { c =>
-      c.handlers foreach { h =>
-        val stat = h.calculateStatistics()
-        currentSongCount -= stat.songCount
-        currentDuration -= stat.duration
-        currentSize -= stat.size
-      }
+      totalCounters = totalCounters.copy(mediumCount = totalCounters.mediumCount - c.counters.mediumCount,
+        songCount = totalCounters.songCount - c.counters.songCount,
+        size = totalCounters.size - c.counters.size,
+        duration = totalCounters.duration - c.counters.duration)
       if (!undefinedMediumHandler.removeDataFromComponent(c.componentID,
         config.metaDataMaxMessageSize)) {
         mediaMap.remove(MediumID.UndefinedMediumID)
@@ -530,10 +584,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @return the state object
     */
   private def createStateUpdatedEvent(): MetaDataStateUpdated =
-    MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount =
-      currentSongCount, duration = currentDuration, size = currentSize,
+    MetaDataStateUpdated(MetaDataState(mediaCount = completedMedia.size, songCount = totalCounters.songCount,
+      duration = totalCounters.duration, size = totalCounters.size,
       scanInProgress = scanInProgress, updateInProgress = processorActors.nonEmpty,
-      archiveCompIDs = archiveComponentIDs))
+      archiveCompIDs = archiveComponentStats.keySet))
 
   /**
     * Sends the specified event to all registered state listeners.
@@ -584,4 +638,23 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       val mid = mapping.getOrElse(f, f.mediumID)
       mediaMap.get(mid).flatMap(_.metaDataFor(f.uri)).map((f, _))
     }.toMap
+
+  /**
+    * Handles a request for statistics of an archive component. The statistics
+    * can be extracted from the archive components data structure. If the
+    * requested component cannot be resolved, an invalid statistics object is
+    * returned.
+    *
+    * @param archiveComponentID the archive component ID
+    */
+  private def handleStatsRequest(archiveComponentID: String): Unit = {
+    val stats = if (archiveComponentStats contains archiveComponentID) {
+      val counters = archiveComponentStats(archiveComponentID)
+      ArchiveComponentStatistics(archiveComponentID = archiveComponentID,
+        mediaCount = counters.mediumCount, songCount = counters.songCount,
+        size = counters.size, duration = counters.duration)
+    } else
+      ArchiveComponentStatistics(archiveComponentID, -1, -1, -1, -1)
+    sender ! stats
+  }
 }
