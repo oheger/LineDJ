@@ -26,8 +26,11 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * An implementation of ''ClientApplicationContext'' which stores a bunch of
   * mock objects.
+  *
+  * @param configuration the configuration for the application
   */
-class ClientApplicationContextImpl extends ClientApplicationContext with MockitoSugar {
+class ClientApplicationContextImpl(configuration: Configuration = new PropertiesConfiguration())
+  extends ClientApplicationContext with MockitoSugar {
   override val actorSystem: ActorSystem = mock[ActorSystem]
 
   override val messageBus: MessageBus = mock[MessageBus]
@@ -40,5 +43,5 @@ class ClientApplicationContextImpl extends ClientApplicationContext with Mockito
 
   override val mediaIfcConfig: None.type = None
 
-  override val managementConfiguration: Configuration = new PropertiesConfiguration
+  override val managementConfiguration: Configuration = configuration
 }

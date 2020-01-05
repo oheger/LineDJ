@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.app
 
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.Application
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
@@ -34,9 +35,10 @@ trait ApplicationTestSupport {
     * Queries the given bean context for a bean with a specific name. This bean
     * is checked against a type. If this type is matched, the bean is returned;
     * otherwise, an exception is thrown.
+    *
     * @param context the ''BeanContext''
-    * @param name the name of the bean
-    * @param m the manifest
+    * @param name    the name of the bean
+    * @param m       the manifest
     * @tparam T the expected bean type
     * @return the bean of this type
     */
@@ -52,9 +54,10 @@ trait ApplicationTestSupport {
     * Queries the given application for a bean with a specific name. This bean
     * is checked against a type. If this type is matched, the bean is returned;
     * otherwise, an exception is thrown.
-    * @param app the application
+    *
+    * @param app  the application
     * @param name the name of the bean
-    * @param m the manifest
+    * @param m    the manifest
     * @tparam T the expected bean type
     * @return the bean of this type
     */
@@ -65,7 +68,8 @@ trait ApplicationTestSupport {
     * Prepares a mock bean context to support the specified bean. The context
     * mock is configured to return '''true''' for queries whether it has this
     * bean and to return the bean when it is requested.
-    * @param ctx the bean context
+    *
+    * @param ctx  the bean context
     * @param name the name of the bean
     * @param bean the bean itself
     * @return the bean context mock
@@ -80,33 +84,38 @@ trait ApplicationTestSupport {
     * Prepares a mock bean context to support all beans defined by the given
     * map. This is a convenience method which invokes ''addBean()'' for all
     * entries contained in the map.
-    * @param ctx the bean context
+    *
+    * @param ctx   the bean context
     * @param beans a map defining the beans to be added
     * @return the bean context mock
     */
   def addBeans(ctx: BeanContext, beans: Map[String, AnyRef]): BeanContext = {
-    beans foreach(e => addBean(ctx, e._1, e._2))
+    beans foreach (e => addBean(ctx, e._1, e._2))
     ctx
   }
 
   /**
     * Creates a ''ClientApplicationContext'' object which provides mock
     * objects.
+    *
+    * @param config an optional configuration for the application
     * @return the ''ClientApplicationContext''
     */
-  def createClientApplicationContext(): ClientApplicationContext =
-    new ClientApplicationContextImpl
+  def createClientApplicationContext(config: Configuration = new PropertiesConfiguration()): ClientApplicationContext =
+    new ClientApplicationContextImpl(config)
 
   /**
     * Initializes and activates the specified application. This method sets the
     * ''ClientApplicationContext'', an application manager, and a dummy exit
     * handler. Then the application's ''activate()'' method is called.
-    * @param app the application
+    *
+    * @param app    the application
+    * @param config an optional configuration for the application
     * @tparam T the type of the application
     * @return the application again
     */
-  def activateApp[T <: ClientApplication](app: T): T = {
-    app initClientContext createClientApplicationContext()
+  def activateApp[T <: ClientApplication](app: T, config: Configuration = new PropertiesConfiguration()): T = {
+    app initClientContext createClientApplicationContext(config)
     app initApplicationManager Mockito.mock(classOf[ApplicationManager])
     app setExitHandler (() => {
       // do nothing
