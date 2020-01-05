@@ -28,7 +28,7 @@ import org.scalatest.{FlatSpec, Matchers}
 object StateListenerExtensionSpec {
   /** A test meta data state event. */
   private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false,
-    updateInProgress = false))
+    updateInProgress = false, archiveCompIDs = Set.empty))
 }
 
 /**
