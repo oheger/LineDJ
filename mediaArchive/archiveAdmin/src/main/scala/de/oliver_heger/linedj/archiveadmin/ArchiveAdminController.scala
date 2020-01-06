@@ -25,11 +25,14 @@ import de.oliver_heger.linedj.platform.ui.DurationTransformer
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
-import net.sf.jguiraffe.gui.builder.components.model.StaticTextData
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextData}
 import net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataImpl
 import net.sf.jguiraffe.transform.Transformer
+import org.apache.commons.logging.LogFactory
 
+import scala.annotation.tailrec
 import scala.beans.BeanProperty
+import scala.util.{Failure, Success}
 
 object ArchiveAdminController {
   /** Factor for converting bytes to mega bytes. */
@@ -49,6 +52,25 @@ object ArchiveAdminController {
 
   /** A set containing all managed actions. */
   private val ManagedActions = Set(ActionStartScan, ActionCancelScan, ActionMetaDataFiles)
+
+  /**
+    * An initial state of the union archive that is set before the first state
+    * update event is received.
+    */
+  private val InitialUnionArchiveState = MetaDataState(mediaCount = 0, songCount = 0, size = 0,
+    duration = 0, scanInProgress = false, updateInProgress = false, archiveCompIDs = Set.empty)
+
+  /**
+    * A string to be displayed in the UI to indicate that data is currently
+    * loaded.
+    */
+  private[archiveadmin] val LoadingIndicator = "?"
+
+  /**
+    * A string to be displayed in the UI to indicate that an error occurred
+    * while loading archive statistics.
+    */
+  private[archiveadmin] val ErrorIndicator = "!"
 
   /**
     * Creates a ''StaticTextData'' object with the specified properties.
@@ -89,21 +111,30 @@ object ArchiveAdminController {
   * UI, but it populates the properties of a form bean and then delegates to
   * the current form to initialize its fields.
   *
+  * @param application          the main application class
   * @param componentBuilderData the current builder data object
   * @param stringTransformer    a transformer for producing strings
+  * @param comboArchives        the handler for the combo with the archives
+  * @param unionArchiveName     the name to display for the union archive
   */
-class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
-                             stringTransformer: Transformer)
+class ArchiveAdminController(application: ArchiveAdminApp,
+                             componentBuilderData: ComponentBuilderData,
+                             stringTransformer: Transformer,
+                             comboArchives: ListComponentHandler,
+                             unionArchiveName: String)
   extends ConsumerRegistrationProvider {
 
   import ArchiveAdminController._
+
+  /** The logger. */
+  private val log = LogFactory.getLog(getClass)
 
   /** The form bean. */
   private val formBean = createFormBean()
 
   /** The action store. */
   private lazy val actionStore =
-  componentBuilderData.getBeanContext.getBean(BeanActionStore).asInstanceOf[ActionStore]
+    componentBuilderData.getBeanContext.getBean(BeanActionStore).asInstanceOf[ActionStore]
 
   /** Text to be displayed if the archive is not available. */
   @BeanProperty var stateUnavailableText: String = _
@@ -123,6 +154,19 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
   /** Icon to be displayed if no media scan is in progress. */
   @BeanProperty var stateNoScanInProgressIcon: AnyRef = _
 
+  /** Stores the latest state update event. */
+  private var unionArchiveState = InitialUnionArchiveState
+
+  /** A cache for statistics retrieved for the archive components. */
+  private var archiveStatistics = Map.empty[String, ArchiveComponentStatistics]
+
+  /**
+    * Stores the name of the archive component representing the union ID. This
+    * is the passed in union archive name per default; if there is only a
+    * single archive component, the name of this component is used.
+    */
+  private var unionArchiveComponentID = unionArchiveName
+
   /**
     * The consumer registrations for this controller.
     */
@@ -133,28 +177,40 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
   )
 
   /**
+    * Notification method that reports a change in the selection of the
+    * archives combo box. In reaction of this change the meta data for the
+    * newly selected archive has to be displayed. If it has not yet been
+    * retrieved, it has to be fetched from the meta data union actor.
+    */
+  def archiveSelectionChanged(): Unit = {
+    val archiveID = comboArchives.getData.asInstanceOf[String]
+    if (unionArchiveComponentID == archiveID) {
+      formatStats(unionArchiveState.mediaCount, unionArchiveState.songCount,
+        unionArchiveState.size, unionArchiveState.duration)
+      updateForm()
+    } else {
+      archiveStatistics.get(archiveID).fold(loadStatistics(archiveID))(updateStatistics)
+    }
+  }
+
+  /**
     * The consumer function for processing meta data state events.
     *
     * @param event the state event
     */
   private def consumeStateEvent(event: MetaDataStateEvent): Unit = {
-    def formatText(value: Any, data: StaticTextData): Unit = {
-      data setText stringTransformer.transform(value,
-        componentBuilderData.getTransformerContext).asInstanceOf[String]
-    }
-
     event match {
       case MetaDataStateUpdated(state) =>
-        formatText(state.mediaCount, formBean.mediaCount)
-        formatText(state.songCount, formBean.songCount)
-        formatText(state.size / MegaBytes, formBean.fileSize)
-        formatText(DurationTransformer.formatDuration(state.duration),
-          formBean.playbackDuration)
+        formatStats(state.mediaCount, state.songCount, state.size, state.duration)
         val data = archiveStatusForUpdateEvent(state)
         updateArchiveStatus(data)
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
           updateInProgress = state.updateInProgress))
+        unionArchiveState = state
+        if (!state.updateInProgress) {
+          initializeArchivesCombo(state.archiveCompIDs)
+        }
 
       case MetaDataUpdateInProgress =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = true))
@@ -166,9 +222,38 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
           updateInProgress = false))
+        initializeArchivesCombo(unionArchiveState.archiveCompIDs)
+        comboArchives.setEnabled(true)
+
+      case MetaDataScanStarted =>
+        comboArchives.setEnabled(false)
+        if (comboArchives.getListModel.size() > 0) {
+          selectUnionArchive()
+        }
 
       case _ =>
     }
+  }
+
+  /**
+    * Populates the fields of the form bean related to statistics information
+    * with the given values.
+    *
+    * @param mediaCount the number of media
+    * @param songCount  the number of songs
+    * @param size       the file size
+    * @param duration   the playback duration
+    */
+  private def formatStats(mediaCount: Int, songCount: Int, size: Long, duration: Long): Unit = {
+    def formatText(value: Any, data: StaticTextData): Unit = {
+      data setText stringTransformer.transform(value,
+        componentBuilderData.getTransformerContext).asInstanceOf[String]
+    }
+
+    formatText(mediaCount, formBean.mediaCount)
+    formatText(songCount, formBean.songCount)
+    formatText(size / MegaBytes, formBean.fileSize)
+    formatText(DurationTransformer.formatDuration(duration), formBean.playbackDuration)
   }
 
   /**
@@ -196,9 +281,9 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
     * @return the status to be displayed for the archive
     */
   private def archiveStatusForScanFlag(scanInProgress: Boolean): StaticTextData =
-  if (scanInProgress)
-    staticTextData(stateScanInProgressText, stateScanInProgressIcon)
-  else staticTextData(stateNoScanInProgressText, stateNoScanInProgressIcon)
+    if (scanInProgress)
+      staticTextData(stateScanInProgressText, stateScanInProgressIcon)
+    else staticTextData(stateNoScanInProgressText, stateNoScanInProgressIcon)
 
   /**
     * Generates the archive status data based on the given state from an
@@ -208,7 +293,7 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
     * @return the status to be displayed for the archive
     */
   private def archiveStatusForUpdateEvent(state: MetaDataState): StaticTextData =
-  archiveStatusForScanFlag(state.updateInProgress)
+    archiveStatusForScanFlag(state.updateInProgress)
 
   /**
     * Updates the status property of the form bean.
@@ -217,6 +302,67 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
     */
   private def updateArchiveStatus(data: StaticTextData): Unit = {
     formBean setArchiveStatus data
+  }
+
+  /**
+    * Updates the statistics fields of the UI based on the given data.
+    *
+    * @param stats the statistics
+    */
+  private def updateStatistics(stats: ArchiveComponentStatistics): Unit = {
+    formatStats(stats.mediaCount, stats.songCount, stats.size, stats.duration)
+    updateForm()
+  }
+
+  /**
+    * Requests statistics for the given archive component from the union
+    * archive and updates the UI when the information becomes available.
+    *
+    * @param archiveID the ID of the archive
+    */
+  private def loadStatistics(archiveID: String): Unit = {
+    if (archiveID != null) {
+      log.info(s"Retrieving statistics for archive '$archiveID'.")
+      updateStatisticsWithIndicator(LoadingIndicator)
+
+      application.invokeActor(application.mediaFacadeActors.metaDataManager,
+        GetArchiveComponentStatistics(archiveID)).executeUIThread[ArchiveComponentStatistics, Unit] {
+        case Success(stats) =>
+          archiveStatistics += (stats.archiveComponentID -> stats)
+          if (isArchiveSelected(archiveID)) {
+            updateStatistics(stats)
+          }
+        case Failure(exception) =>
+          log.error(s"Error when loading statistics for $archiveID", exception)
+          if (isArchiveSelected(archiveID)) {
+            updateStatisticsWithIndicator(ErrorIndicator)
+          }
+      }
+    }
+  }
+
+  /**
+    * Checks if the archive component specified is currently selected.
+    *
+    * @param archiveID the archive ID
+    * @return '''true''' if this component is currently selected; '''false'''
+    *         otherwise
+    */
+  private def isArchiveSelected(archiveID: String): Boolean =
+    archiveID == comboArchives.getData
+
+  /**
+    * Updates the statistics fields in the UI to display the given indicator
+    * string.
+    *
+    * @param indicator the indicator string to be displayed
+    */
+  private def updateStatisticsWithIndicator(indicator: String): Unit = {
+    formBean.mediaCount setText indicator
+    formBean.songCount setText indicator
+    formBean.fileSize setText indicator
+    formBean.playbackDuration setText indicator
+    updateForm()
   }
 
   /**
@@ -239,6 +385,51 @@ class ArchiveAdminController(componentBuilderData: ComponentBuilderData,
       val action = actionStore getAction a
       action.setEnabled(enabledActions contains a)
     }
+  }
+
+  /**
+    * Selects the union archive in the combo box with archives. This is the
+    * first entry in the combo box.
+    */
+  private def selectUnionArchive(): Unit = {
+    val unionArchive = comboArchives.getListModel.getValueObject(0)
+    comboArchives.setData(unionArchive)
+  }
+
+  /**
+    * Removes all entries from the combo box for archives.
+    */
+  private def clearArchivesCombo(): Unit = {
+    @tailrec def removeItem(idx: Int): Unit = {
+      if (idx >= 0) {
+        comboArchives.removeItem(idx)
+        removeItem(idx - 1)
+      }
+    }
+
+    removeItem(comboArchives.getListModel.size() - 1)
+  }
+
+  /**
+    * Populates the combo box for the known archives with the given set of
+    * archive names. If the number of archives is different than 1, an entry is
+    * added for the union archive.
+    *
+    * @param archiveNames the set with the archive names
+    */
+  private def initializeArchivesCombo(archiveNames: Set[String]): Unit = {
+    clearArchivesCombo()
+    val sortedArchiveNames = archiveNames.toList.sorted
+    val modelArchiveNames = if (sortedArchiveNames.size == 1) sortedArchiveNames
+    else unionArchiveName :: sortedArchiveNames
+    modelArchiveNames.zipWithIndex.foreach { e =>
+      comboArchives.addItem(e._2, e._1, e._1)
+    }
+
+    archiveStatistics = Map.empty
+    unionArchiveComponentID = if (sortedArchiveNames.size == 1) sortedArchiveNames.head
+    else unionArchiveName
+    comboArchives.setData(unionArchiveComponentID)
   }
 
   /**

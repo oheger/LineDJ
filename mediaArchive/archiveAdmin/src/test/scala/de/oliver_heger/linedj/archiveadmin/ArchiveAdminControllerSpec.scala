@@ -16,29 +16,47 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import java.io.IOException
+
+import akka.actor.ActorSystem
+import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
+import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
-import net.sf.jguiraffe.gui.builder.components.model.StaticTextData
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextData}
 import net.sf.jguiraffe.gui.forms.Form
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 object ArchiveAdminControllerSpec {
-  /** A test state object with data from the media archive. */
-  private val CurrentState = MetaDataStateUpdated(MetaDataState(mediaCount = 28,
+  /** A list with test archive names. */
+  private val ArchiveNames = List("Arc1", "Arc2", "Arc3")
+
+  /** A test archive state. */
+  private val ArchiveState = MetaDataState(mediaCount = 28,
     songCount = 1088, size = 20161020213108L, duration = ((3 * 60 * 60 + 25 * 60) + 14) * 1000L,
-    scanInProgress = false, updateInProgress = false))
+    scanInProgress = false, updateInProgress = false, archiveCompIDs = ArchiveNames.toSet)
+
+  /** A test state object with data from the media archive. */
+  private val CurrentState = MetaDataStateUpdated(ArchiveState)
+
+  /** The name to be displayed for the union archive */
+  private val UnionArchiveName = "The union"
 
   /** Text constant for an archive not available. */
   private val TextArchiveUnavailable = "No archive"
@@ -74,14 +92,21 @@ object ArchiveAdminControllerSpec {
     * @return the update event
     */
   private def stateWithInProgressFlag(inProgress: Boolean): MetaDataStateUpdated =
-  if (CurrentState.state.scanInProgress == inProgress) CurrentState
-  else MetaDataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
+    if (CurrentState.state.scanInProgress == inProgress) CurrentState
+    else MetaDataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
 }
 
 /**
   * Test class for ''ArchiveAdminController''.
   */
-class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  def this() = this(ActorSystem("ArchiveAdminControllerSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+    super.afterAll()
+  }
 
   import ArchiveAdminControllerSpec._
   import ConsumerRegistrationProviderTestHelper._
@@ -114,7 +139,7 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.sendMetaDataStateEvent(MetaDataScanCanceled)
-        .sendMetaDataStateEvent(MetaDataScanCompleted)
+      .sendMetaDataStateEvent(MetaDataScanCompleted)
     verifyZeroInteractions(helper.form)
   }
 
@@ -227,21 +252,225 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       .verifyAction("metaDataFilesAction", enabled = true)
   }
 
+  it should "disable the archives combo box when a new scan starts" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataScanStarted)
+    verify(helper.comboArchives).setEnabled(false)
+    verify(helper.comboArchives, never()).setData(any())
+  }
+
+  it should "select the union archive when a new scan starts" in {
+    val FirstArchive = "ArchiveToSelect"
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.initArchivesComboModel(FirstArchive, "Arc1", "Arc2")
+      .sendMetaDataStateEvent(MetaDataScanStarted)
+    verify(helper.comboArchives).setData(FirstArchive)
+  }
+
+  it should "initialize the archives combo box at the end of an update operation" in {
+    val state = ArchiveState.copy(updateInProgress = true)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.initArchivesComboModel("foo", "bar", "baz")
+      .sendMetaDataStateEvent(MetaDataStateUpdated(state))
+      .sendMetaDataStateEvent(MetaDataUpdateCompleted)
+      .verifyArchivesComboCleared()
+      .verifyArchivesComboInitialized(UnionArchiveName :: ArchiveNames: _*)
+      .verifyArchiveSelected(UnionArchiveName)
+    verify(helper.comboArchives).setEnabled(true)
+  }
+
+  it should "initialize the archive combo box when receiving an update event outside an update operation" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.initArchivesComboModel("foo", "bar", "baz")
+      .sendMetaDataStateEvent(CurrentState)
+      .verifyArchivesComboCleared()
+      .verifyArchivesComboInitialized(UnionArchiveName :: ArchiveNames: _*)
+  }
+
+  it should "handle an update event that does not contain archive components" in {
+    val state = ArchiveState.copy(archiveCompIDs = Set.empty)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+      .verifyArchivesComboInitialized(UnionArchiveName)
+  }
+
+  it should "not add the union archive entry to the combo if there is only a single archive component" in {
+    val ArchiveName = "The one and only archive"
+    val state = ArchiveState.copy(archiveCompIDs = Set(ArchiveName))
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+      .verifyArchivesComboInitialized(ArchiveName)
+      .verifyArchiveSelected(ArchiveName)
+  }
+
+  it should "display an indicator while requesting statistics for an archive" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .verifyFormUpdate()
+    data.mediaCount.getText should be(ArchiveAdminController.LoadingIndicator)
+    data.songCount.getText should be(ArchiveAdminController.LoadingIndicator)
+    data.fileSize.getText should be(ArchiveAdminController.LoadingIndicator)
+    data.playbackDuration.getText should be(ArchiveAdminController.LoadingIndicator)
+  }
+
+  it should "fetch and display statistics of an archive" in {
+    val stats = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 12, songCount = 512,
+      size = 20200106175620L, duration = CurrentState.state.duration + 3000L)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .resetFormMock()
+      .provideStatistics(Success(stats))
+      .verifyFormUpdate()
+    checkTransformedText(data.mediaCount, stats.mediaCount)
+    checkTransformedText(data.songCount, stats.songCount)
+    checkTransformedText(data.fileSize, stats.size / 1024.0 / 1024.0)
+    checkTransformedText(data.playbackDuration, "3:25:17")
+  }
+
+  it should "handle a null selection of the archives combo box" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.selectArchiveComponent(null)
+    verifyZeroInteractions(helper.application)
+  }
+
+  it should "cache the statistics of an archive" in {
+    val stats = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 12, songCount = 512,
+      size = 20200106192747L, duration = CurrentState.state.duration + 5000L)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .resetFormMock()
+      .initCurrentArchiveComponent("otherArchive")
+      .provideStatistics(Success(stats))
+      .resetFormMock()
+      .selectArchiveComponent(ArchiveNames.head)
+      .verifyFormUpdate()
+    checkTransformedText(data.mediaCount, stats.mediaCount)
+    checkTransformedText(data.songCount, stats.songCount)
+    checkTransformedText(data.fileSize, stats.size / 1024.0 / 1024.0)
+    checkTransformedText(data.playbackDuration, "3:25:19")
+  }
+
+  it should "handle an error when requesting archive statistics" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .resetFormMock()
+      .provideStatistics(Failure(new IOException("Failed")))
+      .verifyFormUpdate()
+    data.mediaCount.getText should be(ArchiveAdminController.ErrorIndicator)
+    data.songCount.getText should be(ArchiveAdminController.ErrorIndicator)
+    data.fileSize.getText should be(ArchiveAdminController.ErrorIndicator)
+    data.playbackDuration.getText should be(ArchiveAdminController.ErrorIndicator)
+  }
+
+  it should "only update retrieved archive statistics if the selection is still correct" in {
+    val stats = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 21, songCount = 272,
+      size = 20200106204143L, duration = CurrentState.state.duration + 7000L)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .initCurrentArchiveComponent("anotherArchive")
+      .provideStatistics(Success(stats))
+      .verifyFormUpdate()
+    data.mediaCount.getText should be(ArchiveAdminController.LoadingIndicator)
+  }
+
+  it should "only update the UI for failed statistics if the selection is still correct" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .initCurrentArchiveComponent("anotherArchive")
+      .provideStatistics(Failure(new IOException("Another failure")))
+      .verifyFormUpdate()
+    data.mediaCount.getText should be(ArchiveAdminController.LoadingIndicator)
+  }
+
+  it should "handle the selection of the union archive correctly" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.sendMetaDataStateEvent(CurrentState)
+      .resetFormMock()
+      .prepareArchiveStatsRequestAndSelect(UnionArchiveName)
+      .verifyFormUpdate()
+    checkTransformedText(data.mediaCount, CurrentState.state.mediaCount)
+    checkTransformedText(data.songCount, CurrentState.state.songCount)
+    checkTransformedText(data.fileSize, CurrentState.state.size / 1024.0 / 1024.0)
+    checkTransformedText(data.playbackDuration, "3:25:14")
+  }
+
+  it should "handle the selection of the union archive if there is only a single archive" in {
+    val ArchiveName = "SingleArchive"
+    val state = CurrentState.state.copy(archiveCompIDs = Set(ArchiveName))
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+      .resetFormMock()
+      .prepareArchiveStatsRequestAndSelect(ArchiveName)
+      .verifyFormUpdate()
+    checkTransformedText(data.mediaCount, CurrentState.state.mediaCount)
+  }
+
+  it should "reset the meta data cache when the archive combo box model is updated" in {
+    val stats1 = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 4, songCount = 123,
+      size = 20200107192500L, duration = CurrentState.state.duration + 8000L)
+    val stats2 = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 5, songCount = 234,
+      size = 20200107192708L, duration = CurrentState.state.duration + 9000L)
+    val helper = new ArchiveAdminControllerTestHelper
+
+    val data = helper.sendMetaDataStateEvent(CurrentState)
+      .prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .provideStatistics(Success(stats1))
+      .sendMetaDataStateEvent(CurrentState)
+      .prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .resetFormMock()
+      .provideStatistics(Success(stats2))
+      .verifyFormUpdate()
+    checkTransformedText(data.mediaCount, stats2.mediaCount)
+    checkTransformedText(data.songCount, stats2.songCount)
+    checkTransformedText(data.fileSize, stats2.size / 1024.0 / 1024.0)
+    checkTransformedText(data.playbackDuration, "3:25:23")
+  }
+
   /**
     * A test helper managing a test instance and all of its dependencies.
     */
   private class ArchiveAdminControllerTestHelper {
     /** A mock for the form. */
-    val form = mock[Form]
+    val form: Form = mock[Form]
+
+    /** A test probe for the union meta data manager actor. */
+    private val probeMetaDataActor = TestProbe()
+
+    /** A mock for the main application. */
+    val application: ArchiveAdminApp = createApplication()
 
     /** A mock for the transformer context. */
-    val transformerContext = mock[TransformerContext]
+    val transformerContext: TransformerContext = mock[TransformerContext]
+
+    /** The mock for the list model of the archives combo box. */
+    private val archivesListModel = mock[ListModel]
+
+    /** A mock for the combo box. */
+    val comboArchives: ListComponentHandler = createComboHandler()
 
     /** A map with mocks for the actions managed by the controller. */
-    val actions = createActions()
+    val actions: Map[String, FormAction] = createActions()
 
     /** The controller to be tested. */
-    val controller = createController()
+    val controller: ArchiveAdminController = createController()
+
+    /** Stores a mock actor request sent by the controller. */
+    private var actorRequest: ActorClientSupport.ActorRequest = _
 
     /**
       * Sends the specified availability event to the test controller.
@@ -265,6 +494,32 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     def sendMetaDataStateEvent(event: MetaDataStateEvent): ArchiveAdminControllerTestHelper = {
       findRegistration[StateListenerExtension.StateListenerRegistration](controller)
         .callback(event)
+      this
+    }
+
+    /**
+      * Prepares the list model for the archives combo box to return the given
+      * archive names.
+      *
+      * @param archives the archives in the combo box
+      * @return this test helper
+      */
+    def initArchivesComboModel(archives: String*): ArchiveAdminControllerTestHelper = {
+      when(archivesListModel.size()).thenReturn(archives.length)
+      archives.zipWithIndex.foreach { t =>
+        doReturn(t._1).when(archivesListModel).getValueObject(t._2)
+      }
+      this
+    }
+
+    /**
+      * Resets the mock for the form. This can be necessary if there are
+      * multiple updates of UI elements.
+      *
+      * @return this test helper
+      */
+    def resetFormMock(): ArchiveAdminControllerTestHelper = {
+      reset(form)
       this
     }
 
@@ -308,17 +563,146 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
     }
 
     /**
+      * Verifies that all items have been removed from the list model of the
+      * archives combo box.
+      *
+      * @return this test helper
+      */
+    def verifyArchivesComboCleared(): ArchiveAdminControllerTestHelper = {
+      (0 until archivesListModel.size()) foreach { idx =>
+        verify(comboArchives).removeItem(idx)
+      }
+      this
+    }
+
+    /**
+      * Verifies that the given archive names were added to the combo box with
+      * archives.
+      *
+      * @param archives the (ordered) archive names
+      * @return this test helper
+      */
+    def verifyArchivesComboInitialized(archives: String*): ArchiveAdminControllerTestHelper = {
+      archives.zipWithIndex.foreach { t =>
+        verify(comboArchives).addItem(t._2, t._1, t._1)
+      }
+      this
+    }
+
+    /**
+      * Verifies that the archive with the given ID has been selected in the
+      * combo box.
+      *
+      * @param archiveID the archive ID
+      * @return this test helper
+      */
+    def verifyArchiveSelected(archiveID: String): ArchiveAdminControllerTestHelper = {
+      verify(comboArchives).setData(archiveID)
+      this
+    }
+
+    /**
+      * Prepares the mock for the application for a request for the statistics
+      * of a specific archive. The mock returns a special request object mock
+      * that can be used to obtain the executed callback later.
+      *
+      * @param archiveID the ID of the archive that is requested
+      * @return this test helper
+      */
+    def prepareArchiveStatsRequest(archiveID: String): ArchiveAdminControllerTestHelper = {
+      actorRequest = mock[ActorRequest]
+      when(application.invokeActor(probeMetaDataActor.ref, GetArchiveComponentStatistics(archiveID)))
+        .thenReturn(actorRequest)
+      this
+    }
+
+    /**
+      * Prepares the mock for the combo box handler to return the given current
+      * archive component.
+      *
+      * @param archiveID the archive ID
+      * @return this test helper
+      */
+    def initCurrentArchiveComponent(archiveID: String): ArchiveAdminControllerTestHelper = {
+      doReturn(archiveID).when(comboArchives).getData
+      this
+    }
+
+    /**
+      * Simulates the selection of the given archive ID in the combo box.
+      *
+      * @param archiveID the archive ID
+      * @return this test helper
+      */
+    def selectArchiveComponent(archiveID: String): ArchiveAdminControllerTestHelper = {
+      initCurrentArchiveComponent(archiveID)
+      controller.archiveSelectionChanged()
+      this
+    }
+
+    /**
+      * Prepares the mock for the application for a request for the statistics
+      * of a specific archive and simulates a selection change for this
+      * archive.
+      *
+      * @param archiveID the archive ID
+      * @return this test helper
+      */
+    def prepareArchiveStatsRequestAndSelect(archiveID: String): ArchiveAdminControllerTestHelper = {
+      prepareArchiveStatsRequest(archiveID)
+      selectArchiveComponent(archiveID)
+    }
+
+    /**
+      * Verifies that a request for archive statistics is correctly processed
+      * and passes the given result to the controller.
+      *
+      * @param result the result
+      * @return this test helper
+      */
+    def provideStatistics(result: Try[ArchiveComponentStatistics]): ArchiveAdminControllerTestHelper = {
+      val callback = verifyArchiveStatsRequestHandled()
+      callback(result)
+      this
+    }
+
+    /**
+      * Verifies that the response of a request for an archive's statistics is
+      * handled on the UI thread and returns the callback function for
+      * processing the result.
+      *
+      * @return the callback function for result processing
+      */
+    private def verifyArchiveStatsRequestHandled(): Try[ArchiveComponentStatistics] => Unit = {
+      val captor = ArgumentCaptor.forClass(classOf[Try[ArchiveComponentStatistics] => Unit])
+      verify(actorRequest).executeUIThread(captor.capture())(any(classOf[ClassTag[ArchiveComponentStatistics]]))
+      val res = captor.getValue
+      res
+    }
+
+    /**
+      * Creates a mock for the main application and prepares it to return media
+      * facade actors.
+      *
+      * @return the initialized mock
+      */
+    private def createApplication(): ArchiveAdminApp = {
+      val facadeActors = MediaFacadeActors(metaDataManager = probeMetaDataActor.ref, mediaManager = null)
+      val app = mock[ArchiveAdminApp]
+      when(app.mediaFacadeActors).thenReturn(facadeActors)
+      app
+    }
+
+    /**
       * Creates a dummy transformer. The transformer converts the passed in
       * object to a string and appends the suffix ''_transformed''.
       *
       * @return the dummy transformer
       */
     private def createTransformer(): Transformer = {
-      new Transformer {
-        override def transform(o: scala.Any, ctx: TransformerContext): AnyRef = {
-          ctx should be(transformerContext)
-          transformedString(o)
-        }
+      (o: scala.Any, ctx: TransformerContext) => {
+        ctx should be(transformerContext)
+        transformedString(o)
       }
     }
 
@@ -328,8 +712,8 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       * @return the map with mock actions
       */
     private def createActions(): Map[String, FormAction] =
-    List("startScanAction", "cancelScanAction", "metaDataFilesAction")
-      .map((_, mock[FormAction])).toMap
+      List("startScanAction", "cancelScanAction", "metaDataFilesAction")
+        .map((_, mock[FormAction])).toMap
 
     /**
       * Creates a mock action store object that supports the specified actions.
@@ -339,11 +723,21 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       */
     private def createActionStore(actions: Map[String, FormAction]): ActionStore = {
       val store = mock[ActionStore]
-      when(store.getAction(anyString())).thenAnswer(new Answer[FormAction] {
-        override def answer(invocation: InvocationOnMock): FormAction =
-          actions(invocation.getArguments.head.asInstanceOf[String])
-      })
+      when(store.getAction(anyString())).thenAnswer((invocation: InvocationOnMock) =>
+        actions(invocation.getArguments.head.asInstanceOf[String]))
       store
+    }
+
+    /**
+      * Creates the mock for the combo box handler for the archives and
+      * prepares it to return a mock list model.
+      *
+      * @return the mock combo box handler
+      */
+    private def createComboHandler(): ListComponentHandler = {
+      val handler = mock[ListComponentHandler]
+      when(handler.getListModel).thenReturn(archivesListModel)
+      handler
     }
 
     /**
@@ -352,7 +746,8 @@ class ArchiveAdminControllerSpec extends FlatSpec with Matchers with MockitoSuga
       * @return the test controller
       */
     private def createController(): ArchiveAdminController = {
-      val ctrl = new ArchiveAdminController(createBuilderData(), createTransformer())
+      val ctrl = new ArchiveAdminController(application, createBuilderData(), createTransformer(), comboArchives,
+        UnionArchiveName)
       ctrl setStateUnavailableText TextArchiveUnavailable
       ctrl setStateUnavailableIcon IconArchiveUnavailable
       ctrl setStateScanInProgressText TextScanInProgress
