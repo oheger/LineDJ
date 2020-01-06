@@ -16,7 +16,9 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import de.oliver_heger.linedj.platform.ui.EmptyListModel
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextData
+import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
 import scala.beans.BeanProperty
 
@@ -47,4 +49,27 @@ class ArchiveAdminUIData {
 
   /** Represents the archive status, such as scan in progress, available, etc. */
   @BeanProperty var archiveStatus: StaticTextData = _
+}
+
+/**
+  * A class representing the initial empty list model of the combo box for
+  * archive components.
+  */
+class EmptyArchiveComponentsListModel extends EmptyListModel {
+  override def getType: Class[_] = classOf[String]
+}
+
+/**
+  * A listener class that reacts on changes of the selection of the archive
+  * components combo box.
+  *
+  * When a change in the selection is detected the controller is invoked to
+  * handle the event.
+  *
+  * @param controller the archive admin controller
+  */
+class ArchiveComponentsListChangeHandler(controller: ArchiveAdminController) extends FormChangeListener {
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
+    controller.archiveSelectionChanged()
+  }
 }
