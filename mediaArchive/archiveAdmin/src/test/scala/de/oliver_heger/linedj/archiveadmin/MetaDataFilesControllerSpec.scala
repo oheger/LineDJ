@@ -131,7 +131,7 @@ object MetaDataFilesControllerSpec {
     */
   private def updateEvent(scanInProgress: Boolean): MetaDataStateUpdated =
   MetaDataStateUpdated(MetaDataState(scanInProgress = scanInProgress,
-    mediaCount = 0, songCount = 0, size = 0, duration = 0, updateInProgress = false))
+    mediaCount = 0, songCount = 0, size = 0, duration = 0, updateInProgress = false, archiveCompIDs = Set.empty))
 
   /**
     * Generates a sequence with model data which should be contained in the

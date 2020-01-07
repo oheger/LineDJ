@@ -100,6 +100,10 @@
     </di:shutdown>
   </di:bean>
 
+  <!-- The model for the media combo box. -->
+  <di:bean name="archiveComboModel"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.EmptyArchiveComponentsListModel"/>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
@@ -125,30 +129,33 @@
       <f:panel>
         <f:borderconstr name="CENTER"/>
         <f:percentlayout columns="4dlu end/preferred 3dlu end/preferred(2cm)/100 4dlu"
-                         rows="4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+                         rows="4dlu preferred 4dlu preferred 3dlu preferred 3dlu preferred 3dlu preferred 4dlu"/>
+        <f:combo name="comboArchives" modelRef="archiveComboModel" noField="true">
+          <f:percentconstr col="1" row="1" spanx="2"/>
+        </f:combo>
         <f:label textres="lab_media_count">
-          <f:percentconstr col="1" row="1"/>
-        </f:label>
-        <f:statictext name="mediaCount" noField="false">
-          <f:percentconstr col="3" row="1"/>
-        </f:statictext>
-        <f:label textres="lab_song_count">
           <f:percentconstr col="1" row="3"/>
         </f:label>
-        <f:statictext name="songCount" noField="false">
+        <f:statictext name="mediaCount" noField="false">
           <f:percentconstr col="3" row="3"/>
         </f:statictext>
-        <f:label textres="lab_file_size">
+        <f:label textres="lab_song_count">
           <f:percentconstr col="1" row="5"/>
         </f:label>
-        <f:statictext name="fileSize" noField="false">
+        <f:statictext name="songCount" noField="false">
           <f:percentconstr col="3" row="5"/>
         </f:statictext>
-        <f:label textres="lab_duration">
+        <f:label textres="lab_file_size">
           <f:percentconstr col="1" row="7"/>
         </f:label>
-        <f:statictext name="playbackDuration" noField="false">
+        <f:statictext name="fileSize" noField="false">
           <f:percentconstr col="3" row="7"/>
+        </f:statictext>
+        <f:label textres="lab_duration">
+          <f:percentconstr col="1" row="9"/>
+        </f:label>
+        <f:statictext name="playbackDuration" noField="false">
+          <f:percentconstr col="3" row="9"/>
         </f:statictext>
       </f:panel>
     </f:panel>
@@ -157,8 +164,13 @@
     <di:bean name="adminController"
       beanClassName="de.oliver_heger.linedj.archiveadmin.ArchiveAdminController">
       <di:constructor>
+        <di:param refName="jguiraffe.application"/>
         <di:param refName="COMPONENT_BUILDER_DATA"/>
         <di:param refName="stringTransformer"/>
+        <di:param refName="comp:comboArchives"/>
+        <di:param>
+          <f:localized resid="lab_union_archive"/>
+        </di:param>
       </di:constructor>
 
       <di:setProperty property="stateUnavailableText">
@@ -175,6 +187,17 @@
       <di:setProperty property="stateNoScanInProgressIcon" refName="iconAvailable"/>
     </di:bean>
   </w:frame>
+
+  <!-- Selection change listener for the archives combo box -->
+  <di:bean name="archivesSelectionChangeListener"
+           beanClassName="de.oliver_heger.linedj.archiveadmin.ArchiveComponentsListChangeHandler">
+    <di:constructor>
+      <di:param refName="adminController"/>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="comboArchives" eventType="CHANGE"
+                   beanName="archivesSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 
