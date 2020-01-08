@@ -16,10 +16,7 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
@@ -27,6 +24,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{Ava
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetaDataFileInfo
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -39,7 +37,7 @@ import org.slf4j.LoggerFactory
 
 import scala.beans.BeanProperty
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object MetaDataFilesController {
   /**
@@ -68,9 +66,6 @@ object MetaDataFilesController {
   /** Status line message indicating that a file info request has been sent. */
   private val MsgLoading = new Message("files_state_loading")
 
-  /** Status line message indicating a failure of retrieving the actor. */
-  private val MsgErrorActorRetrieve = new Message("files_state_error_actor_retrieve")
-
   /** Status line message indicating a failed actor invocation. */
   private val MsgErrorActorAccess = new Message("files_state_error_actor_access")
 
@@ -98,19 +93,9 @@ object MetaDataFilesController {
   /** The state for an active remove operation. */
   private val StateRemoving = ControllerState(MsgRemoving)
 
-  /** The state for a failed actor retrieve operation. */
-  private val StateErrorActorRetrieve = ControllerState(MsgErrorActorRetrieve,
-    showProgress = false)
-
   /** The state for a failed invocation of the meta data manager actor. */
   private val StateErrorActorAccess = ControllerState(MsgErrorActorAccess,
     showProgress = false)
-
-  /** Constant for the path to the meta data manager actor. */
-  private val PathMetaDataManagerActor = "/user/localMetaDataManager"
-
-  /** The default timeout value for actor invocations (in seconds). */
-  private val DefaultActorTimeout = 10
 
   /**
     * A data class storing the properties of a meta data file. The table
@@ -162,11 +147,13 @@ object MetaDataFilesController {
   * @param filesTableHandler  the handler for the table control
   * @param statusLine         a text handler for the status line
   * @param progressIndicator  a widget indicating processing
+  * @param archiveID          the ID of the current archive component
   */
 class MetaDataFilesController(application: ArchiveAdminApp,
                               applicationContext: ApplicationContext,
                               actionStore: ActionStore, filesTableHandler: TableHandler,
-                              statusLine: StaticTextHandler, progressIndicator: WidgetHandler)
+                              statusLine: StaticTextHandler, progressIndicator: WidgetHandler,
+                              archiveID: String)
   extends WindowListener with FormChangeListener {
 
   import MetaDataFilesController._
@@ -195,14 +182,8 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   /** Stores data about meta data files. */
   private var fileInfo: Option[MetaDataFileInfo] = None
 
-  /** The reference to the meta data manager actor. */
-  private var metaDataManagerActor: ActorRef = _
-
   /** The window this controller is associated with. */
   private var window: Window = _
-
-  /** The ID received for the message bus listener registration. */
-  private implicit var timeout: Timeout = _
 
   override def windowDeiconified(event: WindowEvent): Unit = {}
 
@@ -227,8 +208,12 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     */
   override def windowOpened(event: WindowEvent): Unit = {
     window = WindowUtils windowFromEvent event
-    timeout =fetchActorTimeout()
-    application.resolveActorUIThread(PathMetaDataManagerActor)(metaDataManagerRetrieved)
+    messageBus publish ArchiveAvailabilityRegistration(ArchiveRegistrationID,
+      consumeArchiveAvailability)
+    messageBus publish StateListenerRegistration(StateListenerRegistrationID,
+      consumeStateEvents)
+    messageBus publish AvailableMediaRegistration(MediaRegistrationID, consumeAvailableMedia)
+    refresh()
   }
 
   override def windowDeactivated(event: WindowEvent): Unit = {}
@@ -243,7 +228,8 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     */
   override def elementChanged(e: FormChangeEvent): Unit = {
     if (currentState.refreshEnabled) {
-      enableAction(ActionRemoveFiles, enabled = filesTableHandler.getSelectedIndices.nonEmpty)
+      enableAction(ActionRemoveFiles, enabled = filesTableHandler.getSelectedIndices.nonEmpty &&
+        optUpdateActor.isDefined)
     }
   }
 
@@ -252,15 +238,14 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     * This method is invoked in reaction on the remove files action.
     */
   def removeFiles(): Unit = {
-    switchToState(StateRemoving)
-    val model = filesTableHandler.getModel
-    val fileIDs = filesTableHandler.getSelectedIndices map (model.get(_)
-      .asInstanceOf[MetaDataFileData].checksum)
+    optUpdateActor foreach { actor =>
+      switchToState(StateRemoving)
+      val model = filesTableHandler.getModel
+      val fileIDs = filesTableHandler.getSelectedIndices map (model.get(_)
+        .asInstanceOf[MetaDataFileData].checksum)
 
-    application.actorRequest(metaDataManagerActor,
-      RemovePersistentMetaData(fileIDs.toSet)) executeUIThread {
-      t: Try[RemovePersistentMetaDataResult] =>
-        t match {
+      application.invokeActor(actor, RemovePersistentMetaData(fileIDs.toSet))
+        .executeUIThread[RemovePersistentMetaDataResult, Unit] {
           case Success(result) =>
             handleRemoveResult(result)
           case Failure(exception) =>
@@ -287,25 +272,12 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   }
 
   /**
-    * Callback function for the request for the meta data manager actor. This
-    * method is invoked in the UI thread when a result for the actor is
-    * available.
+    * Returns an ''Option'' with the actor for updating meta data files. Not
+    * all archives may support such updates.
     *
-    * @param actorResult the result of the actor request
+    * @return an ''Option'' with the update actor
     */
-  private def metaDataManagerRetrieved(actorResult: Try[ActorRef]): Unit =
-    actorResult match {
-      case Success(actorRef) =>
-        messageBus publish ArchiveAvailabilityRegistration(ArchiveRegistrationID,
-          consumeArchiveAvailability)
-        messageBus publish StateListenerRegistration(StateListenerRegistrationID,
-          consumeStateEvents)
-        messageBus publish AvailableMediaRegistration(MediaRegistrationID, consumeAvailableMedia)
-        metaDataManagerActor = actorRef
-
-      case Failure(_) =>
-        switchToState(StateErrorActorRetrieve)
-    }
+  private def optUpdateActor: Option[ActorRef] = fileInfo flatMap (_.optUpdateActor)
 
   /**
     * Handles a result of a remove meta data files operation. The UI is
@@ -317,7 +289,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     fileInfo foreach { info =>
       val newFiles = info.metaDataFiles filterNot (t => result.successfulRemoved.contains(t._2))
       val newUnused = info.unusedFiles diff result.successfulRemoved
-      fileInfo = Some(MetaDataFileInfo(newFiles, newUnused))
+      fileInfo = Some(MetaDataFileInfo(newFiles, newUnused, info.optUpdateActor))
       dataReceived()
 
       if (result.successfulRemoved.size < result.request.checksumSet.size) {
@@ -357,10 +329,10 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     */
   private def fetchAssignedFiles(info: MetaDataFileInfo, media: AvailableMedia):
   List[MetaDataFileData] =
-  media.media.filter(info.metaDataFiles contains _._1)
-    .toList.sortWith(_._2.name < _._2.name) map { t =>
-    MetaDataFileData(mediumName = t._2.name, checksum = t._2.checksum)
-  }
+    media.media.filter(info.metaDataFiles contains _._1)
+      .toList.sortWith(_._2.name < _._2.name) map { t =>
+      MetaDataFileData(mediumName = t._2.name, checksum = t._2.checksum)
+    }
 
   /**
     * Returns a list with ''MetaDataFileData'' objects for all files not
@@ -370,7 +342,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     * @return a list with data about unassigned files
     */
   private def fetchUnassignedFiles(info: MetaDataFileInfo): List[MetaDataFileData] =
-  info.unusedFiles.toList.sortWith(_ < _) map (MetaDataFileData(null, _))
+    info.unusedFiles.toList.sortWith(_ < _) map (MetaDataFileData(null, _))
 
   /**
     * Populates the table with meta data files with the given content.
@@ -451,35 +423,20 @@ class MetaDataFilesController(application: ArchiveAdminApp,
 
       if (state.sendFileRequest) {
         filesTableHandler.getModel.clear()
-        application.actorRequest(metaDataManagerActor,
-          GetMetaDataFileInfo) executeUIThread { t: Try[MetaDataFileInfo] =>
-          t match {
-            case Success(response) =>
-              fileInfo = Some(response)
-              dataReceived()
-            case Failure(ex) =>
-              log.error("Error when requesting meta data file info!", ex)
-              switchToState(StateErrorActorAccess)
-          }
+        application.invokeActor(application.mediaFacadeActors.mediaManager,
+          GetArchiveMetaDataFileInfo(archiveID)).executeUIThread[MetaDataFileInfo, Unit] {
+          case Success(response) =>
+            fileInfo = Some(response)
+            dataReceived()
+          case Failure(ex) =>
+            log.error("Error when requesting meta data file info!", ex)
+            switchToState(StateErrorActorAccess)
         }
       }
-      if (state.resetFileData) {
-        fileInfo = None
-      }
-      currentState = state
     }
-  }
-
-  /**
-    * Determines the timeout value for actor invocations. This is obtained
-    * from the application's configuration. If undefined, a default value is
-    * used.
-    *
-    * @return the timeout for actor invocations
-    */
-  private def fetchActorTimeout(): Timeout = {
-    val configTimeout = application.getUserConfiguration.getInt(PropActorTimeout,
-      DefaultActorTimeout)
-    Timeout(configTimeout, TimeUnit.SECONDS)
+    if (state.resetFileData) {
+      fileInfo = None
+    }
+    currentState = state
   }
 }
