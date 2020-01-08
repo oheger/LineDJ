@@ -628,7 +628,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       optPersistenceManager = Some(ForwardTestActor()))
 
     helper.actor ! GetMetaDataFileInfo
-    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
+    expectMsg(ForwardTestActor.ForwardedMessage(PersistentMetaDataManagerActor.FetchMetaDataFileInfo(helper.actor)))
   }
 
   it should "forward a RemovePersistentMetaData message to the persistence manager" in {

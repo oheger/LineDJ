@@ -174,7 +174,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       completeScanOperation()
 
     case GetMetaDataFileInfo =>
-      persistenceManager forward GetMetaDataFileInfo
+      persistenceManager forward PersistentMetaDataManagerActor.FetchMetaDataFileInfo(self)
 
     case removeMsg: RemovePersistentMetaData =>
       if (scanInProgress) {
