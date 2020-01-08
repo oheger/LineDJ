@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
+import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -41,7 +41,7 @@ object PersistentMetaDataManagerActor {
     * object is returned if meta data information is requested before a scan
     * for meta data files has been triggered.
     */
-  val EmptyMetaDataFileInfo = MetaDataFileInfo(Map.empty, Set.empty)
+  val EmptyMetaDataFileInfo: MetaDataFileInfo = MetaDataFileInfo(Map.empty, Set.empty, None)
 
   /**
     * A message expected by [[PersistentMetaDataManagerActor]] at the end of
@@ -49,6 +49,17 @@ object PersistentMetaDataManagerActor {
     * a scan.
     */
   case object ScanCompleted
+
+  /**
+    * A message processed by [[PersistentMetaDataManagerActor]] that requests
+    * an object with information about meta data files.
+    *
+    * The actor returns a [[MetaDataFileInfo]] object that references the
+    * passed in controller actor.
+    *
+    * @param controller the controller actor
+    */
+  case class FetchMetaDataFileInfo(controller: ActorRef)
 
   /**
     * A message sent by [[PersistentMetaDataManagerActor]] to itself when the
@@ -116,6 +127,7 @@ object PersistentMetaDataManagerActor {
     /**
       * Returns the number of files on the represented medium which could be
       * resolved.
+      *
       * @return the number of resolved files
       */
     def resolvedFilesCount: Int = resolvedFiles.size
@@ -255,12 +267,12 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     case PersistentMetaDataWriterActor.MetaDataWritten(process,
     success) if sender() == writerActor =>
       optMetaDataFiles = optMetaDataFiles map {
-        updateMetaDataFiles(_, checksumMapping, process)(if(success) addMetaDataFile
+        updateMetaDataFiles(_, checksumMapping, process)(if (success) addMetaDataFile
         else removeMetaDataFile)
       }
 
-    case GetMetaDataFileInfo =>
-      sender ! fetchCurrentMetaFileInfo()
+    case FetchMetaDataFileInfo(controller) =>
+      sender ! fetchCurrentMetaFileInfo(controller)
 
     case req: RemovePersistentMetaData =>
       val (target, msg) = generateRemoveRequestResponse(req, optMetaDataFiles, sender())
@@ -275,7 +287,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
     case ScanCompleted =>
       if (config.contentTableConfig.contentFile.isDefined) {
-        val info = fetchCurrentMetaFileInfo()
+        val info = fetchCurrentMetaFileInfo(sender())
         tocWriterActor ! ArchiveToCWriterActor.WriteToC(config.contentTableConfig,
           info.metaDataFiles.toList)
       }
@@ -332,13 +344,13 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   private def generateRemoveRequestResponse(req: RemovePersistentMetaData,
                                             fileData: Option[Map[String, Path]],
                                             caller: ActorRef): (ActorRef, Any) =
-  fileData match {
-    case Some(files) =>
-      (removeActor, MetaDataFileRemoveActor.RemoveMetaDataFiles(req.checksumSet,
-        files, caller))
-    case None =>
-      (caller, RemovePersistentMetaDataResult(req, Set.empty))
-  }
+    fileData match {
+      case Some(files) =>
+        (removeActor, MetaDataFileRemoveActor.RemoveMetaDataFiles(req.checksumSet,
+          files, caller))
+      case None =>
+        (caller, RemovePersistentMetaDataResult(req, Set.empty))
+    }
 
   /**
     * Creates a child actor for reading a meta data file.
@@ -396,8 +408,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   /**
     * Creates a ''ProcessMedium'' message based on the specified parameters.
     *
-    * @param u                the ''UnresolvedMetaDataFiles'' message
-    * @param resolved         the number of unresolved files
+    * @param u        the ''UnresolvedMetaDataFiles'' message
+    * @param resolved the number of unresolved files
     * @return the message
     */
   private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, resolved: Int):
@@ -423,7 +435,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @return the path for the corresponding meta data file
     */
   private def generateMetaDataPath(checksum: String): Path =
-  config.metaDataPersistencePath.resolve(checksum + MetaDataFileExtension)
+    config.metaDataPersistencePath.resolve(checksum + MetaDataFileExtension)
 
   /**
     * Starts as many reader actors for meta data files as possible. For each
@@ -531,26 +543,27 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * Returns an object with information about the meta data files managed by
     * this actor.
     *
+    * @param controller the controller actor for the file info object
     * @return information about meta data files
     */
-  private def fetchCurrentMetaFileInfo(): MetaDataFileInfo =
-    optMetaDataFiles map (createMetaDataFileInfo(_,
-      checksumMapping)) getOrElse EmptyMetaDataFileInfo
+  private def fetchCurrentMetaFileInfo(controller: ActorRef): MetaDataFileInfo =
+    optMetaDataFiles map (createMetaDataFileInfo(_, checksumMapping, controller)) getOrElse EmptyMetaDataFileInfo
 
   /**
     * Creates an object with information about meta data files.
     *
     * @param metaDataFiles the map with meta data files
     * @param checkMap      the checksum mapping
+    * @param controller    the controller actor for the file info object
     * @return the ''MetaDataFileInfo'' object
     */
-  private def createMetaDataFileInfo(metaDataFiles: Map[String, Path],
-                                     checkMap: Map[MediumID, String]):
+  private def createMetaDataFileInfo(metaDataFiles: Map[String, Path], checkMap: Map[MediumID, String],
+                                     controller: ActorRef):
   MetaDataFileInfo = {
     val assignedFiles = checkMap filter (e => metaDataFiles contains e._2)
     val usedFiles = assignedFiles.values.toSet
     val unusedFiles = metaDataFiles.keySet diff usedFiles
-    MetaDataFileInfo(assignedFiles, unusedFiles)
+    MetaDataFileInfo(assignedFiles, unusedFiles, Some(controller))
   }
 
   /**
@@ -570,10 +583,10 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
                                   checkMap: Map[MediumID, String], process: ProcessMedium)
                                  (f: (Map[String, Path], String,
                                    ProcessMedium) => Map[String, Path]): Map[String, Path] =
-  checkMap get process.mediumID match {
-    case Some(cs) => f(metaDataFiles, cs, process)
-    case None => metaDataFiles
-  }
+    checkMap get process.mediumID match {
+      case Some(cs) => f(metaDataFiles, cs, process)
+      case None => metaDataFiles
+    }
 
   /**
     * Adds a newly written meta data file to the mapping of meta data files.
@@ -585,7 +598,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private def addMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
                               process: ProcessMedium): Map[String, Path] =
-  metaDataFiles + (checksum -> generateMetaDataPath(checksum))
+    metaDataFiles + (checksum -> generateMetaDataPath(checksum))
 
   /**
     * Removes a file from the map with meta data files after a failed write
@@ -598,7 +611,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private def removeMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
                                  process: ProcessMedium): Map[String, Path] =
-  metaDataFiles - checksum
+    metaDataFiles - checksum
 
   /**
     * Checks whether a close request can be answered. If so, the Ack message

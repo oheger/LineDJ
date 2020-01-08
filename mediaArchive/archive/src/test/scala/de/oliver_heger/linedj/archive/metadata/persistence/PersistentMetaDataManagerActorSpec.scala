@@ -60,6 +60,9 @@ object PersistentMetaDataManagerActorSpec {
   /** The number of media files in a medium. */
   private val FileCount = 8
 
+  /** Index of the test medium. */
+  private val MediumIndex = 1
+
   /** Constant for the reader child actor class. */
   private val ClassReaderChildActor = PersistentMetaDataReaderActor(null, 0).actorClass()
 
@@ -158,13 +161,12 @@ object PersistentMetaDataManagerActorSpec {
   }
 
   /**
-    * Generates the processing results for the medium with the specified index.
+    * Generates the processing results for the test medium.
     *
-    * @param medIdx the index of the medium
     * @return a list with processing results for this medium
     */
-  private def processingResults(medIdx: Int): List[MetaDataProcessingSuccess] =
-    processingResults(mediumID(medIdx))
+  private def processingResults(): List[MetaDataProcessingSuccess] =
+    processingResults(mediumID(MediumIndex))
 
   /**
     * Generates processing results for the specified medium ID.
@@ -183,8 +185,8 @@ object PersistentMetaDataManagerActorSpec {
     * @return the ''ProcessMedium'' message
     */
   private def createProcessMedium(medIdx: Int): PersistentMetaDataWriterActor.ProcessMedium =
-  PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)),
-    null, Map.empty, 0)
+    PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)),
+      null, Map.empty, 0)
 
   /**
     * Expects a message of the specified type for each of the passed in test
@@ -336,7 +338,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1).createTestActor()
     actor ! enhancedScanResult(1)
-    val results = processingResults(1) take (FileCount / 2)
+    val results = processingResults() take (FileCount / 2)
 
     helper.sendProcessingResults(results)
     expectProcessingResults(results)
@@ -346,7 +348,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val helper = new PersistenceMetaDataManagerActorTestHelper
     helper.initMediaFiles(1).createTestActor()
 
-    helper.sendProcessingResults(processingResults(1))
+    helper.sendProcessingResults(processingResults())
   }
 
   it should "start processing of a new medium when a reader actor terminates" in {
@@ -375,7 +377,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! esr
     val readerActor = helper.expectChildReaderActor()
     readerActor.expectMsgType[ReadMetaDataFile]
-    val results = processingResults(1)
+    val results = processingResults()
     val partialResults = results take 3
     helper sendProcessingResults partialResults
     expectProcessingResults(partialResults)
@@ -466,12 +468,13 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val actor = helper.initMediaFiles(1, 2).createTestActor()
     actor.tell(enhancedScanResult(1, 2, 3), TestProbe().ref)
 
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.unusedFiles shouldBe 'empty
     info.metaDataFiles should have size 2
     info.metaDataFiles(mediumID(1)) should be(checksum(1))
     info.metaDataFiles(mediumID(2)) should be(checksum(2))
+    info.optUpdateActor should be(Some(testActor))
   }
 
   it should "return meta data information for orphan files" in {
@@ -479,7 +482,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
     actor ! enhancedScanResult(1)
 
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.unusedFiles should contain only(checksum(2), checksum(3), checksum(4))
   }
@@ -488,8 +491,8 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.createTestActor(startFileScan = false)
 
-    actor ! GetMetaDataFileInfo
-    expectMsg(MetaDataFileInfo(Map.empty, Set.empty))
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
+    expectMsg(MetaDataFileInfo(Map.empty, Set.empty, None))
   }
 
   it should "reset the internal checksum mapping when a new scan starts" in {
@@ -504,7 +507,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     actor ! ScanForMetaDataFiles
     actor ! enhancedScanResult(1)
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles.keySet should contain only mediumID(1)
     info.unusedFiles should contain(checksum(2))
@@ -517,7 +520,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     expectMsgType[UnresolvedMetaDataFiles]
 
     helper.sendMetaDataFileWritten(actor, 2)
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles should contain(mediumID(2) -> checksum(2))
     info.unusedFiles shouldBe 'empty
@@ -531,7 +534,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     actor ! PersistentMetaDataWriterActor.MetaDataWritten(createProcessMedium(2),
       success = true)
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles should have size 1
   }
@@ -543,7 +546,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     expectMsgType[UnresolvedMetaDataFiles]
 
     helper.sendMetaDataFileWritten(actor, 42)
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles should contain only (mediumID(1) -> checksum(1))
   }
@@ -561,7 +564,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! enhancedScanResult(1, 2)
 
     helper.sendMetaDataFileWritten(actor, 2, success = false)
-    actor ! GetMetaDataFileInfo
+    actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles should contain(mediumID(1) -> checksum(1))
     info.metaDataFiles should have size 1
@@ -669,16 +672,16 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val fileScanner: PersistentMetaDataFileScanner = mock[PersistentMetaDataFileScanner]
 
     /** Test probe for the child writer actor. */
-    val writerActor = TestProbe()
+    val writerActor: TestProbe = TestProbe()
 
     /** Test probe for the child remove actor. */
-    val removeActor = TestProbe()
+    val removeActor: TestProbe = TestProbe()
 
     /** Test probe for the meta data union actor. */
-    val metaDataUnionActor = TestProbe()
+    val metaDataUnionActor: TestProbe = TestProbe()
 
     /** Test probe for the ToC writer actor. */
-    val tocWriterActor = TestProbe()
+    val tocWriterActor: TestProbe = TestProbe()
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetaDataManagerActor] = _
@@ -698,7 +701,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       * @return this test helper
       */
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper = {
-      val futResult = if(indices.isEmpty) Future.failed[Map[String, Path]](new IOException)
+      val futResult = if (indices.isEmpty) Future.failed[Map[String, Path]](new IOException)
       else Future.successful(persistentFileMapping(indices: _*))
       when(fileScanner.scanForMetaDataFiles(argEq(FilePath))(any(), any()))
         .thenReturn(futResult)
@@ -708,6 +711,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     /**
       * Creates a test actor instance. This method should be called after the
       * scanner mock had been initialized.
+      *
       * @param startFileScan a flag whether the file scan should be triggered
       * @return the test actor reference
       */

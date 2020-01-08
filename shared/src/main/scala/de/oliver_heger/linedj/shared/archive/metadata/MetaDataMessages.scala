@@ -159,11 +159,16 @@ case object GetMetaDataFileInfo
   * listed in the set. Here again checksum values are contained that can be
   * mapped to real file names.
   *
+  * If an archive component supports updates of meta data files, the message
+  * contains an actor reference that can be used to trigger such updates, e.g.
+  * the removal of files.
+  *
   * @param metaDataFiles map with meta data files assigned to a medium
   * @param unusedFiles   set with orphan meta data files
   */
 case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
-                            unusedFiles: Set[String])
+                            unusedFiles: Set[String],
+                            optUpdateActor: Option[ActorRef])
 
 /**
   * A message processed by the meta data manager actor that causes persistent
