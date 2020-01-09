@@ -243,7 +243,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.ackMetaManager shouldBe false
     msg.ack shouldBe 'empty
     msg.unionArchiveMessage shouldBe 'empty
-    msg.metaManagerMessage should be(Some(MediaScanStarts))
+    msg.metaManagerMessage should be(Some(MediaScanStarts(state.scanClient.get)))
   }
 
   it should "handle a query for start messages if data has to be removed from union archive" in {
@@ -429,7 +429,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
     next.startAnnounced shouldBe true
-    optMsg should be(Some(MediaScanStarts))
+    optMsg should be(Some(MediaScanStarts(state.scanClient.get)))
   }
 
   it should "return the next scan result as message to the meta data manager" in {

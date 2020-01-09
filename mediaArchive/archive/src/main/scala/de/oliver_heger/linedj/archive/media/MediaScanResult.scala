@@ -18,43 +18,47 @@ package de.oliver_heger.linedj.archive.media
 
 import java.nio.file.Path
 
+import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
- * A data class storing the results of a directory scan for media files (in its
- * raw form).
- *
- * This class consists of a map with ''MediumID'' objects and the files of this
- * medium assigned to it. The medium ID can be used to obtain a path pointing
- * to the corresponding medium description file if available.
- *
- * @param root the root path that has been scanned
- * @param mediaFiles a map with files assigned to a medium
- */
+  * A data class storing the results of a directory scan for media files (in its
+  * raw form).
+  *
+  * This class consists of a map with ''MediumID'' objects and the files of this
+  * medium assigned to it. The medium ID can be used to obtain a path pointing
+  * to the corresponding medium description file if available.
+  *
+  * @param root       the root path that has been scanned
+  * @param mediaFiles a map with files assigned to a medium
+  */
 case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]])
 
 /**
- * A data class storing the result of a directory scan plus some additional
- * information which can be useful for further processing.
- *
- * The ''MediaManagerActor'' first operates on [[MediaScanResult]] object, but
- * obtains some additional information about the contained media during
- * processing. This case class combines the original scan result with this
- * additional information.
- *
- * @param scanResult the original ''MediaScanResult''
- * @param checksumMapping a map storing checksums for the contained media
- * @param fileUriMapping a mapping from file URIs to the file objects
- */
+  * A data class storing the result of a directory scan plus some additional
+  * information which can be useful for further processing.
+  *
+  * The ''MediaManagerActor'' first operates on [[MediaScanResult]] object, but
+  * obtains some additional information about the contained media during
+  * processing. This case class combines the original scan result with this
+  * additional information.
+  *
+  * @param scanResult      the original ''MediaScanResult''
+  * @param checksumMapping a map storing checksums for the contained media
+  * @param fileUriMapping  a mapping from file URIs to the file objects
+  */
 case class EnhancedMediaScanResult(scanResult: MediaScanResult,
                                    checksumMapping: Map[MediumID, String],
                                    fileUriMapping: Map[String, FileData])
 
 /**
   * A message that serves as an indicator about a newly started media scan.
+  *
   * This message is sent by the media manager actor to the meta data manager
   * actor, so that it can reset its state and prepare itself to receive media
   * scan results.
+  *
+  * @param client the cient of the current scan operation
   */
-case object MediaScanStarts
+case class MediaScanStarts(client: ActorRef)

@@ -355,7 +355,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else s.removeState match {
       case Removed if !s.startAnnounced =>
         val next = s.copy(startAnnounced = true, ackMetaManager = false)
-        val messages = ScanStateTransitionMessages(metaManagerMessage = Some(MediaScanStarts))
+        val messages = ScanStateTransitionMessages(metaManagerMessage = generateScanStartsMessage(s))
         (next, messages)
       case Initial =>
         val next = s.copy(removeState = Pending)
@@ -573,10 +573,20 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     */
   private def generateMetaDataMessage(s: MediaScanState): (MediaScanState, Option[Any]) =
     if (!s.startAnnounced)
-      (s.copy(startAnnounced = true), Some(MediaScanStarts))
+      (s.copy(startAnnounced = true), generateScanStartsMessage(s))
     else s.currentResults match {
       case h :: t =>
         (s.copy(ackMetaManager = false, currentResults = t), Some(h))
       case _ => (s, None)
     }
+
+  /**
+    * Generates a message indicating the start of a new scan operation. The
+    * message contains the client of the operation.
+    *
+    * @param state the current scan state
+    * @return the optional message indicating a scan start
+    */
+  private def generateScanStartsMessage(state: MediaScanState): Option[MediaScanStarts] =
+    state.scanClient map MediaScanStarts
 }
