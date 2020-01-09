@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import java.util.concurrent.atomic.AtomicReference
+
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -98,7 +100,7 @@ object ArchiveAdminController {
   Set[String] = {
     if (!archiveAvailable) Set.empty
     else if (updateInProgress) Set(ActionCancelScan)
-    else Set(ActionStartScan, ActionMetaDataFiles)
+    else Set(ActionStartScan)
   }
 }
 
@@ -116,12 +118,14 @@ object ArchiveAdminController {
   * @param stringTransformer    a transformer for producing strings
   * @param comboArchives        the handler for the combo with the archives
   * @param unionArchiveName     the name to display for the union archive
+  * @param refSelectedArchive   here the currently selected archive is stored
   */
 class ArchiveAdminController(application: ArchiveAdminApp,
                              componentBuilderData: ComponentBuilderData,
                              stringTransformer: Transformer,
                              comboArchives: ListComponentHandler,
-                             unionArchiveName: String)
+                             unionArchiveName: String,
+                             refSelectedArchive: AtomicReference[String])
   extends ConsumerRegistrationProvider {
 
   import ArchiveAdminController._
@@ -184,12 +188,15 @@ class ArchiveAdminController(application: ArchiveAdminApp,
     */
   def archiveSelectionChanged(): Unit = {
     val archiveID = comboArchives.getData.asInstanceOf[String]
+    refSelectedArchive set archiveID
     if (unionArchiveComponentID == archiveID) {
       formatStats(unionArchiveState.mediaCount, unionArchiveState.songCount,
         unionArchiveState.size, unionArchiveState.duration)
       updateForm()
+      enableAction(ActionMetaDataFiles, enabled = false)
     } else {
       archiveStatistics.get(archiveID).fold(loadStatistics(archiveID))(updateStatistics)
+      enableAction(ActionMetaDataFiles, enabled = true)
     }
   }
 
@@ -382,9 +389,19 @@ class ArchiveAdminController(application: ArchiveAdminApp,
     */
   private def updateActions(enabledActions: Set[String]): Unit = {
     ManagedActions foreach { a =>
-      val action = actionStore getAction a
-      action.setEnabled(enabledActions contains a)
+      enableAction(a, enabledActions contains a)
     }
+  }
+
+  /**
+    * Sets the enabled state of the action with the given name.
+    *
+    * @param name    the action name
+    * @param enabled the enabled state to be set
+    */
+  private def enableAction(name: String, enabled: Boolean): Unit = {
+    val action = actionStore getAction name
+    action.setEnabled(enabled)
   }
 
   /**

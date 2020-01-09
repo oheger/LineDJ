@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archiveadmin
 
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
@@ -240,7 +241,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.sendMetaDataStateEvent(stateWithInProgressFlag(inProgress = false))
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
-      .verifyAction("metaDataFilesAction", enabled = true)
+      .verifyAction("metaDataFilesAction", enabled = false)
   }
 
   it should "update action states if an update operation is complete" in {
@@ -249,7 +250,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.sendMetaDataStateEvent(MetaDataUpdateCompleted)
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
-      .verifyAction("metaDataFilesAction", enabled = true)
+      .verifyAction("metaDataFilesAction", enabled = false)
   }
 
   it should "disable the archives combo box when a new scan starts" in {
@@ -441,6 +442,29 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(data.playbackDuration, "3:25:23")
   }
 
+  it should "update the reference of the selected archive" in {
+    val ArchiveName = "CurrentSelection"
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.prepareArchiveStatsRequestAndSelect(ArchiveName)
+      .verifySelectionReference(ArchiveName)
+  }
+
+  it should "enable actions if the union archive is selected" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.selectArchiveComponent(UnionArchiveName)
+      .verifyAction("metaDataFilesAction", enabled = false)
+  }
+
+  it should "enable if the union archive is not selected" in {
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(CurrentState)
+      .prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .verifyAction("metaDataFilesAction", enabled = true)
+  }
+
   /**
     * A test helper managing a test instance and all of its dependencies.
     */
@@ -465,6 +489,9 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     /** A map with mocks for the actions managed by the controller. */
     val actions: Map[String, FormAction] = createActions()
+
+    /** The reference for the currently selected archive. */
+    private val refArchive = new AtomicReference[String]
 
     /** The controller to be tested. */
     val controller: ArchiveAdminController = createController()
@@ -667,6 +694,18 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
+      * Checks whether the expected archive ID has been passed to the reference
+      * for the current selection.
+      *
+      * @param archiveID the archive ID
+      * @return this test helper
+      */
+    def verifySelectionReference(archiveID: String): ArchiveAdminControllerTestHelper = {
+      refArchive.get() should be(archiveID)
+      this
+    }
+
+    /**
       * Verifies that the response of a request for an archive's statistics is
       * handled on the UI thread and returns the callback function for
       * processing the result.
@@ -747,7 +786,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createController(): ArchiveAdminController = {
       val ctrl = new ArchiveAdminController(application, createBuilderData(), createTransformer(), comboArchives,
-        UnionArchiveName)
+        UnionArchiveName, refArchive)
       ctrl setStateUnavailableText TextArchiveUnavailable
       ctrl setStateUnavailableIcon IconArchiveUnavailable
       ctrl setStateScanInProgressText TextScanInProgress
