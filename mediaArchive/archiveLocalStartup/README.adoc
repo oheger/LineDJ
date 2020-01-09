@@ -1,0 +1,286 @@
+= Local Media Archive Startup project
+
+This module has the purpose to start the local media archive in an OSGi
+environment.
+
+== Description
+
+This module is analogous to the startup project for the union archive, but
+it is responsible for the _local media archive_. The local media archive
+scans a folder structure with media files and passes the extracted meta data
+to a union archive which can either run on the same JVM or is accessed
+remotely.
+
+Access to the union archive is obtained through the _client application
+context_ available to all LineDJ platform components: actor references for the
+actors implementing the archive are simply obtained from the _media facade_.
+That way the location of the union archive is transparent.
+
+The local archive is implemented by the following actors:
+
+.Actors implementing the local archive
+[cols="1,3",options="header"]
+|==============================
+| Actor class | Description
+| ArchiveGroupActor | An actor managing a group of local paths that need to be
+parsed for meta data files. For each path, the actor creates the other actors
+for managing the media files. It is also responsible for the coordination of
+scan operations.
+| PersistentMetaDataManagerActor | The actor responsible for persistent meta
+data files. It takes care that meta data extracted from media files is stored
+on the local file system and is loaded again when the local archive restarts.
+| MetaDataManagerActor | Controls the extraction of meta data from single media
+files and sends the results to the union archive.
+| MediaManagerActor | Scans a specified folder structure for media files and
+collects information about media available. This information is sent to the
+union archive.
+|==============================
+
+== Configuration
+
+The configuration of the local media archive is also read from the
+configuration file of the LineDJ management application (analogous as the
+configuration for the union media archive; if both components are deployed in
+the same platform container, they actually use the same configuration file,
+and also their configuration sections overlap). The settings are placed in a
+section named _media_. Below is an example fragment with all supported
+configuration options:
+
+[source,xml]
+----
+<configuration>
+    <media>
+        <mediaArchive>
+            <metaDataUpdateChunkSize>32</metaDataUpdateChunkSize>
+            <metaDataMaxMessageSize>128</metaDataMaxMessageSize>
+        </mediaArchive>
+        <localArchives>
+            <processorCount>1</processorCount>
+            <readerTimeout>3600</readerTimeout>
+            <readerCheckInterval>600</readerCheckInterval>
+            <readerCheckInitialDelay>480</readerCheckInitialDelay>
+            <downloadChunkSize>16384</downloadChunkSize>
+            <infoSizeLimit>32768</infoSizeLimit>
+            <includedExtensions>MP3</includedExtensions>
+            <scan>
+                <parseInfoTimeout>10</parseInfoTimeout>
+                <mediaBufferSize>3</mediaBufferSize>
+            </scan>
+            <metaDataExtraction>
+                <readChunkSize>32768</readChunkSize>
+                <tagSizeLimit>4096</tagSizeLimit>
+                <metaDataUpdateChunkSize>8</metaDataUpdateChunkSize>
+                <metaDataMaxMessageSize>160</metaDataMaxMessageSize>
+                <processingTimeout>60</processingTimeout>
+            </metaDataExtraction>
+            <metaDataPersistence>
+                <chunkSize>4096</chunkSize>
+                <parallelCount>2</parallelCount>
+                <writeBlockSize>40</writeBlockSize>
+            </metaDataPersistence>
+            <toc>
+                <descRemovePrefix>/data/music/archive/media</descRemovePrefix>
+                <descPathSeparator>/</descPathSeparator>
+                <descUrlEncoding>true</descUrlEncoding>
+                <rootPrefix>/music/archive/media</rootPrefix>
+                <metaDataPrefix>/music/archive/metadata/</metaDataPrefix>
+            </toc>
+            <localArchive>
+                <rootPath>/data/music/archive/1and1/media</rootPath>
+                <archiveName>1and1-${host}</archiveName>
+                <metaDataPersistence>
+                    <path>/data/music/archive/1and1/metadata</path>
+                </metaDataPersistence>
+                <toc>
+                    <file>/data/music/archive/1and1/content.json</file>
+                    <descRemovePrefix>/data/music/archive/1and1/media</descRemovePrefix>
+                </toc>
+            </localArchive>
+            <localArchive>
+                <rootPath>/data/music/archive/magenta1/media</rootPath>
+                <archiveName>magenta1-${host}</archiveName>
+                <metaDataPersistence>
+                    <path>/data/music/archive/magenta1/metadata</path>
+                </metaDataPersistence>
+                <toc>
+                    <file>/data/music/archive/magenta1/content.json</file>
+                    <descRemovePrefix>/data/music/archive/magenta1/media</descRemovePrefix>
+                </toc>
+            </localArchive>
+        </localArchives>
+    </media>
+</configuration>
+----
+
+Information about local archives is located in a section named `localArchives`.
+The section can contain a bunch of properties that define default settings
+valid for all archives. Concrete archives are then defined by `localArchive`
+elements within this section. In the definition of a local archive the same
+properties can be used as in the `localArchives` section. Here an override
+mechanism is in place: Properties that are not defined for a concrete archive
+use the value set by the top-level section; and properties set for a local
+archive override the values from the top-level section. Using this schema, it
+is typically possible to define most of the default settings once in the
+`localArchives` section, while concrete archive declarations can be kept to a
+minimum (e.g. setting specific paths only).
+
+Each local archive listed in the configuration can be given a descriptive name
+using the _archiveName_ property. The name can be displayed by applications
+allowing to browse archives. The archive name can contain a variable named
+`${host}`, which is replaced by the IP-address of the local machine. This can
+be useful if the content is exposed via a remote union archive.
+
+The options available can be grouped into different categories and are
+described in the following subsections. It does not matter whether an option is
+defined as a default or for a specific local archive.
+
+=== Location of media files
+
+A number of options define where - on the local hard disk - media files can be
+found:
+
+.Configuration options for the location of media files
+[cols="1,3",options="header"]
+|============================
+| Setting | Description
+| excludedExtensions | With this list property (elements can be repeated as
+often as necessary) the extensions of files can be specified which should be
+ignored when scanning for media files. Such files are not included in media.
+| includedExtensions | As an alternative to _excludedProperties_, with this
+property a set of files extensions can be specified that are included; files
+with other extensions are ignored. If both file extensions to include and to
+exclude are specified, inclusions take precedence.
+| infoSizeLimit | Files with information about a medium (typically called
+`playlist.settings`) are fully read and processed in-memory. To avoid
+unrestricted memory consumption, with this property a maximum file size (in
+bytes) can be specified. Info files which are larger will not be processed.
+| rootPath | This property defines the folder to be scanned for media files.
+| processorCount | Defines the number of reader actors processing this folder
+structure in parallel. If multiple archives are defined, the single archives
+are processed one by one with this number of reader actors; so this property
+defines the total number of parallel file reads.
+| metaDataMediaBufferSize | A property determining the maximum size of the
+buffer for media waiting to be processed for meta data extraction. During a
+meta data scan operation, in a first step the content of media is determined.
+Then the meta data for the files on the media is obtained (either from a
+persistent storage or by meta data extraction). As this may take more time, the
+number of media waiting to be processed for meta data extraction may increase.
+This property defines a threshold for this number. When it is reached the scan
+operation is blocked until media have been processed completely. This reduces
+the amount of memory consumption during a scan operation. The property is
+optional; a default value is used if it is not specified.
+|============================
+
+=== Settings related to scans for media files
+
+These settings control the process of scanning a directory structure for media
+files. Here the file system is traversed, media files are assigned to media
+(identified by _medium description files_ with the file extension _.settings_),
+and the description files are parsed to extract meta data about these media.
+The settings are placed in a section named _scan_.
+
+.Configuration options that control the scan process
+[cols="1,3,1",options="header"]
+|==============================
+| Setting | Description | Default
+| parseInfoTimeout | A timeout (in seconds) for parsing a medium description
+file. If a parse operation takes longer than this time span, it is aborted and
+dummy meta data is used for this medium. | 60 seconds
+| mediaBufferSize | The size of the buffer for media to be processed in
+parallel. When scanning a directory structure for media files some temporary
+data is created for assignments of files to media, parsed description files,
+etc. This property defines the number of temporary artifacts of those types
+that can exist. If this limit is reached, stream processing pauses until the
+limiting temporary artifacts have been processed. | 8
+|==============================
+
+=== Meta data extraction
+
+The archive parses all detected media files in order to extract meta data
+(e.g. ID3 tags) from them. With this group of options the behavior of this
+meta data extraction process can be specified. The options are grouped in a
+sub section named _metaDataExtraction_:
+
+.Configuration options for meta data extraction
+[cols="1,3",options="header"]
+|============================
+| Setting | Description
+| metaDataExtraction.readChunkSize | Block size to be used when reading media
+files. A buffer of this size is created in memory.
+| metaDataExtraction.tagSizeLimit | Defines a maximum size of an ID3 tag to be
+processed. Tags can become large, e.g. when they contain an image. The archive
+only extracts text-based meta data. If a tag length is greater than this value,
+it is ignored.
+| metaDataExtraction.processingTimeout | Here a timeout (in seconds) for the
+processing of a single media file can be specified. If meta data extraction for
+this file takes longer, processing is aborted, and the file is ignored.
+|============================
+
+=== Meta data persistence
+
+Once extracted, meta data is stored in files in JSON format on the local file
+system. How this is done is specified with another group of options in the
+_metaDataPersistence_ sub section:
+
+.Configuration options for persisting meta data
+[cols="1,3",options="header"]
+|============================
+| Setting | Description
+| metaDataPersistence.path | Defines a path (on the local file system) where
+files with extracted meta data information can be stored. Here files with the
+extension `.mdt` (for meta data) are created containing the ID3 information
+extracted from media files. These files are loaded when the archive starts up,
+so that media files do not have to be scanned again.
+| metaDataPersistence.chunkSize | Specifies the block size to be used when
+reading or writing meta data files.
+| metaDataPersistence.parallelCount | Here a number can be specified how many
+meta data files are read in parallel. Increasing the number can speedup startup
+time of the archive (provided that the local disc can handle the load).
+| metaDataPersistence.writeBlockSize | If no persistent meta data file for a
+medium is available, a new one is created automatically when the media files
+from the medium are scanned. After some media files have been processed, an
+`.mdt` file is written out, so that the information is already persisted in
+case the scan is aborted. The _writeBlockSize_ property defines the number of
+media files to be processed after the currently collected meta data is
+persisted.
+|============================
+
+=== Archive table of contents
+
+A local archive can be configured to generate a JSON file with a table of
+contents, i.e. a list with all media it contains and their corresponding meta
+data files. This file has the same format as used by an _HTTP archive_ to
+define its content.
+
+The options are declared in a sub section named _toc_. They are optional; the
+ToC file is generated only if a target file is specified.
+
+.Configuration options for the table of contents
+[cols="1,3",options="header"]
+|============================
+| Setting | Description
+| file | Defines the location where the table of contents file is to be stored.
+If this property is missing, no such file is generated.
+| descRemovePrefix | The paths to the single media contained in the archive are
+typically absolute paths. For some use cases, e.g. if they are to be exposed
+via an HTTP server, they have to be converted to relative URIs. This property
+defines the prefix of the paths that must be removed for this purpose. Note
+that only media are included in the ToC document whose path starts with this
+prefix. If no prefix is specified, the whole paths to media are used.
+| descRemovePathComponents | After the path to a medium description file has
+been processed (by removing the prefix and converting it to a URI), it is
+possible to strip off a number of URI path components from the beginning. The
+number of components to remove can be specified using this property. The
+default value is 0; so no components will be removed.
+| descPathSeparator | The path separator used in paths to media description
+files. This is typically the slash on Linux and the backslash on Windows.
+| descUrlEncoding | A flag whether URL encoding should be applied to paths to
+media. If the media should be exposed via an HTTP server, this is typically
+needed.
+| rootPrefix | Here a prefix can be specified which is added to paths to media
+files. That way, they can be referenced correctly, even if they are stored in a
+sub folder structure.
+| metaDataPrefix | Analogous to _rootPrefix_, this a prefix added to meta data
+files. Such files may be stored in a dedicated folder; with this prefix, the
+folder can be selected.
+|============================
