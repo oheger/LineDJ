@@ -104,6 +104,9 @@
   <di:bean name="archiveComboModel"
            beanClassName="de.oliver_heger.linedj.archiveadmin.EmptyArchiveComponentsListModel"/>
 
+  <!-- Reference for the currently selected archive component. -->
+  <di:bean name="refSelectedArchiveID" beanClassName="java.util.concurrent.atomic.AtomicReference"/>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
@@ -171,6 +174,7 @@
         <di:param>
           <f:localized resid="lab_union_archive"/>
         </di:param>
+        <di:param refName="refSelectedArchiveID"/>
       </di:constructor>
 
       <di:setProperty property="stateUnavailableText">
@@ -223,9 +227,10 @@
 
   <!-- Command and task for opening the meta data files dialog -->
   <di:bean name="metaFilesDlgCommand"
-           beanClassName="net.sf.jguiraffe.gui.app.OpenWindowCommand">
+           beanClassName="de.oliver_heger.linedj.archiveadmin.OpenMetaDataFilesDlgCommand">
     <di:constructor>
       <di:param value="classpath:meta_data_files.jelly"/>
+      <di:param refName="refSelectedArchiveID"/>
     </di:constructor>
   </di:bean>
 

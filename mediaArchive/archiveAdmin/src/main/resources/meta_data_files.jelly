@@ -94,6 +94,7 @@
         <di:param refName="comp:tableFiles"/>
         <di:param refName="comp:statusLine"/>
         <di:param refName="widget:progressIndicator"/>
+        <di:param value="${selectedArchive}"/>
       </di:constructor>
     </di:bean>
 
