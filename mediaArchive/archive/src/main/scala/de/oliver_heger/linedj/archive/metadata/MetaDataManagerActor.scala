@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataMan
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -122,13 +122,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private var availableMedia: Option[Map[MediumID, MediumInfo]] = None
 
-  /** A flag whether a scan is currently in progress. */
-  private var scanInProgress = false
+  /** Stores the client of the current ongoing scan operation. */
+  private var scanClient: Option[ActorRef] = None
 
   override def receive: Receive = {
-    case MediaScanStarts =>
+    case MediaScanStarts(client) =>
       if (!scanInProgress) {
-        initiateNewScan()
+        initiateNewScan(client)
       }
       sender ! ScanResultProcessed
 
@@ -151,7 +151,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
       sendAckIfPossible(esr)
 
-    case _: EnhancedMediaScanResult =>  // no scan in progress or closing
+    case _: EnhancedMediaScanResult => // no scan in progress or closing
       sender ! ScanResultProcessed
 
     case AvailableMedia(media) =>
@@ -165,7 +165,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case CloseRequest if scanInProgress =>
       val actorsToClose = processorActors.values.toSet + persistenceManager
       onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)
-      pendingAck foreach(_ ! ScanResultProcessed)
+      pendingAck foreach (_ ! ScanResultProcessed)
       mediaInProgress = Set.empty
       pendingAck = Queue.empty
 
@@ -185,6 +185,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   }
 
   /**
+    * Returns a flag whether a scan operation is currently in progress.
+    *
+    * @return a flag whether a scan is currently running
+    */
+  private def scanInProgress: Boolean = scanClient.isDefined
+
+  /**
     * Sends an ACK for an incoming result if possible. If this is not possible,
     * the state is updated to reflect a pending ACK.
     *
@@ -202,7 +209,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /**
     * Creates a meta data processing actor for the specified root path.
     *
-    * @param root   the root path
+    * @param root the root path
     * @return the new processing actor
     */
   private def createProcessorActor(root: Path): ActorRef =
@@ -211,14 +218,16 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
   /**
     * Prepares a new scan operation. Initializes some internal state.
+    *
+    * @param client the client of the scan operation
     */
-  private def initiateNewScan(): Unit = {
+  private def initiateNewScan(client: ActorRef): Unit = {
     log.info("Starting new scan.")
     metaDataUnionActor ! UpdateOperationStarts(Some(self))
     persistenceManager ! ScanForMetaDataFiles
     mediaMap = Map.empty
     completedMedia = Set(MediumID.UndefinedMediumID)
-    scanInProgress = true
+    scanClient = Some(client)
   }
 
   /**
@@ -255,8 +264,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * notified.
     *
     * @param mediumID the ID of the affected medium
-    * @param result  the processing result
-    * @param handler the handler for this medium
+    * @param result   the processing result
+    * @param handler  the handler for this medium
     * @return a flag whether this is a valid result
     */
   private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
@@ -294,6 +303,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private def checkAndHandleScanComplete(): Unit = {
     if (allMediaProcessingResultsReceived) {
       persistenceManager ! PersistentMetaDataManagerActor.ScanCompleted
+      scanClient foreach (_ ! MediaScanCompleted)
       completeScanOperation()
     }
   }
@@ -303,7 +313,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * operation.
     */
   private def completeScanOperation(): Unit = {
-    scanInProgress = false
+    scanClient = None
     availableMedia = None
     completedMedia = Set.empty
     processorActors.values.foreach(context.stop)
@@ -320,5 +330,5 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *         otherwise
     */
   private def allMediaProcessingResultsReceived: Boolean =
-  availableMedia exists (m => m.keySet subsetOf completedMedia)
+    availableMedia exists (m => m.keySet subsetOf completedMedia)
 }

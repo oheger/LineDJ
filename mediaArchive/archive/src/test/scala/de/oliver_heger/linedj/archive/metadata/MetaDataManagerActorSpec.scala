@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -43,7 +43,7 @@ object MetaDataManagerActorSpec {
   /** The number of parallel processors for the test root. */
   private val AsyncCount = 3
 
-  /** The test timeout value for media file processing.*/
+  /** The test timeout value for media file processing. */
   private val ProcessingTimeout = Timeout(42.seconds)
 
   /** ID of a test medium. */
@@ -71,11 +71,11 @@ object MetaDataManagerActorSpec {
   private case class ChildCreation(probe: TestProbe, props: Props)
 
   /**
-   * Helper method for generating a path.
+    * Helper method for generating a path.
     *
     * @param s the name of this path
-   * @return the path
-   */
+    * @return the path
+    */
   private def path(s: String): Path = Paths get s
 
   /**
@@ -87,22 +87,22 @@ object MetaDataManagerActorSpec {
   private def uriFor(path: Path): String = "song://" + path.toString
 
   /**
-   * Generates a medium ID.
+    * Generates a medium ID.
     *
     * @param name a unique name for the ID
-   * @return the medium ID
-   */
+    * @return the medium ID
+    */
   private def mediumID(name: String): MediumID = {
     val settingsPath = Paths.get(name, "playlist.settings")
     MediumID fromDescriptionPath settingsPath
   }
 
   /**
-   * Creates a test meta data object for the specified path.
+    * Creates a test meta data object for the specified path.
     *
     * @param path the path
-   * @return the meta data for this path (following conventions)
-   */
+    * @return the meta data for this path (following conventions)
+    */
   private def metaDataFor(path: Path): MediaMetaData = {
     val index = extractPathIndex(path)
     MediaMetaData(title = Some(path.getFileName.toString),
@@ -124,15 +124,16 @@ object MetaDataManagerActorSpec {
   }
 
   /**
-   * Generates a number of media files that belong to the specified test
-   * medium.
+    * Generates a number of media files that belong to the specified test
+    * medium.
     *
     * @param mediumPath the path of the medium
-   * @param count the number of files to generate
-   * @return the resulting list
-   */
+    * @param count      the number of files to generate
+    * @return the resulting list
+    */
   private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
     val basePath = Option(mediumPath.getParent) getOrElse mediumPath
+
     @tailrec
     def loop(current: List[FileData], index: Int): List[FileData] = {
       if (index == 0) current
@@ -153,7 +154,8 @@ object MetaDataManagerActorSpec {
     * @return the index of this path
     */
   private def extractPathIndex(path: Path): Int = {
-    val pathStr = path.toString takeWhile(_ != '.')
+    val pathStr = path.toString takeWhile (_ != '.')
+
     @tailrec def loop(index: Int): Int =
       if (Character isDigit pathStr(index)) loop(index - 1)
       else pathStr.substring(index + 1).toInt
@@ -162,8 +164,8 @@ object MetaDataManagerActorSpec {
   }
 
   /**
-   * Creates a test scan result object.
-   */
+    * Creates a test scan result object.
+    */
   private def createScanResult(): MediaScanResult = {
     val numbersOfSongs = List(3, 8, 4)
     val rootPath = path("Root")
@@ -171,16 +173,16 @@ object MetaDataManagerActorSpec {
       (e._1, generateMediaFiles(path(e._1.mediumDescriptionPath.get), e._2))
     }
     val fileMap = Map(fileData: _*) + (MediumID(rootPath.toString, None) -> generateMediaFiles
-      (path("noMedium"), 11))
+    (path("noMedium"), 11))
     MediaScanResult(rootPath, fileMap)
   }
 
   /**
-   * Creates an enhanced scan result. This method adds checksum information.
+    * Creates an enhanced scan result. This method adds checksum information.
     *
     * @param result the plain result
-   * @return the enhanced result
-   */
+    * @return the enhanced result
+    */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
     EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, "checksum_" + e._1
       .mediumURI)), createFileUriMapping(result))
@@ -239,10 +241,10 @@ object MetaDataManagerActorSpec {
 }
 
 /**
- * Test class for ''MetaDataManagerActor''.
- */
+  * Test class for ''MetaDataManagerActor''.
+  */
 class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+  ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
 
   import MetaDataManagerActorSpec._
 
@@ -446,7 +448,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.sendAvailableMedia()
 
     helper.actor receive EnhancedScanResult
-    helper.expectPersistenceManagerCompleteNotification()
+    helper.expectCompleteNotifications()
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -466,7 +468,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.expectMediaContribution().sendAvailableMedia()
-        .sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
+      .sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
     helper.expectPropagatedProcessingResults(TestMediumID,
       ScanResult.mediaFiles(TestMediumID))
@@ -487,7 +489,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       .toError(new Exception("Failed processing!"))
     helper.actor receive errResult
     helper.actor receive EnhancedScanResult
-    helper.expectPersistenceManagerCompleteNotification()
+    helper.expectCompleteNotifications()
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -600,7 +602,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
-    helper.actor receive MediaScanStarts
+    helper.actor receive MediaScanStarts(TestProbe().ref)
     expectNoMoreMessage(helper.persistenceManager)
   }
 
@@ -653,7 +655,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   it should "ACK a MediaScanStarts message" in {
     val helper = new MetaDataManagerActorTestHelper
 
-    helper.actor ! MediaScanStarts
+    helper.actor ! MediaScanStarts(TestProbe().ref)
     expectAckFromManager()
   }
 
@@ -724,6 +726,9 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     private var activeProcessors = Iterable.empty[ActorRef]
 
+    /** Test probe for the client to be notified at the end of the operation. */
+    private val scanClient = TestProbe()
+
     /**
       * Flag whether available media are present. This is needed to check the
       * condition flag passed to the CloseSupport implementation.
@@ -747,7 +752,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       */
     def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult,
                         checkPersistenceMan: Boolean = true): ActorRef = {
-      actor ! MediaScanStarts
+      actor ! MediaScanStarts(scanClient.ref)
       expectAckFromManager()
       if (checkPersistenceMan) {
         persistenceManager.expectMsg(ScanForMetaDataFiles)
@@ -881,16 +886,17 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       * @return the persistence manager actor reference
       */
     def persistenceManagerActorRef: ActorRef =
-    optPersistenceManager getOrElse persistenceManager.ref
+      optPersistenceManager getOrElse persistenceManager.ref
 
     /**
-      * Checks that a scan complete notification has been sent to the
-      * persistence meta data mnager actor.
+      * Checks that scan complete notifications have been sent to the
+      * interested parties.
       *
       * @return this test helper
       */
-    def expectPersistenceManagerCompleteNotification(): MetaDataManagerActorTestHelper = {
+    def expectCompleteNotifications(): MetaDataManagerActorTestHelper = {
       persistenceManager.expectMsg(PersistentMetaDataManagerActor.ScanCompleted)
+      scanClient.expectMsg(MediaScanCompleted)
       this
     }
 
@@ -911,12 +917,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     }
 
     /**
-     * Creates the standard test actor.
+      * Creates the standard test actor.
       *
       * @return the test actor
-     */
+      */
     private def createTestActor(): TestActorRef[MetaDataManagerActor] =
-    TestActorRef(creationProps())
+      TestActorRef(creationProps())
 
     private def creationProps(): Props =
       Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref)
@@ -968,10 +974,10 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       })
 
     /**
-     * Creates a mock for the central configuration object.
+      * Creates a mock for the central configuration object.
       *
       * @return the mock configuration
-     */
+      */
     private def createConfig(): MediaArchiveConfig = {
       val config = mock[MediaArchiveConfig]
       when(config.rootPath).thenReturn(EnhancedScanResult.scanResult.root)
@@ -981,4 +987,5 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
       config
     }
   }
+
 }

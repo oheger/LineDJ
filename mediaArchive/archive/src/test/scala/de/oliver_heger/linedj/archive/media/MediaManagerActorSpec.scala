@@ -248,7 +248,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
         _.startScanMessages(ArchiveName)
       }
-      .post(MediaManagerActor.StartMediaScan)
+      .post(StartMediaScan)
       .expectMediaScannerMessage(scanMsg)
       .expectUnionArchiveMessage(initMsg.unionArchiveMessage.get)
       .expectMetaDataMessage(initMsg.metaManagerMessage.get)
@@ -264,7 +264,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.stub(scanMsg, state) {
       _.triggerStartScan(RootPath, testActor)
     }
-      .post(MediaManagerActor.StartMediaScan)
+      .post(StartMediaScan)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectNoScannerMessage()
       .expectNoUnionArchiveMessage()

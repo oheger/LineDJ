@@ -20,8 +20,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
+import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
@@ -69,7 +68,7 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.stub(Option(probeTarget.ref), state)(_.handleScanRequest(testActor))
       .post(ScanAllMedia)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
-    probeTarget.expectMsg(MediaManagerActor.StartMediaScan)
+    probeTarget.expectMsg(StartMediaScan)
   }
 
   it should "handle a media scan request if no scan should be triggered" in {
@@ -95,9 +94,9 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new GroupActorTestHelper
 
     helper.stub(Option(probeTarget.ref), state)(_.handleScanCompleted())
-      .post(MediaManagerActor.MediaScanCompleted)
+      .post(MediaScanCompleted)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
-    probeTarget.expectMsg(MediaManagerActor.StartMediaScan)
+    probeTarget.expectMsg(StartMediaScan)
   }
 
   /**

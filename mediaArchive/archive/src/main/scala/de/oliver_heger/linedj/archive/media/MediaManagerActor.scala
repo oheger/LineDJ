@@ -54,21 +54,6 @@ object MediaManagerActor {
       with SchedulerSupport with CloseSupport
 
   /**
-    * A message processed by [[MediaManagerActor]] that actually triggers a
-    * media scan.
-    *
-    * This message is sent by the group manager actor when a media scan can be
-    * executed.
-    */
-  case object StartMediaScan
-
-  /**
-    * A message sent by [[MediaManagerActor]] as a notification when a media
-    * scan is complete.
-    */
-  case object MediaScanCompleted
-
-  /**
     * Creates a ''Props'' object for creating new actor instances of this class.
     * Client code should always use the ''Props'' object returned by this
     * method; it ensures that all dependencies have been resolved.

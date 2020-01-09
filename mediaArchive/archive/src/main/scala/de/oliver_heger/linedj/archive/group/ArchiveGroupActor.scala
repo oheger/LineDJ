@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.archive.group
 
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
-import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
+import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object ArchiveGroupActor {
@@ -85,7 +84,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
     case ScanAllMedia =>
       updateState(scanStateService.handleScanRequest(sender()))
 
-    case MediaManagerActor.MediaScanCompleted =>
+    case MediaScanCompleted =>
       updateState(scanStateService.handleScanCompleted())
   }
 
@@ -97,7 +96,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
     */
   private def updateState(update: GroupScanStateServiceImpl.StateUpdate[Option[ActorRef]]): Unit = {
     val (next, target) = update(scanState)
-    target foreach (_ ! MediaManagerActor.StartMediaScan)
+    target foreach (_ ! StartMediaScan)
     scanState = next
   }
 }
