@@ -39,6 +39,7 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -287,6 +288,10 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
     case alive: DownloadActorAlive =>
       monitoringActor ! alive
+
+    case GetMetaDataFileInfo =>
+      // here just a dummy response is returned for this archive type
+      sender ! MetaDataFileInfo(Map.empty, Set.empty, None)
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams

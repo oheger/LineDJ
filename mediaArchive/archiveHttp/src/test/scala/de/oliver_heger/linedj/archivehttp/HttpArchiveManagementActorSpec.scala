@@ -42,6 +42,7 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
@@ -543,6 +544,13 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     helper.post(aliveMsg)
       .expectDownloadMonitoringMessage(aliveMsg)
+  }
+
+  it should "answer a GetMetaDataFileInfo message with a dummy response" in {
+    val helper = new HttpArchiveManagementActorTestHelper
+
+    helper.post(GetMetaDataFileInfo)
+    expectMsg(MetaDataFileInfo(Map.empty, Set.empty, None))
   }
 
   /**
