@@ -16,6 +16,11 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import java.util.concurrent.atomic.AtomicReference
+
+import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
+import net.sf.jguiraffe.locators.Locator
+
 /**
   * A task class for the ''refresh meta data files'' action.
   *
@@ -52,5 +57,23 @@ class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable {
 class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends Runnable {
   override def run(): Unit = {
     controller.close()
+  }
+}
+
+/**
+  * A specialized command class for opening the dialog with meta data files for
+  * the currently selected archive component.
+  *
+  * This class makes sure that the selection of the archive component is
+  * correctly passed to the meta data files controller.
+  *
+  * @param locator      the locator for the dialog script
+  * @param refArchiveID the reference containing the selected archive
+  */
+class OpenMetaDataFilesDlgCommand(locator: Locator, refArchiveID: AtomicReference[String])
+  extends OpenWindowCommand(locator) {
+  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+    super.prepareBuilderData(builderData)
+    builderData.addProperty(MetaDataFilesController.PropSelectedArchiveID, refArchiveID.get())
   }
 }

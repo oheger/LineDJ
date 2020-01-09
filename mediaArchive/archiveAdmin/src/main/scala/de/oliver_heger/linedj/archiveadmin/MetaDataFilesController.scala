@@ -52,10 +52,10 @@ object MetaDataFilesController {
   val ActionRemoveFiles = "removeFilesAction"
 
   /**
-    * Configuration property for the timeout value to be applied for
-    * invocations of the meta data actor.
+    * The name of the property in the builder script that contains the
+    * currently selected archive ID.
     */
-  val PropActorTimeout = "actorTimeout"
+  val PropSelectedArchiveID = "selectedArchive"
 
   /** Status line message indicating scan in progress. */
   private val MsgScanning = new Message("files_state_scanning")

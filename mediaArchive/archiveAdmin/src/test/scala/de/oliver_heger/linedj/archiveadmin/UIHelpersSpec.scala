@@ -16,6 +16,10 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import java.util.concurrent.atomic.AtomicReference
+
+import net.sf.jguiraffe.gui.app.ApplicationBuilderData
+import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
@@ -36,5 +40,21 @@ class UIHelpersSpec extends FlatSpec with Matchers with MockitoSugar {
 
     handler.elementChanged(null)
     verify(controller).archiveSelectionChanged()
+  }
+
+  "OpenMetaDataFilesDlgCommand" should "pass the locator to the base class" in {
+    val locator = mock[Locator]
+    val command = new OpenMetaDataFilesDlgCommand(locator, new AtomicReference[String])
+
+    command.getLocator should be(locator)
+  }
+
+  it should "pass the property for the selected archive to the builder data object" in {
+    val ArchiveName = "The selected archive"
+    val builderData = mock[ApplicationBuilderData]
+    val command = new OpenMetaDataFilesDlgCommand(mock[Locator], new AtomicReference[String](ArchiveName))
+
+    command.prepareBuilderData(builderData)
+    verify(builderData).addProperty(MetaDataFilesController.PropSelectedArchiveID, ArchiveName)
   }
 }
