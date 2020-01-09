@@ -64,7 +64,6 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
   * @param currentResults     current results to be sent to the meta data
   *                           manager
   * @param currentMediaData   current media to be sent to the union archive
-  * @param completeMsg        reference to an actor to send a complete message
   */
 private case class MediaScanState(scanClient: Option[ActorRef],
                                   removeState: UnionArchiveRemoveState,
@@ -76,8 +75,7 @@ private case class MediaScanState(scanClient: Option[ActorRef],
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
                                   currentResults: List[EnhancedMediaScanResult],
-                                  currentMediaData: Map[MediumID, MediumInfo],
-                                  completeMsg: Option[ActorRef]) {
+                                  currentMediaData: Map[MediumID, MediumInfo]) {
   /**
     * Returns a flag whether currently a scan is in progress.
     *
@@ -98,12 +96,10 @@ private case class MediaScanState(scanClient: Option[ActorRef],
   * @param unionArchiveMessage optional message to the union archive
   * @param metaManagerMessage  optional message to the meta data manager
   * @param ack                 optional actor to receive an ACK message
-  * @param completeNotify      optional actor to receive a complete message
   */
 private case class ScanStateTransitionMessages(unionArchiveMessage: Option[Any] = None,
                                                metaManagerMessage: Option[Any] = None,
-                                               ack: Option[ActorRef] = None,
-                                               completeNotify: Option[ActorRef] = None)
+                                               ack: Option[ActorRef] = None)
 
 /**
   * Interface of a service that updates the state while scanning the directory
@@ -188,15 +184,6 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and an actor to ACK
     */
   def actorToAck(): StateUpdate[Option[ActorRef]]
-
-  /**
-    * Updates the state for sending a notification about a completed scan
-    * operation and returns an ''Option'' with the actor to receive such a
-    * notification.
-    *
-    * @return the updated ''State'' and an actor to notify
-    */
-  def completeNotify(): StateUpdate[Option[ActorRef]]
 
   /**
     * Updates the state for a message to be sent to the meta data manager
@@ -322,8 +309,7 @@ private trait MediaScanStateUpdateService {
     unionMsg <- unionArchiveMessage(archiveName)
     metaMsg <- metaDataMessage()
     ack <- actorToAck()
-    complete <- completeNotify()
-  } yield ScanStateTransitionMessages(unionMsg, metaMsg, ack, complete)
+  } yield ScanStateTransitionMessages(unionMsg, metaMsg, ack)
 }
 
 /**
@@ -345,8 +331,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
       ackMetaManager = true,
       currentResults = Nil,
       currentMediaData = Map.empty,
-      availableMediaSent = true,
-      completeMsg = None)
+      availableMediaSent = true)
 
   /** Constant for an undefined checksum. */
   val UndefinedChecksum = ""
@@ -408,11 +393,6 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else (s.copy(ackPending = None), s.ackPending)
   }
 
-  override def completeNotify(): StateUpdate[Option[ActorRef]] = State { s =>
-    (if (s.completeMsg.isDefined) s.copy(completeMsg = None)
-    else s, s.completeMsg)
-  }
-
   override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
     if (!s.availableMediaSent) // clear media state, it is not needed by actor
       (s.copy(availableMediaSent = true, mediaData = Map.empty),
@@ -430,7 +410,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def scanComplete(seqNo: Int): StateUpdate[Unit] = modify { s =>
     if (seqNo == s.seqNo)
-      s.copy(scanClient = None, completeMsg = s.scanClient, availableMediaSent = false, seqNo = s.seqNo + 1)
+      s.copy(scanClient = None, availableMediaSent = false, seqNo = s.seqNo + 1)
     else s
   }
 

@@ -191,7 +191,6 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     s.currentResults should have size 0
     s.currentMediaData should have size 0
     s.availableMediaSent shouldBe true
-    s.completeMsg shouldBe 'empty
   }
 
   it should "handle a start scan request if a scan is already in progress" in {
@@ -501,7 +500,6 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.scanInProgress shouldBe false
     next.availableMediaSent shouldBe false
     next.seqNo should not be state.seqNo
-    next.completeMsg should be(state.scanClient)
   }
 
   it should "ignore a scan complete notification with a wrong sequence number" in {
@@ -598,11 +596,9 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.mediaData should have size 0
     next.ackPending shouldBe 'empty
     next.scanClient shouldBe 'empty
-    next.completeMsg shouldBe 'empty
     msg.metaManagerMessage should be(Some(AvailableMedia(mediaData)))
     msg.ack should be(Some(ack))
     msg.unionArchiveMessage should be(Some(AddMedia(currentMedia, ArchiveName, None)))
-    msg.completeNotify should be(Some(client))
   }
 
   it should "handle a canceled scan operation" in {

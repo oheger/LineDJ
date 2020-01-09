@@ -332,7 +332,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       MediaScannerActor.ScanPath(RootPath, 30))
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
     val helper = new MediaManagerTestHelper
-    val messages = helper.transitionMessagesWithNotify().copy(metaManagerMessage = Some("availableMedia"))
+    val messages = ScanStateTransitionMessages(metaManagerMessage = Some("availableMedia"))
     val result = mock[ScanSinkActor.CombinedResults]
 
     helper.stub(messages, state) {
@@ -344,7 +344,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
-      .expectGroupManagerMessage(MediaManagerActor.MediaScanCompleted)
       .post(result)
       .expectStateUpdate(state)
   }
@@ -680,16 +679,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       data should not be null
       data
     }
-
-    /**
-      * Returns a ''ScanStateTransitionMessages'' object whose complete notify
-      * field is initialized with the group manager probe. This is used to test
-      * whether complete notifications are sent correctly.
-      *
-      * @return the object with transition messages
-      */
-    def transitionMessagesWithNotify(): ScanStateTransitionMessages =
-      ScanStateTransitionMessages(completeNotify = Some(probeGroupManager.ref))
 
     /**
       * Helper method to check whether the specified message was sent to the

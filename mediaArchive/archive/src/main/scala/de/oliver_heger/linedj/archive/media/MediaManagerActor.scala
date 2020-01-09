@@ -236,7 +236,6 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     messages.unionArchiveMessage foreach mediaUnionActor.!
     messages.metaManagerMessage foreach metaDataManager.!
     messages.ack foreach (_ ! ScanSinkActor.Ack)
-    messages.completeNotify foreach (_ ! MediaScanCompleted)
   }
 
   /**
