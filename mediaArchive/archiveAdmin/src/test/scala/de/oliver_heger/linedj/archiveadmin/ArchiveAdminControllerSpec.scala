@@ -457,11 +457,21 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyAction("metaDataFilesAction", enabled = false)
   }
 
-  it should "enable if the union archive is not selected" in {
+  it should "enable actions if the union archive is not selected" in {
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.sendMetaDataStateEvent(CurrentState)
       .prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
+      .verifyAction("metaDataFilesAction", enabled = true)
+  }
+
+  it should "enable the meta data files action if the single archive is selected" in {
+    val ArchiveName = "The one and only archive"
+    val state = ArchiveState.copy(archiveCompIDs = Set(ArchiveName))
+    val helper = new ArchiveAdminControllerTestHelper
+
+    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+      .selectArchiveComponent(ArchiveName)
       .verifyAction("metaDataFilesAction", enabled = true)
   }
 

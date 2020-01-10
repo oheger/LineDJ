@@ -193,11 +193,11 @@ class ArchiveAdminController(application: ArchiveAdminApp,
       formatStats(unionArchiveState.mediaCount, unionArchiveState.songCount,
         unionArchiveState.size, unionArchiveState.duration)
       updateForm()
-      enableAction(ActionMetaDataFiles, enabled = false)
     } else {
       archiveStatistics.get(archiveID).fold(loadStatistics(archiveID))(updateStatistics)
-      enableAction(ActionMetaDataFiles, enabled = true)
     }
+
+    enableAction(ActionMetaDataFiles, archiveID != unionArchiveName)
   }
 
   /**
