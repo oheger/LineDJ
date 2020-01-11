@@ -250,7 +250,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @return the combined chunk
     */
   private def combine(chunk1: MetaDataChunk, chunk2: MetaDataChunk): MetaDataChunk =
-  chunk1.copy(data = chunk1.data ++ chunk2.data)
+  chunk2.copy(data = chunk1.data ++ chunk2.data)
 
   /**
     * Returns the expected registration ID for the given medium. This is used

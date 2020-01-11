@@ -27,9 +27,8 @@ import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataCh
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.mutable.ListBuffer
 
@@ -42,6 +41,9 @@ object MetaDataCacheSpec {
 
   /** Constant for a default cache size. */
   private val DefaultCacheSize = 1000
+
+  /** The number of songs on a test medium. */
+  private val SongsPerMedium = 10
 
   /**
     * Creates a test medium ID.
@@ -107,14 +109,12 @@ object MetaDataCacheSpec {
     * media. For each medium a response containing the given number of songs
     * is produced.
     *
-    * @param songsPerMedium the number of songs per medium
-    * @param complete       flag whether the media should be complete
-    * @param media          indices of media for which data is to be generated
+    * @param media indices of media for which data is to be generated
     * @return a sequence with meta data for each medium
     */
-  private def createMetaData(songsPerMedium: Int, complete: Boolean, media: Int*):
+  private def createMetaData(media: Int*):
   Seq[MetaDataResponse] =
-  media map (createMetaDataForMedium(songsPerMedium, complete, _))
+  media map (createMetaDataForMedium(SongsPerMedium, complete = true, _))
 
   /**
    * Creates a callback function for being used in tests which adds received
@@ -186,12 +186,10 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     val facade = mock[MediaFacade]
     val bus = mock[MessageBus]
     when(facade.bus).thenReturn(bus)
-    when(facade.queryMetaDataAndRegisterListener(any(classOf[MediumID]))).thenAnswer(new
-        Answer[Int] {
-      override def answer(invocation: InvocationOnMock): Int = {
-        val mid = invocation.getArguments.head.asInstanceOf[MediumID]
-        extractIndex(mid)
-      }
+    when(facade.queryMetaDataAndRegisterListener(any(classOf[MediumID])))
+      .thenAnswer((invocation: InvocationOnMock) => {
+      val mid = invocation.getArguments.head.asInstanceOf[MediumID]
+      extractIndex(mid)
     })
     facade
   }
@@ -293,6 +291,19 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
     verifyMetaDataRequest(facade)
   }
 
+  it should "correctly set the completed flag of combined chunks" in {
+    val facade = createMediaFacade()
+    val cache = createCache(facade)
+    val chunk1 = createChunk(List(1, 2, 3), complete = false, Medium)
+    val chunk2 = createChunk(4, complete = true)
+    register(cache)
+    cache.receive(chunk1)
+    cache.receive(chunk2)
+
+    val buf = register(cache)
+    verifyReceivedChunks(buf, createChunk(List(1, 2, 3, 4), complete = true, Medium))
+  }
+
   it should "allow removing a listener" in {
     val facade = createMediaFacade()
     val cache = createCache(facade)
@@ -365,7 +376,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "remove a medium from the cache if the cache size is reached" in {
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(10, complete = true, 1 to 5: _*)
+    val metaData = createMetaData(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
     verifyMetaDataRequest(facade)
     cache.numberOfEntries should be(cache.cacheSize)
@@ -389,7 +400,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "move a medium to the front when it is accessed" in {
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(10, complete = true, 1 to 5: _*)
+    val metaData = createMetaData(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
 
     register(cache)
@@ -403,11 +414,11 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "correctly maintain the LRU list when moving a medium to front" in {
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 30)
-    val metaData = createMetaData(10, complete = true, 1 to 3: _*)
+    val metaData = createMetaData(1 to 3: _*)
     metaData foreach (registerAndReceive(cache, _))
 
     register(cache)
-    createMetaData(10, complete = true, 4 to 6: _*) foreach(registerAndReceive(cache, _))
+    createMetaData(4 to 6: _*) foreach(registerAndReceive(cache, _))
     register(cache)
     verifyMetaDataRequest(facade, expTimes = 2)
   }
@@ -415,7 +426,7 @@ class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "remove multiple media from the cache if necessary to enforce the cache size" in {
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(10, complete = true, 1 to 5: _*)
+    val metaData = createMetaData(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
 
     registerAndReceive(cache, createMetaDataForMedium(19, complete = true, mediumIdx = 10))
