@@ -344,7 +344,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     if (s.scanInProgress) (s, None)
     else {
       val next = s.copy(scanClient = Some(client), fileData = Map.empty, mediaData = Map.empty,
-        removeState = initRemoveState(s))
+        removeState = initRemoveState(s), startAnnounced = false)
       (next, Some(MediaScannerActor.ScanPath(root, s.seqNo)))
     }
   }

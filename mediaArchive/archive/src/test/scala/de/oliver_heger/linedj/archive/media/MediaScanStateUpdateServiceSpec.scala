@@ -207,7 +207,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val res = combinedResult(1)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(seqNo = 11,
       fileData = Map(mediumID(1) -> res.result.fileUriMapping),
-      mediaData = res.info)
+      mediaData = res.info, startAnnounced = true)
     val client = actor()
     val expMsg = MediaScannerActor.ScanPath(root, state.seqNo)
 
@@ -217,6 +217,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.fileData should have size 0
     next.mediaData should have size 0
     next.removeState should be(UnionArchiveRemoveState.Initial)
+    next.startAnnounced shouldBe false
     msg should be(Some(expMsg))
   }
 
