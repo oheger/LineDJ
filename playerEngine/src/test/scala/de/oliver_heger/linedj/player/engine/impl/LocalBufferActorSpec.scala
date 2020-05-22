@@ -264,8 +264,9 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "continue a fill operation after space is available again in the buffer" in {
-    val probe = TestProbe()
-    val helper = new BufferTestHelper(List(probe.ref))
+    val probeReader1 = TestProbe()
+    val probeReader2 = TestProbe()
+    val helper = new BufferTestHelper(List(probeReader1.ref, probeReader2.ref))
 
     helper.withFileManagerMock { bufferManager =>
       when(bufferManager.read).thenReturn(Some(BufferPath))
@@ -273,16 +274,18 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .checkNextBufferFile(testBytes())
       .checkNextBufferFile(testBytes())
       .send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, Nil))
-    probe.expectMsgType[ChannelHandler.InitFile]
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.isFull).thenReturn(false)
-    }.send(LocalBufferActor.BufferReadComplete(probe.ref))
+    expectMsg(BufferReadActor(probeReader1.ref, Nil))
+    probeReader1.expectMsgType[ChannelHandler.InitFile]
+    helper.send(LocalBufferActor.BufferReadComplete(probeReader1.ref))
       .checkNextBufferFile(testBytes())
+      .send(ReadBuffer)
+    expectMsgType[BufferReadActor]
+    helper.send(LocalBufferActor.BufferReadComplete(probeReader2.ref))
       .expectBufferFilled()
   }
 
   it should "reset pending fill requests when they have been processed" in {
+    val fillActor = TestProbe()
     val readActor1 = TestProbe()
     val readActor2 = TestProbe()
     val readActor3 = TestProbe()
@@ -301,10 +304,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     readActor3 watch readActor2.ref
-    helper send FillBuffer(testActor)
-    expectMsgType[DownloadData]
+    helper send FillBuffer(fillActor.ref)
     readRequest(readActor1)
-    expectMsgType[DownloadData]
     readRequest(readActor2)
     readActor3.expectTerminated(readActor2.ref)
     helper send FillBuffer(testActor)
@@ -528,15 +529,12 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     system stop fillActor
     expectNoMessage(500.millis)
     helper.send(ReadBuffer)
-      .withFileManagerMock { bufManager =>
-        when(bufManager.isFull).thenReturn(false)
-      }
     val readerMsg = expectMsgType[BufferReadActor]
     helper send BufferReadComplete(readerMsg.readerActor) // removes file from buffer
     expectMsg(BufferFilled(fillActor, expSrcLength))
 
     helper.fillBuffer(testBytes())
-      .expectBufferFilled()
+      .checkNextBufferFile(testBytes())
       .withFileManagerMock { bufManager =>
         val captor = ArgumentCaptor.forClass(classOf[BufferFile])
         verify(bufManager, times(3)).append(captor.capture())
@@ -544,6 +542,19 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         captor.getAllValues.get(1).sourceLengths should have length 0
         captor.getAllValues.get(2).sourceLengths.head should be(expSrcLength)
       }
+  }
+
+  it should "handle a read complete message while writing into the buffer" in {
+    val probeReader = TestProbe()
+    val helper = new BufferTestHelper(List(probeReader.ref))
+
+    helper.withFileManagerMock { bufferManager =>
+      when(bufferManager.read).thenReturn(Some(BufferPath))
+    }.send(ReadBuffer)
+      .fillBuffer(toBytes(TestData * 2 + TestData.dropRight(1)))
+    val msgReadActor = expectMsgType[BufferReadActor]
+    helper.send(BufferReadComplete(msgReadActor.readerActor))
+      .expectBufferFilled()
   }
 
   /**
@@ -696,9 +707,9 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     private def createBufferFileManager(): BufferFileManager = {
       val pathCounter = new AtomicInteger
-      val appendCounter = new AtomicInteger
+      val tempFileCounter = new AtomicInteger
       val manager = mock[BufferFileManager]
-      when(manager.isFull).thenAnswer((_: InvocationOnMock) => appendCounter.get() >= 2)
+      when(manager.isFull).thenAnswer((_: InvocationOnMock) => tempFileCounter.get() >= 2)
       when(manager.read).thenReturn(None)
       when(manager.createPath()).thenAnswer((_: InvocationOnMock) => {
         val path = createPathInDirectory(createBufferFileName(pathCounter.incrementAndGet()))
@@ -707,11 +718,16 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       doAnswer((_: InvocationOnMock) => bufferDirectoryCleared.set(true))
         .when(manager).clearBufferDirectory()
       doAnswer((inv: InvocationOnMock) => {
-        appendCounter.incrementAndGet()
+        tempFileCounter.incrementAndGet()
         val file = inv.getArguments.head.asInstanceOf[BufferFile]
         bufferFilesQueue.add(file.path)
         null
       }).when(manager).append(any(classOf[BufferFile]))
+      when(manager.checkOutAndRemove())
+        .thenAnswer((_: InvocationOnMock) => {
+          tempFileCounter.decrementAndGet()
+          null
+        })
       manager
     }
 

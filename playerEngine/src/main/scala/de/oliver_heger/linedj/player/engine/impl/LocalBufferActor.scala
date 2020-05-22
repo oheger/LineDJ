@@ -30,40 +30,40 @@ import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadDa
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 /**
- * Companion object to ''LocalBufferActor''.
- */
+  * Companion object to ''LocalBufferActor''.
+  */
 object LocalBufferActor {
 
   /**
-   * A message that tells the ''LocalBufferActor'' to fill its buffer with the
-   * content read from the contained ''FileReaderActor''.
-   *
-   * In reaction of this message, the buffer actor reads the content of the
-   * file pointed to by the passed in actor and stores it in a temporary
-   * file. From there it can later be read again during audio playback.
+    * A message that tells the ''LocalBufferActor'' to fill its buffer with the
+    * content read from the contained ''FileReaderActor''.
+    *
+    * In reaction of this message, the buffer actor reads the content of the
+    * file pointed to by the passed in actor and stores it in a temporary
+    * file. From there it can later be read again during audio playback.
     *
     * @param readerActor the reader actor to be read
-   */
+    */
   case class FillBuffer(readerActor: ActorRef)
 
   /**
-   * A message sent by the buffer actor after the content of a reader actor
-   * has been processed and written into the buffer.
+    * A message sent by the buffer actor after the content of a reader actor
+    * has been processed and written into the buffer.
     *
-    * @param readerActor the reader actor that has been read
-   * @param sourceLength the length of the source filled into the buffer
-   */
+    * @param readerActor  the reader actor that has been read
+    * @param sourceLength the length of the source filled into the buffer
+    */
   case class BufferFilled(readerActor: ActorRef, sourceLength: Long)
 
   /**
-   * A message requesting a file to be read from the buffer.
-   *
-   * As soon as data is available (i.e. after a complete temporary file has
-   * been created in the buffer), a [[BufferReadActor]] message is sent to
-   * the caller. Note that only a single read request can be handled at a
-   * point in time; sending another request while the buffer is still read
-   * causes a [[BufferBusy]] message.
-   */
+    * A message requesting a file to be read from the buffer.
+    *
+    * As soon as data is available (i.e. after a complete temporary file has
+    * been created in the buffer), a [[BufferReadActor]] message is sent to
+    * the caller. Note that only a single read request can be handled at a
+    * point in time; sending another request while the buffer is still read
+    * causes a [[BufferBusy]] message.
+    */
   case object ReadBuffer
 
   /**
@@ -98,25 +98,25 @@ object LocalBufferActor {
   case class BufferReadComplete(readerActor: ActorRef)
 
   /**
-   * A message that is send by the buffer to indicate a request which cannot be
-   * handled in the current state.
-   *
-   * ''LocalBufferActor'' only supports a single fill and a single read
-   * operation at the same time. If clients try to start another
-   * simultaneous operation, this message is sent as answer indicating a
-   * violation of the buffer protocol.
-   */
+    * A message that is send by the buffer to indicate a request which cannot be
+    * handled in the current state.
+    *
+    * ''LocalBufferActor'' only supports a single fill and a single read
+    * operation at the same time. If clients try to start another
+    * simultaneous operation, this message is sent as answer indicating a
+    * violation of the buffer protocol.
+    */
   case object BufferBusy
 
   /**
-   * A message telling the buffer that the current sequence of files to be
-   * buffered is complete.
-   *
-   * Typically, the buffer closes a temporary file not before the configured
-   * size is reached. When the end of the playlist is reached, there is
-   * typically space left in the buffer. This messages causes the buffer to
-   * close an open temporary file and make it available for reading.
-   */
+    * A message telling the buffer that the current sequence of files to be
+    * buffered is complete.
+    *
+    * Typically, the buffer closes a temporary file not before the configured
+    * size is reached. When the end of the playlist is reached, there is
+    * typically space left in the buffer. This messages causes the buffer to
+    * close an open temporary file and make it available for reading.
+    */
   case object SequenceComplete
 
   private class LocalBufferActorImpl(config: PlayerConfig, bufferManager: BufferFileManager)
@@ -136,33 +136,33 @@ object LocalBufferActor {
 }
 
 /**
- * An actor for managing a local buffer for streamed audio data.
- *
- * The audio player engine reads data from the source medium and stores it in a
- * buffer on the local hard disk before it is actually played. This actor is
- * responsible for the management of this buffer.
- *
- * Basically, the buffer consists of two temporary files of a configurable
- * size. The buffer actor supports a message for filling the buffer which
- * references a ''MediaFileDownloadActor''. This actor is used to read data
- * until the buffer is full. On the other hand, a ''FileReaderActor'' can be
- * queried for reading from the buffer.
- *
- * Filling the buffer works by reading the content of the provided actor
- * and storing it in a temporary file. When the first temporary file is
- * completely written (i.e. its configured file size is reached) it is made
- * available for reading. At the same time the second temporary file can be
- * filled. When the first file is completely written it is removed. Reading
- * continues with the other file. At this point in time, another temporary file
- * is created which can be filled again. With other words: when the half of the
- * buffer has been read it can be filled again.
- *
- * At a time only a single read and a single fill operation are allowed. If a
- * request for another operation arrives, a busy message is returned.
- *
- * @param config an object with configuration settings
- * @param bufferManager the object for managing temporary files
- */
+  * An actor for managing a local buffer for streamed audio data.
+  *
+  * The audio player engine reads data from the source medium and stores it in a
+  * buffer on the local hard disk before it is actually played. This actor is
+  * responsible for the management of this buffer.
+  *
+  * Basically, the buffer consists of two temporary files of a configurable
+  * size. The buffer actor supports a message for filling the buffer which
+  * references a ''MediaFileDownloadActor''. This actor is used to read data
+  * until the buffer is full. On the other hand, a ''FileReaderActor'' can be
+  * queried for reading from the buffer.
+  *
+  * Filling the buffer works by reading the content of the provided actor
+  * and storing it in a temporary file. When the first temporary file is
+  * completely written (i.e. its configured file size is reached) it is made
+  * available for reading. At the same time the second temporary file can be
+  * filled. When the first file is completely written it is removed. Reading
+  * continues with the other file. At this point in time, another temporary file
+  * is created which can be filled again. With other words: when the half of the
+  * buffer has been read it can be filled again.
+  *
+  * At a time only a single read and a single fill operation are allowed. If a
+  * request for another operation arrives, a busy message is returned.
+  *
+  * @param config        an object with configuration settings
+  * @param bufferManager the object for managing temporary files
+  */
 class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
@@ -217,9 +217,9 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   private var readOperationInProgress = false
 
   /**
-   * @inheritdoc This implementation creates a write actor as a child.
-   *             This actor is re-used for creating files in the buffer.
-   */
+    * @inheritdoc This implementation creates a write actor as a child.
+    *             This actor is re-used for creating files in the buffer.
+    */
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     bufferManager.clearBufferDirectory()
@@ -310,38 +310,48 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * Continues a fill operation. This method is called after data obtained from
-   * the current fill actor was written by the writer actor. It either
-   * requests the next chunk of data or processes remaining bytes to be
-   * written.
-   */
+    * Continues a fill operation. This method is called after data obtained from
+    * the current fill actor was written by the writer actor. It either
+    * requests the next chunk of data or processes remaining bytes to be
+    * written.
+    */
   private def continueFilling(): Unit = {
-    pendingReadResult match {
-      case Some(result) =>
-        handleReadResult(result)
-      case None =>
-        if (!readOperationInProgress) {
-          fillCompleteMessage match {
-            case Some(msg) =>
-              fillClient ! msg
-              fillCompleteMessage = None
-
-            case None =>
-              fillActor foreach { a =>
-                a ! DownloadData(config.bufferChunkSize)
-                readOperationInProgress = true
-              }
-          }
-        }
+    if (!bufferManager.isFull) {
+      pendingReadResult match {
+        case Some(result) =>
+          handleReadResult(result)
+        case None =>
+          continueDownload()
+      }
     }
   }
 
   /**
-   * A fill operation has been completed. The corresponding message is sent if
-   * actually the fill actor is affected.
+    * Continues a download operation. This method is called after all pending
+    * data has been written or the current read actor has been finished.
+    */
+  private def continueDownload(): Unit = {
+    if (!readOperationInProgress) {
+      fillCompleteMessage match {
+        case Some(msg) =>
+          fillClient ! msg
+          fillCompleteMessage = None
+
+        case None =>
+          fillActor foreach { a =>
+            a ! DownloadData(config.bufferChunkSize)
+            readOperationInProgress = true
+          }
+      }
+    }
+  }
+
+  /**
+    * A fill operation has been completed. The corresponding message is sent if
+    * actually the fill actor is affected.
     *
     * @param actor the actor responsible for this message
-   */
+    */
   private def fillOperationCompleted(actor: ActorRef): Unit = {
     fillActor foreach { a =>
       if (actor == a) {
@@ -353,6 +363,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
           fillClient ! fillMsg
         }
         fillActor = None
+        pendingReadResult = None
         context unwatch a
         sourceLengths = sourceLen :: sourceLengths
         log.info("Source completed. Read {} bytes.", sourceLen)
@@ -367,8 +378,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     * stopped.
     */
   private def handleCompletedReadOperation(): Unit = {
+    val bufferBlocked = bufferManager.isFull
     stopReaderActor()
-    continueFilling()
+    if (bufferBlocked) {
+      continueFilling()
+    }
     readActor = null
   }
 
@@ -390,9 +404,9 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * A read operation has been completed. The temporary file can now be
-   * removed from the buffer.
-   */
+    * A read operation has been completed. The temporary file can now be
+    * removed from the buffer.
+    */
   private def completeReadOperation(): Unit = {
     val removedPath = bufferManager.checkOutAndRemove()
     log.info("Finished temporary file {}.", removedPath)
@@ -411,23 +425,21 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     * @param readResult the object with the result of the read operation
     */
   private def handleReadResult(readResult: ByteString): Unit = {
-    if (!bufferManager.isFull) {
-      val (request, pending) = currentAndPendingWriteRequest(readResult)
-      ensureWriteActorInitialized() ! request
-      pendingReadResult = pending
-      bytesWrittenToFile += request.length
-      bytesWrittenForSource += request.length
-    }
+    val (request, pending) = currentAndPendingWriteRequest(readResult)
+    ensureWriteActorInitialized() ! request
+    pendingReadResult = pending
+    bytesWrittenToFile += request.length
+    bytesWrittenForSource += request.length
   }
 
   /**
     * Initializes the write actor for a new temporary file if this is necessary.
-   * This method creates a new temporary file name and passes it to the write
-   * actor. This action is needed whenever the maximum size of a temporary file
-   * was reached and it has been closed.
+    * This method creates a new temporary file name and passes it to the write
+    * actor. This action is needed whenever the maximum size of a temporary file
+    * was reached and it has been closed.
     *
     * @return a reference to the initialized write actor
-   */
+    */
   private def ensureWriteActorInitialized(): ActorRef = {
     if (currentPath.isEmpty) {
       currentPath = Some(bufferManager.createPath())
@@ -438,16 +450,15 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * Determines the current and the pending write request based on the passed
-   * in read result. This method checks whether the data of the passed in
-   * result object still fits into the current temporary file. If this is not
-   * the case, the request has to be split into two.
+    * Determines the current and the pending write request based on the passed
+    * in read result. This method checks whether the data of the passed in
+    * result object still fits into the current temporary file. If this is not
+    * the case, the request has to be split into two.
     *
     * @param readResult the read result
-   * @return a tuple with the current and the pending write request
-   */
-  private def currentAndPendingWriteRequest(readResult: ByteString): (ArraySource,
-    Option[ByteString]) = {
+    * @return a tuple with the current and the pending write request
+    */
+  private def currentAndPendingWriteRequest(readResult: ByteString): (ArraySource, Option[ByteString]) = {
     if (readResult.length + bytesWrittenToFile <= config.bufferFileSize)
       (ArraySourceImpl(readResult), None)
     else {
@@ -458,11 +469,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * Checks whether a fill request is currently pending and can be served.
-   * This method checks whether all criteria are fulfilled to start a new
-   * fill operation. It is called when conditions change that might affect
-   * whether a fill operation is possible or not.
-   */
+    * Checks whether a fill request is currently pending and can be served.
+    * This method checks whether all criteria are fulfilled to start a new
+    * fill operation. It is called when conditions change that might affect
+    * whether a fill operation is possible or not.
+    */
   private def serveFillRequest(): Unit = {
     if (pendingFillRequest) {
       fillActor.get ! DownloadData(config.bufferChunkSize)
@@ -471,11 +482,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * Checks whether a read request is currently pending and can be served. This
-   * method is called when a read request comes in or new data is written into
-   * the buffer. It checks whether all conditions are fulfilled to start a new
-   * read operation. If this is the case, the request is handled.
-   */
+    * Checks whether a read request is currently pending and can be served. This
+    * method is called when a read request comes in or new data is written into
+    * the buffer. It checks whether all conditions are fulfilled to start a new
+    * read operation. If this is the case, the request is handled.
+    */
   private def serveReadRequest(): Unit = {
     if (readActor == null) {
       for {client <- readClient
@@ -489,17 +500,17 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
-   * A class keeping track on information required for gracefully closing this
-   * actor.
-   *
-   * Closing this actor is not trivial because there may be ongoing operations
-   * that have to be canceled before cleanup can be done (e.g. removing of
-   * currently open temporary files). This class collects the required
-   * information and is also triggered when a change in the affected conditions
-   * happens.
-   *
-   * @param closingActor the actor that triggered the closing operation
-   */
+    * A class keeping track on information required for gracefully closing this
+    * actor.
+    *
+    * Closing this actor is not trivial because there may be ongoing operations
+    * that have to be canceled before cleanup can be done (e.g. removing of
+    * currently open temporary files). This class collects the required
+    * information and is also triggered when a change in the affected conditions
+    * happens.
+    *
+    * @param closingActor the actor that triggered the closing operation
+    */
   private class ClosingState(closingActor: ActorRef) {
     /** A flag whether the write actor is still open. */
     var writeActorPending = false
@@ -508,11 +519,11 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     var readActorPending = false
 
     /**
-     * Triggers a closing operation. The current state as it affects closing is
-     * collected. If possible, the close is already executed.
+      * Triggers a closing operation. The current state as it affects closing is
+      * collected. If possible, the close is already executed.
       *
       * @return a flag whether this actor could be closed directly
-     */
+      */
     def initiateClosing(): Boolean = {
       readActorPending = readClient.isDefined && readActor != null
       writeActorPending = currentPath.isDefined
@@ -523,38 +534,38 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     }
 
     /**
-     * Notifies this object that the write actor was closed. This may impact an
-     * ongoing closing operation. If closing is in progress and now all
-     * conditions are fulfilled, this actor is closed. The return value
-     * indicates whether the caller can continue its current operation
-     * ('''true''') or whether it should be aborted ('''false''').
+      * Notifies this object that the write actor was closed. This may impact an
+      * ongoing closing operation. If closing is in progress and now all
+      * conditions are fulfilled, this actor is closed. The return value
+      * indicates whether the caller can continue its current operation
+      * ('''true''') or whether it should be aborted ('''false''').
       *
       * @return a flag whether the current operation can be continued
-     */
+      */
     def writeActorClosed(): Boolean = {
       writeActorPending = false
       closeIfPossible()
     }
 
     /**
-     * Notifies this object that the current read actor was stopped. This may impact an
-     * ongoing closing operation. If closing is in progress and now all
-     * conditions are fulfilled, this actor is closed. The return value
-     * indicates whether the caller can continue its current operation
-     * ('''true''') or whether it should be aborted ('''false''').
+      * Notifies this object that the current read actor was stopped. This may impact an
+      * ongoing closing operation. If closing is in progress and now all
+      * conditions are fulfilled, this actor is closed. The return value
+      * indicates whether the caller can continue its current operation
+      * ('''true''') or whether it should be aborted ('''false''').
       *
       * @return a flag whether the current operation can be continued
-     */
+      */
     def readActorStopped(): Boolean = {
       readActorPending = false
       closeIfPossible()
     }
 
     /**
-     * Closes this actor if all conditions are fulfilled.
+      * Closes this actor if all conditions are fulfilled.
       *
       * @return a flag whether the current operation can be continued
-     */
+      */
     private def closeIfPossible(): Boolean = {
       if (!writeActorPending && !readActorPending) {
         closingActor ! CloseAck(self)
@@ -563,4 +574,5 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       false
     }
   }
+
 }
