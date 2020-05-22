@@ -34,7 +34,7 @@ import java.nio.file.Path
  *
  * The media archive can consist of multiple components where each component
  * can contribute media files. To reflect this, a ''MediumID'' contains an ID
- * for the component that is responsible for the associated medum.
+ * for the component that is responsible for the associated medium.
  *
  * @param mediumURI the URI which identifies this medium
  * @param mediumDescriptionPath the optional path to the medium description
@@ -50,7 +50,7 @@ object MediumID {
    * files not assigned to a medium (i.e. for which no medium description file
    * is available).
    */
-  val UndefinedMediumID = MediumID("", None, "<undefined>")
+  val UndefinedMediumID: MediumID = MediumID("", None, "<undefined>")
 
   /**
     * Creates a ''MediumID'' object from the path to the description file. The

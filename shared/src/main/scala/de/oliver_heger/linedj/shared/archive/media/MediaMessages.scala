@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.shared.archive.media
 
 import akka.actor.ActorRef
 import akka.util.ByteString
+import de.oliver_heger.linedj.shared.RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' telling it to respond with a
@@ -25,7 +26,7 @@ import akka.util.ByteString
   * order to find out about the audio data available. They can then decide
   * which audio sources are requested for playback.
   */
-case object GetAvailableMedia
+case object GetAvailableMedia extends RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' telling it that a reader
@@ -38,7 +39,7 @@ case object GetAvailableMedia
   * @param reader the reader actor in question
   * @param fileID the ID of the media file which is subject of the operation
   */
-case class DownloadActorAlive(reader: ActorRef, fileID: MediaFileID)
+case class DownloadActorAlive(reader: ActorRef, fileID: MediaFileID) extends RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' telling it to return a list
@@ -46,7 +47,7 @@ case class DownloadActorAlive(reader: ActorRef, fileID: MediaFileID)
   *
   * @param mediumID the ID of the medium in question
   */
-case class GetMediumFiles(mediumID: MediumID)
+case class GetMediumFiles(mediumID: MediumID) extends RemoteSerializable
 
 /**
   * A message sent by ''MediaManagerActor'' which contains information about
@@ -64,7 +65,7 @@ case class GetMediumFiles(mediumID: MediumID)
   *
   * @param media a map with information about all media currently available
   */
-case class AvailableMedia(media: Map[MediumID, MediumInfo])
+case class AvailableMedia(media: Map[MediumID, MediumInfo]) extends RemoteSerializable
 
 /**
   * A message sent by ''MediaManagerActor'' in response to a request for the
@@ -78,7 +79,7 @@ case class AvailableMedia(media: Map[MediumID, MediumInfo])
   * @param uris     a sequence with the URIs for the files on this medium
   * @param existing a flag whether the medium exists
   */
-case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
+case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean) extends RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' which requests the download of
@@ -98,7 +99,7 @@ case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean)
   * @param withMetaData flag whether media meta data contained in the file
   *                     should be read or skipped
   */
-case class MediumFileRequest(fileID: MediaFileID, withMetaData: Boolean)
+case class MediumFileRequest(fileID: MediaFileID, withMetaData: Boolean) extends RemoteSerializable
 
 /**
   * A message sent by ''MediaManagerActor'' as a response of a
@@ -116,7 +117,7 @@ case class MediumFileRequest(fileID: MediaFileID, withMetaData: Boolean)
   * @param length        the length of the file (in bytes)
   */
 case class MediumFileResponse(request: MediumFileRequest, contentReader: Option[ActorRef],
-                              length: Long)
+                              length: Long) extends RemoteSerializable
 
 /**
   * A request sent to an actor for downloading media data from the archive
@@ -128,7 +129,7 @@ case class MediumFileResponse(request: MediumFileRequest, contentReader: Option[
   *
   * @param size the size of data to be returned
   */
-case class DownloadData(size: Int)
+case class DownloadData(size: Int) extends RemoteSerializable
 
 /**
   * A message representing the result of a [[DownloadData]] message.
@@ -140,7 +141,7 @@ case class DownloadData(size: Int)
   *
   * @param data the data that has been requested
   */
-case class DownloadDataResult(data: ByteString)
+case class DownloadDataResult(data: ByteString) extends RemoteSerializable
 
 /**
   * A message indicating that a download is complete.
@@ -148,14 +149,14 @@ case class DownloadDataResult(data: ByteString)
   * This message is sent as response of a [[DownloadData]] request if no more
   * data is available.
   */
-case object DownloadComplete
+case object DownloadComplete extends RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' telling it to scan all
   * configured root paths for media files. The paths are obtained from the
   * configuration passed to this actor as construction time.
   */
-case object ScanAllMedia
+case object ScanAllMedia extends RemoteSerializable
 
 
 /**
@@ -165,10 +166,10 @@ case object ScanAllMedia
   * This message is sent by the group manager actor when a media scan can be
   * executed.
   */
-case object StartMediaScan
+case object StartMediaScan extends RemoteSerializable
 
 /**
   * A message sent by ''MediaManagerActor'' as a notification when a media
   * scan is complete.
   */
-case object MediaScanCompleted
+case object MediaScanCompleted extends RemoteSerializable

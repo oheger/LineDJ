@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.shared.archive.metadata
 
+import de.oliver_heger.linedj.shared.RemoteSerializable
+
 /**
  * A data class containing all meta data available for a media file.
  *
@@ -35,4 +37,4 @@ package de.oliver_heger.linedj.shared.archive.metadata
 case class MediaMetaData(title: Option[String] = None, artist: Option[String] = None, album:
 Option[String] = None, inceptionYear: Option[Int] = None, trackNumber: Option[Int] = None,
                          duration: Option[Int] = None, formatDescription: Option[String] = None,
-                         size: Long = 0)
+                         size: Long = 0) extends RemoteSerializable

@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.shared.archive.metadata
 
 import akka.actor.ActorRef
+import de.oliver_heger.linedj.shared.RemoteSerializable
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 
 /**
@@ -45,7 +46,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
   *                           response messages sent to this client
   */
 case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean,
-                       registrationID: Int)
+                       registrationID: Int) extends RemoteSerializable
 
 /**
   * A message sent as payload in a response for a ''GetMetaData'' request.
@@ -63,6 +64,7 @@ case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean,
   *                 data)
   */
 case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], complete: Boolean)
+  extends RemoteSerializable
 
 /**
   * A response message send for a ''GetMetaData'' request.
@@ -73,7 +75,7 @@ case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], c
   * @param chunk          the currently available meta data
   * @param registrationID the registration ID used by the client
   */
-case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int)
+case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int) extends RemoteSerializable
 
 /**
   * A message sent as answer for a ''GetMetaData'' request if the specified
@@ -86,7 +88,7 @@ case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int)
   *
   * @param mediumID the ID of the medium in question
   */
-case class UnknownMedium(mediumID: MediumID)
+case class UnknownMedium(mediumID: MediumID) extends RemoteSerializable
 
 /**
   * Tells the meta data manager actor to remove a listener for the specified
@@ -103,7 +105,7 @@ case class UnknownMedium(mediumID: MediumID)
   * @param mediumID the ID of the medium
   * @param listener the listener to be removed
   */
-case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
+case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef) extends RemoteSerializable
 
 /**
   * Tells the meta data manager actor to add a state listener actor.
@@ -120,7 +122,7 @@ case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef)
   *
   * @param listener the listener actor to be registered
   */
-case class AddMetaDataStateListener(listener: ActorRef)
+case class AddMetaDataStateListener(listener: ActorRef) extends RemoteSerializable
 
 /**
   * Tells the meta data manager actor to remove a state listener actor.
@@ -131,7 +133,7 @@ case class AddMetaDataStateListener(listener: ActorRef)
   *
   * @param listener the state listener to be removed
   */
-case class RemoveMetaDataStateListener(listener: ActorRef)
+case class RemoveMetaDataStateListener(listener: ActorRef) extends RemoteSerializable
 
 /**
   * A message processed by the meta data manager actor as a request to return
@@ -140,7 +142,7 @@ case class RemoveMetaDataStateListener(listener: ActorRef)
   * Such files are generated to make the meta data extracted from audio files
   * persistent. For each medium a meta data file is generated.
   */
-case object GetMetaDataFileInfo
+case object GetMetaDataFileInfo extends RemoteSerializable
 
 /**
   * A message sent by the meta data manager actor as response to a
@@ -168,7 +170,7 @@ case object GetMetaDataFileInfo
   */
 case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
                             unusedFiles: Set[String],
-                            optUpdateActor: Option[ActorRef])
+                            optUpdateActor: Option[ActorRef]) extends RemoteSerializable
 
 /**
   * A message processed by the meta data manager actor that causes persistent
@@ -182,7 +184,7 @@ case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
   *
   * @param checksumSet a set with checksum values for the files to be removed
   */
-case class RemovePersistentMetaData(checksumSet: Set[String])
+case class RemovePersistentMetaData(checksumSet: Set[String]) extends RemoteSerializable
 
 
 /**
@@ -197,7 +199,7 @@ case class RemovePersistentMetaData(checksumSet: Set[String])
   *                          successfully removed
   */
 case class RemovePersistentMetaDataResult(request: RemovePersistentMetaData,
-                                          successfulRemoved: Set[String])
+                                          successfulRemoved: Set[String]) extends RemoteSerializable
 
 /**
   * A message processed by the meta data manager actor that requests meta data
@@ -211,7 +213,7 @@ case class RemovePersistentMetaDataResult(request: RemovePersistentMetaData,
   * @param files the files for which meta data is to be retrieved
   * @param seqNo a sequence number to detect outdated responses
   */
-case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0)
+case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0) extends RemoteSerializable
 
 /**
   * A message sent as response for a [[GetFilesMetaData]] request.
@@ -225,7 +227,7 @@ case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0)
   * @param data    a map with meta data for the requested files
   */
 case class FilesMetaDataResponse(request: GetFilesMetaData,
-                                 data: Map[MediaFileID, MediaMetaData])
+                                 data: Map[MediaFileID, MediaMetaData]) extends RemoteSerializable
 
 /**
   * A message processed by the meta data manager actor that requests statistics
@@ -233,7 +235,7 @@ case class FilesMetaDataResponse(request: GetFilesMetaData,
   *
   * @param archiveComponentID the ID of the archive component
   */
-case class GetArchiveComponentStatistics(archiveComponentID: String)
+case class GetArchiveComponentStatistics(archiveComponentID: String) extends RemoteSerializable
 
 /**
   * A message sent as response of a [[GetArchiveComponentStatistics]] request.
@@ -252,7 +254,7 @@ case class ArchiveComponentStatistics(archiveComponentID: String,
                                       mediaCount: Int,
                                       songCount: Int,
                                       size: Long,
-                                      duration: Long) {
+                                      duration: Long) extends RemoteSerializable {
   /**
     * Returns a flag whether this is a valid statistics instance. This function
     * can be used to check whether the archive component could be resolved.

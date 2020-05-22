@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
+import de.oliver_heger.linedj.shared.RemoteSerializable
+
 /**
   * A data class which uniquely identifies a media file.
   *
@@ -35,3 +37,4 @@ package de.oliver_heger.linedj.shared.archive.media
   *                 independent on a specific archive component
   */
 case class MediaFileID(mediumID: MediumID, uri: String, checksum: Option[String] = None)
+  extends RemoteSerializable
