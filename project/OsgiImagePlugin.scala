@@ -165,7 +165,7 @@ object OsgiImagePlugin extends AutoPlugin {
     */
   private def createDependenciesFilter(exclusions: Seq[ModuleDesc]): DependencyFilter = {
     val configs = configurationFilter("compile")
-    val artifacts = artifactFilter(`type` = "jar")
+    val artifacts = artifactFilter(`type` = "jar" | "bundle")
     val modules = createModuleFilter(exclusions)
     configs && artifacts && modules
   }
