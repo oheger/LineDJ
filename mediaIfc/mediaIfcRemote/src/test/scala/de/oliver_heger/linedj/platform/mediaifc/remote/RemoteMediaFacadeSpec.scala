@@ -43,14 +43,14 @@ class RemoteMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     val facade = new RemoteMediaFacadeTestHelper().createFacade()
 
     val path = facade.createActorPathPrefix(config)
-    path should be("akka.tcp://testSystem@myTestHost:1234/user/")
+    path should be("akka://testSystem@myTestHost:1234/user/")
   }
 
   it should "use defaults for missing configuration settings" in {
     val facade = new RemoteMediaFacadeTestHelper().createFacade()
 
     val path = facade.createActorPathPrefix(new PropertiesConfiguration)
-    path should be("akka.tcp://LineDJ-Server@127.0.0.1:2552/user/")
+    path should be("akka://LineDJ-Server@127.0.0.1:2552/user/")
   }
 
   /**
@@ -58,13 +58,13 @@ class RemoteMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     */
   private class RemoteMediaFacadeTestHelper {
     /** Mock for the relay actor. */
-    val relayActor = mock[ActorRef]
+    val relayActor: ActorRef = mock[ActorRef]
 
     /** Mock for the actor system. */
-    val actorSystem = mock[ActorSystem]
+    val actorSystem: ActorSystem = mock[ActorSystem]
 
     /** Mock for the message bus. */
-    val messageBus = mock[MessageBus]
+    val messageBus: MessageBus = mock[MessageBus]
 
     /**
       * Creates a new facade test instance.
