@@ -20,8 +20,8 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.5.26"
-lazy val AkkaHttpVersion = "10.1.11"
+lazy val AkkaVersion = "2.6.5"
+lazy val AkkaHttpVersion = "10.1.12"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.9"
 lazy val VersionScalaz = "7.2.28"
@@ -29,13 +29,37 @@ lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4-SNAPSHOT"
 lazy val VersionScalaTest = "3.0.8"
 lazy val VersionJetty = "9.4.2.v20170220"
+lazy val VersionJackson = "2.11.0"
+lazy val VersionAeron = "1.27.0"
+lazy val VersionSslConfig = "0.4.2"
 
 lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
   "com.typesafe.akka" %% "akka-testkit" % AkkaVersion % Test,
-  "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
   "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-slf4j" % AkkaVersion,
   "org.scala-lang" % "scala-reflect" % VersionScala
+)
+
+/**
+  * Additional dependencies to drag in all the bundles to enable remote access
+  * to actors, including serialization.
+  */
+lazy val remotingDependencies = Seq(
+  "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
+  "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
+  "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
+  "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
+  "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
+  "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % VersionJackson,
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson,
+  "com.fasterxml.jackson.module" % "jackson-module-paranamer" % VersionJackson,
+  "io.aeron" % "aeron-client" % VersionAeron,
+  "io.aeron" % "aeron-driver" % VersionAeron
 )
 
 lazy val testDependencies = Seq(
@@ -284,6 +308,7 @@ lazy val actorSystem = (project in file("actorSystem"))
       "akka.remote",
       "akka.stream",
       "akka.http;resolution:=optional",
+      "akka.serialization.jackson",
       "*"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
     OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
@@ -813,6 +838,7 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     name := "linedj-archive-osgiImage",
     sourceImagePaths := Seq("base", "archive"),
     excludedModules := DefaultExcludedModules,
+    libraryDependencies ++= remotingDependencies
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded)
 
@@ -828,7 +854,8 @@ lazy val browserOsgiImage = (project in file("images/browser"))
   .settings(
     name := "linedj-browser-osgiImage",
     sourceImagePaths := Seq("base", "baseAudioPlatform", "browser"),
-    excludedModules := DefaultExcludedModules
+    excludedModules := DefaultExcludedModules,
+    libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList)
@@ -846,7 +873,8 @@ lazy val playerOsgiImage = (project in file("images/player"))
   .settings(
     name := "linedj-player-osgiImage",
     sourceImagePaths := Seq("base", "baseAudioPlatform", "player"),
-    excludedModules := DefaultExcludedModules
+    excludedModules := DefaultExcludedModules,
+    libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, persistentPlaylistHandler)
@@ -863,7 +891,8 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   .settings(
     name := "linedj-player-advanced-osgiImage",
     sourceImagePaths := Seq("base", "baseAudioPlatform", "player_advanced"),
-    excludedModules := DefaultExcludedModules
+    excludedModules := DefaultExcludedModules,
+    libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
@@ -881,4 +910,5 @@ lazy val radioOsgiImage = (project in file("images/radio"))
     name := "linedj-radio-osgiImage",
     sourceImagePaths := Seq("base", "baseAudioPlatform", "radio"),
     excludedModules := DefaultExcludedModules,
+    libraryDependencies ++= remotingDependencies
   ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled)
