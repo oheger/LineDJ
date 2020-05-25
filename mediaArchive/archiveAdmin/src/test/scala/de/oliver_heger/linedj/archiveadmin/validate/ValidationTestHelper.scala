@@ -72,7 +72,7 @@ object ValidationTestHelper {
     */
   def createAvailableMedia(count: Int): AvailableMedia = {
     val mediaMap = (1 to count).map(i => (testMedium(i), testMediumInfo(i))).toMap
-    AvailableMedia(mediaMap)
+    AvailableMedia(mediaMap.toList)
   }
 
   /**

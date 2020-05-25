@@ -962,7 +962,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       *             context that has already been created initially by this
       *             test helper.
       */
-    override def createClientApplicationContext(): ClientApplicationContext =
+    override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
       clientApplicationContext
 
     /**

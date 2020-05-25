@@ -154,8 +154,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     case _: EnhancedMediaScanResult => // no scan in progress or closing
       sender ! ScanResultProcessed
 
-    case AvailableMedia(media) =>
-      availableMedia = Some(media)
+    case av: AvailableMedia =>
+      availableMedia = Some(av.media)
       checkAndHandleScanComplete()
       onConditionSatisfied()
 

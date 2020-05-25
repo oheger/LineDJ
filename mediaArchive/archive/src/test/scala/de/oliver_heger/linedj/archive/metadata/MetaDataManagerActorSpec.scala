@@ -215,7 +215,7 @@ object MetaDataManagerActorSpec {
     val mediaInfo = result.mediaFiles.keys.map { mid =>
       (mid, createMediumInfo(mid))
     }.toMap + (MediumID.UndefinedMediumID -> createMediumInfo(MediumID.UndefinedMediumID))
-    AvailableMedia(mediaInfo)
+    AvailableMedia(mediaInfo.toList)
   }
 
   /**

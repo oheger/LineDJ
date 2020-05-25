@@ -207,7 +207,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val res = combinedResult(1)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(seqNo = 11,
       fileData = Map(mediumID(1) -> res.result.fileUriMapping),
-      mediaData = res.info, startAnnounced = true)
+      mediaData = res.info.toList, startAnnounced = true)
     val client = actor()
     val expMsg = MediaScannerActor.ScanPath(root, state.seqNo)
 
@@ -319,12 +319,12 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val res2 = combinedResult(2)
     val res3 = combinedResult(3)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
-      mediaData = mediaMap(1, withChecksum = true),
+      mediaData = mediaMap(1, withChecksum = true).toList,
       fileData = Map(mediumID(1) -> res1.result.fileUriMapping))
     val newResults = List(res2, res3)
     val expFileData = state.fileData ++ Map(mediumID(2) -> res2.result.fileUriMapping) ++
       Map(mediumID(3) -> res3.result.fileUriMapping)
-    val expMediaData = multiMediaMap(1, 2, 3)
+    val expMediaData = multiMediaMap(1, 2, 3).toList
     val sender = actor()
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = sender,
       results = ScanSinkActor.CombinedResults(newResults, state.seqNo)), state)
@@ -350,7 +350,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       results = ScanSinkActor.CombinedResults(List(combinedRes), state.seqNo)), state)
 
     next.currentResults should contain only res
-    next.mediaData should be(info)
+    next.mediaData should be(info.toList)
     next.fileData should have size 2
     next.fileData(mediumID(1)) should be(res1.fileUriMapping)
     next.fileData(mediumID(2)) should be(res2.fileUriMapping)
@@ -367,7 +367,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       results = combinedResults))
 
     next.currentMediaData(mid).checksum should be(MediaScanStateUpdateServiceImpl.UndefinedChecksum)
-    next.mediaData(mid).checksum should be(MediaScanStateUpdateServiceImpl.UndefinedChecksum)
+    next.mediaData.find(_._1 == mid).get._2.checksum should be(MediaScanStateUpdateServiceImpl.UndefinedChecksum)
   }
 
   it should "ignore new results if the sequence number does not match" in {
@@ -415,7 +415,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "return an available media message to the meta data manager" in {
-    val media = multiMediaMap(1, 2)
+    val media = multiMediaMap(1, 2).toList
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       availableMediaSent = false, mediaData = media, ackMetaManager = false)
 
@@ -515,7 +515,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(currentMediaData = mediaMap(1),
       removeState = UnionArchiveRemoveState.Pending,
       currentResults = List(scanResult(1), scanResult(2)),
-      mediaData = multiMediaMap(3, 4), scanClient = Some(actor()),
+      mediaData = multiMediaMap(3, 4).toList, scanClient = Some(actor()),
       availableMediaSent = false)
 
     val next = modifyState(MediaScanStateUpdateServiceImpl.scanCanceled(), state)
@@ -584,7 +584,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   }
 
   it should "handle a completed scan operation" in {
-    val mediaData = multiMediaMap(2, 4, 8, 16)
+    val mediaData = multiMediaMap(2, 4, 8, 16).toList
     val currentMedia = mediaMap(16)
     val ack = actor()
     val client = actor()
@@ -605,7 +605,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   it should "handle a canceled scan operation" in {
     val ack = actor()
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
-      mediaData = multiMediaMap(1, 2), ackPending = Some(ack),
+      mediaData = multiMediaMap(1, 2).toList, ackPending = Some(ack),
       currentMediaData = mediaMap(1), currentResults = List(scanResult(2)))
 
     val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.handleScanCanceled(), state)

@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.gui.builder.action.ActionStore
+import org.apache.commons.configuration.Configuration
 import org.scalatest.{FlatSpec, Matchers}
 
 object AudioPlayerAppSpec {
@@ -38,7 +39,7 @@ class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupp
     *             test whether the player configuration is constructed
     *             correctly.
     */
-  override def createClientApplicationContext(): ClientApplicationContext = {
+  override def createClientApplicationContext(config: Configuration): ClientApplicationContext = {
     val ctx = super.createClientApplicationContext()
     ctx.managementConfiguration.addProperty(AudioPlayerConfig.PropRotationSpeed, RotationSpeed)
     ctx

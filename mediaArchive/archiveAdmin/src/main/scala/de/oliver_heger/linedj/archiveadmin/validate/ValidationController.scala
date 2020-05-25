@@ -177,7 +177,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     * @return the source for all media
     */
   private[validate] def createSource(media: AvailableMedia): Source[MediumID, NotUsed] =
-    Source(media.media.keySet)
+    Source(media.mediaList).map(_._1)
 
   /**
     * Runs the validation stream and returns a kill switch to interrupt it.

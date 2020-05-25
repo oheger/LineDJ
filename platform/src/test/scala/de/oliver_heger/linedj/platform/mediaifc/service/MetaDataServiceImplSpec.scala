@@ -87,7 +87,7 @@ class MetaDataServiceImplSpec extends FlatSpec with Matchers {
   import MetaDataServiceImplSpec._
 
   "MetaDataServiceImpl" should "fetch available media" in {
-    val Media = AvailableMedia(Map(mediumInfoMapping(1)))
+    val Media = AvailableMedia(List(mediumInfoMapping(1)))
     val bus = new MessageBusTestImpl
     val funcMedia = MetaDataServiceImpl.fetchMedia()
 
@@ -102,8 +102,8 @@ class MetaDataServiceImplSpec extends FlatSpec with Matchers {
   }
 
   it should "handle multiple available media invocations of the callback" in {
-    val Media1 = AvailableMedia(Map(mediumInfoMapping(1)))
-    val Media2 = AvailableMedia(Map(mediumInfoMapping(1), mediumInfoMapping(2)))
+    val Media1 = AvailableMedia(List(mediumInfoMapping(1)))
+    val Media2 = AvailableMedia(List(mediumInfoMapping(1), mediumInfoMapping(2)))
     val bus = new MessageBusTestImpl
     val funcMedia = MetaDataServiceImpl.fetchMedia()
     val futMedia = funcMedia(bus)

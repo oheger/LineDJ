@@ -109,7 +109,7 @@ object MetaDataFilesControllerSpec {
     */
   private def availableMedia(): AvailableMedia = {
     val mediaData = (1 to MediaCount) map (i => (mediumID(i), mediumInfo(i)))
-    AvailableMedia(mediaData.toMap)
+    AvailableMedia(mediaData.toList)
   }
 
   /**
@@ -288,9 +288,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "filter out media for which no meta data file exists" in {
     val helper = new MetaDataFilesControllerTestHelper
     val avMedia = availableMedia()
-    val moreMedia = avMedia.media + (mediumID(42) -> mediumInfo(42))
+    val moreMedia = (mediumID(42), mediumInfo(42)) :: avMedia.mediaList
 
-    helper.openWindow().sendAvailableMedia(avMedia.copy(media = moreMedia))
+    helper.openWindow().sendAvailableMedia(avMedia.copy(mediaList = moreMedia))
       .sendStateEvent(MetaDataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metaDataFileInfo()))
     checkTableModel(helper)

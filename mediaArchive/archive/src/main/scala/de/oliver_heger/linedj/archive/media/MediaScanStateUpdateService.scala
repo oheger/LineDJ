@@ -71,7 +71,7 @@ private case class MediaScanState(scanClient: Option[ActorRef],
                                   availableMediaSent: Boolean,
                                   seqNo: Int,
                                   fileData: Map[MediumID, Map[String, FileData]],
-                                  mediaData: Map[MediumID, MediumInfo],
+                                  mediaData: List[(MediumID, MediumInfo)],
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
                                   currentResults: List[EnhancedMediaScanResult],
@@ -326,7 +326,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
       startAnnounced = false,
       seqNo = 0,
       fileData = Map.empty,
-      mediaData = Map.empty,
+      mediaData = List.empty,
       ackPending = None,
       ackMetaManager = true,
       currentResults = Nil,
@@ -343,7 +343,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
   StateUpdate[Option[MediaScannerActor.ScanPath]] = State { s =>
     if (s.scanInProgress) (s, None)
     else {
-      val next = s.copy(scanClient = Some(client), fileData = Map.empty, mediaData = Map.empty,
+      val next = s.copy(scanClient = Some(client), fileData = Map.empty, mediaData = Nil,
         removeState = initRemoveState(s), startAnnounced = false)
       (next, Some(MediaScannerActor.ScanPath(root, s.seqNo)))
     }
@@ -395,7 +395,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
     if (!s.availableMediaSent) // clear media state, it is not needed by actor
-      (s.copy(availableMediaSent = true, mediaData = Map.empty),
+      (s.copy(availableMediaSent = true, mediaData = Nil),
         Some(AvailableMedia(s.mediaData)))
     else if (metaDataMessageBlocked(s)) (s, None)
     else generateMetaDataMessage(s)
@@ -416,7 +416,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def scanCanceled(): StateUpdate[Unit] = modify { s =>
     s.copy(removeState = Initial, currentMediaData = Map.empty, currentResults = List.empty,
-      mediaData = Map.empty, availableMediaSent = true)
+      mediaData = Nil, availableMediaSent = true)
   }
 
   /**
@@ -515,9 +515,9 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @param results the sequence with result objects
     * @return the updated map with media information
     */
-  private def updateMediaDataForResults(data: Map[MediumID, MediumInfo],
+  private def updateMediaDataForResults(data: List[(MediumID, MediumInfo)],
                                         results: Iterable[CombinedMediaScanResult]):
-  Map[MediumID, MediumInfo] =
+  List[(MediumID, MediumInfo)] =
     results.foldLeft(data) { (map, res) =>
       map ++ res.info
     }

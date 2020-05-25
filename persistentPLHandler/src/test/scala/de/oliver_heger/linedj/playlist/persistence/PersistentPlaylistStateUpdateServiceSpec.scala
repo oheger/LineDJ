@@ -54,7 +54,7 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
       val info = MediumInfo(m.mediumURI, "desc", m, "", "", generateChecksum(m))
       m -> info
     }
-    AvailableMedia(mediaData.toMap)
+    AvailableMedia(mediaData.toList)
   }
 
   /**

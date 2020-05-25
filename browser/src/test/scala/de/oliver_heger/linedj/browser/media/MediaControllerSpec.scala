@@ -172,7 +172,7 @@ object MediaControllerSpec {
     val undefinedMappings = List(infoMapping(undefinedMediumInfo(UndefinedMediumUri)), infoMapping
       (undefinedMediumInfo("anotherUndefinedURI")))
     val mappings = Random.shuffle(List(definedMappings, undefinedMappings).flatten)
-    AvailableMedia(Map(mappings: _*))
+    AvailableMedia(List(mappings: _*))
   }
 
   /**
@@ -307,13 +307,13 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 3
 
-    helper sendAvailableMedia AvailableMedia(Map.empty)
+    helper sendAvailableMedia AvailableMedia(List.empty)
     verify(helper.comboHandler, never()).setData(any())
     verify(helper.comboHandler, never()).setEnabled(true)
   }
 
   it should "add an entry for the undefined medium only if it exists" in {
-    val mediaMap = AvailableMediaMsg.media filter (e => e._1.mediumDescriptionPath.isDefined)
+    val mediaMap = AvailableMediaMsg.mediaList filter (e => e._1.mediumDescriptionPath.isDefined)
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
 
@@ -682,7 +682,7 @@ class MediaControllerSpec extends FlatSpec with Matchers {
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 4
     helper sendAvailableMedia AvailableMediaMsg
-      .copy(media = AvailableMediaMsg.media + (OtherMedium -> mediumInfo(OtherName)))
+      .copy(mediaList = (OtherMedium, mediumInfo(OtherName)) :: AvailableMediaMsg.mediaList)
     helper selectMediumAndSendMeta createChunk(songs = songs1 ++ songs2)
     helper selectAlbums createTreePath(Artist1, Album2)
     helper.clearReceivedMessages()

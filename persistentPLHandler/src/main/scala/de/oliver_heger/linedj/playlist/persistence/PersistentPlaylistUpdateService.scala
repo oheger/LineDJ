@@ -190,14 +190,14 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
     s.loadedPlaylist match {
       case Some(pl) =>
         val playlistActive = s.referencedMediaIDs.exists(m =>
-          canActivatePlaylist(m, av.media.keySet, extractChecksumSet(av)))
+          canActivatePlaylist(m, av.mediaIDs, extractChecksumSet(av)))
         if (playlistActive)
           s.copy(messages = pl :: s.messages,
             availableMediaIDs = Set.empty, referencedMediaIDs = None)
         else s.copy(availableMediaIDs = Set.empty)
 
       case None =>
-        s.copy(availableMediaIDs = av.media.keySet,
+        s.copy(availableMediaIDs = av.mediaIDs,
           availableChecksums = extractChecksumSet(av))
     }
   }
@@ -242,5 +242,5 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
     * @return the resulting set
     */
   private def extractChecksumSet(av: AvailableMedia): Set[String] =
-    av.media.values.map(_.checksum).toSet
+    av.mediumInfos.map(_.checksum).toSet
 }

@@ -254,8 +254,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "ignore errors during stream processing" in {
-    val ErrorMedia = AvailableMedia(TestMedia.media +
-      (ValidationTestHelper.testMedium(42) -> ValidationTestHelper.testMediumInfo(42)))
+    val ErrorMedia = AvailableMedia(
+      (ValidationTestHelper.testMedium(42), ValidationTestHelper.testMediumInfo(42)) :: TestMedia.mediaList)
     val helper = new ControllerTestHelper
 
     helper.openWindow()
@@ -296,8 +296,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "set a failure status result if there were errors during processing" in {
-    val ErrorMedia = AvailableMedia(TestMedia.media +
-      (ValidationTestHelper.testMedium(42) -> ValidationTestHelper.testMediumInfo(42)))
+    val ErrorMedia = AvailableMedia(
+      (ValidationTestHelper.testMedium(42) -> ValidationTestHelper.testMediumInfo(42)) :: TestMedia.mediaList)
     val helper = new ControllerTestHelper
 
     helper.initAvailableMedia(Future.successful(ErrorMedia))

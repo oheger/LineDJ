@@ -46,8 +46,8 @@ object MediaUnionActor {
     * @param media the map with media information
     * @return the checksum mapping
     */
-  private def createChecksumMapping(media: Map[MediumID, MediumInfo]): Map[String, MediumID] =
-    media map (e => e._2.checksum -> e._1)
+  private def createChecksumMapping(media: List[(MediumID, MediumInfo)]): Map[String, MediumID] =
+    media.map(e => e._2.checksum -> e._1).toMap
 }
 
 /**
@@ -111,7 +111,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
   import MediaUnionActor._
 
   /** The map with the currently available media. */
-  private var availableMedia = AvailableMedia(Map.empty)
+  private var availableMedia = AvailableMedia(Nil)
 
   /** A mapping for archive component IDs to controller actors. */
   private var controllerMap = Map.empty[String, ActorRef]
@@ -124,7 +124,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       sender ! availableMedia
 
     case AddMedia(media, compID, optCtrlActor) =>
-      availableMedia = AvailableMedia(availableMedia.media ++ media)
+      availableMedia = AvailableMedia(availableMedia.mediaList ++ media)
       optChecksumMap = None
       log.info(s"Received AddMedia message from component $compID.")
       if (!controllerMap.contains(compID)) {
@@ -233,7 +233,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     */
   private def removeMediaFrom(media: AvailableMedia, componentID: String): AvailableMedia = {
     optChecksumMap = None
-    AvailableMedia(media.media filterNot (t => t._1.archiveComponentID == componentID))
+    AvailableMedia(media.mediaList filterNot (t => t._1.archiveComponentID == componentID))
   }
 
   /**
@@ -246,7 +246,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
   private def checksumMap: Map[String, MediumID] = optChecksumMap match {
     case Some(map) => map
     case None =>
-      val map = createChecksumMapping(availableMedia.media)
+      val map = createChecksumMapping(availableMedia.mediaList)
       optChecksumMap = Some(map)
       map
   }

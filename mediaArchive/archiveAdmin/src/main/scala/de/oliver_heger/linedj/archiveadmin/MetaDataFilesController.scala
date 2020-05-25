@@ -329,8 +329,8 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     */
   private def fetchAssignedFiles(info: MetaDataFileInfo, media: AvailableMedia):
   List[MetaDataFileData] =
-    media.media.filter(info.metaDataFiles contains _._1)
-      .toList.sortWith(_._2.name < _._2.name) map { t =>
+    media.mediaList.filter(info.metaDataFiles contains _._1)
+      .sortWith(_._2.name < _._2.name) map { t =>
       MetaDataFileData(mediumName = t._2.name, checksum = t._2.checksum)
     }
 

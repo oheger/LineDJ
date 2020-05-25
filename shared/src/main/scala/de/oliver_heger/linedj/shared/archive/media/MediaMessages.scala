@@ -53,19 +53,45 @@ case class GetMediumFiles(mediumID: MediumID) extends RemoteSerializable
   * A message sent by ''MediaManagerActor'' which contains information about
   * all media currently available.
   *
-  * The media are represented by a map with ''MediumID'' objects as keys and
-  * corresponding data objects as values. The map contains all media for which a
-  * medium description file was found. If a source path contained media files
-  * which could not be assigned to a medium description, a medium is created for
-  * these files as well; in this case, the ''MediumID'' does not contain the
-  * path to a description file. In addition, there is a synthetic medium which
-  * combines all media files not associated to a medium (so it is the union of
-  * all media with undefined description files). This medium (if existing) is
-  * stored under the key ''MediumID.UndefinedMediumID''.
+  * The media are represented as a list of tuples with ''MediumID'' and
+  * ''MediumInfo'' objects; for faster access, the list can be converted to a
+  * map. The list contains all media for which a medium description file was
+  * found. If a source path contained media files which could not be assigned
+  * to a medium description, a medium is created for these files as well; in
+  * this case, the ''MediumID'' does not contain the path to a description
+  * file. In addition, there is a synthetic medium which combines all media
+  * files not associated to a medium (so it is the union of all media with
+  * undefined description files). This medium (if existing) is stored under the
+  * key ''MediumID.UndefinedMediumID''.
   *
-  * @param media a map with information about all media currently available
+  * @param mediaList a list with information about all media currently
+  *                  available
   */
-case class AvailableMedia(media: Map[MediumID, MediumInfo]) extends RemoteSerializable
+case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends RemoteSerializable {
+  /**
+    * A map allowing fast access to ''MediumInfo'' objects if the medium ID is
+    * known.
+    */
+  lazy val media: Map[MediumID, MediumInfo] = mediaList.toMap
+
+  /**
+    * Returns a set with the IDs of all known media. Use this property, rather
+    * than the key set of the media map if no map-like access is needed
+    * otherwise.
+    *
+    * @return a set with all known ''MediumID'' objects
+    */
+  def mediaIDs: Set[MediumID] = mediaList.map(_._1).toSet
+
+  /**
+    * Returns a collection with all the ''MediumInfo'' objects known. Use this
+    * property, rather than the values of the media map if no map-like access
+    * is needed otherwise.
+    *
+    * @return all ''MediumInfo'' objects
+    */
+  def mediumInfos: Iterable[MediumInfo] = mediaList.map(_._2)
+}
 
 /**
   * A message sent by ''MediaManagerActor'' in response to a request for the
