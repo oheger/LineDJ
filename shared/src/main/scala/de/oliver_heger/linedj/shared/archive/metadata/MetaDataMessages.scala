@@ -219,15 +219,15 @@ case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0) extend
   * A message sent as response for a [[GetFilesMetaData]] request.
   *
   * This message contains the meta data for the files that have been requested.
-  * If files could not be resolved, they are not contained in the map with
-  * meta data. By comparing the files in the request with the keys in the map,
+  * If files could not be resolved, they are not contained in the list with
+  * meta data. By comparing the files in the request with the keys in the list,
   * it can be determined which files could not be resolved.
   *
   * @param request a reference to the request which caused this response
-  * @param data    a map with meta data for the requested files
+  * @param data    a list with meta data for the requested files
   */
 case class FilesMetaDataResponse(request: GetFilesMetaData,
-                                 data: Map[MediaFileID, MediaMetaData]) extends RemoteSerializable
+                                 data: List[(MediaFileID, MediaMetaData)]) extends RemoteSerializable
 
 /**
   * A message processed by the meta data manager actor that requests statistics

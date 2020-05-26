@@ -73,12 +73,13 @@ object PlaylistMetaDataResolver {
   private def completeMetaDataResponse(response: FilesMetaDataResponse,
                                        currentData: Map[MediaFileID, MediaMetaData]):
   Map[MediaFileID, MediaMetaData] = {
+    val data = response.data.toMap
     val unresolved = response.request.files filterNot { f =>
-      response.data.contains(f) || currentData.contains(f)
+      data.contains(f) || currentData.contains(f)
     }
     if (unresolved.nonEmpty) {
-      response.data ++ unresolved.map(f => f -> UndefinedMetaData)
-    } else response.data
+      data ++ unresolved.map(f => f -> UndefinedMetaData)
+    } else data
   }
 }
 
@@ -234,9 +235,11 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     * @param response the response
     */
   private def handleOutdatedResponse(response: FilesMetaDataResponse): Unit = {
+    val data = response.data.toMap
+
     def resolvedMap(files: Iterable[MediaFileID]): Map[MediaFileID, MediaMetaData] = {
-      val keys = files filter response.data.contains
-      keys.map(f => (f, response.data(f))).toMap
+      val keys = files filter data.contains
+      keys.map(f => (f, data(f))).toMap
     }
 
     val m1 = resolvedMap(requestedFiles)
@@ -285,7 +288,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
       log.debug("Sending meta data request {}.", request)
       val futResponse = metaDataActor ? request
       futResponse.mapTo[FilesMetaDataResponse] fallbackTo Future(FilesMetaDataResponse(request,
-        Map.empty)) foreach (r => bus publish ProcessMetaDataResponse(r))
+        Nil)) foreach (r => bus publish ProcessMetaDataResponse(r))
       filesToBeResolved = remaining
       requestedFiles = files
     }

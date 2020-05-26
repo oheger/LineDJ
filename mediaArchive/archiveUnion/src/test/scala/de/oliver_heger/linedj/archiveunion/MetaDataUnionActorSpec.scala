@@ -950,11 +950,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val resp = expectMsgType[FilesMetaDataResponse]
     resp.request should be(request)
     val expKeys = exFiles.drop(1).toSeq
-    resp.data.keys should contain only (expKeys: _*)
+    val data = resp.data.toMap
+    data.keys should contain only (expKeys: _*)
     files.drop(1) foreach { f =>
       val p = path(f.path)
       val id = MediaFileID(mid, uriFor(p))
-      resp.data(id) should be(metaDataFor(p))
+      data(id) should be(metaDataFor(p))
     }
   }
 
@@ -974,8 +975,9 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.actor ! request
     val resp = expectMsgType[FilesMetaDataResponse]
     resp.request should be(request.request)
-    resp.data.keys should contain only(reqFile1, reqFile2)
-    resp.data(reqFile2) should be(metaDataFor(path(fileMapped.path)))
+    val data = resp.data.toMap
+    data.keys should contain only(reqFile1, reqFile2)
+    data(reqFile2) should be(metaDataFor(path(fileMapped.path)))
   }
 
   it should "handle messages indicating start and end of update operations" in {

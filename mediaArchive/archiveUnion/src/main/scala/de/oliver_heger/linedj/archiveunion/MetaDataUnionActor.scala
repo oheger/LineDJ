@@ -633,11 +633,11 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @return a map with all meta data that could be resolved
     */
   private def resolveFilesMetaData(req: GetFilesMetaData, mapping: Map[MediaFileID, MediumID]):
-  Map[MediaFileID, MediaMetaData] =
+  List[(MediaFileID, MediaMetaData)] =
     req.files.flatMap { f =>
       val mid = mapping.getOrElse(f, f.mediumID)
       mediaMap.get(mid).flatMap(_.metaDataFor(f.uri)).map((f, _))
-    }.toMap
+    }.toList
 
   /**
     * Handles a request for statistics of an archive component. The statistics
