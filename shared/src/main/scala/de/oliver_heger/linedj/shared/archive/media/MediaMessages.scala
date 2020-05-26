@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.shared.archive.media
 
 import akka.actor.ActorRef
 import akka.util.ByteString
+import com.fasterxml.jackson.annotation.JsonIgnore
 import de.oliver_heger.linedj.shared.RemoteSerializable
 
 /**
@@ -72,6 +73,7 @@ case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends Remot
     * A map allowing fast access to ''MediumInfo'' objects if the medium ID is
     * known.
     */
+  @JsonIgnore
   lazy val media: Map[MediumID, MediumInfo] = mediaList.toMap
 
   /**

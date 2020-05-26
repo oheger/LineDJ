@@ -39,6 +39,9 @@ lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-testkit" % AkkaVersion % Test,
   "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
   "com.typesafe.akka" %% "akka-slf4j" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
+  "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
   "org.scala-lang" % "scala-reflect" % VersionScala
 )
 
@@ -47,11 +50,8 @@ lazy val akkaDependencies = Seq(
   * to actors, including serialization.
   */
 lazy val remotingDependencies = Seq(
-  "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
   "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
   "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
-  "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
   "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
