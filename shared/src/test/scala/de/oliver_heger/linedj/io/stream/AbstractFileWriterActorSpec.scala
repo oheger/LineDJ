@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 
 import akka.NotUsed
 import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props, Terminated}
-import akka.stream.DelayOverflowStrategy
+import akka.stream.{DelayOverflowStrategy, IOOperationIncompleteException}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -139,7 +139,7 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     }))
 
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())), target)
-    expectMsgType[IOException]
+    expectMsgType[IOOperationIncompleteException]
   }
 
   it should "allow overriding the error handling function for create dir errors" in {
