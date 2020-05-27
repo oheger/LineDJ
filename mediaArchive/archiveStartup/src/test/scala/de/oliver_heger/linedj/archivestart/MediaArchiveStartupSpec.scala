@@ -25,10 +25,9 @@ import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 object MediaArchiveStartupSpec {
   /** The reference configuration for the media archive. */
@@ -42,8 +41,8 @@ object MediaArchiveStartupSpec {
     */
   private def createArchiveConfiguration(): Configuration = {
     val config = new PropertiesConfiguration
-    config.addProperty("media.metaDataExtraction.metaDataUpdateChunkSize", 8192)
-    config.addProperty("media.metaDataExtraction.metaDataMaxMessageSize", 32768)
+    config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", 8192)
+    config.addProperty("media.mediaArchive.metaDataMaxMessageSize", 32768)
 
     config
   }
@@ -80,10 +79,10 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private class MediaArchiveStartupTestHelper {
     /** Test probe for the media manager actor. */
-    val probeMediaManager = TestProbe()
+    val probeMediaManager: TestProbe = TestProbe()
 
     /** Test probe for the meta data manager actor. */
-    val probeMetaDataManager = TestProbe()
+    val probeMetaDataManager: TestProbe = TestProbe()
 
     /** A set for the actors that have been created by the test factory. */
     private var createdActors = Set.empty[TestProbe]
@@ -152,19 +151,17 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     private def createActorFactory(): ActorFactory = {
       val factory = mock[ActorFactory]
       when(factory.createActor(any(classOf[Props]), anyString()))
-        .thenAnswer(new Answer[ActorRef] {
-          override def answer(invocation: InvocationOnMock): ActorRef = {
-            val props = invocation.getArguments.head.asInstanceOf[Props]
-            val name = invocation.getArguments()(1).asInstanceOf[String]
-            name match {
-              case "metaDataManager" =>
-                props should be(Props(classOf[MetaDataUnionActor], ArchiveConfig))
-                actorCreation(probeMetaDataManager)
+        .thenAnswer((invocation: InvocationOnMock) => {
+          val props = invocation.getArguments.head.asInstanceOf[Props]
+          val name = invocation.getArguments()(1).asInstanceOf[String]
+          name match {
+            case "metaDataManager" =>
+              props should be(Props(classOf[MetaDataUnionActor], ArchiveConfig))
+              actorCreation(probeMetaDataManager)
 
-              case "mediaManager" =>
-                props should be(MediaUnionActor(probeMetaDataManager.ref))
-                actorCreation(probeMediaManager)
-            }
+            case "mediaManager" =>
+              props should be(MediaUnionActor(probeMetaDataManager.ref))
+              actorCreation(probeMediaManager)
           }
         })
       factory
