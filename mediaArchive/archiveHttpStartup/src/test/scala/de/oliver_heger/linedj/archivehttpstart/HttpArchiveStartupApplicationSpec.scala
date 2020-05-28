@@ -795,7 +795,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def expectArchiveStateNotification(state: HttpArchiveStateChanged): StartupTestHelper = {
-      val stateMsg = messageBus.expectMessageType[HttpArchiveStateChanged]
+      val stateMsg = nextArchiveStateNotification()
       stateMsg should be(state)
       this
     }
@@ -807,11 +807,10 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param archives the indices of the archives affected
       * @return this test helper
       */
-    def expectArchiveStateNotifications(state: HttpArchiveState, archives: Int*):
-    StartupTestHelper = {
-      archives foreach { i =>
-        expectArchiveStateNotification(stateNotification(i, state))
-      }
+    def expectArchiveStateNotifications(state: HttpArchiveState, archives: Int*): StartupTestHelper = {
+      val messages = (1 to archives.length) map (_ => nextArchiveStateNotification())
+      val expNotifications = archives map (i => stateNotification(i, state))
+      messages should contain theSameElementsAs expNotifications
       this
     }
 
@@ -964,6 +963,15 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
       clientApplicationContext
+
+    /**
+      * Expects that the next message on the message bus is an archive state
+      * notification. The message is returned.
+      *
+      * @return the state changed notification message
+      */
+    private def nextArchiveStateNotification(): HttpArchiveStateChanged =
+      messageBus.expectMessageType[HttpArchiveStateChanged]
 
     /**
       * Creates a client application context for the test application.
