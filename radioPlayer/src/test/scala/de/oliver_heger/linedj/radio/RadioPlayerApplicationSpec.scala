@@ -22,26 +22,22 @@ import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, LinkedBlocki
 import akka.NotUsed
 import akka.actor.{Actor, ActorSystem}
 import akka.pattern.AskTimeoutException
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app._
-import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.io.CloseAck
+import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import net.sf.jguiraffe.gui.app.ApplicationContext
-import net.sf.jguiraffe.gui.builder.window.Window
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Promise}
@@ -187,7 +183,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
   }
 
   it should "create a correct bean for the radio controller" in {
-    val helper = new RadioPlayerApplicationTestHelper(mockUI = false)
+    val helper = new RadioPlayerApplicationTestHelper
     val app = helper.activateRadioApp()
 
     val ctrl = queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
@@ -202,15 +198,12 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val captor = ArgumentCaptor.forClass(classOf[Sink[Any, NotUsed]])
     verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_,_]])
 
-    implicit val materializer: ActorMaterializer = ActorMaterializer()
     val eventQueue = new LinkedBlockingQueue[RadioPlayerEvent]
     when(helper.app.clientApplicationContext.messageBus.publish(any(classOf[RadioPlayerEvent])))
-      .thenAnswer(new Answer[Object] {
-      override def answer(invocation: InvocationOnMock): Object = {
+      .thenAnswer((invocation: InvocationOnMock) => {
         eventQueue offer invocation.getArguments.head.asInstanceOf[RadioPlayerEvent]
         null
-      }
-    })
+      })
     val playerEvent = AudioSourceStartedEvent(AudioSource.infinite("testRadioSource"))
     val source = Source.single[Any](playerEvent)
     val sink = captor.getValue
@@ -222,7 +215,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
   }
 
   it should "register message bus listeners" in {
-    val helper = new RadioPlayerApplicationTestHelper(mockUI = false)
+    val helper = new RadioPlayerApplicationTestHelper
     val app = helper.activateRadioApp()
 
     val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
@@ -232,28 +225,17 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
   /**
     * A test helper class managing dependencies of a test instance and
     * providing some useful functionality.
-    *
-    * @param mockUI a flag whether the UI should be skipped
     */
-  private class RadioPlayerApplicationTestHelper(mockUI: Boolean = true) {
+  private class RadioPlayerApplicationTestHelper {
     /** A mock for the radio player. */
-    val player = createPlayerMock()
+    val player: RadioPlayer = createPlayerMock()
 
     /** A mock for the radio player factory. */
-    val playerFactory = createPlayerFactory(player)
+    val playerFactory: RadioPlayerFactory = createPlayerFactory(player)
 
     /** The application to be tested. */
-    val app = new RadioPlayerApplication(playerFactory) with ApplicationSyncStartup {
-      override def initGUI(appCtx: ApplicationContext): Unit = {
-        if (!mockUI) {
-          super.initGUI(appCtx)
-        }
-      }
-
-      override def showMainWindow(window: Window): Unit = {}
-
-      override def onShutdown(): Unit = super.onShutdown()
-    }
+    val app: RadioPlayerApplication with ApplicationSyncStartup = new RadioPlayerApplication(playerFactory)
+      with ApplicationSyncStartup with AppWithTestPlatform
 
     /**
       * Stores the ''PlaybackContextFactory'' objects that were passed to the
@@ -313,19 +295,15 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createPlayerMock(): RadioPlayer = {
       val player = mock[RadioPlayer]
-      doAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
-          playbackContextFactories.put(pcf, java.lang.Boolean.TRUE)
-          null
-        }
+      doAnswer((invocation: InvocationOnMock) => {
+        val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
+        playbackContextFactories.put(pcf, java.lang.Boolean.TRUE)
+        null
       }).when(player).addPlaybackContextFactory(any(classOf[PlaybackContextFactory]))
-      doAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
-          playbackContextFactories remove pcf
-          null
-        }
+      doAnswer((invocation: InvocationOnMock) => {
+        val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
+        playbackContextFactories remove pcf
+        null
       }).when(player).removePlaybackContextFactory(any(classOf[PlaybackContextFactory]))
       player
     }
@@ -340,12 +318,10 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createPlayerFactory(playerMock: RadioPlayer): RadioPlayerFactory = {
       val factory = mock[RadioPlayerFactory]
       when(factory.createRadioPlayer(any(classOf[ActorManagement])))
-        .thenAnswer(new Answer[RadioPlayer] {
-        override def answer(invocation: InvocationOnMock): RadioPlayer = {
+        .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments.head should be(app)
           playerMock
-        }
-      })
+        })
       factory
     }
   }
