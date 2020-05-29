@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.Supervision.Decider
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity}
@@ -188,12 +187,12 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     * @return the kill switch to cancel the stream
     */
   private[validate] def materializeValidationStream(media: AvailableMedia): KillSwitch = {
-    implicit val mat: ActorMaterializer = createMaterializer()
+    implicit val system: ActorSystem = app.clientApplicationContext.actorSystem
     val updateChunkSize = app.clientApplicationContext.managementConfiguration
       .getInt(PropUIUpdateChunkSize, DefaultUIUpdateChunkSize)
     val source = createSource(media)
     val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
-    val (ks, futSink) = source.viaMat(KillSwitches.single)(Keep.right)
+    val graph = source.viaMat(KillSwitches.single)(Keep.right)
       .mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
       .map(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
       .via(validationFlow)
@@ -201,7 +200,8 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
       .mapConcat(converter.generateTableItems(media, _))
       .groupedWithin(updateChunkSize, 10.seconds)
       .toMat(sink)(Keep.both)
-      .run()
+    val supervisedGraph = graph.withAttributes(ActorAttributes.supervisionStrategy(createDecider()))
+    val (ks, futSink) = supervisedGraph.run()
 
     futSink foreach (_ => completeStreamProcessing())
     ks
@@ -227,19 +227,17 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
   }
 
   /**
-    * Creates the object to materialize streams.
+    * Creates the decider for stream supervision. This function returns a
+    * decider function which records errors that occurred and then resumes
+    * stream execution.
     *
-    * @return the object for stream materialization
+    * @return the decider for stream supervision
     */
-  private def createMaterializer(): ActorMaterializer = {
-    implicit val system: ActorSystem = app.clientApplicationContext.actorSystem
-    val decider: Decider = {
-      err =>
-        log.error("Error during validation stream processing!", err)
-        processingErrors.set(true)
-        Supervision.Resume
-    }
-    ActorMaterializer(ActorMaterializerSettings(system).withSupervisionStrategy(decider))
+  private def createDecider(): Supervision.Decider = {
+    err =>
+      log.error("Error during validation stream processing!", err)
+      processingErrors.set(true)
+      Supervision.Resume
   }
 
   /**
