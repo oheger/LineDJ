@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
@@ -104,7 +103,6 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @return the content of the source as String
     */
   private def readSource(source: Source[ByteString, Any]): String = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val futSource = source.runFold(ByteString.empty)(_ ++ _)
     Await.result(futSource, 3.seconds).utf8String
   }

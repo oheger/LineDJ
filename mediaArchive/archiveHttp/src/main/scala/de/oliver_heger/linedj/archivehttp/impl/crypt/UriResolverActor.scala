@@ -22,7 +22,6 @@ import java.security.{Key, SecureRandom}
 import akka.actor.{Actor, ActorRef}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeaderCompanion}
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
@@ -91,16 +90,6 @@ object UriResolverActor {
       * @return '''true''' if this operation is complete, '''false''' otherwise
       */
     def resolved: Boolean = pathsToResolve.isEmpty
-
-    /**
-      * Returns the current path that needs to be resolved for this resolve
-      * operation. This operation is available only if ''resolved'' returns
-      * '''false'''.
-      *
-      * @return the current path that needs to be resolved
-      */
-    def currentPath: String =
-      UriHelper.concat(resolvedPath, pathsToResolve.head)
 
     /**
       * Sends a response with the result of this resolve operation to the
@@ -177,10 +166,7 @@ class UriResolverActor(requestActor: ActorRef, protocol: HttpArchiveProtocol, de
                        basePath: String, uriCacheSize: Int) extends Actor {
 
   import UriResolverActor._
-  import context.dispatcher
-
-  /** The object to materialize streams. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
+  import context.{dispatcher, system}
 
   /** The secure random instance. */
   private implicit val secRandom: SecureRandom = new SecureRandom

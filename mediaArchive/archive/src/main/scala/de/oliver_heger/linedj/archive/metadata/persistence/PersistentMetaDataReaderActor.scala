@@ -19,11 +19,9 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.nio.file.Path
 
 import akka.actor._
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Keep, Sink}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.archivecommon.parser.{MetaDataParser, MetaDataParserStage}
-import de.oliver_heger.linedj.io.parser.ParserStage
+import de.oliver_heger.linedj.archivecommon.parser.MetaDataParserStage
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
@@ -61,8 +59,9 @@ object PersistentMetaDataReaderActor {
   * medium files as elements. This actor is responsible for reading one such
   * file.
   *
-  * The file is read using stream processing with a [[ParserStage]] stage using
-  * a [[MetaDataParser]].
+  * The file is read using stream processing with a ''ParserStage'' stage using
+  * a ''MetaDataParser''.
+  *
   * The results extracted from a chunk of data are sent to the target actor as
   * specified in the constructor as soon as they become available. When the
   * file has been fully processed this actor stops itself; it also stops if the
@@ -78,8 +77,7 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
   override def receive: Receive = {
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
-      implicit val materializer: ActorMaterializer = ActorMaterializer()
-      import context.dispatcher
+      import context.{dispatcher, system}
       val source = FileIO.fromPath(p, chunkSize)
       val sink = Sink.foreach[MetaDataProcessingSuccess](parent ! _)
       val stage = new MetaDataParserStage(mid)

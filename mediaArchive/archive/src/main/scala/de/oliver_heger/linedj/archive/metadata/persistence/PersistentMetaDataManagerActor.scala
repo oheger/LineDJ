@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
-import akka.stream.ActorMaterializer
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -108,7 +107,7 @@ object PersistentMetaDataManagerActor {
       * @return the updated instance
       */
     def updateResolvedFiles(result: MetaDataProcessingSuccess): MediumData =
-      copy(resolvedFiles = resolvedFiles + result.path.toString)
+      copy(resolvedFiles = resolvedFiles + result.path)
 
     /**
       * Creates an object with information about meta data files that have not
@@ -181,9 +180,6 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   this: ChildActorFactory =>
 
   import PersistentMetaDataManagerActor._
-
-  /** The object to materialize streams. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Stores information about meta data files available. The data is loaded
@@ -322,6 +318,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   private def triggerMetaDataFileScan(): Unit = {
     log.info("Scanning {} for meta data files.", config.metaDataPersistencePath)
     import context.dispatcher
+    implicit val system: ActorSystem = context.system
     fileScanner.scanForMetaDataFiles(config.metaDataPersistencePath)
       .recover {
         case e: Exception =>

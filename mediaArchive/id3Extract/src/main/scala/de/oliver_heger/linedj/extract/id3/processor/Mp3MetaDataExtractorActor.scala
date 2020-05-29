@@ -21,7 +21,7 @@ import java.nio.file.Paths
 import akka.NotUsed
 import akka.actor.{Actor, ActorRef, Props, Terminated}
 import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, KillSwitch, KillSwitches}
+import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -82,9 +82,6 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
   /** Stores the sender of a close request. */
   private var closeRequest: Option[ActorRef] = None
 
-  /** The object to materialize streams. */
-  implicit private val mat = ActorMaterializer()
-
   override def receive: Receive = {
     case ProcessMetaDataFile(file, result) =>
       val (actor, killSwitch) = startProcessingStream(file, result)
@@ -113,6 +110,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     */
   private def startProcessingStream(file: FileData, result: MetaDataProcessingSuccess):
   (ActorRef, KillSwitch) = {
+    import context.system
     val actor = createChildActor(Mp3FileProcessorActor(metaDataActor, tagSizeLimit,
       file, result))
     val source = createSource(file)

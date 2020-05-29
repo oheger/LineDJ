@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttp.http
 import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpMessage, HttpResponse, ResponseEntity}
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.ResponseData
@@ -42,16 +41,15 @@ class HttpRequestsSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   }
 
   "HttpRequests" should "support discarding the bytes of an entity" in {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     import system.dispatcher
     val entity = mock[ResponseEntity]
     val discardedEntity = new HttpMessage.DiscardedEntity(Future.successful(Done))
-    when(entity.discardBytes()(mat)).thenReturn(discardedEntity)
+    when(entity.discardBytes()).thenReturn(discardedEntity)
     val response = HttpResponse(entity = entity)
     val responseData = ResponseData(response, 42)
 
     val result = futureResult(HttpRequests.discardEntityBytes(Future.successful(responseData)))
     result should be(responseData)
-    verify(entity).discardBytes()(mat)
+    verify(entity).discardBytes()
   }
 }

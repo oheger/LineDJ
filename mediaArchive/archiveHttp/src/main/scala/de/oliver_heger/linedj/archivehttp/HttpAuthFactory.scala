@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import akka.stream.ActorMaterializer
+import akka.actor.ActorSystem
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
 
@@ -50,9 +50,9 @@ trait HttpAuthFactory {
     *
     * @param storageConfig the OAuth storage configuration
     * @param ec            the execution context
-    * @param mat           the object to materialize streams
+    * @param system        the actor system to materialize streams
     * @return a ''Future'' with the OAuth configure function
     */
-  def oauthConfigureFunc(storageConfig: OAuthStorageConfig)(implicit ec: ExecutionContext, mat: ActorMaterializer):
+  def oauthConfigureFunc(storageConfig: OAuthStorageConfig)(implicit ec: ExecutionContext, system: ActorSystem):
   Future[AuthConfigureFunc]
 }

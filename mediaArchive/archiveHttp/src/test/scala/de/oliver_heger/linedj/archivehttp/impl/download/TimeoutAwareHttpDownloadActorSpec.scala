@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -34,8 +33,8 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -344,7 +343,6 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       .expectWriteFileRequest()
     writeRequest.seqNo should be(1)
     writeRequest.target should be(generateTempPath(1))
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val futStream = writeRequest.source.runFold(List.empty[ByteString])((lst, bs) => bs :: lst)
     Await.result(futStream, 3.seconds)
       .reverse should contain theSameElementsInOrderAs chunks.map(_.data)

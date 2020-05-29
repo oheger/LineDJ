@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 
 import java.io.ByteArrayInputStream
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Accept
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController
@@ -57,11 +57,11 @@ private object WebDavResolverController {
     *
     * @param response the response
     * @param ec       the execution context
-    * @param mat      the object to materialize streams
+    * @param system   the actor system to materialize streams
     * @return a future with the XML root element
     */
   private def parseFolderResponse(response: HttpResponse)
-                                 (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Elem] = {
+                                 (implicit ec: ExecutionContext, system: ActorSystem): Future[Elem] = {
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     response.entity.dataBytes.runWith(sink).map { body =>
       val stream = new ByteArrayInputStream(body.toArray)
@@ -168,7 +168,7 @@ private class WebDavResolverController(val uriToResolve: Uri, val basePath: Stri
     *             the names of the child items.
     */
   override def extractNamesFromFolderResponse(response: HttpResponse)
-                                             (implicit ec: ExecutionContext, mat: ActorMaterializer):
+                                             (implicit ec: ExecutionContext, system: ActorSystem):
   Future[UriResolverController.ParseFolderResult] =
     parseFolderResponse(response) map extractNamesInFolder map { elems =>
       ParseFolderResult(elems.toList, None)

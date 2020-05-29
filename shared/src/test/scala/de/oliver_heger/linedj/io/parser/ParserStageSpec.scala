@@ -19,14 +19,14 @@ package de.oliver_heger.linedj.io.parser
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, FlowShape, Graph}
+import akka.stream.{FlowShape, Graph}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserStage.ChunkSequenceParser
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Await
@@ -53,7 +53,6 @@ class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     */
   private def runFlow(parseFunc: ChunkSequenceParser[String], source: Source[ByteString,
     NotUsed]): Seq[String] = {
-    implicit val materializer: ActorMaterializer = ActorMaterializer()
     val stage: Graph[FlowShape[ByteString, String], NotUsed] =
       new ParserStage[String](parseFunc)
     val sink = Sink.seq[String]

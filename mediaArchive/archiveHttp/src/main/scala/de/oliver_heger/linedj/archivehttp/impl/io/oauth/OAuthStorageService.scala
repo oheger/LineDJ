@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 
-import akka.stream.ActorMaterializer
+import akka.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -39,31 +39,31 @@ trait OAuthStorageService[STORAGE_CONFIG, CONFIG, CLIENT_SECRET, TOKENS] {
     *
     * @param storageConfig the storage configuration
     * @param ec            the execution context
-    * @param mat           the object to materialize streams
+    * @param system        the actor system to materialize streams
     * @return a ''Future'' with the ''OAuthConfig''
     */
   def loadConfig(storageConfig: STORAGE_CONFIG)
-                (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[CONFIG]
+                (implicit ec: ExecutionContext, system: ActorSystem): Future[CONFIG]
 
   /**
     * Loads the OAuth client secret defined by the given storage configuration.
     *
     * @param storageConfig the storage configuration
     * @param ec            the execution context
-    * @param mat           the object to materialize streams
+    * @param system        the actor system to materialize streams
     * @return a ''Future'' with the OAuth client secret
     */
   def loadClientSecret(storageConfig: STORAGE_CONFIG)
-                      (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[CLIENT_SECRET]
+                      (implicit ec: ExecutionContext, system: ActorSystem): Future[CLIENT_SECRET]
 
   /**
     * Loads token information defined by the given storage configuration.
     *
     * @param storageConfig the storage configuration
     * @param ec            the execution context
-    * @param mat           the object to materialize streams
+    * @param system        the actor system to materialize streams
     * @return a ''Future'' with the token material that has been loaded
     */
   def loadTokens(storageConfig: STORAGE_CONFIG)
-                (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[TOKENS]
+                (implicit ec: ExecutionContext, system: ActorSystem): Future[TOKENS]
 }

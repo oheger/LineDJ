@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.io.stream
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -48,7 +47,6 @@ class ListSeparatorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return the result of stream processing
     */
   private def runStream(data: List[String], sep: => String = ", "): String = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val source = Source(data)
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     val futResult = source.via(

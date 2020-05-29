@@ -19,14 +19,13 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 import java.io.IOException
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, Uri}
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model.headers.Accept
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.model._
 import akka.stream.scaladsl.FileIO
 import akka.testkit.TestKit
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.util.{Failure, Success}
@@ -79,9 +78,6 @@ class OneDriveResolverControllerSpec(testSystem: ActorSystem) extends TestKit(te
 
   import OneDriveResolverControllerSpec._
   import system.dispatcher
-
-  /** The object to materialize streams in implicit scope. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   "A OneDriveResolverController" should "skip a non-content URI" in {
     val controller = new OneDriveResolverController(oneDriveUri(BasePath + "/no/content/path.txt"), BasePath)
@@ -184,7 +180,6 @@ class OneDriveResolverControllerSpec(testSystem: ActorSystem) extends TestKit(te
     * @return the result produced by the protocol
     */
   private def parseFolderResponse(resource: String): ParseFolderResult = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val controller = createController()
     futureResult(controller.extractNamesFromFolderResponse(createResponseWithResourceEntity(resource)))
   }

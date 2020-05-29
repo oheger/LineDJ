@@ -255,7 +255,7 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     private def createTestActorProps(): Props =
       Props(new HttpRequestActor(TestConfig.archiveURI, TestConfig.requestQueueSize) with HttpFlowFactory
         with SystemPropertyAccess {
-        override def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
+        override def createHttpFlow[T](uri: Uri)(implicit actorSystem: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
           uri should be(TestConfig.archiveURI)
           Flow[(HttpRequest, T)] map { t =>

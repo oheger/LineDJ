@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttp
 import java.nio.file.{Files, Path}
 
 import akka.actor.{ActorSystem, Props}
-import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
@@ -103,7 +102,6 @@ class OAuthConfigureFuncSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   "The OAuth configure function" should "correctly decorate a request actor" in {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     copyProviderResources()
     val idpActor = TestProbe()
     val requestActor = TestProbe()

@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.spi
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{HttpRequest, Uri}
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 
@@ -84,12 +83,12 @@ trait HttpArchiveProtocol {
     * @param httpActor the HTTP request actor for sending requests
     * @param uri       the URI pointing to the media file
     * @param ec        the execution context
-    * @param mat       the object to materialize streams
+    * @param system           the actor system to materialize streams
     * @param timeout   a timeout for sending the request
     * @return a ''Future'' with the response of the download request
     */
   def downloadMediaFile(httpActor: ActorRef, uri: Uri)
-                       (implicit ec: ExecutionContext, mat: ActorMaterializer, timeout: Timeout):
+                       (implicit ec: ExecutionContext, system: ActorSystem, timeout: Timeout):
   Future[HttpRequests.ResponseData] = {
     val request = HttpRequest(uri = uri)
     HttpRequests.sendRequest(httpActor, HttpRequests.SendRequest(request, null))

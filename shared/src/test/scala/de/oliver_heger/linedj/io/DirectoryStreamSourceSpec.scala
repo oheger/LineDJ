@@ -23,7 +23,7 @@ import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, DelayOverflowStrategy, KillSwitches}
+import akka.stream.{DelayOverflowStrategy, KillSwitches}
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -149,10 +149,8 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @param source the source to be run
     * @return the future with the result of the execution
     */
-  private def obtainSourceFuture(source: Source[PathData, Any]): Future[List[PathData]] = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
+  private def obtainSourceFuture(source: Source[PathData, Any]): Future[List[PathData]] =
     source.runWith(foldSink())
-  }
 
   /**
     * Splits the given list of path data objects into a list of directories
@@ -316,7 +314,6 @@ class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   it should "support canceling stream processing" in {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val Count = 32
     (1 to Count).foreach(i => createFile(testDirectory, s"test$i.txt"))
     val (queue, factory) = createStreamWrapperFactory()

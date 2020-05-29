@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.{Actor, ActorRef}
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, OverflowStrategy}
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 
 object EventManagerActor {
@@ -66,9 +66,7 @@ object EventManagerActor {
 class EventManagerActor extends Actor {
 
   import EventManagerActor._
-
-  /** The object for materializing streams. */
-  private implicit val materializer = ActorMaterializer()
+  import context.system
 
   /** Stores the registered listeners. */
   private var listeners = Map.empty[Int, ActorRef]

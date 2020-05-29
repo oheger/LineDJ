@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.{Files, Path, Paths}
 
 import akka.actor.{ActorSystem, Props}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.FileIO
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -60,7 +59,6 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val ChunkSize = 2048
     val testPath = Paths get getClass.getResource("/test.mp3").toURI
     val target = createPathInDirectory("copy.mp3")
-    implicit val mat = ActorMaterializer()
     implicit val ec = system.dispatcher
     val downloadActor = system.actorOf(Props(classOf[MediaFileDownloadActor], testPath,
       ChunkSize, MediaFileDownloadActor.IdentityTransform))

@@ -20,7 +20,6 @@ import java.nio.file.Path
 
 import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.io.{DirectoryStreamSource, RemoveFileActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -119,10 +118,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
   this: ChildActorFactory =>
 
   import RemoveTempFilesActor._
-  import context.dispatcher
-
-  /** The object to materialize streams. */
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
+  import context.{dispatcher, system}
 
   /** The actor which actually removes files. */
   private var removeFileActor: ActorRef = _

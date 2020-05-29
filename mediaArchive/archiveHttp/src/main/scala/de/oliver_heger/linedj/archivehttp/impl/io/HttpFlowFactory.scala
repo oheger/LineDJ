@@ -19,10 +19,9 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 import java.net.InetSocketAddress
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.{ClientTransport, Http}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.stream.Materializer
+import akka.http.scaladsl.{ClientTransport, Http}
 import akka.stream.scaladsl.Flow
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 
@@ -42,7 +41,7 @@ import scala.util.Try
 trait HttpFlowFactory {
   this: SystemPropertyAccess =>
 
-  def createHttpFlow[T](uri: Uri)(implicit mat: Materializer, system: ActorSystem):
+  def createHttpFlow[T](uri: Uri)(implicit system: ActorSystem):
   Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {
     if (uri.scheme == "https")
       Http().cachedHostConnectionPoolHttps(host = uri.authority.host.address(),

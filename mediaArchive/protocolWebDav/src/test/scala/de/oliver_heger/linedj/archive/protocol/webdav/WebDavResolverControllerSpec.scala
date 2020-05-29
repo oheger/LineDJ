@@ -19,9 +19,8 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 import java.io.IOException
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethod, HttpRequest, HttpResponse, MediaRange, MediaType, Uri}
 import akka.http.scaladsl.model.headers.Accept
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -65,9 +64,6 @@ class WebDavResolverControllerSpec(testSystem: ActorSystem) extends TestKit(test
 
   import WebDavResolverControllerSpec._
   import system.dispatcher
-
-  /** An object to materialize streams in implicit scope. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Helper function to check the creation of a folder request.

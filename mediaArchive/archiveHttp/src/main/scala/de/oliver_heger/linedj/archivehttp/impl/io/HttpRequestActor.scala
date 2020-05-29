@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl.io
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
-import akka.stream.{ActorMaterializer, OverflowStrategy, QueueOfferResult}
+import akka.stream.{OverflowStrategy, QueueOfferResult}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
@@ -75,8 +75,13 @@ class HttpRequestActor(uri: Uri, requestQueueSize: Int) extends Actor with Actor
   /** The execution context. */
   implicit private val ec: ExecutionContext = context.system.dispatcher
 
-  /** The object to materialize streams. */
-  implicit private val mat: ActorMaterializer = ActorMaterializer()
+  /**
+    * Returns the actor system in implicit scope. This is needed for stream
+    * materialization.
+    *
+    * @return the implicit actor system
+    */
+  implicit private def system: ActorSystem = context.system
 
   /** The flow for executing requests. */
   private var httpFlow: Flow[(HttpRequest, Promise[HttpResponse]),
@@ -87,7 +92,6 @@ class HttpRequestActor(uri: Uri, requestQueueSize: Int) extends Actor with Actor
 
   override def preStart(): Unit = {
     super.preStart()
-    implicit val actorSystem: ActorSystem = context.system
     httpFlow = createHttpFlow[Promise[HttpResponse]](uri)
     queue = createRequestQueue()
   }

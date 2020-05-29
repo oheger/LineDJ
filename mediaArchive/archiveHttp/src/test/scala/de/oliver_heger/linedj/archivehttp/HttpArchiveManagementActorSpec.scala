@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
@@ -51,8 +50,8 @@ import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.reflect.ClassTag
 
 object HttpArchiveManagementActorSpec {
@@ -240,7 +239,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     request.archiveConfig should be(helper.config)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
     request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
-    implicit val mat: ActorMaterializer = ActorMaterializer()
 
     val futureDescriptions = request.mediaSource.runFold(
       List.empty[HttpMediumDesc])((lst, md) => md :: lst)

@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.playlist.persistence
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Sink}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
@@ -65,9 +64,7 @@ object LoadPlaylistActor {
 class LoadPlaylistActor extends Actor with ActorLogging {
 
   import LoadPlaylistActor._
-
-  /** The object to materialize streams. */
-  implicit private val materializer: ActorMaterializer = ActorMaterializer()
+  import context.system
 
   override def receive: Receive = {
     case LoadPlaylistData(plPath, posPath, maxFileSize, bus) =>

@@ -18,16 +18,15 @@ package de.oliver_heger.linedj.io.stream
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
+import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{ActorMaterializer, DelayOverflowStrategy}
 import akka.testkit.TestKit
 import akka.util.Timeout
-import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult,
-ActorErrorResult}
+import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult, ActorErrorResult}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 /**
   * Test class for ''ActorSource''.
@@ -48,7 +47,7 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * @return the source
     */
   private def createSource(data: List[String]): Source[String, Any] = {
-    implicit val ec = system.dispatcher
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
     val actor = system.actorOf(Props(classOf[DataActor], data))
     ActorSource[String](actor, Request)(resultFunc())
   }
@@ -72,7 +71,6 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * @return a future with the stream result
     */
   private def runStream(source: Source[String, Any]): Future[List[String]] = {
-    implicit val mat = ActorMaterializer()
     val sink = Sink.fold[List[String], String](List.empty[String])((lst, s) => s :: lst)
     source.runWith(sink)
   }
@@ -121,7 +119,7 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "handle a timeout from the data actor" in {
     val data = List("Stream", "with", "timeout", DataActor.Ignore, "foo")
-    implicit val ec = system.dispatcher
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
     val actor = system.actorOf(Props(classOf[DataActor], data))
     val source = ActorSource[String](actor, Request, Timeout(50.millis))(resultFunc())
     val now = System.currentTimeMillis()

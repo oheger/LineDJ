@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode}
@@ -30,8 +29,8 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg}
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 import scalaz.Failure
 
 import scala.concurrent.Await
@@ -95,7 +94,6 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     */
   private def checkValidationFlow(command: OpenValidationWindowCommand, files: List[MediaFile]*):
   List[ValidatedItem] = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val builderData = mock[ApplicationBuilderData]
     command.prepareBuilderData(builderData)
     val captor = ArgumentCaptor.forClass(classOf[Flow[List[MediaFile], ValidatedItem, Any]])
@@ -145,6 +143,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
                                    orderedUris: List[String], expChangedOrder: Boolean): Unit = {
     val MaxAttempts = 128
 
+    @scala.annotation.tailrec
     def checkProcessingOrderChanged(attempt: Int): Boolean =
       if (attempt >= MaxAttempts) false
       else {

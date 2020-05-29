@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
@@ -65,7 +64,6 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @return the extracted ID3v1 meta data
     */
   private def processFile(file: String): ID3v1MetaData = {
-    implicit val mat = ActorMaterializer()
     val probeProcessor = TestProbe()
     val fileContent = readFile(file)
     val source = Source(fileContent)
@@ -93,7 +91,6 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "handle an empty stream" in {
-    implicit val mat = ActorMaterializer()
     val probeProcessor = TestProbe()
     val source = Source.single(ByteString.empty)
     val stage = new ID3v1ProcessingStage(probeProcessor.ref)

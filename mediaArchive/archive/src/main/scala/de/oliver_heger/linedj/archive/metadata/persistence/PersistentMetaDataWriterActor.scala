@@ -20,8 +20,8 @@ import java.nio.file.{Path, StandardOpenOption}
 
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef}
 import akka.event.LoggingAdapter
+import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Source}
-import akka.stream.{ActorMaterializer, IOResult}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
@@ -108,9 +108,6 @@ class PersistentMetaDataWriterActor(blockSize: Int,
                                     FutureIOResultHandler) extends Actor with ActorLogging {
   def this(blockSize: Int) = this(blockSize, new FutureIOResultHandler)
 
-  /** The object for materializing streams. */
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
-
   /** The JSON converter for meta data. */
   private val metaDataConverter = new MetaDataJsonConverter
 
@@ -179,6 +176,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     * @return a future for the result of the write operation
     */
   private def triggerWriteMetaDataFile(mediumData: MediumData): Future[IOResult] = {
+    import context.system
     log.info("Writing meta data file {}.", mediumData.process.target)
     val source = Source(mediumData.elements)
     val listStage =

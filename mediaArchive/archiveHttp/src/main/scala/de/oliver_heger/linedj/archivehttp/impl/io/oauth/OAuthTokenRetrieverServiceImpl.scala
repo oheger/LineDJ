@@ -19,9 +19,8 @@ package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 import java.io.IOException
 import java.util.regex.Pattern
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{FormData, HttpMethods, HttpRequest}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
@@ -60,7 +59,7 @@ object OAuthTokenRetrieverServiceImpl extends OAuthTokenRetrieverService[OAuthCo
   private implicit val timeout: Timeout = Timeout(1.minute)
 
   override def refreshToken(httpActor: ActorRef, config: OAuthConfig, secret: Secret, refreshToken: String)
-                           (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[OAuthTokenData] = {
+                           (implicit ec: ExecutionContext, system: ActorSystem): Future[OAuthTokenData] = {
     val params = Map(ParamClientId -> config.clientID, ParamRedirectUri -> config.redirectUri,
       ParamClientSecret -> secret.secret, ParamRefreshToken -> refreshToken, ParamGrantType -> GrantTypeRefreshToken)
     sendTokenRequest(httpActor, config, params)
@@ -74,10 +73,12 @@ object OAuthTokenRetrieverServiceImpl extends OAuthTokenRetrieverService[OAuthCo
     * @param httpActor the actor for sending HTTP requests
     * @param config    the OAuth configuration
     * @param params    the parameters for the request
+    * @param ec        the execution context
+    * @param system    the actor system to materialize streams
     * @return a ''Future'' with the tokens obtained from the IDP
     */
   private def sendTokenRequest(httpActor: ActorRef, config: OAuthConfig, params: Map[String, String])
-                              (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[OAuthTokenData] = {
+                              (implicit ec: ExecutionContext, system: ActorSystem): Future[OAuthTokenData] = {
     val request = HttpRequests.SendRequest(request = HttpRequest(uri = config.tokenEndpoint,
       entity = FormData(params).toEntity, method = HttpMethods.POST), null)
     for {result <- HttpRequests.sendRequest(httpActor, request)
@@ -91,11 +92,11 @@ object OAuthTokenRetrieverServiceImpl extends OAuthTokenRetrieverService[OAuthCo
     *
     * @param result the result object
     * @param ec     the execution context
-    * @param mat    the object to materialize streams
+    * @param system the actor system to materialize streams
     * @return the text content of the response
     */
   private def responseBody(result: HttpRequests.ResponseData)
-                          (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[String] = {
+                          (implicit ec: ExecutionContext, system: ActorSystem): Future[String] = {
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     result.response.entity.dataBytes.runWith(sink).map(_.utf8String)
   }

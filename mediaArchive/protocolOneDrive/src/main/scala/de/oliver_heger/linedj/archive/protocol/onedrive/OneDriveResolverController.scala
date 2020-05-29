@@ -18,12 +18,12 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import java.io.IOException
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
@@ -156,7 +156,7 @@ private class OneDriveResolverController(val uriToResolve: Uri, val basePath: St
     *             model representation.
     */
   override def extractNamesFromFolderResponse(response: HttpResponse)
-                                             (implicit ec: ExecutionContext, mat: ActorMaterializer):
+                                             (implicit ec: ExecutionContext, system: ActorSystem):
   Future[ParseFolderResult] = {
     import OneDriveJsonProtocol._
     val model = Unmarshal(response).to[OneDriveModel]

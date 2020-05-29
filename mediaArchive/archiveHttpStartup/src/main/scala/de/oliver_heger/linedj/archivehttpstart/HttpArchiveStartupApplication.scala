@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.Actor.Receive
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
@@ -180,8 +179,6 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   def this() = this(new HttpArchiveStarter)
 
   import HttpArchiveStartupApplication._
-
-  private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Stores the ID for the message bus registration. Note: The registration

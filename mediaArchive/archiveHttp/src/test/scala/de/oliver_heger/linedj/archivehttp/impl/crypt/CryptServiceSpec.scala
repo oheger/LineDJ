@@ -20,7 +20,6 @@ import java.security.SecureRandom
 import java.util.Base64
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -59,7 +58,6 @@ class CryptServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     * @return the content of this source
     */
   private def readSource(source: Source[ByteString, Any]): ByteString = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     val futResult = source.runWith(sink)
     Await.result(futResult, 3.seconds)

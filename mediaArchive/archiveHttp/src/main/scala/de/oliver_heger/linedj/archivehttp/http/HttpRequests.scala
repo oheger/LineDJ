@@ -16,11 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttp.http
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.headers.{ModeledCustomHeader, ModeledCustomHeaderCompanion}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -84,11 +83,11 @@ object HttpRequests {
     *
     * @param result the result object
     * @param ec     the execution context
-    * @param mat    the object to materialize streams
+    * @param system the actor system to materialize streams
     * @return a ''Future'' of the result with the entity discarded
     */
   def discardEntityBytes(result: ResponseData)
-                        (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[ResponseData] =
+                        (implicit ec: ExecutionContext, system: ActorSystem): Future[ResponseData] =
     result.response.entity.discardBytes().future().map(_ => result)
 
   /**
@@ -98,11 +97,11 @@ object HttpRequests {
     *
     * @param futResult the ''Future'' with the result object
     * @param ec        the execution context
-    * @param mat       the object to materialize streams
+    * @param system    the actor system to materialize streams
     * @return a ''Future'' of the result with the entity discarded
     */
   def discardEntityBytes(futResult: Future[ResponseData])
-                        (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[ResponseData] =
+                        (implicit ec: ExecutionContext, system: ActorSystem): Future[ResponseData] =
     futResult flatMap discardEntityBytes
 
   /**

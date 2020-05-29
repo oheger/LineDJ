@@ -20,7 +20,6 @@ import java.nio.file.{Files, Paths}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -131,7 +130,6 @@ class ID3v2ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "handle an undefined processor actor" in {
-    implicit val mat = ActorMaterializer()
     val stage = new ID3v2ProcessingStage(None)
     val futStream = chunkedSource(2048).via(stage).runFold(ByteString())(_ ++ _)
     val streamResult = Await.result(futStream, TimeoutDuration)
@@ -170,7 +168,6 @@ class ID3v2ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return the data passed to the sink
       */
     def runStream(src: Source[ByteString, Any]): ByteString = {
-      implicit val mat = ActorMaterializer()
       val procActor = system.actorOf(Props(classOf[FrameProcessingActor], queue))
       val stage = new ID3v2ProcessingStage(Some(procActor))
       val futStream = src.via(stage).runFold(ByteString())(_ ++ _)

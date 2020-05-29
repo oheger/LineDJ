@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.media
 import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
@@ -177,7 +176,6 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @return the result from the sink
     */
   private def runStream(files: List[Path]): List[MediaScanResult] = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val source = Source(files)
     val stage = new MediumAggregateStage(RootPath, ArchiveName, createFileData)
     val sink = Sink.fold[List[MediaScanResult], MediaScanResult](List.empty)((lst, res) =>

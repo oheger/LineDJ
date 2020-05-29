@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.{HttpResponse, Uri}
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
@@ -129,8 +128,13 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
 
   import HttpDownloadManagementActor._
 
-  /** The object to materialize streams. */
-  implicit private val mat: ActorMaterializer = ActorMaterializer()
+  /**
+    * Returns the actor system in implicit scope. This is needed to materialize
+    * streams.
+    *
+    * @return the implicit actor system
+    */
+  implicit private def system: ActorSystem = context.system
 
   /** The timeout when sending a download request. */
   implicit private val requestTimeout: Timeout = config.processorTimeout

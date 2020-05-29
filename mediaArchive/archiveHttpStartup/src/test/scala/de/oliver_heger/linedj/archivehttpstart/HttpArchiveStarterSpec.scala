@@ -23,7 +23,6 @@ import java.time.Instant
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.Uri
-import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
@@ -257,9 +256,6 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     /** A map that stores information about actor creations. */
     private var creationProps = Map.empty[String, Props]
-
-    /** An object to materialize streams in implicit scope. */
-    private implicit val mat: ActorMaterializer = ActorMaterializer()
 
     import system.dispatcher
 

@@ -21,7 +21,6 @@ import java.nio.file.Files
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.{ByteString, Timeout}
@@ -93,7 +92,6 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val response = responseMsg.response
     response.status should be(StatusCodes.OK)
 
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     val content = futureResult(response.entity.dataBytes.runWith(sink))
     content.utf8String should be(FileTestHelper.TestData)
@@ -111,7 +109,6 @@ class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val responseMsg = expectMsgType[ResponseData]
     val response = responseMsg.response
 
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     val content = futureResult(response.entity.dataBytes.runWith(sink))
     content.utf8String should be(FileTestHelper.TestData)

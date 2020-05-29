@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 
-import akka.actor.ActorRef
-import akka.stream.ActorMaterializer
+import akka.actor.{ActorRef, ActorSystem}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,9 +41,9 @@ trait OAuthTokenRetrieverService[CONFIG, CLIENT_SECRET, TOKENS] {
     * @param secret       the client secret
     * @param refreshToken the refresh token
     * @param ec           the execution context
-    * @param mat          the object to materialize streams
+    * @param system       the actor system to materialize streams
     * @return a ''Future'' with the tokens retrieved from the IDP
     */
   def refreshToken(httpActor: ActorRef, config: CONFIG, secret: CLIENT_SECRET, refreshToken: String)
-                  (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[TOKENS]
+                  (implicit ec: ExecutionContext, system: ActorSystem): Future[TOKENS]
 }

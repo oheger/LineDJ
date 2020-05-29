@@ -19,10 +19,9 @@ package de.oliver_heger.linedj.archivehttp
 import java.nio.charset.StandardCharsets
 import java.security.Key
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.HttpResponse
 import akka.routing.SmallestMailboxPool
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
@@ -31,8 +30,8 @@ import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
 import de.oliver_heger.linedj.archivehttp.impl.io._
+import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -112,11 +111,11 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
     *
     * @param storageConfig the OAuth storage configuration
     * @param ec            the execution context
-    * @param mat           the object to materialize streams
+    * @param system        the actor system to materialize streams
     * @return a ''Future'' with the OAuth configure function
     */
   override def oauthConfigureFunc(storageConfig: OAuthStorageConfig)
-                                 (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[AuthConfigureFunc] =
+                                 (implicit ec: ExecutionContext, system: ActorSystem): Future[AuthConfigureFunc] =
     for {config <- OAuthStorageServiceImpl.loadConfig(storageConfig)
          secret <- OAuthStorageServiceImpl.loadClientSecret(storageConfig)
          tokens <- OAuthStorageServiceImpl.loadTokens(storageConfig)
@@ -202,9 +201,6 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   this: ChildActorFactory =>
 
   import HttpArchiveManagementActor._
-
-  /** Object for materializing streams. */
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   /** The actor for sending HTTP requests. */
   private var requestActor: ActorRef = _
@@ -347,6 +343,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @return a ''Future'' with the result of the operation
     */
   private def loadArchiveContent(): Future[HttpResponse] = {
+    implicit val system: ActorSystem = context.system
     implicit val requestTimeout: Timeout = config.processorTimeout
     log.info("Requesting content of archive {}.", config.archiveURI)
     config.protocol.downloadMediaFile(requestActor, config.archiveURI) map (_.response)

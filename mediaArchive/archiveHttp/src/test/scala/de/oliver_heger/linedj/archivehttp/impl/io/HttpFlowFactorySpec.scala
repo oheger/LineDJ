@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.io
 
-import javax.net.ssl.SSLException
-import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import akka.actor.ActorSystem
 import akka.http.impl.engine.client.ProxyConnectionFailedException
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import javax.net.ssl.SSLException
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.eclipse.jetty.server.{AbstractNetworkConnector, Server}
 import org.eclipse.jetty.servlet.ServletHandler
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -69,9 +68,6 @@ class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   import HttpFlowFactorySpec._
   import system.dispatcher
-
-  /** Object to materialize streams. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /** A reference to the embedded server. */
   private var server: Server = _

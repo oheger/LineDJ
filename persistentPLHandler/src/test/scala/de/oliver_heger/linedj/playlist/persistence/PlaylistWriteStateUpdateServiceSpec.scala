@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.playlist.persistence
 import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorSystem, Props}
+import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Source}
-import akka.stream.{ActorMaterializer, IOResult}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
@@ -33,8 +33,8 @@ import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.Write
 import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec._
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -190,11 +190,9 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     *
     * @param src    the source
     * @param target the target file to be written
-    * @param mat    the materializer
     * @return the future with the write operation
     */
-  private def writeFile(src: Source[ByteString, Any], target: Path)
-                       (implicit mat: ActorMaterializer): Future[IOResult] = {
+  private def writeFile(src: Source[ByteString, Any], target: Path): Future[IOResult] = {
     val sink = FileIO toPath target
     src.runWith(sink)
   }
@@ -208,7 +206,6 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     * @return the playlist obtained from the load actor
     */
   private def saveAndLoadPlaylist(writeMessages: Iterable[WriteFile]): SetPlaylist = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     implicit val ec: ExecutionContext = system.dispatcher
     val msgBus = new MessageBusTestImpl()
     val loadActor = system.actorOf(Props[LoadPlaylistActor])

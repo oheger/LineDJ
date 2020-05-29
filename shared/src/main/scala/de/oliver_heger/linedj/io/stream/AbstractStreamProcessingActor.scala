@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.io.stream
 
 import akka.actor.Actor.emptyBehavior
-import akka.actor.{Actor, ActorRef}
-import akka.stream.{ActorMaterializer, KillSwitch}
+import akka.actor.{Actor, ActorRef, ActorSystem}
+import akka.stream.KillSwitch
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.{CancelStreams, StreamCompleted}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -70,13 +70,13 @@ trait AbstractStreamProcessingActor extends Actor {
     */
   protected implicit val ec: ExecutionContext = context.dispatcher
 
-  /** The object for materializing streams. */
-  protected implicit var materializer: ActorMaterializer = _
-
-  override def preStart(): Unit = {
-    super.preStart()
-    materializer = createMaterializer()
-  }
+  /**
+    * Returns this actor's actor system in implicit scope. This is needed to
+    * materialize streams.
+    *
+    * @return the implicit actor system
+    */
+  protected implicit def system: ActorSystem = context.system
 
   /**
     * The message processing function. This implementation returns a function
@@ -132,16 +132,6 @@ trait AbstractStreamProcessingActor extends Actor {
   protected def propagateResult(client: ActorRef, result: Any): Unit = {
     client ! result
   }
-
-  /**
-    * Creates the object to materialize streams. This method is called when
-    * this actor is constructed. The base implementation creates a standard
-    * materializer. Derived classes can override it if they have special
-    * needs, e.g. regarding supervision.
-    *
-    * @return the ''ActorMaterializer''
-    */
-  protected def createMaterializer(): ActorMaterializer = ActorMaterializer()
 
   /**
     * A receive function that handles the messages which are directly

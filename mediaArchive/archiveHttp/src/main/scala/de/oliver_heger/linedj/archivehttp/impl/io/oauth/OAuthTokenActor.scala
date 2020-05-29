@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 
-import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props, Status}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props, Status}
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
@@ -116,9 +115,6 @@ class OAuthTokenActor(override val httpActor: ActorRef,
   extends Actor with ActorLogging with HttpExtensionActor {
   /** Execution context in implicit scope. */
   private implicit val ec: ExecutionContext = context.dispatcher
-
-  /** The object to materialize streams. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * A timeout for the ask patter. Note that here a huge value is used;
@@ -229,6 +225,7 @@ class OAuthTokenActor(override val httpActor: ActorRef,
   private def refreshTokens(): Unit = {
     context become refreshing
     log.info("Obtaining a new access token.")
+    implicit val system: ActorSystem = context.system
     tokenService.refreshToken(idpHttpActor, oauthConfig, clientSecret, currentTokenData.refreshToken)
       .onComplete {
         case Success(tokenData) =>

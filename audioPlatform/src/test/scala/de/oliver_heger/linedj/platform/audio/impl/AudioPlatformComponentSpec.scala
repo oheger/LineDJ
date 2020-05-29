@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.platform.audio.impl
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{Actor, ActorSystem}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -38,8 +37,8 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
@@ -191,7 +190,6 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     val sink = helper.activate().verifyAndFetchEventSinkRegistration()
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val Message = new Object
     Source.single(Message).runWith(sink)
     helper.skipOsgiServiceRegistrations().nextMessage() should be(Message)

@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -58,7 +57,6 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
     * @return the resulting list of processing results
     */
   private def parse(src: Source[ByteString, Any]): List[MetaDataProcessingSuccess] = {
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val stage = new MetaDataParserStage(TestMedium)
 
     val futureStream = src.via(stage)

@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Location
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.XRequestPropsHeader
@@ -106,7 +105,7 @@ class OneDriveProtocol extends HttpArchiveProtocol {
     *             question, and then executing the download.
     */
   override def downloadMediaFile(httpActor: ActorRef, uri: Uri)
-                                (implicit ec: ExecutionContext, mat: ActorMaterializer, timeout: Timeout):
+                                (implicit ec: ExecutionContext, system: ActorSystem, timeout: Timeout):
   Future[HttpRequests.ResponseData] =
     for {
       contentResult <- HttpRequests.discardEntityBytes(HttpRequests.sendRequest(httpActor,

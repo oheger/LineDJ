@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttp.spi
 
 import java.io.IOException
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
-import akka.stream.ActorMaterializer
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
 
@@ -115,10 +115,10 @@ trait UriResolverController {
     *
     * @param response the response to be processed
     * @param ec       the execution context
-    * @param mat      the object to materialize streams
+    * @param system   the actor system to materialize streams
     * @return a ''Future'' with the sequence of the element names in the folder
     */
-  def extractNamesFromFolderResponse(response: HttpResponse)(implicit ec: ExecutionContext, mat: ActorMaterializer):
+  def extractNamesFromFolderResponse(response: HttpResponse)(implicit ec: ExecutionContext, system: ActorSystem):
   Future[ParseFolderResult]
 
   /**

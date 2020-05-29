@@ -20,7 +20,6 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Location
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
@@ -46,9 +45,6 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   }
 
   import system.dispatcher
-
-  /** The object to materialize streams in implicit scope. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /** The timeout in implicit scope. */
   private implicit val requestTimeout: Timeout = Timeout(3.seconds)
@@ -146,12 +142,12 @@ class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val FileUri = Uri("/file.mp3")
     val entity = mock[ResponseEntity]
     val discardedEntity = new HttpMessage.DiscardedEntity(Future.successful(Done))
-    when(entity.discardBytes()(mat)).thenReturn(discardedEntity)
+    when(entity.discardBytes()).thenReturn(discardedEntity)
     val ContentResponse = HttpResponse(status = StatusCodes.MovedPermanently, entity = entity)
 
     checkDownloadRequest(FileUri, OneDriveProtocol.OneDriveServerUri.toString() + FileUri + ":/content",
       ContentResponse)
-    verify(entity).discardBytes()(mat)
+    verify(entity).discardBytes()
   }
 
   it should "create a correct resolve controller" in {

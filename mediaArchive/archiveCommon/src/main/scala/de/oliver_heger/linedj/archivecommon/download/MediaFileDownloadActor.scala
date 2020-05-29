@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archivecommon.download
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
+import akka.stream.{FlowShape, Graph}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
 import de.oliver_heger.linedj.io.PathUtils
@@ -113,9 +113,6 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   def this(path: Path, chunkSize: Int, trans: DownloadTransformFunc) =
     this(path, chunkSize, trans, None)
 
-  /** The object to materialize streams. */
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
-
   /** A message to notify the download manager when there is activity. */
   private var aliveMessage: Any = _
 
@@ -132,6 +129,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   private var complete = false
 
   override def preStart(): Unit = {
+    import context.system
     aliveMessage = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     val source = createSource()
     val filterSource = applyTransformation(source)

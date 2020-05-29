@@ -20,13 +20,12 @@ import java.io.IOException
 import java.nio.file.Paths
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
   * Test class for ''PersistentMetaDataFileScanner''.
@@ -54,15 +53,14 @@ class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit
 
     val expMap = checkSumList.zip(pathList).toMap
     val scanner = new PersistentMetaDataFileScanner
-    val futFileMap = scanner.scanForMetaDataFiles(testDirectory)(ActorMaterializer(),
-      system.dispatcher)
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    val futFileMap = scanner.scanForMetaDataFiles(testDirectory)
     val fileMap = Await.result(futFileMap, 5.seconds)
     fileMap should contain theSameElementsAs expMap
   }
 
   it should "return a failed futire if an IO exception is thrown" in {
     import system.dispatcher
-    implicit val mat: ActorMaterializer = ActorMaterializer()
     val scanner = new PersistentMetaDataFileScanner
 
     val futFileMap = scanner.scanForMetaDataFiles(Paths get "nonExistingPath")

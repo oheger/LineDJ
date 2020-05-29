@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
 
-import akka.stream.ActorMaterializer
+import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
 import de.oliver_heger.linedj.io.DirectoryStreamSource
 
@@ -76,11 +76,10 @@ private class PersistentMetaDataFileScanner {
     * means that the directory does not exist), result is a failed future.
     *
     * @param dir the directory to be scanned
-    * @param mat the object to materialize a directory stream
     * @param ec the execution context
     * @return a future with a map with the results of the scan operation
     */
-  def scanForMetaDataFiles(dir: Path)(implicit mat: ActorMaterializer, ec: ExecutionContext):
+  def scanForMetaDataFiles(dir: Path)(implicit system: ActorSystem, ec: ExecutionContext):
   Future[Map[String, Path]] = {
     val source = DirectoryStreamSource.newBFSSource(dir,
       filter = DirectoryStreamSource

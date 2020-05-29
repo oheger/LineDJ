@@ -19,14 +19,13 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.nio.file.Paths
 import java.security.Key
 
-import akka.actor.ActorRef
-import akka.stream.ActorMaterializer
+import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -124,14 +123,14 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
     * @param index              an index for unique actor name generation
     * @param clearTemp          flag whether the temp directory should be cleared
     * @param ec                 the execution context
-    * @param mat                the object to materialize streams
+    * @param system             the actor system to materialize streams
     * @return a map of the actors created; keys are the names of
     *         the actor instances
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
-             (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Map[String, ActorRef]] =
+             (implicit ec: ExecutionContext, system: ActorSystem): Future[Map[String, ActorRef]] =
     for {
       archiveUri <- Future.fromTry(protocol.generateArchiveUri(archiveData.config.archiveURI.toString()))
       authFunc <- fetchAuthFunc(archiveData.realm, credentials)
@@ -190,11 +189,11 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
     * @param realm       the realm
     * @param credentials the credentials of the realm
     * @param ec          the execution context
-    * @param mat         the object to materialize streams
+    * @param system      the actor system to materialize streams
     * @return a ''Future'' with the function to configure authentication
     */
   private def fetchAuthFunc(realm: ArchiveRealm, credentials: UserCredentials)
-                           (implicit ec: ExecutionContext, mat: ActorMaterializer): Future[AuthConfigureFunc] =
+                           (implicit ec: ExecutionContext, system: ActorSystem): Future[AuthConfigureFunc] =
     realm match {
       case _: BasicAuthRealm =>
         authFactory.basicAuthConfigureFunc(credentials)

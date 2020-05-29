@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.pattern.AskTimeoutException
-import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
@@ -42,9 +41,6 @@ class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
   }
 
   import system.dispatcher
-
-  /** An object to materialize streams in implicit scope. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   "WebDavProtocol" should "return the correct name" in {
     val protocol = new WebDavProtocol

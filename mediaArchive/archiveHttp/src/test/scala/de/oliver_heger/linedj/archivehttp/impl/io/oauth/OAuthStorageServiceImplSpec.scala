@@ -19,11 +19,10 @@ package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 import java.nio.file.{Files, Path}
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpecLike, Matchers}
 
 import scala.xml.SAXParseException
@@ -57,9 +56,6 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
 
   import OAuthStorageServiceImplSpec._
   import system.dispatcher
-
-  /** The object to materialize streams in implicit scope. */
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   /**
     * Creates a storage configuration with default settings and the given
