@@ -182,9 +182,9 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
   private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
   KillSwitch = {
     implicit val infoParseTimeout: Timeout = parserTimeout
-    val sinkScanResults = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
+    val sinkScanResults = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.ScanResultsComplete, mapException)
-    val sinkInfo = Sink.actorRefWithAck(sinkActor, ScanSinkActor.Init,
+    val sinkInfo = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.MediaInfoComplete, mapException)
     val ks = KillSwitches.single[Path]
     val g = RunnableGraph.fromGraph(GraphDSL.create(ks) { implicit builder =>

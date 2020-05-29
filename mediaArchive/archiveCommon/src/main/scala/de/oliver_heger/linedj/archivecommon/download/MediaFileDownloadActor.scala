@@ -133,7 +133,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     aliveMessage = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     val source = createSource()
     val filterSource = applyTransformation(source)
-    val sink = Sink.actorRefWithAck(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
+    val sink = Sink.actorRefWithBackpressure(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
     filterSource.runWith(sink)
   }
 

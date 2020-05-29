@@ -145,7 +145,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * @return the sink for MP3 stream processing
     */
   private def createSink(actor: ActorRef): Sink[Any, NotUsed] =
-    Sink.actorRefWithAck(actor, onInitMessage = Mp3StreamInit,
+    Sink.actorRefWithBackpressure(actor, onInitMessage = Mp3StreamInit,
       ackMessage = Mp3ChunkAck, onCompleteMessage = Mp3StreamCompleted,
       onFailureMessage = t => Mp3StreamFailure(t))
 

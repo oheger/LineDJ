@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp
 import java.nio.charset.StandardCharsets
 import java.security.Key
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model.HttpResponse
 import akka.routing.SmallestMailboxPool
 import akka.stream.scaladsl.Sink
@@ -327,8 +327,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   private def createProcessArchiveRequest(resp: HttpResponse, curSeqNo: Int):
   ProcessHttpArchiveRequest = {
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
-    val sink = Sink.actorRefWithAck(self, HttpArchiveProcessingInit,
-      HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected))
+    val sink = Sink.actorRefWithBackpressure(self, HttpArchiveProcessingInit,
+      HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure)
     ProcessHttpArchiveRequest(clientFlow = null, requestActor = requestActor, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
       sink = sink, mediaSource = resp.entity.dataBytes.via(parseStage),
