@@ -19,15 +19,18 @@ package de.oliver_heger.linedj.player.engine.impl
 import java.nio.file.Path
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.stream.CompletionStrategy
+import akka.stream.scaladsl.{FileIO, Keep, Source}
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.ChannelHandler.{ArraySource, InitFile}
-import de.oliver_heger.linedj.io.FileWriterActor.WriteResult
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor, FileWriterActor}
+import de.oliver_heger.linedj.io.ChannelHandler.InitFile
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+
+import scala.util.Failure
 
 /**
   * Companion object to ''LocalBufferActor''.
@@ -119,6 +122,35 @@ object LocalBufferActor {
     */
   case object SequenceComplete
 
+  /**
+    * An internal message indicating that a write operation to a temporary
+    * buffer file has been completed.
+    */
+  private case object WriteStreamComplete
+
+  /**
+    * An internal message used to acknowledge a single write operation into the
+    * current write stream.
+    */
+  private case object WriteStreamAck
+
+  /**
+    * An internal data class holding information about the current write
+    * operation into a temporary file.
+    *
+    * @param sourceActor the actor used as source for the write stream
+    * @param currentPath the current path to the temporary file
+    */
+  private case class WriteStreamData(sourceActor: ActorRef, currentPath: Path) {
+    /**
+      * Notifies the source actor for the write stream that all data has been
+      * written and the stream can be closed now.
+      */
+    def closeStream(): Unit = {
+      sourceActor ! WriteStreamComplete
+    }
+  }
+
   private class LocalBufferActorImpl(config: PlayerConfig, bufferManager: BufferFileManager)
     extends LocalBufferActor(config, bufferManager) with ChildActorFactory
 
@@ -176,17 +208,16 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   /** The client responsible for the current fill operation. */
   private var fillClient: ActorRef = _
 
-  /** The current writer actor. */
-  private var writerActor: ActorRef = _
-
   /** The current actor for reading data from the buffer. */
   private var readActor: ActorRef = _
 
   /** A client requesting a buffer read operation. */
   private var readClient: Option[ActorRef] = None
 
-  /** The current temporary file which is filled by a fill operation. */
-  private var currentPath: Option[Path] = None
+  /**
+    * Stores information about the current write operation to a temporary file.
+    */
+  private var currentWrite: Option[WriteStreamData] = None
 
   /** A read result which has to be processed after finishing the current write operation. */
   private var pendingReadResult: Option[ByteString] = None
@@ -223,7 +254,6 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     bufferManager.clearBufferDirectory()
-    writerActor = createChildActor(Props[FileWriterActor])
   }
 
   override def receive: Receive = {
@@ -243,16 +273,18 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       readOperationInProgress = false
       handleReadResult(readResult)
 
-    case WriteResult(_, _) =>
+    case WriteStreamAck =>
       if (bytesWrittenToFile >= config.bufferFileSize) {
-        writerActor ! CloseRequest
+        closeWriteStream()
       } else {
         continueFilling()
       }
 
-    case CloseAck(actor) if writerActor == actor =>
-      bufferManager append BufferFile(currentPath.get, sourceLengths.reverse)
-      currentPath = None
+    case WriteStreamComplete =>
+      currentWrite foreach { write =>
+        bufferManager append BufferFile(write.currentPath, sourceLengths.reverse)
+      }
+      currentWrite = None
       sourceLengths = Nil
       bytesWrittenToFile = 0
       serveReadRequest()
@@ -279,9 +311,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       fillOperationCompleted(actor)
 
     case SequenceComplete =>
-      if (currentPath.isDefined) {
-        writerActor ! CloseRequest
-      }
+      closeWriteStream()
 
     case CloseRequest =>
       closingState = new ClosingState(sender())
@@ -293,7 +323,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     case FillBuffer(_) =>
       sender ! BufferBusy
 
-    case CloseAck(actor) if writerActor == actor =>
+    case WriteStreamComplete =>
       closingState.writeActorClosed()
 
     case ReadBuffer =>
@@ -372,6 +402,13 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   }
 
   /**
+    * Closes the current write stream if one is active.
+    */
+  private def closeWriteStream(): Unit = {
+    currentWrite foreach (_.closeStream())
+  }
+
+  /**
     * Handles a completed read operation. A read operation can either be
     * completed explicitly by sending a ''BufferReadComplete'' message.
     * Alternatively, the operation is completed when the reader actor is
@@ -440,13 +477,42 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     *
     * @return a reference to the initialized write actor
     */
-  private def ensureWriteActorInitialized(): ActorRef = {
-    if (currentPath.isEmpty) {
-      currentPath = Some(bufferManager.createPath())
-      log.info("Creating new temporary file {}.", currentPath.get)
-      writerActor ! InitFile(currentPath.get)
+  private def ensureWriteActorInitialized(): ActorRef =
+    currentWrite match {
+      case Some(writeData) =>
+        writeData.sourceActor
+      case None =>
+        val path = bufferManager.createPath()
+        log.info("Creating new temporary file {}.", path)
+        val writeActor = createWriteActor(path)
+        currentWrite = Some(WriteStreamData(writeActor, path))
+        writeActor
     }
-    writerActor
+
+  /**
+    * Creates an actor to be used as a source for writing into a temporary
+    * file. A stream is created to write the file, and sending messages to the
+    * actor causes the data to be written to the file.
+    *
+    * @param path the path of the temporary buffer file
+    * @return the actor to write data into the file
+    */
+  private def createWriteActor(path: Path): ActorRef = {
+    val source = Source.actorRefWithBackpressure[ByteString](WriteStreamAck, {
+      case WriteStreamComplete => CompletionStrategy.immediately
+    }, PartialFunction.empty)
+    val sink = FileIO.toPath(path)
+    import context.{dispatcher, system}
+    val (sourceActor, futResult) = source.toMat(sink)(Keep.both).run()
+    futResult onComplete { triedResult =>
+      triedResult match {
+        case Failure(exception) =>
+          log.error(exception, "Write error when writing to buffer file!")
+        case _ =>
+      }
+      self ! WriteStreamComplete
+    }
+    sourceActor
   }
 
   /**
@@ -458,13 +524,13 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     * @param readResult the read result
     * @return a tuple with the current and the pending write request
     */
-  private def currentAndPendingWriteRequest(readResult: ByteString): (ArraySource, Option[ByteString]) = {
+  private def currentAndPendingWriteRequest(readResult: ByteString): (ByteString, Option[ByteString]) = {
     if (readResult.length + bytesWrittenToFile <= config.bufferFileSize)
-      (ArraySourceImpl(readResult), None)
+      (readResult, None)
     else {
       val actLength = config.bufferFileSize - bytesWrittenToFile
       val splitData = readResult splitAt actLength
-      (ArraySourceImpl(splitData._1), Some(splitData._2))
+      (splitData._1, Some(splitData._2))
     }
   }
 
@@ -526,10 +592,8 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
       */
     def initiateClosing(): Boolean = {
       readActorPending = readClient.isDefined && readActor != null
-      writeActorPending = currentPath.isDefined
-      if (writeActorPending) {
-        writerActor ! CloseRequest
-      }
+      writeActorPending = currentWrite.isDefined
+      closeWriteStream()
       closeIfPossible()
     }
 
