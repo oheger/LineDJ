@@ -18,36 +18,19 @@ package de.oliver_heger.linedj.archivecommon.download
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
+import akka.actor.{ActorLogging, ActorRef}
+import akka.stream.scaladsl.{FileIO, Flow, Source}
 import akka.stream.{FlowShape, Graph}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
 import de.oliver_heger.linedj.io.PathUtils
+import de.oliver_heger.linedj.io.stream.StreamPullModeratorActor
 import de.oliver_heger.linedj.shared.archive.media._
 
 object MediaFileDownloadActor {
 
-  /** Internally used init message. */
-  private case object InitMsg
-
-  /** Internally used ACK message. */
-  private case object AckMsg
-
-  /** Internally used complete message. */
-  private case object CompleteMsg
-
   /** Internally used error message. */
   private case class ErrorMsg(exception: Throwable)
-
-  /**
-    * Internally used data class to store a request of a download chunk from a
-    * client actor.
-    *
-    * @param client  the client actor
-    * @param request the request
-    */
-  private case class DownloadRequest(client: ActorRef, request: DownloadData)
 
   /**
     * Definition of a transformation function for the streams to be downloaded
@@ -77,6 +60,7 @@ object MediaFileDownloadActor {
     override def apply(ext: String): Flow[ByteString, ByteString, Any] =
       throw new UnsupportedOperationException("apply() not supported for IdentityTransform!")
   }
+
 }
 
 /**
@@ -108,7 +92,7 @@ object MediaFileDownloadActor {
   */
 class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransformFunc,
                              optManagerActor: Option[ActorRef])
-  extends Actor with ActorLogging {
+  extends StreamPullModeratorActor with ActorLogging {
 
   def this(path: Path, chunkSize: Int, trans: DownloadTransformFunc) =
     this(path, chunkSize, trans, None)
@@ -116,62 +100,38 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   /** A message to notify the download manager when there is activity. */
   private var aliveMessage: Any = _
 
-  /** Stores a current block of data. */
-  private var currentData: Option[ByteString] = None
-
-  /** Stores information about a currently requesting client. */
-  private var currentRequest: Option[DownloadRequest] = None
-
-  /** The actor sending messages on behalf of the source. */
-  private var sourceActor: ActorRef = _
-
-  /** A flag whether download has already been completed. */
-  private var complete = false
-
   override def preStart(): Unit = {
-    import context.system
+    log.info("Starting download of {}.", path)
+    super.preStart()
     aliveMessage = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
-    val source = createSource()
-    val filterSource = applyTransformation(source)
-    val sink = Sink.actorRefWithBackpressure(self, InitMsg, AckMsg, CompleteMsg, ex => ErrorMsg(ex))
-    filterSource.runWith(sink)
-  }
-
-  override def receive: Receive = {
-    case InitMsg =>
-      sender ! AckMsg
-      log.info("Starting download of {}.", path)
-
-    case bs: ByteString =>
-      currentData = Some(bs)
-      sourceActor = sender()
-      sendDownloadResponseIfAvailable()
-
-    case CompleteMsg =>
-      complete = true
-      sendDownloadResponseIfAvailable()
-
-    case ErrorMsg(exception) =>
-      log.error(exception, "Error when downloading file " + path)
-      context stop self
-
-    case req: DownloadData if currentRequest.isEmpty =>
-      currentRequest = Some(DownloadRequest(sender(), req))
-      sendDownloadResponseIfAvailable()
-      optManagerActor foreach(_ ! aliveMessage)
-
-    case DownloadData(_) if currentRequest.isDefined =>
-      sender ! DownloadDataResult(ByteString.empty)
   }
 
   /**
     * Creates the source for the stream. This is a source which reads the
-    * specified path.
+    * specified path and applies a transformation on the data if necessary.
     *
     * @return the source for the stream
     */
   protected def createSource(): Source[ByteString, Any] =
-    FileIO.fromPath(path, chunkSize)
+    applyTransformation(FileIO.fromPath(path, chunkSize))
+
+  override protected def customReceive: Receive = {
+    case DownloadData(size) =>
+      dataRequested(size)
+      optManagerActor foreach (_ ! aliveMessage)
+
+    case ErrorMsg(exception) =>
+      log.error(exception, "Error when downloading file " + path)
+      context stop self
+  }
+
+  override protected def convertStreamError(exception: Throwable): Any = ErrorMsg(exception)
+
+  override protected def dataMessage(data: ByteString): Any = DownloadDataResult(data)
+
+  override protected val endOfStreamMessage: Any = DownloadComplete
+
+  override protected val concurrentRequestMessage: Any = DownloadDataResult(ByteString.empty)
 
   /**
     * Applies the transformation function to the specified source. If a
@@ -186,57 +146,4 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     if (trans isDefinedAt extension) source.via(trans(extension))
     else source
   }
-
-  /**
-    * Checks whether a download response can be sent to a client actor. This
-    * is possible if a client request if available and data has been received
-    * from the source.
-    */
-  private def sendDownloadResponseIfAvailable(): Unit = {
-    currentRequest foreach { req =>
-      val (nextData, optMsg) = downloadResponse(req)
-      currentData = nextData
-      optMsg match {
-        case Some(msg) =>
-          req.client ! msg
-          currentRequest = None
-          if (nextData.isEmpty) {
-            sourceActor ! AckMsg
-          }
-        case None =>
-          if (complete) {
-            req.client ! DownloadComplete
-            currentRequest = None
-          }
-      }
-    }
-  }
-
-  private def downloadResponse(request: DownloadRequest):
-  (Option[ByteString], Option[DownloadDataResult]) = {
-    currentData match {
-      case Some(bs) =>
-        currentDownloadChunk(request, bs)
-      case None => (None, None)
-    }
-  }
-
-  /**
-    * Returns a tuple regarding a chunk of data to be downloaded. The currently
-    * available data may be too large to be returned directly to the sender.
-    * In this case, it has to be split. This function returns a tuple with the
-    * remaining data (''None'' if all data could be sent) and the message to be
-    * sent to the client.
-    *
-    * @param request the request data object
-    * @param data    the current data
-    * @return the remaining data and the message to be sent
-    */
-  private def currentDownloadChunk(request: DownloadRequest, data: ByteString):
-  (Option[ByteString], Option[DownloadDataResult]) =
-    if (data.length <= request.request.size) (None, Some(DownloadDataResult(data)))
-    else {
-      val (msg, remaining) = data splitAt request.request.size
-      (Some(remaining), Some(DownloadDataResult(msg)))
-    }
 }
