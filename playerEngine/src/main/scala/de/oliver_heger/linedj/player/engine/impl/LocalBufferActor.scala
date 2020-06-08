@@ -18,19 +18,19 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.Path
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 import akka.stream.CompletionStrategy
 import akka.stream.scaladsl.{FileIO, Keep, Source}
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.ChannelHandler.InitFile
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
+import de.oliver_heger.linedj.io.stream.StreamPullModeratorActor
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-import scala.util.Failure
+import scala.util.{Failure, Success, Try}
 
 /**
   * Companion object to ''LocalBufferActor''.
@@ -72,12 +72,14 @@ object LocalBufferActor {
   /**
     * A message sent in response on a [[ReadBuffer]] request.
     *
-    * Data is read from the buffer via a newly created ''FileReaderActor''.
     * As soon as a temporary file is ready for being read, this message is sent
-    * to the original caller. The caller can then read data via the protocol
-    * defined by ''FileReaderActor''. When this is done, the actor must be
-    * stopped. This causes the underlying file to be marked as read and
-    * removed from the buffer.
+    * to the original caller. It contains a reference to an actor from which
+    * chunks of data can be requested. This is done by sending
+    * [[BufferDataRequest]] messages to this actor; it replies with
+    * [[BufferDataResult]] and eventually [[BufferDataComplete]] messages.
+    * After the data has been fully read, the actor must be stopped. This
+    * causes the underlying file to be marked as read and removed from the
+    * buffer.
     *
     * In addition to the reader actor, this message contains a list of length
     * values for the sources that are fully contained in the underlying file.
@@ -88,6 +90,34 @@ object LocalBufferActor {
     * @param sourceLengths length values for the sources in the file
     */
   case class BufferReadActor(readerActor: ActorRef, sourceLengths: List[Long])
+
+  /**
+    * A message to request a new chunk of data from an actor obtained via a
+    * [[BufferReadActor]] message.
+    *
+    * By sending this message repeatedly to the reader actor, the whole
+    * content of the current temporary buffer file can be read.
+    *
+    * @param chunkSize the size of the desired data
+    */
+  case class BufferDataRequest(chunkSize: Int)
+
+  /**
+    * A message sent in reaction to a [[BufferDataRequest]] message with a
+    * chunk of data.
+    *
+    * @param data the data of this chunk
+    */
+  case class BufferDataResult(data: ByteString)
+
+  /**
+    * A message sent in reaction to a [[BufferDataRequest]] message if no more
+    * data is available in the current temporary file.
+    *
+    * When receiving this message, the client knows that the current file has
+    * been read completely. The reader actor should then be stopped.
+    */
+  case object BufferDataComplete
 
   /**
     * A message processed by [[LocalBufferActor]] that notifies the buffer
@@ -149,6 +179,40 @@ object LocalBufferActor {
     def closeStream(): Unit = {
       sourceActor ! WriteStreamComplete
     }
+  }
+
+  /**
+    * An actor class that provides access to the data of a file managed by
+    * ''LocalBufferActor''.
+    *
+    * The file is read via a stream. Its content is exposed to a client which
+    * sends [[BufferDataRequest]] messages to this actor is is served with
+    * [[BufferDataResult]] messages.
+    *
+    * @param path      the path to the file to be read
+    * @param chunkSize size of read chunks
+    */
+  private class BufferFileReadActor(path: Path, chunkSize: Int) extends StreamPullModeratorActor with ActorLogging {
+    override protected def createSource(): Source[ByteString, Any] =
+      Try(FileIO.fromPath(path, chunkSize = chunkSize)) match {
+        case Success(source) => source
+        case Failure(exception) => Source.failed(exception)
+      }
+
+    override protected def customReceive: Receive = {
+      case BufferDataRequest(size) =>
+        dataRequested(size)
+
+      case Status.Failure(exception) =>
+        log.error(exception, "Error when reading buffer file {}.", path)
+        context stop self
+    }
+
+    override protected def dataMessage(data: ByteString): Any = BufferDataResult(data)
+
+    override protected val endOfStreamMessage: Any = BufferDataComplete
+
+    override protected val concurrentRequestMessage: Any = BufferDataResult(ByteString.empty)
   }
 
   private class LocalBufferActorImpl(config: PlayerConfig, bufferManager: BufferFileManager)
@@ -557,9 +621,8 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
     if (readActor == null) {
       for {client <- readClient
            file <- bufferManager.read} {
-        readActor = createChildActor(Props[FileReaderActor])
+        readActor = createChildActor(Props(new BufferFileReadActor(file.path, config.bufferChunkSize)))
         context watch readActor
-        readActor ! InitFile(file.path)
         client ! BufferReadActor(readActor, file.sourceLengths)
       }
     }

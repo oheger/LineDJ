@@ -11,8 +11,6 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import de.oliver_heger.linedj.io.ChannelHandler.InitFile
-import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
@@ -38,9 +36,6 @@ object LocalBufferActorSpec {
 
   /** The suffix for temporary files. */
   private val FileSuffix = ".tst"
-
-  /** A test file with a path pointing to the test buffer directory. */
-  private val BufferPath = BufferFile(Paths get "test", Nil)
 
   /** A configuration object used by tests. */
   private val Config = createConfig()
@@ -105,6 +100,38 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val bufferActor = TestActorRef[LocalBufferActor](props)
     bufferActor.underlyingActor shouldBe a[LocalBufferActor]
     bufferActor.underlyingActor shouldBe a[ChildActorFactory]
+  }
+
+  /**
+    * Reads the data produced by a buffer file actor and returns the content of
+    * the temporary file that was read.
+    *
+    * @param bufferActor the reader actor received from the buffer
+    * @return the content of the file that was read
+    */
+  private def readBufferActor(bufferActor: ActorRef): String = {
+    val readActor = system.actorOf(Props(new Actor {
+      private var result = ByteString.empty
+      private var client: ActorRef = _
+
+      override def receive: Receive = {
+        case req: BufferDataRequest =>
+          client = sender()
+          bufferActor ! req
+
+        case BufferDataResult(data) =>
+          data.length should be <= ChunkSize
+          result = result ++ data
+          bufferActor ! BufferDataRequest(ChunkSize)
+
+        case BufferDataComplete =>
+          client ! BufferFileReadResult(result.utf8String)
+      }
+    }))
+
+    readActor ! BufferDataRequest(ChunkSize)
+    val result = expectMsgType[BufferFileReadResult]
+    result.content
   }
 
   it should "allow filling the buffer from a source reader" in {
@@ -174,74 +201,83 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "support reading from the buffer" in {
-    val file = BufferPath.copy(sourceLengths = List(1, 2, 3, 4))
-    val probe = TestProbe()
+    val sourceLengths = List(1L, 2L, 3L, 4L)
+    val helper = new BufferTestHelper
+
+    helper.expectReads(FileReadData(positions = sourceLengths))
+      .send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
+    readActorMsg.sourceLengths should be(sourceLengths)
+    readBufferActor(readActorMsg.readerActor) should be(FileTestHelper.TestData)
+  }
+
+  it should "handle an error when opening a buffer file" in {
     val helper = new BufferTestHelper
 
     helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(file))
-    }.send(ReadBuffer, probe.ref)
-    expectMsg(InitFile(BufferPath.path))
-    probe.expectMsg(BufferReadActor(testActor, file.sourceLengths))
+      when(bufferManager.read)
+        .thenReturn(Some(BufferFile(Paths.get("/non/existing/file.txt"), Nil)))
+    }.send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
+    val watcher = TestProbe()
+    watcher watch readActorMsg.readerActor
+    watcher.expectTerminated(readActorMsg.readerActor)
   }
 
   it should "checkout a temporary file after it has been read" in {
-    val file = BufferPath.copy(sourceLengths = List(20180227220401L))
-    val probe = TestProbe()
+    val sourceLengths = List(20180227220401L)
     val latch = new CountDownLatch(1)
-    val helper = new BufferTestHelper(List(probe.ref))
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(file))
-      when(bufferManager.checkOutAndRemove()).thenAnswer((_: InvocationOnMock) => {
-        latch.countDown()
-        Paths get "somePath"
-      })
-    }.send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, file.sourceLengths))
-    helper.send(LocalBufferActor.BufferReadComplete(probe.ref))
+    helper.expectReads(FileReadData(data = "someData", positions = sourceLengths))
+      .withFileManagerMock { bufferManager =>
+        when(bufferManager.checkOutAndRemove()).thenAnswer((_: InvocationOnMock) => {
+          latch.countDown()
+          Paths get "somePath"
+        })
+      }.send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
+    readActorMsg.sourceLengths should be(sourceLengths)
+    helper.send(LocalBufferActor.BufferReadComplete(readActorMsg.readerActor))
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "react on a terminated reader actor" in {
-    val probe = TestProbe()
     val latch = new CountDownLatch(1)
-    val helper = new BufferTestHelper(List(probe.ref))
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
-      when(bufferManager.checkOutAndRemove()).thenAnswer((_: InvocationOnMock) => {
-        latch.countDown()
-        Paths get "somePath"
-      })
-    }.send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, Nil))
-    system stop probe.ref
+    helper.expectReads(FileReadData())
+      .withFileManagerMock { bufferManager =>
+        when(bufferManager.checkOutAndRemove()).thenAnswer((_: InvocationOnMock) => {
+          latch.countDown()
+          Paths get "somePath"
+        })
+      }.send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
+    readActorMsg.sourceLengths should be(Nil)
+    system stop readActorMsg.readerActor
     latch.await(5, TimeUnit.SECONDS) shouldBe true
   }
 
   it should "allow multiple read request in series" in {
-    val path1 = BufferPath.path resolve "file1"
-    val path2 = BufferPath.path resolve "file2"
-    val probe = TestProbe()
-    val probe2 = TestProbe()
-    val helper = new BufferTestHelper(List(probe.ref, probe2.ref))
+    val Content2 = FileTestHelper.TestData.reverse
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferFile(path1, Nil)),
-        Some(BufferFile(path2, Nil)))
-    }.send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, Nil))
-    helper.send(LocalBufferActor.BufferReadComplete(probe.ref))
+    helper.expectReads(FileReadData(), FileReadData(Content2))
       .send(ReadBuffer)
-    fishForMessage(max = 3.second) {
+    val readActorMsg1 = expectMsgType[BufferReadActor]
+    readBufferActor(readActorMsg1.readerActor) should be(FileTestHelper.TestData)
+    helper.send(LocalBufferActor.BufferReadComplete(readActorMsg1.readerActor))
+      .send(ReadBuffer)
+    val readActorMsg2 = fishForMessage(max = 3.second) {
       case BufferBusy =>
         helper send ReadBuffer
         false
 
-      case BufferReadActor(ref, _) if ref == probe2.ref =>
+      case _: BufferReadActor =>
         true
-    }
+    }.asInstanceOf[BufferReadActor]
+    readBufferActor(readActorMsg2.readerActor) should be(Content2)
   }
 
   it should "ignore a BufferReadComplete message for an unknown actor" in {
@@ -251,72 +287,70 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "serve a read request when new data is available" in {
+    val path = createDataFile()
     val probe = TestProbe()
-    val probeReader = TestProbe()
-    val helper = new BufferTestHelper(List(probeReader.ref))
+    val helper = new BufferTestHelper
 
     helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(None, Some(BufferPath))
+      when(bufferManager.read).thenReturn(None, Some(BufferFile(path, Nil)))
     }.send(ReadBuffer, probe.ref)
       .fillBuffer(testBytes())
       .expectBufferFilled()
-    probe.expectMsg(BufferReadActor(probeReader.ref, Nil))
+    val readActorMsg = probe.expectMsgType[BufferReadActor]
+    readBufferActor(readActorMsg.readerActor) should be(FileTestHelper.TestData)
   }
 
   it should "continue a fill operation after space is available again in the buffer" in {
-    val probeReader1 = TestProbe()
-    val probeReader2 = TestProbe()
-    val helper = new BufferTestHelper(List(probeReader1.ref, probeReader2.ref))
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
-    }.fillBuffer(toBytes(TestData * 3))
+    helper.expectReads(FileReadData())
+      .fillBuffer(toBytes(TestData * 3))
       .checkNextBufferFile(testBytes())
       .checkNextBufferFile(testBytes())
       .send(ReadBuffer)
-    expectMsg(BufferReadActor(probeReader1.ref, Nil))
-    probeReader1.expectMsgType[ChannelHandler.InitFile]
-    helper.send(LocalBufferActor.BufferReadComplete(probeReader1.ref))
+    val readActorMsg1 = expectMsgType[BufferReadActor]
+    helper.send(LocalBufferActor.BufferReadComplete(readActorMsg1.readerActor))
       .checkNextBufferFile(testBytes())
       .send(ReadBuffer)
-    expectMsgType[BufferReadActor]
-    helper.send(LocalBufferActor.BufferReadComplete(probeReader2.ref))
+    val readActorMsg2 = expectMsgType[BufferReadActor]
+    helper.send(LocalBufferActor.BufferReadComplete(readActorMsg2.readerActor))
       .expectBufferFilled()
   }
 
   it should "reset pending fill requests when they have been processed" in {
     val fillActor = TestProbe()
-    val readActor1 = TestProbe()
-    val readActor2 = TestProbe()
-    val readActor3 = TestProbe()
-    val readActors = List(readActor1.ref, readActor2.ref, readActor3.ref)
-    val helper = new BufferTestHelper(readActors)
+    val Content1 = FileTestHelper.TestData + "_read1"
+    val Content2 = FileTestHelper.TestData + "_read2"
+    val Content3 = FileTestHelper.TestData + "_read3"
+    val helper = new BufferTestHelper
 
-    def readRequest(readActor: TestProbe): Unit = {
+    def readRequest(expContent: String): ActorRef = {
       helper send ReadBuffer
-      expectMsg(BufferReadActor(readActor.ref, Nil))
-      helper send LocalBufferActor.BufferReadComplete(readActor.ref)
+      val readActorMsg = expectMsgType[BufferReadActor]
+      readBufferActor(readActorMsg.readerActor) should be(expContent)
+      helper send LocalBufferActor.BufferReadComplete(readActorMsg.readerActor)
+      readActorMsg.readerActor
     }
 
     helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
       when(bufferManager.isFull).thenReturn(true, false)
-    }
+    }.expectReads(FileReadData(Content1), FileReadData(Content2), FileReadData(Content3))
 
-    readActor3 watch readActor2.ref
     helper send FillBuffer(fillActor.ref)
-    readRequest(readActor1)
-    readRequest(readActor2)
-    readActor3.expectTerminated(readActor2.ref)
+    readRequest(Content1)
+    val readActor = readRequest(Content2)
+    val watcher = TestProbe()
+    watcher watch readActor
+    watcher.expectTerminated(readActor)
     helper send FillBuffer(testActor)
     expectMsg(BufferBusy)
-    readRequest(readActor3)
+    readRequest(Content3)
   }
 
-  it should "not crash when receiving an unexpected EoF message" in {
+  it should "not crash when receiving an unexpected end-of-data message" in {
     val bufferActor = TestActorRef(LocalBufferActor(Config, mock[BufferFileManager]))
 
-    bufferActor receive EndOfFile(BufferPath.toString)
+    bufferActor receive BufferDataComplete
   }
 
   /**
@@ -364,37 +398,33 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "wait on closing until a read operation is complete" in {
-    val probe = TestProbe()
-    val helper = new BufferTestHelper(List(probe.ref))
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
-    }.send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, Nil))
+    helper.expectReads(FileReadData())
+      .send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
     helper.send(CloseRequest)
       .send(ReadBuffer)
     expectMsg(BufferBusy)
-    helper.send(LocalBufferActor.BufferReadComplete(probe.ref))
+    helper.send(LocalBufferActor.BufferReadComplete(readActorMsg.readerActor))
       .expectBufferClosed()
       .withFileManagerMock { bufferManager =>
         verify(bufferManager).checkOutAndRemove()
       }
     val watcher = TestProbe()
-    watcher watch probe.ref
-    watcher.expectTerminated(probe.ref)
+    watcher watch readActorMsg.readerActor
+    watcher.expectTerminated(readActorMsg.readerActor)
   }
 
   it should "wait on closing until a read actor was stopped" in {
-    val probe = TestProbe()
-    val helper = new BufferTestHelper(List(probe.ref))
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
-    }.send(ReadBuffer)
-    expectMsg(BufferReadActor(probe.ref, Nil))
+    val helper = new BufferTestHelper
+    helper.expectReads(FileReadData())
+      .send(ReadBuffer)
+    val readActorMsg = expectMsgType[BufferReadActor]
     helper.send(CloseRequest)
       .send(ReadBuffer)
     expectMsg(BufferBusy)
-    system stop probe.ref
+    system stop readActorMsg.readerActor
     helper.expectBufferClosed()
       .withFileManagerMock { bufferManager =>
         verify(bufferManager).checkOutAndRemove()
@@ -481,22 +511,21 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "not create multiple reader actors at the same time" in {
     val probe = TestProbe()
-    val probeReader = TestProbe()
-    val helper = new BufferTestHelper(List(probeReader.ref, probeReader.ref))
+    val path = createDataFile()
+    val helper = new BufferTestHelper
 
     helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(None, Some(BufferPath))
+      when(bufferManager.read).thenReturn(None, Some(BufferFile(path, Nil)))
     }.send(ReadBuffer, probe.ref)
       .fillBuffer(toBytes(TestData * 3))
-    probe.expectMsg(BufferReadActor(probeReader.ref, Nil))
+    probe.expectMsgType[BufferReadActor]
     probe.expectNoMessage(500.millis)
   }
 
   it should "record and report source lengths when filling the buffer" in {
     val data1 = toBytes("Some data 1")
     val data2 = toBytes("And some more data")
-    val readerProbe = TestProbe()
-    val helper = new BufferTestHelper(List(readerProbe.ref))
+    val helper = new BufferTestHelper
 
     helper.fillBuffer(data1)
       .expectBufferFilled()
@@ -517,13 +546,11 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "handle a failed download if the buffer is full" in {
     val expSrcLength = (2 * TestData.length / ChunkSize + 1) * ChunkSize
     // plus the part which has been downloaded and is stored in-memory
-    val readerProbe = TestProbe()
-    val helper = new BufferTestHelper(List(readerProbe.ref))
+    val helper = new BufferTestHelper
     val fillActor = helper.createDownloadActor(toBytes(TestData * 3))
 
-    helper.withFileManagerMock { bufManager =>
-      when(bufManager.read).thenReturn(Some(BufferPath))
-    }.send(FillBuffer(fillActor))
+    helper.expectReads(FileReadData())
+      .send(FillBuffer(fillActor))
       .checkNextBufferFile(testBytes())
       .checkNextBufferFile(testBytes())
     system stop fillActor
@@ -545,12 +572,10 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a read complete message while writing into the buffer" in {
-    val probeReader = TestProbe()
-    val helper = new BufferTestHelper(List(probeReader.ref))
+    val helper = new BufferTestHelper
 
-    helper.withFileManagerMock { bufferManager =>
-      when(bufferManager.read).thenReturn(Some(BufferPath))
-    }.send(ReadBuffer)
+    helper.expectReads(FileReadData())
+      .send(ReadBuffer)
       .fillBuffer(toBytes(TestData * 2 + TestData.dropRight(1)))
     val msgReadActor = expectMsgType[BufferReadActor]
     helper.send(BufferReadComplete(msgReadActor.readerActor))
@@ -559,10 +584,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   /**
     * A test helper class managing an actor to be tested and its dependencies.
-    *
-    * @param readerActors optional list of reader actors
     */
-  private class BufferTestHelper(readerActors: List[ActorRef] = Nil) {
+  private class BufferTestHelper {
     /** A queue to store the paths returned by the buffer manager. */
     private val bufferFilesQueue = new LinkedBlockingQueue[Path]
 
@@ -605,6 +628,26 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     def withFileManagerMock(f: BufferFileManager => Unit): BufferTestHelper = {
       f(bufferManager)
       this
+    }
+
+    /**
+      * Prepares the mock for the buffer file manager to return paths to
+      * temporary files with the contents and meta data specified. That way,
+      * read operations from the buffer can be tested.
+      *
+      * @param first describes the first read operation
+      * @param more  further read operations
+      * @return this test helper
+      */
+    def expectReads(first: FileReadData, more: FileReadData*): BufferTestHelper = {
+      def toBufferFile(readData: FileReadData): Option[BufferFile] = {
+        val path = createDataFile(readData.data)
+        Some(BufferFile(path, readData.positions))
+      }
+
+      withFileManagerMock { manager =>
+        when(manager.read).thenReturn(toBufferFile(first), more.map(toBufferFile): _*)
+      }
     }
 
     /**
@@ -738,23 +781,7 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return the ''Props'' object with the specified data
       */
-    private def testActorProps(): Props =
-      Props(new LocalBufferActor(Config, bufferManager)
-        with ChildActorFactory {
-        private var readerList = if (readerActors.isEmpty) List(testActor) else readerActors
-
-        override def createChildActor(p: Props): ActorRef = {
-          p.args shouldBe 'empty
-          val ReaderClass = classOf[FileReaderActor]
-          p.actorClass() match {
-            case ReaderClass =>
-              val readerActor = readerList.head
-              readerList = readerList.tail
-              readerActor
-            case _ => super.createChildActor(p)
-          }
-        }
-      })
+    private def testActorProps(): Props = LocalBufferActor(Config, bufferManager)
 
     /**
       * Creates a new instance of the test actor and waits until it has been
@@ -781,6 +808,25 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   * @param data the data written
   */
 private case class FileWriteData(path: Path, data: Array[Byte])
+
+/**
+  * A data class used to define a read operation from the buffer.
+  *
+  * A temporary file with the content specified is created, which is referenced
+  * from a [[BufferFile]]; the list with positions is included as well.
+  *
+  * @param data      the data of the temporary file to be read
+  * @param positions the list with positions
+  */
+private case class FileReadData(data: String = FileTestHelper.TestData, positions: List[Long] = Nil)
+
+/**
+  * A message class used to report the result of a read operation from a buffer
+  * actor.
+  *
+  * @param content the data that was read
+  */
+private case class BufferFileReadResult(content: String)
 
 /**
   * An actor that plays the role of a download actor to fill the local buffer.
