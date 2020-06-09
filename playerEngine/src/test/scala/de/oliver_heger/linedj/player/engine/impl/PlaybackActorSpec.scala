@@ -53,13 +53,13 @@ object PlaybackActorSpec {
     AudioSource(s"audiSource$idx.mp3", 3 * AudioBufferSize + 20 * (idx + 1), skipBytes, skipTime)
 
   /**
-   * Creates a data array with test content and the given length. The array
-   * contains the specified byte value in all elements.
+    * Creates a data array with test content and the given length. The array
+    * contains the specified byte value in all elements.
     *
-    * @param byte the byte value for all array elements
-   * @param length the length of the array
-   * @return the array
-   */
+    * @param byte   the byte value for all array elements
+    * @param length the length of the array
+    * @return the array
+    */
   private def dataArray(byte: Int, length: Int): Array[Byte] = {
     val array = new Array[Byte](length)
     util.Arrays.fill(array, byte.toByte)
@@ -67,13 +67,13 @@ object PlaybackActorSpec {
   }
 
   /**
-   * Creates an ''ArraySource'' object with a test array as content. The array
-   * contains a single value in all its elements.
+    * Creates an ''ArraySource'' object with a test array as content. The array
+    * contains a single value in all its elements.
     *
-    * @param byte the byte value for all array elements
-   * @param length the length of the array
-   * @return the ''ArraySource''
-   */
+    * @param byte   the byte value for all array elements
+    * @param length the length of the array
+    * @return the ''ArraySource''
+    */
   private def arraySource(byte: Int, length: Int): ArraySource = ReadResult(dataArray(byte,
     length), length)
 
@@ -88,11 +88,11 @@ object PlaybackActorSpec {
 }
 
 /**
- * Test class for ''PlaybackActor''.
- */
+  * Test class for ''PlaybackActor''.
+  */
 class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
-with EventTestSupport {
+  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
+  with EventTestSupport {
 
   import PlaybackActorSpec._
 
@@ -103,12 +103,12 @@ with EventTestSupport {
   }
 
   /**
-   * Obtains an actor reference. If the specified option is defined, its value
-   * is returned. Otherwise, the test actor is used.
+    * Obtains an actor reference. If the specified option is defined, its value
+    * is returned. Otherwise, the test actor is used.
     *
     * @param optActor an optional actor reference
-   * @return the final actor reference to be used
-   */
+    * @return the final actor reference to be used
+    */
   private def fetchActorRef(optActor: Option[ActorRef]): ActorRef =
     optActor getOrElse testActor
 
@@ -127,14 +127,14 @@ with EventTestSupport {
       optEventMan.getOrElse(TestProbe()).ref)
 
   /**
-   * Creates a playback context factory which creates context objects using a
-   * ''SimulatedAudioStream''.
+    * Creates a playback context factory which creates context objects using a
+    * ''SimulatedAudioStream''.
     *
-    * @param optLine an optional line mock
-   * @param optStreamFactory an optional stream factory
-    * @param optFormat an optional audio format to be returned
-   * @return the factory
-   */
+    * @param optLine          an optional line mock
+    * @param optStreamFactory an optional stream factory
+    * @param optFormat        an optional audio format to be returned
+    * @return the factory
+    */
   private def mockPlaybackContextFactory(optLine: Option[SourceDataLine] = None,
                                          optStreamFactory: Option[SimulatedAudioStreamFactory] =
                                          None, optFormat: Option[AudioFormat] = None):
@@ -161,7 +161,7 @@ with EventTestSupport {
     */
   private def createPlaybackContextFromMock(optLine: Option[SourceDataLine], optStreamFactory:
   Option[SimulatedAudioStreamFactory], optFormat: Option[AudioFormat],
-  invocationOnMock: InvocationOnMock): Some[PlaybackContext]
+                                            invocationOnMock: InvocationOnMock): Some[PlaybackContext]
   = {
     val factory = optStreamFactory getOrElse new SimulatedAudioStreamFactory
     val stream = factory createAudioStream invocationOnMock.getArguments()(0)
@@ -303,12 +303,12 @@ with EventTestSupport {
   }
 
   /**
-   * Installs a mock playback context factory in the test actor and returns the
-   * mock data line used by this factory.
+    * Installs a mock playback context factory in the test actor and returns the
+    * mock data line used by this factory.
     *
     * @param actor the test actor
-   * @return the mock for the current data line
-   */
+    * @return the mock for the current data line
+    */
   private def installMockPlaybackContextFactory(actor: ActorRef): SourceDataLine = {
     val line = mock[SourceDataLine]
     actor ! AddPlaybackContextFactory(mockPlaybackContextFactory(Some(line)))
@@ -316,15 +316,15 @@ with EventTestSupport {
   }
 
   /**
-   * Handles the protocol to send chunks of audio data to the playback actor.
-   * This method first expects the request for new audio data.
+    * Handles the protocol to send chunks of audio data to the playback actor.
+    * This method first expects the request for new audio data.
     *
-    * @param actor the playback actor
-   * @param audioData the data chunks (as messages) to be sent to the actor
-   * @return the reference to the actor
-   */
+    * @param actor     the playback actor
+    * @param audioData the data chunks (as messages) to be sent to the actor
+    * @return the reference to the actor
+    */
   private def sendAudioData(actor: ActorRef, audioData: Any*): ActorRef = {
-    for(data <- audioData) {
+    for (data <- audioData) {
       expectMsgType[GetAudioData]
       actor ! data
     }
@@ -502,7 +502,7 @@ with EventTestSupport {
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
-    sendAudioData(actor,  EndOfFile(null))
+    sendAudioData(actor, EndOfFile(null))
     expectMsg(GetAudioSource)
     verifyZeroInteractions(line)
   }
@@ -643,7 +643,7 @@ with EventTestSupport {
     val buffer = ArrayBuffer.empty[Byte]
     buffer += 2
     buffer ++= dataArray(3, AudioBufferSize)
-    audioData should be (buffer.toArray)
+    audioData should be(buffer.toArray)
   }
 
   /**
@@ -689,7 +689,7 @@ with EventTestSupport {
     expectMsg(GetAudioSource)
     actor ! AudioSource.infinite("src://infinite")
 
-    sendAudioData(actor, arraySource(1, PlaybackContextLimit+1))
+    sendAudioData(actor, arraySource(1, PlaybackContextLimit + 1))
     actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0), lineWriter.ref)
     expectMsgType[GetAudioData]
     actor ! EndOfFile(null)
@@ -701,7 +701,7 @@ with EventTestSupport {
     * Helper method for testing a failed creation of a playback context. It is
     * tested whether the current source is skipped afterwards.
     *
-    * @param ctx the playback context to be returned by the factory
+    * @param ctx   the playback context to be returned by the factory
     * @param evMan an optional event manager probe
     * @return the mock playback context factory
     */
@@ -1065,12 +1065,12 @@ with EventTestSupport {
 }
 
 /**
- * A simple stream class which should simulate an audio stream. This stream
- * simply reads from a wrapped stream. The byte that was read is incremented by
- * one to simulate a modification.
+  * A simple stream class which should simulate an audio stream. This stream
+  * simply reads from a wrapped stream. The byte that was read is incremented by
+  * one to simulate a modification.
   *
   * @param wrappedStream the wrapped input stream
- */
+  */
 private class SimulatedAudioStream(val wrappedStream: InputStream) extends InputStream {
   /** Records the time when this stream was closed. */
   var closedAt = 0L
@@ -1088,19 +1088,19 @@ private class SimulatedAudioStream(val wrappedStream: InputStream) extends Input
 }
 
 /**
- * A simple class that allows creating a simulated audio stream and querying
- * the created instance.
- */
+  * A simple class that allows creating a simulated audio stream and querying
+  * the created instance.
+  */
 private class SimulatedAudioStreamFactory {
   /** The latest stream created by the factory. */
   var latestStream: SimulatedAudioStream = _
 
   /**
-   * Creates a new simulated audio stream which wraps the passed in stream.
+    * Creates a new simulated audio stream which wraps the passed in stream.
     *
     * @param wrapped the underlying stream
-   * @return the simulated audio stream
-   */
+    * @return the simulated audio stream
+    */
   def createAudioStream(wrapped: InputStream): InputStream = {
     latestStream = new SimulatedAudioStream(wrapped)
     latestStream
@@ -1124,13 +1124,13 @@ private class SimulatedSourceActor(sources: List[AudioSource], data: List[Any]) 
 
   override def receive: Receive = {
     case GetAudioSource =>
-      if(currentSources.nonEmpty) {
+      if (currentSources.nonEmpty) {
         sender ! currentSources.head
         currentSources = currentSources.tail
       }
 
     case GetAudioData(_) =>
-      if(currentData.nonEmpty) {
+      if (currentData.nonEmpty) {
         sender ! currentData.head
         currentData = currentData.tail
       }

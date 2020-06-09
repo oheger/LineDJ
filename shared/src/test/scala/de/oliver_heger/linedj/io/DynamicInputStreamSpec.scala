@@ -12,52 +12,57 @@ import scala.collection.mutable.ArrayBuffer
 
 object DynamicInputStreamSpec {
   /**
-   * Extracts the bytes from a given string.
-   * @param data the string
-   * @return the bytes of this string
-   */
+    * Extracts the bytes from a given string.
+    *
+    * @param data the string
+    * @return the bytes of this string
+    */
   private def toBytes(data: String): Array[Byte] =
     data.getBytes(StandardCharsets.UTF_8)
 
   /**
-   * Creates a ''ReadResult'' object with the specified string content.
-   * @param data the content of the result object
-   * @return the corresponding ''ReadResult'' object
-   */
+    * Creates a ''ReadResult'' object with the specified string content.
+    *
+    * @param data the content of the result object
+    * @return the corresponding ''ReadResult'' object
+    */
   private def createReadResult(data: String): ReadResult = {
     val bytes = toBytes(data)
     ReadResult(bytes, bytes.length)
   }
 
   /**
-   * Creates a new test stream instance and appends the specified chunks to it.
-   * @param chunks the chunks to be added
-   * @return the new stream instance
-   */
+    * Creates a new test stream instance and appends the specified chunks to it.
+    *
+    * @param chunks the chunks to be added
+    * @return the new stream instance
+    */
   private def createStreamWithChunks(chunks: String*): DynamicInputStream =
     appendChunks(new DynamicInputStream, chunks: _*)
 
   /**
-   * Appends the data in the given chunks to the specified stream.
-   * @param stream the stream
-   * @param chunks the chunks of data to be appended
-   * @return the modified stream
-   */
+    * Appends the data in the given chunks to the specified stream.
+    *
+    * @param stream the stream
+    * @param chunks the chunks of data to be appended
+    * @return the modified stream
+    */
   private def appendChunks(stream: DynamicInputStream, chunks: String*): DynamicInputStream = {
     chunks foreach (c => stream.append(createReadResult(c)))
     stream
   }
 
   /**
-   * Reads the whole content from the given stream and stores it in an
-   * output stream. The output stream can either be provided or is newly
-   * created. It can later be used to verify that correct data was
-   * read.
-   * @param stream the stream to be read
-   * @param optOutputStream an optional output stream for storing results
-   * @param chunkSize the size of single chunks
-   * @return the output stream with the data read
-   */
+    * Reads the whole content from the given stream and stores it in an
+    * output stream. The output stream can either be provided or is newly
+    * created. It can later be used to verify that correct data was
+    * read.
+    *
+    * @param stream          the stream to be read
+    * @param optOutputStream an optional output stream for storing results
+    * @param chunkSize       the size of single chunks
+    * @return the output stream with the data read
+    */
   private def readStream(stream: DynamicInputStream, optOutputStream:
   Option[ByteArrayOutputStream] = None, chunkSize: Int = 16): ByteArrayOutputStream = {
     val bos = optOutputStream.getOrElse(new ByteArrayOutputStream)
@@ -71,16 +76,17 @@ object DynamicInputStreamSpec {
   }
 
   /**
-   * Appends data to a stream while reading portions of data. This method
-   * implements a basic check for the management of the chunks of a
-   * ''DynamicInputStream''.
-   * @param stream the test stream
-   * @param optOutputStream an optional output stream for storing read results;
-   *                        if this is not provided, a new stream is created
-   * @param bufSize the size of the buffer for read operations
-   * @param data a sequence of chunks to be added to the stream
-   * @return the output stream with the data read from the stream
-   */
+    * Appends data to a stream while reading portions of data. This method
+    * implements a basic check for the management of the chunks of a
+    * ''DynamicInputStream''.
+    *
+    * @param stream          the test stream
+    * @param optOutputStream an optional output stream for storing read results;
+    *                        if this is not provided, a new stream is created
+    * @param bufSize         the size of the buffer for read operations
+    * @param data            a sequence of chunks to be added to the stream
+    * @return the output stream with the data read from the stream
+    */
   private def readWhileAppending(stream: DynamicInputStream, optOutputStream:
   Option[ByteArrayOutputStream], bufSize: Int, data: Seq[String]): ByteArrayOutputStream = {
     val buf = new Array[Byte](bufSize)
@@ -94,10 +100,11 @@ object DynamicInputStreamSpec {
   }
 
   /**
-   * Combines a number of string chunks to an array.
-   * @param chunks the chunks to be combined
-   * @return the resulting array
-   */
+    * Combines a number of string chunks to an array.
+    *
+    * @param chunks the chunks to be combined
+    * @return the resulting array
+    */
   private def combineChunks(chunks: String*): Array[Byte] = {
     val buffer = ArrayBuffer.empty[Byte]
     chunks foreach (buffer ++= toBytes(_))
@@ -107,18 +114,19 @@ object DynamicInputStreamSpec {
 }
 
 /**
- * Test class for ''DynamicInputStream''.
- */
+  * Test class for ''DynamicInputStream''.
+  */
 class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   import de.oliver_heger.linedj.io.DynamicInputStreamSpec._
 
   /**
-   * Checks whether the expected data has been read from a test stream.
-   * @param bos an output stream collecting the test reads
-   * @param chunks the content of the expected chunks
-   * @return the array extracted from the output stream
-   */
+    * Checks whether the expected data has been read from a test stream.
+    *
+    * @param bos    an output stream collecting the test reads
+    * @param chunks the content of the expected chunks
+    * @return the array extracted from the output stream
+    */
   private def checkReadResult(bos: ByteArrayOutputStream, chunks: String*): Array[Byte] = {
     val expectedArray: Array[Byte] = combineChunks(chunks: _*)
     val testArray = bos.toByteArray
@@ -150,10 +158,11 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   /**
-   * Reads a stream using the read() method that returns a single byte.
-   * @param stream the stream to be read
-   * @return an output stream with the data read
-   */
+    * Reads a stream using the read() method that returns a single byte.
+    *
+    * @param stream the stream to be read
+    * @return an output stream with the data read
+    */
   private def readStreamByteWise(stream: DynamicInputStream): ByteArrayOutputStream = {
     val bos = new ByteArrayOutputStream
     var c = stream.read()
@@ -200,9 +209,10 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   it should "allow reading an array from a single chunk of data" in {
-    val Data = """By and by, I come—
-                 |To cease thy strife, and leave me to my grief.
-                 |To-morrow will I send."""
+    val Data =
+      """By and by, I come—
+        |To cease thy strife, and leave me to my grief.
+        |To-morrow will I send."""
     val stream = createStreamWithChunks(Data)
     val length = stream.available()
 
@@ -214,9 +224,10 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   it should "allow reading an array with offset and length from a single chunk of data" in {
-    val Data = """A thousand times the worse, to want thy light.
-                 |Love goes toward love as schoolboys from their books,
-                 |But love from love, toward school with heavy looks."""
+    val Data =
+      """A thousand times the worse, to want thy light.
+        |Love goes toward love as schoolboys from their books,
+        |But love from love, toward school with heavy looks."""
     val stream = createStreamWithChunks(Data)
     val length = stream.available()
 
@@ -233,16 +244,17 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     val startIndex = 3
     val stream = new DynamicInputStream
 
-    Data map { s => new ArraySource {
-      override val data: Array[Byte] = toBytes(s)
-      override val length: Int = data.length - startIndex
-      override val offset: Int = startIndex
-    }
-    } foreach { src => stream append src}
+    Data map { s =>
+      new ArraySource {
+        override val data: Array[Byte] = toBytes(s)
+        override val length: Int = data.length - startIndex
+        override val offset: Int = startIndex
+      }
+    } foreach { src => stream append src }
     stream.complete()
 
     val buffer = ArrayBuffer.empty[Byte]
-    Data foreach { s => buffer ++= toBytes(s) drop startIndex}
+    Data foreach { s => buffer ++= toBytes(s) drop startIndex }
     readStream(stream).toByteArray should be(buffer.toArray)
   }
 
@@ -276,11 +288,12 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   /**
-   * Checks whether data can be read from a stream while still chunks are
-   * added.
-   * @param initialCapacity the initial capacity to be used for the stream
-   * @return the test stream
-   */
+    * Checks whether data can be read from a stream while still chunks are
+    * added.
+    *
+    * @param initialCapacity the initial capacity to be used for the stream
+    * @return the test stream
+    */
   private def checkCombinedReadAndAppendOperations(initialCapacity: Int): DynamicInputStream = {
     val Data = Array("'Tis but thy name that is my enemy:",
       "Thou art thyself, though not a Montague.",
@@ -322,7 +335,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "indicate that it supports mark operations" in {
     val stream = new DynamicInputStream
-    stream.markSupported should be (right = true)
+    stream.markSupported should be(right = true)
   }
 
   it should "throw an exception if reset() is called without mark()" in {
@@ -336,10 +349,11 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   /**
-   * Helper method for checking whether reset() works as expected - event if
-   * applied multiple times.
-   * @param numberOfResets the number of reset operations to execute
-   */
+    * Helper method for checking whether reset() works as expected - event if
+    * applied multiple times.
+    *
+    * @param numberOfResets the number of reset operations to execute
+    */
   private def checkReset(numberOfResets: Int): Unit = {
     val Data = Array("Romeo:",
       "Hold, Tybalt! Good Mercutio!",
@@ -359,7 +373,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     bos.write(buf, 0, count)
     checkReadResult(bos, Data.tail: _*)
 
-    for(i <- 0 until numberOfResets) {
+    for (i <- 0 until numberOfResets) {
       stream.reset()
       val bos2 = new ByteArrayOutputStream
       val count = stream read buf
@@ -384,12 +398,12 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     stream.mark(16)
 
     appendChunks(stream, "The citizens are up, and Tybalt slain.",
-    "Stand not amaz'd, the Prince will doom thee death")
+      "Stand not amaz'd, the Prince will doom thee death")
     stream read buf
     stream read buf
     stream read buf
     appendChunks(stream, "If thou art taken. Hence be gone, away!")
-    stream.capacity should be (3)
+    stream.capacity should be(3)
     intercept[IOException] {
       stream.reset()
     }
@@ -423,8 +437,9 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   it should "create an array source automatically if necessary" in {
-    val Data = """I prithee do not mock me, fellow studient,
-                 |I think it was to see my mother's wedding.""".stripMargin
+    val Data =
+      """I prithee do not mock me, fellow studient,
+        |I think it was to see my mother's wedding.""".stripMargin
     val stream = new DynamicInputStream
 
     stream append toBytes(Data)
