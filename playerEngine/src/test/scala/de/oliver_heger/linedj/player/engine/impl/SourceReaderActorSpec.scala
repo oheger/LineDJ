@@ -1,32 +1,53 @@
+/*
+ * Copyright 2015-2020 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.player.engine.impl
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
+import akka.util.ByteString
+import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
-import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.annotation.tailrec
+
 object SourceReaderActorSpec {
+  /** A byte string to generate messages with test data. */
+  private final val TestString = ByteString(FileTestHelper.TestData)
+
   /**
-   * Creates a test audio source with parameters derived from the given index.
-   * @param index the index
-   * @param length the optional length of the audio source
-   * @return the test audio source
-   */
+    * Creates a test audio source with parameters derived from the given index.
+    *
+    * @param index  the index
+    * @param length the optional length of the audio source
+    * @return the test audio source
+    */
   private def audioSource(index: Int, length: Long = 10000): AudioSource =
     AudioSource(s"testSource$index.mp3", length, 0, 0)
 }
 
 /**
- * Test class for ''SourceReaderActor''.
- */
-class SourceReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+  * Test class for ''SourceReaderActor''.
+  */
+class SourceReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
+
   import SourceReaderActorSpec._
 
   def this() = this(ActorSystem("SourceReaderActorSpec"))
@@ -36,12 +57,13 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Creates a ''Props'' object for instantiating a test actor. Optionally,
-   * references to collaboration actors can be passed in. If unspecified, the
-   * implicit test actor is used.
-   * @param optBufferActor an optional buffer actor
-   * @return the ''Props'' for creating a test actor
-   */
+    * Creates a ''Props'' object for instantiating a test actor. Optionally,
+    * references to collaboration actors can be passed in. If unspecified, the
+    * implicit test actor is used.
+    *
+    * @param optBufferActor an optional buffer actor
+    * @return the ''Props'' for creating a test actor
+    */
   private def propsForTestActor(optBufferActor: Option[ActorRef] = None): Props = {
     def fetchActor(optActor: Option[ActorRef]): ActorRef = optActor getOrElse testActor
 
@@ -49,11 +71,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Convenience method for creating a test reader actor with optional
-   * dependencies.
-   * @param optBufferActor an optional buffer actor
-   * @return the test reader actor
-   */
+    * Convenience method for creating a test reader actor with optional
+    * dependencies.
+    *
+    * @param optBufferActor an optional buffer actor
+    * @return the test reader actor
+    */
   private def readerActor(optBufferActor: Option[ActorRef] = None): ActorRef =
     system.actorOf(propsForTestActor(optBufferActor))
 
@@ -145,31 +168,37 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Creates a mock array source with the specified length. (Only the length is
-   * important; other properties are not evaluated.)
-   * @param length the length of the source
-   * @return the mock array source
-   */
-  private def arraySourceMock(length: Int): ArraySource = {
-    val source = mock[ArraySource]
-    when(source.length).thenReturn(length)
-    source
+    * Creates a dummy buffer read result with the specified length. (Only the
+    * length is important; the actual content is not evaluated.)
+    *
+    * @param length the length of the result message
+    * @return the dummy result message
+    */
+  private def bufferResult(length: Int): LocalBufferActor.BufferDataResult = {
+    @tailrec def fillStr(current: ByteString): ByteString =
+      if (length >= FileTestHelper.TestData.length)
+        fillStr(current ++ TestString)
+      else current ++ ByteString(FileTestHelper.TestData.substring(0, length - current.length))
+
+    val data = fillStr(ByteString.empty)
+    LocalBufferActor.BufferDataResult(data)
   }
 
   /**
-   * Executes a request for audio data on the test actor. This method simulates
-   * the interaction with the involved actors.
-   * @param reader the test source reader actor
-   * @param fileReader the file reader actor serving the request
-   * @param requestedLength the requested length of audio data
-   * @param readLength the length passed to the file reader actor
-   * @param result the result from the file reader actor
-   * @return the result message from the file reader actor
-   */
+    * Executes a request for audio data on the test actor. This method simulates
+    * the interaction with the involved actors.
+    *
+    * @param reader          the test source reader actor
+    * @param fileReader      the file reader actor serving the request
+    * @param requestedLength the requested length of audio data
+    * @param readLength      the length passed to the file reader actor
+    * @param result          the result from the file reader actor
+    * @return the result message from the file reader actor
+    */
   private def audioDataRequest(reader: ActorRef, fileReader: TestProbe, requestedLength: Int,
                                readLength: Int, result: Any): Any = {
     reader ! GetAudioData(requestedLength)
-    fileReader.expectMsg(FileReaderActor.ReadData(readLength))
+    fileReader.expectMsg(LocalBufferActor.BufferDataRequest(readLength))
     reader ! result
     result
   }
@@ -182,8 +211,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     * @param sourceLengths a list with the lengths of completed sources
     * @return the probe for the file reader actor
     */
-  private def installFileReaderActor(actor: ActorRef, sourceLengths: List[Long] = Nil):
-  TestProbe = {
+  private def installFileReaderActor(actor: ActorRef, sourceLengths: List[Long] = Nil): TestProbe = {
     val fileReader = TestProbe()
     actor ! LocalBufferActor.BufferReadActor(fileReader.ref, sourceLengths)
     fileReader
@@ -194,7 +222,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     val reader = readerActor(optBufferActor = Some(buffer.ref))
     val source = audioSource(1)
     val length = 64
-    val readData = arraySourceMock(length)
+    val readData = bufferResult(length)
     val fileReader = installFileReaderActor(reader)
 
     reader ! GetAudioSource
@@ -205,31 +233,32 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Simulates the processing of an audio source. The source is read in two
-   * chunks. It is checked whether then an end-of-file message is sent.
-   * @param reader the test reader actor
-   * @param fileReader the actor for reading from a file
-   * @param sourceLength the length of the test source
-   * @param chunkSize the chunk size (must be less than the source length)
-   */
+    * Simulates the processing of an audio source. The source is read in two
+    * chunks. It is checked whether then an end-of-file message is sent.
+    *
+    * @param reader       the test reader actor
+    * @param fileReader   the actor for reading from a file
+    * @param sourceLength the length of the test source
+    * @param chunkSize    the chunk size (must be less than the source length)
+    */
   private def processSource(reader: ActorRef, fileReader: TestProbe, sourceLength: Int,
                             chunkSize: Int): Unit = {
-    expectMsg(audioDataRequest(reader, fileReader, chunkSize, chunkSize, arraySourceMock
-      (chunkSize)))
+    expectMsg(audioDataRequest(reader, fileReader, chunkSize, chunkSize, bufferResult
+    (chunkSize)))
     expectMsg(audioDataRequest(reader, fileReader, chunkSize, sourceLength - chunkSize,
-      arraySourceMock(sourceLength - chunkSize)))
+      bufferResult(sourceLength - chunkSize)))
     reader ! GetAudioData(chunkSize)
-    expectMsg(EndOfFile(null))
+    expectMsg(LocalBufferActor.BufferDataComplete)
   }
 
-  it should "reject unexpected read data" in {
+  it should "reject unexpected data from the buffer" in {
     val reader = readerActor()
     expectMsg(LocalBufferActor.ReadBuffer)
-    val source = mock[ArraySource]
+    val bufferResult = LocalBufferActor.BufferDataResult(TestString)
 
-    reader ! source
+    reader ! bufferResult
     val msgErr = expectMsgType[PlaybackProtocolViolation]
-    msgErr.msg should be(source)
+    msgErr.msg should be(bufferResult)
     msgErr.errorText should include("Unexpected read results")
   }
 
@@ -256,7 +285,7 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     expectMsgType[AudioSource]
 
     reader ! GetAudioData(ChunkSize)
-    fileReader.expectMsg(FileReaderActor.ReadData(ChunkSize))
+    fileReader.expectMsg(LocalBufferActor.BufferDataRequest(ChunkSize))
   }
 
   it should "reject a duplicated GetAudioData message" in {
@@ -295,16 +324,16 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
   }
 
   /**
-   * Checks whether a termination message for a file reader actor was received.
-   * @param watcher the watcher test probe
-   * @param fileReader the test probe for the file reader
-   */
+    * Checks whether a termination message for a file reader actor was received.
+    *
+    * @param watcher    the watcher test probe
+    * @param fileReader the test probe for the file reader
+    */
   private def checkFileReaderTermination(watcher: TestProbe, fileReader: TestProbe): Unit = {
-    val termMsg = watcher.expectMsgType[Terminated]
-    termMsg.actor should be(fileReader.ref)
+    watcher.expectTerminated(fileReader.ref)
   }
 
-  it should "deal with an EndOfFile message from the read actor" in {
+  it should "deal with an EndOfData message from the read actor" in {
     val ChunkSize = 32
     val buffer, watcher = TestProbe()
     val reader = readerActor(optBufferActor = Some(buffer.ref))
@@ -315,25 +344,24 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! GetAudioSource
     expectMsgType[AudioSource]
 
-    expectMsg(audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, arraySourceMock
-      (ChunkSize)))
-    expectMsg(audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, arraySourceMock
-      (ChunkSize / 2)))
-    audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, EndOfFile(null))
+    expectMsg(audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, bufferResult
+    (ChunkSize)))
+    expectMsg(audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, bufferResult
+    (ChunkSize / 2)))
+    audioDataRequest(reader, fileReader, ChunkSize, ChunkSize, LocalBufferActor.BufferDataComplete)
     buffer.expectMsg(LocalBufferActor.BufferReadComplete(fileReader.ref))
     buffer.expectMsg(LocalBufferActor.ReadBuffer)
     val nextFileReader = installFileReaderActor(reader)
-    nextFileReader.expectMsg(FileReaderActor.ReadData(ChunkSize))
+    nextFileReader.expectMsg(LocalBufferActor.BufferDataRequest(ChunkSize))
   }
 
-  it should "reject an unexpected EndOfFile message" in {
+  it should "reject an unexpected EndOfData message" in {
     val reader = readerActor()
     expectMsg(LocalBufferActor.ReadBuffer)
-    val eofMsg = EndOfFile(null)
 
-    reader ! eofMsg
+    reader ! LocalBufferActor.BufferDataComplete
     val errMsg = expectMsgType[PlaybackProtocolViolation]
-    errMsg.msg should be(eofMsg)
+    errMsg.msg should be(LocalBufferActor.BufferDataComplete)
     errMsg.errorText should include("Unexpected EndOfFile")
   }
 
@@ -428,12 +456,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! GetAudioSource
     expectMsgType[AudioSource]
     expectMsg(audioDataRequest(reader, fileReader1, ChunkSize, ChunkSize,
-      arraySourceMock(SourceLength2InFirstFile)))
+      bufferResult(SourceLength2InFirstFile)))
     reader ! GetAudioData(ChunkSize)
-    fileReader1.expectMsg(FileReaderActor.ReadData(ChunkSize))
-    reader ! EndOfFile(null)
+    fileReader1.expectMsg(LocalBufferActor.BufferDataRequest(ChunkSize))
+    reader ! LocalBufferActor.BufferDataComplete
     val fileReader2 = installFileReaderActor(reader, List(SourceLength2))
-    fileReader2.expectMsg(FileReaderActor.ReadData(SourceLength2 - SourceLength2InFirstFile))
+    fileReader2.expectMsg(LocalBufferActor.BufferDataRequest(SourceLength2 - SourceLength2InFirstFile))
   }
 
   it should "handle a pending read request with a remaining size of 0" in {
@@ -444,12 +472,12 @@ ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with Mocki
     reader ! GetAudioSource
     reader ! audioSource(2)
     expectMsgType[AudioSource]
-    expectMsg(audioDataRequest(reader, fileReader, Length, Length, arraySourceMock(Length)))
+    expectMsg(audioDataRequest(reader, fileReader, Length, Length, bufferResult(Length)))
 
     reader ! GetAudioData(Length)
-    reader ! EndOfFile(null)
+    reader ! LocalBufferActor.BufferDataComplete
     val fileReader2 = installFileReaderActor(reader, List(Length))
-    expectMsg(EndOfFile(null))
+    expectMsg(LocalBufferActor.BufferDataComplete)
     val ping = new Object
     fileReader2.ref ! ping
     fileReader2.expectMsg(ping)
