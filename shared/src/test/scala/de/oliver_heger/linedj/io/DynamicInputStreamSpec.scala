@@ -1,11 +1,10 @@
 package de.oliver_heger.linedj.io
 
-import java.io.{IOException, ByteArrayOutputStream}
+import java.io.{ByteArrayOutputStream, IOException}
 import java.nio.charset.StandardCharsets
 import java.util
 
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.FileReaderActor.ReadResult
+import akka.util.ByteString
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer
@@ -21,15 +20,13 @@ object DynamicInputStreamSpec {
     data.getBytes(StandardCharsets.UTF_8)
 
   /**
-    * Creates a ''ReadResult'' object with the specified string content.
+    * Creates a ''ByteString'' object with the specified string content.
     *
     * @param data the content of the result object
-    * @return the corresponding ''ReadResult'' object
+    * @return the corresponding ''ByteString'' object
     */
-  private def createReadResult(data: String): ReadResult = {
-    val bytes = toBytes(data)
-    ReadResult(bytes, bytes.length)
-  }
+  private def createData(data: String): ByteString =
+    ByteString(data)
 
   /**
     * Creates a new test stream instance and appends the specified chunks to it.
@@ -48,7 +45,7 @@ object DynamicInputStreamSpec {
     * @return the modified stream
     */
   private def appendChunks(stream: DynamicInputStream, chunks: String*): DynamicInputStream = {
-    chunks foreach (c => stream.append(createReadResult(c)))
+    chunks foreach (c => stream.append(createData(c)))
     stream
   }
 
@@ -92,7 +89,7 @@ object DynamicInputStreamSpec {
     val buf = new Array[Byte](bufSize)
     val bos = optOutputStream.getOrElse(new ByteArrayOutputStream)
     for (c <- data) {
-      stream append createReadResult(c)
+      stream append createData(c)
       val count = stream read buf
       bos.write(buf, 0, count)
     }
@@ -190,7 +187,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "return the number of available bytes of a single chunk" in {
     val Data = "Madam!"
-    val chunk = createReadResult(Data)
+    val chunk = createData(Data)
     val stream = new DynamicInputStream
 
     stream.append(chunk) should be(stream)
@@ -198,8 +195,8 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
   }
 
   it should "return the number of available bytes if multiple chunks are involved" in {
-    val chunk1 = createReadResult("Shall I hear more,")
-    val chunk2 = createReadResult("or shall I speak at this?")
+    val chunk1 = createData("Shall I hear more,")
+    val chunk2 = createData("or shall I speak at this?")
     val stream = new DynamicInputStream
 
     stream append chunk1
@@ -241,20 +238,14 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "take the offset of an ArraySource into account" in {
     val Data = List("O, I am fortune's fool!", "You fools of fortune.")
-    val startIndex = 3
     val stream = new DynamicInputStream
 
-    Data map { s =>
-      new ArraySource {
-        override val data: Array[Byte] = toBytes(s)
-        override val length: Int = data.length - startIndex
-        override val offset: Int = startIndex
-      }
-    } foreach { src => stream append src }
+    Data.map(ByteString(_))
+    .foreach { src => stream append src }
     stream.complete()
 
     val buffer = ArrayBuffer.empty[Byte]
-    Data foreach { s => buffer ++= toBytes(s) drop startIndex }
+    Data foreach { s => buffer ++= toBytes(s) }
     readStream(stream).toByteArray should be(buffer.toArray)
   }
 
@@ -325,11 +316,11 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "not allow adding data after it has been completed" in {
     val stream = new DynamicInputStream
-    stream append createReadResult("O true apothecary!")
+    stream append createData("O true apothecary!")
     stream.complete()
 
     intercept[IllegalStateException] {
-      stream append createReadResult("Thy drugs are quick. Thus with a kiss I die.")
+      stream append createData("Thy drugs are quick. Thus with a kiss I die.")
     }
   }
 
@@ -340,7 +331,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "throw an exception if reset() is called without mark()" in {
     val stream = new DynamicInputStream
-    stream append createReadResult("Swits and spurs, swits and spurs, or I'll cry a match.")
+    stream append createData("Swits and spurs, swits and spurs, or I'll cry a match.")
     stream.read()
 
     intercept[IOException] {
@@ -363,7 +354,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
       "A plague a' both your houses! I am sped.",
       "Is he gone and hath nothing?")
     val stream = new DynamicInputStream(4)
-    stream append createReadResult(Data(0))
+    stream append createData(Data(0))
     val buf = new Array[Byte](1024)
     stream read buf
 
@@ -373,7 +364,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     bos.write(buf, 0, count)
     checkReadResult(bos, Data.tail: _*)
 
-    for (i <- 0 until numberOfResets) {
+    for (_ <- 0 until numberOfResets) {
       stream.reset()
       val bos2 = new ByteArrayOutputStream
       val count = stream read buf
@@ -392,7 +383,7 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
   it should "ignore a mark operation when the read limit is reached" in {
     val stream = new DynamicInputStream(3)
-    stream append createReadResult("Romeo, away, be gone!")
+    stream append createData("Romeo, away, be gone!")
     val buf = new Array[Byte](8)
     stream read buf
     stream.mark(16)
@@ -446,15 +437,6 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
     checkReadResult(readStream(stream), Data)
   }
 
-  it should "offer a convenience method for creating array source objects" in {
-    val Data = toBytes("Indeed, my lord, it followed hard upon.")
-    val source = DynamicInputStream.arraySourceFor(Data, 7)
-
-    source.data should be(Data)
-    source.offset should be(7)
-    source.length should be(Data.length - 7)
-  }
-
   it should "report a failed find operation" in {
     val Data = "My lord, I came to see your father's funeral."
     val stream = createStreamWithChunks(Data)
@@ -497,25 +479,6 @@ class DynamicInputStreamSpec extends FlatSpec with Matchers {
 
     stream find 'x' shouldBe false
     stream.available() should be(0)
-  }
-
-  it should "handle array sources with an offset correctly in find operations" in {
-    val Data = toBytes("What, look'd he frowningly?")
-    val source = DynamicInputStream.arraySourceFor(Data, 13)
-    val stream = new DynamicInputStream
-    stream append source
-
-    stream find 'w' shouldBe true
-    stream.available() should be(7)
-  }
-
-  it should "not find data in the part of a data source before the start offset" in {
-    val Data = toBytes("Then saw you not his face.")
-    val source = DynamicInputStream.arraySourceFor(Data, 13)
-    val stream = new DynamicInputStream
-    stream append source
-
-    stream find 'y' shouldBe false
   }
 
   it should "support reset together with find" in {

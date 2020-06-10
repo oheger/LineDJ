@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.io
 
 import java.io.{IOException, InputStream}
 
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
+import akka.util.ByteString
 
 /**
   * Companion object of ''DynamicInputStream''.
@@ -30,24 +30,6 @@ object DynamicInputStream {
     * more chunks are added, the capacity grows dynamically.
     */
   val DefaultCapacity = 64
-
-  /**
-    * Wraps the specified data array into an ''ArraySource'' object. This is
-    * convenient when working with a ''DynamicInputStream'' as the ''append()''
-    * method per default expects such a source. Note that for reasons of
-    * efficiency the passed in array is not copied. Therefore, it must not be
-    * modified afterwards.
-    *
-    * @param dataArray  the array to be wrapped in an ''ArraySource''
-    * @param startIndex the offset of the first valid position in the array
-    * @return the newly created array source object
-    */
-  def arraySourceFor(dataArray: Array[Byte], startIndex: Int = 0): ArraySource =
-    new ArraySource {
-      override val data: Array[Byte] = dataArray
-      override val length: Int = dataArray.length - startIndex
-      override val offset: Int = startIndex
-    }
 
   /**
     * Constant for an index used to represent an undefined mark position.
@@ -88,7 +70,7 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * An array with the chunks that have been appended to this stream. This
     * array will be used as a circular buffer when adding new chunks.
     */
-  private var chunks = new Array[ArraySource](initialCapacity)
+  private var chunks = new Array[ByteString](initialCapacity)
 
   /** The index of the current chunk to read from. */
   private var currentChunk = 0
@@ -118,14 +100,13 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
   private var contentCompleted = false
 
   /**
-    * Appends the content stored in the given ''ArraySource'' object to this
-    * stream.
+    * Appends the content of the given ''ByteString'' to this stream.
     *
-    * @param data the source object to be added
+    * @param data the data be added
     * @return a reference to this stream
     * @throws IllegalStateException if the stream is already complete
     */
-  def append(data: ArraySource): DynamicInputStream = {
+  def append(data: ByteString): DynamicInputStream = {
     if (completed) {
       throw new IllegalStateException("Cannot add data to a completed stream!")
     }
@@ -148,7 +129,7 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @throws IllegalStateException if the stream is already complete
     */
   def append(data: Array[Byte]): DynamicInputStream =
-    append(arraySourceFor(data))
+    append(ByteString(data))
 
   /**
     * Clears the whole content of this stream. After this operation, the
@@ -203,12 +184,12 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     */
   def find(b: Byte): Boolean = {
     var found = false
-    process(available()) { (src, pos, length, count) =>
-      val hit = src.data.indexOf(b, pos + src.offset)
+    process(available()) { (src, pos, _, _) =>
+      val hit = src.indexOf(b, pos)
       if (hit < 0) hit
       else {
         found = true
-        hit + 1 - src.offset
+        hit + 1
       }
     }
     found
@@ -247,7 +228,7 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     if (readLength == 0 && completed) -1
     else {
       process(readLength) { (src, pos, length, offset) =>
-        System.arraycopy(src.data, src.offset + pos, b, offset + off, length)
+        System.arraycopy(src.toArray, pos, b, offset + off, length)
         -1
       }
     }
@@ -311,7 +292,7 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * continue with the next chunk; all other values terminate processing at
     * this position.
     */
-  private type ProcessingFunc = (ArraySource, Int, Int, Int) => Int
+  private type ProcessingFunc = (ByteString, Int, Int, Int) => Int
 
   /**
     * Processes data from this stream. This method processes the given number of
@@ -393,8 +374,8 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @param startChunkIndex the index of the chunks where to start the copying
     * @return the new array with chunks
     */
-  private def copyChunks(startChunkIndex: Int): Array[ArraySource] = {
-    val newChunks = new Array[ArraySource](chunks.length * 2)
+  private def copyChunks(startChunkIndex: Int): Array[ByteString] = {
+    val newChunks = new Array[ByteString](chunks.length * 2)
     var orgIndex = startChunkIndex
     for (i <- chunks.indices) {
       newChunks(i) = chunks(orgIndex)
