@@ -23,12 +23,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.annotation.tailrec
 
@@ -48,7 +49,7 @@ object StreamBufferActorSpec {
     * @return the configuration
     */
   private def createConfig(): PlayerConfig =
-    PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null,
+    PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
       bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
 
   /**
@@ -148,9 +149,9 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     stream.expectReadsUntil(ChunkSize)
 
     actor ! PlaybackActor.GetAudioData(ChunkSize)
-    val msg = expectMsgType[ArraySourceImpl]
-    msg.length should be(ChunkSize)
-    msg.data should be(refData(ChunkSize))
+    val msg = expectMsgType[BufferDataResult]
+    msg.data.length should be(ChunkSize)
+    msg.data.toArray should be(refData(ChunkSize))
   }
 
   it should "not read more data than is currently contained in the buffer" in {
@@ -159,9 +160,9 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     stream.expectReadsUntil(BufferSize)
 
     actor ! PlaybackActor.GetAudioData(BufferSize + 10)
-    val msg = expectMsgType[ArraySourceImpl]
-    msg.length should be(BufferSize)
-    msg.data should be(refData(BufferSize))
+    val msg = expectMsgType[BufferDataResult]
+    msg.data.length should be(BufferSize)
+    msg.data.toArray should be(refData(BufferSize))
   }
 
   it should "handle messages during reads for filling the buffer" in {
@@ -176,7 +177,7 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     stream.expectRead()
 
     actor ! PlaybackActor.GetAudioData(32)
-    expectMsgType[ArraySourceImpl]
+    expectMsgType[BufferDataResult]
     val time = System.nanoTime()
 
     @tailrec def findReadAfterGet(): Unit = {
@@ -193,7 +194,7 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val Count = 8
 
     actor ! PlaybackActor.GetAudioData(Count)
-    expectMsgType[ArraySourceImpl]
+    expectMsgType[BufferDataResult]
     stream.expectRead().requestSize should be(Count)
   }
 
@@ -206,9 +207,9 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     stream.expectRead().requestSize should be(ChunkSize)
     val Count = 16
     actor ! PlaybackActor.GetAudioData(Count)
-    val data = expectMsgType[ArraySourceImpl]
-    data.length should be(Count)
-    data.data take Count should be(refData(BufferSize + Count) drop BufferSize)
+    val data = expectMsgType[BufferDataResult]
+    data.data.length should be(Count)
+    data.data.toArray take Count should be(refData(BufferSize + Count) drop BufferSize)
   }
 
   it should "handle a close request by closing the stream" in {
@@ -239,7 +240,7 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectMsg(CloseAck(actor))
 
     actor ! PlaybackActor.GetAudioData(ChunkSize)
-    expectMsg(FileReaderActor.EndOfFile(null))
+    expectMsg(BufferDataComplete)
   }
 
   it should "throw an exception when the wrapped stream terminates" in {

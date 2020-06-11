@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.io.InputStream
-import java.io.IOException
+import java.io.{IOException, InputStream}
 
 import akka.actor.Actor
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream, FileReaderActor}
+import akka.util.ByteString
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.impl.StreamBufferActor.{ClearBuffer, FillBuffer,
-InitStream}
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
+import de.oliver_heger.linedj.player.engine.impl.StreamBufferActor.{ClearBuffer, FillBuffer, InitStream}
 
 object StreamBufferActor {
 
@@ -106,7 +106,7 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     case PlaybackActor.GetAudioData(length) =>
       val buf = new Array[Byte](math.min(length, buffer.available()))
       buffer read buf
-      sender ! new ArraySourceImpl(buf, buf.length)
+      sender !  BufferDataResult(ByteString(buf))
       triggerFillBuffer()
 
     case CloseRequest =>
@@ -123,7 +123,7 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     */
   def closed: Receive = {
     case PlaybackActor.GetAudioData(_) =>
-      sender ! FileReaderActor.EndOfFile(null)
+      sender ! BufferDataComplete
   }
 
   /**
@@ -148,8 +148,7 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
       if (read < 0) {
         throw new IOException("End of buffered stream reached!")
       }
-      //TODO append correct data
-      //buffer append new ArraySourceImpl(b, read)
+      buffer append ByteString(b take read)
       true
     } else false
   }
