@@ -21,8 +21,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.ByteString
 import de.oliver_heger.linedj.SupervisionTestActor
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.BufferDataResult
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -49,7 +51,7 @@ object SourceStreamReaderActorSpec {
   private val DataRequest = PlaybackActor.GetAudioData(42)
 
   /** A test player configuration. */
-  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null,
+  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
     blockingDispatcherName = Some(BlockingDispatcherName))
 
   /**
@@ -57,8 +59,10 @@ object SourceStreamReaderActorSpec {
     *
     * @return the data object
     */
-  private def audioData(): ArraySourceImpl =
-    new ArraySourceImpl(new Array[Byte](42), 32)
+  private def audioData(): BufferDataResult = {
+    val dataArray = new Array[Byte](42)
+    BufferDataResult(ByteString(dataArray))
+  }
 }
 
 /**
@@ -188,7 +192,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! DataRequest
     helper.probeBufferActor.expectMsg(DataRequest)
 
-    actor ! new ArraySourceImpl(Array.empty, 0)
+    actor ! BufferDataResult(ByteString.empty)
     helper.probeBufferActor.expectMsg(DataRequest)
     val data = audioData()
     actor ! data
@@ -199,7 +203,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new SourceStreamReaderActorTestHelper
     val actor = helper.createTestActor(AudioStreamRef)
 
-    actor receive new ArraySourceImpl(Array.empty, 0)
+    actor receive BufferDataResult(ByteString.empty)
   }
 
   it should "delegate a close request to the buffer actor" in {
@@ -217,7 +221,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.probeBufferActor.expectMsg(CloseRequest)
 
     actor ! DataRequest
-    helper.probeBufferActor.expectNoMsg(500.milliseconds)
+    helper.probeBufferActor.expectNoMessage(500.milliseconds)
   }
 
   it should "send a CloseAck directly if there is not yet a buffer actor" in {
@@ -243,7 +247,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! CloseRequest
 
     actor ! CloseAck(testActor)
-    expectNoMsg(500.milliseconds)
+    expectNoMessage(500.milliseconds)
   }
 
   it should "create a correct Props object" in {
@@ -304,13 +308,13 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     */
   private class SourceStreamReaderActorTestHelper {
     /** Test probe for the buffer actor. */
-    val probeBufferActor = TestProbe()
+    val probeBufferActor: TestProbe = TestProbe()
 
     /** Test probe for the m3u reader actor. */
-    val m3uReaderActor = TestProbe()
+    val m3uReaderActor: TestProbe = TestProbe()
 
     /** Test probe for an audio source listener actor. */
-    val probeSourceListener = TestProbe()
+    val probeSourceListener: TestProbe = TestProbe()
 
     /** A counter for the child actors that have been created. */
     private val childCount = new AtomicInteger
