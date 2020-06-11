@@ -16,11 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import javax.sound.sampled.SourceDataLine
-
 import akka.actor.Actor
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
+import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, DrainLine, LineDrained, WriteAudioData}
+import javax.sound.sampled.SourceDataLine
 
 /**
  * Companion object for ''LineWriterActor''.
@@ -35,9 +34,8 @@ object LineWriterActor {
     *
     * @param line   the line
     * @param data   the data to be written
-    * @param offset offset into the data array
     */
-  case class WriteAudioData(line: SourceDataLine, data: ArraySource, offset: Int)
+  case class WriteAudioData(line: SourceDataLine, data: ByteString)
 
   /**
     * A message that tells a [[LineWriterActor]] to invoke the ''drain()''
@@ -89,9 +87,9 @@ object LineWriterActor {
  */
 class LineWriterActor extends Actor {
   override def receive: Receive = {
-    case WriteAudioData(line, data, offset) =>
+    case WriteAudioData(line, data) =>
       val startTime = System.nanoTime()
-      line.write(data.data, data.offset + offset, data.length - offset)
+      line.write(data.toArray, 0, data.length)
       sender ! AudioDataWritten(data.length, System.nanoTime() - startTime)
 
     case DrainLine(line) =>

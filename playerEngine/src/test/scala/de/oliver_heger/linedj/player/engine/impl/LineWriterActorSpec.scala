@@ -16,26 +16,25 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.util
 import java.util.concurrent.TimeUnit
-import javax.sound.sampled.SourceDataLine
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
+import akka.util.ByteString
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import javax.sound.sampled.SourceDataLine
 import org.mockito.Matchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
- * Test class for ''LineWriterActor''.
- */
+  * Test class for ''LineWriterActor''.
+  */
 class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
-with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
+  with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
 
   def this() = this(ActorSystem("LineWriterActorSpec"))
 
@@ -43,43 +42,16 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
     TestKit shutdownActorSystem system
   }
 
-  /**
-    * Creates a mock data source with some test values.
-    *
-    * @param dataArray the array wrapped by the source
-    * @return the mock for the data source
-    */
-  private def createArraySource(dataArray: Array[Byte]): ArraySource = {
-    val data = mock[ArraySource]
-    util.Arrays.fill(dataArray, 0.toByte)
-    when(data.data).thenReturn(dataArray)
-    when(data.length).thenReturn(42)
-    when(data.offset).thenReturn(4)
-    data
-  }
-
   "A LineWriterActor" should "handle a WriteAudioData message" in {
     val line = mock[SourceDataLine]
-    val dataArray = new Array[Byte](64)
-    val data = createArraySource(dataArray)
+    val dataArray = FileTestHelper.testBytes()
+    val data = ByteString(FileTestHelper.TestData)
     val actor = system.actorOf(Props[LineWriterActor])
 
-    actor ! WriteAudioData(line, data, 0)
+    actor ! WriteAudioData(line, data)
     val written = expectMsgType[AudioDataWritten]
-    written.chunkLength should be(42)
-    verify(line).write(dataArray, 4, 42)
-  }
-
-  it should "handle a WriteAudioData message with an offset" in {
-    val line = mock[SourceDataLine]
-    val dataArray = new Array[Byte](64)
-    val data = createArraySource(dataArray)
-    val actor = system.actorOf(Props[LineWriterActor])
-
-    actor ! WriteAudioData(line, data, 10)
-    val written = expectMsgType[AudioDataWritten]
-    written.chunkLength should be(42)
-    verify(line).write(dataArray, 14, 32)
+    written.chunkLength should be(data.length)
+    verify(line).write(dataArray, 0, dataArray.length)
   }
 
   it should "handle a DrainLine message" in {
@@ -93,18 +65,16 @@ with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
 
   it should "measure the playback time" in {
     val line = mock[SourceDataLine]
-    val dataArray = new Array[Byte](32)
-    val data = createArraySource(dataArray)
+    val dataArray = FileTestHelper.testBytes()
+    val data = ByteString(FileTestHelper.TestData)
     val actor = system.actorOf(Props[LineWriterActor])
-    when(line.write(argEq(dataArray), anyInt(), anyInt())).thenAnswer(new Answer[Int] {
-      override def answer(invocation: InvocationOnMock): Int = {
-        Thread.sleep(50)
-        42
-      }
+    when(line.write(argEq(dataArray), anyInt(), anyInt())).thenAnswer((_: InvocationOnMock) => {
+      Thread.sleep(50)
+      dataArray.length
     })
 
     val startTime = System.nanoTime()
-    actor ! WriteAudioData(line, data, 0)
+    actor ! WriteAudioData(line, data)
     val written = expectMsgType[AudioDataWritten]
     val endTime = System.nanoTime()
     val duration = endTime - startTime

@@ -148,7 +148,8 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
       if (read < 0) {
         throw new IOException("End of buffered stream reached!")
       }
-      buffer append new ArraySourceImpl(b, read)
+      //TODO append correct data
+      //buffer append new ArraySourceImpl(b, read)
       true
     } else false
   }

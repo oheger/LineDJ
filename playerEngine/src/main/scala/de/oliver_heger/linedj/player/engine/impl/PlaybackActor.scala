@@ -20,11 +20,11 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import de.oliver_heger.linedj.io.ChannelHandler.ArraySource
-import de.oliver_heger.linedj.io.FileReaderActor.{EndOfFile, ReadResult}
+import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 
@@ -225,15 +225,15 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         sender ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
       }
 
-    case data: ArraySource =>
-      if (checkAudioDataResponse(data) && currentSource.isDefined) {
+    case res@BufferDataResult(data) =>
+      if (checkAudioDataResponse(res) && currentSource.isDefined) {
         handleNewAudioData(data)
         playback()
       }
 
-    case eof: EndOfFile =>
-      log.debug("Received EoF.")
-      if (checkAudioDataResponse(eof)) {
+    case BufferDataComplete =>
+      log.debug("Received BufferDataComplete.")
+      if (checkAudioDataResponse(BufferDataComplete)) {
         audioDataStream.complete()
         assert(currentSource.isDefined)
         if (currentSourceIsInfinite || bytesInAudioBuffer == 0) {
@@ -323,12 +323,12 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * data has to be appended to the audio buffer - if this is allowed by the
     * current skip position.
     *
-    * @param data the data source to be added
+    * @param data the data to be added
     */
-  private def handleNewAudioData(data: ArraySource): Unit = {
-    val skipSource = ArraySourceImpl(data, skipStreamPosition - bytesProcessed)
-    if (skipSource.length > 0) {
-      audioDataStream append skipSource
+  private def handleNewAudioData(data: ByteString): Unit = {
+    val startPos = skipStreamPosition - bytesProcessed
+    if (data.length > startPos) {
+      audioDataStream append data.drop(startPos.toInt)
     }
     bytesProcessed += data.length
   }
@@ -419,7 +419,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
                   val offset = scala.math.max(skipPosition - bytesPlayed, 0).toInt
                   val dataLen = len - offset
                   if (dataLen > 0) {
-                    lineWriterActor ! WriteAudioData(ctx.line, ReadResult(audioChunk, len), offset)
+                    val data = ByteString(audioChunk.slice(offset, offset + dataLen))
+                    lineWriterActor ! WriteAudioData(ctx.line, data)
                   } else {
                     self ! LineWriterActor.AudioDataWritten(len, 0)
                   }
