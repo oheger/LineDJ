@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.io.FileReaderActor
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
@@ -44,6 +43,7 @@ object ActorManagementSpec {
       */
     override def stopActors(): Unit = super.stopActors()
   }
+
 }
 
 /**
@@ -97,7 +97,9 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new ActorManagementTestHelper
     val probe = TestProbe()
     val name = genActorName(42)
-    val props = Props[FileReaderActor]
+    val props = Props(new Actor {
+      override def receive: Receive = Actor.emptyBehavior
+    })
     when(helper.clientContext.actorFactory.createActor(props, name)).thenReturn(probe.ref)
 
     val actor = helper.component.createAndRegisterActor(props, name)
