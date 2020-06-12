@@ -18,8 +18,9 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
-import de.oliver_heger.linedj.io.{ChannelHandler, CloseAck, CloseRequest, FileReaderActor}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
@@ -41,7 +42,7 @@ object RadioDataSourceActor {
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param config the player configuration
+    * @param config       the player configuration
     * @param eventManager the actor for generating events
     * @return the ''Props'' for creating a new actor instance
     */
@@ -55,7 +56,7 @@ object RadioDataSourceActor {
   private val ErrPendingDataRequest = "Request for audio data already pending!"
 
   /** A message indicating the end of the current source. */
-  private val SourceEndMessage = FileReaderActor.EndOfFile(null)
+  private val SourceEndMessage = BufferDataComplete
 
   /**
     * Adapts the URI of the given audio source if necessary. If the current URI
@@ -136,7 +137,7 @@ object RadioDataSourceActor {
   * also stopped by sending the playback actor an end-of-file message on its
   * next request for audio data.
   *
-  * @param config the audio player configuration
+  * @param config       the audio player configuration
   * @param eventManager the actor for generating events
   */
 class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
@@ -220,8 +221,8 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
         }
       }
 
-    case src: ChannelHandler.ArraySource if fromCurrentReader() =>
-      pendingAudioDataRequest = servePending(pendingAudioDataRequest, src)
+    case data: BufferDataResult if fromCurrentReader() =>
+      pendingAudioDataRequest = servePending(pendingAudioDataRequest, data)
 
     case CloseAck(_) =>
       handleCloseAck()

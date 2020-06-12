@@ -20,10 +20,11 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.io.FileReaderActor.EndOfFile
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileReaderActor}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -41,7 +42,7 @@ object RadioDataSourceActorSpec {
   private val Mp3Ext = Some("mp3")
 
   /** A test configuration used when creating the test actor. */
-  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (props, name) => null,
+  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
     inMemoryBufferSize = 1024)
 
   /** A request for audio data. */
@@ -63,7 +64,7 @@ object RadioDataSourceActorSpec {
   /**
     * Generates an audio source based on the given index.
     *
-    * @param index the index
+    * @param index         the index
     * @param withExtension a flag whether the URI should have an extension
     * @return the audio source
     */
@@ -74,10 +75,10 @@ object RadioDataSourceActorSpec {
     * Creates an object with audio data.
     *
     * @param data the data of the source
-    * @return the source with audio data
+    * @return the message with audio data
     */
-  private def audioData(data: String = FileTestHelper.TestData): ArraySourceImpl =
-    new ArraySourceImpl(FileTestHelper.toBytes(data), data.length)
+  private def audioData(data: String = FileTestHelper.TestData): BufferDataResult =
+    BufferDataResult(ByteString(data))
 }
 
 /**
@@ -124,7 +125,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val actor = helper.createTestActor()
 
     actor ! PlaybackActor.GetAudioData(42)
-    expectMsg(FileReaderActor.EndOfFile(null))
+    expectMsg(BufferDataComplete)
   }
 
   /**
@@ -321,7 +322,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     expectMsg(data)
 
     childCreation.tell(actor, data)
-    val data2 = new ArraySourceImpl("Some data".getBytes, 8)
+    val data2 = audioData("Some data")
     actor ! DataRequest
     childCreation.tell(actor, data2)
     expectMsg(data2)
@@ -360,7 +361,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! RadioSource(src.uri)
     val childCreation = helper.expectChildCreationAndAudioSource(actor, src)
     actor ! DataRequest
-    expectMsg(FileReaderActor.EndOfFile(null))
+    expectMsg(BufferDataComplete)
     actor ! PlaybackActor.GetAudioSource
     expectMsg(src)
     actor ! DataRequest
@@ -377,10 +378,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! DataRequest
 
     actor ! RadioSource(streamUri(2))
-    expectMsg(EndOfFile(null))
+    expectMsg(BufferDataComplete)
     // check whether pending request was reset
     actor ! DataRequest
-    expectMsg(EndOfFile(null))
+    expectMsg(BufferDataComplete)
   }
 
   it should "stop a child actor when it sends a CloseAck" in {
@@ -405,7 +406,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     actor ! DataRequest
     system stop childCreation.probe.ref
-    expectMsg(EndOfFile(null))
+    expectMsg(BufferDataComplete)
   }
 
   it should "return an error source after the reader actor dies" in {
@@ -419,7 +420,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     system stop childCreation.probe.ref
     expectMsg(AudioSource.ErrorSource)
     actor ! DataRequest
-    expectMsg(FileReaderActor.EndOfFile(null))
+    expectMsg(BufferDataComplete)
   }
 
   it should "not react on Terminated messages from older sources" in {
@@ -451,7 +452,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     actor ! CloseRequest
     childCreation.probe.expectMsg(CloseRequest)
-    expectNoMsg(100.milliseconds)
+    expectNoMessage(100.milliseconds)
   }
 
   it should "not send a CloseAck before all Ack from source readers are received" in {
