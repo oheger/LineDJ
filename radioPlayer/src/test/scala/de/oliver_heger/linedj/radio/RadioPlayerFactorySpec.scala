@@ -16,16 +16,14 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.io.FileReaderActor
+import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''RadioPlayerFactory''.
@@ -38,10 +36,7 @@ class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
   private def createActorManagement(): ActorManagement = {
     val management = mock[ActorManagement]
     when(management.createAndRegisterActor(any(classOf[Props]), anyString()))
-      .thenAnswer(new Answer[ActorRef] {
-      override def answer(invocation: InvocationOnMock): ActorRef =
-        mock[ActorRef]
-    })
+      .thenAnswer((_: InvocationOnMock) => mock[ActorRef])
     management
   }
 
@@ -62,7 +57,9 @@ class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
 
     val player = factory createRadioPlayer management
     val mockActor = mock[ActorRef]
-    val props = Props[FileReaderActor]()
+    val props = Props(new Actor {
+      override def receive: Receive = Actor.emptyBehavior
+    })
     val name = "someActor"
     when(management.createAndRegisterActor(props, name)).thenReturn(mockActor)
     player.config.actorCreator(props, name) should be(mockActor)
