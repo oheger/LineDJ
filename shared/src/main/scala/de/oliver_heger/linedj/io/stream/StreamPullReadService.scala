@@ -78,14 +78,15 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
     * current state, either a chunk of data or an end-of-stream message is
     * sent; the concrete messages are under the control of the caller.
     *
+    * @param sender      the sender of this message
     * @param f           a function to generate the data message
     * @param endOfStream the end-of-stream message
     * @tparam A the type of the data message
     */
-  def sendData[A](f: ByteString => A)(endOfStream: => Any): Unit = {
+  def sendData[A](sender: ActorRef, f: ByteString => A)(endOfStream: => Any): Unit = {
     dataReceiver foreach { rec =>
       val msg = if (isEndOfStream) endOfStream else f(data)
-      rec ! msg
+      rec.tell(msg, sender)
     }
   }
 
@@ -93,19 +94,21 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
     * Sends an ACK message to the stream actor if it is defined. The concrete
     * message that is sent is under the control of the caller.
     *
+    * @param sender the sender of this message
     * @param ackMsg the message to be send as an ACK signal
     */
-  def sendAck(ackMsg: => Any): Unit = {
-    ack foreach (_ ! ackMsg)
+  def sendAck(sender: ActorRef, ackMsg: => Any): Unit = {
+    ack foreach (_.tell(ackMsg, sender))
   }
 
   /**
     * Sends an error message to an illegal client actor if one is defined.
     *
+    * @param sender the sender of this message
     * @param errMsg the error message to be sent
     */
-  def sendError(errMsg: => Any): Unit = {
-    error foreach (_ ! errMsg)
+  def sendError(sender: ActorRef, errMsg: => Any): Unit = {
+    error foreach (_.tell(errMsg, sender))
   }
 }
 

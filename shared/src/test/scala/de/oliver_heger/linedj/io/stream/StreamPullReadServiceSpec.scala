@@ -75,7 +75,7 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val notifications = StreamPullNotifications(dataReceiver = None, data = ByteString("foo"), ack = None,
       error = None)
 
-    notifications.sendData(_.utf8String)("")
+    notifications.sendData(testActor, _.utf8String)("")
   }
 
   it should "send a portion of data to the receiver" in {
@@ -84,7 +84,7 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val notifications = StreamPullNotifications(dataReceiver = Some(receiver.ref),
       data = ByteString(Data), ack = None, error = None)
 
-    notifications.sendData(_.utf8String)(throw new UnsupportedOperationException("Unexpected evaluation"))
+    notifications.sendData(testActor, _.utf8String)(throw new UnsupportedOperationException("Unexpected evaluation"))
     receiver.expectMsg(Data)
   }
 
@@ -94,14 +94,15 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val notifications = StreamPullNotifications(dataReceiver = Some(receiver.ref),
       data = ByteString.empty, ack = None, error = None)
 
-    notifications.sendData(_ => throw new UnsupportedOperationException("Unexpected evaluation"))(EndOfStream)
+    notifications.sendData(testActor,
+      _ => throw new UnsupportedOperationException("Unexpected evaluation"))(EndOfStream)
     receiver.expectMsg(EndOfStream)
   }
 
   it should "handle an undefined ACK receiver" in {
     val notifications = StreamPullNotifications(ack = None, data = ByteString.empty, dataReceiver = None, error = None)
 
-    notifications.sendAck(throw new UnsupportedOperationException("Unexpected evaluation"))
+    notifications.sendAck(testActor, throw new UnsupportedOperationException("Unexpected evaluation"))
   }
 
   it should "send an ACK message to the corresponding receiver" in {
@@ -110,14 +111,14 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val notifications = StreamPullNotifications(ack = Some(ackActor.ref), dataReceiver = None, data = ByteString.empty,
       error = None)
 
-    notifications.sendAck(AckMsg)
+    notifications.sendAck(testActor, AckMsg)
     ackActor.expectMsg(AckMsg)
   }
 
   it should "handle an undefined error actor" in {
     val notifications = StreamPullNotifications(error = None, ack = None, data = ByteString.empty, dataReceiver = None)
 
-    notifications.sendError(throw new UnsupportedOperationException("Unexpected evaluation"))
+    notifications.sendError(testActor, throw new UnsupportedOperationException("Unexpected evaluation"))
   }
 
   it should "send an error message to the corresponding receiver" in {
@@ -126,7 +127,7 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val notifications = StreamPullNotifications(error = Some(errActor.ref), ack = None, dataReceiver = None,
       data = ByteString.empty)
 
-    notifications.sendError(ErrMsg)
+    notifications.sendError(testActor, ErrMsg)
     errActor.expectMsg(ErrMsg)
   }
 

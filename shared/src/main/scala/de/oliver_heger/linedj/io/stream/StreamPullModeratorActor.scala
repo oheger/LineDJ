@@ -169,8 +169,8 @@ abstract class StreamPullModeratorActor extends Actor {
   private def updateState(update: StreamPullReadServiceImpl.StateUpdate[StreamPullNotifications]): Unit = {
     val (nextState, notifications) = update(pullState)
     pullState = nextState
-    notifications.sendData(dataMessage)(endOfStreamMessage)
-    notifications.sendAck(Ack)
-    notifications.sendError(concurrentRequestMessage)
+    notifications.sendData(self, dataMessage)(endOfStreamMessage)
+    notifications.sendAck(self, Ack)
+    notifications.sendError(self, concurrentRequestMessage)
   }
 }

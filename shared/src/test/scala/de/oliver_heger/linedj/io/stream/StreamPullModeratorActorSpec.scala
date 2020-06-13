@@ -125,6 +125,7 @@ class StreamPullModeratorActorSpec(testSystem: ActorSystem) extends TestKit(test
           actor ! DataRequest
 
         case DataChunk(chunk) =>
+          sender() should be(pullActor)
           data = data ++ chunk
           pullActor ! DataRequest
 
