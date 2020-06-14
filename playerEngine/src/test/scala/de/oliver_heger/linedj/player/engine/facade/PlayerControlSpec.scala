@@ -32,6 +32,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.util.Failure
 
 /**
   * Test class for ''PlayerControl''.
@@ -139,18 +140,18 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * Creates a list of test actors that just react on a close request by
     * sending the corresponding ACK.
     *
-    * @param count the number of test actors to create
+    * @param count        the number of test actors to create
     * @param closeCounter a counter for recording close requests
     * @return the list with test actors
     */
   private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[ActorRef] =
-    (1 to count) map(_ => system.actorOf(Props(new Actor {
+    (1 to count) map (_ => system.actorOf(Props(new Actor {
       override def receive: Receive = {
         case CloseRequest =>
-          sender ! CloseAck(self)
           closeCounter.incrementAndGet()
+          sender ! CloseAck(self)
       }
-    } )))
+    })))
 
   it should "provide a method to close dependent actors" in {
     val helper = new PlayerControlTestHelper
@@ -175,8 +176,9 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val timeoutProbe = TestProbe()
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     implicit val timeout: Timeout = Timeout(200.milliseconds)
-    player.closeActors(timeoutProbe.ref :: probes).onFailure {
-      case _: AskTimeoutException => latch.countDown()
+    player.closeActors(timeoutProbe.ref :: probes).onComplete {
+      case Failure(_: AskTimeoutException) => latch.countDown()
+      case r => fail("Unexpected result: " + r)
     }
     latch.await(1, TimeUnit.SECONDS) shouldBe true
   }
@@ -187,7 +189,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     */
   private class PlayerControlTestHelper {
     /** The test event manager actor. */
-    val probeEventManagerActor = TestProbe()
+    val probeEventManagerActor: TestProbe = TestProbe()
 
     /** Records playback invocations. */
     private val queuePlaybackInvocations = new LinkedBlockingQueue[PlaybackInvocation]
@@ -203,8 +205,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     /**
       * Expects an invocation of the playback actor.
       *
-      * @param msg    the message
-      * @param delay  the delay
+      * @param msg   the message
+      * @param delay the delay
       * @return this test helper
       */
     def expectPlaybackInvocation(msg: Any, delay: FiniteDuration = PlayerControl.NoDelay):
@@ -214,6 +216,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       this
     }
   }
+
 }
 
 /**
@@ -228,7 +231,7 @@ private case class PlaybackInvocation(msg: Any, delay: FiniteDuration)
   * A test implementation of the trait which wraps the specified actor.
   *
   * @param eventManagerActor the event manager actor
-  * @param invocationQueue queue for recording playback invocations
+  * @param invocationQueue   queue for recording playback invocations
   */
 private class PlayerControlImpl(override val eventManagerActor: ActorRef,
                                 invocationQueue: LinkedBlockingQueue[PlaybackInvocation])
