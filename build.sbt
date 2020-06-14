@@ -27,7 +27,10 @@ lazy val VersionScala = "2.12.9"
 lazy val VersionScalaz = "7.2.28"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4-SNAPSHOT"
-lazy val VersionScalaTest = "3.0.8"
+lazy val VersionScalaTest = "3.1.2"
+lazy val VersionMockito = "1.9.5"
+lazy val VersionScalaTestMockito = "1.0.0-M2"
+lazy val VersionJunit = "4.13"  // needed by mockito
 lazy val VersionJetty = "9.4.2.v20170220"
 lazy val VersionJackson = "2.11.0"
 lazy val VersionAeron = "1.27.0"
@@ -64,8 +67,9 @@ lazy val remotingDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
-  "junit" % "junit" % "4.12" % Test,
-  "org.mockito" % "mockito-core" % "1.9.5" % Test
+  "org.scalatestplus" %% "scalatestplus-mockito" % VersionScalaTestMockito % Test,
+  "junit" % "junit" % VersionJunit % Test,
+  "org.mockito" % "mockito-core" % VersionMockito % Test
 )
 
 lazy val osName = System.getProperty("os.name")
