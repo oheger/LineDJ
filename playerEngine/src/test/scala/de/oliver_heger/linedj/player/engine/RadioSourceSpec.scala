@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''RadioSource''.
   */
-class RadioSourceSpec extends FlatSpec with Matchers {
+class RadioSourceSpec extends AnyFlatSpec with Matchers {
   "A RadioSource" should "provide a dummy ranking function" in {
     val source1 = RadioSource("source1")
     val source2 = RadioSource("source2")

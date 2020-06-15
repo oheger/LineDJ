@@ -5,7 +5,8 @@ import java.nio.file.{Files, Paths}
 
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object ID3FrameExtractorSpec {
 
@@ -51,7 +52,7 @@ object ID3FrameExtractorSpec {
 /**
   * Test class for ''ID3FrameExtract''.
   */
-class ID3FrameExtractorSpec extends FlatSpec with Matchers {
+class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
 
   import ID3FrameExtractorSpec._
 

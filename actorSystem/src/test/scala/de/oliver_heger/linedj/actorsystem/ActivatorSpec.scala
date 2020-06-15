@@ -19,13 +19,14 @@ package de.oliver_heger.linedj.actorsystem
 import akka.actor.ActorSystem
 import org.osgi.framework.BundleContext
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
 
 /**
   * Test class for ''Activator''.
   */
-class ActivatorSpec extends FlatSpec with Matchers with MockitoSugar {
+class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An Activator" should "register the actor system" in {
     val context = mock[BundleContext]
     val system = mock[ActorSystem]

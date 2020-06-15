@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.browser.media
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object AlbumTableModelSpec {
   /** Constant for an album key.*/
@@ -57,7 +58,7 @@ object AlbumTableModelSpec {
 /**
  * Test class for ''AlbumTableModel''.
  */
-class AlbumTableModelSpec extends FlatSpec with Matchers {
+class AlbumTableModelSpec extends AnyFlatSpec with Matchers {
   import AlbumTableModelSpec._
   "An AlbumTableModel" should "return an empty sequence for unknown data" in {
     AlbumTableModel.empty songsFor AlbumKey("Unknown", "Unknown, too") shouldBe 'empty

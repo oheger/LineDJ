@@ -22,13 +22,13 @@ import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import org.mockito.Mockito._
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''PlaylistActionEnabler''.
   */
-class PlaylistActionEnablerSpec extends FlatSpec with MockitoSugar {
+class PlaylistActionEnablerSpec extends AnyFlatSpec with MockitoSugar {
   "A PlaylistActionEnabler" should "update the managed actions' enabled state" in {
     val action1, action2 = mock[FormAction]
     val manipulator1, manipulator2 = mock[PlaylistManipulator]

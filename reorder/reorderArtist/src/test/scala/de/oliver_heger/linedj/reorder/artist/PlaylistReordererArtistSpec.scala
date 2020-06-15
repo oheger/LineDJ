@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.reorder.artist
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object PlaylistReordererArtistSpec {
   /**
@@ -36,7 +37,7 @@ object PlaylistReordererArtistSpec {
 /**
   * Test class for ''PlaylistReordererArtist''.
   */
-class PlaylistReordererArtistSpec extends FlatSpec with Matchers {
+class PlaylistReordererArtistSpec extends AnyFlatSpec with Matchers {
 
   import PlaylistReordererArtistSpec._
 

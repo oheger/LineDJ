@@ -23,13 +23,14 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''RemoteController''.
  */
-class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class RemoteControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   "A RemoteController" should "react on a server not available message" in {
     val helper = new RemoteControllerTestHelper
@@ -54,13 +55,13 @@ class RemoteControllerSpec extends FlatSpec with Matchers with MockitoSugar {
    */
   private class RemoteControllerTestHelper {
     /** The action store mock. */
-    val actionStore = mock[ActionStore]
+    val actionStore: ActionStore = mock[ActionStore]
 
     /** The mock for the server available indicator. */
-    val availableIndicator = mock[WidgetHandler]
+    val availableIndicator: WidgetHandler = mock[WidgetHandler]
 
     /** The mock for the server unavailable indicator. */
-    val unavailableIndicator = mock[WidgetHandler]
+    val unavailableIndicator: WidgetHandler = mock[WidgetHandler]
 
     /** The test instance. */
     val controller = new RemoteController(actionStore = actionStore,

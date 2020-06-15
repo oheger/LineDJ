@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''RemoteActors''.
  */
-class RemoteActorsSpec extends FlatSpec with Matchers {
+class RemoteActorsSpec extends AnyFlatSpec with Matchers {
   "The RemoteActors enumeration" should "manage a set with all constants" in {
     val constants = MediaActors.values
     constants should contain only(MediaActors.MediaManager, MediaActors.MetaDataManager)

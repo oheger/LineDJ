@@ -17,8 +17,9 @@ package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataID3CollectorSpec {
   /** A test title. */
@@ -80,7 +81,7 @@ object MetaDataID3CollectorSpec {
 /**
   * Test class for ''MetaDataID3Collector''.
   */
-class MetaDataID3CollectorSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MetaDataID3CollectorSpec._
 

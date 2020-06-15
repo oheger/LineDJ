@@ -22,13 +22,14 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ArchiveAvailabilityExtension''.
   */
-class ArchiveAvailabilityExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
+class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a registration for an archive availability consumer.
     *

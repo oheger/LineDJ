@@ -24,13 +24,14 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailable
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''AvailableMediaExtension''.
   */
-class AvailableMediaExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
+class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a registration for a media consumer based on mock objects.
     *

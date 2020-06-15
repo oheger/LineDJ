@@ -24,8 +24,9 @@ import org.apache.commons.configuration.{Configuration, HierarchicalConfiguratio
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -124,7 +125,7 @@ object ErrorHandlingStrategySpec {
 /**
   * Test class for ''ErrorHandlingStrategy''.
   */
-class ErrorHandlingStrategySpec extends FlatSpec with Matchers with MockitoSugar {
+class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ErrorHandlingStrategySpec._
 

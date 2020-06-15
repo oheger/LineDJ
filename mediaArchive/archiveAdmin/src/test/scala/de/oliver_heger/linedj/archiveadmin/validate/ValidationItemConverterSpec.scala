@@ -25,8 +25,9 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 import scalaz.Scalaz._
 import scalaz._
 
@@ -78,7 +79,7 @@ object ValidationItemConverterSpec {
 /**
   * Test class for ''ValidationItemConverter''.
   */
-class ValidationItemConverterSpec extends FlatSpec with Matchers with MockitoSugar {
+class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ValidationItemConverterSpec._
 

@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.playlist.persistence
 import java.nio.file.Paths
 
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -70,7 +71,7 @@ object PlaylistHandlerConfigSpec {
 /**
   * Test class for ''PlaylistHandlerConfig''.
   */
-class PlaylistHandlerConfigSpec extends FlatSpec with Matchers {
+class PlaylistHandlerConfigSpec extends AnyFlatSpec with Matchers {
 
   import PlaylistHandlerConfigSpec._
 

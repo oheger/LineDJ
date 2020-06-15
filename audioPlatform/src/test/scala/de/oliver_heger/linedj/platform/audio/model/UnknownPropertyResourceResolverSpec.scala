@@ -19,8 +19,9 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object UnknownPropertyResourceResolverSpec {
   /** Test media ID. */
@@ -42,7 +43,7 @@ object UnknownPropertyResourceResolverSpec {
 /**
   * Test class for ''UnknownPropertyResourceResolver''.
   */
-class UnknownPropertyResourceResolverSpec extends FlatSpec with Matchers with MockitoSugar {
+class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import UnknownPropertyResourceResolverSpec._
 

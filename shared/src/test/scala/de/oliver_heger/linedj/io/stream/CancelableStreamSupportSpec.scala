@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.io.stream
 
 import akka.stream.KillSwitch
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''CancelableStreamSupport''.
   */
-class CancelableStreamSupportSpec extends FlatSpec with Matchers with MockitoSugar {
+class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a test instance.
     *

@@ -21,21 +21,20 @@ import java.awt.{CheckboxMenuItem, Image, PopupMenu}
 import java.util.Locale
 
 import de.oliver_heger.linedj.platform.app.hide._
-import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication,
-ClientApplicationContext, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext, ClientApplicationContextImpl}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''TrayWindowList''.
   */
-class TrayWindowListSpec extends FlatSpec with Matchers with MockitoSugar {
+class TrayWindowListSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A TrayWindowList" should "create a default tray handler" in {
     val list = new TrayWindowList
 
@@ -338,11 +337,9 @@ class TrayWindowListSpec extends FlatSpec with Matchers with MockitoSugar {
       */
     private def createClientAppCtx(): ClientApplicationContext = {
       val ctx = new ClientApplicationContextImpl
-      doAnswer(new Answer[Void] {
-        override def answer(invocation: InvocationOnMock): Void = {
-          publishedMessagesList = invocation.getArguments.head :: publishedMessagesList
-          null
-        }
+      doAnswer((invocation: InvocationOnMock) => {
+        publishedMessagesList = invocation.getArguments.head :: publishedMessagesList
+        null
       }).when(ctx.messageBus).publish(any)
       ctx
     }

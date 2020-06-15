@@ -23,12 +23,13 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''MetaDataJsonConverter''.
   */
-class MetaDataJsonConverterSpec extends FlatSpec with Matchers {
+class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers {
   /**
     * Converts media meta data to a string using the converter and parses this
     * string again using the JSON parser.

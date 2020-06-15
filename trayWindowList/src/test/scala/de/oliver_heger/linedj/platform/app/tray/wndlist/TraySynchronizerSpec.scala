@@ -17,14 +17,15 @@
 package de.oliver_heger.linedj.platform.app.tray.wndlist
 
 import java.util.concurrent.{SynchronousQueue, TimeUnit}
-import javax.swing.SwingUtilities
 
-import org.scalatest.{FlatSpec, Matchers}
+import javax.swing.SwingUtilities
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''TraySynchronizer''.
   */
-class TraySynchronizerSpec extends FlatSpec with Matchers {
+class TraySynchronizerSpec extends AnyFlatSpec with Matchers {
   "A TraySynchronizer" should "schedule an action on AWT thread" in {
     val queue = new SynchronousQueue[Boolean]
     val sync = new TraySynchronizer

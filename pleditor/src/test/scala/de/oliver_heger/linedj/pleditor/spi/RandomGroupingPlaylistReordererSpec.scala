@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.pleditor.spi
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 
@@ -62,7 +63,7 @@ object RandomGroupingPlaylistReordererSpec {
 /**
   * Test class for ''RandomGroupingPlaylistReorderer''.
   */
-class RandomGroupingPlaylistReordererSpec extends FlatSpec with Matchers {
+class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
 
   import RandomGroupingPlaylistReordererSpec._
 
@@ -76,9 +77,7 @@ class RandomGroupingPlaylistReordererSpec extends FlatSpec with Matchers {
     new RandomGroupingPlaylistReorderer[Char] {
 
       override val groupOrdering: Ordering[SongData] =
-        new Ordering[SongData] {
-          override def compare(x: SongData, y: SongData): Int = x.getTitle compareTo y.getTitle
-        }
+        (x: SongData, y: SongData) => x.getTitle compareTo y.getTitle
 
       override val resourceBundleBaseName: String = "Irrelevant"
 

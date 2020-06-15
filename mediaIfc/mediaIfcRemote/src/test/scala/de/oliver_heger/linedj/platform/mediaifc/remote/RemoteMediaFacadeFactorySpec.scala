@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.mediaifc.remote
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''RemoteMediaFacadeFactory''.
   */
-class RemoteMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class RemoteMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A RemoteMediaFacadeFactory" should "create a media facade" in {
     val actorSystem = mock[ActorSystem]
     val bus = mock[MessageBus]

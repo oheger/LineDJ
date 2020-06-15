@@ -17,17 +17,18 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
-import javax.sound.sampled.{AudioFormat, SourceDataLine}
 
+import javax.sound.sampled.{AudioFormat, SourceDataLine}
 import de.oliver_heger.linedj.player.engine.PlaybackContext
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''PlaybackContext''.
  */
-class PlaybackContextSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaybackContextSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
    * Creates a test ''PlaybackContext'' instance which uses the specified
    * audio format.

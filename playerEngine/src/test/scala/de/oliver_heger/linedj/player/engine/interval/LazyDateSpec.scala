@@ -18,12 +18,13 @@ package de.oliver_heger.linedj.player.engine.interval
 
 import java.time.{LocalDateTime, Month}
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''LazyDate''.
   */
-class LazyDateSpec extends FlatSpec with Matchers {
+class LazyDateSpec extends AnyFlatSpec with Matchers {
   "A LazyDate" should "not directly evaluate the passed in date" in {
     val creator = new DateCreator
 

@@ -32,8 +32,9 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object HttpArchiveOverviewControllerSpec {
   /** The number of archives defined in the configuration. */
@@ -98,7 +99,7 @@ object HttpArchiveOverviewControllerSpec {
 /**
   * Test class for ''HttpArchiveOverviewController''.
   */
-class HttpArchiveOverviewControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class HttpArchiveOverviewControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import HttpArchiveOverviewControllerSpec._
 

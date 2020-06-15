@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.archivehttp.crypt
 import java.nio.charset.StandardCharsets
 
 import javax.crypto.spec.SecretKeySpec
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''AESKeyGenerator''.
   */
-class AESKeyGeneratorSpec extends FlatSpec with Matchers {
+class AESKeyGeneratorSpec extends AnyFlatSpec with Matchers {
   "An AESKeyGenerator" should "produce a correct secret key spec" in {
     val Password = "0123456789abcdef"
     val generator = new AESKeyGenerator

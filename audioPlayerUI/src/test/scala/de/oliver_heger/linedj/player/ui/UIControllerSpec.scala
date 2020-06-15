@@ -30,9 +30,9 @@ import org.mockito.Matchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.reflect.ClassTag
 
@@ -79,7 +79,7 @@ object UIControllerSpec {
 /**
   * Test class for ''UIController''.
   */
-class UIControllerSpec extends FlatSpec with Matchers {
+class UIControllerSpec extends AnyFlatSpec with Matchers {
   import UIControllerSpec._
 
   "A UIController" should "pass a player state to its sub controllers" in {
@@ -522,11 +522,9 @@ class UIControllerSpec extends FlatSpec with Matchers {
       createActions(actionNames.toSeq: _*)
       resetActionStates()
       val store = createActionStore()
-      doAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          resetActionStates()
-          null
-        }
+      doAnswer((_: InvocationOnMock) => {
+        resetActionStates()
+        null
       }).when(store).enableGroup(UIController.PlayerActionGroup, false)
       store
     }

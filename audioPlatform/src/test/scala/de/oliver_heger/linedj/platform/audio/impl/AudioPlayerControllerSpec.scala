@@ -31,8 +31,9 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.mockito.Matchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -91,7 +92,7 @@ object AudioPlayerControllerSpec {
 /**
   * Test class for ''AudioPlayerController''.
   */
-class AudioPlayerControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class AudioPlayerControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import AudioPlayerControllerSpec._
 

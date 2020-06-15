@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.RadioSource
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''EmptyRadioSourcesListModel''.
   */
-class EmptyRadioSourcesListModelSpec extends FlatSpec with Matchers {
+class EmptyRadioSourcesListModelSpec extends AnyFlatSpec with Matchers {
   "An EmptyRadioSourcesListModel" should "return the correct element type" in {
     val model = new EmptyRadioSourcesListModel
 

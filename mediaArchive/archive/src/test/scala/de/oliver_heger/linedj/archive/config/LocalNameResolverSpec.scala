@@ -18,14 +18,15 @@ package de.oliver_heger.linedj.archive.config
 
 import java.net.InetAddress
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.{Failure, Success, Try}
 
 /**
   * Test class for ''LocalNameResolver''.
   */
-class LocalNameResolverSpec extends FlatSpec with Matchers {
+class LocalNameResolverSpec extends AnyFlatSpec with Matchers {
   "A LocalNameResolver" should "resolve the local host name" in {
     val localHost = Try(InetAddress.getLocalHost)
     localHost match {

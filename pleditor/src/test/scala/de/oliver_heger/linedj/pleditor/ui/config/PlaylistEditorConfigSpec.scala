@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.pleditor.ui.config
 
 import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
-import org.apache.commons.configuration.{PropertiesConfiguration, Configuration}
+import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
 
 object PlaylistEditorConfigSpec {
   /**
@@ -40,7 +41,7 @@ object PlaylistEditorConfigSpec {
 /**
  * Test class for ''BrowserConfig''.
  */
-class PlaylistEditorConfigSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaylistEditorConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import PlaylistEditorConfigSpec._
 

@@ -29,9 +29,9 @@ import org.mockito.Matchers.{any, anyInt, anyString}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.Promise
 
@@ -43,7 +43,7 @@ object ReorderControllerSpec {
 /**
   * Test class for ''ReorderController''.
   */
-class ReorderControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   import ReorderControllerSpec._
 
   /**
@@ -215,19 +215,19 @@ class ReorderControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     private val syncRunnable = new LinkedBlockingQueue[Runnable](2)
 
     /** The songs to be ordered. */
-    val songs = createTestSongs()
+    val songs: Seq[SongData] = createTestSongs()
 
     /** The mock list handler. */
-    val listHandler = mock[ListComponentHandler]
+    val listHandler: ListComponentHandler = mock[ListComponentHandler]
 
     /** The mock button handler. */
-    val buttonHandler = mock[ComponentHandler[_]]
+    val buttonHandler: ComponentHandler[_] = mock[ComponentHandler[_]]
 
     /** The mock reorder service. */
-    val reorderService = mock[ReorderService]
+    val reorderService: ReorderService = mock[ReorderService]
 
     /** Mock for the sync object. */
-    val sync = createSynchronizer()
+    val sync: GUISynchronizer = createSynchronizer()
 
     /** The controller to be tested. */
     val controller = new ReorderController(listHandler = listHandler, buttonHandler =
@@ -260,12 +260,10 @@ class ReorderControllerSpec extends FlatSpec with Matchers with MockitoSugar {
       */
     private def createSynchronizer(): GUISynchronizer = {
       val sync = mock[GUISynchronizer]
-      when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          syncRunnable should have size 0
-          syncRunnable.offer(invocation.getArguments.head.asInstanceOf[Runnable]) shouldBe true
-          null
-        }
+      when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocation: InvocationOnMock) => {
+        syncRunnable should have size 0
+        syncRunnable.offer(invocation.getArguments.head.asInstanceOf[Runnable]) shouldBe true
+        null
       })
       sync
     }

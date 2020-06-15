@@ -22,13 +22,14 @@ import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.gui.builder.window.ctrl.{FormController, FormControllerFormEvent}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''RemoteMediaIfcConfigBean''.
   */
-class RemoteMediaIfcConfigBeanSpec extends FlatSpec with Matchers with MockitoSugar {
+class RemoteMediaIfcConfigBeanSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a mock application which is needed to initialize a config bean.
     *

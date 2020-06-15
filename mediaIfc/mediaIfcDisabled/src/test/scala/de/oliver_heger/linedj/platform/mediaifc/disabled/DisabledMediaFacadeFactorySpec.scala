@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.mediaifc.disabled
 
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''DisabledMediaFacadeFactory''.
   */
-class DisabledMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class DisabledMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A DisabledMediaFacadeFactory" should "create a correct facade" in {
     val actorFactory = mock[ActorFactory]
     val bus = mock[MessageBus]

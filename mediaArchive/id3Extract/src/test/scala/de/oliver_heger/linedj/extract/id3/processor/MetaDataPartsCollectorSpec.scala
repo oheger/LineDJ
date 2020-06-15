@@ -22,21 +22,22 @@ import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataPartsCollectorSpec {
   /** Stub for an ID3 tag provider. */
-  private val ID3MetaData = new MetaDataProvider {
-    override val inceptionYearString = Some("1969")
+  private val ID3MetaData: MetaDataProvider = new MetaDataProvider {
+    override val inceptionYearString: Option[String] = Some("1969")
 
-    override val album = Some("Led Zeppelin II")
+    override val album: Option[String] = Some("Led Zeppelin II")
 
-    override val trackNoString = Some("3")
+    override val trackNoString: Option[String] = Some("3")
 
-    override val artist = Some("Led Zeppelin")
+    override val artist: Option[String] = Some("Led Zeppelin")
 
-    override val title = Some("The Lemon Song")
+    override val title: Option[String] = Some("The Lemon Song")
   }
 
   /** A test MP3 meta data object. */
@@ -59,7 +60,7 @@ object MetaDataPartsCollectorSpec {
 /**
   * Test class for ''MetaDataPartsCollector''.
   */
-class MetaDataPartsCollectorSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MetaDataPartsCollectorSpec._
 

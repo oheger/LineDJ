@@ -24,13 +24,13 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for the action tasks that append songs to the playlist.
   */
-class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
+class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar {
   /**
     * Creates the ID of a test song based on the given index.
     *
@@ -95,10 +95,10 @@ class AppendPlaylistSpec extends FlatSpec with MockitoSugar {
   private class AppendPlaylistTestHelper {
 
     /** A mock for the message bus. */
-    val messageBus = mock[MessageBus]
+    val messageBus: MessageBus = mock[MessageBus]
 
     /** A mock for the medium controller. */
-    val controller = mock[MediaController]
+    val controller: MediaController = mock[MediaController]
 
     /**
       * Prepares the mock controller to expect a request for selected songs. The

@@ -16,19 +16,20 @@
 
 package de.oliver_heger.linedj.platform.ui
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''EmptyListModel''.
   */
-class EmptyListModelSpec extends FlatSpec with Matchers {
+class EmptyListModelSpec extends AnyFlatSpec with Matchers {
   /**
     * Creates a model which can be used for tests.
     *
     * @return the test model
     */
   private def createModel(): EmptyListModel = new EmptyListModel {
-    override val getType = classOf[String]
+    override val getType: Class[String] = classOf[String]
   }
 
   "An EmptyListModel" should "have size 0" in {

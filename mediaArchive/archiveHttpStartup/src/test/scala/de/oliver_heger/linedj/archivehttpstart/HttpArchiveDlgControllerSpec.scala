@@ -25,7 +25,8 @@ import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito.{doReturn, verify, verifyZeroInteractions, when}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -47,7 +48,7 @@ object HttpArchiveDlgControllerSpec {
 /**
   * Test class for the dialog controllers for HTTP archives.
   */
-class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import HttpArchiveDlgControllerSpec._
 
@@ -209,17 +210,6 @@ class HttpArchiveDlgControllerSpec extends FlatSpec with Matchers with MockitoSu
       controller windowDeiconified event
       controller windowIconified event
       verifyZeroInteractions(event)
-      this
-    }
-
-    /**
-      * Sends the provided message directly on the test message bus.
-      *
-      * @param msg the message
-      * @return this test helper
-      */
-    def sendOnMessageBus(msg: Any): this.type = {
-      messageBus publishDirectly msg
       this
     }
 

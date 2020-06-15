@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.bus
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''Identifiable''.
   */
-class IdentifiableSpec extends FlatSpec with Matchers {
+class IdentifiableSpec extends AnyFlatSpec with Matchers {
   "An Identifiable" should "provide a unique ComponentID" in {
     val id1 = new Identifiable {}
     val id2 = new Identifiable {}

@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.comm
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''ActorFactory''.
  */
-class ActorFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class ActorFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An ActorFactory" should "allow creating a new actor" in {
     val system = mock[ActorSystem]
     val ref = mock[ActorRef]

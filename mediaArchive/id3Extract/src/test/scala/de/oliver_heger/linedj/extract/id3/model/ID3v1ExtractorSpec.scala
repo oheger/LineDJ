@@ -20,8 +20,9 @@ import java.nio.file.{Files, Paths}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object ID3v1ExtractorSpec {
   /**
@@ -43,7 +44,7 @@ object ID3v1ExtractorSpec {
 /**
   * Test class for ''ID3v1Extractor''.
   */
-class ID3v1ExtractorSpec extends FlatSpec with Matchers with MockitoSugar {
+class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ID3v1ExtractorSpec._
 

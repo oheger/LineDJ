@@ -23,13 +23,14 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''BrowserApp''.
  */
-class BrowserAppSpec extends FlatSpec with Matchers with MockitoSugar with ApplicationTestSupport {
+class BrowserAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with ApplicationTestSupport {
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.

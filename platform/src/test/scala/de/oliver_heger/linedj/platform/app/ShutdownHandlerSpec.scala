@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ShutdownHandler''.
   */
-class ShutdownHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class ShutdownHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A ShutdownHandler" should "shutdown the platform directly if there is no observer" in {
     val helper = new HandlerTestHelper
 

@@ -20,7 +20,8 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
   /** Test component ID. */
@@ -136,7 +137,7 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
 /**
   * Test class for ''PersistentPlaylistStateUpdateServiceImpl''.
   */
-class PersistentPlaylistStateUpdateServiceSpec extends FlatSpec with Matchers {
+class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers {
 
   import PersistentPlaylistStateUpdateServiceSpec._
 

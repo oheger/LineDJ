@@ -18,14 +18,15 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 
 /**
   * Test class for ''DownloadBuffer''.
   */
-class DownloadBufferSpec extends FlatSpec with Matchers {
+class DownloadBufferSpec extends AnyFlatSpec with Matchers {
   "A DownloadBuffer" should "return a correct size of an empty buffer" in {
     DownloadBuffer.empty.size should be(0)
   }

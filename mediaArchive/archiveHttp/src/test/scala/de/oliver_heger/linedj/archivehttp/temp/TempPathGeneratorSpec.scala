@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.archivehttp.temp
 import java.nio.file.Paths
 import java.time.Instant
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object TempPathGeneratorSpec {
   /** A root path for temporary files. */
@@ -32,7 +33,7 @@ object TempPathGeneratorSpec {
 /**
   * Test class for ''TempPathGenerator''.
   */
-class TempPathGeneratorSpec extends FlatSpec with Matchers {
+class TempPathGeneratorSpec extends AnyFlatSpec with Matchers {
 
   import TempPathGeneratorSpec._
 

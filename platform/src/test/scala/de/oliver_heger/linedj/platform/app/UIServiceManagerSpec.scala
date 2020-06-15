@@ -20,17 +20,17 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.Application
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''UIServiceManager''.
   */
-class UIServiceManagerSpec extends FlatSpec with Matchers with MockitoSugar {
+class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A UIServiceManager" should "use typed messages" in {
     val service = mock[Runnable]
     val addMsg: UIServiceManager.AddService[_] =
@@ -203,16 +203,14 @@ class UIServiceManagerSpec extends FlatSpec with Matchers with MockitoSugar {
       */
     private def createMessageBus(): MessageBus = {
       val bus = mock[MessageBus]
-      doAnswer(new Answer[Void] {
-        override def answer(invocation: InvocationOnMock): Void = {
-          if (enableBus) {
-            val msg = invocation.getArguments.head
-            if (listener isDefinedAt msg) {
-              listener(msg)
-            }
+      doAnswer((invocation: InvocationOnMock) => {
+        if (enableBus) {
+          val msg = invocation.getArguments.head
+          if (listener isDefinedAt msg) {
+            listener(msg)
           }
-          null
         }
+        null
       }).when(bus).publish(any())
       when(bus.registerListener(any(classOf[Receive]))).thenReturn(MessageBusRegistrationID)
       bus

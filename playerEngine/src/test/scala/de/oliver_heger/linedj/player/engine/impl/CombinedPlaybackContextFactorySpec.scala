@@ -5,13 +5,14 @@ import java.io.InputStream
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''CombinedPlaybackContextFactory''.
  */
-class CombinedPlaybackContextFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /** A test URI. */
   private val Uri = "Some test URI to a test file"
 

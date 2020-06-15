@@ -2,12 +2,13 @@ package de.oliver_heger.linedj.extract.id3.model
 
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''ID3DataExtractor''.
   */
-class ID3HeaderExtractorSpec extends FlatSpec with Matchers {
+class ID3HeaderExtractorSpec extends AnyFlatSpec with Matchers {
   "An ID3HeaderExtractor" should "define the correct ID3 header size" in {
     ID3HeaderExtractor.ID3HeaderSize should be(10)
   }

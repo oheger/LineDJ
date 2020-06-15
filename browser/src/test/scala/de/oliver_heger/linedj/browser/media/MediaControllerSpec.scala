@@ -41,8 +41,9 @@ import org.mockito.Matchers.{any, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
@@ -263,7 +264,7 @@ object MediaControllerSpec {
 /**
  * Test class for ''MediaController''.
  */
-class MediaControllerSpec extends FlatSpec with Matchers {
+class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
   import MediaControllerSpec._
 

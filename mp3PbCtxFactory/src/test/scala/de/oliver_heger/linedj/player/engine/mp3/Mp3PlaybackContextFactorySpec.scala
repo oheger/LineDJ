@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.player.engine.mp3
 import java.io.InputStream
 
 import de.oliver_heger.linedj.player.engine.PlaybackContext
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''Mp3PlaybackContextFactory''.
   */
-class Mp3PlaybackContextFactorySpec extends FlatSpec with Matchers {
+class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
   /**
     * Obtains the input stream to a test file.
     *

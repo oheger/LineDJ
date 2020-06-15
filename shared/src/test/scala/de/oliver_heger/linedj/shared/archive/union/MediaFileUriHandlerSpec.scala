@@ -20,7 +20,8 @@ import java.nio.file.{Path, Paths}
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object MediaFileUriHandlerSpec {
   /** The name of the root path. */
@@ -61,15 +62,6 @@ object MediaFileUriHandlerSpec {
   private def fileData(name: String): FileData = FileData(filePath(name).toString, 42)
 
   /**
-    * Generates an URI for the given file name by prepending the test
-    * directory.
-    *
-    * @param fileName the file name
-    * @return the URI for this file
-    */
-  private def fileUri(fileName: String): String = s"$Directory/$fileName"
-
-  /**
     * Generates an encoded URI for the given file name by prepending the
     * encoded test directory name. (The file name is not encoded.)
     *
@@ -82,7 +74,7 @@ object MediaFileUriHandlerSpec {
 /**
   * Test class for ''MediaFileUriHandler''.
   */
-class MediaFileUriHandlerSpec extends FlatSpec with Matchers {
+class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
 
   import MediaFileUriHandlerSpec._
 

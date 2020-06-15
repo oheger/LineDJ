@@ -26,7 +26,8 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigure
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -135,7 +136,7 @@ object HttpArchiveConfigSpec {
 /**
   * Test class for ''HttpArchiveConfig''.
   */
-class HttpArchiveConfigSpec extends FlatSpec with Matchers with MockitoSugar {
+class HttpArchiveConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import HttpArchiveConfigSpec._
 

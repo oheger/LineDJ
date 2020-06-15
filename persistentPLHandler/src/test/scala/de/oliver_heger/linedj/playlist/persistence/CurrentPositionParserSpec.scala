@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''CurrentPositionParser''.
   */
-class CurrentPositionParserSpec extends FlatSpec with Matchers {
+class CurrentPositionParserSpec extends AnyFlatSpec with Matchers {
   "A CurrentPositionParser" should "parse valid position data" in {
     val data =
       """{ "index": 42, "position":20171202,

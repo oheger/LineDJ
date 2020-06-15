@@ -19,13 +19,14 @@ package de.oliver_heger.linedj.platform.mediaifc.remote
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''RemoteMediaFacade''.
   */
-class RemoteMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
+class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A RemoteMediaFacade" should "pass constructor arguments to its base class" in {
     val helper = new RemoteMediaFacadeTestHelper
     val facade = helper.createFacade()

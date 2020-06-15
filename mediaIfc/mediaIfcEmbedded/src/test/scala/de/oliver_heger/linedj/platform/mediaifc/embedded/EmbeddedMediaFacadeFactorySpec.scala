@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.mediaifc.embedded
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''EmbeddedMediaFacadeFactory''.
   */
-class EmbeddedMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class EmbeddedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An EmbeddedMediaFacadeFactory" should "create a correct facade" in {
     val relayActor = mock[ActorRef]
     val actorSystem = mock[ActorSystem]

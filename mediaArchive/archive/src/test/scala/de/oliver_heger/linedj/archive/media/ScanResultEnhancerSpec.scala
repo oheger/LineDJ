@@ -22,7 +22,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.io.Source
 
@@ -40,7 +42,7 @@ object ScanResultEnhancerSpec {
 /**
   * Test class for ''ScanResultEnhancer''.
   */
-class ScanResultEnhancerSpec extends FlatSpec with Matchers with BeforeAndAfter with
+class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with
   FileTestHelper {
 
   import ScanResultEnhancerSpec._

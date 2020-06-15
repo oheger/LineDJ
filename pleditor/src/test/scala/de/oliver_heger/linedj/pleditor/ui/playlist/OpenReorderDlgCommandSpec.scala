@@ -21,8 +21,9 @@ import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object OpenReorderDlgCommandSpec {
   /** The test locator. */
@@ -32,7 +33,7 @@ object OpenReorderDlgCommandSpec {
 /**
   * Test class for ''OpenReorderDlgCommand''.
   */
-class OpenReorderDlgCommandSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenReorderDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import OpenReorderDlgCommandSpec._
 

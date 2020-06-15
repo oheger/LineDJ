@@ -36,8 +36,10 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
 import org.osgi.service.component.ComponentContext
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
@@ -65,7 +67,7 @@ object ClientManagementApplicationSpec {
 /**
   * Test class for ''ClientManagementApplication''.
   */
-class ClientManagementApplicationSpec extends FlatSpec with Matchers with BeforeAndAfterAll
+class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
   with MockitoSugar with ApplicationTestSupport {
   import ClientManagementApplicationSpec._
 

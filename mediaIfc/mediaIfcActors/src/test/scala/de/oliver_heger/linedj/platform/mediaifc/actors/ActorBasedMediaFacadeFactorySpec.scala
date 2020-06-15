@@ -21,13 +21,14 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.ManagementActor
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ActorBasedMediaFacadeFactory''.
   */
-class ActorBasedMediaFacadeFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class ActorBasedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An ActorBasedMediaFacadeFactory" should "create a MediaFacade" in {
     val actorFactory = mock[ActorFactory]
     val actorSystem = mock[ActorSystem]

@@ -23,13 +23,14 @@ import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => eqArg}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''BaseApplicationManager''.
   */
-class BaseApplicationManagerSpec extends FlatSpec with Matchers with MockitoSugar {
+class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a basic mock for an application. This mock also has an
     * application context.

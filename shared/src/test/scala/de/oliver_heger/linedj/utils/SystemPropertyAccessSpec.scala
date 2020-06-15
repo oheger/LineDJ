@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.utils
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''SystemPropertyAccess''.
   */
-class SystemPropertyAccessSpec extends FlatSpec with Matchers {
+class SystemPropertyAccessSpec extends AnyFlatSpec with Matchers {
   "A SystemPropertyAccess" should "support querying system properties" in {
     val access = new SystemPropertyAccess {}
 

@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''UnknownPropertyResolver'' and concrete
   * ''SongTitleProcessor'' implementations.
   */
-class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
+class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
   /**
     * Creates a test resolver instance. It is possible to specify a list of
     * song title processors. If defined, the processors are injected into the
@@ -61,10 +62,7 @@ class UnknownPropertyResolverSpec extends FlatSpec with Matchers {
 
   it should "apply all title processors" in {
     def processor(index: Int): SongTitleProcessor =
-      new SongTitleProcessor {
-        override def processTitle(title: String): String =
-          title + "," + index
-      }
+      (title: String) => title + "," + index
 
     val processors = List(processor(1), processor(2), processor(3))
     val uri = "uri"

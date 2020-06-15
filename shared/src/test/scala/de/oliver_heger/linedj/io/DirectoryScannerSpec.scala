@@ -19,12 +19,14 @@ package de.oliver_heger.linedj.io
 import java.nio.file.{Files, Path, Paths}
 
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''DirectoryScanner''.
  */
-class DirectoryScannerSpec extends FlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
+class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
 
   after {
     tearDownTestFile()

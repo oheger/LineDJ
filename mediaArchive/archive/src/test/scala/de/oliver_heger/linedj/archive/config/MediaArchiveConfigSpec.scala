@@ -20,7 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.util.Timeout
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -163,7 +164,7 @@ object MediaArchiveConfigSpec {
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends FlatSpec with Matchers {
+class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
 
   import MediaArchiveConfigSpec._
 

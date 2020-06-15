@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import org.mockito.Mockito._
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''AbstractPlaylistManipulationTask''.
   */
-class AbstractPlaylistManipulationTaskSpec extends FlatSpec with MockitoSugar {
+class AbstractPlaylistManipulationTaskSpec extends AnyFlatSpec with MockitoSugar {
   "An AbstractPlaylistManipulationTask" should "trigger a playlist update" in {
     val controller = mock[PlaylistController]
     val task = new AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {

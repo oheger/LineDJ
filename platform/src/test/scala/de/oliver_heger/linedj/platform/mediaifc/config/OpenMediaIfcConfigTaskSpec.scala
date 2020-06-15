@@ -20,13 +20,14 @@ import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplicatio
 import net.sf.jguiraffe.gui.app.Application
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''OpenMediaIfcConfigTask''.
   */
-class OpenMediaIfcConfigTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An OpenMediaIfcConfigTask" should "handle an init message if no dialog is supported" in {
     val helper = new OpenMediaIfcConfigTaskTestHelper
     val task = helper.createTask()

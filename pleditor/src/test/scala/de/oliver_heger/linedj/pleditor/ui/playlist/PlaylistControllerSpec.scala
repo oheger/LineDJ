@@ -29,8 +29,9 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.Matchers.anyInt
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -142,7 +143,7 @@ object PlaylistControllerSpec {
 /**
  * Test class for ''PlaylistController''.
  */
-class PlaylistControllerSpec extends FlatSpec with Matchers {
+class PlaylistControllerSpec extends AnyFlatSpec with Matchers {
 
   import PlaylistControllerSpec._
 
@@ -312,10 +313,10 @@ class PlaylistControllerSpec extends FlatSpec with Matchers {
     val playlistModel = new util.ArrayList[SongData]
 
     /** A mock for the table handler. */
-    val tableHandler = createTableHandler()
+    val tableHandler: TableHandler = createTableHandler()
 
     /** A mock for the status line handler. */
-    val statusLineHandler = mock[StaticTextHandler]
+    val statusLineHandler: StaticTextHandler = mock[StaticTextHandler]
 
     /** The test controller instance. */
     val controller = new PlaylistController(tableHandler, statusLineHandler, initActions(),

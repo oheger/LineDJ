@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''LogoutTask''.
   */
-class LogoutTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class LogoutTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A LogoutTask" should "delegate to the controller" in {
     val controller = mock[HttpArchiveOverviewController]
     val task = new LogoutTask(controller)

@@ -18,11 +18,11 @@ package de.oliver_heger.linedj.platform.app.hide.impl
 
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.hide.ApplicationWindowConfiguration
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration,
-PropertiesConfiguration}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object AppConfigWindowConfigurationSpec {
   /** A name for a configuration. */
@@ -56,7 +56,7 @@ object AppConfigWindowConfigurationSpec {
 /**
   * Test class for ''AppConfigWindowConfiguration''.
   */
-class AppConfigWindowConfigurationSpec extends FlatSpec with Matchers with MockitoSugar {
+class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import AppConfigWindowConfigurationSpec._
 

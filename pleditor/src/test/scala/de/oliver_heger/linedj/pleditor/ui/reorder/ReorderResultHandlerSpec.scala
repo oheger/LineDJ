@@ -21,13 +21,14 @@ import java.util
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''ReorderResultHandler''.
   */
-class ReorderResultHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class ReorderResultHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A ReorderResultHandler" should "apply the results of a reorder operation" in {
     val tableHandler = mock[TableHandler]
     val song1, song2, song3 = mock[SongData]

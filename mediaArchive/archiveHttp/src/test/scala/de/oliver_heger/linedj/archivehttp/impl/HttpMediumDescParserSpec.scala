@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object HttpMediumDescParserSpec {
   /**
@@ -42,7 +43,7 @@ object HttpMediumDescParserSpec {
 /**
   * Test class for ''HttpMediumDescParser''.
   */
-class HttpMediumDescParserSpec extends FlatSpec with Matchers {
+class HttpMediumDescParserSpec extends AnyFlatSpec with Matchers {
 
   import HttpMediumDescParserSpec._
 

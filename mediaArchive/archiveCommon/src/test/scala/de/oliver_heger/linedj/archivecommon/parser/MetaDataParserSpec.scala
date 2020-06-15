@@ -23,8 +23,9 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
 import org.mockito.stubbing.OngoingStubbing
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object MetaDataParserSpec {
   /** A test medium ID. */
@@ -93,7 +94,7 @@ object MetaDataParserSpec {
 /**
   * Test class for ''MetaDataParser''.
   */
-class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MetaDataParserSpec._
 
@@ -143,7 +144,7 @@ class MetaDataParserSpec extends FlatSpec with Matchers with MockitoSugar {
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
     result.mediumID should be(TestMedium)
-    result.path.toString should be(props(MetaDataParser.PropPath))
+    result.path should be(props(MetaDataParser.PropPath))
     result.uri should be(props(MetaDataParser.PropUri))
     result.metaData.album.get should be("Album")
     result.metaData.artist.get should be("Artist")

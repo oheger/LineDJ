@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archiveunion
 
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object MediaArchiveConfigSpec {
   /** Test value for the chunk size of a meta data notification. */
@@ -54,7 +55,7 @@ object MediaArchiveConfigSpec {
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends FlatSpec with Matchers {
+class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
 
   import MediaArchiveConfigSpec._
 

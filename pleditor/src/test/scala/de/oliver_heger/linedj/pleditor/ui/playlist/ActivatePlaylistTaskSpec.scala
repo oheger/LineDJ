@@ -26,8 +26,9 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.mockito.Matchers.{any, anyInt}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object ActivatePlaylistTaskSpec {
   /** A test medium used by test songs. */
@@ -55,7 +56,7 @@ object ActivatePlaylistTaskSpec {
 /**
   * Test class for ''ActivatePlaylistTask''.
   */
-class ActivatePlaylistTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ActivatePlaylistTaskSpec._
   import collection.JavaConverters._

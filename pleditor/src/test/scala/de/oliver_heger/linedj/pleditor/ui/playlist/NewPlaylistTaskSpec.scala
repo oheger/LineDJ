@@ -23,13 +23,14 @@ import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''NewPlaylistTask''.
   */
-class NewPlaylistTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class NewPlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A NewPlaylistTask" should "always be enabled" in {
     val context = mock[PlaylistSelectionContext]
     val task = new NewPlaylistTask(mock[PlaylistController], mock[MessageBus])

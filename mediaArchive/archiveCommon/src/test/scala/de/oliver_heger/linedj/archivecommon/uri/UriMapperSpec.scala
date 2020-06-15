@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archivecommon.uri
 
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Implementation of the mapping spec.
@@ -53,7 +54,7 @@ object UriMapperSpec {
 /**
   * Test class for ''UriMapper''.
   */
-class UriMapperSpec extends FlatSpec with Matchers {
+class UriMapperSpec extends AnyFlatSpec with Matchers {
 
   import UriMapperSpec._
 

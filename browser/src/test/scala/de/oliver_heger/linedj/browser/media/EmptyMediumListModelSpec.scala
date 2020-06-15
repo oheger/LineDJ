@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''EmptyMediumListModel''.
  */
-class EmptyMediumListModelSpec extends FlatSpec with Matchers {
+class EmptyMediumListModelSpec extends AnyFlatSpec with Matchers {
   "An EmptyMediumListModel" should "have size 0" in {
     val model = new EmptyMediumListModel
     model.size() should be(0)

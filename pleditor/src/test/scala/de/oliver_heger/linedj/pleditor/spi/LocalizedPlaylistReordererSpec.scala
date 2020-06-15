@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.pleditor.spi
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''LocalizedPlaylistReorderer''.
   */
-class LocalizedPlaylistReordererSpec extends FlatSpec with Matchers {
+class LocalizedPlaylistReordererSpec extends AnyFlatSpec with Matchers {
   "A LocalizedPlaylistReorderer" should "obtain the correct name" in {
     val order = new LocalizedPlaylistReorderer {
       override val resourceBundleBaseName: String = "LocalizedPlaylistReordererSpec"

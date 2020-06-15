@@ -22,13 +22,14 @@ import net.sf.jguiraffe.locators.{ClassPathLocator, Locator}
 import net.sf.jguiraffe.resources.ResourceManager
 import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''OpenMediaIfcConfigCommand''.
   */
-class OpenMediaIfcConfigCommandSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenMediaIfcConfigCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a test config data object.
     *

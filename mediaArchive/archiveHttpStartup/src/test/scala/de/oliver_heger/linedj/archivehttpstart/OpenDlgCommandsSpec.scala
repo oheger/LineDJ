@@ -21,13 +21,14 @@ import java.util.concurrent.atomic.AtomicReference
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for the commands that open dialogs related to archives.
   */
-class OpenDlgCommandsSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenDlgCommandsSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An OpenLoginDlgCommand" should "pass the locator to the super class" in {
     val locator = mock[Locator]
     val command = new OpenLoginDlgCommand(locator, new AtomicReference[ArchiveRealm])

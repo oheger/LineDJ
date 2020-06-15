@@ -20,7 +20,8 @@ import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.platform.audio.playlist.{MetaDataResolveState, Playlist, PlaylistMetaData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object PlaylistMetaDataServiceSpec {
   /** Medium ID used by tests. */
@@ -148,7 +149,7 @@ object PlaylistMetaDataServiceSpec {
 /**
   * Test class for ''PlaylistMetaDataService''.
   */
-class PlaylistMetaDataServiceSpec extends FlatSpec with Matchers {
+class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers {
 
   import PlaylistMetaDataServiceSpec._
 

@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.utils
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object LRUCacheSpec {
   /**
@@ -63,7 +64,7 @@ object LRUCacheSpec {
 /**
   * Test class for ''LRUCache''.
   */
-class LRUCacheSpec extends FlatSpec with Matchers {
+class LRUCacheSpec extends AnyFlatSpec with Matchers {
 
   import LRUCacheSpec._
 

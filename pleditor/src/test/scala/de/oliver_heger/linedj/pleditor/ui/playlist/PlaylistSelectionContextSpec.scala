@@ -20,13 +20,14 @@ import java.util.Collections
 
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
 
 /**
   * Test class for ''PlaylistSelectionContext''.
   */
-class PlaylistSelectionContextSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaylistSelectionContextSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a mock for the table handler. Optionally, a size of the table
     * model can be specified. In this case, a corresponding model is created.

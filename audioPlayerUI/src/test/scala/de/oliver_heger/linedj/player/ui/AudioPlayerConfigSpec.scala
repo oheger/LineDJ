@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.player.ui
 
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''AudioPlayerConfig''.
   */
-class AudioPlayerConfigSpec extends FlatSpec with Matchers {
+class AudioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   "An AudioPlayerConfig" should "provide access to all properties" in {
     val MaxFieldSize = 42
     val RotationSpeed = 3

@@ -22,7 +22,8 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.apache.commons.configuration.event.{ConfigurationEvent, ConfigurationListener}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
 import org.apache.commons.configuration.{AbstractConfiguration, HierarchicalConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object MediumTreeModelSpec {
   /** Constant for an artist name. */
@@ -87,7 +88,7 @@ object MediumTreeModelSpec {
 /**
  * Test class for ''MediumTreeModel''.
  */
-class MediumTreeModelSpec extends FlatSpec with Matchers {
+class MediumTreeModelSpec extends AnyFlatSpec with Matchers {
 
   import MediumTreeModelSpec._
 

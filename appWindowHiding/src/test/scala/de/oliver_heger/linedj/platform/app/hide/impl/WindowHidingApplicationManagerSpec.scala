@@ -26,9 +26,9 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object WindowHidingApplicationManagerSpec {
   /** A test application name. */
@@ -55,7 +55,7 @@ object WindowHidingApplicationManagerSpec {
 /**
   * Test class for ''WindowHidingApplicationManager''.
   */
-class WindowHidingApplicationManagerSpec extends FlatSpec with Matchers with MockitoSugar {
+class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   import WindowHidingApplicationManagerSpec._
 
   /**
@@ -479,11 +479,9 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     */
   private def createClientAppContext(): ClientApplicationContextImpl = {
     val ctx = new ClientApplicationContextImpl
-    doAnswer(new Answer[AnyRef] {
-      override def answer(invocation: InvocationOnMock): AnyRef = {
-        publishedMessagesList = invocation.getArguments.head :: publishedMessagesList
-        null
-      }
+    doAnswer((invocation: InvocationOnMock) => {
+      publishedMessagesList = invocation.getArguments.head :: publishedMessagesList
+      null
     }).when(ctx.messageBus).publish(any())
     initApplicationContext(ctx)
     ctx

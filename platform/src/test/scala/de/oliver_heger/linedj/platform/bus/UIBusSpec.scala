@@ -21,9 +21,9 @@ import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object UIBusSpec {
   /** A message indicating the start of a sync operation. */
@@ -60,7 +60,7 @@ object UIBusSpec {
 /**
  * Test class for ''UIBus''.
  */
-class UIBusSpec extends FlatSpec with Matchers with MockitoSugar {
+class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import UIBusSpec._
 
@@ -74,13 +74,11 @@ class UIBusSpec extends FlatSpec with Matchers with MockitoSugar {
    */
   private def createSync(protocol: StringBuilder): GUISynchronizer = {
     val sync = mock[GUISynchronizer]
-    when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer(new Answer[Unit] {
-      override def answer(invocationOnMock: InvocationOnMock): Unit = {
-        val task = invocationOnMock.getArguments()(0).asInstanceOf[Runnable]
-        protocol append SyncStart
-        task.run()
-        protocol append SyncEnd
-      }
+    when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocationOnMock: InvocationOnMock) => {
+      val task = invocationOnMock.getArguments()(0).asInstanceOf[Runnable]
+      protocol append SyncStart
+      task.run()
+      protocol append SyncEnd
     })
     sync
   }

@@ -21,13 +21,14 @@ import java.util.concurrent.atomic.AtomicReference
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
 import org.mockito.Mockito._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for helper class related to UI.
   */
-class UIHelpersSpec extends FlatSpec with Matchers with MockitoSugar {
+class UIHelpersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "EmptyArchiveComponentsListModel" should "return the correct component type" in {
     val model = new EmptyArchiveComponentsListModel
 

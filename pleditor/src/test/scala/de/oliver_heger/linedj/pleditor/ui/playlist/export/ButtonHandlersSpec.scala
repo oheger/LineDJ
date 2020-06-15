@@ -27,27 +27,25 @@ import net.sf.jguiraffe.transform.ValidationResult
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for the button handlers of the export settings dialog.
   */
-class ButtonHandlersSpec extends FlatSpec with Matchers with MockitoSugar {
+class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A SetDefaultSettingsHandler" should "store default settings" in {
     val ClearMode = ExportSettings.ClearOverride
     val ExportPath = "some/export/path"
     val controller = mock[FormController]
     val config = mock[PlaylistEditorConfig]
     val settings = new ExportSettings
-    when(controller.validateAndDisplayMessages()).thenAnswer(new Answer[FormValidatorResults] {
-      override def answer(invocationOnMock: InvocationOnMock): FormValidatorResults = {
-        settings setClearMode ClearMode
-        settings setTargetDirectory ExportPath
-        val fields = new util.HashMap[String, ValidationResult]
-        new DefaultFormValidatorResults(fields)
-      }
+    when(controller.validateAndDisplayMessages()).thenAnswer((_: InvocationOnMock) => {
+      settings setClearMode ClearMode
+      settings setTargetDirectory ExportPath
+      val fields = new util.HashMap[String, ValidationResult]
+      new DefaultFormValidatorResults(fields)
     })
     val handler = new SetDefaultSettingsHandler(controller, config, settings)
 

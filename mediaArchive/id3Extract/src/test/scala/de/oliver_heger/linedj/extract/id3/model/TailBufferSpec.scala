@@ -17,7 +17,8 @@ package de.oliver_heger.linedj.extract.id3.model
 
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object TailBufferSpec {
   /** The test buffer size. */
@@ -48,7 +49,7 @@ object TailBufferSpec {
 /**
   * Test class for ''TailBuffer''.
   */
-class TailBufferSpec extends FlatSpec with Matchers {
+class TailBufferSpec extends AnyFlatSpec with Matchers {
 
   import FileTestHelper._
   import TailBufferSpec._

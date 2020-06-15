@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.comm
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''ServiceDependencies''.
   */
-class ServiceDependenciesSpec extends FlatSpec with Matchers {
+class ServiceDependenciesSpec extends AnyFlatSpec with Matchers {
   "ServiceDependencies" should "create a service name filter" in {
     val ServiceName = "com.acme.MyService"
     val expFilter = "(serviceName=" + ServiceName + ")"

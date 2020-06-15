@@ -27,8 +27,9 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object OpenExportProgressDlgCommandSpec {
   /** A test locator. */
@@ -93,8 +94,8 @@ object OpenExportProgressDlgCommandSpec {
    */
   private def exportData(scanResult: ScanResult, clearTarget: Boolean, overrideFiles: Boolean):
   ExportActor.ExportData = {
-    import collection.JavaConversions._
-    ExportActor.ExportData(songs = ExportSongs, targetContent = scanResult, exportPath =
+    import collection.JavaConverters._
+    ExportActor.ExportData(songs = ExportSongs.asScala, targetContent = scanResult, exportPath =
       ExportPath, clearTarget, overrideFiles)
   }
 }
@@ -102,7 +103,7 @@ object OpenExportProgressDlgCommandSpec {
 /**
  * Test class for ''OpenExportProgressDlgCommand''.
  */
-class OpenExportProgressDlgCommandSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import OpenExportProgressDlgCommandSpec._
 

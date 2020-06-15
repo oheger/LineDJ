@@ -20,12 +20,13 @@ import java.nio.file.Paths
 
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''HttpArchiveConfigManager''.
   */
-class HttpArchiveConfigManagerSpec extends FlatSpec with Matchers {
+class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
   "An HttpArchiveConfigManager" should "handle an empty configuration" in {
     val config = new HierarchicalConfiguration
 

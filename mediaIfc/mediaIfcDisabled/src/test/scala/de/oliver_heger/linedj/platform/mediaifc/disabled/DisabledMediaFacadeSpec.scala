@@ -23,8 +23,9 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{GetAvailableMedia, MediumID}
 import org.apache.commons.configuration.Configuration
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -33,7 +34,7 @@ import scala.concurrent.duration._
   * Test class for ''DisabledMediaFacade''. Note: This class can sometimes
   * only test that a method invocation does not cause an exception.
   */
-class DisabledMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
+class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A DisabledMediaFacade" should "implement activate()" in {
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
@@ -78,7 +79,7 @@ class DisabledMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "implement requestActor()" in {
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
-    implicit val timeout = Timeout(3.seconds)
+    implicit val timeout: Timeout = Timeout(3.seconds)
 
     val future = facade requestActor MediaActors.MediaManager
     Await.result(future, 3.seconds) should be(None)

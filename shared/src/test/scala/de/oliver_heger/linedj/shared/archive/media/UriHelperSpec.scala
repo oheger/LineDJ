@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''UriHelper''.
   */
-class UriHelperSpec extends FlatSpec with Matchers {
+class UriHelperSpec extends AnyFlatSpec with Matchers {
   "UriHelper" should "normalize an already normalized URI" in {
     val Uri = "https://music.org/test/song.mp3"
 

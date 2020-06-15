@@ -20,7 +20,8 @@ import MetaDataValidator.ValidationErrorCode._
 import ValidationTestHelper._
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile, ValidationErrorCode}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.{Failure, NonEmptyList, Success}
 
 object MetaDataValidatorSpec {
@@ -38,7 +39,7 @@ object MetaDataValidatorSpec {
 /**
   * Test class for ''MetaDataValidator''.
   */
-class MetaDataValidatorSpec extends FlatSpec with Matchers {
+class MetaDataValidatorSpec extends AnyFlatSpec with Matchers {
 
   import MetaDataValidatorSpec._
 

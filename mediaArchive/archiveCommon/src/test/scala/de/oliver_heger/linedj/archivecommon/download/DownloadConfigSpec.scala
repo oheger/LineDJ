@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archivecommon.download
 
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -71,7 +72,7 @@ object DownloadConfigSpec {
 /**
   * Test class for ''DownloadConfig''.
   */
-class DownloadConfigSpec extends FlatSpec with Matchers {
+class DownloadConfigSpec extends AnyFlatSpec with Matchers {
 
   import DownloadConfigSpec._
 

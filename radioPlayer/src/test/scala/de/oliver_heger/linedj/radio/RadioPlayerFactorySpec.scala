@@ -22,13 +22,14 @@ import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''RadioPlayerFactory''.
   */
-class RadioPlayerFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class RadioPlayerFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a mock ActorManagement object.
     * @return the mock

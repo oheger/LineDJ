@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.platform.audio.playlist.service
 
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 
@@ -88,7 +89,7 @@ object PlaylistServiceSpec {
 /**
   * Test class for ''DefaultPlaylistTrackService''.
   */
-class PlaylistServiceSpec extends FlatSpec with Matchers {
+class PlaylistServiceSpec extends AnyFlatSpec with Matchers {
 
   import PlaylistServiceSpec._
 

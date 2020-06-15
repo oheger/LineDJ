@@ -5,7 +5,9 @@ import java.nio.file.{Files, Path, Paths}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object BufferFileManagerSpec {
   /** A prefix for temporary files. */
@@ -20,7 +22,7 @@ object BufferFileManagerSpec {
 /**
  * Test class for ''BufferFileManager''.
  */
-class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
+class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
   import BufferFileManagerSpec._
 
   after {
@@ -48,7 +50,7 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
   it should "create correct names for buffer files" in {
     val manager = createManager()
     val Count = 8
-    val paths = for (i <- 0 until Count) yield manager.createPath()
+    val paths = for (_ <- 0 until Count) yield manager.createPath()
     var index = 0
     paths foreach { p =>
       p.getParent should be(testDirectory)
@@ -205,7 +207,7 @@ class BufferFileManagerSpec extends FlatSpec with Matchers with BeforeAndAfter w
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(bufferFilePrefix = FilePrefix, bufferFileExtension = FileSuffix,
-      mediaManagerActor = null, actorCreator = (props, name) => null,
+      mediaManagerActor = null, actorCreator = (_, _) => null,
       bufferTempPathParts = List("lineDJTest", "temp"),
       bufferTempPath = Some(createPathInDirectory("bufferTemp")))
 

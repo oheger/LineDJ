@@ -26,13 +26,14 @@ import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''PlaylistEditorApp''.
   */
-class PlaylistEditorAppSpec extends FlatSpec with Matchers with MockitoSugar with
+class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with
 ApplicationTestSupport {
   /**
     * Creates a new test application instance and starts it up. This instance

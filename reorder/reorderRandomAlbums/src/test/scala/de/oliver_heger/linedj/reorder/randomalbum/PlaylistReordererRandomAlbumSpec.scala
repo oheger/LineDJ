@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.reorder.randomalbum
 import de.oliver_heger.linedj.platform.audio.model.{SongAlbumOrdering, SongData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''PlaylistReordererRandomAlbum''.
   */
-class PlaylistReordererRandomAlbumSpec extends FlatSpec with Matchers {
+class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers {
   "A PlaylistReordererRandomAlbum" should "return a name" in {
     val reorder = new PlaylistReordererRandomAlbum
 

@@ -24,13 +24,14 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import org.mockito.Mockito
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ConsumerRegistrationProcessor''.
   */
-class ConsumerRegistrationProcessorSpec extends FlatSpec with Matchers with MockitoSugar {
+class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a mock consumer registration provider that returns the specified
     * registration objects.

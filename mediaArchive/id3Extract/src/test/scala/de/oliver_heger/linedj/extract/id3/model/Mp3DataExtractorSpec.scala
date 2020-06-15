@@ -19,7 +19,8 @@ import java.io.ByteArrayOutputStream
 import java.util
 
 import akka.util.ByteString
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object Mp3DataExtractorSpec {
   /**
@@ -55,7 +56,7 @@ object Mp3DataExtractorSpec {
 /**
   * Test class for ''Mp3DataExtractor''.
   */
-class Mp3DataExtractorSpec extends FlatSpec with Matchers {
+class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
 
   import Mp3DataExtractorSpec._
 

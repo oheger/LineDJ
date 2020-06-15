@@ -35,8 +35,9 @@ import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -115,7 +116,7 @@ object RadioControllerSpec {
 /**
   * Test class for ''RadioController''.
   */
-class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import RadioControllerSpec._
 
@@ -147,12 +148,10 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): RadioSourceConfig = {
     val config = mock[RadioSourceConfig]
     when(config.sources).thenReturn(sources)
-    when(config.ranking(any(classOf[RadioSource]))).thenAnswer(new Answer[Int] {
-      override def answer(invocation: InvocationOnMock): Int = {
-        val src = invocation.getArguments.head.asInstanceOf[RadioSource]
-        val index = src.uri.substring(RadioSourceURI.length)
-        index.toInt
-      }
+    when(config.ranking(any(classOf[RadioSource]))).thenAnswer((invocation: InvocationOnMock) => {
+      val src = invocation.getArguments.head.asInstanceOf[RadioSource]
+      val index = src.uri.substring(RadioSourceURI.length)
+      index.toInt
     })
     config
   }
@@ -291,11 +290,9 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
   it should "ignore change events while populating the sources combo box" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(4))
-    doAnswer(new Answer[AnyRef] {
-      override def answer(invocation: InvocationOnMock): AnyRef = {
-        ctrl elementChanged mock[FormChangeEvent]
-        null
-      }
+    doAnswer((_: InvocationOnMock) => {
+      ctrl elementChanged mock[FormChangeEvent]
+      null
     }).when(helper.comboHandler).addItem(anyInt(), anyObject(), anyObject())
     doReturn(radioSource(3)).when(helper.comboHandler).getData
 
@@ -604,31 +601,31 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
     */
   private class RadioControllerTestHelper {
     /** Mock for the radio player. */
-    val player = mock[RadioPlayer]
+    val player: RadioPlayer = mock[RadioPlayer]
 
     /** Mock for the application context. */
-    val applicationContext = mock[ApplicationContext]
+    val applicationContext: ApplicationContext = mock[ApplicationContext]
 
     /** Mock for the combo box handler. */
-    val comboHandler = createComboHandlerMock()
+    val comboHandler: ListComponentHandler = createComboHandlerMock()
 
     /** Mock for the status line handler. */
-    val statusHandler = mock[StaticTextHandler]
+    val statusHandler: StaticTextHandler = mock[StaticTextHandler]
 
     /** Mock for the handler for the playback time. */
-    val playbackTimeHandler = mock[StaticTextHandler]
+    val playbackTimeHandler: StaticTextHandler = mock[StaticTextHandler]
 
     /** Mock for the error indicator control. */
-    val errorIndicator = mock[WidgetHandler]
+    val errorIndicator: WidgetHandler = mock[WidgetHandler]
 
     /** Mock for the error handling strategy. */
-    val errorHandlingStrategy = mock[ErrorHandlingStrategy]
+    val errorHandlingStrategy: ErrorHandlingStrategy = mock[ErrorHandlingStrategy]
 
     /** A map with mock actions. */
     private val actions = createActionMap()
 
     /** Mock for the action store. */
-    val actionStore = createActionStore(actions)
+    val actionStore: ActionStore = createActionStore(actions)
 
     /**
       * Creates a test instance of a radio controller.
@@ -906,20 +903,6 @@ class RadioControllerSpec extends FlatSpec with Matchers with MockitoSugar {
 
     /** The current source. */
     var currentSource: RadioSource = _
-
-    /**
-      * Verifies that the expected parameters were passed to this action.
-      *
-      * @param expPreviousState the expected previous error state
-      * @param expErrorSource   the expected error source
-      * @param expCurrentSource the expected current source
-      */
-    def verify(expPreviousState: ErrorHandlingStrategy.State,
-               expErrorSource: RadioSource, expCurrentSource: RadioSource): Unit = {
-      previousState should be(expPreviousState)
-      errorSource should be(expErrorSource)
-      currentSource should be(expCurrentSource)
-    }
 
     override def answer(invocation: InvocationOnMock): (PlayerAction, State) = {
       config = invocation.getArguments.head.asInstanceOf[ErrorHandlingStrategy.Config]

@@ -19,14 +19,16 @@ package de.oliver_heger.linedj.player.engine.impl
 import java.nio.charset.StandardCharsets
 
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.io.Source
 
 /**
   * Test class for ''StreamReference''.
   */
-class StreamReferenceSpec extends FlatSpec with BeforeAndAfter with Matchers with FileTestHelper {
+class StreamReferenceSpec extends AnyFlatSpec with BeforeAndAfter with Matchers with FileTestHelper {
   after {
     tearDownTestFile()
   }

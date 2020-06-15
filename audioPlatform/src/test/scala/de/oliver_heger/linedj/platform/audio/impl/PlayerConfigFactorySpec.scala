@@ -21,8 +21,9 @@ import java.nio.file.Paths
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
@@ -93,7 +94,7 @@ object PlayerConfigFactorySpec {
 /**
   * Test class for ''PlayerConfigFactory''.
   */
-class PlayerConfigFactorySpec extends FlatSpec with Matchers with MockitoSugar {
+class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import PlayerConfigFactorySpec._
 

@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.shared.ser
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.DownloadDataResult
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''DownloadDataResultSerializer''.
   */
-class DownloadDataResultSerializerSpec extends FlatSpec with Matchers {
+class DownloadDataResultSerializerSpec extends AnyFlatSpec with Matchers {
   "DownloadDataResultSerializer" should "report a valid identifier" in {
     val serializer = new DownloadDataResultSerializer
 

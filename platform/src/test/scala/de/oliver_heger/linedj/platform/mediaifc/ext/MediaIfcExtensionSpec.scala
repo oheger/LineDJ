@@ -24,8 +24,9 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object MediaIfcExtensionSpec {
   /** A message that is handled in a special way. */
@@ -71,7 +72,7 @@ object MediaIfcExtensionSpec {
   * Test class for ''MediaIfcExtension''. This class also tests functionality
   * from the base trait.
   */
-class MediaIfcExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
+class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MediaIfcExtensionSpec._
 

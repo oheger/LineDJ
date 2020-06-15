@@ -26,8 +26,9 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object CurrentSongControllerSpec {
   /** Title of the test song. */
@@ -102,7 +103,7 @@ object CurrentSongControllerSpec {
 /**
   * Test class for ''CurrentSongController''.
   */
-class CurrentSongControllerSpec extends FlatSpec with Matchers with MockitoSugar {
+class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import CurrentSongControllerSpec._
 

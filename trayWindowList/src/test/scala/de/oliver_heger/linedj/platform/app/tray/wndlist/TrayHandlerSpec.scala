@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.platform.app.tray.wndlist
 
 import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
-import javax.swing.ImageIcon
 
+import javax.swing.ImageIcon
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object TrayHandlerSpec {
   /** A test tool tip. */
@@ -43,7 +44,7 @@ object TrayHandlerSpec {
 /**
   * Test class for ''TrayHandler''.
   */
-class TrayHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import TrayHandlerSpec._
 

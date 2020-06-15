@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object SongDataSpec {
   /** Test song ID. */
@@ -38,7 +39,7 @@ object SongDataSpec {
 /**
   * Test class for ''SongData''.
   */
-class SongDataSpec extends FlatSpec with Matchers {
+class SongDataSpec extends AnyFlatSpec with Matchers {
 
   import SongDataSpec._
 

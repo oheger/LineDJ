@@ -27,8 +27,9 @@ import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.mockito.Matchers.{eq => argEq}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object OpenExportSettingsDlgCommandSpec {
   /** A test locator. */
@@ -52,7 +53,7 @@ object OpenExportSettingsDlgCommandSpec {
 /**
  * Test class for ''OpenExportSettingsDlgCommand''.
  */
-class OpenExportSettingsDlgCommandSpec extends FlatSpec with Matchers with MockitoSugar {
+class OpenExportSettingsDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import OpenExportSettingsDlgCommandSpec._
 

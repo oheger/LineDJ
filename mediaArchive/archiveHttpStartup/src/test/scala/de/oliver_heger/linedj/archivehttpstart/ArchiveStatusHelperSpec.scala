@@ -23,8 +23,9 @@ import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.resources.Message
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object ArchiveStatusHelperSpec {
   /** A test text to be displayed in the status line. */
@@ -49,7 +50,7 @@ object ArchiveStatusHelperSpec {
 /**
   * Test class for ''StatusLineHandler''.
   */
-class ArchiveStatusHelperSpec extends FlatSpec with Matchers with MockitoSugar {
+class ArchiveStatusHelperSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ArchiveStatusHelperSpec._
 

@@ -32,13 +32,14 @@ import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.service.component.ComponentContext
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''ClientApplication''.
   */
-class ClientApplicationSpec extends FlatSpec with Matchers with MockitoSugar with
+class ClientApplicationSpec extends AnyFlatSpec with Matchers with MockitoSugar with
 ApplicationTestSupport {
   /**
     * Creates a mock application context. The mock is also prepared to return

@@ -20,13 +20,14 @@ import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.commons.configuration.Configuration
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''EmbeddedMediaFacade''.
   */
-class EmbeddedMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
+class EmbeddedMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An EmbeddedMediaFacade" should "pass constructor arguments to the super class" in {
     val helper = new EmbeddedMediaFacadeTestHelper
     val facade = helper.createFacade()
@@ -49,13 +50,13 @@ class EmbeddedMediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     */
   private class EmbeddedMediaFacadeTestHelper {
     /** Reference to the relay actor. */
-    val relayActor = mock[ActorRef]
+    val relayActor: ActorRef = mock[ActorRef]
 
     /** The actor system. */
-    val actorSystem = mock[ActorSystem]
+    val actorSystem: ActorSystem = mock[ActorSystem]
 
     /** The message bus. */
-    val messageBus = mock[MessageBus]
+    val messageBus: MessageBus = mock[MessageBus]
 
     /**
       * Creates a new facade test instance.

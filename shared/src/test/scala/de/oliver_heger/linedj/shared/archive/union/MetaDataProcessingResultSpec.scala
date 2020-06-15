@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.shared.archive.union
 
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object MetaDataProcessingResultSpec {
   /** A test path. */
@@ -43,7 +44,7 @@ object MetaDataProcessingResultSpec {
   * Test class for ''MetaDataProcessingResult'' and
   * ''MetaDataProcessingError''.
   */
-class MetaDataProcessingResultSpec extends FlatSpec with Matchers {
+class MetaDataProcessingResultSpec extends AnyFlatSpec with Matchers {
 
   import MetaDataProcessingResultSpec._
 

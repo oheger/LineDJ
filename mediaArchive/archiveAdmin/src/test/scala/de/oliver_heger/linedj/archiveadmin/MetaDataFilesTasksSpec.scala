@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.archiveadmin
 
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for the action tasks related to meta data files.
   */
-class MetaDataFilesTasksSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataFilesTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A RefreshFilesTask" should "correctly invoke the controller" in {
     val controller = mock[MetaDataFilesController]
     val task = new RefreshFilesTask(controller)

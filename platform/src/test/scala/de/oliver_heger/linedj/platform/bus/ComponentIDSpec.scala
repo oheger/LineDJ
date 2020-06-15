@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.bus
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''ComponentID''.
   */
-class ComponentIDSpec extends FlatSpec with Matchers {
+class ComponentIDSpec extends AnyFlatSpec with Matchers {
   "A ComponentID" should "be equal to itself" in {
     val id = ComponentID()
 

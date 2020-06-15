@@ -4,7 +4,8 @@ import java.io.{ByteArrayOutputStream, OutputStreamWriter}
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object MediumInfoParserSpec {
   /** A test medium ID. */
@@ -58,7 +59,7 @@ object MediumInfoParserSpec {
 /**
  * Test class for ''MediumInfoParser''.
  */
-class MediumInfoParserSpec extends FlatSpec with Matchers {
+class MediumInfoParserSpec extends AnyFlatSpec with Matchers {
 
   import MediumInfoParserSpec._
 

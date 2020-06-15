@@ -16,15 +16,16 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.util.concurrent.{TimeUnit, CountDownLatch}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import net.sf.jguiraffe.gui.app.Application
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''ApplicationAsyncStartup'' and the base trait.
   */
-class ApplicationAsyncStartupSpec extends FlatSpec with Matchers {
+class ApplicationAsyncStartupSpec extends AnyFlatSpec with Matchers {
   /**
     * Waits until the given latch is triggered. Fails if this does not
     * happen within a timeout.

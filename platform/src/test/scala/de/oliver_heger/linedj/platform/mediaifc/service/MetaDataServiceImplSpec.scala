@@ -20,7 +20,8 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.mediaifc.ext.{AvailableMediaExtension, MetaDataCache}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.Success
 
@@ -82,7 +83,7 @@ object MetaDataServiceImplSpec {
 /**
   * Test class for ''MetaDataServiceImpl''.
   */
-class MetaDataServiceImplSpec extends FlatSpec with Matchers {
+class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
 
   import MetaDataServiceImplSpec._
 

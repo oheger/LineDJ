@@ -19,11 +19,10 @@ package de.oliver_heger.linedj.platform.app
 import java.util
 
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies
-import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService,
-ServiceDependency, UnregisterService}
+import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import org.mockito.Mockito._
 import org.osgi.framework.{BundleContext, ServiceRegistration}
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
 object ServiceDependenciesManagerSpec {
@@ -45,7 +44,7 @@ object ServiceDependenciesManagerSpec {
 /**
   * Test class for ''ServiceDependenciesManager''.
   */
-class ServiceDependenciesManagerSpec extends FlatSpec with MockitoSugar {
+class ServiceDependenciesManagerSpec extends AnyFlatSpec with MockitoSugar {
 
   import ServiceDependenciesManagerSpec._
 

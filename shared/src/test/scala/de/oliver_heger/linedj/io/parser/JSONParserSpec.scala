@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.io.parser
 
 import de.oliver_heger.linedj.io.parser.JSONParser.JSONData
 import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Success}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object JSONParserSpec {
   /** A test JSON text. */
@@ -66,7 +67,7 @@ object JSONParserSpec {
 /**
   * Test class for the JSON parser.
   */
-class JSONParserSpec extends FlatSpec with Matchers {
+class JSONParserSpec extends AnyFlatSpec with Matchers {
 
   import JSONParserSpec._
 

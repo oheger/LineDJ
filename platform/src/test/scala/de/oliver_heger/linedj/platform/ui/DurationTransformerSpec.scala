@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.platform.ui
 
 import net.sf.jguiraffe.transform.TransformerContext
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''DurationTransformer''.
  */
-class DurationTransformerSpec extends FlatSpec with Matchers with MockitoSugar {
+class DurationTransformerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
    * Checks the result of a transformation.
    * @param duration the duration to convert

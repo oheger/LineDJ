@@ -20,13 +20,14 @@ import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''RadioPlayerEventListener''.
   */
-class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSugar {
+class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A RadioPlayerEventListener" should "delegate radio source events" in {
     val source = RadioSource("testSource")
     val helper = new RadioPlayerEventListenerTestHelper
@@ -84,10 +85,10 @@ class RadioPlayerEventListenerSpec extends FlatSpec with Matchers with MockitoSu
 
   private class RadioPlayerEventListenerTestHelper {
     /** Mock for the radio player. */
-    val player = mock[RadioPlayer]
+    val player: RadioPlayer = mock[RadioPlayer]
 
     /** The mock for the radio controller. */
-    val controller = mock[RadioController]
+    val controller: RadioController = mock[RadioController]
 
     /** The listener to be tested. */
     val listener = new RadioPlayerEventListener(controller, player)

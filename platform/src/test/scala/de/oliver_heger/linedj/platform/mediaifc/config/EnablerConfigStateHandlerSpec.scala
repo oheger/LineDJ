@@ -19,13 +19,14 @@ package de.oliver_heger.linedj.platform.mediaifc.config
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.enablers.ElementEnabler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''EnablerConfigStateHandler''.
   */
-class EnablerConfigStateHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class EnablerConfigStateHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An EnablerConfigStateHandler" should "enable its ElementEnabler" in {
     val builderData = mock[ComponentBuilderData]
     val enabler = mock[ElementEnabler]

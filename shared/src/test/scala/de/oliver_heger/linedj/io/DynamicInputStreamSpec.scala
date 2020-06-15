@@ -5,7 +5,8 @@ import java.nio.charset.StandardCharsets
 import java.util
 
 import akka.util.ByteString
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -113,7 +114,7 @@ object DynamicInputStreamSpec {
 /**
   * Test class for ''DynamicInputStream''.
   */
-class DynamicInputStreamSpec extends FlatSpec with Matchers {
+class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
 
   import de.oliver_heger.linedj.io.DynamicInputStreamSpec._
 

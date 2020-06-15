@@ -20,7 +20,8 @@ import java.time._
 import java.time.temporal.ChronoField
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object IntervalQueriesSpec {
   /**
@@ -73,7 +74,7 @@ object IntervalQueriesSpec {
 /**
   * Test class for ''IntervalQueries''.
   */
-class IntervalQueriesSpec extends FlatSpec with Matchers {
+class IntervalQueriesSpec extends AnyFlatSpec with Matchers {
 
   import IntervalQueriesSpec._
 

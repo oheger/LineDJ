@@ -18,12 +18,13 @@ package de.oliver_heger.linedj.io
 
 import java.nio.file.Path
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''PathUtils''.
   */
-class PathUtilsSpec extends FlatSpec with Matchers {
+class PathUtilsSpec extends AnyFlatSpec with Matchers {
   "PathUtils" should "extract an extension from a file name" in {
     val File = "test.txt"
 

@@ -20,13 +20,14 @@ import java.util
 
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{Matchers, FlatSpec}
 
 /**
   * Test class for ''PlaylistRemoveItemsTask''.
   */
-class PlaylistRemoveItemsTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class PlaylistRemoveItemsTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a task for the tests.
     * @return the test task

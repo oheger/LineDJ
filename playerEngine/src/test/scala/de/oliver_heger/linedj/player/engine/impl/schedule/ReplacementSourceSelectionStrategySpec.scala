@@ -19,10 +19,10 @@ package de.oliver_heger.linedj.player.engine.impl.schedule
 import java.time.{LocalDateTime, Month}
 
 import de.oliver_heger.linedj.player.engine.RadioSource
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside,
-IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object ReplacementSourceSelectionStrategySpec {
   /**
@@ -38,7 +38,7 @@ object ReplacementSourceSelectionStrategySpec {
 /**
   * Test class for ''ReplacementSourceSelectionStrategy''.
   */
-class ReplacementSourceSelectionStrategySpec extends FlatSpec with Matchers {
+class ReplacementSourceSelectionStrategySpec extends AnyFlatSpec with Matchers {
 
   import ReplacementSourceSelectionStrategySpec._
 

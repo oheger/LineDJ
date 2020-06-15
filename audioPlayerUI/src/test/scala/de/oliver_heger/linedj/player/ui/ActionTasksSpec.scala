@@ -25,8 +25,9 @@ import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.reflect.ClassTag
 
@@ -34,7 +35,7 @@ import scala.reflect.ClassTag
   * Test class for the different action tasks of the audio player UI
   * application.
   */
-class ActionTasksSpec extends FlatSpec with Matchers with MockitoSugar {
+class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a mock ''UIController'' that is initialized with some default
     * behavior.

@@ -22,8 +22,9 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.StateListenerUnregistration
 import de.oliver_heger.linedj.shared.archive.metadata._
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object StateListenerExtensionSpec {
   /** A test meta data state event. */
@@ -34,7 +35,7 @@ object StateListenerExtensionSpec {
 /**
   * Test class for ''StateListenerExtension''.
   */
-class StateListenerExtensionSpec extends FlatSpec with Matchers with MockitoSugar {
+class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import StateListenerExtensionSpec._
 

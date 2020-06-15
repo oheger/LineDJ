@@ -22,8 +22,9 @@ import net.sf.jguiraffe.resources.Message
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 object StatusLineHandlerSpec {
   /** The icon for in progress. */
@@ -60,7 +61,7 @@ object StatusLineHandlerSpec {
 /**
   * Test class for ''StatusLineHandler''.
   */
-class StatusLineHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import StatusLineHandlerSpec._
 

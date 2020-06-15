@@ -2,12 +2,13 @@ package de.oliver_heger.linedj.extract.id3.model
 
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''ID3Tag''.
   */
-class ID3TagSpec extends FlatSpec with Matchers {
+class ID3TagSpec extends AnyFlatSpec with Matchers {
   "An ID3Tag" should "return an empty string if the tag has not content" in {
     val tag = ID3Tag("TAG", ByteString())
     tag.asString should be("")

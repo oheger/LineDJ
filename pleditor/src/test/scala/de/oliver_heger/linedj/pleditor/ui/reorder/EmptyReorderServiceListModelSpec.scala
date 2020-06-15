@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''EmptyReorderServiceListModel''.
   */
-class EmptyReorderServiceListModelSpec extends FlatSpec with Matchers {
+class EmptyReorderServiceListModelSpec extends AnyFlatSpec with Matchers {
   "An EmptyReorderServiceListModel" should "have the correct data type" in {
     val model = new EmptyReorderServiceListModel
 

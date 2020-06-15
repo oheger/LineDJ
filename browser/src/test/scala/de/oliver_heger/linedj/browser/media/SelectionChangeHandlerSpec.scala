@@ -21,13 +21,14 @@ import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, Tabl
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''SelectionChangeHandler''.
  */
-class SelectionChangeHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
    * Creates a change event for the specified component handler.
    * @param handler the component handler

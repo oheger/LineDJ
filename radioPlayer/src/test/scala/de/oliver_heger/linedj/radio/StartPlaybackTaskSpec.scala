@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.radio
 
 import org.mockito.Mockito._
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''StartPlaybackTask''.
   */
-class StartPlaybackTaskSpec extends FlatSpec with MockitoSugar {
+class StartPlaybackTaskSpec extends AnyFlatSpec with MockitoSugar {
   "A StartPlaybackTask" should "call the controller's startPlayback() method" in {
     val controller = mock[RadioController]
     val task = new StartPlaybackTask(controller)

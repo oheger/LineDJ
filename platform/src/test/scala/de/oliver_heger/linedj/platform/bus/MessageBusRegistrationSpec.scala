@@ -19,13 +19,14 @@ package de.oliver_heger.linedj.platform.bus
 import akka.actor.Actor
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''MessageBusRegistration''.
  */
-class MessageBusRegistrationSpec extends FlatSpec with Matchers with MockitoSugar {
+class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
    * Creates a mock for a message bus listener together with a mock for the
    * message handling function.
@@ -49,23 +50,23 @@ class MessageBusRegistrationSpec extends FlatSpec with Matchers with MockitoSuga
   }
 
   "A MessageBusRegistration" should "register all message bus listeners" in {
-    import collection.JavaConversions._
+    import collection.JavaConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
-    val registration = new MessageBusRegistration(listenerMap.keySet)
+    val registration = new MessageBusRegistration(listenerMap.keySet.asJava)
 
     registration setMessageBus bus
     listenerMap.values foreach verify(bus).registerListener
   }
 
   it should "remove registrations in a shutdown method" in {
-    import collection.JavaConversions._
+    import collection.JavaConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
     listenerMap.values.zipWithIndex.foreach { t =>
       when(bus.registerListener(t._1)).thenReturn(t._2)
     }
-    val registration = new MessageBusRegistration(listenerMap.keySet)
+    val registration = new MessageBusRegistration(listenerMap.keySet.asJava)
     registration setMessageBus bus
 
     registration.removeRegistrations()

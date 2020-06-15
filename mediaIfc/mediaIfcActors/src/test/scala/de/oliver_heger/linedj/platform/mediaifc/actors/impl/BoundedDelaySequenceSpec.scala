@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''BoundedDelaySequence''.
  */
-class BoundedDelaySequenceSpec extends FlatSpec with Matchers {
+class BoundedDelaySequenceSpec extends AnyFlatSpec with Matchers {
   "A BoundedDelaySequence" should "return the current sequence value" in {
     val seq = new BoundedDelaySequence(100, 1, 0)
     seq.nextDelay._1 should be(0)

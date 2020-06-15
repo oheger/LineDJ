@@ -26,8 +26,9 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -37,7 +38,7 @@ import scala.util.Failure
 /**
   * Test class for ''MediaFacade''.
   */
-class MediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
+class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A MediaFacade" should "register a meta data listener" in {
     val facade = new MediaFacadeImpl
     val MediumId = MediumID("A medium", None)
@@ -94,7 +95,7 @@ class MediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     val actMetaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
     facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
-    implicit val timeout = facade.expTimeout
+    implicit val timeout: Timeout = facade.expTimeout
 
     val futActors = facade.requestFacadeActors()
     val actors = Await.result(futActors, facade.expTimeout.duration)
@@ -119,7 +120,7 @@ class MediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     val actMediaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
     facade.responseMetaDataManager = Future.failed(new Exception("test exception"))
-    implicit val timeout = facade.expTimeout
+    implicit val timeout: Timeout = facade.expTimeout
 
     val futActors = facade.requestFacadeActors()
     expectFailedFuture(facade, futActors)
@@ -130,7 +131,7 @@ class MediaFacadeSpec extends FlatSpec with Matchers with MockitoSugar {
     val actMetaManager = mock[ActorRef]
     facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
     facade.responseMediaManager = Future.successful(None)
-    implicit val timeout = facade.expTimeout
+    implicit val timeout: Timeout = facade.expTimeout
 
     val futActors = facade.requestFacadeActors()
     expectFailedFuture(facade, futActors)

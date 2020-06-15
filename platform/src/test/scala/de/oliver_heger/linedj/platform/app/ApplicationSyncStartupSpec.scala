@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.platform.app
 import java.util.concurrent.atomic.AtomicInteger
 
 import net.sf.jguiraffe.gui.app.Application
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object ApplicationSyncStartupSpec {
   /** Constant for an application name. */
@@ -32,7 +33,7 @@ object ApplicationSyncStartupSpec {
 /**
   * Test class for ''ApplicationSyncStartup''.
   */
-class ApplicationSyncStartupSpec extends FlatSpec with Matchers {
+class ApplicationSyncStartupSpec extends AnyFlatSpec with Matchers {
   import ApplicationSyncStartupSpec._
 
   /**

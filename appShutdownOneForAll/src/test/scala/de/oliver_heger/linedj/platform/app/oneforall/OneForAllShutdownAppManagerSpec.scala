@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.platform.app.oneforall
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.osgi.service.component.ComponentContext
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''OneForAllShutdownAppManager''.
   */
-class OneForAllShutdownAppManagerSpec extends FlatSpec with Matchers {
+class OneForAllShutdownAppManagerSpec extends AnyFlatSpec with Matchers {
   "A OneForAllShutdownManager" should "trigger shutdown on application shutdown" in {
     val manager = new OneForAllShutdownAppManagerTestImpl
 

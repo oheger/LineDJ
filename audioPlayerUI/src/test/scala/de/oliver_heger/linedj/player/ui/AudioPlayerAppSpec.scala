@@ -21,7 +21,8 @@ import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.apache.commons.configuration.Configuration
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object AudioPlayerAppSpec {
   /** Test value for the rotation speed configuration property. */
@@ -31,7 +32,7 @@ object AudioPlayerAppSpec {
 /**
   * Test class for ''AudioPlayerApp''.
   */
-class AudioPlayerAppSpec extends FlatSpec with Matchers with ApplicationTestSupport {
+class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestSupport {
   import AudioPlayerAppSpec._
 
   /**

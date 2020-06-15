@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.nio.file.Paths
 
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for the different implementations of archive realms.
   */
-class RealmsSpec extends FlatSpec with Matchers {
+class RealmsSpec extends AnyFlatSpec with Matchers {
   "BasicAuthRealm" should "return the correct user ID flag" in {
     val realm = BasicAuthRealm("foo")
 

@@ -27,7 +27,8 @@ import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataCh
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.mutable.ListBuffer
@@ -173,7 +174,7 @@ object MetaDataCacheSpec {
 /**
  * Test class for ''MetaDataCache''.
  */
-class MetaDataCacheSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MetaDataCacheSpec._
 

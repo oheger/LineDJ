@@ -21,13 +21,14 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import net.sf.jguiraffe.gui.builder.action.FormAction
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
   * Test class for ''MetaDataScanTask''.
   */
-class MetaDataScanTaskSpec extends FlatSpec with Matchers with MockitoSugar {
+class MetaDataScanTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A MetaDataScanTask" should "correctly implement the action task" in {
     val facade = mock[MediaFacade]
     val action = mock[FormAction]

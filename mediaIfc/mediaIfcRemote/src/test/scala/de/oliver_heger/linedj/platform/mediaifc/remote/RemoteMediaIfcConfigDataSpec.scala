@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.platform.mediaifc.remote
 
 import net.sf.jguiraffe.locators.ClassPathLocator
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''RemoteMediaIfcConfigData''.
   */
-class RemoteMediaIfcConfigDataSpec extends FlatSpec with Matchers {
+class RemoteMediaIfcConfigDataSpec extends AnyFlatSpec with Matchers {
   "A RemoteMediaIfcConfigData" should "return the correct class loader" in {
     val data = new RemoteMediaIfcConfigData
 

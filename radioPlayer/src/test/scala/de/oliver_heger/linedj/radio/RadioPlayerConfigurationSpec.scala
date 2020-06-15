@@ -17,7 +17,9 @@
 package de.oliver_heger.linedj.radio
 
 import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
 import scala.concurrent.duration._
 
 object RadioPlayerConfigurationSpec {
@@ -61,7 +63,7 @@ object RadioPlayerConfigurationSpec {
   * and some settings are queried using the official player configuration
   * classes.
   */
-class RadioPlayerConfigurationSpec extends FlatSpec with Matchers {
+class RadioPlayerConfigurationSpec extends AnyFlatSpec with Matchers {
 
   import RadioPlayerConfigurationSpec._
 

@@ -21,7 +21,8 @@ import java.time.{LocalDateTime, Month}
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 object RadioSourceConfigSpec {
   /** Prefix for a radio source name. */
@@ -117,7 +118,7 @@ object RadioSourceConfigSpec {
 /**
   * Test class for ''RadioSourceConfig''.
   */
-class RadioSourceConfigSpec extends FlatSpec with Matchers {
+class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
 
   import RadioSourceConfigSpec._
 

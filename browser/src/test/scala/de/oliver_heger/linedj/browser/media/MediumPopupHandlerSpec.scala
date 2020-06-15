@@ -19,16 +19,16 @@ package de.oliver_heger.linedj.browser.media
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction, PopupMenuBuilder}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
-import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
 
 /**
  * Test class for ''MediumPopupHandler''.
  */
-class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
+class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "A MediumPopupHandler" should "add actions for appending medium, artist, and album" in {
     val helper = new MediumPopupHandlerTestHelper
 
@@ -56,19 +56,19 @@ class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
    */
   private class MediumPopupHandlerTestHelper {
     /** The action for adding selected albums. */
-    val actAddAlbums = action()
+    val actAddAlbums: FormAction = action()
 
     /** The action for adding selected artists. */
-    val actAddArtists = action()
+    val actAddArtists: FormAction = action()
 
     /** The action for adding the current medium. */
-    val actAddMedium = action()
+    val actAddMedium: FormAction = action()
 
     /** The action for adding the selected songs. */
-    val actAddSongs = action()
+    val actAddSongs: FormAction = action()
 
     /** A mock for the action store. */
-    val actionStore = createActionStore()
+    val actionStore: ActionStore = createActionStore()
 
     /** A mock for the popup menu builder. */
     private val popupBuilder = createPopupBuilder()
@@ -160,15 +160,6 @@ class MediumPopupHandlerSpec extends FlatSpec with Matchers with MockitoSugar {
       builder
     }
 
-    /**
-     * Creates a mock for the table handler.
-     * @return the table handler mock
-     */
-    private def createTableHandler(): TableHandler = {
-      val handler = mock[TableHandler]
-      when(handler.getSelectedIndices).thenReturn(Array.empty[Int])
-      handler
-    }
   }
 
 }

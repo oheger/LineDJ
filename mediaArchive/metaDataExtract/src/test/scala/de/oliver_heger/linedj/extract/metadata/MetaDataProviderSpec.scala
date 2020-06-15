@@ -15,12 +15,13 @@
  */
 package de.oliver_heger.linedj.extract.metadata
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''ID3TagProvider''.
  */
-class MetaDataProviderSpec extends FlatSpec with Matchers {
+class MetaDataProviderSpec extends AnyFlatSpec with Matchers {
   "An ID3TagProvider" should "parse a numeric inception year" in {
     val provider = new MetaDataProviderTestImpl(inceptionYearString = Some("1984"))
     provider.inceptionYear.get should be(1984)
@@ -68,9 +69,9 @@ class MetaDataProviderSpec extends FlatSpec with Matchers {
   private class MetaDataProviderTestImpl(val inceptionYearString: Option[String] = None,
                                          val trackNoString: Option[String] = None) extends
   MetaDataProvider {
-    val title = None
-    val artist = None
-    val album = None
+    val title: Option[String] = None
+    val artist: Option[String] = None
+    val album: Option[String] = None
   }
 
 }
