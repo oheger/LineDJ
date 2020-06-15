@@ -27,7 +27,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -70,7 +72,7 @@ object MediaFileDownloadActorSpec {
   * Test class for ''MediaFileDownloadActor''.
   */
 class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
 
   import MediaFileDownloadActorSpec._
 
@@ -95,8 +97,8 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
                                   srcTransform: Source[ByteString, Any] => Source[ByteString, Any]
                                   = identity): ActorRef = {
     val props = Props(new MediaFileDownloadActor(path, ChunkSize, transform) {
-      override protected def createSource(): Source[ByteString, Any] =
-        srcTransform(super.createSource())
+      override protected def createUntransformedSource(): Source[ByteString, Any] =
+        srcTransform(super.createUntransformedSource())
     })
     val strategy = OneForOneStrategy() {
       case _ => Stop

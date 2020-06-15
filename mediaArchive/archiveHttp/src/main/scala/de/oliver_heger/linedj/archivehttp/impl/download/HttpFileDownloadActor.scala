@@ -71,6 +71,6 @@ class HttpFileDownloadActor(response: HttpResponse, path: Path, trans: DownloadT
     * @inheritdoc This implementation returns the source of the HTTP response's
     *             entity.
     */
-  override protected def createSource(): Source[ByteString, Any] =
+  override protected def createUntransformedSource(): Source[ByteString, Any] =
     response.entity.dataBytes
 }

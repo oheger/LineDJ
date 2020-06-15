@@ -112,8 +112,8 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     *
     * @return the source for the stream
     */
-  protected def createSource(): Source[ByteString, Any] =
-    applyTransformation(FileIO.fromPath(path, chunkSize))
+  protected final def createSource(): Source[ByteString, Any] =
+    applyTransformation(createUntransformedSource())
 
   override protected def customReceive: Receive = {
     case DownloadData(size) =>
@@ -132,6 +132,15 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   override protected val endOfStreamMessage: Any = DownloadComplete
 
   override protected val concurrentRequestMessage: Any = DownloadDataResult(ByteString.empty)
+
+  /**
+    * Creates the source which is the basis for the stream run by this actor.
+    * This method is called during actor creation. On the ''Source'' returned
+    * by it, the transformation function is applied.
+    *
+    * @return the base source for this actor's stream
+    */
+  protected def createUntransformedSource(): Source[ByteString, Any] = FileIO.fromPath(path, chunkSize)
 
   /**
     * Applies the transformation function to the specified source. If a

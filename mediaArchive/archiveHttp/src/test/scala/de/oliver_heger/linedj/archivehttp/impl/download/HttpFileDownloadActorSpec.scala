@@ -23,9 +23,10 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData,
-DownloadDataResult}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object HttpFileDownloadActorSpec {
   /** Test data to be sent during a simulated download operation. */
@@ -87,7 +88,7 @@ object HttpFileDownloadActorSpec {
   * Test class for ''HttpFileDownloadActor''.
   */
 class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("HttpFileDownloadActorSpec"))
 
   import HttpFileDownloadActorSpec._
