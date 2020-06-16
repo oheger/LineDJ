@@ -29,7 +29,9 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -138,8 +140,7 @@ object MetaDataResponseProcessingActorSpec {
   * Test class for ''MetaDataResponseProcessingActor''.
   */
 class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers
-  with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import MetaDataResponseProcessingActorSpec._
 

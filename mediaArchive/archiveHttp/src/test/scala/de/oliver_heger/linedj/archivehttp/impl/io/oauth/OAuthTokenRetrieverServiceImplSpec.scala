@@ -29,7 +29,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -183,7 +185,7 @@ object OAuthTokenRetrieverServiceImplSpec {
 /**
   * Test class for ''OAuthTokenRetrieverServiceImpl''.
   */
-class OAuthTokenRetrieverServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class OAuthTokenRetrieverServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with AsyncTestHelper {
   def this() = this(ActorSystem("OAuthTokenRetrieverServiceSpec"))
 

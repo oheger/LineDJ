@@ -26,7 +26,9 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object MediaUnionActorSpec {
   /** Prefix string for archive component IDs. */
@@ -89,7 +91,7 @@ object MediaUnionActorSpec {
   * Test class for ''MediaUnionActor''.
   */
 class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
 
   import MediaUnionActorSpec._
 

@@ -23,7 +23,9 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -31,7 +33,7 @@ import scala.concurrent.duration._
   * Test class for ''WebDavProtocol''. This class also tests some functionality
   * from the base trait for protocols.
   */
-class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class WebDavProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with AsyncTestHelper {
   def this() = this(ActorSystem("WebDavProtocolSpec"))
 

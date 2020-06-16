@@ -23,13 +23,15 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 /**
  * Test class for ''RemoveFileActor''.
  */
 class RemoveFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with
 FileTestHelper {
   def this() = this(ActorSystem("RemoveFileActorSpec"))
 

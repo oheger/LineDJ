@@ -22,7 +22,9 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -62,7 +64,7 @@ object LocalBufferActorSpec {
   * Test class for ''LocalBufferActor''.
   */
 class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with ImplicitSender with BeforeAndAfterAll with BeforeAndAfterEach with Matchers
+  with AnyFlatSpecLike with ImplicitSender with BeforeAndAfterAll with BeforeAndAfterEach with Matchers
   with MockitoSugar with FileTestHelper {
 
   import FileTestHelper._

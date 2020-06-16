@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttp.impl
 import java.io.IOException
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location}
 import akka.stream.DelayOverflowStrategy
@@ -35,10 +34,12 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo, UriHel
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -203,7 +204,7 @@ object HttpArchiveContentProcessorActorSpec {
   * Test class for ''HttpArchiveContentProcessorActor''.
   */
 class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import HttpArchiveContentProcessorActorSpec._
 

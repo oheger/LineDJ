@@ -23,13 +23,15 @@ import de.oliver_heger.linedj.archive.media.MediaManagerActor
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''ArchiveActorFactory''.
   */
-class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ArchiveActorFactorySpec"))
 

@@ -29,10 +29,11 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.osgi.service.component.ComponentContext
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -49,7 +50,7 @@ object ActorClientSupportSpec {
   private val TimeoutDuration = 10.seconds
 
   /** Default timeout to be applied. */
-  implicit private val TimeoutValue = Timeout(TimeoutDuration)
+  implicit private val TimeoutValue: Timeout = Timeout(TimeoutDuration)
 
   /** The message bus registration ID. */
   private val RegistrationID = 20170222
@@ -68,8 +69,8 @@ object ActorClientSupportSpec {
 /**
   * Test class for ''ActorClientSupport''.
   */
-class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ActorClientSupportSpec._
 
@@ -292,11 +293,9 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val bus = mock[MessageBus]
       when(context.messageBus).thenReturn(bus)
       when(bus.registerListener(any(classOf[Actor.Receive]))).thenReturn(RegistrationID)
-      doAnswer(new Answer[AnyRef] {
-        override def answer(invocation: InvocationOnMock): AnyRef = {
-          messageQueue.put(invocation.getArguments.head)
-          null
-        }
+      doAnswer((invocation: InvocationOnMock) => {
+        messageQueue.put(invocation.getArguments.head)
+        null
       }).when(bus).publish(any())
       context
     }

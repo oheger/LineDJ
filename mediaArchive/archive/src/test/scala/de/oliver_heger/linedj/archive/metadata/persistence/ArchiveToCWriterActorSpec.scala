@@ -28,7 +28,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -85,8 +87,7 @@ object ArchiveToCWriterActorSpec {
   * Test class for ''ArchiveToCWriterActor''.
   */
 class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("ArchiveToCWriterActorSpec"))
 
   import ArchiveToCWriterActorSpec._

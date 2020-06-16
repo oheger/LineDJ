@@ -29,7 +29,9 @@ import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.ExecutionContextExecutor
@@ -51,7 +53,7 @@ object OAuthConfigureFuncSpec {
   * Test class for the standard authentication configure function provided by
   * [[HttpArchiveManagementActor]] that supports OAuth 2 authentication.
   */
-class OAuthConfigureFuncSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class OAuthConfigureFuncSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with MockitoSugar with FileTestHelper
   with AsyncTestHelper {
   def this() = this(ActorSystem("OAuthConfigureFuncSpec"))

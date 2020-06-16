@@ -26,7 +26,9 @@ import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -39,8 +41,8 @@ object RadioPlayerSpec {
 /**
   * Test class for ''RadioPlayer''.
   */
-class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with
-  BeforeAndAfterAll with Matchers {
+class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
 
   import RadioPlayerSpec._
 
@@ -83,7 +85,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.player.startPlayback(Delay)
     helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
       Delay)
-    helper.probeSourceActor.expectNoMsg(150.millis)
+    helper.probeSourceActor.expectNoMessage(150.millis)
   }
 
   it should "provide access to its current config" in {
@@ -149,28 +151,28 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     */
   private class RadioPlayerTestHelper {
     /** Test probe for the playback actor. */
-    val probePlaybackActor = TestProbe()
+    val probePlaybackActor: TestProbe = TestProbe()
 
     /** Test probe for the radio data source actor. */
-    val probeSourceActor = TestProbe()
+    val probeSourceActor: TestProbe = TestProbe()
 
     /** Test probe for the line writer actor. */
-    val probeLineWriterActor = TestProbe()
+    val probeLineWriterActor: TestProbe = TestProbe()
 
     /** Test probe for the scheduler actor. */
-    val probeSchedulerActor = TestProbe()
+    val probeSchedulerActor: TestProbe = TestProbe()
 
     /** Test probe for the event manager actor. */
-    val probeEventActor = TestProbe()
+    val probeEventActor: TestProbe = TestProbe()
 
     /** Test probe for the delay actor. */
-    val probeDelayActor = TestProbe()
+    val probeDelayActor: TestProbe = TestProbe()
 
     /** The test player configuration. */
-    val config = createPlayerConfig()
+    val config: PlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
-    val player = RadioPlayer(config)
+    val player: RadioPlayer = RadioPlayer(config)
 
     /**
       * Expect a delayed invocation via the delay actor.

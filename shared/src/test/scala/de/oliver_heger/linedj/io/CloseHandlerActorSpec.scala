@@ -18,13 +18,15 @@ package de.oliver_heger.linedj.io
 
 import akka.actor.{ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''CloseHandlerActor''.
   */
 class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("CloseHandlerActorSpec"))
 
   override protected def afterAll(): Unit = {

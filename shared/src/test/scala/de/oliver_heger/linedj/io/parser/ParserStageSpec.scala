@@ -25,7 +25,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserStage.ChunkSequenceParser
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.immutable.Seq
@@ -35,8 +37,8 @@ import scala.concurrent.duration._
 /**
   * Test class for ''ParserStage''.
   */
-class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with
-  BeforeAndAfterAll with Matchers with MockitoSugar {
+class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ParserStageSpec"))
 
   override protected def afterAll(): Unit = {

@@ -36,7 +36,9 @@ import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -47,7 +49,7 @@ import scala.util.Random
   * Test class for ''RadioPlayerApplication''.
   */
 class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
   with ApplicationTestSupport {
   def this() = this(ActorSystem("RadioPlayerApplicationSpec"))
 

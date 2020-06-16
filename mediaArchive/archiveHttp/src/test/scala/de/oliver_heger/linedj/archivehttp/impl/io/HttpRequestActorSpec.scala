@@ -32,7 +32,9 @@ import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -86,7 +88,7 @@ object HttpRequestActorSpec {
 /**
   * Test class for ''HttpRequestActor''.
   */
-class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("HttpRequestActorSpec"))
 

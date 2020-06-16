@@ -23,7 +23,9 @@ import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.ResponseData
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -31,7 +33,7 @@ import scala.concurrent.Future
 /**
   * Test class for ''HttpRequests''.
   */
-class HttpRequestsSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfterAll
+class HttpRequestsSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike with BeforeAndAfterAll
   with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("HttpRequestsSpec"))
 

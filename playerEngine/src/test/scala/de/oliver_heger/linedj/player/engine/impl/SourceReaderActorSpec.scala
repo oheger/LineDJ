@@ -23,7 +23,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{GetAudioData, GetAudioSource}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 
@@ -46,7 +48,7 @@ object SourceReaderActorSpec {
   * Test class for ''SourceReaderActor''.
   */
 class SourceReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
+  with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
 
   import SourceReaderActorSpec._
 

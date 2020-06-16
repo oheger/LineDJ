@@ -33,7 +33,9 @@ import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.Write
 import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec._
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -158,7 +160,7 @@ object PlaylistWriteStateUpdateServiceSpec {
   * Test class for ''PlaylistWriteStateUpdateService''.
   */
 class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
   def this() = this(ActorSystem("PlaylistWriteStateUpdateServiceSpec"))
 
   override protected def afterAll(): Unit = {

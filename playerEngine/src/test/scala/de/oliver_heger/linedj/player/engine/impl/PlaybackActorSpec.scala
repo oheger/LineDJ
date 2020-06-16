@@ -16,7 +16,9 @@ import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, 
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -87,7 +89,7 @@ object PlaybackActorSpec {
   * Test class for ''PlaybackActor''.
   */
 class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
   with EventTestSupport {
 
   import PlaybackActorSpec._

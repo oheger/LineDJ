@@ -29,7 +29,9 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import scalaz.Failure
 
@@ -39,7 +41,8 @@ import scala.concurrent.duration._
 /**
   * Test class for the command classes to open the validation dialog.
   */
-class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("OpenValidationWindowCommandSpec"))
 
   override protected def afterAll(): Unit = {

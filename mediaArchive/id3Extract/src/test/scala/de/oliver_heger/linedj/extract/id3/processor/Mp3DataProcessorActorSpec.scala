@@ -20,8 +20,10 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model._
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.util.Random
 
@@ -45,8 +47,8 @@ object Mp3DataProcessorActorSpec {
 /**
   * Test class for ''Mp3DataProcessorActor''.
   */
-class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
 
   import Mp3DataProcessorActorSpec._
 

@@ -24,8 +24,10 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ReorderManagerActorSpec {
   /** A name for a reorder service. */
@@ -36,7 +38,7 @@ object ReorderManagerActorSpec {
   * Test class for ''ReorderManagerActor''.
   */
 class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ReorderManagerActorSpec._
 
@@ -183,13 +185,13 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   class ReorderManagerActorTestHelper {
     /** The mock message bus. */
-    val messageBus = mock[MessageBus]
+    val messageBus: MessageBus = mock[MessageBus]
 
     /** A map with managed services and the corresponding child actors. */
     val managedServices = collection.mutable.Map.empty[PlaylistReorderer, TestProbe]
 
     /** Test reference to the test actor. */
-    val actor = TestActorRef[ReorderManagerActor](createProps(messageBus))
+    val actor: TestActorRef[ReorderManagerActor] = TestActorRef[ReorderManagerActor](createProps(messageBus))
 
     /**
       * Sends the specified message (synchronously) to the test actor.

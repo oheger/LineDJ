@@ -27,7 +27,9 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInf
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -107,7 +109,7 @@ object SourceDownloadActorSpec {
  * Test class for ''SourceDownloadActor''.
  */
 class SourceDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
+ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
   import SourceDownloadActorSpec._
 
   def this() = this(ActorSystem("SourceDownloadActorSpec"))

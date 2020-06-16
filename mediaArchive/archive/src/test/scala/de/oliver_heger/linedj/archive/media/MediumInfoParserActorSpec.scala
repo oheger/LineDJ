@@ -31,8 +31,10 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, anyString, eq => argEq}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -56,8 +58,8 @@ object MediumInfoParserActorSpec {
 /**
   * Test class for ''MediumInfoParserActor''.
   */
-class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
+class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
   with FileTestHelper {
 
   import MediumInfoParserActorSpec._

@@ -31,7 +31,9 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -65,7 +67,7 @@ object Mp3MetaDataExtractorActorSpec {
   * Test class for ''Mp3MetaDataExtractorActor''.
   */
 class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
 
   import Mp3MetaDataExtractorActorSpec._
 
@@ -200,7 +202,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
         false
     }
     helper.postMessage(CloseRequest)
-    expectNoMsg(1.second)
+    expectNoMessage(1.second)
     chunkCount.get() should be < 3
   }
 
@@ -229,7 +231,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
 
     helper.fishForStreamingMessage("testMP3id3v1.mp3")(basicFishingFunc)
     helper.stopProcessingActors()
-    expectNoMsg(1.second)
+    expectNoMessage(1.second)
   }
 
   /**

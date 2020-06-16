@@ -24,8 +24,10 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
@@ -109,7 +111,7 @@ object ScanSinkActorSpec {
   * Test class for ''ScanSinkActor''.
   */
 class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ScanSinkActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -283,7 +285,7 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   private class SinkActorTestHelper
     extends StateTestHelper[ScanSinkState, ScanSinkUpdateService] {
     /** Mock for the scan sink update service. */
-    override val updateService = mock[ScanSinkUpdateService]
+    override val updateService: ScanSinkUpdateService = mock[ScanSinkUpdateService]
 
     /** Test probe for the media manager actor. */
     private val probeManager = TestProbe()

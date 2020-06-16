@@ -30,9 +30,10 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object MetaDataExtractorWrapperActorSpec {
   /** File extension for supported files. */
@@ -109,8 +110,8 @@ object MetaDataExtractorWrapperActorSpec {
 /**
   * Test class for ''MetaDataExtractorWrapperActor''.
   */
-class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import MetaDataExtractorWrapperActorSpec._
 
@@ -463,11 +464,9 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     private def expectExtractorRequest(factory: ExtractorActorFactory, extension: String,
                                        props: Option[Props]): ExtractorActorTestHelper = {
       when(factory.extractorProps(argEq(extension), any(classOf[ActorRef])))
-        .thenAnswer(new Answer[Option[Props]] {
-          override def answer(invocation: InvocationOnMock): Option[Props] = {
-            invocation.getArguments()(1) should be(testExtractor)
-            props
-          }
+        .thenAnswer((invocation: InvocationOnMock) => {
+          invocation.getArguments()(1) should be(testExtractor)
+          props
         })
       this
     }

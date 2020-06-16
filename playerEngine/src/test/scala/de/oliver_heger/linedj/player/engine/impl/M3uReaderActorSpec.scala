@@ -19,7 +19,9 @@ package de.oliver_heger.linedj.player.engine.impl
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object M3uReaderActorSpec {
   /** A test URI of an audio stream. */
@@ -33,7 +35,7 @@ object M3uReaderActorSpec {
   * Test class for ''M3uReaderActor''.
   */
 class M3uReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
 
   import M3uReaderActorSpec._
 

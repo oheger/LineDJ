@@ -19,8 +19,10 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ContentProcessingUpdateServiceSpec {
   /** Test value for the max in progress counter. */
@@ -61,7 +63,7 @@ object ContentProcessingUpdateServiceSpec {
   * Test class for ''ContentProcessingUpdateService''.
   */
 class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ContentProcessingUpdateServiceSpec"))
 
   override protected def afterAll(): Unit = {

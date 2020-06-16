@@ -30,9 +30,10 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
@@ -80,8 +81,8 @@ object TempFileActorManagerSpec {
 /**
   * Test class for ''TempFileActorManager''.
   */
-class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("TempFileActorManagerSpec"))
 
   override protected def afterAll(): Unit = {
@@ -432,15 +433,13 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     private def createChildActorFactory(): ChildActorFactory = {
       val factory = mock[ChildActorFactory]
-      when(factory.createChildActor(any())).thenAnswer(new Answer[ActorRef] {
-        override def answer(invocation: InvocationOnMock): ActorRef = {
-          val actorIdx = childActorCount.incrementAndGet()
-          val actor = system.actorOf(Props(classOf[SimulatedFileReaderActor], actorIdx))
-          val creationData = ActorCreationData(actorIdx, actor,
-            invocation.getArguments.head.asInstanceOf[Props])
-          childActors offer creationData
-          actor
-        }
+      when(factory.createChildActor(any())).thenAnswer((invocation: InvocationOnMock) => {
+        val actorIdx = childActorCount.incrementAndGet()
+        val actor = system.actorOf(Props(classOf[SimulatedFileReaderActor], actorIdx))
+        val creationData = ActorCreationData(actorIdx, actor,
+          invocation.getArguments.head.asInstanceOf[Props])
+        childActors offer creationData
+        actor
       })
       factory
     }

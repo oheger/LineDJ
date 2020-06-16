@@ -24,7 +24,9 @@ import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object HttpBasicAuthRequestActorSpec {
   /** An object with test user credentials. */
@@ -35,7 +37,7 @@ object HttpBasicAuthRequestActorSpec {
   * Test class for ''HttpBasicAuthRequestActor''.
   */
 class HttpBasicAuthRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("HttpBasicAuthRequestActorSpec"))
 
   override protected def afterAll(): Unit = {

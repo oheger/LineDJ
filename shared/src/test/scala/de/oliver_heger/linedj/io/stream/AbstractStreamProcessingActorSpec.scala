@@ -21,8 +21,10 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -30,8 +32,8 @@ import scala.concurrent.duration._
 /**
   * Test class for ''AbstractStreamProcessingActor''.
   */
-class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("AbstractStreamProcessingActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -70,7 +72,7 @@ class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit
     val actor = TestActorRef[StreamProcessingActorImpl](
       Props(new StreamProcessingActorImpl(source) {
         override protected def materializeStream(): (KillSwitch, Future[Int]) = {
-          val (ks, futRes) = super.materializeStream()
+          val (_, futRes) = super.materializeStream()
           (killSwitch, futRes)
         }
       }))

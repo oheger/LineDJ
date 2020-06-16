@@ -2,9 +2,10 @@ package de.oliver_heger.linedj.utils
 
 import akka.actor._
 import akka.testkit.{TestKit, TestProbe}
-import org.mockito.Matchers.{eq => argEq}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
@@ -17,7 +18,7 @@ import scala.concurrent.duration._
  * cannot exactly test whether the correct arguments are passed for the initial
  * delay or the interval.
  */
-class SchedulerSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class SchedulerSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
 with Matchers with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("SchedulerSupportSpec"))
 
@@ -50,7 +51,7 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
 
     receiver.expectMsg(message)
     receiver.expectMsg(message)
-    receiver.expectNoMsg(1.second)
+    receiver.expectNoMessage(1.second)
   }
 
   it should "support one-time schedules" in {
@@ -70,6 +71,6 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
     }))
 
     receiver.expectMsg(message)
-    receiver.expectNoMsg(1.second)
+    receiver.expectNoMessage(1.second)
   }
 }

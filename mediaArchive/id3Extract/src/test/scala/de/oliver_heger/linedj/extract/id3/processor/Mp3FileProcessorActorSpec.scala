@@ -30,7 +30,9 @@ import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, Met
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -95,7 +97,7 @@ object Mp3FileProcessorActorSpec {
   * Test class for ''Mp3FileProcessorActorSpec''.
   */
 class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import Mp3FileProcessorActorSpec._
 

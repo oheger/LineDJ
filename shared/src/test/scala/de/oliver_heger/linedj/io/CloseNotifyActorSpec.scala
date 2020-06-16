@@ -18,7 +18,9 @@ package de.oliver_heger.linedj.io
 
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -26,7 +28,7 @@ import scala.concurrent.duration._
   * Test class for ''CloseNotifyActor''.
   */
 class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("CloseNotifyActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -93,7 +95,7 @@ class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return this test helper
       */
     def expectNoCloseAck(): CloseNotifyActorTestHelper = {
-      probeTarget.expectNoMsg(500.millis)
+      probeTarget.expectNoMessage(500.millis)
       this
     }
 

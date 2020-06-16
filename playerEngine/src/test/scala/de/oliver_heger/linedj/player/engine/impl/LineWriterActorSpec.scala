@@ -27,13 +27,15 @@ import javax.sound.sampled.SourceDataLine
 import org.mockito.Matchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''LineWriterActor''.
   */
-class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
 
   def this() = this(ActorSystem("LineWriterActorSpec"))

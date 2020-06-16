@@ -26,8 +26,10 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanA
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
 
@@ -265,7 +267,7 @@ object MetaDataUnionActorSpec {
   * Test class for ''MetaDataUnionActor''.
   */
 class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import MetaDataUnionActorSpec._
 

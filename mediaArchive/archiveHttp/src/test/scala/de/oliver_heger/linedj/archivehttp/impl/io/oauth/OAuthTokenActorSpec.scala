@@ -26,7 +26,9 @@ import de.oliver_heger.linedj.archivehttp.impl.crypt.DepthHeader
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -174,7 +176,7 @@ object OAuthTokenActorSpec {
   * Test class for ''OAuthTokenActor''.
   */
 class OAuthTokenActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("OAuthTokenActorSpec"))
 
   override protected def afterAll(): Unit = {

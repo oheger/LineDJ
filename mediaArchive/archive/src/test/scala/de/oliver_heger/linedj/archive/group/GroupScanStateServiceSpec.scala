@@ -18,12 +18,14 @@ package de.oliver_heger.linedj.archive.group
 
 import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for ''GroupScanStateService''.
   */
-class GroupScanStateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class GroupScanStateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("GroupScanStateServiceSpec"))
 

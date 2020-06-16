@@ -32,7 +32,9 @@ import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendR
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
@@ -71,7 +73,7 @@ object CryptHttpRequestActorSpec {
   * Test class for ''CryptHttpRequestActor''.
   */
 class CryptHttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
   def this() = this(ActorSystem("CryptHttpRequestActorSpec"))
 
   override protected def afterAll(): Unit = {

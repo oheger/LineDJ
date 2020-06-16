@@ -38,8 +38,10 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
@@ -73,7 +75,7 @@ object PlaylistHandlerSpec {
 /**
   * Test class for ''PlaylistHandler''.
   */
-class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("PlaylistHandlerSpec"))
 
@@ -251,7 +253,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   private class HandlerTestHelper
     extends StateTestHelper[PersistentPlaylistState, PersistentPlaylistStateUpdateService] {
     /** Mock for the playlist state update service. */
-    override val updateService = mock[PersistentPlaylistStateUpdateService]
+    override val updateService: PersistentPlaylistStateUpdateService = mock[PersistentPlaylistStateUpdateService]
 
     /** The test message bus. */
     private val messageBus = new MessageBusTestImpl

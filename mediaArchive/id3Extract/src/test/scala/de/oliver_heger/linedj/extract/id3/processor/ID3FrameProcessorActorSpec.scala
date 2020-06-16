@@ -22,8 +22,10 @@ import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.mockito.Matchers.{any, anyBoolean}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.util.Random
 
@@ -51,7 +53,7 @@ object ID3FrameProcessorActorSpec {
   * Test class for ''ID3FrameProcessorActor''.
   */
 class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+  ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
 
   import ID3FrameProcessorActorSpec._
 

@@ -26,8 +26,10 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -40,8 +42,8 @@ object ReorderManagerComponentSpec {
 /**
   * Test class for ''ReorderManagerComponent''.
   */
-class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ReorderManagerComponentSpec._
 
@@ -137,10 +139,10 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
   class ReorderManagerComponentTestHelper(optManagerActor: Option[ActorRef] = None) extends
     ActorFactory(system) {
     /** The application context. */
-    val context = createClientApplicationContext()
+    val context: ClientApplicationContext = createClientApplicationContext()
 
     /** The probe representing the management actor. */
-    val reorderManagerActor = TestProbe()
+    val reorderManagerActor: TestProbe = TestProbe()
 
     /** Counts the invocations of the actor factory. */
     private val factoryCount = new AtomicInteger

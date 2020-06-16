@@ -31,8 +31,10 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
@@ -81,8 +83,8 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
 /**
   * Test class for ''PlaylistStateWriterActor''.
   */
-class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("PlaylistStateWriterActorSpec"))
 
   import PlaylistStateWriterActorSpec._
@@ -183,7 +185,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     */
   private class WriterActorTestHelper
     extends StateTestHelper[PlaylistWriteState, PlaylistWriteStateUpdateService] {
-    override val updateService = mock[PlaylistWriteStateUpdateService]
+    override val updateService: PlaylistWriteStateUpdateService = mock[PlaylistWriteStateUpdateService]
 
     /** Test probe for the file writer child actor. */
     private val probeFileWriter = TestProbe()

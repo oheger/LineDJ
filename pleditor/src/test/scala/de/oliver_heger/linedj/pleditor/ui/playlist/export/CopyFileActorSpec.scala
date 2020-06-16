@@ -27,7 +27,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object CopyFileActorSpec {
   /** A list with chunks returned by the test download actor. */
@@ -74,7 +76,7 @@ object CopyFileActorSpec {
   * Test class for ''CopyFileActor''.
   */
 class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with FileTestHelper {
 
   import CopyFileActorSpec._
 

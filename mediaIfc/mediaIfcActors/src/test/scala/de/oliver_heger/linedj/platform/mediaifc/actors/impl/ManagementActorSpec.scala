@@ -22,8 +22,10 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ManagementActorSpec {
   /** A test actor path prefix. */
@@ -40,7 +42,7 @@ object ManagementActorSpec {
   * Test class for ''RemoteManagementActor''.
   */
 class ManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ManagementActorSpec._
 
@@ -136,7 +138,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     private val actorCreationQueue = new ArrayBlockingQueue[ChildActorCreationData](32)
 
     /** The test actor. */
-    val managementActor = TestActorRef(createTestActorProps())
+    val managementActor: TestActorRef[Nothing] = TestActorRef(createTestActorProps())
 
     /**
       * Obtains data for a created child actor.

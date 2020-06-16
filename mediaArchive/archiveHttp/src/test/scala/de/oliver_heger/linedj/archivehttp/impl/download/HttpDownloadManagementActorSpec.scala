@@ -36,7 +36,9 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileReque
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -71,8 +73,8 @@ object HttpDownloadManagementActorSpec {
 /**
   * Test class for ''HttpDownloadManagementActor''.
   */
-class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("HttpDownloadManagementActorSpec"))
 
   import HttpDownloadManagementActorSpec._
@@ -288,13 +290,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       childCreationQueue shouldBe 'empty
       this
     }
-
-    /**
-      * Returns the number of flow instances created by the test actor.
-      *
-      * @return the number of flow instances created
-      */
-    def numberOfFlowsCreated: Int = flowCreationCount.get()
 
     /**
       * Expects that a download actor was registered at the monitoring actor.

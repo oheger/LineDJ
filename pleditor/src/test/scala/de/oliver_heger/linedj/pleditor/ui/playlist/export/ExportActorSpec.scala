@@ -34,9 +34,10 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.annotation.tailrec
 import scala.concurrent.Promise
@@ -192,7 +193,7 @@ object ExportActorSpec {
  * Test class for ''ExportActor''.
  */
 class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ExportActorSpec._
 
@@ -554,10 +555,10 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
    */
   private class ExportActorTestHelper {
     /** Test probe for the remove file actor. */
-    val removeFileActor = TestProbe()
+    val removeFileActor: TestProbe = TestProbe()
 
     /** Test probe for the copy file actor. */
-    val copyFileActor = TestProbe()
+    val copyFileActor: TestProbe = TestProbe()
 
     /** A queue for receiving messages produced by the test actor. */
     val messageQueue = new LinkedBlockingQueue[Any]
@@ -714,11 +715,9 @@ with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
       when(facade.bus).thenReturn(msgBus)
       when(facade.requestActor(MediaActors.MediaManager)(ExportActor.FetchActorTimeout))
         .thenReturn(promise.future)
-      doAnswer(new Answer[Object] {
-        override def answer(invocationOnMock: InvocationOnMock): Object = {
-          queue offer invocationOnMock.getArguments.head
-          null
-        }
+      doAnswer((invocationOnMock: InvocationOnMock) => {
+        queue offer invocationOnMock.getArguments.head
+        null
       }).when(msgBus).publish(org.mockito.Matchers.any())
       facade
     }

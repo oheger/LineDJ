@@ -23,7 +23,9 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult, ActorErrorResult}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
@@ -31,8 +33,8 @@ import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 /**
   * Test class for ''ActorSource''.
   */
-class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with
-  BeforeAndAfterAll with Matchers {
+class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("ActorSourceSpec"))
 
   override protected def afterAll(): Unit = {

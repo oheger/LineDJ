@@ -29,8 +29,10 @@ import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -43,8 +45,8 @@ object AudioPlayerSpec {
 /**
   * Test class for ''AudioPlayer''.
   */
-class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with
-  BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar {
+class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar {
 
   import AudioPlayerSpec._
 
@@ -160,13 +162,13 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     private val facadeActor = TestProbe()
 
     /** Test probe for the event actor. */
-    val eventActor = TestProbe()
+    val eventActor: TestProbe = TestProbe()
 
     /** The test player configuration. */
-    val config = createPlayerConfig()
+    val config: PlayerConfig = createPlayerConfig()
 
     /** The test player instance. */
-    val player = AudioPlayer(config)
+    val player: AudioPlayer = AudioPlayer(config)
 
     /**
       * Expects that the specified message has been sent to the facade actor.

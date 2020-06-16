@@ -25,7 +25,9 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -35,7 +37,7 @@ import scala.util.{Failure, Success}
 /**
   * Test class for ''OneDriveProtocol''.
   */
-class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class OneDriveProtocolSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper with FileTestHelper {
   def this() = this(ActorSystem("OneDriveProtocolSpec"))
 

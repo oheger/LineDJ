@@ -42,8 +42,10 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.verification.VerificationMode
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import scalaz.Kleisli
 import scalaz.Scalaz._
 
@@ -142,7 +144,8 @@ object ValidationControllerSpec {
 /**
   * Test class of ''ValidationController''.
   */
-class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike with Matchers
+  with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("ValidationControllerSpec"))
 
   override protected def afterAll(): Unit = {

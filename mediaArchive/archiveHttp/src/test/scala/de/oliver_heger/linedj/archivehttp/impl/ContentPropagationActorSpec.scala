@@ -21,8 +21,10 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ContentPropagationActorSpec {
   /** The URI of the test archive. */
@@ -35,8 +37,8 @@ object ContentPropagationActorSpec {
 /**
   * Test class for ''ContentPropagationActor''.
   */
-class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ContentPropagationActorSpec"))
 
   override protected def afterAll(): Unit = {

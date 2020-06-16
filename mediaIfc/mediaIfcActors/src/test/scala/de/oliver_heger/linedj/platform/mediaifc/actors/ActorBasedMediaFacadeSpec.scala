@@ -27,8 +27,10 @@ import de.oliver_heger.linedj.platform.mediaifc.actors.impl.{ManagementActor, Re
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -65,7 +67,7 @@ object ActorBasedMediaFacadeSpec {
  * Test class for ''ActorBasedMediaFacade''.
  */
 class ActorBasedMediaFacadeSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ActorBasedMediaFacadeSpec._
 
@@ -113,7 +115,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val remoteActor = TestProbe()
     val relay = system.actorOf(Props(classOf[DummyRelayActor], remoteActor.ref))
     val facade = createFacade(Some(relay))
-    implicit val timeout = Timeout(3.seconds)
+    implicit val timeout: Timeout = Timeout(3.seconds)
 
     val future = facade.requestActor(MediaActors.MediaManager)
     Await.result(future, 3.seconds) should be(Some(remoteActor.ref))
@@ -122,7 +124,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
   it should "take the timeout for an actor request into account" in {
     val relayActor = system.actorOf(Props(classOf[DummyRelayActor], TestProbe().ref))
     val facade = createFacade(Some(relayActor))
-    implicit val timeout = Timeout(100.millis)
+    implicit val timeout: Timeout = Timeout(100.millis)
 
     intercept[AskTimeoutException] {
       val future = facade.requestActor(MediaActors.MetaDataManager)

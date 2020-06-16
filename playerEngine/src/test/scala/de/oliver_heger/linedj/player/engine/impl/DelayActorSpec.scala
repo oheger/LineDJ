@@ -16,14 +16,16 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.utils.SchedulerSupport
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -37,7 +39,7 @@ object DelayActorSpec {
   * Test class for ''DelayActorSpec''.
   */
 class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with Matchers with BeforeAndAfterAll {
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
 
   import DelayActorSpec._
 
@@ -188,10 +190,10 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
     /** A probe that can serve as target. */
-    val targetProbe = TestProbe()
+    val targetProbe: TestProbe = TestProbe()
 
     /** The test actor. */
-    val actor = TestActorRef[DelayActor](createProps())
+    val actor: TestActorRef[DelayActor] = TestActorRef[DelayActor](createProps())
 
     /**
       * Sends the specified message directly to the test actor.
@@ -271,7 +273,7 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       */
     private def createProps(): Props =
     Props(new DelayActor with RecordingSchedulerSupport {
-      override val queue = schedulerQueue
+      override val queue: BlockingQueue[RecordingSchedulerSupport.SchedulerInvocation] = schedulerQueue
     })
   }
 

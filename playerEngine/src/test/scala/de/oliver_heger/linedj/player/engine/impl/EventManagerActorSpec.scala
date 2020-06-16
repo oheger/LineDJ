@@ -22,9 +22,10 @@ import akka.Done
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Sink
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent,
-AudioSourceStartedEvent, PlayerEvent}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlayerEvent}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
@@ -63,8 +64,8 @@ object EventManagerActorSpec {
 /**
   * Test class for ''EventManagerActor''.
   */
-class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("EventManagerActorSpec"))
 
   import EventManagerActorSpec._

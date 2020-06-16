@@ -28,8 +28,10 @@ import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.TargetPlaybac
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
@@ -127,7 +129,7 @@ object PlayerFacadeActorSpec {
   * Test class for ''PlayerFacadeActor''.
   */
 class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
   with MockitoSugar {
   def this() = this(ActorSystem("PlayerFacadeActorSpec"))
 
@@ -362,7 +364,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private val lineWriter = TestProbe()
 
     /** The configuration for the player. */
-    val config = createPlayerConfig()
+    val config: PlayerConfig = createPlayerConfig()
 
     /** A queue for monitoring actor creations. */
     private val actorCreationQueue = new LinkedBlockingQueue[ActorCreationData]

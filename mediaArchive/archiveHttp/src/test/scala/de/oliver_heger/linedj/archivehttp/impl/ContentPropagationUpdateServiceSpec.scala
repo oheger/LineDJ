@@ -22,7 +22,9 @@ import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object ContentPropagationUpdateServiceSpec {
   /** The name of the archive. */
@@ -227,7 +229,7 @@ object ContentPropagationUpdateServiceSpec {
   * Test class for ''ContentPropagationUpdateServiceImpl''.
   */
 class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("ContentPropagationUpdateServiceSpec"))
 
   override protected def afterAll(): Unit = {

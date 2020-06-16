@@ -27,9 +27,11 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.io.stream.ActorSource
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult}
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.concurrent.duration._
 
 /**
@@ -37,7 +39,7 @@ import scala.concurrent.duration._
   * performed using a stream. It checks the collaboration between a
   * ''MediaFileDownloadActor'' and an ''ActorSource''.
   */
-class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("DownloadStreamSpec"))
 
@@ -59,7 +61,7 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val ChunkSize = 2048
     val testPath = Paths get getClass.getResource("/test.mp3").toURI
     val target = createPathInDirectory("copy.mp3")
-    implicit val ec = system.dispatcher
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
     val downloadActor = system.actorOf(Props(classOf[MediaFileDownloadActor], testPath,
       ChunkSize, MediaFileDownloadActor.IdentityTransform))
     val source = ActorSource[ByteString](downloadActor, DownloadData(ChunkSize)) {

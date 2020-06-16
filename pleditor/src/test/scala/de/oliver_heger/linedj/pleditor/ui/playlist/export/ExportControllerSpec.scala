@@ -20,10 +20,10 @@ import java.nio.file.Paths
 
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
-import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -39,9 +39,10 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ExportControllerSpec {
   /** The number of test songs to be exported. */
@@ -78,7 +79,7 @@ object ExportControllerSpec {
  * Test class for ''ExportController''.
  */
 class ExportControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ExportControllerSpec._
 
@@ -201,7 +202,7 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val mediaFacade: MediaFacade = createRemoteMediaFacade()
 
     /** Test probe for the export actor. */
-    val exportActor = TestProbe()
+    val exportActor: TestProbe = TestProbe()
 
     /** Mock for the actor factory. */
     val factory: ActorFactory = createActorFactory(exportActor, mediaFacade)
@@ -342,15 +343,13 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
       val factory = mock[ActorFactory]
       when(factory.actorSystem).thenReturn(system)
       when(factory.createActor(org.mockito.Matchers.any[Props], eqArg("playlistExportActor")))
-        .thenAnswer(new Answer[ActorRef] {
-        override def answer(invocationOnMock: InvocationOnMock): ActorRef = {
+        .thenAnswer((invocationOnMock: InvocationOnMock) => {
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
           classOf[ExportActor].isAssignableFrom(props.actorClass()) shouldBe true
           classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
           props.args should be(List(facade, DownloadChunkSize, ProgressSize))
           actor.ref
-        }
-      })
+        })
       factory
     }
 

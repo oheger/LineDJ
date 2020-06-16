@@ -21,8 +21,10 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object ActorManagementSpec {
   /** Prefix for an actor name. */
@@ -49,7 +51,7 @@ object ActorManagementSpec {
 /**
   * Test class for ''ActorManagement''.
   */
-class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ActorManagementSpec._

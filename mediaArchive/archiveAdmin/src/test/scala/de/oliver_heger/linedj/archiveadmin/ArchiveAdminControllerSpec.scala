@@ -38,7 +38,9 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.reflect.ClassTag
@@ -100,7 +102,7 @@ object ArchiveAdminControllerSpec {
 /**
   * Test class for ''ArchiveAdminController''.
   */
-class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("ArchiveAdminControllerSpec"))
 

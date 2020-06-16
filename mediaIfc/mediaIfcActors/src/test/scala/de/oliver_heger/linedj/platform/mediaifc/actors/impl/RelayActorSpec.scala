@@ -28,9 +28,10 @@ import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener,
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 object RelayActorSpec {
   /** The prefix for lookup paths. */
@@ -44,7 +45,7 @@ object RelayActorSpec {
  * Test class for ''RelayActor''.
  */
 class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import RelayActorSpec._
 
@@ -304,22 +305,22 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     */
   private class RemoteRelayActorTestHelper {
     /** Test probe for the lookup actor for the media manager. */
-    val probeMediaManagerLookup = TestProbe()
+    val probeMediaManagerLookup: TestProbe = TestProbe()
 
     /** Test probe for the lookup actor for the meta data manager actor. */
-    val probeMetaDataManagerLookup = TestProbe()
+    val probeMetaDataManagerLookup: TestProbe = TestProbe()
 
     /** Test probe for the remote media manager actor. */
-    val probeMediaManager = TestProbe()
+    val probeMediaManager: TestProbe = TestProbe()
 
     /** Test probe for the remote meta data manager actor. */
-    val probeMetaDataManager = TestProbe()
+    val probeMetaDataManager: TestProbe = TestProbe()
 
     /** A mock for the message bus. */
-    val messageBus = createMessageBus()
+    val messageBus: MessageBus = createMessageBus()
 
     /** The test relay actor. */
-    val relayActor = system.actorOf(createProps())
+    val relayActor: ActorRef = system.actorOf(createProps())
 
     /** A map that stores references for the paths to remote actors. */
     private val pathActorMapping = Map(
@@ -458,11 +459,9 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
      */
     private def createMessageBus(): MessageBus = {
       val bus = mock[MessageBus]
-      when(bus.publish(org.mockito.Matchers.any())).thenAnswer(new Answer[Boolean] {
-        override def answer(invocationOnMock: InvocationOnMock): Boolean = {
-          testActor ! invocationOnMock.getArguments()(0)
-          true
-        }
+      when(bus.publish(org.mockito.Matchers.any())).thenAnswer((invocationOnMock: InvocationOnMock) => {
+        testActor ! invocationOnMock.getArguments()(0)
+        true
       })
       bus
     }

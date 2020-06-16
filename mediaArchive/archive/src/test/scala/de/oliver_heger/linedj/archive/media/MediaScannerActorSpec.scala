@@ -16,9 +16,12 @@ import de.oliver_heger.linedj.io.{CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 object MediaScannerActorSpec {
@@ -139,7 +142,7 @@ object MediaScannerActorSpec {
   * Test class for ''DirectoryScannerActor''.
   */
 class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
+  ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
   with FileTestHelper {
 
   import de.oliver_heger.linedj.archive.media.MediaScannerActorSpec._
@@ -420,7 +423,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return a sequence with all received result objects
       */
     def fetchAllResults(): List[ScanSinkActor.CombinedResults] = {
-      def fetchNextResult(res: List[ScanSinkActor.CombinedResults]):
+      @tailrec def fetchNextResult(res: List[ScanSinkActor.CombinedResults]):
       List[ScanSinkActor.CombinedResults] =
         if (hasMoreResults) fetchNextResult(nextResult() :: res)
         else res

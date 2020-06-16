@@ -23,7 +23,9 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -86,7 +88,7 @@ object HttpCookieManagementActorSpec {
   * Test class for ''HttpCookieManagementActor''.
   */
 class HttpCookieManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("HttpCookieManagementActorSpec"))
 
   override protected def afterAll(): Unit = {

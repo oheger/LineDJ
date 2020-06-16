@@ -25,7 +25,9 @@ import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorReque
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.immutable.Queue
@@ -47,7 +49,7 @@ object ArchiveAdminAppSpec {
 /**
   * Test class for ''ArchiveAdminApp''.
   */
-class ArchiveAdminAppSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class ArchiveAdminAppSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with ApplicationTestSupport with MockitoSugar {
   def this() = this(ActorSystem("ArchiveAdminAppSpec"))
 

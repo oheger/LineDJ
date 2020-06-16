@@ -22,7 +22,9 @@ import java.nio.file.Paths
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -30,8 +32,8 @@ import scala.concurrent.{Await, ExecutionContextExecutor}
 /**
   * Test class for ''PersistentMetaDataFileScanner''.
   */
-class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike with BeforeAndAfter with BeforeAndAfterAll with Matchers with
-  FileTestHelper {
+class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfter with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("PersistentMetaDataFileScannerSpec"))
 
   after {

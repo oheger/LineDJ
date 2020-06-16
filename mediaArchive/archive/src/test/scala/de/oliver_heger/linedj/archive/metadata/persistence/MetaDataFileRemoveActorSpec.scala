@@ -23,7 +23,9 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.RemoveFileActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object MetaDataFileRemoveActorSpec {
   /** The number of test paths. */
@@ -96,8 +98,8 @@ object MetaDataFileRemoveActorSpec {
 /**
   * Test class for ''MetaDataFileRemoveActor''.
   */
-class MetaDataFileRemoveActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+class MetaDataFileRemoveActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
 
   import MetaDataFileRemoveActorSpec._
 

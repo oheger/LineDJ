@@ -24,9 +24,10 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
-.EvaluateReplacementSources
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object EvaluateIntervalsActorSpec {
   /**
@@ -59,7 +60,7 @@ object EvaluateIntervalsActorSpec {
   * Test class for ''EvaluateIntervalsActor''.
   */
 class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers {
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
 
   import EvaluateIntervalsActorSpec._
 
@@ -109,7 +110,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * derived from the number of threads. If there are multiple threads,
       * the selected date must be modified in the minutes field.
       */
-    def createQuery(): IntervalQuery = date => {
+    def createQuery(): IntervalQuery = _ => {
       val threadName = Thread.currentThread().getName
       var done = false
       var threadCount = 0
@@ -149,15 +150,15 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     val results = response.results.toMap
     results(radioSource(1)) match {
       case Before(d) => d.value should be(LocalDateTime.of(2016, Month.JUNE, 24, 18, 0))
-      case r => fail("Unexpected result for source 1!")
+      case _ => fail("Unexpected result for source 1!")
     }
     results(radioSource(2)) match {
       case Inside(d) => d.value should be(LocalDateTime.of(2016, Month.JUNE, 24, 19, 0))
-      case r => fail("Unexpected result for source 2!")
+      case _ => fail("Unexpected result for source 2!")
     }
     results(radioSource(3)) match {
       case Before(d) => d.value should be(LocalDateTime.of(2016, Month.JUNE, 24, 20, 0))
-      case r => fail("Unexpected result for source 3!")
+      case _ => fail("Unexpected result for source 3!")
     }
     results should have size 3
   }

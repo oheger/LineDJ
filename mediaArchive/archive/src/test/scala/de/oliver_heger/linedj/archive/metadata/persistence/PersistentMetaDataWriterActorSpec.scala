@@ -37,8 +37,10 @@ import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaDat
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Matchers.{anyString, eq => eqArg}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
@@ -121,8 +123,8 @@ object PersistentMetaDataWriterActorSpec {
 /**
   * Test class for ''PersistentMetaDataWriterActor''.
   */
-class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with
+class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with
   MockitoSugar {
 
   import PersistentMetaDataWriterActorSpec._

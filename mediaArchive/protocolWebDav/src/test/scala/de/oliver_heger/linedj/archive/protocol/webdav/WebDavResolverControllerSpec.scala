@@ -25,7 +25,9 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.{Failure, Success}
 import scala.xml.SAXParseException
@@ -53,7 +55,7 @@ object WebDavResolverControllerSpec {
   * Test class for ''WebDavResolverController''. Also some functionality of the
   * base trait is tested.
   */
-class WebDavResolverControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class WebDavResolverControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
   def this() = this(ActorSystem("WebDavResolverControllerSpec"))
 

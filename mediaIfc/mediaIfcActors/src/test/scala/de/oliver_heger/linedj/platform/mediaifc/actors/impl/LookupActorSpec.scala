@@ -23,14 +23,16 @@ import akka.testkit.{ImplicitSender, TestKit}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
  * Test class for ''LookupActor''.
  */
-class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("RemoteLookupActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -42,12 +44,9 @@ ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with Mocki
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
     val queue = new SynchronousQueue[ActorRef]
-    when(sequence.nextDelay).thenAnswer(new Answer[(Int, DelaySequence)] {
-      // Create the monitored actor dynamically
-      override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) = {
-        queue.put(system.actorOf(Props[ActorToBeMonitored], ActorName))
-        (1, nextSequence)
-      }
+    when(sequence.nextDelay).thenAnswer((_: InvocationOnMock) => {
+      queue.put(system.actorOf(Props[ActorToBeMonitored], ActorName))
+      (1, nextSequence)
     })
     when(nextSequence.nextDelay).thenReturn((1, nextSequence))
 

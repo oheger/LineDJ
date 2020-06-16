@@ -21,14 +21,15 @@ import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
 
 /**
   * Test class for ''ReorderActor''.
   */
 class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-with FlatSpecLike with BeforeAndAfterAll with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("ReorderActorSpec"))
 
   override protected def afterAll(): Unit = {

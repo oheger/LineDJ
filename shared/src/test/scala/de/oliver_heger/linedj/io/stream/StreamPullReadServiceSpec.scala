@@ -20,7 +20,9 @@ import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object StreamPullReadServiceSpec {
   /** Constant for the request size for data requests. */
@@ -60,7 +62,7 @@ object StreamPullReadServiceSpec {
 /**
   * Test class for ''StreamPullReadService'' and related classes.
   */
-class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("StreamPullReadServiceSpec"))
 

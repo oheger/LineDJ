@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.impl.schedule
 
 import java.time.{Duration, LocalDateTime}
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -28,12 +28,13 @@ import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor
-.EvaluateReplacementSources
+import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
@@ -89,8 +90,8 @@ object RadioSchedulerActorSpec {
 /**
   * Test class for ''RadioSchedulerActor''.
   */
-class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import RadioSchedulerActorSpec._
 
@@ -457,19 +458,19 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private class RadioSchedulerActorTestHelper {
     /** Test probe for the source actor. */
-    val sourceActorProbe = TestProbe()
+    val sourceActorProbe: TestProbe = TestProbe()
 
     /** Test probe for the evaluate actor. */
-    val evaluateActorProbe = TestProbe()
+    val evaluateActorProbe: TestProbe = TestProbe()
 
     /** Mock for the selection strategy. */
-    val selectionStrategy = mock[ReplacementSourceSelectionStrategy]
+    val selectionStrategy: ReplacementSourceSelectionStrategy = mock[ReplacementSourceSelectionStrategy]
 
     /** The queue which tracks scheduler invocations. */
     val scheduleQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
     /** The test actor instance. */
-    val actor = createTestActor()
+    val actor: TestActorRef[RadioSchedulerActor] = createTestActor()
 
     /**
       * Sends the specified message directly to the test actor.
@@ -647,7 +648,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     private def createProps(): Props =
       Props(new RadioSchedulerActor(sourceActorProbe.ref, selectionStrategy)
         with RecordingSchedulerSupport with ChildActorFactory {
-        override val queue = scheduleQueue
+        override val queue: BlockingQueue[SchedulerInvocation] = scheduleQueue
 
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[EvaluateIntervalsActor])

@@ -23,8 +23,9 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object PersistentMetaDataReaderActorSpec {
   /** The name of the test meta data file. */
@@ -44,7 +45,7 @@ object PersistentMetaDataReaderActorSpec {
   * Test class for ''PersistentMetaDataReaderActor''.
   */
 class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with FlatSpecLike with BeforeAndAfterAll with Matchers
+  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers
   with FileTestHelper {
 
   import PersistentMetaDataReaderActorSpec._
@@ -120,7 +121,7 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     */
   private class PersistentMetaDataReaderTestHelper(chunkSize: Int = ReadChunkSize) {
     /** A test probe for the parent actor. */
-    val parent = TestProbe()
+    val parent: TestProbe = TestProbe()
 
     /** The test actor. */
     val metaReaderActor: TestActorRef[PersistentMetaDataReaderActor] =

@@ -3,7 +3,9 @@ package de.oliver_heger.linedj.utils
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.utils.ChildActorFactorySpec.{TestRequest, TestResponse}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object ChildActorFactorySpec {
 
@@ -31,7 +33,7 @@ object ChildActorFactorySpec {
   * the child actor works as expected.
   */
 class ChildActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with FlatSpecLike with Matchers with BeforeAndAfterAll {
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
   def this() = this(ActorSystem("ChildActorFactorySpec"))
 
   override protected def afterAll(): Unit = {

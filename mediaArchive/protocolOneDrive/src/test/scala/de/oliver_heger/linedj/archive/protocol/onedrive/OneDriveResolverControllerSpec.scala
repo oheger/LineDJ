@@ -26,7 +26,9 @@ import akka.stream.scaladsl.FileIO
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.{Failure, Success}
 
@@ -67,7 +69,7 @@ object OneDriveResolverControllerSpec {
 /**
   * Test class for ''OneDriveResolverController''.
   */
-class OneDriveResolverControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class OneDriveResolverControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
   def this() = this(ActorSystem("OneDriveResolverControllerSpec"))
 

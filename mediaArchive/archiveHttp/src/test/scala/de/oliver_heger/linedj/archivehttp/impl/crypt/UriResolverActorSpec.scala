@@ -31,7 +31,9 @@ import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverC
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -155,8 +157,8 @@ object UriResolverActorSpec {
 /**
   * Test class for ''UriResolverActor''.
   */
-class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender with FlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+class UriResolverActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
   def this() = this(ActorSystem("UriResolverActorSpec"))
 
   override protected def afterAll(): Unit = {

@@ -23,7 +23,9 @@ import akka.testkit.TestKit
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.xml.SAXParseException
 
@@ -40,7 +42,7 @@ object OAuthStorageServiceImplSpec {
 /**
   * Test class for ''OAuthStorageServiceImpl''.
   */
-class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper with AsyncTestHelper {
   def this() = this(ActorSystem("OAuthStorageServiceImplSpec"))
 

@@ -29,7 +29,9 @@ import javax.net.ssl.SSLException
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.eclipse.jetty.server.{AbstractNetworkConnector, Server}
 import org.eclipse.jetty.servlet.ServletHandler
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.concurrent.Await
@@ -62,7 +64,7 @@ object HttpFlowFactorySpec {
   * Test class for ''HttpFlowFactory''. The class also tests functionality
   * related to limiting the size of responses.
   */
-class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with FlatSpecLike
+class HttpFlowFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("HttpFlowFactorySpec"))
 
