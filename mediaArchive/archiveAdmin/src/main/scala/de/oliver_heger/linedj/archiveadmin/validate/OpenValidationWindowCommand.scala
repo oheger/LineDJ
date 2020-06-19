@@ -73,8 +73,10 @@ object OpenValidationWindowCommand {
   *
   * @param scriptLocator the locator to the builder script to be executed
   * @param app           the current application
+  * @tparam V the type of the validation flow used by this command
   */
-abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientApplication) extends OpenWindowCommand(scriptLocator) {
+abstract class OpenValidationWindowCommand[V](scriptLocator: Locator, app: ClientApplication)
+  extends OpenWindowCommand(scriptLocator) {
 
   import OpenValidationWindowCommand._
 
@@ -100,7 +102,7 @@ abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientAp
     *
     * @return the validation flow
     */
-  protected def createValidationFlow(): ValidationFlow
+  protected def createValidationFlow(): ValidationFlow[V]
 }
 
 /**
@@ -114,9 +116,9 @@ abstract class OpenValidationWindowCommand(scriptLocator: Locator, app: ClientAp
   * @param app           the current application
   */
 class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
-  extends OpenValidationWindowCommand(scriptLocator, app) {
+  extends OpenValidationWindowCommand[MediaFile](scriptLocator, app) {
 
-  override protected def createValidationFlow(): ValidationFlow =
+  override protected def createValidationFlow(): ValidationFlow[MediaFile] =
     Flow[List[MediaFile]].mapConcat(identity)
       .mapAsyncUnordered(parallelism) { file =>
         Future {
@@ -161,8 +163,8 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
   * @param app           the current application
   */
 class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
-  extends OpenValidationWindowCommand(scriptLocator, app) {
-  override protected def createValidationFlow(): ValidationFlow =
+  extends OpenValidationWindowCommand[MediaAlbum](scriptLocator, app) {
+  override protected def createValidationFlow(): ValidationFlow[MediaAlbum] =
     Flow[List[MediaFile]].mapConcat(groupToAlbums)
       .mapAsyncUnordered(parallelism) { album =>
         Future {

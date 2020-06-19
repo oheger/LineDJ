@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode}
-import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationTestHelper._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -72,7 +72,7 @@ object ValidationItemConverterSpec {
     * @param mid    the medium ID
     * @return the validated item
     */
-  private def createItem(result: ValidationResult, mid: MediumID = Medium): ValidatedItem =
+  private def createItem[V](result: ValidationResult[V], mid: MediumID = Medium): ValidatedItem[V] =
     ValidatedItem(result = result, medium = mid, displayFunc = displayFunc, uri = Uri)
 }
 
@@ -95,7 +95,7 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
       ValidationErrorCode.MinimumTrackNumberNotOne)
     val icons = List(IconWarning, IconError, IconWarning)
     val failures = codes.tail.foldLeft(codes.head.wrapNel)((lst, c) => lst.append(c.wrapNel))
-    val result = Failure(failures)
+    val result: ValidationResult[MediaFile] = Failure(failures)
     val expItems = codes.zip(icons).map { c =>
       ValidationErrorItem(testMediumInfo(1).name, Uri + DisplaySuffix,
         ResourcePrefix + c._1.toString + ResolvedSuffix, c._2, MetaDataValidator.severity(c._1))
@@ -106,7 +106,7 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
   }
 
   it should "handle an unexpected medium ID" in {
-    val result = Failure(ValidationErrorCode.NoTitle.wrapNel)
+    val result: ValidationResult[MediaFile] = Failure(ValidationErrorCode.NoTitle.wrapNel)
     val helper = new ConverterTestHelper
 
     val errorItem = helper.convert(createItem(result, mid = testMedium(42)))
@@ -129,7 +129,7 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
       * @param item the item to be converter
       * @return the generated error items
       */
-    def convert(item: ValidatedItem): List[ValidationErrorItem] =
+    def convert(item: ValidatedItem[_]): List[ValidationErrorItem] =
       converter.generateTableItems(TestMedia, item)
 
     /**

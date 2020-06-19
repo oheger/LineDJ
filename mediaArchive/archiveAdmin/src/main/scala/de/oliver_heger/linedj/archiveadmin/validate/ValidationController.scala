@@ -106,7 +106,7 @@ object ValidationController {
   */
 class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[String, MediaMetaData]],
                            app: ClientApplication, sync: GUISynchronizer, tableHandler: TableHandler,
-                           validationFlow: ValidationFlow, converter: ValidationItemConverter,
+                           validationFlow: ValidationFlow[_], converter: ValidationItemConverter,
                            statusHandler: StatusLineHandler) extends WindowListener {
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)

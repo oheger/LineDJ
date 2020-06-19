@@ -693,12 +693,12 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the validation flow
       */
-    private def createValidationFlow(): ValidationFlow =
+    private def createValidationFlow(): ValidationFlow[MediaFile] =
       Flow[List[MediaFile]].mapConcat { files =>
         files map { f =>
           val result = InvalidFiles get f match {
             case Some(code) =>
-              code.failureNel[Any]
+              code.failureNel[MediaFile]
             case None =>
               f.successNel[ValidationErrorCode]
           }
@@ -724,12 +724,12 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param converter the mock for the converter
       */
     private def prepareConverter(converter: ValidationItemConverter): Unit = {
-      Mockito.when(converter.generateTableItems(any(classOf[AvailableMedia]), any(classOf[ValidatedItem])))
+      Mockito.when(converter.generateTableItems(any(classOf[AvailableMedia]), any(classOf[ValidatedItem[_]])))
         .thenAnswer((invocation: InvocationOnMock) => {
           if (checkMediaInConverter.get()) {
             invocation.getArguments.head should be(TestMedia)
           }
-          val valItem = invocation.getArguments()(1).asInstanceOf[ValidatedItem]
+          val valItem = invocation.getArguments()(1).asInstanceOf[ValidatedItem[_]]
           List(ErrorItems(valItem.uri))
         })
     }

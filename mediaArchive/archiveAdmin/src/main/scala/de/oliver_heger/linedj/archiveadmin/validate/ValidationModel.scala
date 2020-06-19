@@ -1,11 +1,9 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import akka.stream.scaladsl.Flow
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.MediaFile
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.Severity.Severity
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationResult}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import scalaz.ValidationNel
 
 import scala.beans.BeanProperty
 
@@ -14,13 +12,6 @@ import scala.beans.BeanProperty
   * data validation operations.
   */
 object ValidationModel {
-  /**
-    * Type for a meta data validation result. The UI only displays validation
-    * errors; therefore, we are only interested in failed validations. The
-    * object contained in a successful validation is skipped.
-    */
-  type ValidationResult = ValidationNel[ValidationErrorCode, Any]
-
   /**
     * Type definition for a function that is used to generate a display string
     * for a validated element. The function is passed the element's URI and has
@@ -37,8 +28,9 @@ object ValidationModel {
     * @param uri         the URI of the item
     * @param displayFunc function to generate a display name
     * @param result      the result of the validation
+    * @tparam R the result type of the validation result
     */
-  case class ValidatedItem(medium: MediumID, uri: String, displayFunc: DisplayFunc, result: ValidationResult)
+  case class ValidatedItem[R](medium: MediumID, uri: String, displayFunc: DisplayFunc, result: ValidationResult[R])
 
   /**
     * A data class used by the table model of the table with validation errors.
@@ -67,5 +59,5 @@ object ValidationModel {
     * albums). The output is the validation results for the files on the
     * current medium.
     */
-  type ValidationFlow = Flow[List[MediaFile], ValidatedItem, Any]
+  type ValidationFlow[R] = Flow[List[MediaFile], ValidatedItem[R], Any]
 }

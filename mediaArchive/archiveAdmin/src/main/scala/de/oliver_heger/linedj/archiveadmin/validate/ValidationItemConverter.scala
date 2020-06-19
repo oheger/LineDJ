@@ -56,7 +56,7 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @param valItem the validated item
     * @return a list with corresponding validation error items
     */
-  def generateTableItems(media: AvailableMedia, valItem: ValidatedItem): List[ValidationErrorItem] =
+  def generateTableItems(media: AvailableMedia, valItem: ValidatedItem[_]): List[ValidationErrorItem] =
     valItem.result match {
       case Success(_) => List.empty
       case Failure(nel) =>
@@ -74,7 +74,7 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @param valItem    the validated item
     * @return the error item
     */
-  private def errorItem(code: ValidationErrorCode, mediumName: String, valItem: ValidatedItem): ValidationErrorItem =
+  private def errorItem(code: ValidationErrorCode, mediumName: String, valItem: ValidatedItem[_]): ValidationErrorItem =
     ValidationErrorItem(mediumName = mediumName,
       error = applicationContext.getResourceText(resourcePrefix + code),
       name = valItem.displayFunc(valItem.uri),
@@ -88,7 +88,7 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @param valItem the validated item
     * @return the name of the medium
     */
-  private def fetchMediumName(media: AvailableMedia, valItem: ValidatedItem): String =
+  private def fetchMediumName(media: AvailableMedia, valItem: ValidatedItem[_]): String =
     media.media.get(valItem.medium).map(_.name) getOrElse unknownMediumName
 
   /**

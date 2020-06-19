@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archiveadmin.validate
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.testkit.TestKit
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode}
-import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.ValidatedItem
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
@@ -93,17 +93,18 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     *
     * @param command the command
     * @param files   the files to be used as input
+    * @tparam V the type of the validation flow
     * @return the validated items
     */
-  private def checkValidationFlow(command: OpenValidationWindowCommand, files: List[MediaFile]*):
-  List[ValidatedItem] = {
+  private def checkValidationFlow[V](command: OpenValidationWindowCommand[V], files: List[MediaFile]*):
+  List[ValidatedItem[V]] = {
     val builderData = mock[ApplicationBuilderData]
     command.prepareBuilderData(builderData)
-    val captor = ArgumentCaptor.forClass(classOf[Flow[List[MediaFile], ValidatedItem, Any]])
+    val captor = ArgumentCaptor.forClass(classOf[Flow[List[MediaFile], ValidatedItem[V], Any]])
     verify(builderData).addProperty(eqArg(OpenValidationWindowCommand.PropFlow), captor.capture())
 
     val source = Source(files.toList)
-    val sink = Sink.fold[List[ValidatedItem], ValidatedItem](List.empty)((lst, item) => item :: lst)
+    val sink = Sink.fold[List[ValidatedItem[V]], ValidatedItem[V]](List.empty)((lst, item) => item :: lst)
     val flow = captor.getValue
     val futResult = source.via(flow).runWith(sink)
     Await.result(futResult, 3.seconds).reverse
@@ -116,9 +117,10 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     * @param items the sequence of validated items
     * @param mid   the medium ID
     * @param uri   the URI of the element in question
+    * @tparam V the type of the validation flow
     * @return the validation result for this element
     */
-  private def findResultFor(items: Seq[ValidatedItem], mid: MediumID, uri: String): ValidationResult =
+  private def findResultFor[V](items: Seq[ValidatedItem[V]], mid: MediumID, uri: String): ValidationResult[V] =
     items.find(item => item.medium == mid && item.uri == uri).get.result
 
   /**
@@ -127,9 +129,10 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     *
     * @param items the sequence of validated items
     * @param file  the file
+    * @tparam V the type of the validation flow
     * @return the validation result for this file
     */
-  private def findResultFor(items: Seq[ValidatedItem], file: MediaFile): ValidationResult =
+  private def findResultFor[V](items: Seq[ValidatedItem[V]], file: MediaFile): ValidationResult[V] =
     findResultFor(items, file.mediumID, file.uri)
 
   /**
@@ -141,9 +144,10 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     * @param files           the original list with media files (per medium)
     * @param orderedUris     the ordered list of resulting uris
     * @param expChangedOrder flag whether the order should be changed
+    * @tparam V the type of the validation flow
     */
-  private def checkProcessingOrder(command: OpenValidationWindowCommand, files: List[List[MediaFile]],
-                                   orderedUris: List[String], expChangedOrder: Boolean): Unit = {
+  private def checkProcessingOrder[V](command: OpenValidationWindowCommand[V], files: List[List[MediaFile]],
+                                      orderedUris: List[String], expChangedOrder: Boolean): Unit = {
     val MaxAttempts = 128
 
     @scala.annotation.tailrec
@@ -189,8 +193,9 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     *
     * @param command         the command
     * @param expChangedOrder flag whether the order should be changed
+    * @tparam V the type of the validation flow
     */
-  private def checkFileProcessingOrder(command: OpenValidationWindowCommand, expChangedOrder: Boolean): Unit = {
+  private def checkFileProcessingOrder[V](command: OpenValidationWindowCommand[V], expChangedOrder: Boolean): Unit = {
     val FileCount = 32
     val files = (1 to FileCount).map(ValidationTestHelper.file(_)).toList
     val orderedUris = files map (_.uri)

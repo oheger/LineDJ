@@ -173,12 +173,19 @@ object MetaDataValidator {
   /** Stores the error codes that have the severity warning. */
   private val CodesWithWarningSeverity = Set(NoAlbum, NoTrackNo, NoInceptionYear, MinimumTrackNumberNotOne)
 
+  /**
+    * Type for a meta data validation result. The UI only displays validation
+    * errors; therefore, we are only interested in failed validations. The
+    * object contained in a successful validation is skipped; as there are
+    * different types, it has to be provided as a generic parameter though.
+    */
+  type ValidationResult[R] = ValidationNel[ValidationErrorCode, R]
+
   /** Validation result for a meta data file. */
-  type MetaDataFileValidation = ValidationNel[ValidationErrorCode, MediaFile]
+  type MetaDataFileValidation = ValidationResult[MediaFile]
 
   /** Validation result for a meta data album. */
-  type MetaDataAlbumValidation = ValidationNel[ValidationErrorCode, MediaAlbum]
-
+  type MetaDataAlbumValidation = ValidationResult[MediaAlbum]
 
   /**
     * Returns the severity of the given validation code.
