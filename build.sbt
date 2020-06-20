@@ -20,7 +20,7 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.6.5"
+lazy val AkkaVersion = "2.6.6"
 lazy val AkkaHttpVersion = "10.1.12"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.12.9"
