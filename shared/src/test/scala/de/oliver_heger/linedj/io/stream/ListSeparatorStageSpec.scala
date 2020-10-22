@@ -22,7 +22,9 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -30,8 +32,8 @@ import scala.concurrent.duration._
 /**
   * Test class for ''ListSeparatorStage''.
   */
-class ListSeparatorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class ListSeparatorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("ListSeparatorStageSpec"))
 
   override protected def afterAll(): Unit = {

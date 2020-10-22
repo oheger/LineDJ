@@ -26,7 +26,9 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{DelayOverflowStrategy, KillSwitches}
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -35,8 +37,8 @@ import scala.concurrent.{Await, Future}
 /**
   * Test class for ''DirectoryStreamSource''.
   */
-class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfter with BeforeAndAfterAll with Matchers with FileTestHelper {
+class DirectoryStreamSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with AnyFlatSpecLike with BeforeAndAfter with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("DirectoryStreamSourceSpec"))
 
   override protected def afterAll(): Unit = {

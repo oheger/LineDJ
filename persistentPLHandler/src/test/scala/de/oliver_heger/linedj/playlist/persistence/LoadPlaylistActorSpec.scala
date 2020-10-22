@@ -24,7 +24,9 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 
@@ -78,8 +80,8 @@ object LoadPlaylistActorSpec extends PlaylistTestHelper {
 /**
   * Test class for ''LoadPlaylistActor''.
   */
-class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("LoadPlaylistActorSpec"))
 
   override protected def afterAll(): Unit = {

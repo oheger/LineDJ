@@ -26,15 +26,16 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Matchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 /**
   * Test class for ''AudioPlayerFactory''.
   */
-class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("AudioPlayerFactorySpec"))
 
   override protected def afterAll(): Unit = {
@@ -68,12 +69,10 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
       }
     }
     when(configFactory.createPlayerConfig(eqArg(appConfig), eqArg(Prefix),
-      eqArg(mediaManager.ref), any())).thenAnswer(new Answer[PlayerConfig] {
-      override def answer(invocation: InvocationOnMock): PlayerConfig = {
-        val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]
-        PlayerConfig(inMemoryBufferSize = BufSize, mediaManagerActor = mediaManager.ref,
-          actorCreator = creator)
-      }
+      eqArg(mediaManager.ref), any())).thenAnswer((invocation: InvocationOnMock) => {
+      val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]
+      PlayerConfig(inMemoryBufferSize = BufSize, mediaManagerActor = mediaManager.ref,
+        actorCreator = creator)
     })
     val factory = new AudioPlayerFactory(configFactory)
 

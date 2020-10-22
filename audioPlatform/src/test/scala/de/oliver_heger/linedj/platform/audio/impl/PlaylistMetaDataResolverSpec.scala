@@ -27,7 +27,9 @@ import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaDat
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
@@ -167,8 +169,8 @@ object PlaylistMetaDataResolverSpec {
 /**
   * Test class for ''PlaylistMetaDataResolver''.
   */
-class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("PlaylistMetaDataResolverSpec"))
 
   import PlaylistMetaDataResolverSpec._

@@ -26,7 +26,9 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object RemoveTempFilesActorSpec {
   /** The name to be used for the blocking dispatcher. */
@@ -36,8 +38,8 @@ object RemoveTempFilesActorSpec {
 /**
   * Test class for ''RemoveTempFilesActor''.
   */
-class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
 
   import RemoveTempFilesActorSpec._
 

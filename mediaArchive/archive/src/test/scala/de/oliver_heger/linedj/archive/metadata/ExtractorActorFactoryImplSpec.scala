@@ -22,7 +22,9 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object ExtractorActorFactoryImplSpec {
   /** The tag size limit. */
@@ -35,8 +37,8 @@ object ExtractorActorFactoryImplSpec {
 /**
   * Test class for ''ExtractorActorFactoryImpl''.
   */
-class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ExtractorActorFactoryImplSpec._
 

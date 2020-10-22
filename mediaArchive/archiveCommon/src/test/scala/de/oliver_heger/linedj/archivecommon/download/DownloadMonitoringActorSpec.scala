@@ -24,12 +24,13 @@ import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito._
 import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
@@ -44,8 +45,8 @@ object DownloadMonitoringActorSpec {
 /**
   * Test class for ''DownloadManagerActor''.
   */
-class DownloadMonitoringActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class DownloadMonitoringActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("DownloadMonitoringActorSpec"))
 
   import DownloadMonitoringActorSpec._
@@ -73,7 +74,7 @@ class DownloadMonitoringActorSpec(testSystem: ActorSystem) extends TestKit(testS
   private def expectNoTermination(actor: ActorRef): Unit = {
     val probeWatcher = TestProbe()
     probeWatcher watch actor
-    probeWatcher.expectNoMsg(1.second)
+    probeWatcher.expectNoMessage(1.second)
   }
 
   /**
@@ -128,10 +129,8 @@ class DownloadMonitoringActorSpec(testSystem: ActorSystem) extends TestKit(testS
     when(helper.downloadData.findReadersForClient(client.ref))
       .thenReturn(List.empty, List(client.ref), List.empty)
     when(helper.downloadData.remove(any(classOf[ActorRef]))).thenReturn(Some(client.ref))
-    when(helper.downloadData.hasActor(any(classOf[ActorRef]))).thenAnswer(new Answer[Boolean] {
-      override def answer(invocation: InvocationOnMock): Boolean =
-        invocation.getArguments.head != client.ref
-    })
+    when(helper.downloadData.hasActor(any(classOf[ActorRef])))
+      .thenAnswer((invocation: InvocationOnMock) => invocation.getArguments.head != client.ref)
     val downloadActor1 = helper.sendDownloadOperation(client.ref)
     val downloadActor2 = helper.sendDownloadOperation(client.ref)
     system stop downloadActor1.ref

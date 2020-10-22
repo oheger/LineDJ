@@ -20,7 +20,7 @@ import java.time.LocalDateTime
 
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.PlayerEvent
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 
 import scala.reflect.ClassTag
 

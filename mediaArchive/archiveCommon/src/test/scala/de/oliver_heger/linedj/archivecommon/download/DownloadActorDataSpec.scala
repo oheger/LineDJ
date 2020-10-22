@@ -18,15 +18,17 @@ package de.oliver_heger.linedj.archivecommon.download
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
 /**
  * Test class for ''DownloadActorData''.
  */
-class DownloadActorDataSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-FlatSpecLike with Matchers with BeforeAndAfterAll {
+class DownloadActorDataSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with Matchers with BeforeAndAfterAll {
   def this() = this(ActorSystem("DownloadActorDataSpec"))
 
   override protected def afterAll(): Unit = {

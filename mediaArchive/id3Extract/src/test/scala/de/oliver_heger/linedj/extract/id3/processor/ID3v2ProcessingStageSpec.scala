@@ -26,7 +26,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStageSpec.FetchFrameData
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -99,8 +101,8 @@ object ID3v2ProcessingStageSpec {
 /**
   * Test class for ''ID3v2ProcessingStage''.
   */
-class ID3v2ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class ID3v2ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
 
   import ID3v2ProcessingStageSpec._
 

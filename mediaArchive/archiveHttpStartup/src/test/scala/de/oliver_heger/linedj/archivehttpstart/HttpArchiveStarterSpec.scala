@@ -39,7 +39,9 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
@@ -94,8 +96,8 @@ object HttpArchiveStarterSpec {
 /**
   * Test class for ''HttpArchiveStarter''.
   */
-class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
+class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
   import HttpArchiveStarterSpec._

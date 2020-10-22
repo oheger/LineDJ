@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest}
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpRequestActor}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._

@@ -42,7 +42,9 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.OngoingStubbing
 import org.mockito.{ArgumentCaptor, ArgumentMatcher}
 import org.osgi.service.component.ComponentContext
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
@@ -141,8 +143,8 @@ object HttpArchiveStartupApplicationSpec {
 /**
   * Test class for ''HttpArchiveStartupApplication''.
   */
-class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import HttpArchiveStartupApplicationSpec._
 

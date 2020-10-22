@@ -20,7 +20,9 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -28,8 +30,8 @@ import scala.concurrent.duration._
 /**
   * Test class for ''ID3v1ProcessingStage''.
   */
-class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("ID3v1ProcessingStageSpec"))
 
   override protected def afterAll(): Unit = {

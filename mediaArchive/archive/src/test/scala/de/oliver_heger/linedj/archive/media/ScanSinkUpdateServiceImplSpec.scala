@@ -23,7 +23,9 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import scalaz.State
 
 object ScanSinkUpdateServiceImplSpec {
@@ -113,8 +115,8 @@ object ScanSinkUpdateServiceImplSpec {
 /**
   * Test class of ''ScanSinkUpdateServiceImpl''.
   */
-class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import ScanSinkUpdateServiceImplSpec._
 

@@ -23,7 +23,9 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 object MediaScanStateUpdateServiceSpec {
   /** The name of the test archive. */
@@ -152,8 +154,8 @@ object MediaScanStateUpdateServiceSpec {
 /**
   * Test class for ''MediaScanStateUpdateService''.
   */
-class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("MediaScanStateUpdateServiceSpec"))
 
   override protected def afterAll(): Unit = {

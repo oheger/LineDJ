@@ -25,7 +25,9 @@ import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -40,8 +42,8 @@ object MetaDataParserStageSpec {
   * functionality. Tests for classes that use this stage contain more
   * testing logic.
   */
-class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("MetaDataParserStateSpec"))
 
   override protected def afterAll(): Unit = {

@@ -49,7 +49,9 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
@@ -145,8 +147,8 @@ object MetaDataFilesControllerSpec {
 /**
   * Test class for ''MetaDataFilesController''.
   */
-class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers {
+class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
 
   import MetaDataFilesControllerSpec._
 

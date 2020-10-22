@@ -24,7 +24,9 @@ import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -141,8 +143,8 @@ object MediumAggregateStageSpec {
 /**
   * Test class for ''MediumAggregateStage''.
   */
-class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with FileTestHelper {
   def this() = this(ActorSystem("MediumAggregateStageSpec"))
 
   override protected def afterAll(): Unit = {

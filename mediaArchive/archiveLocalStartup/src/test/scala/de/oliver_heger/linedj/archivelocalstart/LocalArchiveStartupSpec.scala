@@ -30,7 +30,9 @@ import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 object LocalArchiveStartupSpec {
@@ -74,8 +76,8 @@ object LocalArchiveStartupSpec {
 /**
   * Test class for ''LocalArchiveStartup''.
   */
-class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  FlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import LocalArchiveStartupSpec._
 
