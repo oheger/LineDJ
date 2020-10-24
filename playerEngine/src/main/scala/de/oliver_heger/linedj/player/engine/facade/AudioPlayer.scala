@@ -20,15 +20,34 @@ import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{TargetDownloadActor, TargetPlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{SourceActorCreator, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object AudioPlayer {
+  /** The function to create the source actor for the facade actor. */
+  final val AudioPlayerSourceCreator: SourceActorCreator = createSourceActor
+
+  /**
+    * The key describing the LocalBufferActor in the map returned by the source
+    * creator function
+    */
+  private val KeyBufferActor = "AudioPlayer.BufferActor"
+
+  /**
+    * The key describing the SourceDownloadActor in the map returned by the
+    * source creator function
+    */
+  private val KeyDownloadActor = "AudioPlayer.DownloadActor"
+
+  /** A target for sending messages to the download actor. */
+  private val TargetDownloadActor = TargetSourceReader(KeyDownloadActor)
+
   /**
     * Creates a new instance of ''AudioPlayer'' that is initialized based on
     * the passed in configuration.
@@ -39,9 +58,29 @@ object AudioPlayer {
   def apply(config: PlayerConfig): AudioPlayer = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val eventActor = config.actorCreator(Props[EventManagerActor], "eventManagerActor")
-    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor),
-      "playerFacadeActor")
+    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor,
+      AudioPlayerSourceCreator), "playerFacadeActor")
     new AudioPlayer(facadeActor, eventActor)
+  }
+
+  /**
+    * Creates a source actor for the audio playback. This implementation
+    * creates a [[SourceReaderActor]] and its dependencies, as well as a
+    * [[SourceDownloadActor]].
+    *
+    * @param factory the child actor factory
+    * @param config  the audio player configuration
+    * @return a map with the actors that have been created
+    */
+  private def createSourceActor(factory: ChildActorFactory, config: PlayerConfig): Map[String, ActorRef] = {
+    val bufMan = BufferFileManager(config)
+    val localBufferActor = factory.createChildActor(LocalBufferActor(config, bufMan))
+    val sourceReaderActor = factory.createChildActor(Props(classOf[SourceReaderActor], localBufferActor))
+    val sourceDownloadActor = factory.createChildActor(SourceDownloadActor(config, localBufferActor,
+      sourceReaderActor))
+    Map(PlayerFacadeActor.KeySourceActor -> sourceReaderActor,
+      KeyBufferActor -> localBufferActor,
+      KeyDownloadActor -> sourceDownloadActor)
   }
 }
 
@@ -57,6 +96,9 @@ object AudioPlayer {
 class AudioPlayer private(facadeActor: ActorRef,
                           protected override val eventManagerActor: ActorRef)
   extends PlayerControl {
+
+  import AudioPlayer._
+
   /**
     * Adds the specified ''AudioSourcePlaylistInfo'' object to the playlist
     * of this audio player.

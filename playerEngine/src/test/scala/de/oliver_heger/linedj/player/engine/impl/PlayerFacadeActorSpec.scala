@@ -24,6 +24,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
@@ -126,7 +127,8 @@ object PlayerFacadeActorSpec {
 }
 
 /**
-  * Test class for ''PlayerFacadeActor''.
+  * Test class for ''PlayerFacadeActor''. Note: This class also tests the
+  * ''SourceActorCreator'' function used by [[AudioPlayer]].
   */
 class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
@@ -155,12 +157,13 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val config = createPlayerConfig()
     val eventActor = TestProbe()
     val lineWriter = TestProbe()
+    val srcCreator = AudioPlayer.AudioPlayerSourceCreator
 
-    val props = PlayerFacadeActor(config, eventActor.ref, lineWriter.ref)
+    val props = PlayerFacadeActor(config, eventActor.ref, lineWriter.ref, srcCreator)
     classOf[PlayerFacadeActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(config, eventActor.ref, lineWriter.ref))
+    props.args should be(List(config, eventActor.ref, lineWriter.ref, srcCreator))
   }
 
   it should "create correct child actors immediately" in {
@@ -183,7 +186,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val msg = testMsg()
     val expMsg = delayedMsg(msg, findProbeFor[SourceDownloadActor](creations))
 
-    helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetDownloadActor))
+    helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetSourceReader("AudioPlayer.DownloadActor")))
     findProbeFor[DelayActor](creations).expectMsg(expMsg)
   }
 
@@ -204,7 +207,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val delay = 10.seconds
     val dispMsg = delayedMsg(msg, findProbeFor[SourceDownloadActor](creations), delay)
 
-    helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetDownloadActor, delay))
+    helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetSourceReader("AudioPlayer.DownloadActor"),
+      delay))
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
   }
 
@@ -542,8 +546,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return the test actor reference
       */
     private def createTestActor(): ActorRef = {
-      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, lineWriter.ref)
-        with ChildActorFactory with CloseSupport {
+      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, lineWriter.ref,
+        AudioPlayer.AudioPlayerSourceCreator) with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           val probe = TestProbe()
           actorCreationQueue offer ActorCreationData(p, probe)

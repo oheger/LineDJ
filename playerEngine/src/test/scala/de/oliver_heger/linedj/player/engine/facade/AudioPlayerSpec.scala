@@ -24,7 +24,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor, TargetDownloadActor, TargetPlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlaybackContextFactory, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
@@ -62,7 +62,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player addToPlaylist info
-    helper.expectFacadeMessage(info, TargetDownloadActor)
+    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
   }
 
   it should "support an overloaded method of adding songs to the playlist" in {
@@ -71,7 +71,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri, info.skip, info.skipTime)
-    helper.expectFacadeMessage(info, TargetDownloadActor)
+    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
   }
 
   it should "set default values for skip properties in addToPlaylist()" in {
@@ -79,14 +79,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)
-    helper.expectFacadeMessage(info, TargetDownloadActor)
+    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
   }
 
   it should "support closing the playlist" in {
     val helper = new AudioPlayerTestHelper
 
     helper.player.closePlaylist()
-    helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
+    helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetSourceReader("AudioPlayer.DownloadActor"))
   }
 
   it should "support starting playback" in {
@@ -238,7 +238,8 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
           classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
           classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
-          props.args should be(List(config, eventActor.ref, lineWriterActor.ref))
+          props.args should be(List(config, eventActor.ref, lineWriterActor.ref,
+            AudioPlayer.AudioPlayerSourceCreator))
           facadeActor.ref
       }
     }

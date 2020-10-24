@@ -21,13 +21,17 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration._
 
 object PlayerFacadeActor {
   /** A delay value that means ''no delay''. */
-  val NoDelay: FiniteDuration = 0.seconds
+  final val NoDelay: FiniteDuration = 0.seconds
+
+  /** The key in the map of child actors identifying the source actor. */
+  final val KeySourceActor = "sourceActor"
 
   /**
     * A trait defining the supported target actors for invocations via this
@@ -44,9 +48,29 @@ object PlayerFacadeActor {
   case object TargetPlaybackActor extends TargetActor
 
   /**
-    * A special target representing the source download actor.
+    * A special target to select a receiver actor created by the
+    * ''SourceActorCreator'' function. The key of the target actor (which must
+    * correspond to the key used in the map returned by the function) has to be
+    * provided.
+    *
+    * @param key the key identifying the target actor
     */
-  case object TargetDownloadActor extends TargetActor
+  case class TargetSourceReader(key: String = KeySourceActor) extends TargetActor
+
+  /**
+    * Definition of a function that creates the dynamic source actor to be
+    * connected to the playback actor.
+    *
+    * When creating the child actors managed, this actor uses this function to
+    * create the source actor. By providing different functions, playback of
+    * different sources is possible (e.g. from a playlist or internet radio).
+    * In some constellations, the source actor collaborates with multiple other
+    * actors; therefore, this function returns a map with new child actors that
+    * can be accessed by an alphanumeric key. All actors in this map are
+    * managed by the facade actor. The source actor must be stored under the
+    * key ''KeySourceActor''.
+    */
+  type SourceActorCreator = (ChildActorFactory, PlayerConfig) => Map[String, ActorRef]
 
   /**
     * A message processed by [[PlayerFacadeActor]] telling it to dispatch a
@@ -73,8 +97,8 @@ object PlayerFacadeActor {
   case object ResetEngine
 
   private class PlayerFacadeActorImpl(config: PlayerConfig, eventActor: ActorRef,
-                                      lineWriterActor: ActorRef)
-    extends PlayerFacadeActor(config, eventActor, lineWriterActor) with ChildActorFactory
+                                      lineWriterActor: ActorRef, sourceCreator: SourceActorCreator)
+    extends PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator) with ChildActorFactory
       with CloseSupport
 
   /**
@@ -83,10 +107,11 @@ object PlayerFacadeActor {
     * @param config          the configuration for the player engine
     * @param eventActor      the event manager actor
     * @param lineWriterActor the line writer actor
+    * @param sourceCreator   the function to create the source actor(s)
     * @return the ''Props'' to create a new instance
     */
-  def apply(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef): Props =
-    Props(classOf[PlayerFacadeActorImpl], config, eventActor, lineWriterActor)
+  def apply(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef, sourceCreator: SourceActorCreator):
+  Props = Props(classOf[PlayerFacadeActorImpl], config, eventActor, lineWriterActor, sourceCreator)
 }
 
 /**
@@ -112,8 +137,10 @@ object PlayerFacadeActor {
   * @param config          the configuration for the player engine
   * @param eventActor      the event manager actor
   * @param lineWriterActor the line writer actor
+  * @param sourceCreator   the function to create the source actor(s)
   */
-class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef)
+class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef,
+                        sourceCreator: SourceActorCreator)
   extends Actor {
   this: ChildActorFactory with CloseSupport =>
 
@@ -122,14 +149,11 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
   /** The actor for delayed invocations. */
   private var delayActor: ActorRef = _
 
-  /** The current local buffer actor. */
-  private var localBufferActor: ActorRef = _
-
-  /** The current source reader actor. */
-  private var sourceReaderActor: ActorRef = _
-
-  /** The current source download actor. */
-  private var sourceDownloadActor: ActorRef = _
+  /**
+    * A map storing the source reader actor(s) returned by the source actor
+    * creator function.
+    */
+  private var sourceReaderActors: Map[String, ActorRef] = _
 
   /** The current playback actor. */
   private var playbackActor: ActorRef = _
@@ -147,7 +171,7 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
   private var closed = false
 
   override def preStart(): Unit = {
-    delayActor = createChildActor(Props[DelayActor])
+    delayActor = createChildActor(DelayActor())
     createDynamicChildren()
   }
 
@@ -165,19 +189,17 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
     case removeMsg: RemovePlaybackContextFactory =>
       playbackActor ! removeMsg
       playbackContextFactories =
-        playbackContextFactories filterNot(_.factory == removeMsg.factory)
+        playbackContextFactories filterNot (_.factory == removeMsg.factory)
 
     case ResetEngine =>
       messagesDuringReset = List.empty
       if (!isCloseRequestInProgress) {
-        onCloseRequest(self, List(delayActor, localBufferActor, sourceReaderActor,
-          sourceDownloadActor, playbackActor), self, this)
+        triggerCloseRequest(self)
       }
 
     case CloseRequest =>
       closed = true
-      onCloseRequest(self, List(delayActor, localBufferActor, sourceReaderActor,
-        sourceDownloadActor, playbackActor), sender(), this)
+      triggerCloseRequest(sender())
 
     case CloseComplete =>
       stopDynamicChildren()
@@ -186,6 +208,18 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
         createDynamicChildren()
         messagesDuringReset.reverse.foreach(dispatchMessage)
       }
+  }
+
+  /**
+    * Initiates a close operation by closing all the child actors managed by
+    * this instance. When this is done, a confirmation is sent to the target
+    * specified.
+    *
+    * @param target the target to send a confirmation to
+    */
+  private def triggerCloseRequest(target: ActorRef): Unit = {
+    val actorsToClose = List(delayActor, playbackActor) ++ sourceReaderActors.values
+    onCloseRequest(self, actorsToClose, target, this)
   }
 
   /**
@@ -205,7 +239,7 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
     */
   private def fetchTargetActor(t: TargetActor): ActorRef =
     t match {
-      case TargetDownloadActor => sourceDownloadActor
+      case TargetSourceReader(key) => sourceReaderActors(key)
       case TargetPlaybackActor => playbackActor
     }
 
@@ -214,23 +248,17 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
     * have to be replaced when the engine is reset.
     */
   private def createDynamicChildren(): Unit = {
-    val bufMan = BufferFileManager(config)
-    localBufferActor = createChildActor(LocalBufferActor(config, bufMan))
-    sourceReaderActor = createChildActor(Props(classOf[SourceReaderActor], localBufferActor))
-    sourceDownloadActor = createChildActor(SourceDownloadActor(config, localBufferActor,
-      sourceReaderActor))
-    playbackActor = createChildActor(PlaybackActor(config, sourceReaderActor, lineWriterActor,
+    sourceReaderActors = sourceCreator(this, config)
+    playbackActor = createChildActor(PlaybackActor(config, sourceReaderActors(KeySourceActor), lineWriterActor,
       eventActor))
-    playbackContextFactories foreach(playbackActor ! _)
+    playbackContextFactories foreach (playbackActor ! _)
   }
 
   /**
     * Stops the child actors that are replaced on a reset of the engine.
     */
   private def stopDynamicChildren(): Unit = {
-    context stop localBufferActor
-    context stop sourceReaderActor
-    context stop sourceDownloadActor
+    sourceReaderActors.values foreach context.stop
     context stop playbackActor
   }
 }
